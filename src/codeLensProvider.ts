@@ -1,15 +1,21 @@
 'use strict';
-import {CancellationToken, CodeLens, CodeLensProvider, commands, Range, SymbolInformation, SymbolKind, TextDocument, Uri} from 'vscode';
-import {IBlameLine, gitBlame} from './git';
+import {CancellationToken, CodeLens, CodeLensProvider, commands, Location, Range, SymbolInformation, SymbolKind, TextDocument, Uri} from 'vscode';
+import {Commands, VsCodeCommands} from './constants';
+import {IGitBlameLine, gitBlame} from './git';
+import {toGitBlameUri} from './contentProvider';
 import * as moment from 'moment';
 
 export class GitCodeLens extends CodeLens {
-    constructor(public blame: Promise<IBlameLine[]>, public fileName: string, public blameRange: Range, range: Range) {
+    constructor(private blame: Promise<IGitBlameLine[]>, public repoPath: string, public fileName: string, private blameRange: Range, range: Range) {
         super(range);
+    }
 
-        this.blame = blame;
-        this.fileName = fileName;
-        this.blameRange = blameRange;
+    getBlameLines(): Promise<IGitBlameLine[]> {
+        return this.blame.then(allLines => allLines.slice(this.blameRange.start.line, this.blameRange.end.line + 1));
+    }
+
+    static toUri(lens: GitCodeLens, line: IGitBlameLine, lines: IGitBlameLine[]): Uri {
+        return toGitBlameUri(Object.assign({ repoPath: lens.repoPath, range: lens.blameRange, lines: lines }, line));
     }
 }
 
@@ -20,14 +26,14 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         // TODO: Should I wait here?
         let blame = gitBlame(document.fileName);
 
-        return (commands.executeCommand('vscode.executeDocumentSymbolProvider', document.uri) as Promise<SymbolInformation[]>).then(symbols => {
+        return (commands.executeCommand(VsCodeCommands.ExecuteDocumentSymbolProvider, document.uri) as Promise<SymbolInformation[]>).then(symbols => {
             let lenses: CodeLens[] = [];
             symbols.forEach(sym => this._provideCodeLens(document, sym, blame, lenses));
             return lenses;
         });
     }
 
-    private _provideCodeLens(document: TextDocument, symbol: SymbolInformation, blame: Promise<IBlameLine[]>, lenses: CodeLens[]): void {
+    private _provideCodeLens(document: TextDocument, symbol: SymbolInformation, blame: Promise<IGitBlameLine[]>, lenses: CodeLens[]): void {
         switch (symbol.kind) {
             case SymbolKind.Module:
             case SymbolKind.Class:
@@ -43,30 +49,46 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         }
 
         var line = document.lineAt(symbol.location.range.start);
-        // if (line.text.includes(symbol.name)) {
-        // }
-
-        let lens = new GitCodeLens(blame, document.fileName, symbol.location.range, line.range);
+        let lens = new GitCodeLens(blame, this.repoPath, document.fileName, symbol.location.range, line.range);
         lenses.push(lens);
     }
 
-    resolveCodeLens(codeLens: CodeLens, token: CancellationToken): Thenable<CodeLens> {
-        if (codeLens instanceof GitCodeLens) {
-            return codeLens.blame.then(allLines => {
-                let lines = allLines.slice(codeLens.blameRange.start.line, codeLens.blameRange.end.line + 1);
-                let line = lines[0];
+    resolveCodeLens(lens: CodeLens, token: CancellationToken): Thenable<CodeLens> {
+        if (lens instanceof GitCodeLens) {
+            return lens.getBlameLines().then(lines => {
+                let recentLine = lines[0];
+
+                let locations: Location[] = [];
                 if (lines.length > 1) {
-                    let sorted = lines.sort((a, b) => b.date.getTime() - a.date.getTime());
-                    line = sorted[0];
+                    let sorted = lines.sort((a, b) => a.date.getTime() - b.date.getTime());
+                    recentLine = sorted[sorted.length - 1];
+
+                    console.log(lens.fileName, 'Blame lines:', sorted);
+
+                    let map: Map<string, IGitBlameLine[]> = new Map();
+                    sorted.forEach(l => {
+                        let item = map.get(l.sha);
+                        if (item) {
+                            item.push(l);
+                        } else {
+                            map.set(l.sha, [l]);
+                        }
+                    });
+
+                    locations = Array.from(map.values()).map(l => new Location(GitCodeLens.toUri(lens, l[0], l), lens.range.start))
+                } else {
+                    locations = [new Location(GitCodeLens.toUri(lens, recentLine, lines), lens.range.start)];
                 }
 
-                codeLens.command = {
-                    title: `${line.author}, ${moment(line.date).fromNow()}`,
-                    command: 'git.viewFileHistory',
-                    arguments: [Uri.file(codeLens.fileName)]
+                lens.command = {
+                    title: `${recentLine.author}, ${moment(recentLine.date).fromNow()}`,
+                    command: Commands.ShowBlameHistory,
+                    arguments: [Uri.file(lens.fileName), lens.range.start, locations]
+                    // command: 'git.viewFileHistory',
+                    // arguments: [Uri.file(codeLens.fileName)]
                 };
-                return codeLens;
-            });//.catch(ex => Promise.reject(ex)); // TODO: Figure out a better way to stop the codelens from appearing
+                return lens;
+            }).catch(ex => Promise.reject(ex)); // TODO: Figure out a better way to stop the codelens from appearing
         }
     }
 }

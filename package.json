@@ -19,6 +19,11 @@
     ],
     "main": "./out/src/extension",
     "contributes": {
+        "commands": [{
+            "command": "git.codelen.showBlameHistory",
+            "title": "Show Blame History",
+            "category": "Git"
+        }]
     },
     "scripts": {
         "vscode:prepublish": "node ./node_modules/vscode/bin/compile",
@@ -26,6 +31,7 @@
         "postinstall": "node ./node_modules/vscode/bin/install && tsc"
     },
     "dependencies": {
+        "tmp": "^0.0.28"
     },
     "devDependencies": {
         "typescript": "^1.8.10",

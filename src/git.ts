@@ -1,13 +1,17 @@
 'use strict';
 import {spawn} from 'child_process';
-import {dirname} from 'path';
+import {basename, dirname, extname} from 'path';
+import * as fs from 'fs';
+import * as tmp from 'tmp';
 
-export declare interface IBlameLine {
-    line: number;
+export declare interface IGitBlameLine {
+    sha: string;
+    file: string;
+    originalLine: number;
     author: string;
     date: Date;
-    sha: string;
-    //code: string;
+    line: number;
+    code: string;
 }
 
 export function gitRepoPath(cwd)  {
@@ -22,33 +26,72 @@ export function gitRepoPath(cwd)  {
     });
 }
 
-const blameMatcher = /^(.*)\t\((.*)\t(.*)\t(.*?)\)(.*)$/gm;
+//const blameMatcher = /^(.*)\t\((.*)\t(.*)\t(.*?)\)(.*)$/gm;
+const blameMatcher = /^([0-9a-fA-F]{8})\s([\S]*)\s([0-9\S]+)\s\((.*?)\s([0-9]{4}-[0-9]{2}-[0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2}\s[-|+][0-9]{4})\s([0-9]+)\)(.*)$/gm;
 
-export function gitBlame(fileName: string) {
+export function gitBlame(fileName: string): Promise<IGitBlameLine[]> {
     const mapper = (input, output) => {
+        let blame = input.toString();
+        console.log(fileName, 'Blame:', blame);
+
         let m: Array<string>;
-        while ((m = blameMatcher.exec(input.toString())) != null) {
+        while ((m = blameMatcher.exec(blame)) != null) {
             output.push({
-                line: parseInt(m[4], 10),
-                author: m[2],
-                date: new Date(m[3]),
-                sha: m[1]
-                //code: m[5]
+                sha: m[1],
+                file: m[2].trim(),
+                originalLine: parseInt(m[3], 10),
+                author: m[4].trim(),
+                date: new Date(m[5]),
+                line: parseInt(m[6], 10),
+                code: m[7]
             });
         }
     };
 
-    return gitCommand(dirname(fileName), mapper, 'blame', '-c', '-M', '-w', '--', fileName) as Promise<IBlameLine[]>;
+    return gitCommand(dirname(fileName), mapper, 'blame', '-fnw', '--', fileName);
 }
 
-function gitCommand(cwd: string, map: (input: Buffer, output: Array<any>) => void, ...args): Promise<any> {
+export function gitGetVersionFile(repoPath: string, sha: string, source: string): Promise<any> {
+    const mapper = (input, output) => output.push(input);
+
+    return new Promise<string>((resolve, reject) => {
+        (gitCommand(repoPath, mapper, 'show', `${sha}:${source.replace(/\\/g, '/')}`) as Promise<Array<Buffer>>).then(o => {
+            let ext = extname(source);
+            tmp.file({ prefix: `${basename(source, ext)}-${sha}_`, postfix: ext }, (err, destination, fd, cleanupCallback) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+
+                console.log("File: ", destination);
+                console.log("Filedescriptor: ", fd);
+
+                fs.appendFile(destination, o.join(), err => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve(destination);
+                });
+            });
+        });
+    });
+}
+
+export function gitGetVersionText(repoPath: string, sha: string, source: string): Promise<string> {
+    const mapper = (input, output) => output.push(input.toString());
+
+    return new Promise<string>((resolve, reject) => (gitCommand(repoPath, mapper, 'show', `${sha}:${source.replace(/\\/g, '/')}`) as Promise<Array<string>>).then(o => resolve(o.join())));
+}
+
+function gitCommand(cwd: string, mapper: (input: Buffer, output: Array<any>) => void, ...args): Promise<any> {
     return new Promise<any>((resolve, reject) => {
         let spawn = require('child_process').spawn;
         let process = spawn('git', args, { cwd: cwd });
 
         let output: Array<any> = [];
         process.stdout.on('data', data => {
-            map(data, output);
+            mapper(data, output);
         });
 
         let errors: Array<string> = [];

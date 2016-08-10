@@ -1,7 +1,9 @@
 'use strict';
-import {DocumentSelector, ExtensionContext, languages, workspace} from 'vscode';
+import {commands, DocumentSelector, ExtensionContext, languages, workspace} from 'vscode';
 import GitCodeLensProvider from './codeLensProvider';
-import {gitRepoPath} from './git'
+import GitContentProvider from './contentProvider';
+import {gitRepoPath} from './git';
+import {Commands, VsCodeCommands} from './constants';
 
 // this method is called when your extension is activated
 export function activate(context: ExtensionContext) {
@@ -11,6 +13,12 @@ export function activate(context: ExtensionContext) {
     }
 
     gitRepoPath(workspace.rootPath).then(repoPath => {
+        context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider(context)));
+
+        context.subscriptions.push(commands.registerCommand(Commands.ShowBlameHistory, (...args) => {
+            return commands.executeCommand(VsCodeCommands.ShowReferences, ...args);
+        }));
+
         let selector: DocumentSelector = { scheme: 'file' };
         context.subscriptions.push(languages.registerCodeLensProvider(selector, new GitCodeLensProvider(repoPath)));
     }).catch(reason => console.warn(reason));
