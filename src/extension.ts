@@ -19,7 +19,7 @@ export function activate(context: ExtensionContext) {
             return commands.executeCommand(VsCodeCommands.ShowReferences, ...args);
         }));
 
-        let selector: DocumentSelector = { scheme: 'file' };
+        const selector: DocumentSelector = { scheme: 'file' };
         context.subscriptions.push(languages.registerCodeLensProvider(selector, new GitCodeLensProvider(repoPath)));
     }).catch(reason => console.warn(reason));
 }
