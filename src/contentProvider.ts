@@ -1,8 +1,8 @@
 'use strict';
 import {Disposable, EventEmitter, ExtensionContext, OverviewRulerLane, Range, TextEditor, TextEditorDecorationType, TextDocumentContentProvider, Uri, window, workspace} from 'vscode';
 import {DocumentSchemes} from './constants';
-import {gitGetVersionFile, gitGetVersionText, IGitBlameLine} from './git';
-import {basename, dirname, extname, join} from 'path';
+import {gitGetVersionText} from './git';
+import {fromGitBlameUri, IGitBlameUriData} from './gitBlameUri';
 import * as moment from 'moment';
 
 export default class GitBlameContentProvider implements TextDocumentContentProvider {
@@ -10,21 +10,29 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
 
     private _blameDecoration: TextEditorDecorationType;
     private _onDidChange = new EventEmitter<Uri>();
-    private _subscriptions: Disposable;
+    // private _subscriptions: Disposable;
     // private _dataMap: Map<string, IGitBlameUriData>;
 
     constructor(context: ExtensionContext) {
-        // TODO: Light & Dark
         this._blameDecoration = window.createTextEditorDecorationType({
-            backgroundColor: 'rgba(254, 220, 95, 0.15)',
-            gutterIconPath: context.asAbsolutePath('blame.png'),
-            overviewRulerColor: 'rgba(254, 220, 95, 0.60)',
+            dark: {
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                gutterIconPath: context.asAbsolutePath('images/blame-dark.png'),
+                overviewRulerColor: 'rgba(255, 255, 255, 0.75)',
+            },
+            light: {
+                backgroundColor: 'rgba(0, 0, 0, 0.15)',
+                gutterIconPath: context.asAbsolutePath('images/blame-light.png'),
+                overviewRulerColor: 'rgba(0, 0, 0, 0.75)',
+            },
+            gutterIconSize: 'contain',
             overviewRulerLane: OverviewRulerLane.Right,
             isWholeLine: true
         });
 
         // this._dataMap = new Map();
         // this._subscriptions = Disposable.from(
+        //     window.onDidChangeActiveTextEditor(e => e ? console.log(e.document.uri) : console.log('active missing')),
         //     workspace.onDidOpenTextDocument(d => {
         //         let data = this._dataMap.get(d.uri.toString());
         //         if (!data) return;
@@ -40,7 +48,7 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
 
     dispose() {
         this._onDidChange.dispose();
-        this._subscriptions && this._subscriptions.dispose();
+        // this._subscriptions && this._subscriptions.dispose();
     }
 
     get onDidChange() {
@@ -57,7 +65,6 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
 
         //const editor = this._findEditor(Uri.file(join(data.repoPath, data.file)));
 
-        //console.log('provideTextDocumentContent', uri, data);
         return gitGetVersionText(data.repoPath, data.sha, data.file).then(text => {
             this.update(uri);
 
@@ -81,6 +88,7 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
 
     private _findEditor(uri: Uri): TextEditor {
         let uriString = uri.toString();
+        // TODO: This is a big hack :)
         const matcher = (e: any) => (e._documentData && e._documentData._uri && e._documentData._uri.toString()) === uriString;
         if (matcher(window.activeTextEditor)) {
             return window.activeTextEditor;
@@ -89,6 +97,7 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
     }
 
     private _tryAddBlameDecorations(uri: Uri, data: IGitBlameUriData) {
+        // Needs to be on a timer for some reason because we won't find the editor otherwise -- is there an event?
         let handle = setInterval(() => {
             let editor = this._findEditor(uri);
             if (editor) {
@@ -96,7 +105,7 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
                 editor.setDecorations(this._blameDecoration, data.lines.map(l => {
                     return {
                         range: editor.document.validateRange(new Range(l.originalLine, 0, l.originalLine, 1000000)),
-                        hoverMessage: `${moment(l.date).fromNow()}\n${l.author}\n${l.sha}`
+                        hoverMessage: `${moment(l.date).format('MMMM Do, YYYY hh:MMa')}\n${l.author}\n${l.sha}`
                     };
                 }));
             }
@@ -106,23 +115,4 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
     // private _addBlameDecorations(editor: TextEditor, data: IGitBlameUriData) {
     //     editor.setDecorations(this._blameDecoration, data.lines.map(l => editor.document.validateRange(new Range(l.line, 0, l.line, 1000000))));
     // }
-}
-
-export interface IGitBlameUriData extends IGitBlameLine {
-    repoPath: string,
-    range: Range,
-    index: number,
-    lines: IGitBlameLine[]
-}
-
-export function toGitBlameUri(data: IGitBlameUriData) {
-    let ext = extname(data.file);
-    let path = `${dirname(data.file)}/${data.sha}: ${basename(data.file, ext)}${ext}`;
-    return Uri.parse(`${DocumentSchemes.GitBlame}:${data.index}. ${moment(data.date).format('YYYY-MM-DD hh:MMa')} ${path}?${JSON.stringify(data)}`);
-}
-
-export function fromGitBlameUri(uri: Uri): IGitBlameUriData {
-    let data = JSON.parse(uri.query);
-    data.range = new Range(data.range[0].line, data.range[0].character, data.range[1].line, data.range[1].character);
-    return data;
 }

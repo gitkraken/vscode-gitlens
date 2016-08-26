@@ -31,10 +31,11 @@
         "postinstall": "node ./node_modules/vscode/bin/install && tsc"
     },
     "dependencies": {
-        "tmp": "^0.0.28"
+        "tmp": "^0.0.28",
+        "spawn-rx": "^2.0.1"
     },
     "devDependencies": {
         "typescript": "^1.8.10",
-        "vscode": "^0.11.15"
+        "vscode": "^0.11.17"
     }
 }
