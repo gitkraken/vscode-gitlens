@@ -91,7 +91,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
                 let sorted = lines.sort((a, b) => b.date.getTime() - a.date.getTime());
                 recentLine = sorted[0];
 
-                console.log(lens.fileName, 'Blame lines:', sorted);
+                // console.log(lens.fileName, 'Blame lines:', sorted);
 
                 let map: Map<string, IGitBlameLine[]> = new Map();
                 sorted.forEach(l => {

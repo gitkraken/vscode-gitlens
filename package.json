@@ -1,22 +1,25 @@
 {
     "name": "git-codelens",
-    "displayName": "Git CodeLens",
-    "description": "Provides Git blame information in CodeLens",
     "version": "0.0.1",
     "author": "Eric Amodio",
     "publisher": "eamodio",
     "engines": {
         "vscode": "^1.3.0"
     },
+    "license": "SEE LICENSE IN LICENSE",
+    "displayName": "Git CodeLens",
+    "description": "Provides Git blame information in CodeLens",
     "categories": [
         "Other"
-    ],
-    "activationEvents": [
-        "*"
     ],
     "keywords": [
         "git", "gitblame", "blame"
     ],
+    "galleryBanner": {
+        "color": "#0000FF",
+        "theme": "dark"
+    },
+    "preview": true,
     "main": "./out/src/extension",
     "contributes": {
         "commands": [{
@@ -25,17 +28,25 @@
             "category": "Git"
         }]
     },
-    "scripts": {
-        "vscode:prepublish": "node ./node_modules/vscode/bin/compile",
-        "compile": "node ./node_modules/vscode/bin/compile -watch -p ./",
-        "postinstall": "node ./node_modules/vscode/bin/install && tsc"
-    },
+    "activationEvents": [
+        "*"
+    ],
     "dependencies": {
-        "tmp": "^0.0.28",
-        "spawn-rx": "^2.0.1"
+        "lodash": "^4.15.0",
+        "moment": "^2.14.1",
+        "spawn-rx": "^2.0.1",
+        "tmp": "^0.0.28"
     },
     "devDependencies": {
         "typescript": "^1.8.10",
         "vscode": "^0.11.17"
+    },
+    "extensionDependencies": [
+        "donjayamanne.githistory"
+    ],
+    "scripts": {
+        "vscode:prepublish": "node ./node_modules/vscode/bin/compile",
+        "compile": "node ./node_modules/vscode/bin/compile -watch -p ./",
+        "postinstall": "node ./node_modules/vscode/bin/install && tsc"
     }
 }

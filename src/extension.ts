@@ -9,8 +9,12 @@ import {Commands, VsCodeCommands} from './constants';
 export function activate(context: ExtensionContext) {
     // Workspace not using a folder. No access to git repo.
     if (!workspace.rootPath) {
+        console.warn('Git CodeLens inactive: no rootPath');
+
         return;
     }
+
+    console.log(`Git CodeLens active: ${workspace.rootPath}`);
 
     gitRepoPath(workspace.rootPath).then(repoPath => {
         context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider(context)));
