@@ -8,11 +8,12 @@ export interface IGitBlameUriData extends IGitBlameLine {
     repoPath: string,
     range: Range,
     index: number,
-    lines: IGitBlameLine[]
+    lines: IGitBlameLine[],
+    commits: string[]
 }
 
 export function toGitBlameUri(data: IGitBlameUriData) {
-    const pad = n => ("000" + n).slice(-3);
+    const pad = n => ("0000000" + n).slice(-("" + data.commits.length).length);
 
     let ext = extname(data.file);
     let path = `${dirname(data.file)}/${data.sha}: ${basename(data.file, ext)}${ext}`;

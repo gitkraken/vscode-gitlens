@@ -14,8 +14,8 @@ export class GitBlameCodeLens extends CodeLens {
         return this.blame.then(allLines => allLines.slice(this.blameRange.start.line, this.blameRange.end.line + 1));
     }
 
-    static toUri(lens: GitBlameCodeLens, index: number, line: IGitBlameLine, lines: IGitBlameLine[]): Uri {
-        return toGitBlameUri(Object.assign({ repoPath: lens.repoPath, index: index, range: lens.blameRange, lines: lines }, line));
+    static toUri(lens: GitBlameCodeLens, index: number, line: IGitBlameLine, lines: IGitBlameLine[], commits: string[]): Uri {
+        return toGitBlameUri(Object.assign({ repoPath: lens.repoPath, index: index, range: lens.blameRange, lines: lines, commits: commits }, line));
     }
 }
 
@@ -78,46 +78,50 @@ export default class GitCodeLensProvider implements CodeLensProvider {
     }
 
     _resolveGitBlameCodeLens(lens: GitBlameCodeLens, token: CancellationToken): Thenable<CodeLens> {
-        return lens.getBlameLines().then(lines => {
-            if (!lines.length) {
-                console.error('No blame lines found', lens);
-                throw new Error('No blame lines found');
-            }
+        return new Promise<CodeLens>((resolve, reject) => {
+            lens.getBlameLines().then(lines => {
+                if (!lines.length) {
+                    console.error('No blame lines found', lens);
+                    reject(null);
+                    return;
+                }
 
-            let recentLine = lines[0];
+                let recentLine = lines[0];
 
-            let locations: Location[] = [];
-            if (lines.length > 1) {
-                let sorted = lines.sort((a, b) => b.date.getTime() - a.date.getTime());
-                recentLine = sorted[0];
+                let locations: Location[] = [];
+                if (lines.length > 1) {
+                    let sorted = lines.sort((a, b) => b.date.getTime() - a.date.getTime());
+                    recentLine = sorted[0];
 
-                // console.log(lens.fileName, 'Blame lines:', sorted);
+                    // console.log(lens.fileName, 'Blame lines:', sorted);
 
-                let map: Map<string, IGitBlameLine[]> = new Map();
-                sorted.forEach(l => {
-                    let item = map.get(l.sha);
-                    if (item) {
-                        item.push(l);
-                    } else {
-                        map.set(l.sha, [l]);
-                    }
-                });
+                    let map: Map<string, IGitBlameLine[]> = new Map();
+                    sorted.forEach(l => {
+                        let item = map.get(l.sha);
+                        if (item) {
+                            item.push(l);
+                        } else {
+                            map.set(l.sha, [l]);
+                        }
+                    });
 
-                Array.from(map.values()).forEach((lines, i) => {
-                    const uri = GitBlameCodeLens.toUri(lens, i + 1, lines[0], lines);
-                    lines.forEach(l => locations.push(new Location(uri, new Position(l.originalLine, 0))));
-                });
-            } else {
-                locations = [new Location(GitBlameCodeLens.toUri(lens, 1, recentLine, lines), lens.range.start)];
-            }
+                    const commits = Array.from(map.keys());
+                    Array.from(map.values()).forEach((lines, i) => {
+                        const uri = GitBlameCodeLens.toUri(lens, i + 1, lines[0], lines, commits);
+                        lines.forEach(l => locations.push(new Location(uri, new Position(l.originalLine, 0))));
+                    });
+                } else {
+                    locations = [new Location(GitBlameCodeLens.toUri(lens, 1, recentLine, lines, [recentLine.sha]), lens.range.start)];
+                }
 
-            lens.command = {
-                title: `${recentLine.author}, ${moment(recentLine.date).fromNow()}`,
-                command: Commands.ShowBlameHistory,
-                arguments: [Uri.file(lens.fileName), lens.range.start, locations]
-            };
-            return lens;
-        }).catch(ex => Promise.reject(ex)); // TODO: Figure out a better way to stop the codelens from appearing
+                lens.command = {
+                    title: `${recentLine.author}, ${moment(recentLine.date).fromNow()}`,
+                    command: Commands.ShowBlameHistory,
+                    arguments: [Uri.file(lens.fileName), lens.range.start, locations]
+                };
+                resolve(lens);
+            });
+        });//.catch(ex => Promise.reject(ex)); // TODO: Figure out a better way to stop the codelens from appearing
     }
 
     _resolveGitHistoryCodeLens(lens: GitHistoryCodeLens, token: CancellationToken): Thenable<CodeLens> {

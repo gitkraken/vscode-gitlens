@@ -89,7 +89,7 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
     private _findEditor(uri: Uri): TextEditor {
         let uriString = uri.toString();
         // TODO: This is a big hack :)
-        const matcher = (e: any) => (e._documentData && e._documentData._uri && e._documentData._uri.toString()) === uriString;
+        const matcher = (e: any) => (e && e._documentData && e._documentData._uri && e._documentData._uri.toString()) === uriString;
         if (matcher(window.activeTextEditor)) {
             return window.activeTextEditor;
         }
