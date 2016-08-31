@@ -1,20 +1,16 @@
 'use strict';
 import {CancellationToken, CodeLens, CodeLensProvider, commands, ExtensionContext, Location, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri} from 'vscode';
 import {Commands, VsCodeCommands, WorkspaceState} from './constants';
-import GitBlameProvider, {IGitBlame, IGitBlameCommit} from './gitBlameProvider';
+import GitProvider, {IGitBlame, IGitBlameCommit} from './gitProvider';
 import * as moment from 'moment';
 
 export class GitBlameCodeLens extends CodeLens {
-    constructor(private blameProvider: GitBlameProvider, public fileName: string, public blameRange: Range, range: Range) {
+    constructor(private git: GitProvider, public fileName: string, public blameRange: Range, range: Range) {
         super(range);
     }
 
     getBlame(): Promise<IGitBlame> {
-        return this.blameProvider.getBlameForRange(this.fileName, this.blameProvider.repoPath, this.blameRange);
-    }
-
-    static toUri(lens: GitBlameCodeLens, repoPath: string, commit: IGitBlameCommit, index: number, commitCount: number): Uri {
-        return GitBlameProvider.toBlameUri(repoPath, commit, lens.blameRange, index, commitCount);
+        return this.git.getBlameForRange(this.fileName, this.blameRange);
     }
 }
 
@@ -22,17 +18,13 @@ export class GitHistoryCodeLens extends CodeLens {
     constructor(public repoPath: string, public fileName: string, range: Range) {
         super(range);
     }
-
-    // static toUri(lens: GitHistoryCodeLens, index: number): Uri {
-    //     return GitBlameProvider.toBlameUri(Object.assign({ repoPath: lens.repoPath, index: index, range: lens.blameRange, lines: lines }, line));
-    // }
 }
 
 export default class GitCodeLensProvider implements CodeLensProvider {
-    constructor(context: ExtensionContext, public blameProvider: GitBlameProvider) { }
+    constructor(context: ExtensionContext, private git: GitProvider) { }
 
     provideCodeLenses(document: TextDocument, token: CancellationToken): CodeLens[] | Thenable<CodeLens[]> {
-        this.blameProvider.blameFile(document.fileName, this.blameProvider.repoPath);
+        this.git.getBlameForFile(document.fileName);
 
         return (commands.executeCommand(VsCodeCommands.ExecuteDocumentSymbolProvider, document.uri) as Promise<SymbolInformation[]>).then(symbols => {
             let lenses: CodeLens[] = [];
@@ -41,8 +33,8 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             // Check if we have a lens for the whole document -- if not add one
             if (!lenses.find(l => l.range.start.line === 0 && l.range.end.line === 0)) {
                 const docRange = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
-                lenses.push(new GitBlameCodeLens(this.blameProvider, document.fileName, docRange, new Range(0, 0, 0, docRange.start.character)));
-                lenses.push(new GitHistoryCodeLens(this.blameProvider.repoPath, document.fileName, new Range(0, 1, 0, docRange.start.character)));
+                lenses.push(new GitBlameCodeLens(this.git, document.fileName, docRange, new Range(0, 0, 0, docRange.start.character)));
+                lenses.push(new GitHistoryCodeLens(this.git.repoPath, document.fileName, new Range(0, 1, 0, docRange.start.character)));
             }
             return lenses;
         });
@@ -74,8 +66,8 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             startChar += Math.floor(symbol.name.length / 2);
         }
 
-        lenses.push(new GitBlameCodeLens(this.blameProvider, document.fileName, symbol.location.range, line.range.with(new Position(line.range.start.line, startChar))));
-        lenses.push(new GitHistoryCodeLens(this.blameProvider.repoPath, document.fileName, line.range.with(new Position(line.range.start.line, startChar + 1))));
+        lenses.push(new GitBlameCodeLens(this.git, document.fileName, symbol.location.range, line.range.with(new Position(line.range.start.line, startChar))));
+        lenses.push(new GitHistoryCodeLens(this.git.repoPath, document.fileName, line.range.with(new Position(line.range.start.line, startChar + 1))));
     }
 
     resolveCodeLens(lens: CodeLens, token: CancellationToken): Thenable<CodeLens> {

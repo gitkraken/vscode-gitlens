@@ -1,8 +1,7 @@
 'use strict';
 import {Disposable, EventEmitter, ExtensionContext, OverviewRulerLane, Range, TextEditor, TextEditorDecorationType, TextDocumentContentProvider, Uri, window, workspace} from 'vscode';
 import {DocumentSchemes, WorkspaceState} from './constants';
-import {gitGetVersionText} from './git';
-import GitBlameProvider, {IGitBlameUriData} from './gitBlameProvider';
+import GitProvider, {IGitBlameUriData} from './gitProvider';
 import * as moment from 'moment';
 
 export default class GitBlameContentProvider implements TextDocumentContentProvider {
@@ -12,7 +11,7 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
     private _onDidChange = new EventEmitter<Uri>();
     //private _subscriptions: Disposable;
 
-    constructor(context: ExtensionContext, public blameProvider: GitBlameProvider) {
+    constructor(context: ExtensionContext, private git: GitProvider) {
         this._blameDecoration = window.createTextEditorDecorationType({
             dark: {
                 backgroundColor: 'rgba(255, 255, 255, 0.15)',
@@ -48,11 +47,11 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
     }
 
     provideTextDocumentContent(uri: Uri): string | Thenable<string> {
-        const data = GitBlameProvider.fromBlameUri(uri);
+        const data = this.git.fromBlameUri(uri);
 
         //const editor = this._findEditor(Uri.file(join(data.repoPath, data.file)));
 
-        return gitGetVersionText(data.originalFileName || data.fileName, this.blameProvider.repoPath, data.sha).then(text => {
+        return this.git.getVersionedFileText(data.originalFileName || data.fileName, data.sha).then(text => {
             this.update(uri);
 
             // TODO: This only works on the first load -- not after since it is cached
@@ -64,7 +63,7 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
             return text;
         });
 
-        // return gitGetVersionFile(data.file, this.repoPath, data.sha).then(dst => {
+        // return this.git.getVersionedFile(data.fileName, data.sha).then(dst => {
         //     let uri = Uri.parse(`file:${dst}`)
         //     return workspace.openTextDocument(uri).then(doc => {
         //         this.update(uri);
@@ -87,19 +86,21 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
         // Needs to be on a timer for some reason because we won't find the editor otherwise -- is there an event?
         let handle = setInterval(() => {
             let editor = this._findEditor(uri);
-            if (editor) {
-                clearInterval(handle);
-                this.blameProvider.getBlameForShaRange(data.fileName, this.blameProvider.repoPath, data.sha, data.range).then(blame => {
-                    if (blame.lines.length) {
-                        editor.setDecorations(this._blameDecoration, blame.lines.map(l => {
-                            return {
-                                range: editor.document.validateRange(new Range(l.originalLine, 0, l.originalLine, 1000000)),
-                                hoverMessage: `${moment(blame.commit.date).format('MMMM Do, YYYY hh:MMa')}\n${blame.commit.author}\n${l.sha}`
-                            };
-                        }));
-                    }
-                });
-            }
+            if (!editor) return;
+
+            clearInterval(handle);
+            this.git.getBlameForShaRange(data.fileName, data.sha, data.range).then(blame => {
+                if (!blame.lines.length) return;
+
+                this.git.getCommitMessage(data.sha).then(msg => {
+                    editor.setDecorations(this._blameDecoration, blame.lines.map(l => {
+                        return {
+                            range: editor.document.validateRange(new Range(l.originalLine, 0, l.originalLine, 1000000)),
+                            hoverMessage: `${msg}\n${blame.commit.author}\n${moment(blame.commit.date).format('MMMM Do, YYYY hh:MM a')}\n${l.sha}`
+                        };
+                    }));
+                })
+            });
         }, 200);
     }
 

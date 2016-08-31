@@ -1,3 +1,5 @@
+'use strict'
+
 export type WorkspaceState = 'repoPath';
 export const WorkspaceState = {
     RepoPath: 'repoPath' as WorkspaceState
