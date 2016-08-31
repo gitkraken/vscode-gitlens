@@ -1,16 +1,25 @@
 'use strict';
-import {basename, dirname, extname, relative} from 'path';
+import {basename, dirname, extname, isAbsolute, relative} from 'path';
 import * as fs from 'fs';
 import * as tmp from 'tmp';
 import {spawnPromise} from 'spawn-rx';
+
+export function gitNormalizePath(fileName: string, repoPath: string) {
+    fileName = fileName.replace(/\\/g, '/');
+    return isAbsolute(fileName) ? relative(repoPath, fileName) : fileName;
+}
 
 export function gitRepoPath(cwd) {
     return gitCommand(cwd, 'rev-parse', '--show-toplevel').then(data => data.replace(/\r?\n|\r/g, ''));
 }
 
-export function gitBlame(fileName: string) {
+export function gitBlame(fileName: string, repoPath: string) {
+    fileName = gitNormalizePath(fileName, repoPath);
+
     console.log('git', 'blame', '-fnw', '--root', '--', fileName);
-    return gitCommand(dirname(fileName), 'blame', '-fnw', '--root', '--', fileName);
+    return gitCommand(repoPath, 'blame', '-fnw', '--root', '--', fileName);
+        // .then(s => { console.log(s); return s; })
+        // .catch(ex => console.error(ex));
 }
 
 export function gitGetVersionFile(fileName: string, repoPath: string, sha: string) {
@@ -39,13 +48,13 @@ export function gitGetVersionFile(fileName: string, repoPath: string, sha: strin
 }
 
 export function gitGetVersionText(fileName: string, repoPath: string, sha: string) {
-    const gitArg = normalizeArgument(fileName, repoPath, sha);
-    console.log('git', 'show', gitArg);
-    return gitCommand(dirname(fileName), 'show', gitArg);
-}
+    fileName = gitNormalizePath(fileName, repoPath);
+    sha = sha.replace('^', '');
 
-function normalizeArgument(fileName: string, repoPath: string, sha: string) {
-    return `${sha.replace('^', '')}:${relative(repoPath, fileName.replace(/\\/g, '/'))}`;
+    console.log('git', 'show', `${sha}:${fileName}`);
+    return gitCommand(repoPath, 'show', `${sha}:${fileName}`);
+        // .then(s => { console.log(s); return s; })
+        // .catch(ex => console.error(ex));
 }
 
 function gitCommand(cwd: string,  ...args) {

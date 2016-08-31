@@ -52,7 +52,7 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
 
         //const editor = this._findEditor(Uri.file(join(data.repoPath, data.file)));
 
-        return gitGetVersionText(data.fileName, this.blameProvider.repoPath, data.sha).then(text => {
+        return gitGetVersionText(data.originalFileName || data.fileName, this.blameProvider.repoPath, data.sha).then(text => {
             this.update(uri);
 
             // TODO: This only works on the first load -- not after since it is cached
@@ -89,7 +89,7 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
             let editor = this._findEditor(uri);
             if (editor) {
                 clearInterval(handle);
-                this.blameProvider.getBlameForShaRange(data.fileName, data.sha, data.range).then(blame => {
+                this.blameProvider.getBlameForShaRange(data.fileName, this.blameProvider.repoPath, data.sha, data.range).then(blame => {
                     if (blame.lines.length) {
                         editor.setDecorations(this._blameDecoration, blame.lines.map(l => {
                             return {

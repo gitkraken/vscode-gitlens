@@ -10,7 +10,7 @@ export class GitBlameCodeLens extends CodeLens {
     }
 
     getBlame(): Promise<IGitBlame> {
-        return this.blameProvider.getBlameForRange(this.fileName, this.blameRange);
+        return this.blameProvider.getBlameForRange(this.fileName, this.blameProvider.repoPath, this.blameRange);
     }
 
     static toUri(lens: GitBlameCodeLens, repoPath: string, commit: IGitBlameCommit, index: number, commitCount: number): Uri {
@@ -32,7 +32,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
     constructor(context: ExtensionContext, public blameProvider: GitBlameProvider) { }
 
     provideCodeLenses(document: TextDocument, token: CancellationToken): CodeLens[] | Thenable<CodeLens[]> {
-        this.blameProvider.blameFile(document.fileName);
+        this.blameProvider.blameFile(document.fileName, this.blameProvider.repoPath);
 
         return (commands.executeCommand(VsCodeCommands.ExecuteDocumentSymbolProvider, document.uri) as Promise<SymbolInformation[]>).then(symbols => {
             let lenses: CodeLens[] = [];
@@ -67,11 +67,11 @@ export default class GitCodeLensProvider implements CodeLensProvider {
 
         const line = document.lineAt(symbol.location.range.start);
 
-        let startChar = line.text.indexOf(symbol.name); //line.firstNonWhitespaceCharacterIndex;
+        let startChar = line.text.search(`\\b${symbol.name}\\b`); //line.firstNonWhitespaceCharacterIndex;
         if (startChar === -1) {
             startChar = line.firstNonWhitespaceCharacterIndex;
         } else {
-            startChar += Math.floor(symbol.name.length / 2) - 1;
+            startChar += Math.floor(symbol.name.length / 2);
         }
 
         lenses.push(new GitBlameCodeLens(this.blameProvider, document.fileName, symbol.location.range, line.range.with(new Position(line.range.start.line, startChar))));
@@ -96,7 +96,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
                 lens.command = {
                     title: `${recentCommit.author}, ${moment(recentCommit.date).fromNow()}`,
                     command: Commands.ShowBlameHistory,
-                    arguments: [Uri.file(lens.fileName), lens.blameRange, lens.range.start] //, lens.locations]
+                    arguments: [Uri.file(lens.fileName), lens.blameRange, lens.range.start]
                 };
                 resolve(lens);
             });

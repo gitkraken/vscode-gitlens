@@ -36,7 +36,7 @@ export function activate(context: ExtensionContext) {
                 if (!uri) return;
             }
 
-            return blameProvider.getBlameLocations(uri.path, blameRange).then(locations => {
+            return blameProvider.getBlameLocations(uri.path, blameProvider.repoPath, blameRange).then(locations => {
                 return commands.executeCommand(VsCodeCommands.ShowReferences, uri, range, locations);
             });
         }));

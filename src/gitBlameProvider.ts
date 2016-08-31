@@ -1,7 +1,7 @@
 import {Disposable, ExtensionContext, Location, Position, Range, Uri, workspace} from 'vscode';
 import {DocumentSchemes, WorkspaceState} from './constants';
-import {gitBlame} from './git';
-import {basename, dirname, extname, join} from 'path';
+import {gitBlame, gitNormalizePath} from './git';
+import {basename, dirname, extname} from 'path';
 import * as moment from 'moment';
 import * as _ from 'lodash';
 
@@ -29,46 +29,53 @@ export default class GitBlameProvider extends Disposable {
         super.dispose();
     }
 
-    blameFile(fileName: string) {
+    blameFile(fileName: string, repoPath: string) {
+        fileName = gitNormalizePath(fileName, repoPath);
+
         let blame = this._files.get(fileName);
         if (blame !== undefined) return blame;
 
-        blame = gitBlame(fileName)
+        blame = gitBlame(fileName, repoPath)
             .then(data => {
                 const commits: Map<string, IGitBlameCommit> = new Map();
                 const lines: Array<IGitBlameLine> = [];
                 let m: Array<string>;
                 while ((m = blameMatcher.exec(data)) != null) {
                     let sha = m[1];
+
                     if (!commits.has(sha)) {
                         commits.set(sha, {
                             sha,
-                            fileName: m[2].trim(),
+                            fileName: fileName,
                             author: m[4].trim(),
                             date: new Date(m[5])
                         });
                     }
 
-                    lines.push({
+                    const line: IGitBlameLine = {
                         sha,
+                        line: parseInt(m[6], 10) - 1,
                         originalLine: parseInt(m[3], 10) - 1,
-                        line: parseInt(m[6], 10) - 1
                         //code: m[7]
-                    });
+                    }
+
+                    let file = m[2].trim();
+                    if (!fileName.toLowerCase().endsWith(file.toLowerCase())) {
+                        line.originalFileName = file;
+                    }
+
+                    lines.push(line);
                 }
 
                 return { commits, lines };
             });
-            // .catch(ex => {
-            //     console.error(ex);
-            // });
 
         this._files.set(fileName, blame);
         return blame;
     }
 
-    getBlameForRange(fileName: string, range: Range): Promise<IGitBlame> {
-        return this.blameFile(fileName).then(blame => {
+    getBlameForRange(fileName: string, repoPath: string, range: Range): Promise<IGitBlame> {
+        return this.blameFile(fileName, repoPath).then(blame => {
             if (!blame.lines.length) return blame;
 
             const lines = blame.lines.slice(range.start.line, range.end.line + 1);
@@ -79,8 +86,8 @@ export default class GitBlameProvider extends Disposable {
         });
     }
 
-    getBlameForShaRange(fileName: string, sha: string, range: Range): Promise<{commit: IGitBlameCommit, lines: IGitBlameLine[]}> {
-        return this.blameFile(fileName).then(blame => {
+    getBlameForShaRange(fileName: string, repoPath: string, sha: string, range: Range): Promise<{commit: IGitBlameCommit, lines: IGitBlameLine[]}> {
+        return this.blameFile(fileName, repoPath).then(blame => {
             return {
                 commit: blame.commits.get(sha),
                 lines: blame.lines.slice(range.start.line, range.end.line + 1).filter(l => l.sha === sha)
@@ -88,8 +95,8 @@ export default class GitBlameProvider extends Disposable {
         });
     }
 
-    getBlameLocations(fileName: string, range: Range) {
-        return this.getBlameForRange(fileName, range).then(blame => {
+    getBlameLocations(fileName: string, repoPath: string, range: Range) {
+        return this.getBlameForRange(fileName, repoPath, range).then(blame => {
             const commitCount = blame.commits.size;
 
             const locations: Array<Location> = [];
@@ -99,7 +106,10 @@ export default class GitBlameProvider extends Disposable {
                     const uri = GitBlameProvider.toBlameUri(this.repoPath, c, range, i + 1, commitCount);
                     blame.lines
                         .filter(l => l.sha === c.sha)
-                        .forEach(l => locations.push(new Location(uri, new Position(l.originalLine, 0))));
+                        .forEach(l => locations.push(new Location(l.originalFileName
+                                    ? GitBlameProvider.toBlameUri(this.repoPath, c, range, i + 1, commitCount, l.originalFileName)
+                                    : uri,
+                                new Position(l.originalLine, 0))));
                 });
 
             return locations;
@@ -110,12 +120,16 @@ export default class GitBlameProvider extends Disposable {
         this._files.delete(fileName);
     }
 
-    static toBlameUri(repoPath: string, commit: IGitBlameCommit, range: Range, index: number, commitCount: number) {
+    static toBlameUri(repoPath: string, commit: IGitBlameCommit, range: Range, index: number, commitCount: number, originalFileName?: string) {
         const pad = n => ("0000000" + n).slice(-("" + commitCount).length);
 
-        const ext = extname(commit.fileName);
-        const path = `${dirname(commit.fileName)}/${commit.sha}: ${basename(commit.fileName, ext)}${ext}`;
-        const data: IGitBlameUriData = { fileName: join(repoPath, commit.fileName), sha: commit.sha, range: range, index: index };
+        const fileName = originalFileName || commit.fileName;
+        const ext = extname(fileName);
+        const path = `${dirname(fileName)}/${commit.sha}: ${basename(fileName, ext)}${ext}`;
+        const data: IGitBlameUriData = { fileName: commit.fileName, sha: commit.sha, range: range, index: index };
+        if (originalFileName) {
+            data.originalFileName = originalFileName;
+        }
         // NOTE: Need to specify an index here, since I can't control the sort order -- just alphabetic or by file location
         return Uri.parse(`${DocumentSchemes.GitBlame}:${pad(index)}. ${commit.author}, ${moment(commit.date).format('MMM D, YYYY hh:MMa')} - ${path}?${JSON.stringify(data)}`);
     }
@@ -140,12 +154,14 @@ export interface IGitBlameCommit {
 }
 export interface IGitBlameLine {
     sha: string;
-    originalLine: number;
     line: number;
+    originalLine: number;
+    originalFileName?: string;
     code?: string;
 }
 export interface IGitBlameUriData {
     fileName: string,
+    originalFileName?: string;
     sha: string,
     range: Range,
     index: number
