@@ -1,19 +1,21 @@
 'use strict';
 import {Disposable, EventEmitter, ExtensionContext, OverviewRulerLane, Range, TextEditor, TextEditorDecorationType, TextDocumentContentProvider, Uri, window, workspace} from 'vscode';
-import {DocumentSchemes} from './constants';
+import {DocumentSchemes, WorkspaceState} from './constants';
 import {gitGetVersionText} from './git';
-import {fromGitBlameUri, IGitBlameUriData} from './gitBlameUri';
+import GitBlameProvider, {IGitBlameUriData} from './gitBlameProvider';
 import * as moment from 'moment';
 
 export default class GitBlameContentProvider implements TextDocumentContentProvider {
     static scheme = DocumentSchemes.GitBlame;
 
+    public repoPath: string;
     private _blameDecoration: TextEditorDecorationType;
     private _onDidChange = new EventEmitter<Uri>();
-    // private _subscriptions: Disposable;
-    // private _dataMap: Map<string, IGitBlameUriData>;
+    //private _subscriptions: Disposable;
 
-    constructor(context: ExtensionContext) {
+    constructor(context: ExtensionContext, public blameProvider: GitBlameProvider) {
+        this.repoPath = context.workspaceState.get(WorkspaceState.RepoPath) as string;
+
         this._blameDecoration = window.createTextEditorDecorationType({
             dark: {
                 backgroundColor: 'rgba(255, 255, 255, 0.15)',
@@ -30,25 +32,14 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
             isWholeLine: true
         });
 
-        // this._dataMap = new Map();
-        // this._subscriptions = Disposable.from(
+        //this._subscriptions = Disposable.from(
         //     window.onDidChangeActiveTextEditor(e => e ? console.log(e.document.uri) : console.log('active missing')),
-        //     workspace.onDidOpenTextDocument(d => {
-        //         let data = this._dataMap.get(d.uri.toString());
-        //         if (!data) return;
-
-        //         // TODO: This only works on the first load -- not after since it is cached
-        //         this._tryAddBlameDecorations(d.uri, data);
-        //     }),
-        //     workspace.onDidCloseTextDocument(d => {
-        //         this._dataMap.delete(d.uri.toString());
-        //     })
-        // );
+        //);
     }
 
     dispose() {
         this._onDidChange.dispose();
-        // this._subscriptions && this._subscriptions.dispose();
+        //this._subscriptions && this._subscriptions.dispose();
     }
 
     get onDidChange() {
@@ -60,12 +51,11 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
     }
 
     provideTextDocumentContent(uri: Uri): string | Thenable<string> {
-        const data = fromGitBlameUri(uri);
-        // this._dataMap.set(uri.toString(), data);
+        const data = GitBlameProvider.fromBlameUri(uri);
 
         //const editor = this._findEditor(Uri.file(join(data.repoPath, data.file)));
 
-        return gitGetVersionText(data.repoPath, data.sha, data.file).then(text => {
+        return gitGetVersionText(data.fileName, this.repoPath, data.sha).then(text => {
             this.update(uri);
 
             // TODO: This only works on the first load -- not after since it is cached
@@ -77,7 +67,7 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
             return text;
         });
 
-        // return gitGetVersionFile(data.repoPath, data.sha, data.file).then(dst => {
+        // return gitGetVersionFile(data.file, this.repoPath, data.sha).then(dst => {
         //     let uri = Uri.parse(`file:${dst}`)
         //     return workspace.openTextDocument(uri).then(doc => {
         //         this.update(uri);
@@ -102,12 +92,16 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
             let editor = this._findEditor(uri);
             if (editor) {
                 clearInterval(handle);
-                editor.setDecorations(this._blameDecoration, data.lines.map(l => {
-                    return {
-                        range: editor.document.validateRange(new Range(l.originalLine, 0, l.originalLine, 1000000)),
-                        hoverMessage: `${moment(l.date).format('MMMM Do, YYYY hh:MMa')}\n${l.author}\n${l.sha}`
-                    };
-                }));
+                this.blameProvider.getBlameForShaRange(data.fileName, data.sha, data.range).then(blame => {
+                    if (blame.lines.length) {
+                        editor.setDecorations(this._blameDecoration, blame.lines.map(l => {
+                            return {
+                                range: editor.document.validateRange(new Range(l.originalLine, 0, l.originalLine, 1000000)),
+                                hoverMessage: `${moment(blame.commit.date).format('MMMM Do, YYYY hh:MMa')}\n${blame.commit.author}\n${l.sha}`
+                            };
+                        }));
+                    }
+                });
             }
         }, 200);
     }

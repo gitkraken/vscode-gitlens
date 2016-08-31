@@ -1,5 +1,5 @@
 {
-    "name": "git-codelens",
+    "name": "gitlens",
     "version": "0.0.1",
     "author": "Eric Amodio",
     "publisher": "eamodio",
@@ -7,13 +7,13 @@
         "vscode": "^1.3.0"
     },
     "license": "SEE LICENSE IN LICENSE",
-    "displayName": "Git CodeLens",
+    "displayName": "GitLens",
     "description": "Provides Git blame information in CodeLens",
     "categories": [
         "Other"
     ],
     "keywords": [
-        "git", "gitblame", "blame"
+        "git", "gitblame", "blame", "codelens"
     ],
     "galleryBanner": {
         "color": "#0000FF",
@@ -23,7 +23,7 @@
     "main": "./out/src/extension",
     "contributes": {
         "commands": [{
-            "command": "git.codelen.showBlameHistory",
+            "command": "git.action.showBlameHistory",
             "title": "Show Blame History",
             "category": "Git"
         }]
