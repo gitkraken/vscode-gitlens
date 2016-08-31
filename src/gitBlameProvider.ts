@@ -1,5 +1,5 @@
-import {Disposable, Range, Uri, workspace} from 'vscode';
-import {DocumentSchemes} from './constants';
+import {Disposable, ExtensionContext, Location, Position, Range, Uri, workspace} from 'vscode';
+import {DocumentSchemes, WorkspaceState} from './constants';
 import {gitBlame} from './git';
 import {basename, dirname, extname, join} from 'path';
 import * as moment from 'moment';
@@ -8,11 +8,15 @@ import * as _ from 'lodash';
 const blameMatcher = /^([\^0-9a-fA-F]{8})\s([\S]*)\s+([0-9\S]+)\s\((.*)\s([0-9]{4}-[0-9]{2}-[0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2}\s[-|+][0-9]{4})\s+([0-9]+)\)(.*)$/gm;
 
 export default class GitBlameProvider extends Disposable {
+    public repoPath: string;
+
     private _files: Map<string, Promise<IGitBlame>>;
     private _subscriptions: Disposable;
 
-    constructor() {
+    constructor(context: ExtensionContext) {
         super(() => this.dispose());
+
+        this.repoPath = context.workspaceState.get(WorkspaceState.RepoPath) as string;
 
         this._files = new Map();
         this._subscriptions = Disposable.from(workspace.onDidCloseTextDocument(d => this._removeFile(d.fileName)),
@@ -81,6 +85,24 @@ export default class GitBlameProvider extends Disposable {
                 commit: blame.commits.get(sha),
                 lines: blame.lines.slice(range.start.line, range.end.line + 1).filter(l => l.sha === sha)
             };
+        });
+    }
+
+    getBlameLocations(fileName: string, range: Range) {
+        return this.getBlameForRange(fileName, range).then(blame => {
+            const commitCount = blame.commits.size;
+
+            const locations: Array<Location> = [];
+            Array.from(blame.commits.values())
+                .sort((a, b) => b.date.getTime() - a.date.getTime())
+                .forEach((c, i) => {
+                    const uri = GitBlameProvider.toBlameUri(this.repoPath, c, range, i + 1, commitCount);
+                    blame.lines
+                        .filter(l => l.sha === c.sha)
+                        .forEach(l => locations.push(new Location(uri, new Position(l.originalLine, 0))));
+                });
+
+            return locations;
         });
     }
 

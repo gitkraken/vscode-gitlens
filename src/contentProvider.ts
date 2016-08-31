@@ -8,14 +8,11 @@ import * as moment from 'moment';
 export default class GitBlameContentProvider implements TextDocumentContentProvider {
     static scheme = DocumentSchemes.GitBlame;
 
-    public repoPath: string;
     private _blameDecoration: TextEditorDecorationType;
     private _onDidChange = new EventEmitter<Uri>();
     //private _subscriptions: Disposable;
 
     constructor(context: ExtensionContext, public blameProvider: GitBlameProvider) {
-        this.repoPath = context.workspaceState.get(WorkspaceState.RepoPath) as string;
-
         this._blameDecoration = window.createTextEditorDecorationType({
             dark: {
                 backgroundColor: 'rgba(255, 255, 255, 0.15)',
@@ -55,7 +52,7 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
 
         //const editor = this._findEditor(Uri.file(join(data.repoPath, data.file)));
 
-        return gitGetVersionText(data.fileName, this.repoPath, data.sha).then(text => {
+        return gitGetVersionText(data.fileName, this.blameProvider.repoPath, data.sha).then(text => {
             this.update(uri);
 
             // TODO: This only works on the first load -- not after since it is cached

@@ -5,14 +5,8 @@ import GitBlameProvider, {IGitBlame, IGitBlameCommit} from './gitBlameProvider';
 import * as moment from 'moment';
 
 export class GitBlameCodeLens extends CodeLens {
-    private _locations: Location[] = [];
-
-    constructor(private blameProvider: GitBlameProvider, public fileName: string, private blameRange: Range, range: Range) {
+    constructor(private blameProvider: GitBlameProvider, public fileName: string, public blameRange: Range, range: Range) {
         super(range);
-    }
-
-    get locations() {
-        return this._locations;
     }
 
     getBlame(): Promise<IGitBlame> {
@@ -35,11 +29,7 @@ export class GitHistoryCodeLens extends CodeLens {
 }
 
 export default class GitCodeLensProvider implements CodeLensProvider {
-    public repoPath: string;
-
-    constructor(context: ExtensionContext, public blameProvider: GitBlameProvider) {
-        this.repoPath = context.workspaceState.get(WorkspaceState.RepoPath) as string;
-     }
+    constructor(context: ExtensionContext, public blameProvider: GitBlameProvider) { }
 
     provideCodeLenses(document: TextDocument, token: CancellationToken): CodeLens[] | Thenable<CodeLens[]> {
         this.blameProvider.blameFile(document.fileName);
@@ -52,7 +42,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             if (!lenses.find(l => l.range.start.line === 0 && l.range.end.line === 0)) {
                 const docRange = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
                 lenses.push(new GitBlameCodeLens(this.blameProvider, document.fileName, docRange, new Range(0, 0, 0, docRange.start.character)));
-                lenses.push(new GitHistoryCodeLens(this.repoPath, document.fileName, docRange.with(new Position(docRange.start.line, docRange.start.character + 1))));
+                lenses.push(new GitHistoryCodeLens(this.blameProvider.repoPath, document.fileName, docRange.with(new Position(docRange.start.line, docRange.start.character + 1))));
             }
             return lenses;
         });
@@ -81,11 +71,11 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         if (startChar === -1) {
             startChar = line.firstNonWhitespaceCharacterIndex;
         } else {
-            startChar += (symbol.name.length / 2) - 1;
+            startChar += Math.floor(symbol.name.length / 2) - 1;
         }
 
         lenses.push(new GitBlameCodeLens(this.blameProvider, document.fileName, symbol.location.range, line.range.with(new Position(line.range.start.line, startChar))));
-        lenses.push(new GitHistoryCodeLens(this.repoPath, document.fileName, line.range.with(new Position(line.range.start.line, startChar + 1))));
+        lenses.push(new GitHistoryCodeLens(this.blameProvider.repoPath, document.fileName, line.range.with(new Position(line.range.start.line, startChar + 1))));
     }
 
     resolveCodeLens(lens: CodeLens, token: CancellationToken): Thenable<CodeLens> {
@@ -102,27 +92,11 @@ export default class GitCodeLensProvider implements CodeLensProvider {
                     return;
                 }
 
-                // TODO: Rework this to only get the locations in the ShowBlameHistory command, rather than here -- should save a lot of processing
-                const commitCount = blame.commits.size;
-
-                let recentCommit;
-                Array.from(blame.commits.values())
-                    .sort((a, b) => b.date.getTime() - a.date.getTime())
-                    .forEach((c, i) => {
-                        if (i === 0) {
-                            recentCommit = c;
-                        }
-
-                        const uri = GitBlameCodeLens.toUri(lens, this.repoPath, c, i + 1, commitCount);
-                        blame.lines
-                            .filter(l => l.sha === c.sha)
-                            .forEach(l => lens.locations.push(new Location(uri, new Position(l.originalLine, 0))));
-                    });
-
+                const recentCommit = Array.from(blame.commits.values()).sort((a, b) => b.date.getTime() - a.date.getTime())[0];
                 lens.command = {
                     title: `${recentCommit.author}, ${moment(recentCommit.date).fromNow()}`,
                     command: Commands.ShowBlameHistory,
-                    arguments: [Uri.file(lens.fileName), lens.range.start, lens.locations]
+                    arguments: [Uri.file(lens.fileName), lens.blameRange, lens.range.start] //, lens.locations]
                 };
                 resolve(lens);
             });

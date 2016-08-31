@@ -1,5 +1,5 @@
 'use strict';
-import {CodeLens, commands, DocumentSelector, ExtensionContext, languages, Uri, window, workspace} from 'vscode';
+import {CodeLens, commands, DocumentSelector, ExtensionContext, languages, Range, Uri, window, workspace} from 'vscode';
 import GitCodeLensProvider, {GitBlameCodeLens} from './codeLensProvider';
 import GitContentProvider from './contentProvider';
 import {gitRepoPath} from './git';
@@ -19,25 +19,26 @@ export function activate(context: ExtensionContext) {
     gitRepoPath(workspace.rootPath).then(repoPath => {
         context.workspaceState.update(WorkspaceState.RepoPath, repoPath);
 
-        const blameProvider = new GitBlameProvider();
+        const blameProvider = new GitBlameProvider(context);
         context.subscriptions.push(blameProvider);
 
         context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider(context, blameProvider)));
 
-        context.subscriptions.push(commands.registerCommand(Commands.ShowBlameHistory, (...args) => {
-            if (args && args.length) {
-                return commands.executeCommand(VsCodeCommands.ShowReferences, ...args);
+        context.subscriptions.push(commands.registerCommand(Commands.ShowBlameHistory, (uri: Uri, blameRange?: Range, range?: Range) => {
+            if (!uri) {
+                const doc = window.activeTextEditor && window.activeTextEditor.document;
+                if (doc) {
+                    uri = doc.uri;
+                    blameRange = doc.validateRange(new Range(0, 0, 1000000, 1000000));
+                    range = doc.validateRange(new Range(0, 0, 0, 1000000));
+                }
+
+                if (!uri) return;
             }
 
-            // const uri = window.activeTextEditor && window.activeTextEditor.document && window.activeTextEditor.document.uri;
-            // if (uri) {
-            //     return (commands.executeCommand(VsCodeCommands.ExecuteCodeLensProvider, uri) as Promise<CodeLens[]>).then(lenses => {
-            //         const lens = <GitBlameCodeLens>lenses.find(l => l instanceof GitBlameCodeLens);
-            //         if (lens) {
-            //             return commands.executeCommand(Commands.ShowBlameHistory, Uri.file(lens.fileName), lens.range.start, lens.locations);
-            //         }
-            //     });
-            // }
+            return blameProvider.getBlameLocations(uri.path, blameRange).then(locations => {
+                return commands.executeCommand(VsCodeCommands.ShowReferences, uri, range, locations);
+            });
         }));
 
         const selector: DocumentSelector = { scheme: 'file' };
