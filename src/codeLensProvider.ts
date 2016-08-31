@@ -76,8 +76,16 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         }
 
         const line = document.lineAt(symbol.location.range.start);
-        lenses.push(new GitBlameCodeLens(this.blameProvider, document.fileName, symbol.location.range, line.range.with(new Position(line.range.start.line, line.firstNonWhitespaceCharacterIndex))));
-        lenses.push(new GitHistoryCodeLens(this.repoPath, document.fileName, line.range.with(new Position(line.range.start.line, line.firstNonWhitespaceCharacterIndex + 1))));
+
+        let startChar = line.text.indexOf(symbol.name); //line.firstNonWhitespaceCharacterIndex;
+        if (startChar === -1) {
+            startChar = line.firstNonWhitespaceCharacterIndex;
+        } else {
+            startChar += (symbol.name.length / 2) - 1;
+        }
+
+        lenses.push(new GitBlameCodeLens(this.blameProvider, document.fileName, symbol.location.range, line.range.with(new Position(line.range.start.line, startChar))));
+        lenses.push(new GitHistoryCodeLens(this.repoPath, document.fileName, line.range.with(new Position(line.range.start.line, startChar + 1))));
     }
 
     resolveCodeLens(lens: CodeLens, token: CancellationToken): Thenable<CodeLens> {
