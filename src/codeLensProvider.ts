@@ -42,7 +42,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             if (!lenses.find(l => l.range.start.line === 0 && l.range.end.line === 0)) {
                 const docRange = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
                 lenses.push(new GitBlameCodeLens(this.blameProvider, document.fileName, docRange, new Range(0, 0, 0, docRange.start.character)));
-                lenses.push(new GitHistoryCodeLens(this.blameProvider.repoPath, document.fileName, docRange.with(new Position(docRange.start.line, docRange.start.character + 1))));
+                lenses.push(new GitHistoryCodeLens(this.blameProvider.repoPath, document.fileName, new Range(0, 1, 0, docRange.start.character)));
             }
             return lenses;
         });
@@ -94,7 +94,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
 
                 const recentCommit = Array.from(blame.commits.values()).sort((a, b) => b.date.getTime() - a.date.getTime())[0];
                 lens.command = {
-                    title: `${recentCommit.author}, ${moment(recentCommit.date).fromNow()}`,
+                    title: `${recentCommit.author}, ${moment(recentCommit.date).fromNow()}`, // - lines(${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1})`,
                     command: Commands.ShowBlameHistory,
                     arguments: [Uri.file(lens.fileName), lens.blameRange, lens.range.start]
                 };

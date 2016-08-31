@@ -1,5 +1,5 @@
 'use strict';
-import {CodeLens, commands, DocumentSelector, ExtensionContext, languages, Range, Uri, window, workspace} from 'vscode';
+import {CodeLens, commands, DocumentSelector, ExtensionContext, languages, Position, Range, Uri, window, workspace} from 'vscode';
 import GitCodeLensProvider, {GitBlameCodeLens} from './codeLensProvider';
 import GitContentProvider from './contentProvider';
 import {gitRepoPath} from './git';
@@ -24,20 +24,22 @@ export function activate(context: ExtensionContext) {
 
         context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider(context, blameProvider)));
 
-        context.subscriptions.push(commands.registerCommand(Commands.ShowBlameHistory, (uri: Uri, blameRange?: Range, range?: Range) => {
+        context.subscriptions.push(commands.registerCommand(Commands.ShowBlameHistory, (uri?: Uri, range?: Range, position?: Position) => {
+            // If the command is executed manually -- treat it as a click on the root lens (i.e. show blame for the whole file)
             if (!uri) {
                 const doc = window.activeTextEditor && window.activeTextEditor.document;
                 if (doc) {
                     uri = doc.uri;
-                    blameRange = doc.validateRange(new Range(0, 0, 1000000, 1000000));
-                    range = doc.validateRange(new Range(0, 0, 0, 1000000));
+                    range = doc.validateRange(new Range(0, 0, 1000000, 1000000));
+                    position = doc.validateRange(new Range(0, 0, 0, 1000000)).start;
                 }
 
                 if (!uri) return;
             }
 
-            return blameProvider.getBlameLocations(uri.path, blameProvider.repoPath, blameRange).then(locations => {
-                return commands.executeCommand(VsCodeCommands.ShowReferences, uri, range, locations);
+            console.log(uri.path, blameProvider.repoPath, range, position);
+            return blameProvider.getBlameLocations(uri.path, blameProvider.repoPath, range).then(locations => {
+                return commands.executeCommand(VsCodeCommands.ShowReferences, uri, position, locations);
             });
         }));
 
