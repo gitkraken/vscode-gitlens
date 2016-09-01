@@ -151,7 +151,7 @@ export default class GitProvider extends Disposable {
         return Uri.parse(`${DocumentSchemes.GitBlame}:${pad(index)}. ${commit.author}, ${moment(commit.date).format('MMM D, YYYY hh:MM a')} - ${path}?${JSON.stringify(data)}`);
     }
 
-    fromBlameUri(uri: Uri) {
+    fromBlameUri(uri: Uri): IGitBlameUriData {
         const data = JSON.parse(uri.query);
         data.range = new Range(data.range[0].line, data.range[0].character, data.range[1].line, data.range[1].character);
         return data;
@@ -169,6 +169,7 @@ export interface IGitBlameCommit {
     author: string;
     date: Date;
 }
+
 export interface IGitBlameLine {
     sha: string;
     line: number;
@@ -176,6 +177,7 @@ export interface IGitBlameLine {
     originalFileName?: string;
     code?: string;
 }
+
 export interface IGitBlameUriData {
     fileName: string,
     originalFileName?: string;

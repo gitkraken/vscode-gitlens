@@ -18,8 +18,13 @@ export default class Git {
         return gitCommand(cwd, 'rev-parse', '--show-toplevel').then(data => data.replace(/\r?\n|\r/g, ''));
     }
 
-    static blame(fileName: string, repoPath: string) {
+    static blame(fileName: string, repoPath: string, sha?: string) {
         fileName = Git.normalizePath(fileName, repoPath);
+
+        if (sha) {
+            console.log('git', 'blame', '-fnw', '--root', `${sha}^`, '--', fileName);
+            return gitCommand(repoPath, 'blame', '-fnw', '--root', `${sha}^`, '--', fileName);
+        }
 
         console.log('git', 'blame', '-fnw', '--root', '--', fileName);
         return gitCommand(repoPath, 'blame', '-fnw', '--root', '--', fileName);

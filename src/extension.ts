@@ -1,9 +1,10 @@
 'use strict';
 import {CodeLens, DocumentSelector, ExtensionContext, languages, workspace} from 'vscode';
-import GitCodeLensProvider, {GitBlameCodeLens} from './codeLensProvider';
-import GitContentProvider from './contentProvider';
+import GitCodeLensProvider from './gitCodeLensProvider';
+import GitBlameCodeLensProvider from './gitBlameCodeLensProvider';
+import GitBlameContentProvider from './gitBlameContentProvider';
 import GitProvider from './gitProvider';
-import {BlameCommand} from './commands';
+import {BlameCommand, DiffWithPreviousCommand, DiffWithWorkingCommand} from './commands';
 import {WorkspaceState} from './constants';
 
 // this method is called when your extension is activated
@@ -23,12 +24,12 @@ export function activate(context: ExtensionContext) {
     git.getRepoPath(workspace.rootPath).then(repoPath => {
         context.workspaceState.update(WorkspaceState.RepoPath, repoPath);
 
-        context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider(context, git)));
-
+        context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitBlameContentProvider.scheme, new GitBlameContentProvider(context, git)));
+        context.subscriptions.push(languages.registerCodeLensProvider(GitCodeLensProvider.selector, new GitCodeLensProvider(context, git)));
+        context.subscriptions.push(languages.registerCodeLensProvider(GitBlameCodeLensProvider.selector, new GitBlameCodeLensProvider(context, git)));
         context.subscriptions.push(new BlameCommand(git));
-
-        const selector: DocumentSelector = { scheme: 'file' };
-        context.subscriptions.push(languages.registerCodeLensProvider(selector, new GitCodeLensProvider(context, git)));
+        context.subscriptions.push(new DiffWithPreviousCommand(git));
+        context.subscriptions.push(new DiffWithWorkingCommand(git));
     }).catch(reason => console.warn(reason));
 }
 
