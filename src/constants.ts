@@ -1,7 +1,8 @@
 'use strict'
 
-export type WorkspaceState = 'repoPath';
+export type WorkspaceState = 'hasGitHistoryExtension' | 'repoPath';
 export const WorkspaceState = {
+    HasGitHistoryExtension: 'hasGitHistoryExtension' as WorkspaceState,
     RepoPath: 'repoPath' as WorkspaceState
 }
 

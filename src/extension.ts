@@ -1,5 +1,5 @@
 'use strict';
-import {CodeLens, DocumentSelector, ExtensionContext, languages, workspace} from 'vscode';
+import {CodeLens, DocumentSelector, ExtensionContext, extensions, languages, workspace} from 'vscode';
 import GitCodeLensProvider from './gitCodeLensProvider';
 import GitBlameCodeLensProvider from './gitBlameCodeLensProvider';
 import GitBlameContentProvider from './gitBlameContentProvider';
@@ -23,6 +23,7 @@ export function activate(context: ExtensionContext) {
 
     git.getRepoPath(workspace.rootPath).then(repoPath => {
         context.workspaceState.update(WorkspaceState.RepoPath, repoPath);
+        context.workspaceState.update(WorkspaceState.HasGitHistoryExtension, extensions.getExtension('donjayamanne.githistory') !== undefined);
 
         context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitBlameContentProvider.scheme, new GitBlameContentProvider(context, git)));
         context.subscriptions.push(languages.registerCodeLensProvider(GitCodeLensProvider.selector, new GitCodeLensProvider(context, git)));

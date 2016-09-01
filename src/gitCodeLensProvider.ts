@@ -23,7 +23,11 @@ export class GitHistoryCodeLens extends CodeLens {
 export default class GitCodeLensProvider implements CodeLensProvider {
     static selector: DocumentSelector = { scheme: DocumentSchemes.File };
 
-    constructor(context: ExtensionContext, private git: GitProvider) { }
+    private hasGitHistoryExtension: boolean;
+
+    constructor(context: ExtensionContext, private git: GitProvider) {
+        this.hasGitHistoryExtension = context.workspaceState.get(WorkspaceState.HasGitHistoryExtension, false);
+    }
 
     provideCodeLenses(document: TextDocument, token: CancellationToken): CodeLens[] | Thenable<CodeLens[]> {
         const fileName = document.fileName;
@@ -38,7 +42,9 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             if (!lenses.find(l => l.range.start.line === 0 && l.range.end.line === 0)) {
                 const blameRange = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
                 lenses.push(new GitCodeLens(this.git, fileName, blameRange, new Range(0, 0, 0, blameRange.start.character)));
-                lenses.push(new GitHistoryCodeLens(this.git.repoPath, fileName, new Range(0, 1, 0, blameRange.start.character)));
+                if (this.hasGitHistoryExtension) {
+                    lenses.push(new GitHistoryCodeLens(this.git.repoPath, fileName, new Range(0, 1, 0, blameRange.start.character)));
+                }
             }
             return lenses;
         });
@@ -71,7 +77,9 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         }
 
         lenses.push(new GitCodeLens(this.git, fileName, symbol.location.range, line.range.with(new Position(line.range.start.line, startChar))));
-        lenses.push(new GitHistoryCodeLens(this.git.repoPath, fileName, line.range.with(new Position(line.range.start.line, startChar + 1))));
+        if (this.hasGitHistoryExtension) {
+            lenses.push(new GitHistoryCodeLens(this.git.repoPath, fileName, line.range.with(new Position(line.range.start.line, startChar + 1))));
+        }
     }
 
     resolveCodeLens(lens: CodeLens, token: CancellationToken): Thenable<CodeLens> {

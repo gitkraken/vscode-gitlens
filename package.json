@@ -41,9 +41,6 @@
         "typescript": "^1.8.10",
         "vscode": "^0.11.17"
     },
-    "extensionDependencies": [
-        "donjayamanne.githistory"
-    ],
     "scripts": {
         "vscode:prepublish": "node ./node_modules/vscode/bin/compile",
         "compile": "node ./node_modules/vscode/bin/compile -watch -p ./",
