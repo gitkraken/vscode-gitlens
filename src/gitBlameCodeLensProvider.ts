@@ -38,7 +38,7 @@ export default class GitBlameCodeLensProvider implements CodeLensProvider {
             const lenses: CodeLens[] = [];
 
             // Add codelens to each "group" of blame lines
-            const lines = blame.lines.filter(l => l.sha === data.sha);
+            const lines = blame.lines.filter(l => l.sha === data.sha && l.originalLine >= data.range.start.line && l.originalLine <= data.range.end.line);
             let lastLine = lines[0].originalLine;
             lines.forEach(l => {
                 if (l.originalLine !== lastLine + 1) {

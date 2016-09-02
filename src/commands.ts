@@ -54,7 +54,7 @@ export class DiffWithPreviousCommand extends Command {
         return this.git.getVersionedFile(uri.path, sha).then(source => {
             this.git.getVersionedFile(uri.path, compareWithSha).then(compare => {
                 const fileName = basename(uri.path);
-                return commands.executeCommand(VsCodeCommands.Diff, Uri.file(source), Uri.file(compare), `${fileName} (${sha}) ↔ ${fileName} (${compareWithSha})`);
+                return commands.executeCommand(VsCodeCommands.Diff, Uri.file(compare), Uri.file(source), `${fileName} (${compareWithSha}) ↔ ${fileName} (${sha})`);
             })
         });
     }
@@ -68,7 +68,7 @@ export class DiffWithWorkingCommand extends Command {
     execute(uri?: Uri, sha?: string) {
         return this.git.getVersionedFile(uri.path, sha).then(compare => {
             const fileName = basename(uri.path);
-            return commands.executeCommand(VsCodeCommands.Diff, uri, Uri.file(compare), `${fileName} (index) ↔ ${fileName} (${sha})`);
+            return commands.executeCommand(VsCodeCommands.Diff, Uri.file(compare), uri, `${fileName} (${sha}) ↔ ${fileName} (index)`);
         });
     }
 }
