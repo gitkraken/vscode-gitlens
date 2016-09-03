@@ -5,6 +5,8 @@ import GitProvider, {IGitBlame, IGitBlameCommit} from './gitProvider';
 import * as moment from 'moment';
 
 export class GitCodeLens extends CodeLens {
+    public sha: string;
+
     constructor(private git: GitProvider, public fileName: string, public blameRange: Range, range: Range) {
         super(range);
     }
@@ -68,6 +70,9 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         }
 
         const line = document.lineAt(symbol.location.range.start);
+        if (lenses.length && lenses[lenses.length - 1].range.start.line === line.lineNumber) {
+            return;
+        }
 
         let startChar = line.text.search(`\\b${symbol.name}\\b`); //line.firstNonWhitespaceCharacterIndex;
         if (startChar === -1) {
@@ -97,10 +102,11 @@ export default class GitCodeLensProvider implements CodeLensProvider {
                 }
 
                 const recentCommit = Array.from(blame.commits.values()).sort((a, b) => b.date.getTime() - a.date.getTime())[0];
+                lens.sha = recentCommit.sha;
                 lens.command = {
                     title: `${recentCommit.author}, ${moment(recentCommit.date).fromNow()}`, // - lines(${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1})`,
                     command: Commands.ShowBlameHistory,
-                    arguments: [Uri.file(lens.fileName), lens.blameRange, lens.range.start]
+                    arguments: [Uri.file(lens.fileName), lens.blameRange, lens.sha]
                 };
                 resolve(lens);
             });

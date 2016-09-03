@@ -7,6 +7,7 @@ import * as moment from 'moment';
 import * as _ from 'lodash';
 
 const blameMatcher = /^([\^0-9a-fA-F]{8})\s([\S]*)\s+([0-9\S]+)\s\((.*)\s([0-9]{4}-[0-9]{2}-[0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2}\s[-|+][0-9]{4})\s+([0-9]+)\)(.*)$/gm;
+const commitMessageMatcher = /^([\^0-9a-fA-F]{7})\s(.*)$/gm;
 
 export default class GitProvider extends Disposable {
     public repoPath: string;
@@ -27,7 +28,6 @@ export default class GitProvider extends Disposable {
     dispose() {
         this._blames.clear();
         this._subscription && this._subscription.dispose();
-        super.dispose();
     }
 
     private _removeFile(fileName: string) {
@@ -36,10 +36,6 @@ export default class GitProvider extends Disposable {
 
     getRepoPath(cwd: string) {
         return Git.repoPath(cwd);
-    }
-
-    getCommitMessage(sha: string) {
-        return Git.getCommitMessage(sha, this.repoPath);
     }
 
     getBlameForFile(fileName: string) {
@@ -87,6 +83,16 @@ export default class GitProvider extends Disposable {
         return blame;
     }
 
+    getBlameForLine(fileName: string, line: number): Promise<{commit: IGitBlameCommit, line: IGitBlameLine}> {
+        return this.getBlameForFile(fileName).then(blame => {
+            const blameLine = blame.lines[line];
+            return {
+                commit: blame.commits.get(blameLine.sha),
+                line: blameLine
+            };
+        });
+    }
+
     getBlameForRange(fileName: string, range: Range): Promise<IGitBlame> {
         return this.getBlameForFile(fileName).then(blame => {
             if (!blame.lines.length) return blame;
@@ -129,6 +135,22 @@ export default class GitProvider extends Disposable {
         });
     }
 
+    getCommitMessage(sha: string) {
+        return Git.getCommitMessage(sha, this.repoPath);
+    }
+
+    getCommitMessages(fileName: string) {
+        return Git.getCommitMessages(fileName, this.repoPath).then(data => {
+            const commits: Map<string, string> = new Map();
+            let m: Array<string>;
+            while ((m = commitMessageMatcher.exec(data)) != null) {
+                commits.set(m[1], m[2]);
+            }
+
+            return commits;
+        });
+    }
+
     getVersionedFile(fileName: string, sha: string) {
         return Git.getVersionedFile(fileName, this.repoPath, sha);
     }
@@ -168,6 +190,7 @@ export interface IGitBlameCommit {
     fileName: string;
     author: string;
     date: Date;
+    message?: string;
 }
 
 export interface IGitBlameLine {
