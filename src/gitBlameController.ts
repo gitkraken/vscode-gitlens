@@ -76,14 +76,14 @@ export default class GitBlameController extends Disposable {
 class GitBlameEditorController extends Disposable {
     private _subscription: Disposable;
     private _blame: Promise<IGitBlame>;
-    private _commits: Promise<Map<string, string>>;
+    //private _commits: Promise<Map<string, string>>;
 
     constructor(private git: GitProvider, private blameDecoration: TextEditorDecorationType, private highlightDecoration: TextEditorDecorationType, public editor: TextEditor, public sha: string) {
         super(() => this.dispose());
 
         const fileName = this.editor.document.uri.path;
         this._blame = this.git.getBlameForFile(fileName);
-        this._commits = this.git.getCommitMessages(fileName);
+        //this._commits = this.git.getCommitMessages(fileName);
 
         this._subscription = Disposable.from(window.onDidChangeTextEditorSelection(e => {
             const activeLine = e.selections[0].active.line;
@@ -106,22 +106,22 @@ class GitBlameEditorController extends Disposable {
         return this._blame.then(blame => {
             if (!blame.lines.length) return;
 
-            return this._commits.then(msgs => {
-                const commits = Array.from(blame.commits.values());
-                commits.forEach(c => c.message = msgs.get(c.sha.substring(0, c.sha.length - 1)));
+            // return this._commits.then(msgs => {
+            //     const commits = Array.from(blame.commits.values());
+            //     commits.forEach(c => c.message = msgs.get(c.sha.substring(0, c.sha.length - 1)));
 
                 const blameDecorationOptions: DecorationOptions[] = blame.lines.map(l => {
                     const c = blame.commits.get(l.sha);
                     return {
                         range: this.editor.document.validateRange(new Range(l.line, 0, l.line, 0)),
                         hoverMessage: `${c.message}\n${c.author}, ${moment(c.date).format('MMMM Do, YYYY hh:MM a')}`,
-                        renderOptions: { before: { contentText: `${l.sha}`, } }
+                        renderOptions: { before: { contentText: `${l.sha.substring(0, 8)}`, } }
                     };
                 });
 
                 this.editor.setDecorations(this.blameDecoration, blameDecorationOptions);
-                return this.applyHighlight(sha || commits[0].sha);
-            });
+                return this.applyHighlight(sha || blame.commits.values().next().value.sha);
+            // });
         });
     }
 

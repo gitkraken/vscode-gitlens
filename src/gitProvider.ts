@@ -8,6 +8,8 @@ import * as _ from 'lodash';
 
 const blameMatcher = /^([\^0-9a-fA-F]{8})\s([\S]*)\s+([0-9\S]+)\s\((.*)\s([0-9]{4}-[0-9]{2}-[0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2}\s[-|+][0-9]{4})\s+([0-9]+)\)(.*)$/gm;
 const commitMessageMatcher = /^([\^0-9a-fA-F]{7})\s(.*)$/gm;
+const blamePorcelainMatcher = /^([\^0-9a-fA-F]{40})\s([0-9]+)\s([0-9]+)(?:\s([0-9]+))?$\n(?:^author\s(.*)$\n^author-mail\s(.*)$\n^author-time\s(.*)$\n^author-tz\s(.*)$\n^committer\s(.*)$\n^committer-mail\s(.*)$\n^committer-time\s(.*)$\n^committer-tz\s(.*)$\n^summary\s(.*)$\n(?:^previous\s(.*)?\s(.*)$\n)?^filename\s(.*)$\n)?^(.*)$/gm;
+const blameLinePorcelainMatcher = /^([\^0-9a-fA-F]{40})\s([0-9]+)\s([0-9]+)(?:\s([0-9]+))?$\n^author\s(.*)$\n^author-mail\s(.*)$\n^author-time\s(.*)$\n^author-tz\s(.*)$\n^committer\s(.*)$\n^committer-mail\s(.*)$\n^committer-time\s(.*)$\n^committer-tz\s(.*)$\n^summary\s(.*)$\n(?:^previous\s(.*)?\s(.*)$\n)?^filename\s(.*)$\n^(.*)$/gm;
 
 export default class GitProvider extends Disposable {
     public repoPath: string;
@@ -43,53 +45,138 @@ export default class GitProvider extends Disposable {
         return Git.repoPath(cwd);
     }
 
+    // getBlameForFile(fileName: string) {
+    //     fileName = Git.normalizePath(fileName, this.repoPath);
+
+    //     let blame = this._blames.get(fileName);
+    //     if (blame !== undefined) return blame;
+
+    //     blame = Git.blame(fileName, this.repoPath)
+    //         .then(data => {
+    //             const authors: Map<string, IGitAuthor> = new Map();
+    //             const commits: Map<string, IGitCommit> = new Map();
+    //             const lines: Array<IGitCommitLine> = [];
+
+    //             let m: Array<string>;
+    //             while ((m = blameMatcher.exec(data)) != null) {
+    //                 const authorName = m[4].trim();
+    //                 let author = authors.get(authorName);
+    //                 if (!author) {
+    //                     author = {
+    //                         name: authorName,
+    //                         lineCount: 0
+    //                     };
+    //                     authors.set(authorName, author);
+    //                 }
+
+    //                 const sha = m[1];
+    //                 let commit = commits.get(sha);
+    //                 if (!commit) {
+    //                     commit = {
+    //                         sha,
+    //                         fileName: fileName,
+    //                         author: authorName,
+    //                         date: new Date(m[5]),
+    //                         lines: []
+    //                     };
+
+    //                     const file = m[2].trim();
+    //                     if (!fileName.toLowerCase().endsWith(file.toLowerCase())) {
+    //                         commit.originalFileName = file;
+    //                     }
+
+    //                     commits.set(sha, commit);
+    //                 }
+
+    //                 const line: IGitCommitLine = {
+    //                     sha,
+    //                     line: parseInt(m[6], 10) - 1,
+    //                     originalLine: parseInt(m[3], 10) - 1
+    //                     //code: m[7]
+    //                 }
+
+    //                 commit.lines.push(line);
+    //                 lines.push(line);
+    //             }
+
+    //             commits.forEach(c => authors.get(c.author).lineCount += c.lines.length);
+
+    //             const sortedAuthors: Map<string, IGitAuthor> = new Map();
+    //             const values = Array.from(authors.values())
+    //                 .sort((a, b) => b.lineCount - a.lineCount)
+    //                 .forEach(a => sortedAuthors.set(a.name, a));
+
+    //             const sortedCommits = new Map();
+    //             Array.from(commits.values())
+    //                 .sort((a, b) => b.date.getTime() - a.date.getTime())
+    //                 .forEach(c => sortedCommits.set(c.sha, c));
+
+    //             return {
+    //                 authors: sortedAuthors,
+    //                 commits: sortedCommits,
+    //                 lines: lines
+    //             };
+    //         });
+
+    //     this._blames.set(fileName, blame);
+    //     return blame;
+    // }
+
     getBlameForFile(fileName: string) {
         fileName = Git.normalizePath(fileName, this.repoPath);
 
         let blame = this._blames.get(fileName);
         if (blame !== undefined) return blame;
 
-        blame = Git.blame(fileName, this.repoPath)
+        blame = Git.blamePorcelain(fileName, this.repoPath)
             .then(data => {
                 const authors: Map<string, IGitAuthor> = new Map();
                 const commits: Map<string, IGitCommit> = new Map();
                 const lines: Array<IGitCommitLine> = [];
 
                 let m: Array<string>;
-                while ((m = blameMatcher.exec(data)) != null) {
-                    const authorName = m[4].trim();
-                    let author = authors.get(authorName);
-                    if (!author) {
-                        author = {
-                            name: authorName,
-                            lineCount: 0
-                        };
-                        authors.set(authorName, author);
-                    }
-
-                    const sha = m[1];
+                while ((m = blamePorcelainMatcher.exec(data)) != null) {
+                    const sha = m[1].substring(0, 8);
                     let commit = commits.get(sha);
                     if (!commit) {
+                        const authorName = m[5].trim();
+                        let author = authors.get(authorName);
+                        if (!author) {
+                            author = {
+                                name: authorName,
+                                lineCount: 0
+                            };
+                            authors.set(authorName, author);
+                        }
+
                         commit = {
                             sha,
                             fileName: fileName,
-                            author: m[4].trim(),
-                            date: new Date(m[5]),
+                            author: authorName,
+                            date: moment(`${m[7]} ${m[8]}`, 'X Z').toDate(),
+                            message: m[13],
                             lines: []
                         };
+
+                        const originalFileName = m[16];
+                        if (!fileName.toLowerCase().endsWith(originalFileName.toLowerCase())) {
+                            commit.originalFileName = originalFileName;
+                        }
+
+                        const previousSha = m[14];
+                        if (previousSha) {
+                            commit.previousSha = previousSha.substring(0, 8);
+                            commit.previousFileName = m[15];
+                        }
+
                         commits.set(sha, commit);
                     }
 
                     const line: IGitCommitLine = {
                         sha,
-                        line: parseInt(m[6], 10) - 1,
-                        originalLine: parseInt(m[3], 10) - 1
-                        //code: m[7]
-                    }
-
-                    const file = m[2].trim();
-                    if (!fileName.toLowerCase().endsWith(file.toLowerCase())) {
-                        line.originalFileName = file;
+                        line: parseInt(m[3], 10) - 1,
+                        originalLine: parseInt(m[2], 10) - 1
+                        //code: m[17]
                     }
 
                     commit.lines.push(line);
@@ -116,8 +203,7 @@ export default class GitProvider extends Disposable {
             });
 
         this._blames.set(fileName, blame);
-        return blame;
-    }
+        return blame;    }
 
     getBlameForLine(fileName: string, line: number): Promise<IGitBlameLine> {
         return this.getBlameForFile(fileName).then(blame => {
@@ -192,8 +278,8 @@ export default class GitProvider extends Disposable {
             Array.from(blame.commits.values())
                 .forEach((c, i) => {
                     const uri = this.toBlameUri(c, i + 1, commitCount, range);
-                    c.lines.forEach(l => locations.push(new Location(l.originalFileName
-                            ? this.toBlameUri(c, i + 1, commitCount, range, l.originalFileName)
+                    c.lines.forEach(l => locations.push(new Location(c.originalFileName
+                            ? this.toBlameUri(c, i + 1, commitCount, range, c.originalFileName)
                             : uri,
                         new Position(l.originalLine, 0))));
                 });
@@ -201,6 +287,24 @@ export default class GitProvider extends Disposable {
             return locations;
         });
     }
+
+    // getHistoryLocations(fileName: string, range: Range) {
+    //     return this.getBlameForRange(fileName, range).then(blame => {
+    //         const commitCount = blame.commits.size;
+
+    //         const locations: Array<Location> = [];
+    //         Array.from(blame.commits.values())
+    //             .forEach((c, i) => {
+    //                 const uri = this.toBlameUri(c, i + 1, commitCount, range);
+    //                 c.lines.forEach(l => locations.push(new Location(c.originalFileName
+    //                         ? this.toBlameUri(c, i + 1, commitCount, range, c.originalFileName)
+    //                         : uri,
+    //                     new Position(l.originalLine, 0))));
+    //             });
+
+    //         return locations;
+    //     });
+    // }
 
     getCommitMessage(sha: string) {
         return Git.getCommitMessage(sha, this.repoPath);
@@ -303,15 +407,17 @@ export interface IGitCommit {
     fileName: string;
     author: string;
     date: Date;
+    message: string;
     lines: IGitCommitLine[];
-    message?: string;
+    originalFileName?: string;
+    previousSha?: string;
+    previousFileName?: string;
 }
 
 export interface IGitCommitLine {
     sha: string;
     line: number;
     originalLine: number;
-    originalFileName?: string;
     code?: string;
 }
 

@@ -23,11 +23,25 @@ export default class Git {
 
         if (sha) {
             console.log('git', 'blame', '-fn', '--root', `${sha}^`, '--', fileName);
-            return gitCommand(repoPath, 'blame', '-fnw', '--root', `${sha}^`, '--', fileName);
+            return gitCommand(repoPath, 'blame', '-fn', '--root', `${sha}^`, '--', fileName);
         }
 
         console.log('git', 'blame', '-fn', '--root', '--', fileName);
         return gitCommand(repoPath, 'blame', '-fn', '--root', '--', fileName);
+            // .then(s => { console.log(s); return s; })
+            // .catch(ex => console.error(ex));
+    }
+
+    static blamePorcelain(fileName: string, repoPath: string, sha?: string) {
+        fileName = Git.normalizePath(fileName, repoPath);
+
+        if (sha) {
+            console.log('git', 'blame', '--porcelain', '--root', `${sha}^`, '--', fileName);
+            return gitCommand(repoPath, 'blame', '--porcelain', '--root', `${sha}^`, '--', fileName);
+        }
+
+        console.log('git', 'blame', '--porcelain', '--root', '--', fileName);
+        return gitCommand(repoPath, 'blame', '--porcelain', '--root', '--', fileName);
             // .then(s => { console.log(s); return s; })
             // .catch(ex => console.error(ex));
     }
@@ -79,6 +93,7 @@ export default class Git {
     static getCommitMessages(fileName: string, repoPath: string) {
         fileName = Git.normalizePath(fileName, repoPath);
 
+        // git log --format="%h (%aN %x09 %ai) %s"  --
         console.log('git', 'log', '--oneline', '--', fileName);
         return gitCommand(repoPath, 'log', '--oneline', '--', fileName);
             // .then(s => { console.log(s); return s; })
