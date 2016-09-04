@@ -8,16 +8,18 @@ export const WorkspaceState = {
 
 export const RepoPath: string = 'repoPath';
 
-export type Commands = 'git.action.diffWithPrevious' | 'git.action.diffWithWorking' | 'git.action.showBlameHistory';
+export type Commands = 'git.action.diffWithPrevious' | 'git.action.diffWithWorking' | 'git.action.showBlame' | 'git.action.showHistory';
 export const Commands = {
     DiffWithPrevious: 'git.action.diffWithPrevious' as Commands,
     DiffWithWorking: 'git.action.diffWithWorking' as Commands,
-    ShowBlameHistory: 'git.action.showBlameHistory' as Commands
+    ShowBlame: 'git.action.showBlame' as Commands,
+    ShowHistory: 'git.action.showHistory' as Commands,
 }
 
-export type DocumentSchemes = 'file' | 'gitblame';
+export type DocumentSchemes = 'file' | 'git' | 'gitblame';
 export const DocumentSchemes = {
     File: 'file' as DocumentSchemes,
+    Git: 'git' as DocumentSchemes,
     GitBlame: 'gitblame' as DocumentSchemes
 }
 

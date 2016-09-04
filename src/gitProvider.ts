@@ -21,8 +21,12 @@ export default class GitProvider extends Disposable {
         this.repoPath = context.workspaceState.get(WorkspaceState.RepoPath) as string;
 
         this._blames = new Map();
-        this._subscription = Disposable.from(workspace.onDidCloseTextDocument(d => this._removeFile(d.fileName)),
-                                             workspace.onDidChangeTextDocument(e => this._removeFile(e.document.fileName)));
+        this._subscription = Disposable.from(
+            workspace.onDidCloseTextDocument(d => this._removeFile(d.fileName)),
+            // TODO: Need a way to reset codelens in response to a save
+            workspace.onDidSaveTextDocument(d => this._removeFile(d.fileName))
+            //workspace.onDidChangeTextDocument(e => this._removeFile(e.document.fileName))
+        );
     }
 
     dispose() {
@@ -31,6 +35,7 @@ export default class GitProvider extends Disposable {
     }
 
     private _removeFile(fileName: string) {
+        fileName = Git.normalizePath(fileName, this.repoPath);
         this._blames.delete(fileName);
     }
 
@@ -46,48 +51,81 @@ export default class GitProvider extends Disposable {
 
         blame = Git.blame(fileName, this.repoPath)
             .then(data => {
-                const commits: Map<string, IGitBlameCommit> = new Map();
-                const lines: Array<IGitBlameLine> = [];
+                const authors: Map<string, IGitAuthor> = new Map();
+                const commits: Map<string, IGitCommit> = new Map();
+                const lines: Array<IGitCommitLine> = [];
+
                 let m: Array<string>;
                 while ((m = blameMatcher.exec(data)) != null) {
-                    let sha = m[1];
+                    const authorName = m[4].trim();
+                    let author = authors.get(authorName);
+                    if (!author) {
+                        author = {
+                            name: authorName,
+                            lineCount: 0
+                        };
+                        authors.set(authorName, author);
+                    }
 
-                    if (!commits.has(sha)) {
-                        commits.set(sha, {
+                    const sha = m[1];
+                    let commit = commits.get(sha);
+                    if (!commit) {
+                        commit = {
                             sha,
                             fileName: fileName,
                             author: m[4].trim(),
-                            date: new Date(m[5])
-                        });
+                            date: new Date(m[5]),
+                            lines: []
+                        };
+                        commits.set(sha, commit);
                     }
 
-                    const line: IGitBlameLine = {
+                    const line: IGitCommitLine = {
                         sha,
                         line: parseInt(m[6], 10) - 1,
-                        originalLine: parseInt(m[3], 10) - 1,
+                        originalLine: parseInt(m[3], 10) - 1
                         //code: m[7]
                     }
 
-                    let file = m[2].trim();
+                    const file = m[2].trim();
                     if (!fileName.toLowerCase().endsWith(file.toLowerCase())) {
                         line.originalFileName = file;
                     }
 
+                    commit.lines.push(line);
                     lines.push(line);
                 }
 
-                return { commits, lines };
+                commits.forEach(c => authors.get(c.author).lineCount += c.lines.length);
+
+                const sortedAuthors: Map<string, IGitAuthor> = new Map();
+                const values = Array.from(authors.values())
+                    .sort((a, b) => b.lineCount - a.lineCount)
+                    .forEach(a => sortedAuthors.set(a.name, a));
+
+                const sortedCommits = new Map();
+                Array.from(commits.values())
+                    .sort((a, b) => b.date.getTime() - a.date.getTime())
+                    .forEach(c => sortedCommits.set(c.sha, c));
+
+                return {
+                    authors: sortedAuthors,
+                    commits: sortedCommits,
+                    lines: lines
+                };
             });
 
         this._blames.set(fileName, blame);
         return blame;
     }
 
-    getBlameForLine(fileName: string, line: number): Promise<{commit: IGitBlameCommit, line: IGitBlameLine}> {
+    getBlameForLine(fileName: string, line: number): Promise<IGitBlameLine> {
         return this.getBlameForFile(fileName).then(blame => {
             const blameLine = blame.lines[line];
+            const commit = blame.commits.get(blameLine.sha);
             return {
-                commit: blame.commits.get(blameLine.sha),
+                author: Object.assign({}, blame.authors.get(commit.author), { lineCount: commit.lines.length }),
+                commit: commit,
                 line: blameLine
             };
         });
@@ -97,19 +135,51 @@ export default class GitProvider extends Disposable {
         return this.getBlameForFile(fileName).then(blame => {
             if (!blame.lines.length) return blame;
 
-            const lines = blame.lines.slice(range.start.line, range.end.line + 1);
-            const commits = new Map();
-            _.uniqBy(lines, 'sha').forEach(l => commits.set(l.sha, blame.commits.get(l.sha)));
+            if (range.start.line === 0 && range.end.line === blame.lines.length - 1) {
+                return blame;
+            }
 
-            return { commits, lines };
+            const lines = blame.lines.slice(range.start.line, range.end.line + 1);
+            const shas: Set<string> = new Set();
+            lines.forEach(l => shas.add(l.sha));
+
+            const authors: Map<string, IGitAuthor> = new Map();
+            const commits: Map<string, IGitCommit> = new Map();
+            blame.commits.forEach(c => {
+                if (!shas.has(c.sha)) return;
+
+                const commit: IGitCommit = Object.assign({}, c, { lines: c.lines.filter(l => l.line >= range.start.line && l.line <= range.end.line) });
+                commits.set(c.sha, commit);
+
+                let author = authors.get(commit.author);
+                if (!author) {
+                    author = {
+                        name: commit.author,
+                        lineCount: 0
+                    };
+                    authors.set(author.name, author);
+                }
+
+                author.lineCount += commit.lines.length;
+            });
+
+            const sortedAuthors = new Map();
+            Array.from(authors.values())
+                .sort((a, b) => b.lineCount - a.lineCount)
+                .forEach(a => sortedAuthors.set(a.name, a));
+
+            return { authors: sortedAuthors, commits, lines };
         });
     }
 
-    getBlameForShaRange(fileName: string, sha: string, range: Range): Promise<{commit: IGitBlameCommit, lines: IGitBlameLine[]}> {
+    getBlameForShaRange(fileName: string, sha: string, range: Range): Promise<IGitBlameLines> {
         return this.getBlameForFile(fileName).then(blame => {
+            const lines = blame.lines.slice(range.start.line, range.end.line + 1).filter(l => l.sha === sha);
+            const commit = Object.assign({}, blame.commits.get(sha), { lines: lines });
             return {
-                commit: blame.commits.get(sha),
-                lines: blame.lines.slice(range.start.line, range.end.line + 1).filter(l => l.sha === sha)
+                author: Object.assign({}, blame.authors.get(commit.author), { lineCount: commit.lines.length }),
+                commit: commit,
+                lines: lines
             };
         });
     }
@@ -120,15 +190,12 @@ export default class GitProvider extends Disposable {
 
             const locations: Array<Location> = [];
             Array.from(blame.commits.values())
-                .sort((a, b) => b.date.getTime() - a.date.getTime())
                 .forEach((c, i) => {
-                    const uri = this.toBlameUri(c, range, i + 1, commitCount);
-                    blame.lines
-                        .filter(l => l.sha === c.sha)
-                        .forEach(l => locations.push(new Location(l.originalFileName
-                                    ? this.toBlameUri(c, range, i + 1, commitCount, l.originalFileName)
-                                    : uri,
-                                new Position(l.originalLine, 0))));
+                    const uri = this.toBlameUri(c, i + 1, commitCount, range);
+                    c.lines.forEach(l => locations.push(new Location(l.originalFileName
+                            ? this.toBlameUri(c, i + 1, commitCount, range, l.originalFileName)
+                            : uri,
+                        new Position(l.originalLine, 0))));
                 });
 
             return locations;
@@ -159,41 +226,88 @@ export default class GitProvider extends Disposable {
         return Git.getVersionedFileText(fileName, this.repoPath, sha);
     }
 
-    toBlameUri(commit: IGitBlameCommit, range: Range, index: number, commitCount: number, originalFileName?: string) {
-        const pad = n => ("0000000" + n).slice(-("" + commitCount).length);
+    fromBlameUri(uri: Uri): IGitBlameUriData {
+        if (uri.scheme !== DocumentSchemes.GitBlame) throw new Error(`fromGitUri(uri=${uri}) invalid scheme`);
+        const data = this._fromGitUri<IGitBlameUriData>(uri);
+        data.range = new Range(data.range[0].line, data.range[0].character, data.range[1].line, data.range[1].character);
+        return data;
+    }
 
+    fromGitUri(uri: Uri) {
+        if (uri.scheme !== DocumentSchemes.Git) throw new Error(`fromGitUri(uri=${uri}) invalid scheme`);
+        return this._fromGitUri<IGitUriData>(uri);
+    }
+
+    private _fromGitUri<T extends IGitUriData>(uri: Uri): T {
+        return JSON.parse(uri.query) as T;
+    }
+
+    toBlameUri(commit: IGitCommit, index: number, commitCount: number, range: Range, originalFileName?: string) {
+        return this._toGitUri(DocumentSchemes.GitBlame, commit, commitCount, this._toGitBlameUriData(commit, index, range, originalFileName));
+    }
+
+    toGitUri(commit: IGitCommit, index: number, commitCount: number, originalFileName?: string) {
+        return this._toGitUri(DocumentSchemes.Git, commit, commitCount, this._toGitUriData(commit, index, originalFileName));
+    }
+
+    private _toGitUri(scheme: DocumentSchemes, commit: IGitCommit, commitCount: number, data: IGitUriData | IGitBlameUriData) {
+        const pad = n => ("0000000" + n).slice(-("" + commitCount).length);
+        const ext = extname(data.fileName);
+        const path = `${dirname(data.fileName)}/${commit.sha}: ${basename(data.fileName, ext)}${ext}`;
+
+        // NOTE: Need to specify an index here, since I can't control the sort order -- just alphabetic or by file location
+        return Uri.parse(`${scheme}:${pad(data.index)}. ${commit.author}, ${moment(commit.date).format('MMM D, YYYY hh:MM a')} - ${path}?${JSON.stringify(data)}`);
+    }
+
+    private _toGitUriData<T extends IGitUriData>(commit: IGitCommit, index: number, originalFileName?: string): T {
         const fileName = originalFileName || commit.fileName;
-        const ext = extname(fileName);
-        const path = `${dirname(fileName)}/${commit.sha}: ${basename(fileName, ext)}${ext}`;
-        const data: IGitBlameUriData = { fileName: commit.fileName, sha: commit.sha, range: range, index: index };
+        const data = { fileName: commit.fileName, sha: commit.sha, index: index } as T;
         if (originalFileName) {
             data.originalFileName = originalFileName;
         }
-        // NOTE: Need to specify an index here, since I can't control the sort order -- just alphabetic or by file location
-        return Uri.parse(`${DocumentSchemes.GitBlame}:${pad(index)}. ${commit.author}, ${moment(commit.date).format('MMM D, YYYY hh:MM a')} - ${path}?${JSON.stringify(data)}`);
+        return data;
     }
 
-    fromBlameUri(uri: Uri): IGitBlameUriData {
-        const data = JSON.parse(uri.query);
-        data.range = new Range(data.range[0].line, data.range[0].character, data.range[1].line, data.range[1].character);
+    private _toGitBlameUriData(commit: IGitCommit, index: number, range: Range, originalFileName?: string) {
+        const data = this._toGitUriData<IGitBlameUriData>(commit, index, originalFileName);
+        data.range = range;
         return data;
     }
 }
 
 export interface IGitBlame {
-    commits: Map<string, IGitBlameCommit>;
-    lines: IGitBlameLine[];
+    authors: Map<string, IGitAuthor>;
+    commits: Map<string, IGitCommit>;
+    lines: IGitCommitLine[];
 }
 
-export interface IGitBlameCommit {
+export interface IGitBlameLine {
+    author: IGitAuthor;
+    commit: IGitCommit;
+    line: IGitCommitLine;
+}
+
+export interface IGitBlameLines {
+    author: IGitAuthor;
+    commit: IGitCommit;
+    lines: IGitCommitLine[];
+}
+
+export interface IGitAuthor {
+    name: string;
+    lineCount: number;
+}
+
+export interface IGitCommit {
     sha: string;
     fileName: string;
     author: string;
     date: Date;
+    lines: IGitCommitLine[];
     message?: string;
 }
 
-export interface IGitBlameLine {
+export interface IGitCommitLine {
     sha: string;
     line: number;
     originalLine: number;
@@ -201,10 +315,13 @@ export interface IGitBlameLine {
     code?: string;
 }
 
-export interface IGitBlameUriData {
+export interface IGitUriData {
     fileName: string,
     originalFileName?: string;
     sha: string,
-    range: Range,
     index: number
+}
+
+export interface IGitBlameUriData extends IGitUriData {
+    range: Range
 }

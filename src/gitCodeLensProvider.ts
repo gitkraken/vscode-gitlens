@@ -1,10 +1,20 @@
 'use strict';
 import {CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelector, ExtensionContext, Location, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri} from 'vscode';
 import {Commands, DocumentSchemes, VsCodeCommands, WorkspaceState} from './constants';
-import GitProvider, {IGitBlame, IGitBlameCommit} from './gitProvider';
+import GitProvider, {IGitBlame, IGitCommit} from './gitProvider';
 import * as moment from 'moment';
 
-export class GitCodeLens extends CodeLens {
+export class GitRecentChangeCodeLens extends CodeLens {
+    constructor(private git: GitProvider, public fileName: string, public blameRange: Range, range: Range) {
+        super(range);
+    }
+
+    getBlame(): Promise<IGitBlame> {
+        return this.git.getBlameForRange(this.fileName, this.blameRange);
+    }
+}
+
+export class GitBlameCodeLens extends CodeLens {
     public sha: string;
 
     constructor(private git: GitProvider, public fileName: string, public blameRange: Range, range: Range) {
@@ -33,26 +43,32 @@ export default class GitCodeLensProvider implements CodeLensProvider {
 
     provideCodeLenses(document: TextDocument, token: CancellationToken): CodeLens[] | Thenable<CodeLens[]> {
         const fileName = document.fileName;
+        const promise = Promise.all([this.git.getBlameForFile(fileName) as Promise<any>, (commands.executeCommand(VsCodeCommands.ExecuteDocumentSymbolProvider, document.uri) as Promise<any>)]);
 
-        this.git.getBlameForFile(fileName);
+        return promise.then(values => {
+            const blame = values[0] as IGitBlame;
+            if (!blame || !blame.lines.length) return [];
 
-        return (commands.executeCommand(VsCodeCommands.ExecuteDocumentSymbolProvider, document.uri) as Promise<SymbolInformation[]>).then(symbols => {
+            const symbols = values[1] as SymbolInformation[];
             const lenses: CodeLens[] = [];
             symbols.forEach(sym => this._provideCodeLens(fileName, document, sym, lenses));
 
             // Check if we have a lens for the whole document -- if not add one
             if (!lenses.find(l => l.range.start.line === 0 && l.range.end.line === 0)) {
                 const blameRange = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
-                lenses.push(new GitCodeLens(this.git, fileName, blameRange, new Range(0, 0, 0, blameRange.start.character)));
-                if (this.hasGitHistoryExtension) {
-                    lenses.push(new GitHistoryCodeLens(this.git.repoPath, fileName, new Range(0, 1, 0, blameRange.start.character)));
-                }
+                lenses.push(new GitRecentChangeCodeLens(this.git, fileName, blameRange, new Range(0, 0, 0, blameRange.start.character)));
+                lenses.push(new GitBlameCodeLens(this.git, fileName, blameRange, new Range(0, 1, 0, blameRange.start.character)));
+                // if (this.hasGitHistoryExtension) {
+                //     lenses.push(new GitHistoryCodeLens(this.git.repoPath, fileName, new Range(0, 1, 0, blameRange.start.character)));
+                // }
             }
+
             return lenses;
         });
     }
 
     private _provideCodeLens(fileName: string, document: TextDocument, symbol: SymbolInformation, lenses: CodeLens[]): void {
+        let multiline = false;
         switch (symbol.kind) {
             case SymbolKind.Package:
             case SymbolKind.Module:
@@ -60,10 +76,15 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             case SymbolKind.Interface:
             case SymbolKind.Constructor:
             case SymbolKind.Method:
-            case SymbolKind.Property:
-            case SymbolKind.Field:
             case SymbolKind.Function:
             case SymbolKind.Enum:
+                multiline = true;
+                break;
+            case SymbolKind.Property:
+                multiline = (symbol.location.range.end.line - symbol.location.range.start.line) > 1;
+                break;
+            case SymbolKind.Field:
+                multiline = false;
                 break;
             default:
                 return;
@@ -81,36 +102,45 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             startChar += Math.floor(symbol.name.length / 2);
         }
 
-        lenses.push(new GitCodeLens(this.git, fileName, symbol.location.range, line.range.with(new Position(line.range.start.line, startChar))));
-        if (this.hasGitHistoryExtension) {
-            lenses.push(new GitHistoryCodeLens(this.git.repoPath, fileName, line.range.with(new Position(line.range.start.line, startChar + 1))));
+        lenses.push(new GitRecentChangeCodeLens(this.git, fileName, symbol.location.range, line.range.with(new Position(line.range.start.line, startChar))));
+        startChar++;
+        if (multiline) {
+            lenses.push(new GitBlameCodeLens(this.git, fileName, symbol.location.range, line.range.with(new Position(line.range.start.line, startChar))));
+            startChar++;
         }
+        // if (this.hasGitHistoryExtension) {
+        //     lenses.push(new GitHistoryCodeLens(this.git.repoPath, fileName, line.range.with(new Position(line.range.start.line, startChar))));
+        // }
     }
 
     resolveCodeLens(lens: CodeLens, token: CancellationToken): Thenable<CodeLens> {
-        if (lens instanceof GitCodeLens) return this._resolveGitBlameCodeLens(lens, token);
+        if (lens instanceof GitRecentChangeCodeLens) return this._resolveGitRecentChangeCodeLens(lens, token);
+        if (lens instanceof GitBlameCodeLens) return this._resolveGitBlameCodeLens(lens, token);
         if (lens instanceof GitHistoryCodeLens) return this._resolveGitHistoryCodeLens(lens, token);
     }
 
-    _resolveGitBlameCodeLens(lens: GitCodeLens, token: CancellationToken): Thenable<CodeLens> {
-        return new Promise<CodeLens>((resolve, reject) => {
-            lens.getBlame().then(blame => {
-                if (!blame.lines.length) {
-                    console.error('No blame lines found', lens);
-                    reject(null);
-                    return;
-                }
+    _resolveGitRecentChangeCodeLens(lens: GitRecentChangeCodeLens, token: CancellationToken): Thenable<CodeLens> {
+        return lens.getBlame().then(blame => {
+            const recentCommit = blame.commits.values().next().value;
+            lens.command = {
+                title: `${recentCommit.author}, ${moment(recentCommit.date).fromNow()}`, // - lines(${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1})`,
+                command: Commands.ShowHistory,
+                arguments: [Uri.file(lens.fileName), lens.blameRange, lens.range.start]
+            };
+            return lens;
+        });
+    }
 
-                const recentCommit = Array.from(blame.commits.values()).sort((a, b) => b.date.getTime() - a.date.getTime())[0];
-                lens.sha = recentCommit.sha;
-                lens.command = {
-                    title: `${recentCommit.author}, ${moment(recentCommit.date).fromNow()}`, // - lines(${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1})`,
-                    command: Commands.ShowBlameHistory,
-                    arguments: [Uri.file(lens.fileName), lens.blameRange, lens.sha]
-                };
-                resolve(lens);
-            });
-        });//.catch(ex => Promise.reject(ex)); // TODO: Figure out a better way to stop the codelens from appearing
+    _resolveGitBlameCodeLens(lens: GitBlameCodeLens, token: CancellationToken): Thenable<CodeLens> {
+        return lens.getBlame().then(blame => {
+            const count = blame.authors.size;
+            lens.command = {
+                title: `${count} ${count > 1 ? 'authors' : 'author'} (${blame.authors.values().next().value.name}${count > 1 ? ' and others' : ''})`,
+                command: Commands.ShowBlame,
+                arguments: [Uri.file(lens.fileName), lens.blameRange, lens.sha]
+            };
+            return lens;
+        });
     }
 
     _resolveGitHistoryCodeLens(lens: GitHistoryCodeLens, token: CancellationToken): Thenable<CodeLens> {

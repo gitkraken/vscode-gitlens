@@ -1,6 +1,6 @@
 'use strict'
-import {commands, DecorationOptions, Disposable, ExtensionContext, OverviewRulerLane, Position, Range, TextEditor, TextEditorDecorationType, Uri, window, workspace} from 'vscode';
-import {Commands, VsCodeCommands} from './constants';
+import {commands, DecorationOptions, Disposable, ExtensionContext, languages, OverviewRulerLane, Position, Range, TextEditor, TextEditorDecorationType, Uri, window, workspace} from 'vscode';
+import {Commands, DocumentSchemes, VsCodeCommands} from './constants';
 import GitProvider, {IGitBlame} from './gitProvider';
 import {basename} from 'path';
 import * as moment from 'moment';
@@ -9,13 +9,13 @@ export default class GitBlameController extends Disposable {
     private _controller: GitBlameEditorController;
     private _subscription: Disposable;
 
-    private blameDecoration: TextEditorDecorationType;
-    private highlightDecoration: TextEditorDecorationType;
+    private _blameDecoration: TextEditorDecorationType;
+    private _highlightDecoration: TextEditorDecorationType;
 
     constructor(context: ExtensionContext, private git: GitProvider) {
         super(() => this.dispose());
 
-        this.blameDecoration = window.createTextEditorDecorationType({
+        this._blameDecoration = window.createTextEditorDecorationType({
                 before: {
                     color: '#5a5a5a',
                     margin: '0 1em 0 0',
@@ -23,7 +23,7 @@ export default class GitBlameController extends Disposable {
                 },
         });
 
-        this.highlightDecoration= window.createTextEditorDecorationType({
+        this._highlightDecoration= window.createTextEditorDecorationType({
             dark: {
                 backgroundColor: 'rgba(255, 255, 255, 0.15)',
                 gutterIconPath: context.asAbsolutePath('images/blame-dark.png'),
@@ -68,7 +68,7 @@ export default class GitBlameController extends Disposable {
             return;
         }
 
-        this._controller = new GitBlameEditorController(this.git, this.blameDecoration, this.highlightDecoration, editor, sha);
+        this._controller = new GitBlameEditorController(this.git, this._blameDecoration, this._highlightDecoration, editor, sha);
         return this._controller.applyBlame(sha);
     }
 }
@@ -120,7 +120,7 @@ class GitBlameEditorController extends Disposable {
                 });
 
                 this.editor.setDecorations(this.blameDecoration, blameDecorationOptions);
-                return this.applyHighlight(sha || commits.sort((a, b) => b.date.getTime() - a.date.getTime())[0].sha);
+                return this.applyHighlight(sha || commits[0].sha);
             });
         });
     }
@@ -137,49 +137,4 @@ class GitBlameEditorController extends Disposable {
             this.editor.setDecorations(this.highlightDecoration, highlightDecorationRanges);
         });
     }
-
-    // execute(sha?: string) {
-    //     const editor = this.editor;
-    //     const uri = editor.document.uri;
-    //     const range = this.range;
-
-    //     // editor.setDecorations(this.blameDecoration, []);
-    //     // editor.setDecorations(this.highlightDecoration, []);
-
-    //     const highlightDecorationRanges: Array<Range> = [];
-    //     const blameDecorationOptions: Array<DecorationOptions> = [];
-
-    //     this.git.getBlameForRange(uri.path, range).then(blame => {
-    //         if (!blame.lines.length) return;
-
-    //         const commits = Array.from(blame.commits.values());
-    //         if (!sha) {
-    //             sha = commits.sort((a, b) => b.date.getTime() - a.date.getTime())[0].sha;
-    //         }
-
-    //         return this.git.getCommitMessages(uri.path)
-    //             .then(msgs => {
-    //                 commits.forEach(c => {
-    //                     c.message = msgs.get(c.sha.substring(0, c.sha.length - 1));
-    //                 });
-
-    //                 blame.lines.forEach(l => {
-    //                     if (l.sha === sha) {
-    //                         highlightDecorationRanges.push(editor.document.validateRange(new Range(l.line, 0, l.line, 1000000)));
-    //                     }
-
-    //                     const c = blame.commits.get(l.sha);
-    //                     blameDecorationOptions.push({
-    //                         range: editor.document.validateRange(new Range(l.line, 0, l.line, 0)),
-    //                         hoverMessage: `${c.sha}: ${c.message}\n${c.author}, ${moment(c.date).format('MMMM Do, YYYY hh:MM a')}`,
-    //                         renderOptions: { before: { contentText: `${l.sha}`, } }
-    //                     });
-    //                 });
-    //             });
-    //     })
-    //     .then(() => {
-    //         editor.setDecorations(this.blameDecoration, blameDecorationOptions);
-    //         editor.setDecorations(this.highlightDecoration, highlightDecorationRanges);
-    //     });
-    // }
 }

@@ -1,7 +1,7 @@
 'use strict';
 import {CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelector, ExtensionContext, Location, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri} from 'vscode';
 import {Commands, DocumentSchemes, VsCodeCommands, WorkspaceState} from './constants';
-import GitProvider, {IGitBlame, IGitBlameCommit} from './gitProvider';
+import GitProvider, {IGitBlame, IGitCommit} from './gitProvider';
 import {join} from 'path';
 import * as moment from 'moment';
 
@@ -25,12 +25,13 @@ export default class GitBlameCodeLensProvider implements CodeLensProvider {
     provideCodeLenses(document: TextDocument, token: CancellationToken): CodeLens[] | Thenable<CodeLens[]> {
         const data = this.git.fromBlameUri(document.uri);
         const fileName = data.fileName;
+        const sha = data.sha;
 
         return this.git.getBlameForFile(fileName).then(blame => {
-            const commits = Array.from(blame.commits.values()).sort((a, b) => b.date.getTime() - a.date.getTime());
-            let index = commits.findIndex(c => c.sha === data.sha) + 1;
+            const commits = Array.from(blame.commits.values());
+            let index = commits.findIndex(c => c.sha === sha) + 1;
 
-            let previousCommit: IGitBlameCommit;
+            let previousCommit: IGitCommit;
             if (index < commits.length) {
                 previousCommit = commits[index];
             }
@@ -38,13 +39,13 @@ export default class GitBlameCodeLensProvider implements CodeLensProvider {
             const lenses: CodeLens[] = [];
 
             // Add codelens to each "group" of blame lines
-            const lines = blame.lines.filter(l => l.sha === data.sha && l.originalLine >= data.range.start.line && l.originalLine <= data.range.end.line);
+            const lines = blame.lines.filter(l => l.sha === sha && l.originalLine >= data.range.start.line && l.originalLine <= data.range.end.line);
             let lastLine = lines[0].originalLine;
             lines.forEach(l => {
                 if (l.originalLine !== lastLine + 1) {
-                    lenses.push(new GitDiffWithWorkingTreeCodeLens(this.git, fileName, data.sha, new Range(l.originalLine, 0, l.originalLine, 1)));
+                    lenses.push(new GitDiffWithWorkingTreeCodeLens(this.git, fileName, sha, new Range(l.originalLine, 0, l.originalLine, 1)));
                     if (previousCommit) {
-                        lenses.push(new GitDiffWithPreviousCodeLens(this.git, fileName, data.sha, previousCommit.sha, new Range(l.originalLine, 1, l.originalLine, 2)));
+                        lenses.push(new GitDiffWithPreviousCodeLens(this.git, fileName, sha, previousCommit.sha, new Range(l.originalLine, 1, l.originalLine, 2)));
                     }
                 }
                 lastLine = l.originalLine;
@@ -52,9 +53,9 @@ export default class GitBlameCodeLensProvider implements CodeLensProvider {
 
             // Check if we have a lens for the whole document -- if not add one
             if (!lenses.find(l => l.range.start.line === 0 && l.range.end.line === 0)) {
-                lenses.push(new GitDiffWithWorkingTreeCodeLens(this.git, fileName, data.sha, new Range(0, 0, 0, 1)));
+                lenses.push(new GitDiffWithWorkingTreeCodeLens(this.git, fileName, sha, new Range(0, 0, 0, 1)));
                 if (previousCommit) {
-                    lenses.push(new GitDiffWithPreviousCodeLens(this.git, fileName, data.sha, previousCommit.sha, new Range(0, 1, 0, 2)));
+                    lenses.push(new GitDiffWithPreviousCodeLens(this.git, fileName, sha, previousCommit.sha, new Range(0, 1, 0, 2)));
                 }
             }
 

@@ -23,8 +23,8 @@
     "main": "./out/src/extension",
     "contributes": {
         "commands": [{
-            "command": "git.action.showBlameHistory",
-            "title": "Show Blame History",
+            "command": "git.action.showBlame",
+            "title": "Show Git Blame",
             "category": "Git"
         }]
     },
@@ -38,12 +38,12 @@
         "tmp": "^0.0.28"
     },
     "devDependencies": {
-        "typescript": "^1.8.10",
+        "typescript": "^2.0.0",
         "vscode": "^0.11.17"
     },
     "scripts": {
         "vscode:prepublish": "node ./node_modules/vscode/bin/compile",
         "compile": "node ./node_modules/vscode/bin/compile -watch -p ./",
-        "postinstall": "node ./node_modules/vscode/bin/install && tsc"
+        "postinstall": "node ./node_modules/vscode/bin/install"
     }
 }
