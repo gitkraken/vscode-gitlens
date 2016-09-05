@@ -20,6 +20,10 @@
         "theme": "dark"
     },
     "preview": true,
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/eamodio/vscode-gitlens.git"
+    },
     "main": "./out/src/extension",
     "contributes": {
         "commands": [{
@@ -86,7 +90,7 @@
         "vscode": "^0.11.17"
     },
     "scripts": {
-        "vscode:prepublish": "node ./node_modules/vscode/bin/compile",
+        "vscode:prepublish": "node ./node_modules/vscode/bin/compile && tsc",
         "compile": "node ./node_modules/vscode/bin/compile -watch -p ./",
         "postinstall": "node ./node_modules/vscode/bin/install"
     }
