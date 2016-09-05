@@ -8,7 +8,7 @@
     },
     "license": "SEE LICENSE IN LICENSE",
     "displayName": "GitLens",
-    "description": "Provides Git blame information in CodeLens",
+    "description": "Provides Git information in CodeLens",
     "categories": [
         "Other"
     ],
