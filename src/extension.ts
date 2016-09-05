@@ -5,7 +5,7 @@ import GitBlameCodeLensProvider from './gitBlameCodeLensProvider';
 import GitBlameContentProvider from './gitBlameContentProvider';
 import GitBlameController from './gitBlameController';
 import GitProvider from './gitProvider';
-import {DiffWithPreviousCommand, DiffWithWorkingCommand, ShowBlameCommand, ShowHistoryCommand, ToggleBlameCommand} from './commands';
+import {DiffWithPreviousCommand, DiffWithWorkingCommand, ShowBlameCommand, ShowBlameHistoryCommand, ToggleBlameCommand} from './commands';
 import {WorkspaceState} from './constants';
 
 // this method is called when your extension is activated
@@ -24,7 +24,7 @@ export function activate(context: ExtensionContext) {
 
     git.getRepoPath(workspace.rootPath).then(repoPath => {
         context.workspaceState.update(WorkspaceState.RepoPath, repoPath);
-        context.workspaceState.update(WorkspaceState.HasGitHistoryExtension, extensions.getExtension('donjayamanne.githistory') !== undefined);
+        //context.workspaceState.update(WorkspaceState.HasGitHistoryExtension, extensions.getExtension('donjayamanne.githistory') !== undefined);
 
         context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider(context, git)));
         context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitBlameContentProvider.scheme, new GitBlameContentProvider(context, git)));
@@ -34,11 +34,11 @@ export function activate(context: ExtensionContext) {
         const blameController = new GitBlameController(context, git);
         context.subscriptions.push(blameController);
 
+        context.subscriptions.push(new DiffWithWorkingCommand(git));
+        context.subscriptions.push(new DiffWithPreviousCommand(git));
         context.subscriptions.push(new ShowBlameCommand(git, blameController));
         context.subscriptions.push(new ToggleBlameCommand(git, blameController));
-        context.subscriptions.push(new ShowHistoryCommand(git));
-        context.subscriptions.push(new DiffWithPreviousCommand(git));
-        context.subscriptions.push(new DiffWithWorkingCommand(git));
+        context.subscriptions.push(new ShowBlameHistoryCommand(git));
     }).catch(reason => console.warn(reason));
 }
 

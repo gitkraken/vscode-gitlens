@@ -1,6 +1,6 @@
 'use strict';
 import {CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelector, ExtensionContext, Location, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri} from 'vscode';
-import {Commands, DocumentSchemes, VsCodeCommands, WorkspaceState} from './constants';
+import {BuiltInCommands, Commands, DocumentSchemes, WorkspaceState} from './constants';
 import GitProvider, {IGitBlame, IGitCommit} from './gitProvider';
 import {join} from 'path';
 import * as moment from 'moment';

@@ -7,10 +7,8 @@ import {basename, dirname, extname} from 'path';
 import * as moment from 'moment';
 import * as _ from 'lodash';
 
-const blameMatcher = /^([\^0-9a-fA-F]{8})\s([\S]*)\s+([0-9\S]+)\s\((.*)\s([0-9]{4}-[0-9]{2}-[0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2}\s[-|+][0-9]{4})\s+([0-9]+)\)(.*)$/gm;
 const commitMessageMatcher = /^([\^0-9a-fA-F]{7})\s(.*)$/gm;
 const blamePorcelainMatcher = /^([\^0-9a-fA-F]{40})\s([0-9]+)\s([0-9]+)(?:\s([0-9]+))?$\n(?:^author\s(.*)$\n^author-mail\s(.*)$\n^author-time\s(.*)$\n^author-tz\s(.*)$\n^committer\s(.*)$\n^committer-mail\s(.*)$\n^committer-time\s(.*)$\n^committer-tz\s(.*)$\n^summary\s(.*)$\n(?:^previous\s(.*)?\s(.*)$\n)?^filename\s(.*)$\n)?^(.*)$/gm;
-const blameLinePorcelainMatcher = /^([\^0-9a-fA-F]{40})\s([0-9]+)\s([0-9]+)(?:\s([0-9]+))?$\n^author\s(.*)$\n^author-mail\s(.*)$\n^author-time\s(.*)$\n^author-tz\s(.*)$\n^committer\s(.*)$\n^committer-mail\s(.*)$\n^committer-time\s(.*)$\n^committer-tz\s(.*)$\n^summary\s(.*)$\n(?:^previous\s(.*)?\s(.*)$\n)?^filename\s(.*)$\n^(.*)$/gm;
 
 export default class GitProvider extends Disposable {
     public repoPath: string;
@@ -27,6 +25,7 @@ export default class GitProvider extends Disposable {
 
         this.repoPath = context.workspaceState.get(WorkspaceState.RepoPath) as string;
 
+        // TODO: Cache needs to be cleared on file changes -- createFileSystemWatcher or timeout?
         this._blames = new Map();
         this._registerCodeLensProvider();
         this._clearCacheFn = _.debounce(this._clearBlame.bind(this), 2500);
@@ -55,95 +54,21 @@ export default class GitProvider extends Disposable {
 
     private _clearBlame(fileName: string, reset?: boolean) {
         fileName = Git.normalizePath(fileName, this.repoPath);
-        this._blames.delete(fileName.toLowerCase());
+        reset = !!reset;
 
-        console.log(`_removeFile(${fileName}, ${reset})`);
+        if (this._blames.delete(fileName.toLowerCase())) {
+            console.log(`GitProvider._clearBlame(${fileName}, ${reset})`);
 
-        if (reset) {
-            this._registerCodeLensProvider();
+            if (reset) {
+                // TODO: Killing the code lens provider is too drastic -- makes the editor jump around, need to figure out how to trigger a refresh
+                //this._registerCodeLensProvider();
+            }
         }
     }
 
     getRepoPath(cwd: string) {
         return Git.repoPath(cwd);
     }
-
-    // getBlameForFile(fileName: string) {
-    //     fileName = Git.normalizePath(fileName, this.repoPath);
-
-    //     let blame = this._blames.get(fileName.toLowerCase());
-    //     if (blame !== undefined) return blame;
-
-    //     blame = Git.blame(fileName, this.repoPath)
-    //         .then(data => {
-    //             const authors: Map<string, IGitAuthor> = new Map();
-    //             const commits: Map<string, IGitCommit> = new Map();
-    //             const lines: Array<IGitCommitLine> = [];
-
-    //             let m: Array<string>;
-    //             while ((m = blameMatcher.exec(data)) != null) {
-    //                 const authorName = m[4].trim();
-    //                 let author = authors.get(authorName);
-    //                 if (!author) {
-    //                     author = {
-    //                         name: authorName,
-    //                         lineCount: 0
-    //                     };
-    //                     authors.set(authorName, author);
-    //                 }
-
-    //                 const sha = m[1];
-    //                 let commit = commits.get(sha);
-    //                 if (!commit) {
-    //                     commit = {
-    //                         sha,
-    //                         fileName: fileName,
-    //                         author: authorName,
-    //                         date: new Date(m[5]),
-    //                         lines: []
-    //                     };
-
-    //                     const file = m[2].trim();
-    //                     if (!fileName.toLowerCase().endsWith(file.toLowerCase())) {
-    //                         commit.originalFileName = file;
-    //                     }
-
-    //                     commits.set(sha, commit);
-    //                 }
-
-    //                 const line: IGitCommitLine = {
-    //                     sha,
-    //                     line: parseInt(m[6], 10) - 1,
-    //                     originalLine: parseInt(m[3], 10) - 1
-    //                     //code: m[7]
-    //                 }
-
-    //                 commit.lines.push(line);
-    //                 lines.push(line);
-    //             }
-
-    //             commits.forEach(c => authors.get(c.author).lineCount += c.lines.length);
-
-    //             const sortedAuthors: Map<string, IGitAuthor> = new Map();
-    //             const values = Array.from(authors.values())
-    //                 .sort((a, b) => b.lineCount - a.lineCount)
-    //                 .forEach(a => sortedAuthors.set(a.name, a));
-
-    //             const sortedCommits = new Map();
-    //             Array.from(commits.values())
-    //                 .sort((a, b) => b.date.getTime() - a.date.getTime())
-    //                 .forEach(c => sortedCommits.set(c.sha, c));
-
-    //             return {
-    //                 authors: sortedAuthors,
-    //                 commits: sortedCommits,
-    //                 lines: lines
-    //             };
-    //         });
-
-    //     this._blames.set(fileName.toLowerCase(), blame);
-    //     return blame;
-    // }
 
     getBlameForFile(fileName: string) {
         fileName = Git.normalizePath(fileName, this.repoPath);
@@ -335,21 +260,21 @@ export default class GitProvider extends Disposable {
     //     });
     // }
 
-    getCommitMessage(sha: string) {
-        return Git.getCommitMessage(sha, this.repoPath);
-    }
+    // getCommitMessage(sha: string) {
+    //     return Git.getCommitMessage(sha, this.repoPath);
+    // }
 
-    getCommitMessages(fileName: string) {
-        return Git.getCommitMessages(fileName, this.repoPath).then(data => {
-            const commits: Map<string, string> = new Map();
-            let m: Array<string>;
-            while ((m = commitMessageMatcher.exec(data)) != null) {
-                commits.set(m[1], m[2]);
-            }
+    // getCommitMessages(fileName: string) {
+    //     return Git.getCommitMessages(fileName, this.repoPath).then(data => {
+    //         const commits: Map<string, string> = new Map();
+    //         let m: Array<string>;
+    //         while ((m = commitMessageMatcher.exec(data)) != null) {
+    //             commits.set(m[1], m[2]);
+    //         }
 
-            return commits;
-        });
-    }
+    //         return commits;
+    //     });
+    // }
 
     getVersionedFile(fileName: string, sha: string) {
         return Git.getVersionedFile(fileName, this.repoPath, sha);

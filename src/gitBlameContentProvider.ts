@@ -92,14 +92,12 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
             this.git.getBlameForShaRange(data.fileName, data.sha, data.range).then(blame => {
                 if (!blame.lines.length) return;
 
-                this.git.getCommitMessage(data.sha).then(msg => {
-                    editor.setDecorations(this._blameDecoration, blame.lines.map(l => {
-                        return {
-                            range: editor.document.validateRange(new Range(l.originalLine, 0, l.originalLine, 1000000)),
-                            hoverMessage: `${msg}\n${blame.commit.author}\n${moment(blame.commit.date).format('MMMM Do, YYYY hh:MM a')}\n${l.sha}`
-                        };
-                    }));
-                })
+                editor.setDecorations(this._blameDecoration, blame.lines.map(l => {
+                    return {
+                        range: editor.document.validateRange(new Range(l.originalLine, 0, l.originalLine, 1000000)),
+                        hoverMessage: `${blame.commit.message}\n${blame.commit.author}\n${moment(blame.commit.date).format('MMMM Do, YYYY hh:MM a')}\n${l.sha}`
+                    };
+                }));
             });
         }, 200);
     }

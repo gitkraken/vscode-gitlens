@@ -1,6 +1,6 @@
 'use strict';
 import {CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelector, ExtensionContext, Location, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri, window} from 'vscode';
-import {Commands, DocumentSchemes, VsCodeCommands, WorkspaceState} from './constants';
+import {BuiltInCommands, Commands, DocumentSchemes, WorkspaceState} from './constants';
 import GitProvider, {IGitBlame, IGitBlameLines, IGitCommit} from './gitProvider';
 import * as moment from 'moment';
 
@@ -41,7 +41,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
 
     provideCodeLenses(document: TextDocument, token: CancellationToken): CodeLens[] | Thenable<CodeLens[]> {
         const fileName = document.fileName;
-        const promise = Promise.all([this.git.getBlameForFile(fileName) as Promise<any>, (commands.executeCommand(VsCodeCommands.ExecuteDocumentSymbolProvider, document.uri) as Promise<any>)]);
+        const promise = Promise.all([this.git.getBlameForFile(fileName) as Promise<any>, (commands.executeCommand(BuiltInCommands.ExecuteDocumentSymbolProvider, document.uri) as Promise<any>)]);
 
         return promise.then(values => {
             const blame = values[0] as IGitBlame;
@@ -122,7 +122,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             const recentCommit = blame.commits.values().next().value;
             lens.command = {
                 title: `${recentCommit.author}, ${moment(recentCommit.date).fromNow()}`, // - lines(${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1})`,
-                command: Commands.ShowHistory,
+                command: Commands.ShowBlameHistory,
                 arguments: [Uri.file(lens.fileName), lens.blameRange, lens.range.start]
             };
             return lens;

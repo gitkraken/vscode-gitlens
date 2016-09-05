@@ -1,6 +1,6 @@
 # GitLens
 
-Provides Git blame (and history eventually) CodeLens for many supported Visual Studio Code languages (in theory -- the language must support symbol searching).
+Provides Git blame and blame history CodeLens for many supported Visual Studio Code languages (in theory -- the language must support symbol searching).
 
 ## Features
 

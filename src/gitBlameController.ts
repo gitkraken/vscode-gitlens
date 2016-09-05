@@ -1,6 +1,6 @@
 'use strict'
 import {commands, DecorationOptions, Diagnostic, DiagnosticCollection, DiagnosticSeverity, Disposable, ExtensionContext, languages, OverviewRulerLane, Position, Range, TextEditor, TextEditorDecorationType, Uri, window, workspace} from 'vscode';
-import {Commands, DocumentSchemes, VsCodeCommands} from './constants';
+import {BuiltInCommands, Commands, DocumentSchemes} from './constants';
 import GitProvider, {IGitBlame} from './gitProvider';
 import GitCodeActionsProvider from './gitCodeActionProvider';
 import {DiagnosticCollectionName, DiagnosticSource} from './constants';
@@ -90,6 +90,7 @@ class GitBlameEditorController extends Disposable {
     private _disposable: Disposable;
     private _blame: Promise<IGitBlame>;
     private _diagnostics: DiagnosticCollection;
+    private _toggleWhitespace: boolean;
 
     constructor(private context: ExtensionContext, private git: GitProvider, public editor: TextEditor) {
         super(() => this.dispose());
@@ -123,6 +124,10 @@ class GitBlameEditorController extends Disposable {
 
     dispose() {
         if (this.editor) {
+            if (this._toggleWhitespace) {
+                commands.executeCommand(BuiltInCommands.ToggleRenderWhitespace);
+            }
+
             this.editor.setDecorations(blameDecoration, []);
             this.editor.setDecorations(highlightDecoration, []);
             this.editor = null;
@@ -140,6 +145,12 @@ class GitBlameEditorController extends Disposable {
     applyBlame(sha: string) {
         return this._blame.then(blame => {
             if (!blame.lines.length) return;
+
+            // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- toggle whitespace off
+            this._toggleWhitespace = workspace.getConfiguration('editor').get('renderWhitespace') as boolean;
+            if (this._toggleWhitespace) {
+                commands.executeCommand(BuiltInCommands.ToggleRenderWhitespace);
+            }
 
             const blameDecorationOptions: DecorationOptions[] = blame.lines.map(l => {
                 const c = blame.commits.get(l.sha);
