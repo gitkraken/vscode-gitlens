@@ -1,19 +1,16 @@
 'use strict'
 
-export type WorkspaceState = 'hasGitHistoryExtension' | 'repoPath';
-export const WorkspaceState = {
-    HasGitHistoryExtension: 'hasGitHistoryExtension' as WorkspaceState,
-    RepoPath: 'repoPath' as WorkspaceState
-}
+export const DiagnosticCollectionName = 'gitlens';
+export const DiagnosticSource = 'GitLens';
+export const RepoPath = 'repoPath';
 
-export const RepoPath: string = 'repoPath';
-
-export type Commands = 'git.action.diffWithPrevious' | 'git.action.diffWithWorking' | 'git.action.showBlame' | 'git.action.showHistory';
+export type Commands = 'gitlens.diffWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.showBlame' | 'gitlens.showHistory' | 'gitlens.toggleBlame';
 export const Commands = {
-    DiffWithPrevious: 'git.action.diffWithPrevious' as Commands,
-    DiffWithWorking: 'git.action.diffWithWorking' as Commands,
-    ShowBlame: 'git.action.showBlame' as Commands,
-    ShowHistory: 'git.action.showHistory' as Commands,
+    DiffWithPrevious: 'gitlens.diffWithPrevious' as Commands,
+    DiffWithWorking: 'gitlens.diffWithWorking' as Commands,
+    ShowBlame: 'gitlens.showBlame' as Commands,
+    ShowHistory: 'gitlens.showHistory' as Commands,
+    ToggleBlame: 'gitlens.toggleBlame' as Commands,
 }
 
 export type DocumentSchemes = 'file' | 'git' | 'gitblame';
@@ -29,4 +26,10 @@ export const VsCodeCommands = {
     ExecuteDocumentSymbolProvider: 'vscode.executeDocumentSymbolProvider' as VsCodeCommands,
     ExecuteCodeLensProvider: 'vscode.executeCodeLensProvider' as VsCodeCommands,
     ShowReferences: 'editor.action.showReferences' as VsCodeCommands
+}
+
+export type WorkspaceState = 'hasGitHistoryExtension' | 'repoPath';
+export const WorkspaceState = {
+    HasGitHistoryExtension: 'hasGitHistoryExtension' as WorkspaceState,
+    RepoPath: 'repoPath' as WorkspaceState
 }

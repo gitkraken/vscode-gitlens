@@ -1,53 +1,62 @@
 'use strict'
-import {commands, DecorationOptions, Disposable, ExtensionContext, languages, OverviewRulerLane, Position, Range, TextEditor, TextEditorDecorationType, Uri, window, workspace} from 'vscode';
+import {commands, DecorationOptions, Diagnostic, DiagnosticCollection, DiagnosticSeverity, Disposable, ExtensionContext, languages, OverviewRulerLane, Position, Range, TextEditor, TextEditorDecorationType, Uri, window, workspace} from 'vscode';
 import {Commands, DocumentSchemes, VsCodeCommands} from './constants';
 import GitProvider, {IGitBlame} from './gitProvider';
-import {basename} from 'path';
+import GitCodeActionsProvider from './gitCodeActionProvider';
+import {DiagnosticCollectionName, DiagnosticSource} from './constants';
 import * as moment from 'moment';
+
+const blameDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
+    before: {
+        color: '#5a5a5a',
+        margin: '0 1em 0 0',
+        width: '5em'
+    },
+});
+
+let highlightDecoration: TextEditorDecorationType;
 
 export default class GitBlameController extends Disposable {
     private _controller: GitBlameEditorController;
-    private _subscription: Disposable;
+    private _disposable: Disposable;
 
     private _blameDecoration: TextEditorDecorationType;
     private _highlightDecoration: TextEditorDecorationType;
 
-    constructor(context: ExtensionContext, private git: GitProvider) {
+    constructor(private context: ExtensionContext, private git: GitProvider) {
         super(() => this.dispose());
 
-        this._blameDecoration = window.createTextEditorDecorationType({
-                before: {
-                    color: '#5a5a5a',
-                    margin: '0 1em 0 0',
-                    width: '5em'
+        if (!highlightDecoration) {
+            highlightDecoration = window.createTextEditorDecorationType({
+                dark: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    gutterIconPath: context.asAbsolutePath('images/blame-dark.png'),
+                    overviewRulerColor: 'rgba(255, 255, 255, 0.75)',
                 },
-        });
+                light: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+                    gutterIconPath: context.asAbsolutePath('images/blame-light.png'),
+                    overviewRulerColor: 'rgba(0, 0, 0, 0.75)',
+                },
+                gutterIconSize: 'contain',
+                overviewRulerLane: OverviewRulerLane.Right,
+                isWholeLine: true
+            });
+        }
 
-        this._highlightDecoration= window.createTextEditorDecorationType({
-            dark: {
-                backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                gutterIconPath: context.asAbsolutePath('images/blame-dark.png'),
-                overviewRulerColor: 'rgba(255, 255, 255, 0.75)',
-            },
-            light: {
-                backgroundColor: 'rgba(0, 0, 0, 0.15)',
-                gutterIconPath: context.asAbsolutePath('images/blame-light.png'),
-                overviewRulerColor: 'rgba(0, 0, 0, 0.75)',
-            },
-            gutterIconSize: 'contain',
-            overviewRulerLane: OverviewRulerLane.Right,
-            isWholeLine: true
-        });
+        const subscriptions: Disposable[] = [];
 
-        this._subscription = Disposable.from(window.onDidChangeActiveTextEditor(e => {
+        subscriptions.push(window.onDidChangeActiveTextEditor(e => {
             if (!this._controller || this._controller.editor === e) return;
             this.clear();
         }));
+
+        this._disposable = Disposable.from(...subscriptions);
     }
 
     dispose() {
         this.clear();
-        this._subscription && this._subscription.dispose();
+        this._disposable && this._disposable.dispose();
     }
 
     clear() {
@@ -55,78 +64,106 @@ export default class GitBlameController extends Disposable {
         this._controller = null;
     }
 
+    showBlame(editor: TextEditor, sha: string) {
+        if (!editor) {
+            this.clear();
+            return;
+        }
+
+        if (!this._controller) {
+            this._controller = new GitBlameEditorController(this.context, this.git, editor);
+            return this._controller.applyBlame(sha);
+        }
+    }
+
     toggleBlame(editor: TextEditor, sha: string) {
-        if (editor && (this._controller && this._controller.sha !== sha)) {
-            this._controller.applyHighlight(sha);
+        if (!editor || this._controller) {
+            this.clear();
             return;
         }
 
-        const controller = this._controller;
-        this.clear();
-
-        if (!editor || (controller && controller.sha === sha)) {
-            return;
-        }
-
-        this._controller = new GitBlameEditorController(this.git, this._blameDecoration, this._highlightDecoration, editor, sha);
-        return this._controller.applyBlame(sha);
+        return this.showBlame(editor, sha);
     }
 }
 
 class GitBlameEditorController extends Disposable {
-    private _subscription: Disposable;
+    private _disposable: Disposable;
     private _blame: Promise<IGitBlame>;
-    //private _commits: Promise<Map<string, string>>;
+    private _diagnostics: DiagnosticCollection;
 
-    constructor(private git: GitProvider, private blameDecoration: TextEditorDecorationType, private highlightDecoration: TextEditorDecorationType, public editor: TextEditor, public sha: string) {
+    constructor(private context: ExtensionContext, private git: GitProvider, public editor: TextEditor) {
         super(() => this.dispose());
 
         const fileName = this.editor.document.uri.path;
         this._blame = this.git.getBlameForFile(fileName);
-        //this._commits = this.git.getCommitMessages(fileName);
 
-        this._subscription = Disposable.from(window.onDidChangeTextEditorSelection(e => {
+        const subscriptions: Disposable[] = [];
+
+        this._diagnostics = languages.createDiagnosticCollection(DiagnosticCollectionName);
+        subscriptions.push(this._diagnostics);
+
+        subscriptions.push(languages.registerCodeActionsProvider(GitCodeActionsProvider.selector, new GitCodeActionsProvider(this.context, this.git)));
+
+        subscriptions.push(window.onDidChangeTextEditorSelection(e => {
             const activeLine = e.selections[0].active.line;
+
+            this._diagnostics.clear();
+
             this.git.getBlameForLine(e.textEditor.document.fileName, activeLine)
-                .then(blame => this.applyHighlight(blame.commit.sha));
+                .then(blame => {
+                    // Add the bogus diagnostics to provide code actions for this sha
+                    this._diagnostics.set(editor.document.uri, [this._getDiagnostic(editor, activeLine, blame.commit.sha)]);
+
+                    this.applyHighlight(blame.commit.sha);
+                });
         }));
+
+        this._disposable = Disposable.from(...subscriptions);
     }
 
     dispose() {
         if (this.editor) {
-            this.editor.setDecorations(this.blameDecoration, []);
-            this.editor.setDecorations(this.highlightDecoration, []);
+            this.editor.setDecorations(blameDecoration, []);
+            this.editor.setDecorations(highlightDecoration, []);
             this.editor = null;
         }
 
-        this._subscription && this._subscription.dispose();
+        this._disposable && this._disposable.dispose();
+    }
+
+    _getDiagnostic(editor, line, sha) {
+        const diag = new Diagnostic(editor.document.validateRange(new Range(line, 0, line, 1000000)), `Diff commit ${sha}`, DiagnosticSeverity.Hint);
+        diag.source = DiagnosticSource;
+        return diag;
     }
 
     applyBlame(sha: string) {
         return this._blame.then(blame => {
             if (!blame.lines.length) return;
 
-            // return this._commits.then(msgs => {
-            //     const commits = Array.from(blame.commits.values());
-            //     commits.forEach(c => c.message = msgs.get(c.sha.substring(0, c.sha.length - 1)));
+            const blameDecorationOptions: DecorationOptions[] = blame.lines.map(l => {
+                const c = blame.commits.get(l.sha);
+                return {
+                    range: this.editor.document.validateRange(new Range(l.line, 0, l.line, 0)),
+                    hoverMessage: `${c.message}\n${c.author}, ${moment(c.date).format('MMMM Do, YYYY hh:MM a')}`,
+                    renderOptions: { before: { contentText: `${l.sha.substring(0, 8)}`, } }
+                };
+            });
 
-                const blameDecorationOptions: DecorationOptions[] = blame.lines.map(l => {
-                    const c = blame.commits.get(l.sha);
-                    return {
-                        range: this.editor.document.validateRange(new Range(l.line, 0, l.line, 0)),
-                        hoverMessage: `${c.message}\n${c.author}, ${moment(c.date).format('MMMM Do, YYYY hh:MM a')}`,
-                        renderOptions: { before: { contentText: `${l.sha.substring(0, 8)}`, } }
-                    };
-                });
+            this.editor.setDecorations(blameDecoration, blameDecorationOptions);
 
-                this.editor.setDecorations(this.blameDecoration, blameDecorationOptions);
-                return this.applyHighlight(sha || blame.commits.values().next().value.sha);
-            // });
+            sha = sha || blame.commits.values().next().value.sha;
+
+            // Add the bogus diagnostics to provide code actions for this sha
+            const activeLine = this.editor.selection.active.line;
+            this._diagnostics.clear();
+            this._diagnostics.set(this.editor.document.uri, [this._getDiagnostic(this.editor, activeLine, sha)]);
+
+            return this.applyHighlight(sha);
         });
     }
 
     applyHighlight(sha: string) {
-        this.sha = sha;
         return this._blame.then(blame => {
             if (!blame.lines.length) return;
 
@@ -134,7 +171,7 @@ class GitBlameEditorController extends Disposable {
                 .filter(l => l.sha === sha)
                 .map(l => this.editor.document.validateRange(new Range(l.line, 0, l.line, 1000000)));
 
-            this.editor.setDecorations(this.highlightDecoration, highlightDecorationRanges);
+            this.editor.setDecorations(highlightDecoration, highlightDecorationRanges);
         });
     }
 }

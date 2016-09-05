@@ -23,10 +23,47 @@
     "main": "./out/src/extension",
     "contributes": {
         "commands": [{
-            "command": "git.action.showBlame",
-            "title": "Show Git Blame",
-            "category": "Git"
-        }]
+            "command": "gitlens.showBlame",
+            "title": "GitLens: Show Git Blame",
+            "category": "GitLens"
+        },
+        {
+            "command": "gitlens.toggleBlame",
+            "title": "GitLens: Toggle Git Blame",
+            "category": "GitLens"
+        },
+        {
+            "command": "gitlens.diffWithPrevious",
+            "title": "GitLens: Diff Commit with Previous",
+            "category": "GitLens"
+        },
+        {
+            "command": "gitlens.diffWithWorking",
+            "title": "GitLens: Diff Commit with Working Tree",
+            "category": "GitLens"
+        }],
+        "menus": {
+            "editor/title": [{
+                "when": "editorTextFocus",
+                "command": "gitlens.toggleBlame",
+                "group": "gitlens"
+            }],
+            "editor/context": [{
+                "when": "editorTextFocus",
+                "command": "gitlens.toggleBlame",
+                "group": "gitlens@1.0"
+            },
+            {
+                "when": "editorTextFocus && editorHasCodeActionsProvider",
+                "command": "gitlens.diffWithWorking",
+                "group": "gitlens.blame@1.1"
+            },
+            {
+                "when": "editorTextFocus && editorHasCodeActionsProvider",
+                "command": "gitlens.diffWithPrevious",
+                "group": "gitlens.blame@1.2"
+            }]
+        }
     },
     "activationEvents": [
         "*"

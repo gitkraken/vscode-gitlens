@@ -1,12 +1,11 @@
 'use strict';
 import {CodeLens, DocumentSelector, ExtensionContext, extensions, languages, OverviewRulerLane, window, workspace} from 'vscode';
-import GitCodeLensProvider from './gitCodeLensProvider';
 import GitContentProvider from './gitContentProvider';
 import GitBlameCodeLensProvider from './gitBlameCodeLensProvider';
 import GitBlameContentProvider from './gitBlameContentProvider';
 import GitBlameController from './gitBlameController';
 import GitProvider from './gitProvider';
-import {BlameCommand, DiffWithPreviousCommand, DiffWithWorkingCommand, HistoryCommand} from './commands';
+import {DiffWithPreviousCommand, DiffWithWorkingCommand, ShowBlameCommand, ShowHistoryCommand, ToggleBlameCommand} from './commands';
 import {WorkspaceState} from './constants';
 
 // this method is called when your extension is activated
@@ -30,14 +29,14 @@ export function activate(context: ExtensionContext) {
         context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider(context, git)));
         context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitBlameContentProvider.scheme, new GitBlameContentProvider(context, git)));
 
-        context.subscriptions.push(languages.registerCodeLensProvider(GitCodeLensProvider.selector, new GitCodeLensProvider(context, git)));
         context.subscriptions.push(languages.registerCodeLensProvider(GitBlameCodeLensProvider.selector, new GitBlameCodeLensProvider(context, git)));
 
         const blameController = new GitBlameController(context, git);
         context.subscriptions.push(blameController);
 
-        context.subscriptions.push(new BlameCommand(git, blameController));
-        context.subscriptions.push(new HistoryCommand(git));
+        context.subscriptions.push(new ShowBlameCommand(git, blameController));
+        context.subscriptions.push(new ToggleBlameCommand(git, blameController));
+        context.subscriptions.push(new ShowHistoryCommand(git));
         context.subscriptions.push(new DiffWithPreviousCommand(git));
         context.subscriptions.push(new DiffWithWorkingCommand(git));
     }).catch(reason => console.warn(reason));

@@ -1,6 +1,7 @@
 'use strict'
-import {Disposable, ExtensionContext, Location, Position, Range, Uri, workspace} from 'vscode';
+import {Disposable, ExtensionContext, languages, Location, Position, Range, Uri, workspace} from 'vscode';
 import {DocumentSchemes, WorkspaceState} from './constants';
+import GitCodeLensProvider from './gitCodeLensProvider';
 import Git from './git';
 import {basename, dirname, extname} from 'path';
 import * as moment from 'moment';
@@ -15,30 +16,52 @@ export default class GitProvider extends Disposable {
     public repoPath: string;
 
     private _blames: Map<string, Promise<IGitBlame>>;
-    private _subscription: Disposable;
+    private _disposable: Disposable;
+    private _codeLensProviderSubscription: Disposable;
 
-    constructor(context: ExtensionContext) {
+    // TODO: Needs to be a Map so it can debounce per file
+    private _clearCacheFn: ((string, boolean) => void) & _.Cancelable;
+
+    constructor(private context: ExtensionContext) {
         super(() => this.dispose());
 
         this.repoPath = context.workspaceState.get(WorkspaceState.RepoPath) as string;
 
         this._blames = new Map();
-        this._subscription = Disposable.from(
-            workspace.onDidCloseTextDocument(d => this._removeFile(d.fileName)),
-            // TODO: Need a way to reset codelens in response to a save
-            workspace.onDidSaveTextDocument(d => this._removeFile(d.fileName))
-            //workspace.onDidChangeTextDocument(e => this._removeFile(e.document.fileName))
-        );
+        this._registerCodeLensProvider();
+        this._clearCacheFn = _.debounce(this._clearBlame.bind(this), 2500);
+
+        const subscriptions: Disposable[] = [];
+
+        subscriptions.push(workspace.onDidCloseTextDocument(d => this._clearBlame(d.fileName)));
+        subscriptions.push(workspace.onDidSaveTextDocument(d => this._clearCacheFn(d.fileName, true)));
+        subscriptions.push(workspace.onDidChangeTextDocument(e => this._clearCacheFn(e.document.fileName, false)));
+
+        this._disposable = Disposable.from(...subscriptions);
     }
 
     dispose() {
         this._blames.clear();
-        this._subscription && this._subscription.dispose();
+        this._disposable && this._disposable.dispose();
+        this._codeLensProviderSubscription && this._codeLensProviderSubscription.dispose();
     }
 
-    private _removeFile(fileName: string) {
+    private _registerCodeLensProvider() {
+        if (this._codeLensProviderSubscription) {
+            this._codeLensProviderSubscription.dispose();
+        }
+        this._codeLensProviderSubscription = languages.registerCodeLensProvider(GitCodeLensProvider.selector, new GitCodeLensProvider(this.context, this));
+    }
+
+    private _clearBlame(fileName: string, reset?: boolean) {
         fileName = Git.normalizePath(fileName, this.repoPath);
-        this._blames.delete(fileName);
+        this._blames.delete(fileName.toLowerCase());
+
+        console.log(`_removeFile(${fileName}, ${reset})`);
+
+        if (reset) {
+            this._registerCodeLensProvider();
+        }
     }
 
     getRepoPath(cwd: string) {
@@ -48,7 +71,7 @@ export default class GitProvider extends Disposable {
     // getBlameForFile(fileName: string) {
     //     fileName = Git.normalizePath(fileName, this.repoPath);
 
-    //     let blame = this._blames.get(fileName);
+    //     let blame = this._blames.get(fileName.toLowerCase());
     //     if (blame !== undefined) return blame;
 
     //     blame = Git.blame(fileName, this.repoPath)
@@ -118,14 +141,14 @@ export default class GitProvider extends Disposable {
     //             };
     //         });
 
-    //     this._blames.set(fileName, blame);
+    //     this._blames.set(fileName.toLowerCase(), blame);
     //     return blame;
     // }
 
     getBlameForFile(fileName: string) {
         fileName = Git.normalizePath(fileName, this.repoPath);
 
-        let blame = this._blames.get(fileName);
+        let blame = this._blames.get(fileName.toLowerCase());
         if (blame !== undefined) return blame;
 
         blame = Git.blamePorcelain(fileName, this.repoPath)
@@ -190,7 +213,7 @@ export default class GitProvider extends Disposable {
                     .sort((a, b) => b.lineCount - a.lineCount)
                     .forEach(a => sortedAuthors.set(a.name, a));
 
-                const sortedCommits = new Map();
+                const sortedCommits: Map<string, IGitCommit> = new Map();
                 Array.from(commits.values())
                     .sort((a, b) => b.date.getTime() - a.date.getTime())
                     .forEach(c => sortedCommits.set(c.sha, c));
@@ -202,8 +225,9 @@ export default class GitProvider extends Disposable {
                 };
             });
 
-        this._blames.set(fileName, blame);
-        return blame;    }
+        this._blames.set(fileName.toLowerCase(), blame);
+        return blame;
+    }
 
     getBlameForLine(fileName: string, line: number): Promise<IGitBlameLine> {
         return this.getBlameForFile(fileName).then(blame => {
@@ -217,12 +241,12 @@ export default class GitProvider extends Disposable {
         });
     }
 
-    getBlameForRange(fileName: string, range: Range): Promise<IGitBlame> {
+    getBlameForRange(fileName: string, range: Range): Promise<IGitBlameLines> {
         return this.getBlameForFile(fileName).then(blame => {
-            if (!blame.lines.length) return blame;
+            if (!blame.lines.length) return Object.assign({ allLines: blame.lines }, blame);
 
             if (range.start.line === 0 && range.end.line === blame.lines.length - 1) {
-                return blame;
+                return Object.assign({ allLines: blame.lines }, blame);
             }
 
             const lines = blame.lines.slice(range.start.line, range.end.line + 1);
@@ -249,16 +273,21 @@ export default class GitProvider extends Disposable {
                 author.lineCount += commit.lines.length;
             });
 
-            const sortedAuthors = new Map();
+            const sortedAuthors: Map<string, IGitAuthor> = new Map();
             Array.from(authors.values())
                 .sort((a, b) => b.lineCount - a.lineCount)
                 .forEach(a => sortedAuthors.set(a.name, a));
 
-            return { authors: sortedAuthors, commits, lines };
+            return {
+                authors: sortedAuthors,
+                commits: commits,
+                lines: lines,
+                allLines: blame.lines
+            };
         });
     }
 
-    getBlameForShaRange(fileName: string, sha: string, range: Range): Promise<IGitBlameLines> {
+    getBlameForShaRange(fileName: string, sha: string, range: Range): Promise<IGitBlameCommitLines> {
         return this.getBlameForFile(fileName).then(blame => {
             const lines = blame.lines.slice(range.start.line, range.end.line + 1).filter(l => l.sha === sha);
             const commit = Object.assign({}, blame.commits.get(sha), { lines: lines });
@@ -391,7 +420,11 @@ export interface IGitBlameLine {
     line: IGitCommitLine;
 }
 
-export interface IGitBlameLines {
+export interface IGitBlameLines extends IGitBlame {
+    allLines: IGitCommitLine[];
+}
+
+export interface IGitBlameCommitLines {
     author: IGitAuthor;
     commit: IGitCommit;
     lines: IGitCommitLine[];

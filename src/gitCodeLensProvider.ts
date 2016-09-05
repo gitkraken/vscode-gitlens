@@ -1,7 +1,7 @@
 'use strict';
-import {CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelector, ExtensionContext, Location, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri} from 'vscode';
+import {CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelector, ExtensionContext, Location, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri, window} from 'vscode';
 import {Commands, DocumentSchemes, VsCodeCommands, WorkspaceState} from './constants';
-import GitProvider, {IGitBlame, IGitCommit} from './gitProvider';
+import GitProvider, {IGitBlame, IGitBlameLines, IGitCommit} from './gitProvider';
 import * as moment from 'moment';
 
 export class GitRecentChangeCodeLens extends CodeLens {
@@ -9,36 +9,34 @@ export class GitRecentChangeCodeLens extends CodeLens {
         super(range);
     }
 
-    getBlame(): Promise<IGitBlame> {
+    getBlame(): Promise<IGitBlameLines> {
         return this.git.getBlameForRange(this.fileName, this.blameRange);
     }
 }
 
 export class GitBlameCodeLens extends CodeLens {
-    public sha: string;
-
     constructor(private git: GitProvider, public fileName: string, public blameRange: Range, range: Range) {
         super(range);
     }
 
-    getBlame(): Promise<IGitBlame> {
+    getBlame(): Promise<IGitBlameLines> {
         return this.git.getBlameForRange(this.fileName, this.blameRange);
     }
 }
 
-export class GitHistoryCodeLens extends CodeLens {
-    constructor(public repoPath: string, public fileName: string, range: Range) {
-        super(range);
-    }
-}
+// export class GitHistoryCodeLens extends CodeLens {
+//     constructor(public repoPath: string, public fileName: string, range: Range) {
+//         super(range);
+//     }
+// }
 
 export default class GitCodeLensProvider implements CodeLensProvider {
     static selector: DocumentSelector = { scheme: DocumentSchemes.File };
 
-    private hasGitHistoryExtension: boolean;
+    // private hasGitHistoryExtension: boolean;
 
     constructor(context: ExtensionContext, private git: GitProvider) {
-        this.hasGitHistoryExtension = context.workspaceState.get(WorkspaceState.HasGitHistoryExtension, false);
+        // this.hasGitHistoryExtension = context.workspaceState.get(WorkspaceState.HasGitHistoryExtension, false);
     }
 
     provideCodeLenses(document: TextDocument, token: CancellationToken): CodeLens[] | Thenable<CodeLens[]> {
@@ -116,7 +114,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
     resolveCodeLens(lens: CodeLens, token: CancellationToken): Thenable<CodeLens> {
         if (lens instanceof GitRecentChangeCodeLens) return this._resolveGitRecentChangeCodeLens(lens, token);
         if (lens instanceof GitBlameCodeLens) return this._resolveGitBlameCodeLens(lens, token);
-        if (lens instanceof GitHistoryCodeLens) return this._resolveGitHistoryCodeLens(lens, token);
+        // if (lens instanceof GitHistoryCodeLens) return this._resolveGitHistoryCodeLens(lens, token);
     }
 
     _resolveGitRecentChangeCodeLens(lens: GitRecentChangeCodeLens, token: CancellationToken): Thenable<CodeLens> {
@@ -133,23 +131,26 @@ export default class GitCodeLensProvider implements CodeLensProvider {
 
     _resolveGitBlameCodeLens(lens: GitBlameCodeLens, token: CancellationToken): Thenable<CodeLens> {
         return lens.getBlame().then(blame => {
+            const editor = window.activeTextEditor;
+            const activeLine = editor.selection.active.line;
+
             const count = blame.authors.size;
             lens.command = {
                 title: `${count} ${count > 1 ? 'authors' : 'author'} (${blame.authors.values().next().value.name}${count > 1 ? ' and others' : ''})`,
-                command: Commands.ShowBlame,
-                arguments: [Uri.file(lens.fileName), lens.blameRange, lens.sha]
+                command: Commands.ToggleBlame,
+                arguments: [Uri.file(lens.fileName), blame.allLines[activeLine].sha]
             };
             return lens;
         });
     }
 
-    _resolveGitHistoryCodeLens(lens: GitHistoryCodeLens, token: CancellationToken): Thenable<CodeLens> {
-        // TODO: Play with this more -- get this to open the correct diff to the right place
-        lens.command = {
-            title: `View History`,
-            command: 'git.viewFileHistory', // viewLineHistory
-            arguments: [Uri.file(lens.fileName)]
-        };
-        return Promise.resolve(lens);
-    }
+    // _resolveGitHistoryCodeLens(lens: GitHistoryCodeLens, token: CancellationToken): Thenable<CodeLens> {
+    //     // TODO: Play with this more -- get this to open the correct diff to the right place
+    //     lens.command = {
+    //         title: `View History`,
+    //         command: 'git.viewFileHistory', // viewLineHistory
+    //         arguments: [Uri.file(lens.fileName)]
+    //     };
+    //     return Promise.resolve(lens);
+    // }
 }
