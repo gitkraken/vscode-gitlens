@@ -1,5 +1,5 @@
 'use strict'
-import {commands, DecorationOptions, Diagnostic, DiagnosticCollection, DiagnosticSeverity, Disposable, ExtensionContext, languages, OverviewRulerLane, Position, Range, TextEditor, TextEditorDecorationType, Uri, window, workspace} from 'vscode';
+import {commands, DecorationInstanceRenderOptions, DecorationOptions, Diagnostic, DiagnosticCollection, DiagnosticSeverity, Disposable, ExtensionContext, languages, OverviewRulerLane, Position, Range, TextEditor, TextEditorDecorationType, Uri, window, workspace} from 'vscode';
 import {BuiltInCommands, Commands, DocumentSchemes} from './constants';
 import GitProvider, {IGitBlame} from './gitProvider';
 import GitCodeActionsProvider from './gitCodeActionProvider';
@@ -8,7 +8,6 @@ import * as moment from 'moment';
 
 const blameDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
     before: {
-        color: '#5a5a5a',
         margin: '0 1.75em 0 0',
         width: '5em'
     },
@@ -46,10 +45,15 @@ export default class GitBlameController extends Disposable {
 
         const subscriptions: Disposable[] = [];
 
-        subscriptions.push(window.onDidChangeActiveTextEditor(e => {
-            if (!this._controller || this._controller.editor === e) return;
+        // subscriptions.push(window.onDidChangeActiveTextEditor(e => {
+        //     if (!e || !this._controller || this._controller.editor === e) return;
+        //     this.clear();
+        // }));
+
+        workspace.onDidCloseTextDocument(d => {
+            if (!this._controller || this._controller.uri.fsPath !== d.uri.fsPath) return;
             this.clear();
-        }));
+        })
 
         this._disposable = Disposable.from(...subscriptions);
     }
@@ -64,7 +68,7 @@ export default class GitBlameController extends Disposable {
         this._controller = null;
     }
 
-    showBlame(editor: TextEditor, sha: string) {
+    showBlame(editor: TextEditor, sha?: string) {
         if (!editor) {
             this.clear();
             return;
@@ -76,7 +80,7 @@ export default class GitBlameController extends Disposable {
         }
     }
 
-    toggleBlame(editor: TextEditor, sha: string) {
+    toggleBlame(editor: TextEditor, sha?: string) {
         if (!editor || this._controller) {
             this.clear();
             return;
@@ -87,6 +91,7 @@ export default class GitBlameController extends Disposable {
 }
 
 class GitBlameEditorController extends Disposable {
+    public uri: Uri;
     private _disposable: Disposable;
     private _blame: Promise<IGitBlame>;
     private _diagnostics: DiagnosticCollection;
@@ -95,7 +100,8 @@ class GitBlameEditorController extends Disposable {
     constructor(private context: ExtensionContext, private git: GitProvider, public editor: TextEditor) {
         super(() => this.dispose());
 
-        const fileName = this.editor.document.uri.fsPath;
+        this.uri = this.editor.document.uri;
+        const fileName = this.uri.fsPath;
         this._blame = this.git.getBlameForFile(fileName);
 
         const subscriptions: Disposable[] = [];
@@ -112,6 +118,8 @@ class GitBlameEditorController extends Disposable {
 
             this.git.getBlameForLine(e.textEditor.document.fileName, activeLine)
                 .then(blame => {
+                    if (!blame) return;
+
                     // Add the bogus diagnostics to provide code actions for this sha
                     this._diagnostics.set(editor.document.uri, [this._getDiagnostic(editor, activeLine, blame.commit.sha)]);
 
@@ -124,6 +132,7 @@ class GitBlameEditorController extends Disposable {
 
     dispose() {
         if (this.editor) {
+            // HACK: This only works when switching to another editor - diffs handle whitespace toggle differently
             if (this._toggleWhitespace) {
                 commands.executeCommand(BuiltInCommands.ToggleRenderWhitespace);
             }
@@ -142,7 +151,7 @@ class GitBlameEditorController extends Disposable {
         return diag;
     }
 
-    applyBlame(sha: string) {
+    applyBlame(sha?: string) {
         return this._blame.then(blame => {
             if (!blame.lines.length) return;
 
@@ -152,12 +161,39 @@ class GitBlameEditorController extends Disposable {
                 commands.executeCommand(BuiltInCommands.ToggleRenderWhitespace);
             }
 
+            let lastSha;
             const blameDecorationOptions: DecorationOptions[] = blame.lines.map(l => {
+                let color = '#6b6b6b';
+
                 const c = blame.commits.get(l.sha);
-                return {
+                if (c.previousSha) {
+                    color = '#999999';
+                }
+
+                let gutter = '';
+                if (lastSha !== l.sha || true) { // TODO: Add a config option
+                    gutter = l.sha.substring(0, 8);
+                    if (gutter === '00000000') {
+                        if (c.previousSha) {
+                            const pc = blame.commits.get(c.previousSha);
+                            if (pc && pc.lines.find(_ => _.line === l.line)) {
+                                gutter = c.previousSha.substring(0, 8);
+                                color = 'rgba(0, 188, 242, 0.6)';
+                            }
+                            else {
+                                color = 'rgba(127, 186, 0, 0.6)';
+                            }
+                        } else {
+                            color = 'rgba(127, 186, 0, 0.6)';
+                        }
+                    }
+                }
+                lastSha = l.sha;
+
+                return <DecorationOptions>{
                     range: this.editor.document.validateRange(new Range(l.line, 0, l.line, 0)),
                     hoverMessage: `${c.message}\n${c.author}, ${moment(c.date).format('MMMM Do, YYYY hh:MM a')}`,
-                    renderOptions: { before: { contentText: `${l.sha.substring(0, 8)}`, } }
+                    renderOptions: { before: { color: color, contentText: gutter } }
                 };
             });
 

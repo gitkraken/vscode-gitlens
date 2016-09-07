@@ -22,17 +22,19 @@ None yet.
 
 ## Known Issues
 
-- Content in the **Blame explorer** disappears after a bit: [Open vscode issue](https://github.com/Microsoft/vscode/issues/11360)
-- Highlighted lines disappear in **Blame explorer** after changing selection and returning to a previous selection: [Open vscode issue](https://github.com/Microsoft/vscode/issues/11360)
-- CodeLens aren't updated properly after a file is saved: [Open vscode issue](https://github.com/Microsoft/vscode/issues/11546)
-- Visible whitespace causes issue with blame overlay (currently fixed with a hack, but fails randomly): [Open vscode issue](https://github.com/Microsoft/vscode/issues/11485)
+- Content in the **Blame explorer** disappears after a bit: [vscode issue](https://github.com/Microsoft/vscode/issues/11360)
+- Highlighted lines disappear in **Blame explorer** after changing selection and returning to a previous selection: [vscode issue](https://github.com/Microsoft/vscode/issues/11360)
+- CodeLens aren't updated properly after a file is saved: [vscode issue](https://github.com/Microsoft/vscode/issues/11546)
+- Visible whitespace causes issue with blame overlay (currently fixed with a hack, but fails randomly): [vscode issue](https://github.com/Microsoft/vscode/issues/11485)
 
 ## Release Notes
 
 ### 0.0.5
 
-Fixes issues where filename changes in history would cause diffs to fails
-Removes CodeLens from fields and single-line properties to reduce visual noise
+- Fixes issues where filename changes in history would cause diffs to fails
+- Fixes some issues with uncommited blames
+- Removes CodeLens from fields and single-line properties to reduce visual noise
+- Automatically turns off blame only when required now
 
 ### 0.0.4
 

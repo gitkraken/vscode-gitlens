@@ -150,6 +150,8 @@ export default class GitProvider extends Disposable {
     getBlameForLine(fileName: string, line: number): Promise<IGitBlameLine> {
         return this.getBlameForFile(fileName).then(blame => {
             const blameLine = blame.lines[line];
+            if (!blameLine) return undefined;
+
             const commit = blame.commits.get(blameLine.sha);
             return {
                 author: Object.assign({}, blame.authors.get(commit.author), { lineCount: commit.lines.length }),
@@ -176,7 +178,7 @@ export default class GitProvider extends Disposable {
             blame.commits.forEach(c => {
                 if (!shas.has(c.sha)) return;
 
-                const commit: IGitCommit = Object.assign({}, c, { lines: c.lines.filter(l => l.line >= range.start.line && l.line <= range.end.line) });
+                const commit: IGitCommit = new GitCommit(this.repoPath, c.sha, c.fileName, c.author, c.date, c.message, c.lines.filter(l => l.line >= range.start.line && l.line <= range.end.line));
                 commits.set(c.sha, commit);
 
                 let author = authors.get(commit.author);
@@ -208,7 +210,8 @@ export default class GitProvider extends Disposable {
     getBlameForShaRange(fileName: string, sha: string, range: Range): Promise<IGitBlameCommitLines> {
         return this.getBlameForFile(fileName).then(blame => {
             const lines = blame.lines.slice(range.start.line, range.end.line + 1).filter(l => l.sha === sha);
-            const commit = Object.assign({}, blame.commits.get(sha), { lines: lines });
+            let commit = blame.commits.get(sha);
+            commit = new GitCommit(this.repoPath, commit.sha, commit.fileName, commit.author, commit.date, commit.message, lines);
             return {
                 author: Object.assign({}, blame.authors.get(commit.author), { lineCount: commit.lines.length }),
                 commit: commit,
@@ -345,8 +348,8 @@ class GitCommit implements IGitCommit {
     previousSha?: string;
     previousFileName?: string;
 
-    constructor(private repoPath: string, public sha: string, public fileName: string, public author: string, public date: Date, public message: string) {
-        this.lines = [];
+    constructor(private repoPath: string, public sha: string, public fileName: string, public author: string, public date: Date, public message: string, lines?: IGitCommitLine[]) {
+        this.lines = lines || [];
     }
 
     toPreviousUri(): Uri {

@@ -36,6 +36,8 @@ abstract class EditorCommand extends Disposable {
     abstract execute(editor: TextEditor, edit: TextEditorEdit, ...args): any;
 }
 
+const UncommitedRegex = /^[0]+$/;
+
 export class DiffWithPreviousCommand extends EditorCommand {
     constructor(private git: GitProvider) {
         super(Commands.DiffWithPrevious);
@@ -45,7 +47,14 @@ export class DiffWithPreviousCommand extends EditorCommand {
         line = line || editor.selection.active.line;
         if (!sha) {
             return this.git.getBlameForLine(uri.fsPath, line)
-                .then(blame => commands.executeCommand(Commands.DiffWithPrevious, uri, blame.commit.sha, blame.commit.toUri(), blame.commit.previousSha, blame.commit.toPreviousUri(), line));
+                .then(blame => {
+                    if (!blame) return;
+
+                    if (UncommitedRegex.test(blame.commit.sha)) {
+                        return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.previousSha, blame.commit.toPreviousUri(), line);
+                    }
+                    return commands.executeCommand(Commands.DiffWithPrevious, uri, blame.commit.sha, blame.commit.toUri(), blame.commit.previousSha, blame.commit.toPreviousUri(), line);
+                });
         }
 
         if (!compareWithSha) {
@@ -69,7 +78,14 @@ export class DiffWithWorkingCommand extends EditorCommand {
         line = line || editor.selection.active.line;
         if (!sha) {
             return this.git.getBlameForLine(uri.fsPath, line)
-                .then(blame => commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.sha, blame.commit.toUri(), line));
+                .then(blame => {
+                    if (!blame) return;
+
+                    if (UncommitedRegex.test(blame.commit.sha)) {
+                        return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.previousSha, blame.commit.toPreviousUri(), line);
+                    }
+                    return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.sha, blame.commit.toUri(), line)
+                });
         };
 
         // TODO: Moving doesn't always seem to work -- or more accurately it seems like it moves down that number of lines from the current line
@@ -92,7 +108,7 @@ export class ShowBlameCommand extends EditorCommand {
 
         const activeLine = editor.selection.active.line;
         return this.git.getBlameForLine(editor.document.fileName, activeLine)
-            .then(blame => this.blameController.showBlame(editor, blame.commit.sha));
+            .then(blame => this.blameController.showBlame(editor, blame && blame.commit.sha));
     }
 }
 
@@ -132,6 +148,6 @@ export class ToggleBlameCommand extends EditorCommand {
 
         const activeLine = editor.selection.active.line;
         return this.git.getBlameForLine(editor.document.fileName, activeLine)
-            .then(blame => this.blameController.toggleBlame(editor, blame.commit.sha));
+            .then(blame => this.blameController.toggleBlame(editor, blame && blame.commit.sha));
     }
 }

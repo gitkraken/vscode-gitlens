@@ -13,13 +13,16 @@
         "Other"
     ],
     "keywords": [
-        "git", "gitblame", "blame", "codelens"
+        "git", "blame", "history", "log", "codelens"
     ],
     "galleryBanner": {
         "color": "#0000FF",
         "theme": "dark"
     },
     "preview": true,
+    "bugs": {
+        "url": "https://github.com/eamodio/vscode-gitlens/issues"
+    },
     "repository": {
         "type": "git",
         "url": "https://github.com/eamodio/vscode-gitlens.git"
@@ -28,22 +31,22 @@
     "contributes": {
         "commands": [{
             "command": "gitlens.diffWithPrevious",
-            "title": "GitLens: Open Diff with Previous Commit",
+            "title": "Git: Open Diff with Previous Commit",
             "category": "GitLens"
         },
         {
             "command": "gitlens.diffWithWorking",
-            "title": "GitLens: Open Diff with Working Tree",
+            "title": "Git: Open Diff with Working Tree",
             "category": "GitLens"
         },
         {
             "command": "gitlens.showBlame",
-            "title": "GitLens: Show Git Blame",
+            "title": "Git: Show Blame",
             "category": "GitLens"
         },
         {
             "command": "gitlens.toggleBlame",
-            "title": "GitLens: Toggle Git Blame",
+            "title": "Git: Toggle Blame",
             "category": "GitLens"
         }],
         "menus": {

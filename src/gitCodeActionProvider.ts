@@ -17,6 +17,8 @@ export default class GitCodeActionProvider implements CodeActionProvider {
         return this.git.getBlameForLine(document.fileName, range.start.line)
             .then(blame => {
                 const actions: Command[] = [];
+                if (!blame) return actions;
+
                 if (blame.commit.sha) {
                     actions.push({
                         title: `GitLens: Diff ${blame.commit.sha} with working tree`,
