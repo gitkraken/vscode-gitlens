@@ -9,7 +9,7 @@ import * as moment from 'moment';
 const blameDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
     before: {
         color: '#5a5a5a',
-        margin: '0 1em 0 0',
+        margin: '0 1.75em 0 0',
         width: '5em'
     },
 });
@@ -95,7 +95,7 @@ class GitBlameEditorController extends Disposable {
     constructor(private context: ExtensionContext, private git: GitProvider, public editor: TextEditor) {
         super(() => this.dispose());
 
-        const fileName = this.editor.document.uri.path;
+        const fileName = this.editor.document.uri.fsPath;
         this._blame = this.git.getBlameForFile(fileName);
 
         const subscriptions: Disposable[] = [];

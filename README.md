@@ -29,6 +29,11 @@ None yet.
 
 ## Release Notes
 
+### 0.0.5
+
+Fixes issues where filename changes in history would cause diffs to fails
+Removes CodeLens from fields and single-line properties to reduce visual noise
+
 ### 0.0.4
 
 Candidate for preview release on the vscode marketplace.

@@ -3,7 +3,7 @@ import {Disposable, ExtensionContext, languages, Location, Position, Range, Uri,
 import {DocumentSchemes, WorkspaceState} from './constants';
 import GitCodeLensProvider from './gitCodeLensProvider';
 import Git from './git';
-import {basename, dirname, extname} from 'path';
+import {basename, dirname, extname, join} from 'path';
 import * as moment from 'moment';
 import * as _ from 'lodash';
 
@@ -97,14 +97,7 @@ export default class GitProvider extends Disposable {
                             authors.set(authorName, author);
                         }
 
-                        commit = {
-                            sha,
-                            fileName: fileName,
-                            author: authorName,
-                            date: moment(`${m[7]} ${m[8]}`, 'X Z').toDate(),
-                            message: m[13],
-                            lines: []
-                        };
+                        commit = new GitCommit(this.repoPath, sha, fileName, authorName, moment(`${m[7]} ${m[8]}`, 'X Z').toDate(), m[13]);
 
                         const originalFileName = m[16];
                         if (!fileName.toLowerCase().endsWith(originalFileName.toLowerCase())) {
@@ -231,9 +224,9 @@ export default class GitProvider extends Disposable {
             const locations: Array<Location> = [];
             Array.from(blame.commits.values())
                 .forEach((c, i) => {
-                    const uri = this.toBlameUri(c, i + 1, commitCount, range);
+                    const uri = c.toBlameUri(i + 1, commitCount, range);
                     c.lines.forEach(l => locations.push(new Location(c.originalFileName
-                            ? this.toBlameUri(c, i + 1, commitCount, range, c.originalFileName)
+                            ? c.toBlameUri(i + 1, commitCount, range, c.originalFileName)
                             : uri,
                         new Position(l.originalLine, 0))));
                 });
@@ -299,38 +292,6 @@ export default class GitProvider extends Disposable {
     private _fromGitUri<T extends IGitUriData>(uri: Uri): T {
         return JSON.parse(uri.query) as T;
     }
-
-    toBlameUri(commit: IGitCommit, index: number, commitCount: number, range: Range, originalFileName?: string) {
-        return this._toGitUri(DocumentSchemes.GitBlame, commit, commitCount, this._toGitBlameUriData(commit, index, range, originalFileName));
-    }
-
-    toGitUri(commit: IGitCommit, index: number, commitCount: number, originalFileName?: string) {
-        return this._toGitUri(DocumentSchemes.Git, commit, commitCount, this._toGitUriData(commit, index, originalFileName));
-    }
-
-    private _toGitUri(scheme: DocumentSchemes, commit: IGitCommit, commitCount: number, data: IGitUriData | IGitBlameUriData) {
-        const pad = n => ("0000000" + n).slice(-("" + commitCount).length);
-        const ext = extname(data.fileName);
-        const path = `${dirname(data.fileName)}/${commit.sha}: ${basename(data.fileName, ext)}${ext}`;
-
-        // NOTE: Need to specify an index here, since I can't control the sort order -- just alphabetic or by file location
-        return Uri.parse(`${scheme}:${pad(data.index)}. ${commit.author}, ${moment(commit.date).format('MMM D, YYYY hh:MM a')} - ${path}?${JSON.stringify(data)}`);
-    }
-
-    private _toGitUriData<T extends IGitUriData>(commit: IGitCommit, index: number, originalFileName?: string): T {
-        const fileName = originalFileName || commit.fileName;
-        const data = { fileName: commit.fileName, sha: commit.sha, index: index } as T;
-        if (originalFileName) {
-            data.originalFileName = originalFileName;
-        }
-        return data;
-    }
-
-    private _toGitBlameUriData(commit: IGitCommit, index: number, range: Range, originalFileName?: string) {
-        const data = this._toGitUriData<IGitBlameUriData>(commit, index, originalFileName);
-        data.range = range;
-        return data;
-    }
 }
 
 export interface IGitBlame {
@@ -370,6 +331,64 @@ export interface IGitCommit {
     originalFileName?: string;
     previousSha?: string;
     previousFileName?: string;
+
+    toPreviousUri(): Uri;
+    toUri(): Uri;
+
+    toBlameUri(index: number, commitCount: number, range: Range, originalFileName?: string);
+    toGitUri(index: number, commitCount: number, originalFileName?: string);
+}
+
+class GitCommit implements IGitCommit {
+    lines: IGitCommitLine[];
+    originalFileName?: string;
+    previousSha?: string;
+    previousFileName?: string;
+
+    constructor(private repoPath: string, public sha: string, public fileName: string, public author: string, public date: Date, public message: string) {
+        this.lines = [];
+    }
+
+    toPreviousUri(): Uri {
+        return this.previousFileName ? Uri.file(join(this.repoPath, this.previousFileName)) : this.toUri();
+    }
+
+    toUri(): Uri {
+        return Uri.file(join(this.repoPath, this.originalFileName || this.fileName));
+    }
+
+    toBlameUri(index: number, commitCount: number, range: Range, originalFileName?: string) {
+        return this._toGitUri(DocumentSchemes.GitBlame, commitCount, this._toGitBlameUriData(index, range, originalFileName));
+    }
+
+    toGitUri(index: number, commitCount: number, originalFileName?: string) {
+        return this._toGitUri(DocumentSchemes.Git, commitCount, this._toGitUriData(index, originalFileName));
+    }
+
+    private _toGitUri(scheme: DocumentSchemes, commitCount: number, data: IGitUriData | IGitBlameUriData) {
+        const pad = n => ("0000000" + n).slice(-("" + commitCount).length);
+        const ext = extname(data.fileName);
+        // const path = `${dirname(data.fileName)}/${commit.sha}: ${basename(data.fileName, ext)}${ext}`;
+        const path = `${dirname(data.fileName)}/${this.sha}${ext}`;
+
+        // NOTE: Need to specify an index here, since I can't control the sort order -- just alphabetic or by file location
+        return Uri.parse(`${scheme}:${pad(data.index)}. ${this.author}, ${moment(this.date).format('MMM D, YYYY hh:MM a')} - ${path}?${JSON.stringify(data)}`);
+    }
+
+    private _toGitUriData<T extends IGitUriData>(index: number, originalFileName?: string): T {
+        const fileName = originalFileName || this.fileName;
+        const data = { fileName: this.fileName, sha: this.sha, index: index } as T;
+        if (originalFileName) {
+            data.originalFileName = originalFileName;
+        }
+        return data;
+    }
+
+    private _toGitBlameUriData(index: number, range: Range, originalFileName?: string) {
+        const data = this._toGitUriData<IGitBlameUriData>(index, originalFileName);
+        data.range = range;
+        return data;
+    }
 }
 
 export interface IGitCommitLine {

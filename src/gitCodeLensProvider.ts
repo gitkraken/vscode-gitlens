@@ -5,7 +5,7 @@ import GitProvider, {IGitBlame, IGitBlameLines, IGitCommit} from './gitProvider'
 import * as moment from 'moment';
 
 export class GitRecentChangeCodeLens extends CodeLens {
-    constructor(private git: GitProvider, public fileName: string, public blameRange: Range, range: Range) {
+    constructor(private git: GitProvider, public fileName: string, public symbolKind: SymbolKind, public blameRange: Range, range: Range) {
         super(range);
     }
 
@@ -15,7 +15,7 @@ export class GitRecentChangeCodeLens extends CodeLens {
 }
 
 export class GitBlameCodeLens extends CodeLens {
-    constructor(private git: GitProvider, public fileName: string, public blameRange: Range, range: Range) {
+    constructor(private git: GitProvider, public fileName: string, public symbolKind: SymbolKind, public blameRange: Range, range: Range) {
         super(range);
     }
 
@@ -54,8 +54,8 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             // Check if we have a lens for the whole document -- if not add one
             if (!lenses.find(l => l.range.start.line === 0 && l.range.end.line === 0)) {
                 const blameRange = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
-                lenses.push(new GitRecentChangeCodeLens(this.git, fileName, blameRange, new Range(0, 0, 0, blameRange.start.character)));
-                lenses.push(new GitBlameCodeLens(this.git, fileName, blameRange, new Range(0, 1, 0, blameRange.start.character)));
+                lenses.push(new GitRecentChangeCodeLens(this.git, fileName, SymbolKind.File, blameRange, new Range(0, 0, 0, blameRange.start.character)));
+                lenses.push(new GitBlameCodeLens(this.git, fileName, SymbolKind.File, blameRange, new Range(0, 1, 0, blameRange.start.character)));
                 // if (this.hasGitHistoryExtension) {
                 //     lenses.push(new GitHistoryCodeLens(this.git.repoPath, fileName, new Range(0, 1, 0, blameRange.start.character)));
                 // }
@@ -64,6 +64,8 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             return lenses;
         });
     }
+
+    foo: string; bar: number;
 
     private _provideCodeLens(fileName: string, document: TextDocument, symbol: SymbolInformation, lenses: CodeLens[]): void {
         let multiline = false;
@@ -76,19 +78,19 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             case SymbolKind.Method:
             case SymbolKind.Function:
             case SymbolKind.Enum:
-                multiline = true;
+                // HACK for Omnisharp, since it doesn't return full ranges
+                multiline = fileName.endsWith('.cs') || (symbol.location.range.end.line - symbol.location.range.start.line) > 1;
                 break;
             case SymbolKind.Property:
                 multiline = (symbol.location.range.end.line - symbol.location.range.start.line) > 1;
-                break;
-            case SymbolKind.Field:
-                multiline = false;
+                if (!multiline) return;
                 break;
             default:
                 return;
         }
 
         const line = document.lineAt(symbol.location.range.start);
+        // Make sure there is only 1 lense per line
         if (lenses.length && lenses[lenses.length - 1].range.start.line === line.lineNumber) {
             return;
         }
@@ -100,10 +102,10 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             startChar += Math.floor(symbol.name.length / 2);
         }
 
-        lenses.push(new GitRecentChangeCodeLens(this.git, fileName, symbol.location.range, line.range.with(new Position(line.range.start.line, startChar))));
+        lenses.push(new GitRecentChangeCodeLens(this.git, fileName, symbol.kind, symbol.location.range, line.range.with(new Position(line.range.start.line, startChar))));
         startChar++;
         if (multiline) {
-            lenses.push(new GitBlameCodeLens(this.git, fileName, symbol.location.range, line.range.with(new Position(line.range.start.line, startChar))));
+            lenses.push(new GitBlameCodeLens(this.git, fileName, symbol.kind, symbol.location.range, line.range.with(new Position(line.range.start.line, startChar))));
             startChar++;
         }
         // if (this.hasGitHistoryExtension) {
@@ -121,7 +123,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         return lens.getBlame().then(blame => {
             const recentCommit = blame.commits.values().next().value;
             lens.command = {
-                title: `${recentCommit.author}, ${moment(recentCommit.date).fromNow()}`, // - lines(${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1})`,
+                title: `${recentCommit.author}, ${moment(recentCommit.date).fromNow()}`, // - ${SymbolKind[lens.symbolKind]}(${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1})`,
                 command: Commands.ShowBlameHistory,
                 arguments: [Uri.file(lens.fileName), lens.blameRange, lens.range.start]
             };

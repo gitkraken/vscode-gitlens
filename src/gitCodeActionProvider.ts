@@ -21,7 +21,11 @@ export default class GitCodeActionProvider implements CodeActionProvider {
                     actions.push({
                         title: `GitLens: Diff ${blame.commit.sha} with working tree`,
                         command: Commands.DiffWithWorking,
-                        arguments: [Uri.file(document.fileName), blame.commit.sha, blame.line.line]
+                        arguments: [
+                            Uri.file(document.fileName),
+                            blame.commit.sha, blame.commit.toUri(),
+                            blame.line.line
+                        ]
                     });
                 }
 
@@ -29,7 +33,12 @@ export default class GitCodeActionProvider implements CodeActionProvider {
                     actions.push({
                         title: `GitLens: Diff ${blame.commit.sha} with previous ${blame.commit.previousSha}`,
                         command: Commands.DiffWithPrevious,
-                        arguments: [Uri.file(document.fileName), blame.commit.sha, blame.commit.previousSha, blame.line.line]
+                        arguments: [
+                            Uri.file(document.fileName),
+                            blame.commit.sha, blame.commit.toUri(),
+                            blame.commit.previousSha, blame.commit.toPreviousUri(),
+                            blame.line.line
+                        ]
                     });
                 }
 

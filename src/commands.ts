@@ -41,26 +41,22 @@ export class DiffWithPreviousCommand extends EditorCommand {
         super(Commands.DiffWithPrevious);
     }
 
-    execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, sha?: string, compareWithSha?: string, line?: number) {
+    execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, sha?: string, shaUri?: Uri, compareWithSha?: string, compareWithUri?: Uri, line?: number) {
         line = line || editor.selection.active.line;
         if (!sha) {
-            return this.git.getBlameForLine(uri.path, line)
-                .then(blame => commands.executeCommand(Commands.DiffWithPrevious, uri, blame.commit.sha, blame.commit.previousSha));
+            return this.git.getBlameForLine(uri.fsPath, line)
+                .then(blame => commands.executeCommand(Commands.DiffWithPrevious, uri, blame.commit.sha, blame.commit.toUri(), blame.commit.previousSha, blame.commit.toPreviousUri(), line));
         }
 
         if (!compareWithSha) {
             return window.showInformationMessage(`Commit ${sha} has no previous commit`);
         }
 
-        return Promise.all([this.git.getVersionedFile(uri.path, sha), this.git.getVersionedFile(uri.path, compareWithSha)])
-            .then(values => {
-                const [source, compare] = values;
-                const fileName = basename(uri.path);
-                return commands.executeCommand(BuiltInCommands.Diff, Uri.file(compare), Uri.file(source), `${fileName} (${compareWithSha}) ↔ ${fileName} (${sha})`)
-                    // TODO: Moving doesn't always seem to work -- or more accurately it seems like it moves down that number of lines from the current line
-                    // which for a diff could be the first difference
-                    .then(() => commands.executeCommand(BuiltInCommands.CursorMove, { to: 'down', value: line }));
-            });
+        // TODO: Moving doesn't always seem to work -- or more accurately it seems like it moves down that number of lines from the current line
+        // which for a diff could be the first difference
+        return Promise.all([this.git.getVersionedFile(uri.fsPath, sha), this.git.getVersionedFile(uri.fsPath, compareWithSha)])
+            .then(values => commands.executeCommand(BuiltInCommands.Diff, Uri.file(values[1]), Uri.file(values[0]), `${basename(compareWithUri.fsPath)} (${compareWithSha}) ↔ ${basename(shaUri.fsPath)} (${sha})`)
+                .then(() => commands.executeCommand(BuiltInCommands.CursorMove, { to: 'down', value: line })));
     }
 }
 
@@ -69,20 +65,18 @@ export class DiffWithWorkingCommand extends EditorCommand {
         super(Commands.DiffWithWorking);
     }
 
-    execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, sha?: string, line?: number) {
+    execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, sha?: string, shaUri?: Uri, line?: number) {
         line = line || editor.selection.active.line;
         if (!sha) {
-            return this.git.getBlameForLine(uri.path, line)
-                .then(blame => commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.sha));
+            return this.git.getBlameForLine(uri.fsPath, line)
+                .then(blame => commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.sha, blame.commit.toUri(), line));
         };
 
-        return this.git.getVersionedFile(uri.path, sha).then(compare => {
-            const fileName = basename(uri.path);
-            return commands.executeCommand(BuiltInCommands.Diff, Uri.file(compare), uri, `${fileName} (${sha}) ↔ ${fileName} (index)`)
-                // TODO: Moving doesn't always seem to work -- or more accurately it seems like it moves down that number of lines from the current line
-                // which for a diff could be the first difference
-                .then(() => commands.executeCommand(BuiltInCommands.CursorMove, { to: 'down', value: line }));
-        });
+        // TODO: Moving doesn't always seem to work -- or more accurately it seems like it moves down that number of lines from the current line
+        // which for a diff could be the first difference
+        return this.git.getVersionedFile(shaUri.fsPath, sha)
+            .then(compare => commands.executeCommand(BuiltInCommands.Diff, Uri.file(compare), uri, `${basename(shaUri.fsPath)} (${sha}) ↔ ${basename(uri.fsPath)} (index)`)
+                .then(() => commands.executeCommand(BuiltInCommands.CursorMove, { to: 'down', value: line })));
     }
 }
 
@@ -120,7 +114,7 @@ export class ShowBlameHistoryCommand extends EditorCommand {
             if (!uri) return;
         }
 
-        return this.git.getBlameLocations(uri.path, range).then(locations => {
+        return this.git.getBlameLocations(uri.fsPath, range).then(locations => {
             return commands.executeCommand(BuiltInCommands.ShowReferences, uri, position, locations);
         });
     }
