@@ -30,7 +30,7 @@ export default class Git {
     }
 
     static repoPath(cwd: string) {
-        return gitCommand(cwd, 'rev-parse', '--show-toplevel').then(data => data.replace(/\r?\n|\r/g, ''));
+        return gitCommand(cwd, 'rev-parse', '--show-toplevel').then(data => data.replace(/\r?\n|\r/g, '').replace(/\\/g, '/'));
     }
 
     static blame(fileName: string, repoPath: string, sha?: string) {
