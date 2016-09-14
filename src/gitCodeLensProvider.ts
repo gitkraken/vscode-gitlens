@@ -3,6 +3,7 @@ import {CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelecto
 import {BuiltInCommands, Commands, DocumentSchemes, WorkspaceState} from './constants';
 import GitProvider, {IGitBlame, IGitBlameLines, IGitCommit} from './gitProvider';
 import * as moment from 'moment';
+import * as _ from 'lodash';
 
 export class GitRecentChangeCodeLens extends CodeLens {
     constructor(private git: GitProvider, public fileName: string, public symbolKind: SymbolKind, public blameRange: Range, range: Range) {
@@ -95,7 +96,11 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             return;
         }
 
-        let startChar = line.text.search(`\\b${symbol.name}\\b`); //line.firstNonWhitespaceCharacterIndex;
+        let startChar = -1;
+        try {
+            startChar = line.text.search(`\\b${_.escapeRegExp(symbol.name)}\\b`);
+        }
+        catch (ex) { }
         if (startChar === -1) {
             startChar = line.firstNonWhitespaceCharacterIndex;
         } else {
