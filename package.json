@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "author": "Eric Amodio",
     "publisher": "eamodio",
     "engines": {
@@ -84,7 +84,7 @@
     ],
     "dependencies": {
         "lodash": "^4.15.0",
-        "moment": "^2.14.1",
+        "moment": "^2.15.0",
         "spawn-rx": "^2.0.1",
         "tmp": "^0.0.28"
     },

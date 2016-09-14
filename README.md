@@ -29,6 +29,11 @@ None yet.
 
 ## Release Notes
 
+### 0.0.6
+ - Fixes [#2](https://github.com/eamodio/vscode-gitlens/issues/2) - [request] Provide some debug info when things fail
+ - Fixes [#4](https://github.com/eamodio/vscode-gitlens/issues/4) - Absolute paths fail on Windows due to backslash
+ - Attempts to scroll to the correct position when opening a diff
+
 ### 0.0.5
 
 - Fixes issues where filename changes in history would cause diffs to fails
