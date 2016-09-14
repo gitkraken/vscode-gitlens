@@ -6,35 +6,70 @@ import Git from './git';
 import {basename, dirname, extname, join} from 'path';
 import * as moment from 'moment';
 import * as _ from 'lodash';
+import {exists, readFile} from 'fs'
+import * as ignore from 'ignore';
 
 const commitMessageMatcher = /^([\^0-9a-fA-F]{7})\s(.*)$/gm;
 const blamePorcelainMatcher = /^([\^0-9a-fA-F]{40})\s([0-9]+)\s([0-9]+)(?:\s([0-9]+))?$\n(?:^author\s(.*)$\n^author-mail\s(.*)$\n^author-time\s(.*)$\n^author-tz\s(.*)$\n^committer\s(.*)$\n^committer-mail\s(.*)$\n^committer-time\s(.*)$\n^committer-tz\s(.*)$\n^summary\s(.*)$\n(?:^previous\s(.*)?\s(.*)$\n)?^filename\s(.*)$\n)?^(.*)$/gm;
 
+interface IBlameCacheEntry {
+    //date: Date;
+    blame: Promise<IGitBlame>;
+    errorMessage?: string
+}
+
+enum RemoveCacheReason {
+    DocumentClosed,
+    DocumentSaved,
+    DocumentChanged
+}
+
 export default class GitProvider extends Disposable {
     public repoPath: string;
 
-    private _blames: Map<string, Promise<IGitBlame>>;
+    private _blames: Map<string, IBlameCacheEntry>;
     private _disposable: Disposable;
     private _codeLensProviderSubscription: Disposable;
+    private _gitignore: Promise<ignore.Ignore>;
 
     // TODO: Needs to be a Map so it can debounce per file
-    private _clearCacheFn: ((string, boolean) => void) & _.Cancelable;
+    private _removeCachedBlameFn: ((string, boolean) => void) & _.Cancelable;
+
+    static BlameEmptyPromise = Promise.resolve(<IGitBlame>null);
 
     constructor(private context: ExtensionContext) {
         super(() => this.dispose());
 
         this.repoPath = context.workspaceState.get(WorkspaceState.RepoPath) as string;
 
+        this._gitignore = new Promise<ignore.Ignore>((resolve, reject) => {
+            const gitignorePath = join(this.repoPath, '.gitignore');
+            exists(gitignorePath, e => {
+                if (e) {
+                    readFile(gitignorePath, 'utf8', (err, data) => {
+                        if (!err) {
+                            resolve(ignore().add(data));
+                            return;
+                        }
+                        resolve(null);
+                    });
+                    return;
+                }
+                resolve(null);
+            });
+        });
+
         // TODO: Cache needs to be cleared on file changes -- createFileSystemWatcher or timeout?
         this._blames = new Map();
         this._registerCodeLensProvider();
-        this._clearCacheFn = _.debounce(this._clearBlame.bind(this), 2500);
+        this._removeCachedBlameFn = _.debounce(this._removeCachedBlame.bind(this), 2500);
 
         const subscriptions: Disposable[] = [];
 
-        subscriptions.push(workspace.onDidCloseTextDocument(d => this._clearBlame(d.fileName)));
-        subscriptions.push(workspace.onDidSaveTextDocument(d => this._clearCacheFn(d.fileName, true)));
-        subscriptions.push(workspace.onDidChangeTextDocument(e => this._clearCacheFn(e.document.fileName, false)));
+        // TODO: Maybe stop clearing on close and instead limit to a certain number of recent blames
+        subscriptions.push(workspace.onDidCloseTextDocument(d => this._removeCachedBlame(d.fileName, RemoveCacheReason.DocumentClosed)));
+        subscriptions.push(workspace.onDidSaveTextDocument(d => this._removeCachedBlameFn(d.fileName, RemoveCacheReason.DocumentSaved)));
+        subscriptions.push(workspace.onDidChangeTextDocument(e => this._removeCachedBlameFn(e.document.fileName, RemoveCacheReason.DocumentChanged)));
 
         this._disposable = Disposable.from(...subscriptions);
     }
@@ -52,17 +87,27 @@ export default class GitProvider extends Disposable {
         this._codeLensProviderSubscription = languages.registerCodeLensProvider(GitCodeLensProvider.selector, new GitCodeLensProvider(this.context, this));
     }
 
-    private _clearBlame(fileName: string, reset?: boolean) {
+    private _getBlameCacheKey(fileName: string) {
+        return fileName.toLowerCase();
+    }
+
+    private _removeCachedBlame(fileName: string, reason: RemoveCacheReason) {
         fileName = Git.normalizePath(fileName, this.repoPath);
-        reset = !!reset;
 
-        if (this._blames.delete(fileName.toLowerCase())) {
-            console.log('[GitLens]', `Clear blame cache: fileName=${fileName}, reset=${reset})`);
+        const cacheKey = this._getBlameCacheKey(fileName);
+        if (reason === RemoveCacheReason.DocumentClosed) {
+            // Don't remove broken blame on close (since otherwise we'll have to run the broken blame again)
+            const entry = this._blames.get(cacheKey);
+            if (entry && entry.errorMessage) return;
+        }
 
-            if (reset) {
-                // TODO: Killing the code lens provider is too drastic -- makes the editor jump around, need to figure out how to trigger a refresh
-                //this._registerCodeLensProvider();
-            }
+        if (this._blames.delete(cacheKey)) {
+            console.log('[GitLens]', `Clear blame cache: fileName=${fileName}, reason=${RemoveCacheReason[reason]})`);
+
+            // if (reason === RemoveCacheReason.DocumentSaved) {
+            //     // TODO: Killing the code lens provider is too drastic -- makes the editor jump around, need to figure out how to trigger a refresh
+            //     this._registerCodeLensProvider();
+            // }
         }
     }
 
@@ -73,84 +118,120 @@ export default class GitProvider extends Disposable {
     getBlameForFile(fileName: string) {
         fileName = Git.normalizePath(fileName, this.repoPath);
 
-        let blame = this._blames.get(fileName.toLowerCase());
-        if (blame !== undefined) return blame;
+        const cacheKey = this._getBlameCacheKey(fileName);
+        let entry = this._blames.get(cacheKey);
+        if (entry !== undefined) return entry.blame;
 
-        blame = Git.blamePorcelain(fileName, this.repoPath)
-            .then(data => {
-                const authors: Map<string, IGitAuthor> = new Map();
-                const commits: Map<string, IGitCommit> = new Map();
-                const lines: Array<IGitCommitLine> = [];
+        return this._gitignore.then(ignore => {
+            let blame: Promise<IGitBlame>;
+            if (ignore && !ignore.filter([fileName]).length) {
+                console.log('[GitLens]', `Skipping blame; ${fileName} is gitignored`);
+                blame = GitProvider.BlameEmptyPromise;
+            } else {
+                blame = Git.blamePorcelain(fileName, this.repoPath)
+                    .then(data => {
+                        if (!data) return null;
 
-                let m: Array<string>;
-                while ((m = blamePorcelainMatcher.exec(data)) != null) {
-                    const sha = m[1].substring(0, 8);
-                    let commit = commits.get(sha);
-                    if (!commit) {
-                        const authorName = m[5].trim();
-                        let author = authors.get(authorName);
-                        if (!author) {
-                            author = {
-                                name: authorName,
-                                lineCount: 0
-                            };
-                            authors.set(authorName, author);
+                        const authors: Map<string, IGitAuthor> = new Map();
+                        const commits: Map<string, IGitCommit> = new Map();
+                        const lines: Array<IGitCommitLine> = [];
+
+                        let m: Array<string>;
+                        while ((m = blamePorcelainMatcher.exec(data)) != null) {
+                            const sha = m[1].substring(0, 8);
+                            let commit = commits.get(sha);
+                            if (!commit) {
+                                const authorName = m[5].trim();
+                                let author = authors.get(authorName);
+                                if (!author) {
+                                    author = {
+                                        name: authorName,
+                                        lineCount: 0
+                                    };
+                                    authors.set(authorName, author);
+                                }
+
+                                commit = new GitCommit(this.repoPath, sha, fileName, authorName, moment(`${m[7]} ${m[8]}`, 'X Z').toDate(), m[13]);
+
+                                const originalFileName = m[16];
+                                if (!fileName.toLowerCase().endsWith(originalFileName.toLowerCase())) {
+                                    commit.originalFileName = originalFileName;
+                                }
+
+                                const previousSha = m[14];
+                                if (previousSha) {
+                                    commit.previousSha = previousSha.substring(0, 8);
+                                    commit.previousFileName = m[15];
+                                }
+
+                                commits.set(sha, commit);
+                            }
+
+                            const line: IGitCommitLine = {
+                                sha,
+                                line: parseInt(m[3], 10) - 1,
+                                originalLine: parseInt(m[2], 10) - 1
+                                //code: m[17]
+                            }
+
+                            commit.lines.push(line);
+                            lines.push(line);
                         }
 
-                        commit = new GitCommit(this.repoPath, sha, fileName, authorName, moment(`${m[7]} ${m[8]}`, 'X Z').toDate(), m[13]);
+                        commits.forEach(c => authors.get(c.author).lineCount += c.lines.length);
 
-                        const originalFileName = m[16];
-                        if (!fileName.toLowerCase().endsWith(originalFileName.toLowerCase())) {
-                            commit.originalFileName = originalFileName;
-                        }
+                        const sortedAuthors: Map<string, IGitAuthor> = new Map();
+                        const values = Array.from(authors.values())
+                            .sort((a, b) => b.lineCount - a.lineCount)
+                            .forEach(a => sortedAuthors.set(a.name, a));
 
-                        const previousSha = m[14];
-                        if (previousSha) {
-                            commit.previousSha = previousSha.substring(0, 8);
-                            commit.previousFileName = m[15];
-                        }
+                        const sortedCommits: Map<string, IGitCommit> = new Map();
+                        Array.from(commits.values())
+                            .sort((a, b) => b.date.getTime() - a.date.getTime())
+                            .forEach(c => sortedCommits.set(c.sha, c));
 
-                        commits.set(sha, commit);
+                        return {
+                            authors: sortedAuthors,
+                            commits: sortedCommits,
+                            lines: lines
+                        };
+                    });
+
+                // Trap and cache expected blame errors
+                blame.catch(ex => {
+                    const msg = ex && ex.toString();
+                    if (msg && (msg.includes('is outside repository') || msg.includes('no such path'))) {
+                        this._blames.set(cacheKey, <IBlameCacheEntry>{
+                            //date: new Date(),
+                            blame: GitProvider.BlameEmptyPromise,
+                            errorMessage: msg
+                        });
+                        return GitProvider.BlameEmptyPromise;
                     }
 
-                    const line: IGitCommitLine = {
-                        sha,
-                        line: parseInt(m[3], 10) - 1,
-                        originalLine: parseInt(m[2], 10) - 1
-                        //code: m[17]
+                    const brokenBlame = this._blames.get(cacheKey);
+                    if (brokenBlame) {
+                        brokenBlame.errorMessage = msg;
+                        this._blames.set(cacheKey, brokenBlame);
                     }
 
-                    commit.lines.push(line);
-                    lines.push(line);
-                }
+                    throw ex;
+                });
+            }
 
-                commits.forEach(c => authors.get(c.author).lineCount += c.lines.length);
-
-                const sortedAuthors: Map<string, IGitAuthor> = new Map();
-                const values = Array.from(authors.values())
-                    .sort((a, b) => b.lineCount - a.lineCount)
-                    .forEach(a => sortedAuthors.set(a.name, a));
-
-                const sortedCommits: Map<string, IGitCommit> = new Map();
-                Array.from(commits.values())
-                    .sort((a, b) => b.date.getTime() - a.date.getTime())
-                    .forEach(c => sortedCommits.set(c.sha, c));
-
-                return {
-                    authors: sortedAuthors,
-                    commits: sortedCommits,
-                    lines: lines
-                };
+            this._blames.set(cacheKey, <IBlameCacheEntry> {
+                //date: new Date(),
+                blame: blame
             });
 
-        this._blames.set(fileName.toLowerCase(), blame);
-        return blame;
+            return blame;
+        });
     }
 
     getBlameForLine(fileName: string, line: number): Promise<IGitBlameLine> {
         return this.getBlameForFile(fileName).then(blame => {
-            const blameLine = blame.lines[line];
-            if (!blameLine) return undefined;
+            const blameLine = blame && blame.lines[line];
+            if (!blameLine) return null;
 
             const commit = blame.commits.get(blameLine.sha);
             return {
@@ -163,6 +244,8 @@ export default class GitProvider extends Disposable {
 
     getBlameForRange(fileName: string, range: Range): Promise<IGitBlameLines> {
         return this.getBlameForFile(fileName).then(blame => {
+            if (!blame) return null;
+
             if (!blame.lines.length) return Object.assign({ allLines: blame.lines }, blame);
 
             if (range.start.line === 0 && range.end.line === blame.lines.length - 1) {
@@ -209,6 +292,8 @@ export default class GitProvider extends Disposable {
 
     getBlameForShaRange(fileName: string, sha: string, range: Range): Promise<IGitBlameCommitLines> {
         return this.getBlameForFile(fileName).then(blame => {
+            if (!blame) return null;
+
             const lines = blame.lines.slice(range.start.line, range.end.line + 1).filter(l => l.sha === sha);
             let commit = blame.commits.get(sha);
             commit = new GitCommit(this.repoPath, commit.sha, commit.fileName, commit.author, commit.date, commit.message, lines);
@@ -222,6 +307,8 @@ export default class GitProvider extends Disposable {
 
     getBlameLocations(fileName: string, range: Range) {
         return this.getBlameForRange(fileName, range).then(blame => {
+            if (!blame) return null;
+
             const commitCount = blame.commits.size;
 
             const locations: Array<Location> = [];
@@ -240,6 +327,8 @@ export default class GitProvider extends Disposable {
 
     // getHistoryLocations(fileName: string, range: Range) {
     //     return this.getBlameForRange(fileName, range).then(blame => {
+    //         if (!blame) return null;
+
     //         const commitCount = blame.commits.size;
 
     //         const locations: Array<Location> = [];

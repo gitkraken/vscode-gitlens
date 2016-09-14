@@ -90,7 +90,7 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
 
             clearInterval(handle);
             this.git.getBlameForShaRange(data.fileName, data.sha, data.range).then(blame => {
-                if (!blame.lines.length) return;
+                if (!blame || !blame.lines.length) return;
 
                 editor.setDecorations(this._blameDecoration, blame.lines.map(l => {
                     return {

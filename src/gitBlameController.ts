@@ -153,7 +153,7 @@ class GitBlameEditorController extends Disposable {
 
     applyBlame(sha?: string) {
         return this._blame.then(blame => {
-            if (!blame.lines.length) return;
+            if (!blame || !blame.lines.length) return;
 
             // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- toggle whitespace off
             this._toggleWhitespace = workspace.getConfiguration('editor').get('renderWhitespace') as boolean;
@@ -212,7 +212,7 @@ class GitBlameEditorController extends Disposable {
 
     applyHighlight(sha: string) {
         return this._blame.then(blame => {
-            if (!blame.lines.length) return;
+            if (!blame || !blame.lines.length) return;
 
             const highlightDecorationRanges = blame.lines
                 .filter(l => l.sha === sha)

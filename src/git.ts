@@ -5,11 +5,18 @@ import * as tmp from 'tmp';
 import {spawnPromise} from 'spawn-rx';
 
 function gitCommand(cwd: string,  ...args) {
-    console.log('[GitLens]', 'git', ...args);
     return spawnPromise('git', args, { cwd: cwd })
-        // .then(s => { console.log('[GitLens]', s); return s; })
+        .then(s => {
+            console.log('[GitLens]', 'git', ...args);
+            return s;
+        })
         .catch(ex => {
-            console.error('[GitLens]', 'git', ...args, 'Failed:', ex);
+            const msg = ex && ex.toString();
+            if (msg && (msg.includes('is outside repository') || msg.includes('no such path'))) {
+                console.warn('[GitLens]', 'git', ...args, msg && msg.replace(/\r?\n|\r/g, ' '));
+            } else {
+                console.error('[GitLens]', 'git', ...args, msg && msg.replace(/\r?\n|\r/g, ' '));
+            }
             throw ex;
         });
 }

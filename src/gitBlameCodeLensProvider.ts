@@ -28,6 +28,9 @@ export default class GitBlameCodeLensProvider implements CodeLensProvider {
         const sha = data.sha;
 
         return this.git.getBlameForFile(fileName).then(blame => {
+            const lenses: CodeLens[] = [];
+            if (!blame) return lenses;
+
             const commits = Array.from(blame.commits.values());
             let index = commits.findIndex(c => c.sha === sha) + 1;
 
@@ -35,8 +38,6 @@ export default class GitBlameCodeLensProvider implements CodeLensProvider {
             if (index < commits.length) {
                 previousCommit = commits[index];
             }
-
-            const lenses: CodeLens[] = [];
 
             // Add codelens to each "group" of blame lines
             const lines = blame.lines.filter(l => l.sha === sha && l.originalLine >= data.range.start.line && l.originalLine <= data.range.end.line);
