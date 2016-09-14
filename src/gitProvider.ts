@@ -57,7 +57,7 @@ export default class GitProvider extends Disposable {
         reset = !!reset;
 
         if (this._blames.delete(fileName.toLowerCase())) {
-            console.log(`GitProvider._clearBlame(${fileName}, ${reset})`);
+            console.log('[GitLens]', `Clear blame cache: fileName=${fileName}, reset=${reset})`);
 
             if (reset) {
                 // TODO: Killing the code lens provider is too drastic -- makes the editor jump around, need to figure out how to trigger a refresh

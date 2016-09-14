@@ -5,8 +5,13 @@ import * as tmp from 'tmp';
 import {spawnPromise} from 'spawn-rx';
 
 function gitCommand(cwd: string,  ...args) {
-    console.log('git', ...args);
-    return spawnPromise('git', args, { cwd: cwd });
+    console.log('[GitLens]', 'git', ...args);
+    return spawnPromise('git', args, { cwd: cwd })
+        // .then(s => { console.log('[GitLens]', s); return s; })
+        .catch(ex => {
+            console.error('[GitLens]', 'git', ...args, 'Failed:', ex);
+            throw ex;
+        });
 }
 
 export default class Git {
@@ -26,8 +31,6 @@ export default class Git {
         }
 
         return gitCommand(repoPath, 'blame', '-fn', '--root', '--', fileName);
-            // .then(s => { console.log(s); return s; })
-            // .catch(ex => console.error(ex));
     }
 
     static blamePorcelain(fileName: string, repoPath: string, sha?: string) {
@@ -38,8 +41,6 @@ export default class Git {
         }
 
         return gitCommand(repoPath, 'blame', '--porcelain', '--root', '--', fileName);
-            // .then(s => { console.log(s); return s; })
-            // .catch(ex => console.error(ex));
     }
 
     static getVersionedFile(fileName: string, repoPath: string, sha: string) {
@@ -70,8 +71,6 @@ export default class Git {
         sha = sha.replace('^', '');
 
         return gitCommand(repoPath, 'show', `${sha}:${fileName}`);
-            // .then(s => { console.log(s); return s; })
-            // .catch(ex => console.error(ex));
     }
 
     // static getCommitMessage(sha: string, repoPath: string) {

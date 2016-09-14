@@ -39,7 +39,7 @@ export function activate(context: ExtensionContext) {
         context.subscriptions.push(new ShowBlameCommand(git, blameController));
         context.subscriptions.push(new ToggleBlameCommand(git, blameController));
         context.subscriptions.push(new ShowBlameHistoryCommand(git));
-    }).catch(reason => console.warn(reason));
+    }).catch(reason => console.warn('[GitLens]', reason));
 }
 
 // this method is called when your extension is deactivated
