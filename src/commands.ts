@@ -65,7 +65,7 @@ export class DiffWithPreviousCommand extends EditorCommand {
         // which for a diff could be the first difference
         return Promise.all([this.git.getVersionedFile(uri.fsPath, sha), this.git.getVersionedFile(uri.fsPath, compareWithSha)])
             .then(values => commands.executeCommand(BuiltInCommands.Diff, Uri.file(values[1]), Uri.file(values[0]), `${basename(compareWithUri.fsPath)} (${compareWithSha}) ↔ ${basename(shaUri.fsPath)} (${sha})`)
-                .then(() => commands.executeCommand(BuiltInCommands.CursorMove, { to: 'down', value: line })));
+                .then(() => commands.executeCommand(BuiltInCommands.RevealLine, {lineNumber: line, at: 'center'})));
     }
 }
 
@@ -92,7 +92,7 @@ export class DiffWithWorkingCommand extends EditorCommand {
         // which for a diff could be the first difference
         return this.git.getVersionedFile(shaUri.fsPath, sha)
             .then(compare => commands.executeCommand(BuiltInCommands.Diff, Uri.file(compare), uri, `${basename(shaUri.fsPath)} (${sha}) ↔ ${basename(uri.fsPath)} (index)`)
-                .then(() => commands.executeCommand(BuiltInCommands.CursorMove, { to: 'down', value: line })));
+                .then(() => commands.executeCommand(BuiltInCommands.RevealLine, {lineNumber: line, at: 'center'})));
     }
 }
 
