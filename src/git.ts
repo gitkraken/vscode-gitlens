@@ -16,7 +16,10 @@ function gitCommand(cwd: string,  ...args) {
 
 export default class Git {
     static normalizePath(fileName: string, repoPath: string) {
-        return (isAbsolute(fileName) ? relative(repoPath, fileName) : fileName).replace(/\\/g, '/');
+        if (isAbsolute(fileName) && fileName.startsWith(repoPath)) {
+            fileName = relative(repoPath, fileName);
+        }
+        return fileName.replace(/\\/g, '/');
     }
 
     static repoPath(cwd: string) {
