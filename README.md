@@ -1,6 +1,6 @@
 # GitLens
 
-Provides Git blame and blame history CodeLens for many supported Visual Studio Code languages (in theory -- the language must support symbol searching).
+Provides Git information (most recent commit, number of authors) in CodeLens, on-demand inline blame annotations, a blame history explorer, and commands to compare changes with the working tree and/or previous versions.
 
 ## Features
 

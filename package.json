@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "author": "Eric Amodio",
     "publisher": "eamodio",
     "engines": {
@@ -8,19 +8,21 @@
     },
     "license": "SEE LICENSE IN LICENSE",
     "displayName": "GitLens",
-    "description": "Provides Git information in CodeLens",
+    "description": "Provides Git information (most recent commit, number of authors) in CodeLens, on-demand inline blame annotations, a blame history explorer, and commands to compare changes with the working tree and/or previous versions",
     "categories": [
         "Other"
     ],
     "keywords": [
-        "git", "blame", "history", "log", "codelens"
+        "git", "blame", "gitblame", "log", "gitlog", "history", "codelens", "annotation"
     ],
     "galleryBanner": {
-        "color": "#0000FF",
-        "theme": "dark"
+        "color": "#f0efe7",
+        "theme": "light"
     },
+    "icon": "images/gitlens-icon.png",
     "preview": false,
-    "bugs": {
+    "homepage": "https://github.com/eamodio/vscode-gitlens/blob/master/README.md",
+      "bugs": {
         "url": "https://github.com/eamodio/vscode-gitlens/issues"
     },
     "repository": {
