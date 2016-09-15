@@ -104,7 +104,7 @@ export default class GitProvider extends Disposable {
         }
 
         if (this._blames.delete(cacheKey)) {
-            console.log('[GitLens]', `Clear blame cache: fileName=${fileName}, reason=${RemoveCacheReason[reason]})`);
+            console.log('[GitLens]', `Clear blame cache: cacheKey=${cacheKey}, reason=${RemoveCacheReason[reason]}`);
 
             // if (reason === RemoveCacheReason.DocumentSaved) {
             //     // TODO: Killing the code lens provider is too drastic -- makes the editor jump around, need to figure out how to trigger a refresh
@@ -209,6 +209,7 @@ export default class GitProvider extends Disposable {
                 blame.catch(ex => {
                     const msg = ex && ex.toString();
                     if (msg && (msg.includes('is outside repository') || msg.includes('no such path'))) {
+                        console.log('[GitLens]', `Replace blame cache: cacheKey=${cacheKey}`);
                         this._blames.set(cacheKey, <IBlameCacheEntry>{
                             //date: new Date(),
                             blame: GitProvider.BlameEmptyPromise,
@@ -227,6 +228,7 @@ export default class GitProvider extends Disposable {
                 });
             }
 
+            console.log('[GitLens]', `Add blame cache: cacheKey=${cacheKey}`);
             this._blames.set(cacheKey, <IBlameCacheEntry> {
                 //date: new Date(),
                 blame: blame
@@ -269,7 +271,8 @@ export default class GitProvider extends Disposable {
             blame.commits.forEach(c => {
                 if (!shas.has(c.sha)) return;
 
-                const commit: IGitCommit = new GitCommit(this.repoPath, c.sha, c.fileName, c.author, c.date, c.message, c.lines.filter(l => l.line >= range.start.line && l.line <= range.end.line));
+                const commit: IGitCommit = new GitCommit(this.repoPath, c.sha, c.fileName, c.author, c.date, c.message,
+                    c.lines.filter(l => l.line >= range.start.line && l.line <= range.end.line), c.originalFileName, c.previousSha, c.previousFileName);
                 commits.set(c.sha, commit);
 
                 let author = authors.get(commit.author);
@@ -304,7 +307,8 @@ export default class GitProvider extends Disposable {
 
             const lines = blame.lines.slice(range.start.line, range.end.line + 1).filter(l => l.sha === sha);
             let commit = blame.commits.get(sha);
-            commit = new GitCommit(this.repoPath, commit.sha, commit.fileName, commit.author, commit.date, commit.message, lines);
+            commit = new GitCommit(this.repoPath, commit.sha, commit.fileName, commit.author, commit.date, commit.message,
+                lines, commit.originalFileName, commit.previousSha, commit.previousFileName);
             return {
                 author: Object.assign({}, blame.authors.get(commit.author), { lineCount: commit.lines.length }),
                 commit: commit,
@@ -445,8 +449,12 @@ class GitCommit implements IGitCommit {
     previousSha?: string;
     previousFileName?: string;
 
-    constructor(private repoPath: string, public sha: string, public fileName: string, public author: string, public date: Date, public message: string, lines?: IGitCommitLine[]) {
+    constructor(private repoPath: string, public sha: string, public fileName: string, public author: string, public date: Date, public message: string,
+                lines?: IGitCommitLine[], originalFileName?: string, previousSha?: string, previousFileName?: string) {
         this.lines = lines || [];
+        this.originalFileName = originalFileName;
+        this.previousSha = previousSha;
+        this.previousFileName = previousFileName;
     }
 
     toPreviousUri(): Uri {

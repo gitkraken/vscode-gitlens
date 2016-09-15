@@ -19,9 +19,10 @@ export function activate(context: ExtensionContext) {
         return;
     }
 
-    console.log(`GitLens active: ${workspace.rootPath}`);
+    const rootPath = workspace.rootPath.replace(/\\/g, '/');
+    console.log(`GitLens active: ${rootPath}`);
 
-    Git.repoPath(workspace.rootPath).then(repoPath => {
+    Git.repoPath(rootPath).then(repoPath => {
         context.workspaceState.update(WorkspaceState.RepoPath, repoPath);
         context.workspaceState.update(WorkspaceState.HasGitHistoryExtension, extensions.getExtension('donjayamanne.githistory') !== undefined);
 
