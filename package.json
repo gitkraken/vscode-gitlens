@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "0.0.7",
+    "version": "0.1.0",
     "author": "Eric Amodio",
     "publisher": "eamodio",
     "engines": {
@@ -19,7 +19,7 @@
         "color": "#0000FF",
         "theme": "dark"
     },
-    "preview": true,
+    "preview": false,
     "bugs": {
         "url": "https://github.com/eamodio/vscode-gitlens/issues"
     },
@@ -29,6 +29,71 @@
     },
     "main": "./out/src/extension",
     "contributes": {
+        "configuration": {
+            "type": "object",
+            "title": "GitLens configuration",
+            "properties": {
+                "gitlens.blame.annotation.style": {
+                    "type": "string",
+                    "default": "expanded",
+                    "enum": [
+                        "compact",
+                        "expanded"
+                    ],
+                    "description": "Specifies the style of the blame annotations. Compact - groups annotations to limit the repetition and also adds author and date when possible. Expanded - shows an annotation on every line"
+                },
+                "gitlens.blame.annotation.sha": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether the commit sha will be shown in the blame annotations. Applies only to the Expanded annotation style"
+                },
+                "gitlens.blame.annotation.author": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether the committer will be shown in the blame annotations. Applies only to the Expanded annotation style"
+                },
+                "gitlens.blame.annotation.date": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Specifies whether the commit date will be shown in the blame annotations. Applies only to the Expanded annotation style"
+                },
+                "gitlens.blame.annotation.useCodeActions": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Specifies whether code actions (Diff with Working, Diff with Previous) will be provided for the selected line, when annotating. Not required as context menu options are always provided"
+                },
+                "gitlens.codeLens.recentChange.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether the recent change CodeLens is shown"
+                },
+                "gitlens.codeLens.recentChange.command": {
+                    "type": "string",
+                    "default": "blame.explorer",
+                    "enum": [
+                        "blame.annotate",
+                        "blame.explorer",
+                        "git.history"
+                    ],
+                    "description": "Specifies the command executed when the recent change CodeLens is clicked. Annotate - toggles blame annotations. Explorer - opens the blame explorer. History - opens a file history picker, which requires the Git History (git log) extension"
+                },
+                "gitlens.codeLens.authors.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether the authors CodeLens is shown"
+                },
+                "gitlens.codeLens.authors.command": {
+                    "type": "string",
+                    "default": "blame.annotate",
+                    "enum": [
+                        "blame.annotate",
+                        "blame.explorer",
+                        "git.history"
+                    ],
+                    "description": "Specifies the command executed when the authors CodeLens is clicked. Annotate - toggles blame annotations. Explorer - opens the blame explorer. History - opens a file history picker, which requires the Git History (git log) extension"
+                }
+            }
+        },
         "commands": [{
             "command": "gitlens.diffWithPrevious",
             "title": "Git: Open Diff with Previous Commit",

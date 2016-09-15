@@ -53,6 +53,16 @@ export default class Git {
         return gitCommand(repoPath, 'blame', '--porcelain', '--root', '--', fileName);
     }
 
+    static blameLinePorcelain(fileName: string, repoPath: string, sha?: string) {
+        fileName = Git.normalizePath(fileName, repoPath);
+
+        if (sha) {
+            return gitCommand(repoPath, 'blame', '--line-porcelain', '--root', `${sha}^`, '--', fileName);
+        }
+
+        return gitCommand(repoPath, 'blame', '--line-porcelain', '--root', '--', fileName);
+    }
+
     static getVersionedFile(fileName: string, repoPath: string, sha: string) {
         return new Promise<string>((resolve, reject) => {
             Git.getVersionedFileText(fileName, repoPath, sha).then(data => {

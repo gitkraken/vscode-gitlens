@@ -4,12 +4,13 @@ Provides Git blame and blame history CodeLens for many supported Visual Studio C
 
 ## Features
 
-Provides two CodeLens on code blocks :
+Provides two CodeLens on code blocks:
 - **Recent Change** - author and date of the most recent check-in
   > Clicking on the CodeLens opens a **Blame explorer** with the commits and changed lines in the right pane and the commit (file) contents on the left
-- **Blame** - number of authors of a block and the most prominent author (if there are more than one)
-  > Clicking on the CodeLens toggles Git blame overlay
+- **Authors** - number of authors of a block and the most prominent author (if there are more than one)
+  > Clicking on the CodeLens toggles Git blame annotations on/off
 
+## Screenshot
 > ![GitLens preview](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/preview-gitlens.gif)
 
 ## Requirements
@@ -18,7 +19,7 @@ Must be using Git and it must be in your path.
 
 ## Extension Settings
 
-None yet.
+See the Contributions tab above
 
 ## Known Issues
 
@@ -29,7 +30,20 @@ None yet.
 
 ## Release Notes
 
+### 0.1.0
+
+ - Improved blame annotations, now with sha and author by default
+ - Add new blame annotation styles -- compact and expanded (default)
+ - Adds many new configuration settings; see Contributions tab above
+
+### 0.0.7
+
+ - Fixes [#4](https://github.com/eamodio/vscode-gitlens/issues/4) - Absolute paths fail on Windows due to backslash (Really!)
+ - Fixes [#5](https://github.com/eamodio/vscode-gitlens/issues/5) - Finding first non-white-space fails sometimes
+ - Adds .gitignore checks to reduce the number of blame calls
+
 ### 0.0.6
+
  - Fixes [#2](https://github.com/eamodio/vscode-gitlens/issues/2) - [request] Provide some debug info when things fail
  - Fixes [#4](https://github.com/eamodio/vscode-gitlens/issues/4) - Absolute paths fail on Windows due to backslash
  - Attempts to scroll to the correct position when opening a diff

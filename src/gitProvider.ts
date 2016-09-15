@@ -11,6 +11,7 @@ import * as ignore from 'ignore';
 
 const commitMessageMatcher = /^([\^0-9a-fA-F]{7})\s(.*)$/gm;
 const blamePorcelainMatcher = /^([\^0-9a-fA-F]{40})\s([0-9]+)\s([0-9]+)(?:\s([0-9]+))?$\n(?:^author\s(.*)$\n^author-mail\s(.*)$\n^author-time\s(.*)$\n^author-tz\s(.*)$\n^committer\s(.*)$\n^committer-mail\s(.*)$\n^committer-time\s(.*)$\n^committer-tz\s(.*)$\n^summary\s(.*)$\n(?:^previous\s(.*)?\s(.*)$\n)?^filename\s(.*)$\n)?^(.*)$/gm;
+const blameLinePorcelainMatcher = /^([\^0-9a-fA-F]{40})\s([0-9]+)\s([0-9]+)(?:\s([0-9]+))?$\n^author\s(.*)$\n^author-mail\s(.*)$\n^author-time\s(.*)$\n^author-tz\s(.*)$\n^committer\s(.*)$\n^committer-mail\s(.*)$\n^committer-time\s(.*)$\n^committer-tz\s(.*)$\n^summary\s(.*)$\n(?:^previous\s(.*)?\s(.*)$\n)?^filename\s(.*)$\n^(.*)$/gm;
 
 interface IBlameCacheEntry {
     //date: Date;
@@ -70,6 +71,7 @@ export default class GitProvider extends Disposable {
         subscriptions.push(workspace.onDidCloseTextDocument(d => this._removeCachedBlame(d.fileName, RemoveCacheReason.DocumentClosed)));
         subscriptions.push(workspace.onDidSaveTextDocument(d => this._removeCachedBlameFn(d.fileName, RemoveCacheReason.DocumentSaved)));
         subscriptions.push(workspace.onDidChangeTextDocument(e => this._removeCachedBlameFn(e.document.fileName, RemoveCacheReason.DocumentChanged)));
+        subscriptions.push(workspace.onDidChangeConfiguration(() => this._registerCodeLensProvider()));
 
         this._disposable = Disposable.from(...subscriptions);
     }
@@ -128,6 +130,7 @@ export default class GitProvider extends Disposable {
                 console.log('[GitLens]', `Skipping blame; ${fileName} is gitignored`);
                 blame = GitProvider.BlameEmptyPromise;
             } else {
+                //blame = Git.blameLinePorcelain(fileName, this.repoPath)
                 blame = Git.blamePorcelain(fileName, this.repoPath)
                     .then(data => {
                         if (!data) return null;
@@ -137,8 +140,10 @@ export default class GitProvider extends Disposable {
                         const lines: Array<IGitCommitLine> = [];
 
                         let m: Array<string>;
+                        //while ((m = blameLinePorcelainMatcher.exec(data)) != null) {
                         while ((m = blamePorcelainMatcher.exec(data)) != null) {
                             const sha = m[1].substring(0, 8);
+                            const previousSha = m[14];
                             let commit = commits.get(sha);
                             if (!commit) {
                                 const authorName = m[5].trim();
@@ -158,7 +163,6 @@ export default class GitProvider extends Disposable {
                                     commit.originalFileName = originalFileName;
                                 }
 
-                                const previousSha = m[14];
                                 if (previousSha) {
                                     commit.previousSha = previousSha.substring(0, 8);
                                     commit.previousFileName = m[15];
@@ -172,6 +176,10 @@ export default class GitProvider extends Disposable {
                                 line: parseInt(m[3], 10) - 1,
                                 originalLine: parseInt(m[2], 10) - 1
                                 //code: m[17]
+                            }
+
+                            if (previousSha) {
+                                line.previousSha = previousSha.substring(0, 8);
                             }
 
                             commit.lines.push(line);
@@ -485,6 +493,7 @@ class GitCommit implements IGitCommit {
 
 export interface IGitCommitLine {
     sha: string;
+    previousSha?: string;
     line: number;
     originalLine: number;
     code?: string;

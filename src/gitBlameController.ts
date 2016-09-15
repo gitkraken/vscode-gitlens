@@ -1,18 +1,17 @@
 'use strict'
 import {commands, DecorationInstanceRenderOptions, DecorationOptions, Diagnostic, DiagnosticCollection, DiagnosticSeverity, Disposable, ExtensionContext, languages, OverviewRulerLane, Position, Range, TextEditor, TextEditorDecorationType, Uri, window, workspace} from 'vscode';
 import {BuiltInCommands, Commands, DocumentSchemes} from './constants';
-import GitProvider, {IGitBlame} from './gitProvider';
+import {BlameAnnotationStyle, IBlameConfig} from './configuration';
+import GitProvider, {IGitBlame, IGitCommit} from './gitProvider';
 import GitCodeActionsProvider from './gitCodeActionProvider';
 import {DiagnosticCollectionName, DiagnosticSource} from './constants';
 import * as moment from 'moment';
 
 const blameDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
     before: {
-        margin: '0 1.75em 0 0',
-        width: '5em'
-    },
+        margin: '0 1.75em 0 0'
+    }
 });
-
 let highlightDecoration: TextEditorDecorationType;
 
 export default class GitBlameController extends Disposable {
@@ -92,9 +91,11 @@ export default class GitBlameController extends Disposable {
 
 class GitBlameEditorController extends Disposable {
     public uri: Uri;
-    private _disposable: Disposable;
+
     private _blame: Promise<IGitBlame>;
+    private _config: IBlameConfig;
     private _diagnostics: DiagnosticCollection;
+    private _disposable: Disposable;
     private _toggleWhitespace: boolean;
 
     constructor(private context: ExtensionContext, private git: GitProvider, public editor: TextEditor) {
@@ -104,24 +105,28 @@ class GitBlameEditorController extends Disposable {
         const fileName = this.uri.fsPath;
         this._blame = this.git.getBlameForFile(fileName);
 
+        this._config = workspace.getConfiguration('gitlens').get<IBlameConfig>('blame');
+
         const subscriptions: Disposable[] = [];
 
-        this._diagnostics = languages.createDiagnosticCollection(DiagnosticCollectionName);
-        subscriptions.push(this._diagnostics);
+        if (this._config.annotation.useCodeActions) {
+            this._diagnostics = languages.createDiagnosticCollection(DiagnosticCollectionName);
+            subscriptions.push(this._diagnostics);
 
-        subscriptions.push(languages.registerCodeActionsProvider(GitCodeActionsProvider.selector, new GitCodeActionsProvider(this.context, this.git)));
+            subscriptions.push(languages.registerCodeActionsProvider(GitCodeActionsProvider.selector, new GitCodeActionsProvider(this.context, this.git)));
+        }
 
         subscriptions.push(window.onDidChangeTextEditorSelection(e => {
             const activeLine = e.selections[0].active.line;
 
-            this._diagnostics.clear();
+            this._diagnostics && this._diagnostics.clear();
 
             this.git.getBlameForLine(e.textEditor.document.fileName, activeLine)
                 .then(blame => {
                     if (!blame) return;
 
                     // Add the bogus diagnostics to provide code actions for this sha
-                    this._diagnostics.set(editor.document.uri, [this._getDiagnostic(editor, activeLine, blame.commit.sha)]);
+                    this._diagnostics && this._diagnostics.set(editor.document.uri, [this._getDiagnostic(editor, activeLine, blame.commit.sha)]);
 
                     this.applyHighlight(blame.commit.sha);
                 });
@@ -156,58 +161,149 @@ class GitBlameEditorController extends Disposable {
             if (!blame || !blame.lines.length) return;
 
             // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- toggle whitespace off
-            this._toggleWhitespace = workspace.getConfiguration('editor').get('renderWhitespace') as boolean;
+            const whitespace = workspace.getConfiguration('editor').get<string>('renderWhitespace');
+            this._toggleWhitespace = whitespace !== 'false' && whitespace !== 'none';
             if (this._toggleWhitespace) {
                 commands.executeCommand(BuiltInCommands.ToggleRenderWhitespace);
             }
 
-            let lastSha;
-            const blameDecorationOptions: DecorationOptions[] = blame.lines.map(l => {
-                let color = '#6b6b6b';
-
-                const c = blame.commits.get(l.sha);
-                if (c.previousSha) {
-                    color = '#999999';
-                }
-
-                let gutter = '';
-                if (lastSha !== l.sha || true) { // TODO: Add a config option
-                    gutter = l.sha.substring(0, 8);
-                    if (gutter === '00000000') {
-                        if (c.previousSha) {
-                            const pc = blame.commits.get(c.previousSha);
-                            if (pc && pc.lines.find(_ => _.line === l.line)) {
-                                gutter = c.previousSha.substring(0, 8);
-                                color = 'rgba(0, 188, 242, 0.6)';
-                            }
-                            else {
-                                color = 'rgba(127, 186, 0, 0.6)';
-                            }
-                        } else {
-                            color = 'rgba(127, 186, 0, 0.6)';
-                        }
-                    }
-                }
-                lastSha = l.sha;
-
-                return <DecorationOptions>{
-                    range: this.editor.document.validateRange(new Range(l.line, 0, l.line, 0)),
-                    hoverMessage: `${c.message}\n${c.author}, ${moment(c.date).format('MMMM Do, YYYY hh:MM a')}`,
-                    renderOptions: { before: { color: color, contentText: gutter } }
-                };
-            });
-
+            let blameDecorationOptions: DecorationOptions[]
+            switch (this._config.annotation.style) {
+                case BlameAnnotationStyle.Compact:
+                    blameDecorationOptions = this._getCompactGutterDecorations(blame);
+                    break;
+                case BlameAnnotationStyle.Expanded:
+                    blameDecorationOptions = this._getExpandedGutterDecorations(blame);
+                    break;
+            }
             this.editor.setDecorations(blameDecoration, blameDecorationOptions);
 
             sha = sha || blame.commits.values().next().value.sha;
 
-            // Add the bogus diagnostics to provide code actions for this sha
-            const activeLine = this.editor.selection.active.line;
-            this._diagnostics.clear();
-            this._diagnostics.set(this.editor.document.uri, [this._getDiagnostic(this.editor, activeLine, sha)]);
+            if (this._diagnostics) {
+                // Add the bogus diagnostics to provide code actions for this sha
+                const activeLine = this.editor.selection.active.line;
+                this._diagnostics.clear();
+                this._diagnostics.set(this.editor.document.uri, [this._getDiagnostic(this.editor, activeLine, sha)]);
+            }
 
             return this.applyHighlight(sha);
         });
+    }
+
+    _getCompactGutterDecorations(blame: IGitBlame): DecorationOptions[] {
+        let count = 0;
+        let lastSha;
+        return blame.lines.map(l => {
+            let color = l.previousSha ? '#999999' : '#6b6b6b';
+            let commit = blame.commits.get(l.sha);
+            let hoverMessage: string | Array<string> = [commit.message, `${commit.author}, ${moment(commit.date).format('MMMM Do, YYYY hh:MM a')}`];
+
+            if (l.sha.startsWith('00000000')) {
+                color = 'rgba(0, 188, 242, 0.6)';
+                hoverMessage = '';
+            }
+
+            let gutter = '';
+            if (lastSha === l.sha) {
+                count++;
+                if (count === 1) {
+                    gutter = `\\00a6\\00a0 ${this._getAuthor(commit, 17, true)}`;
+                } else if (count === 2) {
+                    gutter = `\\00a6\\00a0 ${this._getDate(commit, true)}`;
+                } else {
+                    gutter = '\\00a6\\00a0';
+                }
+            } else {
+                count = 0;
+                gutter = commit.sha.substring(0, 8);
+            }
+            lastSha = l.sha;
+
+            return <DecorationOptions>{
+                range: this.editor.document.validateRange(new Range(l.line, 0, l.line, 0)),
+                hoverMessage: [commit.message, `${commit.author}, ${moment(commit.date).format('MMMM Do, YYYY hh:MM a')}`],
+                renderOptions: { before: { color: color, contentText: gutter, width: '11em' } }
+            };
+        });
+    }
+
+    _getExpandedGutterDecorations(blame: IGitBlame): DecorationOptions[] {
+        let width = 0;
+        if (this._config.annotation.sha) {
+            width += 5;
+        }
+        if (this._config.annotation.date) {
+            if (width > 0) {
+                width += 7;
+            } else {
+                width += 6;
+            }
+        }
+        if (this._config.annotation.author) {
+            if (width > 5 + 6) {
+                width += 12;
+            } else if (width > 0) {
+                width += 11;
+            } else {
+                width += 10;
+            }
+        }
+
+        return blame.lines.map(l => {
+            let color = l.previousSha ? '#999999' : '#6b6b6b';
+            let commit = blame.commits.get(l.sha);
+            let hoverMessage: string | Array<string> = [commit.message, `${commit.author}, ${moment(commit.date).format('MMMM Do, YYYY hh:MM a')}`];
+
+            if (l.sha.startsWith('00000000')) {
+                color = 'rgba(0, 188, 242, 0.6)';
+                hoverMessage = '';
+                // if (l.previousSha) {
+                //     let previousCommit = blame.commits.get(l.previousSha);
+                //     if (previousCommit) {//} && previousCommit.lines.find(_ => _.line === l.originalLine)) {
+                //         commit = previousCommit;
+                //         color = 'rgba(0, 188, 242, 0.6)';
+                //     }
+                //     else {
+                //         color = 'rgba(127, 186, 0, 0.6)';
+                //     }
+                // } else {
+                //     color = 'rgba(127, 186, 0, 0.6)';
+                // }
+            }
+
+            const gutter = this._getGutter(commit);
+            return <DecorationOptions>{
+                range: this.editor.document.validateRange(new Range(l.line, 0, l.line, 0)),
+                hoverMessage: hoverMessage,
+                renderOptions: { before: { color: color, contentText: gutter, width: `${width}em` } }
+            };
+        });
+    }
+
+    _getAuthor(commit: IGitCommit, max: number = 17, force: boolean = false) {
+        if (!force && !this._config.annotation.author) return '';
+        if (commit.author.length > max) {
+            return `${commit.author.substring(0, max - 1)}\\2026`;
+        }
+        return commit.author;
+    }
+
+    _getDate(commit: IGitCommit, force?: boolean) {
+        if (!force && !this._config.annotation.date) return '';
+        return moment(commit.date).format('MM/DD/YYYY');
+    }
+
+    _getGutter(commit: IGitCommit) {
+        const author = this._getAuthor(commit);
+        const date = this._getDate(commit);
+        if (this._config.annotation.sha) {
+            return `${commit.sha.substring(0, 8)}${(date ? `\\00a0\\2022\\00a0 ${date}` : '')}${(author ? `\\00a0\\2022\\00a0 ${author}` : '')}`;
+        } else if (this._config.annotation.date) {
+            return `${date}${(author ? `\\00a0\\2022\\00a0 ${author}` : '')}`;
+        } else {
+            return author;
+        }
     }
 
     applyHighlight(sha: string) {
