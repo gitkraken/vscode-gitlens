@@ -1,6 +1,6 @@
 # GitLens
 
-Provides Git information (most recent commit, number of authors) in CodeLens, on-demand inline blame annotations, a blame history explorer, and commands to compare changes with the working tree and/or previous versions.
+Provides Git information (most recent commit, # of authors) in CodeLens, on-demand inline blame annotations, a blame explorer, and commands to compare changes with the working tree or previous versions.
 
 ## Features
 
@@ -30,7 +30,7 @@ See the Contributions tab above
 
 ## Release Notes
 
-### 0.1.1
+### 0.1.3
 
  - Improved blame annotations, now with sha and author by default
  - Add new blame annotation styles -- compact and expanded (default)
