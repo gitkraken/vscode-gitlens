@@ -13,7 +13,7 @@
         "Other"
     ],
     "keywords": [
-        "git", "blame", "gitblame", "log", "gitlog", "history", "codelens", "annotation"
+        "git", "blame", "gitblame", "codelens", "annotation"
     ],
     "galleryBanner": {
         "color": "#f0efe7",
