@@ -30,7 +30,7 @@ See the Contributions tab above
 
 ## Release Notes
 
-### 0.1.0
+### 0.1.1
 
  - Improved blame annotations, now with sha and author by default
  - Add new blame annotation styles -- compact and expanded (default)
