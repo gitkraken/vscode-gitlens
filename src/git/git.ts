@@ -37,20 +37,24 @@ export default class Git {
         return fileName.replace(/\\/g, '/');
     }
 
-    static splitPath(fileName: string) {
+    static splitPath(fileName: string, repoPath?: string) {
         // if (!path.isAbsolute(fileName)) {
         //     console.error('[GitLens]', `Git.splitPath(${fileName}) is not an absolute path!`);
         //     debugger;
         // }
-        return [path.basename(fileName).replace(/\\/g, '/'), path.dirname(fileName).replace(/\\/g, '/')];
+        if (repoPath) {
+            return [fileName.replace(`${repoPath}/`, ''), repoPath];
+        } else {
+            return [path.basename(fileName).replace(/\\/g, '/'), path.dirname(fileName).replace(/\\/g, '/')];
+        }
     }
 
     static repoPath(cwd: string) {
         return gitCommand(cwd, 'rev-parse', '--show-toplevel').then(data => data.replace(/\r?\n|\r/g, '').replace(/\\/g, '/'));
     }
 
-    static blame(format: GitBlameFormat, fileName: string, sha?: string) {
-        const [file, root] = Git.splitPath(Git.normalizePath(fileName));
+    static blame(format: GitBlameFormat, fileName: string, repoPath?: string, sha?: string) {
+        const [file, root] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
         if (sha) {
             return gitCommand(root, 'blame', format, '--root', `${sha}^`, '--', file);
@@ -58,9 +62,9 @@ export default class Git {
         return gitCommand(root, 'blame', format, '--root', '--', file);
     }
 
-    static getVersionedFile(fileName: string, sha: string) {
+    static getVersionedFile(fileName: string, repoPath: string, sha: string) {
         return new Promise<string>((resolve, reject) => {
-            Git.getVersionedFileText(fileName, sha).then(data => {
+            Git.getVersionedFileText(fileName, repoPath, sha).then(data => {
                 const ext = path.extname(fileName);
                 tmp.file({ prefix: `${path.basename(fileName, ext)}-${sha}_`, postfix: ext }, (err, destination, fd, cleanupCallback) => {
                     if (err) {
@@ -81,8 +85,8 @@ export default class Git {
         });
     }
 
-    static getVersionedFileText(fileName: string, sha: string) {
-        const [file, root] = Git.splitPath(Git.normalizePath(fileName));
+    static getVersionedFileText(fileName: string, repoPath: string, sha: string) {
+        const [file, root] = Git.splitPath(Git.normalizePath(fileName), repoPath);
         sha = sha.replace('^', '');
 
         return gitCommand(root, 'show', `${sha}:./${file}`);

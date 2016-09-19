@@ -10,6 +10,6 @@ export default class GitContentProvider implements TextDocumentContentProvider {
 
     provideTextDocumentContent(uri: Uri): string | Thenable<string> {
         const data = GitProvider.fromGitUri(uri);
-        return this.git.getVersionedFileText(data.originalFileName || data.fileName, data.sha);
+        return this.git.getVersionedFileText(data.originalFileName || data.fileName, data.repoPath, data.sha);
     }
 }

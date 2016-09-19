@@ -292,12 +292,12 @@ export default class GitProvider extends Disposable {
         });
     }
 
-    getVersionedFile(fileName: string, sha: string) {
-        return Git.getVersionedFile(fileName, sha);
+    getVersionedFile(fileName: string, repoPath: string, sha: string) {
+        return Git.getVersionedFile(fileName, repoPath, sha);
     }
 
-    getVersionedFileText(fileName: string, sha: string) {
-        return Git.getVersionedFileText(fileName, sha);
+    getVersionedFileText(fileName: string, repoPath: string, sha: string) {
+        return Git.getVersionedFileText(fileName, repoPath, sha);
     }
 
     static fromBlameUri(uri: Uri): IGitBlameUriData {
@@ -336,7 +336,7 @@ export default class GitProvider extends Disposable {
 
     private static _toGitUriData<T extends IGitUriData>(commit: IGitCommit, index: number, originalFileName?: string): T {
         const fileName = Git.normalizePath(path.join(commit.repoPath, commit.fileName));
-        const data = { fileName: fileName, sha: commit.sha, index: index } as T;
+        const data = { repoPath: commit.repoPath, fileName: fileName, sha: commit.sha, index: index } as T;
         if (originalFileName) {
             data.originalFileName = Git.normalizePath(path.join(commit.repoPath, originalFileName));
         }
@@ -351,12 +351,13 @@ export default class GitProvider extends Disposable {
 }
 
 export interface IGitUriData {
-    fileName: string,
+    repoPath: string;
+    fileName: string;
     originalFileName?: string;
-    sha: string,
-    index: number
+    sha: string;
+    index: number;
 }
 
 export interface IGitBlameUriData extends IGitUriData {
-    range: Range
+    range: Range;
 }

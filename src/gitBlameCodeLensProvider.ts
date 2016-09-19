@@ -68,7 +68,11 @@ export default class GitBlameCodeLensProvider implements CodeLensProvider {
         lens.command = {
             title: `Compare with Working Tree`,
             command: Commands.DiffWithWorking,
-            arguments: [Uri.file(lens.fileName), lens.commit.sha, lens.commit.uri, lens.range.start.line]
+            arguments: [
+                Uri.file(lens.fileName),
+                lens.commit.sha,
+                lens.commit.uri,
+                lens.range.start.line]
         };
         return Promise.resolve(lens);
     }
@@ -77,7 +81,14 @@ export default class GitBlameCodeLensProvider implements CodeLensProvider {
         lens.command = {
             title: `Compare with Previous (${lens.commit.previousSha})`,
             command: Commands.DiffWithPrevious,
-            arguments: [Uri.file(lens.fileName), lens.commit.sha, lens.commit.uri, lens.commit.previousSha, lens.commit.previousUri, lens.range.start.line]
+            arguments: [
+                Uri.file(lens.fileName),
+                lens.commit.repoPath,
+                lens.commit.sha,
+                lens.commit.uri,
+                lens.commit.previousSha,
+                lens.commit.previousUri,
+                lens.range.start.line]
         };
         return Promise.resolve(lens);
     }

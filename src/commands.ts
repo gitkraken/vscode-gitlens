@@ -43,7 +43,7 @@ export class DiffWithPreviousCommand extends EditorCommand {
         super(Commands.DiffWithPrevious);
     }
 
-    execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, sha?: string, shaUri?: Uri, compareWithSha?: string, compareWithUri?: Uri, line?: number) {
+    execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, repoPath?: string, sha?: string, shaUri?: Uri, compareWithSha?: string, compareWithUri?: Uri, line?: number) {
         line = line || editor.selection.active.line;
         if (!sha) {
             return this.git.getBlameForLine(uri.fsPath, line)
@@ -52,9 +52,9 @@ export class DiffWithPreviousCommand extends EditorCommand {
                     if (!blame) return;
 
                     if (UncommitedRegex.test(blame.commit.sha)) {
-                        return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.previousSha, blame.commit.previousUri, line);
+                        return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.repoPath, blame.commit.previousSha, blame.commit.previousUri, line);
                     }
-                    return commands.executeCommand(Commands.DiffWithPrevious, uri, blame.commit.sha, blame.commit.uri, blame.commit.previousSha, blame.commit.previousUri, line);
+                    return commands.executeCommand(Commands.DiffWithPrevious, uri, blame.commit.repoPath, blame.commit.sha, blame.commit.uri, blame.commit.previousSha, blame.commit.previousUri, line);
                 });
         }
 
@@ -62,7 +62,7 @@ export class DiffWithPreviousCommand extends EditorCommand {
             return window.showInformationMessage(`Commit ${sha} has no previous commit`);
         }
 
-        return Promise.all([this.git.getVersionedFile(shaUri.fsPath, sha), this.git.getVersionedFile(compareWithUri.fsPath, compareWithSha)])
+        return Promise.all([this.git.getVersionedFile(shaUri.fsPath, repoPath, sha), this.git.getVersionedFile(compareWithUri.fsPath, repoPath, compareWithSha)])
             .catch(ex => console.error('[GitLens.DiffWithPreviousCommand]', 'getVersionedFile', ex))
             .then(values => commands.executeCommand(BuiltInCommands.Diff, Uri.file(values[1]), Uri.file(values[0]), `${path.basename(compareWithUri.fsPath)} (${compareWithSha}) ↔ ${path.basename(shaUri.fsPath)} (${sha})`)
                 .then(() => commands.executeCommand(BuiltInCommands.RevealLine, {lineNumber: line, at: 'center'})));
@@ -74,7 +74,7 @@ export class DiffWithWorkingCommand extends EditorCommand {
         super(Commands.DiffWithWorking);
     }
 
-    execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, sha?: string, shaUri?: Uri, line?: number) {
+    execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, repoPath?: string, sha?: string, shaUri?: Uri, line?: number) {
         line = line || editor.selection.active.line;
         if (!sha) {
             return this.git.getBlameForLine(uri.fsPath, line)
@@ -83,13 +83,13 @@ export class DiffWithWorkingCommand extends EditorCommand {
                     if (!blame) return;
 
                     if (UncommitedRegex.test(blame.commit.sha)) {
-                        return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.previousSha, blame.commit.previousUri, line);
+                        return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.repoPath, blame.commit.previousSha, blame.commit.previousUri, line);
                     }
-                    return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.sha, blame.commit.uri, line)
+                    return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.repoPath, blame.commit.sha, blame.commit.uri, line)
                 });
         };
 
-        return this.git.getVersionedFile(shaUri.fsPath, sha)
+        return this.git.getVersionedFile(shaUri.fsPath, repoPath, sha)
             .catch(ex => console.error('[GitLens.DiffWithWorkingCommand]', 'getVersionedFile', ex))
             .then(compare => commands.executeCommand(BuiltInCommands.Diff, Uri.file(compare), uri, `${path.basename(shaUri.fsPath)} (${sha}) ↔ ${path.basename(uri.fsPath)} (index)`)
                 .then(() => commands.executeCommand(BuiltInCommands.RevealLine, {lineNumber: line, at: 'center'})));
