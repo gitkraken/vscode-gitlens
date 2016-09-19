@@ -19,7 +19,17 @@ Must be using Git and it must be in your path.
 
 ## Extension Settings
 
-See the Contributions tab above
+|Name | Description
+|-----|------------
+|_gitlens.blame.annotation.style_|Specifies the style of the blame annotations. Compact - groups annotations to limit the repetition and also adds author and date when possible. Expanded - shows an annotation on every line
+|_gitlens.blame.annotation.sha_|Specifies whether the commit sha will be shown in the blame annotations. Applies only to the Expanded annotation style
+|_gitlens.blame.annotation.author_|Specifies whether the committer will be shown in the blame annotations. Applies only to the Expanded annotation style
+|_gitlens.blame.annotation.date_|Specifies whether the commit date will be shown in the blame annotations. Applies only to the Expanded annotation style
+|_gitlens.blame.annotation.useCodeActions_|Specifies whether code actions (Diff with Working, Diff with Previous) will be provided for the selected line, when annotating. Not required as context menu options are always provided
+|_gitlens.codeLens.recentChange.enabled_|Specifies whether the recent change CodeLens is shown
+|_gitlens.codeLens.recentChange.command_|Specifies the command executed when the recent change CodeLens is clicked. Annotate - toggles blame annotations. Explorer - opens the blame explorer. History - opens a file history picker, which requires the Git History (git log) extension
+|_gitlens.codeLens.authors.enabled_|Specifies whether the authors CodeLens is shown
+|_gitlens.codeLens.authors.command_|Specifies the command executed when the authors CodeLens is clicked. Annotate - toggles blame annotations. Explorer - opens the blame explorer. History - opens a file history picker, which requires the Git History (git log) extension
 
 ## Known Issues
 
@@ -29,6 +39,14 @@ See the Contributions tab above
 - Visible whitespace causes issue with blame overlay (currently fixed with a hack, but fails randomly): [vscode issue](https://github.com/Microsoft/vscode/issues/11485)
 
 ## Release Notes
+
+### 0.2.0
+
+ - Fixes [#1](https://github.com/eamodio/vscode-gitlens/issues/1) - Support blame on files outside the workspace repository
+ - Replaces blame regex parsing with a more robust parser
+ - Fixes failures with Diff with Previous command
+ - Fixes issues with blame explorer CodeLens when dealing with previous commits
+ - Fixes display issues with compact blame annotations (now skips blank lines)
 
 ### 0.1.3
 

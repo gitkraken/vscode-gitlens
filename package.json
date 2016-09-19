@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "0.1.3",
+    "version": "0.2.0",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -162,10 +162,10 @@
         "lodash": "^4.15.0",
         "moment": "^2.15.0",
         "spawn-rx": "^2.0.1",
-        "tmp": "^0.0.28"
+        "tmp": "^0.0.29"
     },
     "devDependencies": {
-        "typescript": "^2.0.0",
+        "typescript": "^2.0.2",
         "vscode": "^0.11.17"
     },
     "scripts": {
