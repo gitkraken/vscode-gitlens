@@ -5,6 +5,8 @@ import * as tmp from 'tmp';
 import {spawnPromise} from 'spawn-rx';
 
 export * from './gitEnrichment';
+//export * from './enrichers/blameRegExpEnricher';
+export * from './enrichers/blameParserEnricher';
 
 function gitCommand(cwd: string,  ...args) {
     return spawnPromise('git', args, { cwd: cwd })
@@ -32,30 +34,33 @@ export const GitBlameFormat = {
 
 export default class Git {
     static normalizePath(fileName: string, repoPath?: string) {
-        fileName = fileName.replace(/\\/g, '/');
-        repoPath = repoPath.replace(/\\/g, '/');
-        if (path.isAbsolute(fileName) && fileName.startsWith(repoPath)) {
-            fileName = path.relative(repoPath, fileName).replace(/\\/g, '/');
-        }
-        return fileName;
+        return fileName.replace(/\\/g, '/');
+    }
+
+    static splitPath(fileName: string) {
+        // if (!path.isAbsolute(fileName)) {
+        //     console.error('[GitLens]', `Git.splitPath(${fileName}) is not an absolute path!`);
+        //     debugger;
+        // }
+        return [path.basename(fileName).replace(/\\/g, '/'), path.dirname(fileName).replace(/\\/g, '/')];
     }
 
     static repoPath(cwd: string) {
         return gitCommand(cwd, 'rev-parse', '--show-toplevel').then(data => data.replace(/\r?\n|\r/g, '').replace(/\\/g, '/'));
     }
 
-    static blame(format: GitBlameFormat, fileName: string, repoPath: string, sha?: string) {
-        fileName = Git.normalizePath(fileName, repoPath);
+    static blame(format: GitBlameFormat, fileName: string, sha?: string) {
+        const [file, root] = Git.splitPath(Git.normalizePath(fileName));
 
         if (sha) {
-            return gitCommand(repoPath, 'blame', format, '--root', `${sha}^`, '--', fileName);
+            return gitCommand(root, 'blame', format, '--root', `${sha}^`, '--', file);
         }
-        return gitCommand(repoPath, 'blame', format, '--root', '--', fileName);
+        return gitCommand(root, 'blame', format, '--root', '--', file);
     }
 
-    static getVersionedFile(fileName: string, repoPath: string, sha: string) {
+    static getVersionedFile(fileName: string, sha: string) {
         return new Promise<string>((resolve, reject) => {
-            Git.getVersionedFileText(fileName, repoPath, sha).then(data => {
+            Git.getVersionedFileText(fileName, sha).then(data => {
                 const ext = path.extname(fileName);
                 tmp.file({ prefix: `${path.basename(fileName, ext)}-${sha}_`, postfix: ext }, (err, destination, fd, cleanupCallback) => {
                     if (err) {
@@ -76,27 +81,10 @@ export default class Git {
         });
     }
 
-    static getVersionedFileText(fileName: string, repoPath: string, sha: string) {
-        fileName = Git.normalizePath(fileName, repoPath);
+    static getVersionedFileText(fileName: string, sha: string) {
+        const [file, root] = Git.splitPath(Git.normalizePath(fileName));
         sha = sha.replace('^', '');
 
-        return gitCommand(repoPath, 'show', `${sha}:./${fileName}`);
+        return gitCommand(root, 'show', `${sha}:./${file}`);
     }
-
-    // static getCommitMessage(sha: string, repoPath: string) {
-    //     sha = sha.replace('^', '');
-
-    //     return gitCommand(repoPath, 'show', '-s', '--format=%B', sha);
-    //         // .then(s => { console.log(s); return s; })
-    //         // .catch(ex => console.error(ex));
-    // }
-
-    // static getCommitMessages(fileName: string, repoPath: string) {
-    //     fileName = Git.normalizePath(fileName, repoPath);
-
-    //     // git log --format="%h (%aN %x09 %ai) %s"  --
-    //     return gitCommand(repoPath, 'log', '--oneline', '--', fileName);
-    //         // .then(s => { console.log(s); return s; })
-    //         // .catch(ex => console.error(ex));
-    // }
 }

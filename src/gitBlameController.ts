@@ -1,5 +1,5 @@
 'use strict'
-import {commands, DecorationInstanceRenderOptions, DecorationOptions, Diagnostic, DiagnosticCollection, DiagnosticSeverity, Disposable, ExtensionContext, languages, OverviewRulerLane, Position, Range, TextEditor, TextEditorDecorationType, Uri, window, workspace} from 'vscode';
+import {commands, DecorationInstanceRenderOptions, DecorationOptions, Diagnostic, DiagnosticCollection, DiagnosticSeverity, Disposable, ExtensionContext, languages, OverviewRulerLane, Position, Range, TextDocument, TextEditor, TextEditorDecorationType, Uri, window, workspace} from 'vscode';
 import {BuiltInCommands, Commands, DocumentSchemes} from './constants';
 import {BlameAnnotationStyle, IBlameConfig} from './configuration';
 import GitProvider, {IGitBlame, IGitCommit} from './gitProvider';
@@ -96,13 +96,16 @@ class GitBlameEditorController extends Disposable {
     private _config: IBlameConfig;
     private _diagnostics: DiagnosticCollection;
     private _disposable: Disposable;
+    private _document: TextDocument;
     private _toggleWhitespace: boolean;
 
     constructor(private context: ExtensionContext, private git: GitProvider, public editor: TextEditor) {
         super(() => this.dispose());
 
-        this.uri = this.editor.document.uri;
+        this._document = this.editor.document;
+        this.uri = this._document.uri;
         const fileName = this.uri.fsPath;
+
         this._blame = this.git.getBlameForFile(fileName);
 
         this._config = workspace.getConfiguration('gitlens').get<IBlameConfig>('blame');
@@ -205,24 +208,33 @@ class GitBlameEditorController extends Disposable {
             }
 
             let gutter = '';
-            if (lastSha === l.sha) {
-                count++;
-                if (count === 1) {
-                    gutter = `\\00a6\\00a0 ${this._getAuthor(commit, 17, true)}`;
-                } else if (count === 2) {
-                    gutter = `\\00a6\\00a0 ${this._getDate(commit, true)}`;
-                } else {
-                    gutter = '\\00a6\\00a0';
-                }
-            } else {
-                count = 0;
-                gutter = commit.sha.substring(0, 8);
+            if (lastSha !== l.sha) {
+                count = -1;
             }
+
+            const isEmptyOrWhitespace = this._document.lineAt(l.line).isEmptyOrWhitespace;
+            if (!isEmptyOrWhitespace) {
+                switch (++count) {
+                    case 0:
+                        gutter = commit.sha.substring(0, 8);
+                        break;
+                    case 1:
+                        gutter = `\\00a6\\00a0 ${this._getAuthor(commit, 17, true)}`;
+                        break;
+                    case 2:
+                        gutter = `\\00a6\\00a0 ${this._getDate(commit, true)}`;
+                        break;
+                    default:
+                        gutter = '\\00a6\\00a0';
+                        break;
+                }
+            }
+
             lastSha = l.sha;
 
             return <DecorationOptions>{
                 range: this.editor.document.validateRange(new Range(l.line, 0, l.line, 0)),
-                hoverMessage: [commit.message, `${commit.author}, ${moment(commit.date).format('MMMM Do, YYYY hh:MM a')}`],
+                hoverMessage: [`_${l.sha}_: ${commit.message}`, `${commit.author}, ${moment(commit.date).format('MMMM Do, YYYY hh:MM a')}`],
                 renderOptions: { before: { color: color, contentText: gutter, width: '11em' } }
             };
         });
@@ -258,18 +270,6 @@ class GitBlameEditorController extends Disposable {
             if (l.sha.startsWith('00000000')) {
                 color = 'rgba(0, 188, 242, 0.6)';
                 hoverMessage = '';
-                // if (l.previousSha) {
-                //     let previousCommit = blame.commits.get(l.previousSha);
-                //     if (previousCommit) {//} && previousCommit.lines.find(_ => _.line === l.originalLine)) {
-                //         commit = previousCommit;
-                //         color = 'rgba(0, 188, 242, 0.6)';
-                //     }
-                //     else {
-                //         color = 'rgba(127, 186, 0, 0.6)';
-                //     }
-                // } else {
-                //     color = 'rgba(127, 186, 0, 0.6)';
-                // }
             }
 
             const gutter = this._getGutter(commit);

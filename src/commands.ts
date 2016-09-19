@@ -62,9 +62,7 @@ export class DiffWithPreviousCommand extends EditorCommand {
             return window.showInformationMessage(`Commit ${sha} has no previous commit`);
         }
 
-        // TODO: Moving doesn't always seem to work -- or more accurately it seems like it moves down that number of lines from the current line
-        // which for a diff could be the first difference
-        return Promise.all([this.git.getVersionedFile(uri.fsPath, sha), this.git.getVersionedFile(uri.fsPath, compareWithSha)])
+        return Promise.all([this.git.getVersionedFile(shaUri.fsPath, sha), this.git.getVersionedFile(compareWithUri.fsPath, compareWithSha)])
             .catch(ex => console.error('[GitLens.DiffWithPreviousCommand]', 'getVersionedFile', ex))
             .then(values => commands.executeCommand(BuiltInCommands.Diff, Uri.file(values[1]), Uri.file(values[0]), `${path.basename(compareWithUri.fsPath)} (${compareWithSha}) ↔ ${path.basename(shaUri.fsPath)} (${sha})`)
                 .then(() => commands.executeCommand(BuiltInCommands.RevealLine, {lineNumber: line, at: 'center'})));
@@ -91,8 +89,6 @@ export class DiffWithWorkingCommand extends EditorCommand {
                 });
         };
 
-        // TODO: Moving doesn't always seem to work -- or more accurately it seems like it moves down that number of lines from the current line
-        // which for a diff could be the first difference
         return this.git.getVersionedFile(shaUri.fsPath, sha)
             .catch(ex => console.error('[GitLens.DiffWithWorkingCommand]', 'getVersionedFile', ex))
             .then(compare => commands.executeCommand(BuiltInCommands.Diff, Uri.file(compare), uri, `${path.basename(shaUri.fsPath)} (${sha}) ↔ ${path.basename(uri.fsPath)} (index)`)
