@@ -47,7 +47,7 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
     }
 
     provideTextDocumentContent(uri: Uri): string | Thenable<string> {
-        const data = this.git.fromBlameUri(uri);
+        const data = GitProvider.fromBlameUri(uri);
 
         //const editor = this._findEditor(Uri.file(join(data.repoPath, data.file)));
 

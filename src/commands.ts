@@ -3,8 +3,8 @@ import {commands, DecorationOptions, Disposable, OverviewRulerLane, Position, Ra
 import {BuiltInCommands, Commands} from './constants';
 import GitProvider from './gitProvider';
 import GitBlameController from './gitBlameController';
-import {basename} from 'path';
 import * as moment from 'moment';
+import * as path from 'path';
 
 abstract class Command extends Disposable {
     private _subscriptions: Disposable;
@@ -52,9 +52,9 @@ export class DiffWithPreviousCommand extends EditorCommand {
                     if (!blame) return;
 
                     if (UncommitedRegex.test(blame.commit.sha)) {
-                        return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.previousSha, blame.commit.toPreviousUri(), line);
+                        return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.previousSha, blame.commit.previousUri, line);
                     }
-                    return commands.executeCommand(Commands.DiffWithPrevious, uri, blame.commit.sha, blame.commit.toUri(), blame.commit.previousSha, blame.commit.toPreviousUri(), line);
+                    return commands.executeCommand(Commands.DiffWithPrevious, uri, blame.commit.sha, blame.commit.uri, blame.commit.previousSha, blame.commit.previousUri, line);
                 });
         }
 
@@ -66,7 +66,7 @@ export class DiffWithPreviousCommand extends EditorCommand {
         // which for a diff could be the first difference
         return Promise.all([this.git.getVersionedFile(uri.fsPath, sha), this.git.getVersionedFile(uri.fsPath, compareWithSha)])
             .catch(ex => console.error('[GitLens.DiffWithPreviousCommand]', 'getVersionedFile', ex))
-            .then(values => commands.executeCommand(BuiltInCommands.Diff, Uri.file(values[1]), Uri.file(values[0]), `${basename(compareWithUri.fsPath)} (${compareWithSha}) ↔ ${basename(shaUri.fsPath)} (${sha})`)
+            .then(values => commands.executeCommand(BuiltInCommands.Diff, Uri.file(values[1]), Uri.file(values[0]), `${path.basename(compareWithUri.fsPath)} (${compareWithSha}) ↔ ${path.basename(shaUri.fsPath)} (${sha})`)
                 .then(() => commands.executeCommand(BuiltInCommands.RevealLine, {lineNumber: line, at: 'center'})));
     }
 }
@@ -85,9 +85,9 @@ export class DiffWithWorkingCommand extends EditorCommand {
                     if (!blame) return;
 
                     if (UncommitedRegex.test(blame.commit.sha)) {
-                        return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.previousSha, blame.commit.toPreviousUri(), line);
+                        return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.previousSha, blame.commit.previousUri, line);
                     }
-                    return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.sha, blame.commit.toUri(), line)
+                    return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.sha, blame.commit.uri, line)
                 });
         };
 
@@ -95,7 +95,7 @@ export class DiffWithWorkingCommand extends EditorCommand {
         // which for a diff could be the first difference
         return this.git.getVersionedFile(shaUri.fsPath, sha)
             .catch(ex => console.error('[GitLens.DiffWithWorkingCommand]', 'getVersionedFile', ex))
-            .then(compare => commands.executeCommand(BuiltInCommands.Diff, Uri.file(compare), uri, `${basename(shaUri.fsPath)} (${sha}) ↔ ${basename(uri.fsPath)} (index)`)
+            .then(compare => commands.executeCommand(BuiltInCommands.Diff, Uri.file(compare), uri, `${path.basename(shaUri.fsPath)} (${sha}) ↔ ${path.basename(uri.fsPath)} (index)`)
                 .then(() => commands.executeCommand(BuiltInCommands.RevealLine, {lineNumber: line, at: 'center'})));
     }
 }

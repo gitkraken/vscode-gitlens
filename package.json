@@ -1,7 +1,10 @@
 {
     "name": "gitlens",
     "version": "0.1.3",
-    "author": "Eric Amodio",
+    "author": {
+        "name": "Eric Amodio",
+        "email": "eamodio@gmail.com"
+    },
     "publisher": "eamodio",
     "engines": {
         "vscode": "^1.3.0"
@@ -93,6 +96,11 @@
                         "git.history"
                     ],
                     "description": "Specifies the command executed when the authors CodeLens is clicked. Annotate - toggles blame annotations. Explorer - opens the blame explorer. History - opens a file history picker, which requires the Git History (git log) extension"
+                },
+                "gitlens.advanced.caching.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether git blame output will be cached"
                 }
             }
         },

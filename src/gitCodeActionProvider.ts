@@ -25,7 +25,7 @@ export default class GitCodeActionProvider implements CodeActionProvider {
                         command: Commands.DiffWithWorking,
                         arguments: [
                             Uri.file(document.fileName),
-                            blame.commit.sha, blame.commit.toUri(),
+                            blame.commit.sha, blame.commit.uri,
                             blame.line.line
                         ]
                     });
@@ -37,8 +37,8 @@ export default class GitCodeActionProvider implements CodeActionProvider {
                         command: Commands.DiffWithPrevious,
                         arguments: [
                             Uri.file(document.fileName),
-                            blame.commit.sha, blame.commit.toUri(),
-                            blame.commit.previousSha, blame.commit.toPreviousUri(),
+                            blame.commit.sha, blame.commit.uri,
+                            blame.commit.previousSha, blame.commit.previousUri,
                             blame.line.line
                         ]
                     });

@@ -1,3 +1,5 @@
+'use strict'
+
 export type BlameAnnotationStyle = 'compact' | 'expanded';
 export const BlameAnnotationStyle = {
     Compact: 'compact' as BlameAnnotationStyle,
@@ -29,4 +31,16 @@ export interface ICodeLensConfig {
 export interface ICodeLensesConfig {
     recentChange: ICodeLensConfig;
     authors: ICodeLensConfig;
+}
+
+export interface IAdvancedConfig {
+    caching: {
+        enabled: boolean
+    }
+}
+
+export interface IConfig {
+    blame: IBlameConfig,
+    codeLens: ICodeLensesConfig,
+    advanced: IAdvancedConfig
 }

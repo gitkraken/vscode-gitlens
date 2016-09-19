@@ -4,8 +4,7 @@ import GitContentProvider from './gitContentProvider';
 import GitBlameCodeLensProvider from './gitBlameCodeLensProvider';
 import GitBlameContentProvider from './gitBlameContentProvider';
 import GitBlameController from './gitBlameController';
-import GitProvider from './gitProvider';
-import Git from './git';
+import GitProvider, {Git} from './gitProvider';
 import {DiffWithPreviousCommand, DiffWithWorkingCommand, ShowBlameCommand, ShowBlameHistoryCommand, ToggleBlameCommand} from './commands';
 import {ICodeLensesConfig} from './configuration';
 import {WorkspaceState} from './constants';
@@ -32,10 +31,7 @@ export function activate(context: ExtensionContext) {
         context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider(context, git)));
         context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitBlameContentProvider.scheme, new GitBlameContentProvider(context, git)));
 
-        const config = workspace.getConfiguration('gitlens').get<ICodeLensesConfig>('codeLens');
-        if (config.recentChange.enabled || config.authors.enabled) {
-            context.subscriptions.push(languages.registerCodeLensProvider(GitBlameCodeLensProvider.selector, new GitBlameCodeLensProvider(context, git)));
-        }
+        context.subscriptions.push(languages.registerCodeLensProvider(GitBlameCodeLensProvider.selector, new GitBlameCodeLensProvider(context, git)));
 
         const blameController = new GitBlameController(context, git);
         context.subscriptions.push(blameController);

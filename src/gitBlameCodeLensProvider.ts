@@ -2,8 +2,8 @@
 import {CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelector, ExtensionContext, Location, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri} from 'vscode';
 import {BuiltInCommands, Commands, DocumentSchemes, WorkspaceState} from './constants';
 import GitProvider, {IGitBlame, IGitCommit} from './gitProvider';
-import {join} from 'path';
 import * as moment from 'moment';
+import * as path from 'path';
 
 export class GitDiffWithWorkingTreeCodeLens extends CodeLens {
     constructor(private git: GitProvider, public fileName: string, public sha: string, range: Range) {
@@ -23,7 +23,7 @@ export default class GitBlameCodeLensProvider implements CodeLensProvider {
     constructor(context: ExtensionContext, private git: GitProvider) { }
 
     provideCodeLenses(document: TextDocument, token: CancellationToken): CodeLens[] | Thenable<CodeLens[]> {
-        const data = this.git.fromBlameUri(document.uri);
+        const data = GitProvider.fromBlameUri(document.uri);
         const fileName = data.fileName;
         const sha = data.sha;
 
@@ -73,7 +73,7 @@ export default class GitBlameCodeLensProvider implements CodeLensProvider {
         lens.command = {
             title: `Compare with Working Tree`,
             command: Commands.DiffWithWorking,
-            arguments: [Uri.file(join(this.git.repoPath, lens.fileName)), lens.sha]
+            arguments: [Uri.file(path.join(this.git.repoPath, lens.fileName)), lens.sha]
         };
         return Promise.resolve(lens);
     }
@@ -82,7 +82,7 @@ export default class GitBlameCodeLensProvider implements CodeLensProvider {
         lens.command = {
             title: `Compare with Previous (${lens.compareWithSha})`,
             command: Commands.DiffWithPrevious,
-            arguments: [Uri.file(join(this.git.repoPath, lens.fileName)), lens.sha, lens.compareWithSha]
+            arguments: [Uri.file(path.join(this.git.repoPath, lens.fileName)), lens.sha, lens.compareWithSha]
         };
         return Promise.resolve(lens);
     }

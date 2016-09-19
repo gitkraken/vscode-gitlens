@@ -3,8 +3,8 @@ import {CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelecto
 import {BuiltInCommands, Commands, DocumentSchemes, WorkspaceState} from './constants';
 import {CodeLensCommand, ICodeLensesConfig} from './configuration';
 import GitProvider, {IGitBlame, IGitBlameLines, IGitCommit} from './gitProvider';
-import * as moment from 'moment';
 import * as _ from 'lodash';
+import * as moment from 'moment';
 
 export class GitRecentChangeCodeLens extends CodeLens {
     constructor(private git: GitProvider, public fileName: string, public symbolKind: SymbolKind, public blameRange: Range, range: Range) {

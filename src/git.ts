@@ -1,8 +1,10 @@
 'use strict';
-import {basename, dirname, extname, isAbsolute, relative} from 'path';
 import * as fs from 'fs';
+import * as path from 'path';
 import * as tmp from 'tmp';
 import {spawnPromise} from 'spawn-rx';
+
+export * from './gitEnrichment';
 
 function gitCommand(cwd: string,  ...args) {
     return spawnPromise('git', args, { cwd: cwd })
@@ -21,12 +23,19 @@ function gitCommand(cwd: string,  ...args) {
         });
 }
 
+export type GitBlameFormat = '--incremental' | '--line-porcelain' | '--porcelain';
+export const GitBlameFormat = {
+    incremental: '--incremental' as GitBlameFormat,
+    linePorcelain: '--line-porcelain' as GitBlameFormat,
+    porcelain: '--porcelain' as GitBlameFormat
+}
+
 export default class Git {
-    static normalizePath(fileName: string, repoPath: string) {
+    static normalizePath(fileName: string, repoPath?: string) {
         fileName = fileName.replace(/\\/g, '/');
         repoPath = repoPath.replace(/\\/g, '/');
-        if (isAbsolute(fileName) && fileName.startsWith(repoPath)) {
-            fileName = relative(repoPath, fileName).replace(/\\/g, '/');
+        if (path.isAbsolute(fileName) && fileName.startsWith(repoPath)) {
+            fileName = path.relative(repoPath, fileName).replace(/\\/g, '/');
         }
         return fileName;
     }
@@ -35,41 +44,20 @@ export default class Git {
         return gitCommand(cwd, 'rev-parse', '--show-toplevel').then(data => data.replace(/\r?\n|\r/g, '').replace(/\\/g, '/'));
     }
 
-    static blame(fileName: string, repoPath: string, sha?: string) {
+    static blame(format: GitBlameFormat, fileName: string, repoPath: string, sha?: string) {
         fileName = Git.normalizePath(fileName, repoPath);
 
         if (sha) {
-            return gitCommand(repoPath, 'blame', '-fn', '--root', `${sha}^`, '--', fileName);
+            return gitCommand(repoPath, 'blame', format, '--root', `${sha}^`, '--', fileName);
         }
-
-        return gitCommand(repoPath, 'blame', '-fn', '--root', '--', fileName);
-    }
-
-    static blamePorcelain(fileName: string, repoPath: string, sha?: string) {
-        fileName = Git.normalizePath(fileName, repoPath);
-
-        if (sha) {
-            return gitCommand(repoPath, 'blame', '--porcelain', '--root', `${sha}^`, '--', fileName);
-        }
-
-        return gitCommand(repoPath, 'blame', '--porcelain', '--root', '--', fileName);
-    }
-
-    static blameLinePorcelain(fileName: string, repoPath: string, sha?: string) {
-        fileName = Git.normalizePath(fileName, repoPath);
-
-        if (sha) {
-            return gitCommand(repoPath, 'blame', '--line-porcelain', '--root', `${sha}^`, '--', fileName);
-        }
-
-        return gitCommand(repoPath, 'blame', '--line-porcelain', '--root', '--', fileName);
+        return gitCommand(repoPath, 'blame', format, '--root', '--', fileName);
     }
 
     static getVersionedFile(fileName: string, repoPath: string, sha: string) {
         return new Promise<string>((resolve, reject) => {
             Git.getVersionedFileText(fileName, repoPath, sha).then(data => {
-                let ext = extname(fileName);
-                tmp.file({ prefix: `${basename(fileName, ext)}-${sha}_`, postfix: ext }, (err, destination, fd, cleanupCallback) => {
+                const ext = path.extname(fileName);
+                tmp.file({ prefix: `${path.basename(fileName, ext)}-${sha}_`, postfix: ext }, (err, destination, fd, cleanupCallback) => {
                     if (err) {
                         reject(err);
                         return;
@@ -92,7 +80,7 @@ export default class Git {
         fileName = Git.normalizePath(fileName, repoPath);
         sha = sha.replace('^', '');
 
-        return gitCommand(repoPath, 'show', `${sha}:${fileName}`);
+        return gitCommand(repoPath, 'show', `${sha}:./${fileName}`);
     }
 
     // static getCommitMessage(sha: string, repoPath: string) {
