@@ -51,7 +51,7 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
 
         //const editor = this._findEditor(Uri.file(join(data.repoPath, data.file)));
 
-        return this.git.getVersionedFileText(data.originalFileName || data.fileName, data.sha, data.repoPath).then(text => {
+        return this.git.getVersionedFileText(data.originalFileName || data.fileName, data.repoPath, data.sha).then(text => {
             this.update(uri);
 
             // TODO: This only works on the first load -- not after since it is cached
