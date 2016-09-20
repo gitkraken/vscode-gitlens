@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -195,7 +195,9 @@
     ],
     "dependencies": {
         "ignore": "^3.1.5",
-        "lodash": "^4.15.0",
+        "lodash.debounce": "^4.0.8",
+        "lodash.escaperegexp": "^4.1.2",
+        "lodash.isequal": "^4.4.0",
         "moment": "^2.15.0",
         "spawn-rx": "^2.0.1",
         "tmp": "^0.0.29"

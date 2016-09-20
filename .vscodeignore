@@ -1,3 +1,4 @@
+images/*.gif
 .vscode/**
 typings/**
 out/test/**

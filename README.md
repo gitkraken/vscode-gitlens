@@ -43,7 +43,7 @@ Must be using Git and it must be in your path.
 
 ## Release Notes
 
-### 0.3.0
+### 0.3.1
 
  - Adds new CodeLens visibility & location settings -- see **Extension Settings** above for details
  - Adds new command to toggle CodeLens on and off when `gitlens.codeLens.visibility` is set to `ondemand`

@@ -3,8 +3,9 @@ import {CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelecto
 import {BuiltInCommands, Commands, DocumentSchemes, WorkspaceState} from './constants';
 import {CodeLensCommand, CodeLensLocation, ICodeLensesConfig} from './configuration';
 import GitProvider, {IGitBlame, IGitBlameLines, IGitCommit} from './gitProvider';
-import * as _ from 'lodash';
 import * as moment from 'moment';
+
+const escapeRegExp = require('lodash.escapeRegExp');
 
 export class GitRecentChangeCodeLens extends CodeLens {
     constructor(private git: GitProvider, public fileName: string, public symbolKind: SymbolKind, public blameRange: Range, range: Range) {
@@ -105,7 +106,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
 
         let startChar = -1;
         try {
-            startChar = line.text.search(`\\b${_.escapeRegExp(symbol.name)}\\b`);
+            startChar = line.text.search(`\\b${escapeRegExp(symbol.name)}\\b`);
         }
         catch (ex) { }
         if (startChar === -1) {

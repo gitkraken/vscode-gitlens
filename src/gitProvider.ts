@@ -6,9 +6,11 @@ import GitCodeLensProvider from './gitCodeLensProvider';
 import Git, {GitBlameParserEnricher, GitBlameFormat, GitCommit, IGitAuthor, IGitBlame, IGitBlameCommitLines, IGitBlameLine, IGitBlameLines, IGitCommit} from './git/git';
 import * as fs from 'fs'
 import * as ignore from 'ignore';
-import * as _ from 'lodash';
 import * as moment from 'moment';
 import * as path from 'path';
+
+const debounce = require('lodash.debounce');
+const isEqual = require('lodash.isequal');
 
 export { Git };
 export * from './git/git';
@@ -83,7 +85,7 @@ export default class GitProvider extends Disposable {
     private _onConfigure() {
         const config = workspace.getConfiguration().get<IConfig>('gitlens');
 
-        if (!_.isEqual(config.codeLens, this._config && this._config.codeLens)) {
+        if (!isEqual(config.codeLens, this._config && this._config.codeLens)) {
             this._codeLensProviderDisposable && this._codeLensProviderDisposable.dispose();
             if (config.codeLens.visibility === CodeLensVisibility.Auto && (config.codeLens.recentChange.enabled || config.codeLens.authors.enabled)) {
                 this._codeLensProviderSelector = GitCodeLensProvider.selector;
@@ -93,7 +95,7 @@ export default class GitProvider extends Disposable {
             }
         }
 
-        if (!_.isEqual(config.advanced, this._config && this._config.advanced)) {
+        if (!isEqual(config.advanced, this._config && this._config.advanced)) {
             if (config.advanced.caching.enabled) {
                 // TODO: Cache needs to be cleared on file changes -- createFileSystemWatcher or timeout?
                 this._blameCache = new Map();
@@ -103,7 +105,7 @@ export default class GitProvider extends Disposable {
                 // TODO: Maybe stop clearing on close and instead limit to a certain number of recent blames
                 disposables.push(workspace.onDidCloseTextDocument(d => this._removeCachedBlame(d, RemoveCacheReason.DocumentClosed)));
 
-                const removeCachedBlameFn = _.debounce(this._removeCachedBlame.bind(this), 2500);
+                const removeCachedBlameFn = debounce(this._removeCachedBlame.bind(this), 2500);
                 disposables.push(workspace.onDidSaveTextDocument(d => removeCachedBlameFn(d, RemoveCacheReason.DocumentSaved)));
                 disposables.push(workspace.onDidChangeTextDocument(e => removeCachedBlameFn(e.document, RemoveCacheReason.DocumentChanged)));
 
