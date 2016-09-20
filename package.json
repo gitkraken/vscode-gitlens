@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "0.3.1",
+    "version": "0.3.2",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -198,8 +198,9 @@
         "lodash.debounce": "^4.0.8",
         "lodash.escaperegexp": "^4.1.2",
         "lodash.isequal": "^4.4.0",
+        "lodash.omit": "^4.5.0",
         "moment": "^2.15.0",
-        "spawn-rx": "^2.0.1",
+        "rxjs": "^5.0.0-beta.12",
         "tmp": "^0.0.29"
     },
     "devDependencies": {
@@ -209,6 +210,8 @@
     "scripts": {
         "vscode:prepublish": "node ./node_modules/vscode/bin/compile && tsc",
         "compile": "node ./node_modules/vscode/bin/compile -watch -p ./",
-        "postinstall": "node ./node_modules/vscode/bin/install"
+        "postinstall": "node ./node_modules/vscode/bin/install",
+        "package": "git clean -xdf && npm install && vsce package",
+        "publish": "git clean -xdf && npm install && vsce publish"
     }
 }

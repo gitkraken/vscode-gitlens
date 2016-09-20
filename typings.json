@@ -1,8 +1,5 @@
 {
   "globalDependencies": {
     "tmp": "registry:dt/tmp#0.0.0+20160514170650"
-  },
-  "dependencies": {
-    "lodash": "registry:npm/lodash#4.0.0+20160723033700"
   }
 }

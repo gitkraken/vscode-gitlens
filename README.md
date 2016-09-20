@@ -43,6 +43,10 @@ Must be using Git and it must be in your path.
 
 ## Release Notes
 
+### 0.3.2
+
+  - Fixes issue with missing lodash dependency
+
 ### 0.3.1
 
  - Adds new CodeLens visibility & location settings -- see **Extension Settings** above for details

@@ -4,10 +4,10 @@ declare module "spawn-rx" {
 
     namespace spawnrx {
         function findActualExecutable(exe: string, args: Array<string>): { cmd: string, args: Array<string> };
-        function spawnDetached(exe: string, params: Array<string>, opts: Object): Observable<string>;
-        function spawn(exe: string, params: Array<string>, opts: Object): Observable<string>;
-        function spawnDetachedPromise(exe: string, params: Array<string>, opts: Object): Promise<string>;
-        function spawnPromise(exe: string, params: Array<string>, opts: Object): Promise<string>;
+        function spawnDetached(exe: string, params: Array<string>, opts: Object|undefined): Observable<string>;
+        function spawn(exe: string, params: Array<string>, opts: Object|undefined): Observable<string>;
+        function spawnDetachedPromise(exe: string, params: Array<string>, opts: Object|undefined): Promise<string>;
+        function spawnPromise(exe: string, params: Array<string>, opts: Object|undefined): Promise<string>;
     }
     export = spawnrx;
 }

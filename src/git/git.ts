@@ -2,14 +2,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as tmp from 'tmp';
-import {spawnPromise} from 'spawn-rx';
+//import {spawnPromise} from 'spawn-rx';
+const spawnRx = require('./spawn-rx');
 
 export * from './gitEnrichment';
 //export * from './enrichers/blameRegExpEnricher';
 export * from './enrichers/blameParserEnricher';
 
 function gitCommand(cwd: string,  ...args) {
-    return spawnPromise('git', args, { cwd: cwd })
+    return spawnRx.spawnPromise('git', args, { cwd: cwd })
         .then(s => {
             console.log('[GitLens]', 'git', ...args);
             return s;
@@ -37,7 +38,7 @@ export default class Git {
         return fileName.replace(/\\/g, '/');
     }
 
-    static splitPath(fileName: string, repoPath?: string) {
+    static splitPath(fileName: string, repoPath?: string): [string, string] {
         // if (!path.isAbsolute(fileName)) {
         //     console.error('[GitLens]', `Git.splitPath(${fileName}) is not an absolute path!`);
         //     debugger;
@@ -54,7 +55,7 @@ export default class Git {
     }
 
     static blame(format: GitBlameFormat, fileName: string, repoPath?: string, sha?: string) {
-        const [file, root] = Git.splitPath(Git.normalizePath(fileName), repoPath);
+        const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
         if (sha) {
             return gitCommand(root, 'blame', format, '--root', `${sha}^`, '--', file);

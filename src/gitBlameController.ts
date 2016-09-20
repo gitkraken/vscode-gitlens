@@ -15,7 +15,7 @@ const blameDecoration: TextEditorDecorationType = window.createTextEditorDecorat
 let highlightDecoration: TextEditorDecorationType;
 
 export default class GitBlameController extends Disposable {
-    private _controller: GitBlameEditorController;
+    private _controller: GitBlameEditorController|null;
     private _disposable: Disposable;
 
     private _blameDecoration: TextEditorDecorationType;
@@ -147,7 +147,6 @@ class GitBlameEditorController extends Disposable {
 
             this.editor.setDecorations(blameDecoration, []);
             this.editor.setDecorations(highlightDecoration, []);
-            this.editor = null;
         }
 
         this._disposable && this._disposable.dispose();
@@ -170,7 +169,7 @@ class GitBlameEditorController extends Disposable {
                 commands.executeCommand(BuiltInCommands.ToggleRenderWhitespace);
             }
 
-            let blameDecorationOptions: DecorationOptions[]
+            let blameDecorationOptions: DecorationOptions[] | undefined;
             switch (this._config.annotation.style) {
                 case BlameAnnotationStyle.Compact:
                     blameDecorationOptions = this._getCompactGutterDecorations(blame);
@@ -179,7 +178,10 @@ class GitBlameEditorController extends Disposable {
                     blameDecorationOptions = this._getExpandedGutterDecorations(blame);
                     break;
             }
-            this.editor.setDecorations(blameDecoration, blameDecorationOptions);
+
+            if (blameDecorationOptions) {
+                this.editor.setDecorations(blameDecoration, blameDecorationOptions);
+            }
 
             sha = sha || blame.commits.values().next().value.sha;
 

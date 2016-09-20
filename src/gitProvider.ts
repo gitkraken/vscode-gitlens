@@ -28,16 +28,16 @@ enum RemoveCacheReason {
 }
 
 export default class GitProvider extends Disposable {
-    private _blameCache: Map<string, IBlameCacheEntry>;
-    private _blameCacheDisposable: Disposable;
+    private _blameCache: Map<string, IBlameCacheEntry>|null;
+    private _blameCacheDisposable: Disposable|null;
 
     private _config: IConfig;
     private _disposable: Disposable;
-    private _codeLensProviderDisposable: Disposable;
+    private _codeLensProviderDisposable: Disposable|null;
     private _codeLensProviderSelector: DocumentFilter;
     private _gitignore: Promise<ignore.Ignore>;
 
-    static BlameEmptyPromise = Promise.resolve(<IGitBlame>null);
+    static BlameEmptyPromise: Promise<IGitBlame|null> = Promise.resolve(null);
     static BlameFormat = GitBlameFormat.incremental;
 
     constructor(private context: ExtensionContext) {
@@ -47,7 +47,7 @@ export default class GitProvider extends Disposable {
 
         this._onConfigure();
 
-        this._gitignore = new Promise<ignore.Ignore>((resolve, reject) => {
+        this._gitignore = new Promise<ignore.Ignore|null>((resolve, reject) => {
             const gitignorePath = path.join(repoPath, '.gitignore');
             fs.exists(gitignorePath, e => {
                 if (e) {
@@ -198,7 +198,7 @@ export default class GitProvider extends Disposable {
         });
     }
 
-    getBlameForLine(fileName: string, line: number): Promise<IGitBlameLine> {
+    getBlameForLine(fileName: string, line: number): Promise<IGitBlameLine|null> {
         return this.getBlameForFile(fileName).then(blame => {
             const blameLine = blame && blame.lines[line];
             if (!blameLine) return null;
@@ -212,7 +212,7 @@ export default class GitProvider extends Disposable {
         });
     }
 
-    getBlameForRange(fileName: string, range: Range): Promise<IGitBlameLines> {
+    getBlameForRange(fileName: string, range: Range): Promise<IGitBlameLines|null> {
         return this.getBlameForFile(fileName).then(blame => {
             if (!blame) return null;
 
@@ -261,7 +261,7 @@ export default class GitProvider extends Disposable {
         });
     }
 
-    getBlameForShaRange(fileName: string, sha: string, range: Range): Promise<IGitBlameCommitLines> {
+    getBlameForShaRange(fileName: string, sha: string, range: Range): Promise<IGitBlameCommitLines|null> {
         return this.getBlameForFile(fileName).then(blame => {
             if (!blame) return null;
 
@@ -277,7 +277,7 @@ export default class GitProvider extends Disposable {
         });
     }
 
-    getBlameLocations(fileName: string, range: Range) {
+    getBlameLocations(fileName: string, range: Range): Promise<Location[]|null> {
         return this.getBlameForRange(fileName, range).then(blame => {
             if (!blame) return null;
 
