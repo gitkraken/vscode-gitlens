@@ -43,9 +43,13 @@ Must be using Git and it must be in your path.
 
 ## Release Notes
 
+### 0.3.3
+
+  - Fixes [#7](https://github.com/eamodio/vscode-gitlens/issues/7) - missing spawn-rx dependency (argh!)
+
 ### 0.3.2
 
-  - Fixes issue with missing lodash dependency
+  - Fixes [#7](https://github.com/eamodio/vscode-gitlens/issues/7) - missing lodash dependency
 
 ### 0.3.1
 

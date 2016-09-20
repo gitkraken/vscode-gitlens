@@ -2,15 +2,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as tmp from 'tmp';
-//import {spawnPromise} from 'spawn-rx';
-const spawnRx = require('./spawn-rx');
+import {spawnPromise} from 'spawn-rx';
 
 export * from './gitEnrichment';
 //export * from './enrichers/blameRegExpEnricher';
 export * from './enrichers/blameParserEnricher';
 
 function gitCommand(cwd: string,  ...args) {
-    return spawnRx.spawnPromise('git', args, { cwd: cwd })
+    return spawnPromise('git', args, { cwd: cwd })
         .then(s => {
             console.log('[GitLens]', 'git', ...args);
             return s;
