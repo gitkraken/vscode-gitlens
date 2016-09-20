@@ -50,7 +50,7 @@ export default class GitBlameController extends Disposable {
         // }));
 
         workspace.onDidCloseTextDocument(d => {
-            if (!this._controller || this._controller.uri.fsPath !== d.uri.fsPath) return;
+            if (!this._controller || this._controller.uri.toString() !== d.uri.toString()) return;
             this.clear();
         })
 

@@ -21,15 +21,18 @@ Must be using Git and it must be in your path.
 
 |Name | Description
 |-----|------------
-|_gitlens.blame.annotation.style_|Specifies the style of the blame annotations. Compact - groups annotations to limit the repetition and also adds author and date when possible. Expanded - shows an annotation on every line
-|_gitlens.blame.annotation.sha_|Specifies whether the commit sha will be shown in the blame annotations. Applies only to the Expanded annotation style
-|_gitlens.blame.annotation.author_|Specifies whether the committer will be shown in the blame annotations. Applies only to the Expanded annotation style
-|_gitlens.blame.annotation.date_|Specifies whether the commit date will be shown in the blame annotations. Applies only to the Expanded annotation style
-|_gitlens.blame.annotation.useCodeActions_|Specifies whether code actions (Diff with Working, Diff with Previous) will be provided for the selected line, when annotating. Not required as context menu options are always provided
-|_gitlens.codeLens.recentChange.enabled_|Specifies whether the recent change CodeLens is shown
-|_gitlens.codeLens.recentChange.command_|Specifies the command executed when the recent change CodeLens is clicked. Annotate - toggles blame annotations. Explorer - opens the blame explorer. History - opens a file history picker, which requires the Git History (git log) extension
-|_gitlens.codeLens.authors.enabled_|Specifies whether the authors CodeLens is shown
-|_gitlens.codeLens.authors.command_|Specifies the command executed when the authors CodeLens is clicked. Annotate - toggles blame annotations. Explorer - opens the blame explorer. History - opens a file history picker, which requires the Git History (git log) extension
+|`gitlens.blame.annotation.style`|Specifies the style of the blame annotations. `compact` - groups annotations to limit the repetition and also adds author and date when possible. `expanded` - shows an annotation on every line
+|`gitlens.blame.annotation.sha`|Specifies whether the commit sha will be shown in the blame annotations. Applies only to the `expanded` annotation style
+|`gitlens.blame.annotation.author`|Specifies whether the committer will be shown in the blame annotations. Applies only to the `expanded` annotation style
+|`gitlens.blame.annotation.date`|Specifies whether the commit date will be shown in the blame annotations. Applies only to the `expanded` annotation style
+|`gitlens.blame.annotation.useCodeActions`|Specifies whether code actions (Diff with Working, Diff with Previous) will be provided for the selected line, when annotating. Not required as context menu options are always provided
+|`gitlens.codeLens.visibility`|Specifies when CodeLens will be triggered in the active document. `auto` - automatically. `ondemand` - only when requested. `off` - disables all active document CodeLens
+|`gitlens.codeLens.location`|Specifies where CodeLens will be rendered in the active document. `all` - render at the top of the document, on container-like (classes, modules, etc), and on member-like (methods, functions, properties, etc) lines. `document+containers` - render at the top of the document and on container-like lines. `document` - only render at the top of the document. `custom` - rendering controlled by `gitlens.codeLens.locationCustomSymbols`
+|`gitlens.codeLens.locationCustomSymbols`|Specifies the set of document symbols to render active document CodeLens on. Must be a member of `SymbolKind`
+|`gitlens.codeLens.recentChange.enabled`|Specifies whether the recent change CodeLens is shown
+|`gitlens.codeLens.recentChange.command`|Specifies the command executed when the recent change CodeLens is clicked. `blame.annotate` - toggles blame annotations. `blame.explorer` - opens the blame explorer. `git.history` - opens a file history picker, which requires the Git History (git log) extension
+|`gitlens.codeLens.authors.enabled`|Specifies whether the authors CodeLens is shown
+|`gitlens.codeLens.authors.command`|Specifies the command executed when the authors CodeLens is clicked. `blame.annotate` - toggles blame annotations. `blame.explorer` - opens the blame explorer. `git.history` - opens a file history picker, which requires the Git History (git log) extension
 
 ## Known Issues
 
@@ -39,6 +42,11 @@ Must be using Git and it must be in your path.
 - Visible whitespace causes issue with blame overlay (currently fixed with a hack, but fails randomly): [vscode issue](https://github.com/Microsoft/vscode/issues/11485)
 
 ## Release Notes
+
+### 0.3.0
+
+ - Adds new CodeLens visibility & location settings -- see **Extension Settings** above for details
+ - Adds new command to toggle CodeLens on and off when `gitlens.codeLens.visibility` is set to `ondemand`
 
 ### 0.2.0
 
@@ -52,7 +60,7 @@ Must be using Git and it must be in your path.
 
  - Improved blame annotations, now with sha and author by default
  - Add new blame annotation styles -- compact and expanded (default)
- - Adds many new configuration settings; see Contributions tab above
+ - Adds many new configuration settings; see **Extension Settings** above for details
 
 ### 0.0.7
 

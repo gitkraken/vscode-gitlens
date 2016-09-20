@@ -1,7 +1,7 @@
 'use strict'
-import {Disposable, ExtensionContext, languages, Location, Position, Range, Uri, workspace} from 'vscode';
+import {Disposable, DocumentFilter, ExtensionContext, languages, Location, Position, Range, TextDocument, TextEditor, Uri, window, workspace} from 'vscode';
 import {DocumentSchemes, WorkspaceState} from './constants';
-import {IConfig} from './configuration';
+import {CodeLensVisibility, IConfig} from './configuration';
 import GitCodeLensProvider from './gitCodeLensProvider';
 import Git, {GitBlameParserEnricher, GitBlameFormat, GitCommit, IGitAuthor, IGitBlame, IGitBlameCommitLines, IGitBlameLine, IGitBlameLines, IGitCommit} from './git/git';
 import * as fs from 'fs'
@@ -32,6 +32,7 @@ export default class GitProvider extends Disposable {
     private _config: IConfig;
     private _disposable: Disposable;
     private _codeLensProviderDisposable: Disposable;
+    private _codeLensProviderSelector: DocumentFilter;
     private _gitignore: Promise<ignore.Ignore>;
 
     static BlameEmptyPromise = Promise.resolve(<IGitBlame>null);
@@ -84,8 +85,9 @@ export default class GitProvider extends Disposable {
 
         if (!_.isEqual(config.codeLens, this._config && this._config.codeLens)) {
             this._codeLensProviderDisposable && this._codeLensProviderDisposable.dispose();
-            if (config.codeLens.recentChange.enabled || config.codeLens.authors.enabled) {
-                this._codeLensProviderDisposable = languages.registerCodeLensProvider(GitCodeLensProvider.selector, new GitCodeLensProvider(this.context, this));
+            if (config.codeLens.visibility === CodeLensVisibility.Auto && (config.codeLens.recentChange.enabled || config.codeLens.authors.enabled)) {
+                this._codeLensProviderSelector = GitCodeLensProvider.selector;
+                this._codeLensProviderDisposable = languages.registerCodeLensProvider(this._codeLensProviderSelector, new GitCodeLensProvider(this.context, this));
             } else {
                 this._codeLensProviderDisposable = null;
             }
@@ -99,11 +101,11 @@ export default class GitProvider extends Disposable {
                 const disposables: Disposable[] = [];
 
                 // TODO: Maybe stop clearing on close and instead limit to a certain number of recent blames
-                disposables.push(workspace.onDidCloseTextDocument(d => this._removeCachedBlame(d.fileName, RemoveCacheReason.DocumentClosed)));
+                disposables.push(workspace.onDidCloseTextDocument(d => this._removeCachedBlame(d, RemoveCacheReason.DocumentClosed)));
 
                 const removeCachedBlameFn = _.debounce(this._removeCachedBlame.bind(this), 2500);
-                disposables.push(workspace.onDidSaveTextDocument(d => removeCachedBlameFn(d.fileName, RemoveCacheReason.DocumentSaved)));
-                disposables.push(workspace.onDidChangeTextDocument(e => removeCachedBlameFn(e.document.fileName, RemoveCacheReason.DocumentChanged)));
+                disposables.push(workspace.onDidSaveTextDocument(d => removeCachedBlameFn(d, RemoveCacheReason.DocumentSaved)));
+                disposables.push(workspace.onDidChangeTextDocument(e => removeCachedBlameFn(e.document, RemoveCacheReason.DocumentChanged)));
 
                 this._blameCacheDisposable = Disposable.from(...disposables);
             } else {
@@ -121,10 +123,11 @@ export default class GitProvider extends Disposable {
         return fileName.toLowerCase();
     }
 
-    private _removeCachedBlame(fileName: string, reason: RemoveCacheReason) {
+    private _removeCachedBlame(document: TextDocument, reason: RemoveCacheReason) {
         if (!this.UseCaching) return;
+        if (document.uri.scheme != DocumentSchemes.File) return;
 
-        fileName = Git.normalizePath(fileName);
+        const fileName = Git.normalizePath(document.fileName);
 
         const cacheKey = this._getBlameCacheKey(fileName);
         if (reason === RemoveCacheReason.DocumentClosed) {
@@ -298,6 +301,35 @@ export default class GitProvider extends Disposable {
 
     getVersionedFileText(fileName: string, repoPath: string, sha: string) {
         return Git.getVersionedFileText(fileName, repoPath, sha);
+    }
+
+    toggleCodeLens(editor: TextEditor) {
+        if (this._config.codeLens.visibility !== CodeLensVisibility.OnDemand ||
+            (!this._config.codeLens.recentChange.enabled && !this._config.codeLens.authors.enabled)) return;
+
+        if (this._codeLensProviderDisposable) {
+            this._codeLensProviderDisposable.dispose();
+
+            if (editor.document.fileName === (this._codeLensProviderSelector && this._codeLensProviderSelector.pattern)) {
+                this._codeLensProviderDisposable = null;
+                return;
+            }
+        }
+
+        const disposables: Disposable[] = [];
+
+        this._codeLensProviderSelector = <DocumentFilter>{ scheme: DocumentSchemes.File, pattern: editor.document.fileName };
+
+        disposables.push(languages.registerCodeLensProvider(this._codeLensProviderSelector, new GitCodeLensProvider(this.context, this)));
+
+        disposables.push(window.onDidChangeActiveTextEditor(e => {
+            if (e.viewColumn && e.document !== editor.document) {
+                this._codeLensProviderDisposable && this._codeLensProviderDisposable.dispose();
+                this._codeLensProviderDisposable = null;
+            }
+        }));
+
+        this._codeLensProviderDisposable = Disposable.from(...disposables);
     }
 
     static fromBlameUri(uri: Uri): IGitBlameUriData {

@@ -1,7 +1,7 @@
 'use strict';
 import {CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelector, ExtensionContext, Location, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri, window, workspace} from 'vscode';
 import {BuiltInCommands, Commands, DocumentSchemes, WorkspaceState} from './constants';
-import {CodeLensCommand, ICodeLensesConfig} from './configuration';
+import {CodeLensCommand, CodeLensLocation, ICodeLensesConfig} from './configuration';
 import GitProvider, {IGitBlame, IGitBlameLines, IGitCommit} from './gitProvider';
 import * as _ from 'lodash';
 import * as moment from 'moment';
@@ -49,14 +49,16 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             const lenses: CodeLens[] = [];
             symbols.forEach(sym => this._provideCodeLens(fileName, document, sym, lenses));
 
-            // Check if we have a lens for the whole document -- if not add one
-            if (!lenses.find(l => l.range.start.line === 0 && l.range.end.line === 0)) {
-                const blameRange = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
-                if (this._config.recentChange.enabled) {
-                    lenses.push(new GitRecentChangeCodeLens(this.git, fileName, SymbolKind.File, blameRange, new Range(0, 0, 0, blameRange.start.character)));
-                }
-                if (this._config.authors.enabled) {
-                    lenses.push(new GitAuthorsCodeLens(this.git, fileName, SymbolKind.File, blameRange, new Range(0, 1, 0, blameRange.start.character)));
+            if (this._config.location !== CodeLensLocation.Custom || (this._config.locationCustomSymbols || []).find(_ => _.toLowerCase() === 'file')) {
+                // Check if we have a lens for the whole document -- if not add one
+                if (!lenses.find(l => l.range.start.line === 0 && l.range.end.line === 0)) {
+                    const blameRange = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
+                    if (this._config.recentChange.enabled) {
+                        lenses.push(new GitRecentChangeCodeLens(this.git, fileName, SymbolKind.File, blameRange, new Range(0, 0, 0, blameRange.start.character)));
+                    }
+                    if (this._config.authors.enabled) {
+                        lenses.push(new GitAuthorsCodeLens(this.git, fileName, SymbolKind.File, blameRange, new Range(0, 1, 0, blameRange.start.character)));
+                    }
                 }
             }
 
@@ -64,29 +66,36 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         });
     }
 
-    foo: string; bar: number;
+    private _isValidSymbol(kind: SymbolKind) {
+        switch (this._config.location) {
+            case CodeLensLocation.All:
+            case CodeLensLocation.DocumentAndContainers:
+                switch (kind) {
+                    case SymbolKind.File:
+                    case SymbolKind.Package:
+                    case SymbolKind.Module:
+                    case SymbolKind.Namespace:
+                    case SymbolKind.Class:
+                    case SymbolKind.Interface:
+                        return true;
+                    case SymbolKind.Constructor:
+                    case SymbolKind.Method:
+                    case SymbolKind.Function:
+                    case SymbolKind.Property:
+                    case SymbolKind.Enum:
+                        return this._config.location === CodeLensLocation.All;
+                    default:
+                        return false;
+                }
+            case CodeLensLocation.Document:
+                return false;
+            case CodeLensLocation.Custom:
+                return !!(this._config.locationCustomSymbols || []).find(_ => _.toLowerCase() === SymbolKind[kind].toLowerCase());
+        }
+    }
 
     private _provideCodeLens(fileName: string, document: TextDocument, symbol: SymbolInformation, lenses: CodeLens[]): void {
-        let multiline = false;
-        switch (symbol.kind) {
-            case SymbolKind.Package:
-            case SymbolKind.Module:
-            case SymbolKind.Class:
-            case SymbolKind.Interface:
-            case SymbolKind.Constructor:
-            case SymbolKind.Method:
-            case SymbolKind.Function:
-            case SymbolKind.Enum:
-                // HACK for Omnisharp, since it doesn't return full ranges
-                multiline = fileName.endsWith('.cs') || (symbol.location.range.end.line - symbol.location.range.start.line) > 1;
-                break;
-            case SymbolKind.Property:
-                multiline = (symbol.location.range.end.line - symbol.location.range.start.line) > 1;
-                if (!multiline) return;
-                break;
-            default:
-                return;
-        }
+        if (!this._isValidSymbol(symbol.kind)) return;
 
         const line = document.lineAt(symbol.location.range.start);
         // Make sure there is only 1 lense per line
@@ -109,8 +118,30 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             lenses.push(new GitRecentChangeCodeLens(this.git, fileName, symbol.kind, symbol.location.range, line.range.with(new Position(line.range.start.line, startChar))));
             startChar++;
         }
-        if (multiline && this._config.authors.enabled) {
-            lenses.push(new GitAuthorsCodeLens(this.git, fileName, symbol.kind, symbol.location.range, line.range.with(new Position(line.range.start.line, startChar))));
+
+        if (this._config.authors.enabled) {
+            // HACK for Omnisharp, since it doesn't return full ranges
+            let multiline = (symbol.location.range.end.line - symbol.location.range.start.line) > 1;
+            if (!multiline && fileName.endsWith('.cs')) {
+                switch (symbol.kind) {
+                    case SymbolKind.File:
+                    case SymbolKind.Package:
+                    case SymbolKind.Module:
+                    case SymbolKind.Namespace:
+                    case SymbolKind.Class:
+                    case SymbolKind.Interface:
+                    case SymbolKind.Constructor:
+                    case SymbolKind.Method:
+                    case SymbolKind.Function:
+                    case SymbolKind.Enum:
+                        multiline = true;
+                        break;
+                }
+            }
+
+            if (multiline) {
+                lenses.push(new GitAuthorsCodeLens(this.git, fileName, symbol.kind, symbol.location.range, line.range.with(new Position(line.range.start.line, startChar))));
+            }
         }
     }
 

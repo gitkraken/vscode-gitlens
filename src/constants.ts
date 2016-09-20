@@ -16,20 +16,21 @@ export const BuiltInCommands = {
     ToggleRenderWhitespace: 'editor.action.toggleRenderWhitespace' as BuiltInCommands
 }
 
-export type Commands = 'gitlens.diffWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.showBlame' | 'gitlens.showHistory' | 'gitlens.toggleBlame';
+export type Commands = 'gitlens.diffWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.showBlame' | 'gitlens.showHistory' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
 export const Commands = {
     DiffWithPrevious: 'gitlens.diffWithPrevious' as Commands,
     DiffWithWorking: 'gitlens.diffWithWorking' as Commands,
     ShowBlame: 'gitlens.showBlame' as Commands,
     ShowBlameHistory: 'gitlens.showHistory' as Commands,
     ToggleBlame: 'gitlens.toggleBlame' as Commands,
+    ToggleCodeLens: 'gitlens.toggleCodeLens' as Commands,
 }
 
-export type DocumentSchemes = 'file' | 'git' | 'gitblame';
+export type DocumentSchemes = 'file' | 'git' | 'git-blame';
 export const DocumentSchemes = {
     File: 'file' as DocumentSchemes,
     Git: 'git' as DocumentSchemes,
-    GitBlame: 'gitblame' as DocumentSchemes
+    GitBlame: 'git-blame' as DocumentSchemes
 }
 
 export type WorkspaceState = 'hasGitHistoryExtension' | 'repoPath';

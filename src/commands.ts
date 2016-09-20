@@ -155,3 +155,13 @@ export class ToggleBlameCommand extends EditorCommand {
             .then(blame => this.blameController.toggleBlame(editor, blame && blame.commit.sha));
     }
 }
+
+export class ToggleCodeLensCommand extends EditorCommand {
+    constructor(private git: GitProvider) {
+        super(Commands.ToggleCodeLens);
+    }
+
+    execute(editor: TextEditor, edit: TextEditorEdit) {
+        return this.git.toggleCodeLens(editor);
+    }
+}

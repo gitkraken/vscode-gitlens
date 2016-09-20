@@ -5,7 +5,7 @@ import GitBlameCodeLensProvider from './gitBlameCodeLensProvider';
 import GitBlameContentProvider from './gitBlameContentProvider';
 import GitBlameController from './gitBlameController';
 import GitProvider, {Git} from './gitProvider';
-import {DiffWithPreviousCommand, DiffWithWorkingCommand, ShowBlameCommand, ShowBlameHistoryCommand, ToggleBlameCommand} from './commands';
+import {DiffWithPreviousCommand, DiffWithWorkingCommand, ShowBlameCommand, ShowBlameHistoryCommand, ToggleBlameCommand, ToggleCodeLensCommand} from './commands';
 import {ICodeLensesConfig} from './configuration';
 import {WorkspaceState} from './constants';
 
@@ -41,6 +41,7 @@ export function activate(context: ExtensionContext) {
         context.subscriptions.push(new ShowBlameCommand(git, blameController));
         context.subscriptions.push(new ToggleBlameCommand(git, blameController));
         context.subscriptions.push(new ShowBlameHistoryCommand(git));
+        context.subscriptions.push(new ToggleCodeLensCommand(git));
     }).catch(reason => console.warn('[GitLens]', reason));
 }
 
