@@ -2,7 +2,7 @@
 import {commands, DecorationOptions, Disposable, OverviewRulerLane, Position, Range, TextEditor, TextEditorEdit, TextEditorDecorationType, Uri, window} from 'vscode';
 import {BuiltInCommands, Commands} from './constants';
 import GitProvider from './gitProvider';
-import GitBlameController from './gitBlameController';
+import BlameAnnotationController from './blameAnnotationController';
 import * as moment from 'moment';
 import * as path from 'path';
 
@@ -36,8 +36,6 @@ abstract class EditorCommand extends Disposable {
     abstract execute(editor: TextEditor, edit: TextEditorEdit, ...args): any;
 }
 
-const UncommitedRegex = /^[0]+$/;
-
 export class DiffWithPreviousCommand extends EditorCommand {
     constructor(private git: GitProvider) {
         super(Commands.DiffWithPrevious);
@@ -46,15 +44,29 @@ export class DiffWithPreviousCommand extends EditorCommand {
     execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, repoPath?: string, sha?: string, shaUri?: Uri, compareWithSha?: string, compareWithUri?: Uri, line?: number) {
         line = line || editor.selection.active.line;
         if (!sha) {
+            if (!(uri instanceof Uri)) {
+                if (!editor.document) return;
+                uri = editor.document.uri;
+            }
+
             return this.git.getBlameForLine(uri.fsPath, line)
-                .catch(ex => console.error('[GitLens.DiffWithPreviousCommand]', 'getBlameForLine', ex))
+                .catch(ex => console.error('[GitLens.DiffWithPreviousCommand]', `getBlameForLine(${line})`, ex))
                 .then(blame => {
                     if (!blame) return;
 
-                    if (UncommitedRegex.test(blame.commit.sha)) {
-                        return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.repoPath, blame.commit.previousSha, blame.commit.previousUri, line);
+                    // If the line is uncommitted, find the previous commit
+                    const commit = blame.commit;
+                    if (GitProvider.isUncommitted(commit.sha)) {
+                        return this.git.getBlameForLine(commit.previousUri.fsPath, blame.line.originalLine, commit.previousSha, commit.repoPath)
+                            .catch(ex => console.error('[GitLens.DiffWithPreviousCommand]', `getBlameForLine(${blame.line.originalLine}, ${commit.previousSha})`, ex))
+                            .then(prevBlame => {
+                                if (!prevBlame) return;
+
+                                const prevCommit = prevBlame.commit;
+                                return commands.executeCommand(Commands.DiffWithPrevious, commit.previousUri, commit.repoPath, commit.previousSha, commit.previousUri, prevCommit.sha, prevCommit.uri, blame.line.originalLine);
+                            });
                     }
-                    return commands.executeCommand(Commands.DiffWithPrevious, uri, blame.commit.repoPath, blame.commit.sha, blame.commit.uri, blame.commit.previousSha, blame.commit.previousUri, line);
+                    return commands.executeCommand(Commands.DiffWithPrevious, commit.uri, commit.repoPath, commit.sha, commit.uri, commit.previousSha, commit.previousUri, line);
                 });
         }
 
@@ -77,39 +89,50 @@ export class DiffWithWorkingCommand extends EditorCommand {
     execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, repoPath?: string, sha?: string, shaUri?: Uri, line?: number) {
         line = line || editor.selection.active.line;
         if (!sha) {
+            if (!(uri instanceof Uri)) {
+                if (!editor.document) return;
+                uri = editor.document.uri;
+            }
+
             return this.git.getBlameForLine(uri.fsPath, line)
-                .catch(ex => console.error('[GitLens.DiffWithWorkingCommand]', 'getBlameForLine', ex))
+                .catch(ex => console.error('[GitLens.DiffWithWorkingCommand]', `getBlameForLine(${line})`, ex))
                 .then(blame => {
                     if (!blame) return;
 
-                    if (UncommitedRegex.test(blame.commit.sha)) {
-                        return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.repoPath, blame.commit.previousSha, blame.commit.previousUri, line);
+                    const commit = blame.commit;
+                    // If the line is uncommitted, find the previous commit
+                    if (GitProvider.isUncommitted(commit.sha)) {
+                        return commands.executeCommand(Commands.DiffWithWorking, commit.uri, commit.repoPath, commit.previousSha, commit.previousUri, blame.line.line);
                     }
-                    return commands.executeCommand(Commands.DiffWithWorking, uri, blame.commit.repoPath, blame.commit.sha, blame.commit.uri, line)
+                    return commands.executeCommand(Commands.DiffWithWorking, commit.uri, commit.repoPath, commit.sha, commit.uri, line)
                 });
         };
 
         return this.git.getVersionedFile(shaUri.fsPath, repoPath, sha)
             .catch(ex => console.error('[GitLens.DiffWithWorkingCommand]', 'getVersionedFile', ex))
-            .then(compare => commands.executeCommand(BuiltInCommands.Diff, Uri.file(compare), uri, `${path.basename(shaUri.fsPath)} (${sha}) ↔ ${path.basename(uri.fsPath)} (index)`)
+            .then(compare => commands.executeCommand(BuiltInCommands.Diff, Uri.file(compare), uri, `${path.basename(shaUri.fsPath)} (${sha}) ↔ ${path.basename(uri.fsPath)}`)
                 .then(() => commands.executeCommand(BuiltInCommands.RevealLine, {lineNumber: line, at: 'center'})));
     }
 }
 
 export class ShowBlameCommand extends EditorCommand {
-    constructor(private git: GitProvider, private blameController: GitBlameController) {
+    constructor(private git: GitProvider, private annotationController: BlameAnnotationController) {
         super(Commands.ShowBlame);
     }
 
     execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, sha?: string) {
         if (sha) {
-            return this.blameController.toggleBlame(editor, sha);
+            return this.annotationController.toggleBlameAnnotation(editor, sha);
         }
 
-        const activeLine = editor.selection.active.line;
-        return this.git.getBlameForLine(editor.document.fileName, activeLine)
-            .catch(ex => console.error('[GitLens.ShowBlameCommand]', 'getBlameForLine', ex))
-            .then(blame => this.blameController.showBlame(editor, blame && blame.commit.sha));
+        if (!(uri instanceof Uri)) {
+            if (!editor.document) return;
+            uri = editor.document.uri;
+        }
+
+        return this.git.getBlameForLine(uri.fsPath, editor.selection.active.line)
+            .catch(ex => console.error('[GitLens.ShowBlameCommand]', `getBlameForLine(${editor.selection.active.line})`, ex))
+            .then(blame => this.annotationController.showBlameAnnotation(editor, blame && blame.commit.sha));
     }
 }
 
@@ -119,40 +142,39 @@ export class ShowBlameHistoryCommand extends EditorCommand {
     }
 
     execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, range?: Range, position?: Position) {
-        // If the command is executed manually -- treat it as a click on the root lens (i.e. show blame for the whole file)
-        if (!uri) {
-            const doc = editor.document;
-            if (doc) {
-                uri = doc.uri;
-                range = doc.validateRange(new Range(0, 0, 1000000, 1000000));
-                position = doc.validateRange(new Range(0, 0, 0, 1000000)).start;
-            }
+        if (!(uri instanceof Uri)) {
+            if (!editor.document) return;
+            uri = editor.document.uri;
 
-            if (!uri) return;
+            // If the command is executed manually -- treat it as a click on the root lens (i.e. show blame for the whole file)
+            range = editor.document.validateRange(new Range(0, 0, 1000000, 1000000));
+            position = editor.document.validateRange(new Range(0, 0, 0, 1000000)).start;
         }
 
         return this.git.getBlameLocations(uri.fsPath, range)
             .catch(ex => console.error('[GitLens.ShowBlameHistoryCommand]', 'getBlameLocations', ex))
-            .then(locations => {
-                return commands.executeCommand(BuiltInCommands.ShowReferences, uri, position, locations);
-            });
+            .then(locations => commands.executeCommand(BuiltInCommands.ShowReferences, uri, position, locations));
     }
 }
 
 export class ToggleBlameCommand extends EditorCommand {
-    constructor(private git: GitProvider, private blameController: GitBlameController) {
+    constructor(private git: GitProvider, private blameController: BlameAnnotationController) {
         super(Commands.ToggleBlame);
     }
 
     execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, sha?: string) {
         if (sha) {
-            return this.blameController.toggleBlame(editor, sha);
+            return this.blameController.toggleBlameAnnotation(editor, sha);
         }
 
-        const activeLine = editor.selection.active.line;
-        return this.git.getBlameForLine(editor.document.fileName, activeLine)
-            .catch(ex => console.error('[GitLens.ToggleBlameCommand]', 'getBlameForLine', ex))
-            .then(blame => this.blameController.toggleBlame(editor, blame && blame.commit.sha));
+        if (!(uri instanceof Uri)) {
+            if (!editor.document) return;
+            uri = editor.document.uri;
+        }
+
+        return this.git.getBlameForLine(uri.fsPath, editor.selection.active.line)
+            .catch(ex => console.error('[GitLens.ToggleBlameCommand]', `getBlameForLine(${editor.selection.active.line})`, ex))
+            .then(blame => this.blameController.toggleBlameAnnotation(editor, blame && blame.commit.sha));
     }
 }
 

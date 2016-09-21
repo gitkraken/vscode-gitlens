@@ -25,14 +25,15 @@ Must be using Git and it must be in your path.
 |`gitlens.blame.annotation.sha`|Specifies whether the commit sha will be shown in the blame annotations. Applies only to the `expanded` annotation style
 |`gitlens.blame.annotation.author`|Specifies whether the committer will be shown in the blame annotations. Applies only to the `expanded` annotation style
 |`gitlens.blame.annotation.date`|Specifies whether the commit date will be shown in the blame annotations. Applies only to the `expanded` annotation style
-|`gitlens.blame.annotation.useCodeActions`|Specifies whether code actions (Diff with Working, Diff with Previous) will be provided for the selected line, when annotating. Not required as context menu options are always provided
 |`gitlens.codeLens.visibility`|Specifies when CodeLens will be triggered in the active document. `auto` - automatically. `ondemand` - only when requested. `off` - disables all active document CodeLens
 |`gitlens.codeLens.location`|Specifies where CodeLens will be rendered in the active document. `all` - render at the top of the document, on container-like (classes, modules, etc), and on member-like (methods, functions, properties, etc) lines. `document+containers` - render at the top of the document and on container-like lines. `document` - only render at the top of the document. `custom` - rendering controlled by `gitlens.codeLens.locationCustomSymbols`
 |`gitlens.codeLens.locationCustomSymbols`|Specifies the set of document symbols to render active document CodeLens on. Must be a member of `SymbolKind`
 |`gitlens.codeLens.recentChange.enabled`|Specifies whether the recent change CodeLens is shown
-|`gitlens.codeLens.recentChange.command`|Specifies the command executed when the recent change CodeLens is clicked. `blame.annotate` - toggles blame annotations. `blame.explorer` - opens the blame explorer. `git.history` - opens a file history picker, which requires the Git History (git log) extension
+|`gitlens.codeLens.recentChange.command`|Specifies the command executed when the recent change CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension
 |`gitlens.codeLens.authors.enabled`|Specifies whether the authors CodeLens is shown
-|`gitlens.codeLens.authors.command`|Specifies the command executed when the authors CodeLens is clicked. `blame.annotate` - toggles blame annotations. `blame.explorer` - opens the blame explorer. `git.history` - opens a file history picker, which requires the Git History (git log) extension
+|`gitlens.codeLens.authors.command`|Specifies the command executed when the authors CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension
+|`gitlens.statusBar.enabled`|Specifies whether blame information is shown in the status bar
+|`gitlens.statusBar.command`|"Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
 
 ## Known Issues
 
@@ -42,6 +43,15 @@ Must be using Git and it must be in your path.
 - Visible whitespace causes issue with blame overlay (currently fixed with a hack, but fails randomly): [vscode issue](https://github.com/Microsoft/vscode/issues/11485)
 
 ## Release Notes
+
+### 0.5.0
+
+ - Adds blame information in the statusBar
+ - Add new StatusBar settings -- see **Extension Settings** above for details
+ - Renames the `gitlens.codeLens.recentChange.command` & `gitlens.codeLens.authors.command` settings options (to align with command names)
+ - Adds new `gitlens.diffWithPrevious` option to the `gitlens.codeLens.recentChange.command` & `gitlens.codeLens.authors.command` settings
+ - Fixes Diff with Previous when the selection is uncommited
+ - Removes `gitlens.blame.annotation.useCodeActions` setting and behavior
 
 ### 0.3.3
 

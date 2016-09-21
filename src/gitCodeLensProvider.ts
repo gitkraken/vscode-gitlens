@@ -158,7 +158,8 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             switch (this._config.recentChange.command) {
                 case CodeLensCommand.BlameAnnotate: return this._applyBlameAnnotateCommand<GitRecentChangeCodeLens>(title, lens, blame);
                 case CodeLensCommand.BlameExplorer: return this._applyBlameExplorerCommand<GitRecentChangeCodeLens>(title, lens, blame);
-                case CodeLensCommand.GitHistory: return this._applyGitHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame);
+                case CodeLensCommand.DiffWithPrevious: return this._applyDiffWithPreviousCommand<GitRecentChangeCodeLens>(title, lens, blame);
+                case CodeLensCommand.GitViewHistory: return this._applyGitHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame);
                 default: return lens;
             }
         });
@@ -171,7 +172,8 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             switch (this._config.authors.command) {
                 case CodeLensCommand.BlameAnnotate: return this._applyBlameAnnotateCommand<GitAuthorsCodeLens>(title, lens, blame);
                 case CodeLensCommand.BlameExplorer: return this._applyBlameExplorerCommand<GitAuthorsCodeLens>(title, lens, blame);
-                case CodeLensCommand.GitHistory: return this._applyGitHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
+                case CodeLensCommand.DiffWithPrevious: return this._applyDiffWithPreviousCommand<GitAuthorsCodeLens>(title, lens, blame);
+                case CodeLensCommand.GitViewHistory: return this._applyGitHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
                 default: return lens;
             }
         });
@@ -195,12 +197,24 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         return lens;
     }
 
+    _applyDiffWithPreviousCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: IGitBlameLines) {
+        const line = blame.allLines[lens.range.start.line];
+        const commit = blame.commits.get(line.sha);
+
+        lens.command = {
+            title: title,
+            command: Commands.DiffWithPrevious,
+            arguments: [Uri.file(lens.fileName), commit.repoPath, commit.sha, commit.uri, commit.previousSha, commit.previousUri, line.line]
+        };
+        return lens;
+    }
+
     _applyGitHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: IGitBlameLines) {
         if (!this._hasGitHistoryExtension) return this._applyBlameExplorerCommand(title, lens, blame);
 
         lens.command = {
             title: title,
-            command: 'git.viewFileHistory',
+            command: CodeLensCommand.GitViewHistory,
             arguments: [Uri.file(lens.fileName)]
         };
         return lens;

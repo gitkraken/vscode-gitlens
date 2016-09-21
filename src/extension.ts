@@ -1,12 +1,13 @@
 'use strict';
-import {CodeLens, DocumentSelector, ExtensionContext, extensions, languages, OverviewRulerLane, window, workspace} from 'vscode';
+import {CodeLens, DocumentSelector, ExtensionContext, extensions, languages, OverviewRulerLane, StatusBarAlignment, window, workspace} from 'vscode';
+import BlameAnnotationController from './blameAnnotationController';
+import BlameStatusBarController from './blameStatusBarController';
 import GitContentProvider from './gitContentProvider';
 import GitBlameCodeLensProvider from './gitBlameCodeLensProvider';
 import GitBlameContentProvider from './gitBlameContentProvider';
-import GitBlameController from './gitBlameController';
 import GitProvider, {Git} from './gitProvider';
 import {DiffWithPreviousCommand, DiffWithWorkingCommand, ShowBlameCommand, ShowBlameHistoryCommand, ToggleBlameCommand, ToggleCodeLensCommand} from './commands';
-import {ICodeLensesConfig} from './configuration';
+import {IStatusBarConfig} from './configuration';
 import {WorkspaceState} from './constants';
 
 // this method is called when your extension is activated
@@ -33,18 +34,20 @@ export function activate(context: ExtensionContext) {
 
         context.subscriptions.push(languages.registerCodeLensProvider(GitBlameCodeLensProvider.selector, new GitBlameCodeLensProvider(context, git)));
 
-        const blameController = new GitBlameController(context, git);
-        context.subscriptions.push(blameController);
+        const annotationController = new BlameAnnotationController(context, git);
+        context.subscriptions.push(annotationController);
+
+        const statusBarController = new BlameStatusBarController(context, git);
+        context.subscriptions.push(statusBarController);
 
         context.subscriptions.push(new DiffWithWorkingCommand(git));
         context.subscriptions.push(new DiffWithPreviousCommand(git));
-        context.subscriptions.push(new ShowBlameCommand(git, blameController));
-        context.subscriptions.push(new ToggleBlameCommand(git, blameController));
+        context.subscriptions.push(new ShowBlameCommand(git, annotationController));
+        context.subscriptions.push(new ToggleBlameCommand(git, annotationController));
         context.subscriptions.push(new ShowBlameHistoryCommand(git));
         context.subscriptions.push(new ToggleCodeLensCommand(git));
     }).catch(reason => console.warn('[GitLens]', reason));
 }
 
 // this method is called when your extension is deactivated
-export function deactivate() {
-}
+export function deactivate() { }

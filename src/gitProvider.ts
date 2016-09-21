@@ -27,6 +27,8 @@ enum RemoveCacheReason {
     DocumentChanged
 }
 
+const UncommitedRegex = /^[0]+$/;
+
 export default class GitProvider extends Disposable {
     private _blameCache: Map<string, IBlameCacheEntry>|null;
     private _blameCacheDisposable: Disposable|null;
@@ -66,7 +68,7 @@ export default class GitProvider extends Disposable {
 
         const subscriptions: Disposable[] = [];
 
-        subscriptions.push(workspace.onDidChangeConfiguration(() => this._onConfigure()));
+        subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigure, this));
 
         this._disposable = Disposable.from(...subscriptions);
     }
@@ -167,10 +169,8 @@ export default class GitProvider extends Disposable {
                 console.log('[GitLens]', `Skipping blame; ${fileName} is gitignored`);
                 blame = GitProvider.BlameEmptyPromise;
             } else {
-                const enricher = new GitBlameParserEnricher(GitProvider.BlameFormat);
-
                 blame = Git.blame(GitProvider.BlameFormat, fileName)
-                    .then(data => enricher.enrich(data, fileName))
+                    .then(data => new GitBlameParserEnricher(GitProvider.BlameFormat).enrich(data, fileName))
                     .catch(ex => {
                         // Trap and cache expected blame errors
                         if (this.UseCaching) {
@@ -198,18 +198,38 @@ export default class GitProvider extends Disposable {
         });
     }
 
-    getBlameForLine(fileName: string, line: number): Promise<IGitBlameLine|null> {
-        return this.getBlameForFile(fileName).then(blame => {
-            const blameLine = blame && blame.lines[line];
-            if (!blameLine) return null;
+    getBlameForLine(fileName: string, line: number, sha?: string, repoPath?: string): Promise<IGitBlameLine|null> {
+        if (this.UseCaching && !sha) {
+            return this.getBlameForFile(fileName).then(blame => {
+                const blameLine = blame && blame.lines[line];
+                if (!blameLine) return null;
 
-            const commit = blame.commits.get(blameLine.sha);
-            return {
-                author: Object.assign({}, blame.authors.get(commit.author), { lineCount: commit.lines.length }),
-                commit: commit,
-                line: blameLine
-            };
-        });
+                const commit = blame.commits.get(blameLine.sha);
+                return {
+                    author: Object.assign({}, blame.authors.get(commit.author), { lineCount: commit.lines.length }),
+                    commit: commit,
+                    line: blameLine
+                };
+            });
+        }
+
+        fileName = Git.normalizePath(fileName);
+
+        return Git.blameLines(GitProvider.BlameFormat, fileName, line, line, sha, repoPath)
+            .then(data => new GitBlameParserEnricher(GitProvider.BlameFormat).enrich(data, fileName))
+            .then(blame => {
+                if (!blame) return null;
+
+                const commit = blame.commits.values().next().value;
+                if (repoPath) {
+                    commit.repoPath = repoPath;
+                }
+                return <IGitBlameLine>{
+                    author: blame.authors.values().next().value,
+                    commit: commit,
+                    line: blame.lines[line - 1]
+                };
+            });
     }
 
     getBlameForRange(fileName: string, range: Range): Promise<IGitBlameLines|null> {
@@ -332,6 +352,10 @@ export default class GitProvider extends Disposable {
         }));
 
         this._codeLensProviderDisposable = Disposable.from(...disposables);
+    }
+
+    static isUncommitted(sha: string) {
+        return UncommitedRegex.test(sha);
     }
 
     static fromBlameUri(uri: Uri): IGitBlameUriData {

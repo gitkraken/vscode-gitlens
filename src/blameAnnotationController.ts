@@ -1,10 +1,8 @@
 'use strict'
-import {commands, DecorationInstanceRenderOptions, DecorationOptions, Diagnostic, DiagnosticCollection, DiagnosticSeverity, Disposable, ExtensionContext, languages, OverviewRulerLane, Position, Range, TextDocument, TextEditor, TextEditorDecorationType, Uri, window, workspace} from 'vscode';
+import {commands, DecorationOptions, Disposable, ExtensionContext, OverviewRulerLane, Range, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, Uri, window, workspace} from 'vscode';
 import {BuiltInCommands, Commands, DocumentSchemes} from './constants';
 import {BlameAnnotationStyle, IBlameConfig} from './configuration';
 import GitProvider, {IGitBlame, IGitCommit} from './gitProvider';
-import GitCodeActionsProvider from './gitCodeActionProvider';
-import {DiagnosticCollectionName, DiagnosticSource} from './constants';
 import * as moment from 'moment';
 
 const blameDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
@@ -14,12 +12,9 @@ const blameDecoration: TextEditorDecorationType = window.createTextEditorDecorat
 });
 let highlightDecoration: TextEditorDecorationType;
 
-export default class GitBlameController extends Disposable {
-    private _controller: GitBlameEditorController|null;
+export default class BlameAnnotationController extends Disposable {
     private _disposable: Disposable;
-
-    private _blameDecoration: TextEditorDecorationType;
-    private _highlightDecoration: TextEditorDecorationType;
+    private _editorController: EditorBlameAnnotationController|null;
 
     constructor(private context: ExtensionContext, private git: GitProvider) {
         super(() => this.dispose());
@@ -50,7 +45,7 @@ export default class GitBlameController extends Disposable {
         // }));
 
         workspace.onDidCloseTextDocument(d => {
-            if (!this._controller || this._controller.uri.toString() !== d.uri.toString()) return;
+            if (!this._editorController || this._editorController.uri.toString() !== d.uri.toString()) return;
             this.clear();
         })
 
@@ -63,38 +58,37 @@ export default class GitBlameController extends Disposable {
     }
 
     clear() {
-        this._controller && this._controller.dispose();
-        this._controller = null;
+        this._editorController && this._editorController.dispose();
+        this._editorController = null;
     }
 
-    showBlame(editor: TextEditor, sha?: string) {
-        if (!editor) {
+    showBlameAnnotation(editor: TextEditor, sha?: string) {
+        if (!editor || !editor.document || editor.document.isUntitled) {
             this.clear();
             return;
         }
 
-        if (!this._controller) {
-            this._controller = new GitBlameEditorController(this.context, this.git, editor);
-            return this._controller.applyBlame(sha);
+        if (!this._editorController) {
+            this._editorController = new EditorBlameAnnotationController(this.context, this.git, editor);
+            return this._editorController.applyBlameAnnotation(sha);
         }
     }
 
-    toggleBlame(editor: TextEditor, sha?: string) {
-        if (!editor || this._controller) {
+    toggleBlameAnnotation(editor: TextEditor, sha?: string) {
+        if (!editor ||!editor.document || editor.document.isUntitled || this._editorController) {
             this.clear();
             return;
         }
 
-        return this.showBlame(editor, sha);
+        return this.showBlameAnnotation(editor, sha);
     }
 }
 
-class GitBlameEditorController extends Disposable {
+class EditorBlameAnnotationController extends Disposable {
     public uri: Uri;
 
     private _blame: Promise<IGitBlame>;
     private _config: IBlameConfig;
-    private _diagnostics: DiagnosticCollection;
     private _disposable: Disposable;
     private _document: TextDocument;
     private _toggleWhitespace: boolean;
@@ -104,36 +98,14 @@ class GitBlameEditorController extends Disposable {
 
         this._document = this.editor.document;
         this.uri = this._document.uri;
-        const fileName = this.uri.fsPath;
 
-        this._blame = this.git.getBlameForFile(fileName);
+        this._blame = this.git.getBlameForFile(this.uri.fsPath);
 
         this._config = workspace.getConfiguration('gitlens').get<IBlameConfig>('blame');
 
         const subscriptions: Disposable[] = [];
 
-        if (this._config.annotation.useCodeActions) {
-            this._diagnostics = languages.createDiagnosticCollection(DiagnosticCollectionName);
-            subscriptions.push(this._diagnostics);
-
-            subscriptions.push(languages.registerCodeActionsProvider(GitCodeActionsProvider.selector, new GitCodeActionsProvider(this.context, this.git)));
-        }
-
-        subscriptions.push(window.onDidChangeTextEditorSelection(e => {
-            const activeLine = e.selections[0].active.line;
-
-            this._diagnostics && this._diagnostics.clear();
-
-            this.git.getBlameForLine(e.textEditor.document.fileName, activeLine)
-                .then(blame => {
-                    if (!blame) return;
-
-                    // Add the bogus diagnostics to provide code actions for this sha
-                    this._diagnostics && this._diagnostics.set(editor.document.uri, [this._getDiagnostic(editor, activeLine, blame.commit.sha)]);
-
-                    this.applyHighlight(blame.commit.sha);
-                });
-        }));
+        subscriptions.push(window.onDidChangeTextEditorSelection(this._onActiveSelectionChanged, this));
 
         this._disposable = Disposable.from(...subscriptions);
     }
@@ -152,13 +124,12 @@ class GitBlameEditorController extends Disposable {
         this._disposable && this._disposable.dispose();
     }
 
-    _getDiagnostic(editor, line, sha) {
-        const diag = new Diagnostic(editor.document.validateRange(new Range(line, 0, line, 1000000)), `Diff commit ${sha}`, DiagnosticSeverity.Hint);
-        diag.source = DiagnosticSource;
-        return diag;
+    private _onActiveSelectionChanged(e: TextEditorSelectionChangeEvent) {
+        this.git.getBlameForLine(e.textEditor.document.fileName, e.selections[0].active.line)
+            .then(blame => blame && this.applyHighlight(blame.commit.sha));
     }
 
-    applyBlame(sha?: string) {
+    applyBlameAnnotation(sha?: string) {
         return this._blame.then(blame => {
             if (!blame || !blame.lines.length) return;
 
@@ -185,24 +156,29 @@ class GitBlameEditorController extends Disposable {
 
             sha = sha || blame.commits.values().next().value.sha;
 
-            if (this._diagnostics) {
-                // Add the bogus diagnostics to provide code actions for this sha
-                const activeLine = this.editor.selection.active.line;
-                this._diagnostics.clear();
-                this._diagnostics.set(this.editor.document.uri, [this._getDiagnostic(this.editor, activeLine, sha)]);
-            }
-
             return this.applyHighlight(sha);
         });
     }
 
-    _getCompactGutterDecorations(blame: IGitBlame): DecorationOptions[] {
+    applyHighlight(sha: string) {
+        return this._blame.then(blame => {
+            if (!blame || !blame.lines.length) return;
+
+            const highlightDecorationRanges = blame.lines
+                .filter(l => l.sha === sha)
+                .map(l => this.editor.document.validateRange(new Range(l.line, 0, l.line, 1000000)));
+
+            this.editor.setDecorations(highlightDecoration, highlightDecorationRanges);
+        });
+    }
+
+    private _getCompactGutterDecorations(blame: IGitBlame): DecorationOptions[] {
         let count = 0;
         let lastSha;
         return blame.lines.map(l => {
             let color = l.previousSha ? '#999999' : '#6b6b6b';
             let commit = blame.commits.get(l.sha);
-            let hoverMessage: string | Array<string> = [commit.message, `${commit.author}, ${moment(commit.date).format('MMMM Do, YYYY hh:MM a')}`];
+            let hoverMessage: string | Array<string> = [`_${l.sha}_: ${commit.message}`, `${commit.author}, ${moment(commit.date).format('MMMM Do, YYYY hh:MM a')}`];
 
             if (l.sha.startsWith('00000000')) {
                 color = 'rgba(0, 188, 242, 0.6)';
@@ -242,7 +218,7 @@ class GitBlameEditorController extends Disposable {
         });
     }
 
-    _getExpandedGutterDecorations(blame: IGitBlame): DecorationOptions[] {
+    private _getExpandedGutterDecorations(blame: IGitBlame): DecorationOptions[] {
         let width = 0;
         if (this._config.annotation.sha) {
             width += 5;
@@ -283,7 +259,7 @@ class GitBlameEditorController extends Disposable {
         });
     }
 
-    _getAuthor(commit: IGitCommit, max: number = 17, force: boolean = false) {
+    private _getAuthor(commit: IGitCommit, max: number = 17, force: boolean = false) {
         if (!force && !this._config.annotation.author) return '';
         if (commit.author.length > max) {
             return `${commit.author.substring(0, max - 1)}\\2026`;
@@ -291,12 +267,12 @@ class GitBlameEditorController extends Disposable {
         return commit.author;
     }
 
-    _getDate(commit: IGitCommit, force?: boolean) {
+    private _getDate(commit: IGitCommit, force?: boolean) {
         if (!force && !this._config.annotation.date) return '';
         return moment(commit.date).format('MM/DD/YYYY');
     }
 
-    _getGutter(commit: IGitCommit) {
+    private _getGutter(commit: IGitCommit) {
         const author = this._getAuthor(commit);
         const date = this._getDate(commit);
         if (this._config.annotation.sha) {
@@ -306,17 +282,5 @@ class GitBlameEditorController extends Disposable {
         } else {
             return author;
         }
-    }
-
-    applyHighlight(sha: string) {
-        return this._blame.then(blame => {
-            if (!blame || !blame.lines.length) return;
-
-            const highlightDecorationRanges = blame.lines
-                .filter(l => l.sha === sha)
-                .map(l => this.editor.document.validateRange(new Range(l.line, 0, l.line, 1000000)));
-
-            this.editor.setDecorations(highlightDecoration, highlightDecorationRanges);
-        });
     }
 }

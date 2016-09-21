@@ -1,7 +1,5 @@
 'use strict'
 
-export const DiagnosticCollectionName = 'gitlens';
-export const DiagnosticSource = 'GitLens';
 export const RepoPath = 'repoPath';
 
 export type BuiltInCommands = 'cursorMove' | 'editor.action.showReferences' | 'editor.action.toggleRenderWhitespace' | 'editorScroll' | 'revealLine' | 'vscode.diff' | 'vscode.executeDocumentSymbolProvider' | 'vscode.executeCodeLensProvider';
@@ -16,12 +14,12 @@ export const BuiltInCommands = {
     ToggleRenderWhitespace: 'editor.action.toggleRenderWhitespace' as BuiltInCommands
 }
 
-export type Commands = 'gitlens.diffWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.showBlame' | 'gitlens.showHistory' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
+export type Commands = 'gitlens.diffWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
 export const Commands = {
     DiffWithPrevious: 'gitlens.diffWithPrevious' as Commands,
     DiffWithWorking: 'gitlens.diffWithWorking' as Commands,
     ShowBlame: 'gitlens.showBlame' as Commands,
-    ShowBlameHistory: 'gitlens.showHistory' as Commands,
+    ShowBlameHistory: 'gitlens.showBlameHistory' as Commands,
     ToggleBlame: 'gitlens.toggleBlame' as Commands,
     ToggleCodeLens: 'gitlens.toggleCodeLens' as Commands,
 }

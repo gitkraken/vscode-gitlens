@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "0.3.3",
+    "version": "0.5.0",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -62,11 +62,6 @@
                     "default": false,
                     "description": "Specifies whether the commit date will be shown in the blame annotations. Applies only to the `expanded` annotation style"
                 },
-                "gitlens.blame.annotation.useCodeActions": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Specifies whether code actions (Diff with Working, Diff with Previous) will be provided for the selected line, when annotating. Not required as context menu options are always provided"
-                },
                 "gitlens.codeLens.visibility": {
                     "type": "string",
                     "default": "auto",
@@ -99,13 +94,14 @@
                 },
                 "gitlens.codeLens.recentChange.command": {
                     "type": "string",
-                    "default": "blame.explorer",
+                    "default": "gitlens.showBlameHistory",
                     "enum": [
-                        "blame.annotate",
-                        "blame.explorer",
-                        "git.history"
+                        "gitlens.toggleBlame",
+                        "gitlens.showBlameHistory",
+                        "gitlens.diffWithPrevious",
+                        "git.viewFileHistory"
                     ],
-                    "description": "Specifies the command executed when the recent change CodeLens is clicked. `blame.annotate` - toggles blame annotations. `blame.explorer` - opens the blame explorer. `git.history` - opens a file history picker, which requires the Git History (git log) extension"
+                    "description": "Specifies the command executed when the recent change CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
                 },
                 "gitlens.codeLens.authors.enabled": {
                     "type": "boolean",
@@ -114,13 +110,31 @@
                 },
                 "gitlens.codeLens.authors.command": {
                     "type": "string",
-                    "default": "blame.annotate",
+                    "default": "gitlens.toggleBlame",
                     "enum": [
-                        "blame.annotate",
-                        "blame.explorer",
-                        "git.history"
+                        "gitlens.toggleBlame",
+                        "gitlens.showBlameHistory",
+                        "gitlens.diffWithPrevious",
+                        "git.viewFileHistory"
                     ],
-                    "description": "Specifies the command executed when the authors CodeLens is clicked. `blame.annotate` - toggles blame annotations. `blame.explorer` - opens the blame explorer. `git.history` - opens a file history picker, which requires the Git History (git log) extension"
+                    "description": "Specifies the command executed when the authors CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
+                },
+                "gitlens.statusBar.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether blame information is shown in the status bar"
+                },
+                "gitlens.statusBar.command": {
+                    "type": "string",
+                    "default": "gitlens.toggleBlame",
+                    "enum": [
+                        "gitlens.toggleBlame",
+                        "gitlens.showBlameHistory",
+                        "gitlens.diffWithPrevious",
+                        "gitlens.toggleCodeLens",
+                        "git.viewFileHistory"
+                    ],
+                    "description": "Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
                 },
                 "gitlens.advanced.caching.enabled": {
                     "type": "boolean",
@@ -152,6 +166,11 @@
         {
             "command": "gitlens.toggleCodeLens",
             "title": "Git: Toggle CodeLens",
+            "category": "GitLens"
+        },
+        {
+            "command": "gitlens.showBlameHistory",
+            "title": "Git: Open Blame History",
             "category": "GitLens"
         }],
         "menus": {
@@ -212,6 +231,6 @@
         "compile": "node ./node_modules/vscode/bin/compile -watch -p ./",
         "postinstall": "node ./node_modules/vscode/bin/install",
         "pack": "git clean -xdf && npm install && vsce package",
-        "pub": "git clean -xdf && npm install && vsce publish"
+        "pub": "git clean -xdf --exclude=node_modules/ && npm install && vsce publish"
     }
 }

@@ -53,7 +53,7 @@ export default class Git {
         return gitCommand(cwd, 'rev-parse', '--show-toplevel').then(data => data.replace(/\r?\n|\r/g, '').replace(/\\/g, '/'));
     }
 
-    static blame(format: GitBlameFormat, fileName: string, repoPath?: string, sha?: string) {
+    static blame(format: GitBlameFormat, fileName: string, sha?: string, repoPath?: string) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
         if (sha) {
@@ -62,11 +62,20 @@ export default class Git {
         return gitCommand(root, 'blame', format, '--root', '--', file);
     }
 
+    static blameLines(format: GitBlameFormat, fileName: string, startLine: number, endLine: number, sha?: string, repoPath?: string) {
+        const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
+
+        if (sha) {
+            return gitCommand(root, 'blame', `-L ${startLine},${endLine}`, format, '--root', `${sha}^`, '--', file);
+        }
+        return gitCommand(root, 'blame', `-L ${startLine},${endLine}`, format, '--root', '--', file);
+    }
+
     static getVersionedFile(fileName: string, repoPath: string, sha: string) {
         return new Promise<string>((resolve, reject) => {
             Git.getVersionedFileText(fileName, repoPath, sha).then(data => {
                 const ext = path.extname(fileName);
-                tmp.file({ prefix: `${path.basename(fileName, ext)}-${sha}_`, postfix: ext }, (err, destination, fd, cleanupCallback) => {
+                tmp.file({ prefix: `${path.basename(fileName, ext)}-${sha}__`, postfix: ext }, (err, destination, fd, cleanupCallback) => {
                     if (err) {
                         reject(err);
                         return;
