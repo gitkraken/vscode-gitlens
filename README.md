@@ -56,17 +56,22 @@ Must be using Git and it must be in your path.
 ---
 ## Release Notes
 
+### 0.5.3
+
+ - Adds better uncommitted hover message in blame annotations
+ - Adds more protection for dealing with uncommitted lines
+
 ### 0.5.2
 
  - Fixes loading issue on Linux
- 
+
 ### 0.5.1
 
  - Adds blame information in the statusBar
  - Add new StatusBar settings -- see **Extension Settings** above for details
  - Renames the `gitlens.codeLens.recentChange.command` & `gitlens.codeLens.authors.command` settings options (to align with command names)
  - Adds new `gitlens.diffWithPrevious` option to the `gitlens.codeLens.recentChange.command` & `gitlens.codeLens.authors.command` settings
- - Fixes Diff with Previous when the selection is uncommited
+ - Fixes Diff with Previous when the selection is uncommitted
  - Removes `gitlens.blame.annotation.useCodeActions` setting and behavior
 
 ### 0.3.3
@@ -111,7 +116,7 @@ Must be using Git and it must be in your path.
 ### 0.0.5
 
 - Fixes issues where filename changes in history would cause diffs to fails
-- Fixes some issues with uncommited blames
+- Fixes some issues with uncommitted blames
 - Removes CodeLens from fields and single-line properties to reduce visual noise
 - Automatically turns off blame only when required now
 

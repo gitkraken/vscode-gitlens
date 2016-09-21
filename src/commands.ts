@@ -42,8 +42,8 @@ export class DiffWithPreviousCommand extends EditorCommand {
     }
 
     execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, repoPath?: string, sha?: string, shaUri?: Uri, compareWithSha?: string, compareWithUri?: Uri, line?: number) {
-        line = line || editor.selection.active.line;
-        if (!sha) {
+        line = line || editor.selection.active.line + 1;
+        if (!sha || GitProvider.isUncommitted(sha)) {
             if (!(uri instanceof Uri)) {
                 if (!editor.document) return;
                 uri = editor.document.uri;
@@ -56,8 +56,8 @@ export class DiffWithPreviousCommand extends EditorCommand {
 
                     // If the line is uncommitted, find the previous commit
                     const commit = blame.commit;
-                    if (GitProvider.isUncommitted(commit.sha)) {
-                        return this.git.getBlameForLine(commit.previousUri.fsPath, blame.line.originalLine, commit.previousSha, commit.repoPath)
+                    if (commit.isUncommitted) {
+                        return this.git.getBlameForLine(commit.previousUri.fsPath, blame.line.originalLine + 1, commit.previousSha, commit.repoPath)
                             .catch(ex => console.error('[GitLens.DiffWithPreviousCommand]', `getBlameForLine(${blame.line.originalLine}, ${commit.previousSha})`, ex))
                             .then(prevBlame => {
                                 if (!prevBlame) return;
@@ -87,8 +87,8 @@ export class DiffWithWorkingCommand extends EditorCommand {
     }
 
     execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, repoPath?: string, sha?: string, shaUri?: Uri, line?: number) {
-        line = line || editor.selection.active.line;
-        if (!sha) {
+        line = line || editor.selection.active.line + 1;
+        if (!sha || GitProvider.isUncommitted(sha)) {
             if (!(uri instanceof Uri)) {
                 if (!editor.document) return;
                 uri = editor.document.uri;
@@ -101,8 +101,8 @@ export class DiffWithWorkingCommand extends EditorCommand {
 
                     const commit = blame.commit;
                     // If the line is uncommitted, find the previous commit
-                    if (GitProvider.isUncommitted(commit.sha)) {
-                        return commands.executeCommand(Commands.DiffWithWorking, commit.uri, commit.repoPath, commit.previousSha, commit.previousUri, blame.line.line);
+                    if (commit.isUncommitted) {
+                        return commands.executeCommand(Commands.DiffWithWorking, commit.uri, commit.repoPath, commit.previousSha, commit.previousUri, blame.line.line + 1);
                     }
                     return commands.executeCommand(Commands.DiffWithWorking, commit.uri, commit.repoPath, commit.sha, commit.uri, line)
                 });

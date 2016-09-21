@@ -306,6 +306,8 @@ export default class GitProvider extends Disposable {
             const locations: Array<Location> = [];
             Array.from(blame.commits.values())
                 .forEach((c, i) => {
+                    if (c.isUncommitted) return;
+
                     const uri = GitProvider.toBlameUri(c, i + 1, commitCount, range);
                     c.lines.forEach(l => locations.push(new Location(c.originalFileName
                             ? GitProvider.toBlameUri(c, i + 1, commitCount, range, c.originalFileName)

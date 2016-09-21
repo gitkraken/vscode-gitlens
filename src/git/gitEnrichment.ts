@@ -1,5 +1,6 @@
 'use strict'
 import {Uri} from 'vscode';
+import Git from './git';
 import * as path from 'path';
 
 export interface IGitEnricher<T> {
@@ -46,6 +47,7 @@ export interface IGitCommit {
     previousSha?: string;
     previousFileName?: string;
 
+    readonly isUncommitted: boolean;
     previousUri: Uri;
     uri: Uri;
 }
@@ -55,6 +57,7 @@ export class GitCommit implements IGitCommit {
     originalFileName?: string;
     previousSha?: string;
     previousFileName?: string;
+    private _isUncommitted: boolean|undefined;
 
     constructor(public repoPath: string, public sha: string, public fileName: string, public author: string, public date: Date, public message: string,
                 lines?: IGitCommitLine[], originalFileName?: string, previousSha?: string, previousFileName?: string) {
@@ -62,6 +65,13 @@ export class GitCommit implements IGitCommit {
         this.originalFileName = originalFileName;
         this.previousSha = previousSha;
         this.previousFileName = previousFileName;
+    }
+
+    get isUncommitted(): boolean {
+        if (this._isUncommitted === undefined) {
+            this._isUncommitted = Git.isUncommitted(this.sha);
+        }
+        return this._isUncommitted;
     }
 
     get previousUri(): Uri {

@@ -51,17 +51,19 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
 
         //const editor = this._findEditor(Uri.file(join(data.repoPath, data.file)));
 
-        return this.git.getVersionedFileText(data.originalFileName || data.fileName, data.repoPath, data.sha).then(text => {
-            this.update(uri);
+        return this.git.getVersionedFileText(data.originalFileName || data.fileName, data.repoPath, data.sha)
+            .then(text => {
+                this.update(uri);
 
-            // TODO: This only works on the first load -- not after since it is cached
-            this._tryAddBlameDecorations(uri, data);
+                // TODO: This only works on the first load -- not after since it is cached
+                this._tryAddBlameDecorations(uri, data);
 
-            // TODO: This needs to move to selection somehow to show on the main file editor
-            //this._addBlameDecorations(editor, data);
+                // TODO: This needs to move to selection somehow to show on the main file editor
+                //this._addBlameDecorations(editor, data);
 
-            return text;
-        });
+                return text;
+            })
+            .catch(ex => console.error('[GitLens.GitBlameContentProvider]', 'getVersionedFileText', ex));
 
         // return this.git.getVersionedFile(data.fileName, data.sha).then(dst => {
         //     let uri = Uri.parse(`file:${dst}`)

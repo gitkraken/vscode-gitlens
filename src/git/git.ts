@@ -7,7 +7,7 @@ import {spawnPromise} from 'spawn-rx';
 export * from './gitEnrichment';
 export * from './enrichers/blameParserEnricher';
 
-const UncommitedRegex = /^[0]+$/;
+const UncommittedRegex = /^[0]+$/;
 
 function gitCommand(cwd: string,  ...args) {
     return spawnPromise('git', args, { cwd: cwd })
@@ -99,10 +99,11 @@ export default class Git {
         const [file, root] = Git.splitPath(Git.normalizePath(fileName), repoPath);
         sha = sha.replace('^', '');
 
+        if (Git.isUncommitted(sha)) return new Promise<string>((resolve, reject) => reject(new Error(`sha=${sha} is uncommitted`)));
         return gitCommand(root, 'show', `${sha}:./${file}`);
     }
 
     static isUncommitted(sha: string) {
-        return UncommitedRegex.test(sha);
+        return UncommittedRegex.test(sha);
     }
 }

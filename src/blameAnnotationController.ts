@@ -178,11 +178,17 @@ class EditorBlameAnnotationController extends Disposable {
         return blame.lines.map(l => {
             let color = l.previousSha ? '#999999' : '#6b6b6b';
             let commit = blame.commits.get(l.sha);
-            let hoverMessage: string | Array<string> = [`_${l.sha}_: ${commit.message}`, `${commit.author}, ${moment(commit.date).format('MMMM Do, YYYY hh:MM a')}`];
+            let hoverMessage: string | Array<string> = [`_${l.sha}_ - ${commit.message}`, `${commit.author}, ${moment(commit.date).format('MMMM Do, YYYY h:MM a')}`];
 
-            if (l.sha.startsWith('00000000')) {
+            if (commit.isUncommitted) {
                 color = 'rgba(0, 188, 242, 0.6)';
-                hoverMessage = '';
+
+                let previous = blame.commits.get(commit.previousSha);
+                if (previous) {
+                    hoverMessage = ['Uncommitted changes', `_${previous.sha}_ - ${previous.message}`, `${previous.author}, ${moment(previous.date).format('MMMM Do, YYYY h:MM a')}`];
+                } else {
+                    hoverMessage = ['Uncommitted changes', `_${l.previousSha}_`];
+                }
             }
 
             let gutter = '';
@@ -212,7 +218,7 @@ class EditorBlameAnnotationController extends Disposable {
 
             return <DecorationOptions>{
                 range: this.editor.document.validateRange(new Range(l.line, 0, l.line, 0)),
-                hoverMessage: [`_${l.sha}_: ${commit.message}`, `${commit.author}, ${moment(commit.date).format('MMMM Do, YYYY hh:MM a')}`],
+                hoverMessage: hoverMessage,
                 renderOptions: { before: { color: color, contentText: gutter, width: '11em' } }
             };
         });
@@ -243,11 +249,17 @@ class EditorBlameAnnotationController extends Disposable {
         return blame.lines.map(l => {
             let color = l.previousSha ? '#999999' : '#6b6b6b';
             let commit = blame.commits.get(l.sha);
-            let hoverMessage: string | Array<string> = [commit.message, `${commit.author}, ${moment(commit.date).format('MMMM Do, YYYY hh:MM a')}`];
+            let hoverMessage: string | Array<string> = [`_${l.sha}_ - ${commit.message}`, `${commit.author}, ${moment(commit.date).format('MMMM Do, YYYY h:MM a')}`];
 
-            if (l.sha.startsWith('00000000')) {
+            if (commit.isUncommitted) {
                 color = 'rgba(0, 188, 242, 0.6)';
-                hoverMessage = '';
+
+                let previous = blame.commits.get(commit.previousSha);
+                if (previous) {
+                    hoverMessage = ['Uncommitted changes', `_${previous.sha}_ - ${previous.message}`, `${previous.author}, ${moment(previous.date).format('MMMM Do, YYYY h:MM a')}`];
+                } else {
+                    hoverMessage = ['Uncommitted changes', `_${l.previousSha}_`];
+                }
             }
 
             const gutter = this._getGutter(commit);
@@ -261,10 +273,11 @@ class EditorBlameAnnotationController extends Disposable {
 
     private _getAuthor(commit: IGitCommit, max: number = 17, force: boolean = false) {
         if (!force && !this._config.annotation.author) return '';
-        if (commit.author.length > max) {
-            return `${commit.author.substring(0, max - 1)}\\2026`;
+        let author = commit.isUncommitted ? 'Uncommitted': commit.author;
+        if (author.length > max) {
+            return `${author.substring(0, max - 1)}\\2026`;
         }
-        return commit.author;
+        return author;
     }
 
     private _getDate(commit: IGitCommit, force?: boolean) {
