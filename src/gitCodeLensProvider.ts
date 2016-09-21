@@ -5,7 +5,7 @@ import {CodeLensCommand, CodeLensLocation, ICodeLensesConfig} from './configurat
 import GitProvider, {IGitBlame, IGitBlameLines, IGitCommit} from './gitProvider';
 import * as moment from 'moment';
 
-const escapeRegExp = require('lodash.escapeRegExp');
+const escapeRegExp = require('lodash.escaperegexp');
 
 export class GitRecentChangeCodeLens extends CodeLens {
     constructor(private git: GitProvider, public fileName: string, public symbolKind: SymbolKind, public blameRange: Range, range: Range) {

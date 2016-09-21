@@ -56,6 +56,10 @@ Must be using Git and it must be in your path.
 ---
 ## Release Notes
 
+### 0.5.2
+
+ - Fixes loading issue on Linux
+ 
 ### 0.5.1
 
  - Adds blame information in the statusBar
