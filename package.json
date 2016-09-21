@@ -145,32 +145,32 @@
         },
         "commands": [{
             "command": "gitlens.diffWithPrevious",
-            "title": "Git: Open Diff with Previous Commit",
+            "title": "Open Diff with Previous Commit",
             "category": "GitLens"
         },
         {
             "command": "gitlens.diffWithWorking",
-            "title": "Git: Open Diff with Working Tree",
+            "title": "Open Diff with Working Tree",
             "category": "GitLens"
         },
         {
             "command": "gitlens.showBlame",
-            "title": "Git: Show Blame",
+            "title": "Show Git Blame Annotations",
             "category": "GitLens"
         },
         {
             "command": "gitlens.toggleBlame",
-            "title": "Git: Toggle Blame",
+            "title": "Toggle Git Blame Annotations",
             "category": "GitLens"
         },
         {
             "command": "gitlens.toggleCodeLens",
-            "title": "Git: Toggle CodeLens",
+            "title": "Toggle Git CodeLens",
             "category": "GitLens"
         },
         {
             "command": "gitlens.showBlameHistory",
-            "title": "Git: Open Blame History",
+            "title": "Open Git Blame History",
             "category": "GitLens"
         }],
         "menus": {

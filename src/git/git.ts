@@ -5,8 +5,9 @@ import * as tmp from 'tmp';
 import {spawnPromise} from 'spawn-rx';
 
 export * from './gitEnrichment';
-//export * from './enrichers/blameRegExpEnricher';
 export * from './enrichers/blameParserEnricher';
+
+const UncommitedRegex = /^[0]+$/;
 
 function gitCommand(cwd: string,  ...args) {
     return spawnPromise('git', args, { cwd: cwd })
@@ -99,5 +100,9 @@ export default class Git {
         sha = sha.replace('^', '');
 
         return gitCommand(root, 'show', `${sha}:./${file}`);
+    }
+
+    static isUncommitted(sha: string) {
+        return UncommitedRegex.test(sha);
     }
 }

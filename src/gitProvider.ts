@@ -27,8 +27,6 @@ enum RemoveCacheReason {
     DocumentChanged
 }
 
-const UncommitedRegex = /^[0]+$/;
-
 export default class GitProvider extends Disposable {
     private _blameCache: Map<string, IBlameCacheEntry>|null;
     private _blameCacheDisposable: Disposable|null;
@@ -183,6 +181,7 @@ export default class GitProvider extends Disposable {
                             });
                             return GitProvider.BlameEmptyPromise;
                         }
+                        return null;
                     });
             }
 
@@ -229,7 +228,8 @@ export default class GitProvider extends Disposable {
                     commit: commit,
                     line: blame.lines[line - 1]
                 };
-            });
+            })
+            .catch(ex => null);
     }
 
     getBlameForRange(fileName: string, range: Range): Promise<IGitBlameLines|null> {
@@ -355,7 +355,7 @@ export default class GitProvider extends Disposable {
     }
 
     static isUncommitted(sha: string) {
-        return UncommitedRegex.test(sha);
+        return Git.isUncommitted(sha);
     }
 
     static fromBlameUri(uri: Uri): IGitBlameUriData {
