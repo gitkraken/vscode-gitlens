@@ -214,7 +214,7 @@ export default class GitProvider extends Disposable {
 
         fileName = Git.normalizePath(fileName);
 
-        return Git.blameLines(GitProvider.BlameFormat, fileName, line, line, sha, repoPath)
+        return Git.blameLines(GitProvider.BlameFormat, fileName, line + 1, line + 1, sha, repoPath)
             .then(data => new GitBlameParserEnricher(GitProvider.BlameFormat).enrich(data, fileName))
             .then(blame => {
                 if (!blame) return null;
@@ -226,7 +226,7 @@ export default class GitProvider extends Disposable {
                 return <IGitBlameLine>{
                     author: blame.authors.values().next().value,
                     commit: commit,
-                    line: blame.lines[line - 1]
+                    line: blame.lines[line]
                 };
             })
             .catch(ex => null);

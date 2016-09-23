@@ -56,6 +56,10 @@ Must be using Git and it must be in your path.
 ---
 ## Release Notes
 
+### 0.5.4
+
+ - Fixes off-by-one issues with blame annotations without caching and when diffing with a previous version
+
 ### 0.5.3
 
  - Adds better uncommitted hover message in blame annotations
