@@ -6,9 +6,14 @@ import GitContentProvider from './gitContentProvider';
 import GitBlameCodeLensProvider from './gitBlameCodeLensProvider';
 import GitBlameContentProvider from './gitBlameContentProvider';
 import GitProvider, {Git} from './gitProvider';
-import {DiffWithPreviousCommand, DiffWithWorkingCommand, ShowBlameCommand, ShowBlameHistoryCommand, ToggleBlameCommand, ToggleCodeLensCommand} from './commands';
 import {IStatusBarConfig} from './configuration';
 import {WorkspaceState} from './constants';
+import DiffWithPreviousCommand from './commands/diffWithPrevious';
+import DiffWithWorkingCommand from './commands/diffWithWorking';
+import ShowBlameCommand from './commands/showBlame';
+import ShowBlameHistoryCommand from './commands/showBlameHistory';
+import ToggleBlameCommand from './commands/toggleBlame';
+import ToggleCodeLensCommand from './commands/toggleCodeLens';
 
 // this method is called when your extension is activated
 export function activate(context: ExtensionContext) {

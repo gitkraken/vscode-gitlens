@@ -12,15 +12,15 @@ const UncommittedRegex = /^[0]+$/;
 function gitCommand(cwd: string,  ...args) {
     return spawnPromise('git', args, { cwd: cwd })
         .then(s => {
-            console.log('[GitLens]', 'git', ...args);
+            console.log('[GitLens]', 'git', ...args, cwd);
             return s;
         })
         .catch(ex => {
             const msg = ex && ex.toString();
             if (msg && (msg.includes('is outside repository') || msg.includes('no such path'))) {
-                console.warn('[GitLens]', 'git', ...args, msg && msg.replace(/\r?\n|\r/g, ' '));
+                console.warn('[GitLens]', 'git', ...args, cwd, msg && msg.replace(/\r?\n|\r/g, ' '));
             } else {
-                console.error('[GitLens]', 'git', ...args, msg && msg.replace(/\r?\n|\r/g, ' '));
+                console.error('[GitLens]', 'git', ...args, cwd, msg && msg.replace(/\r?\n|\r/g, ' '));
             }
             throw ex;
         });

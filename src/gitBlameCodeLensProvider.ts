@@ -72,7 +72,8 @@ export default class GitBlameCodeLensProvider implements CodeLensProvider {
                 Uri.file(lens.fileName),
                 lens.commit.sha,
                 lens.commit.uri,
-                lens.range.start.line]
+                lens.range.start.line
+            ]
         };
         return Promise.resolve(lens);
     }
@@ -88,7 +89,8 @@ export default class GitBlameCodeLensProvider implements CodeLensProvider {
                 lens.commit.uri,
                 lens.commit.previousSha,
                 lens.commit.previousUri,
-                lens.range.start.line]
+                lens.range.start.line
+            ]
         };
         return Promise.resolve(lens);
     }

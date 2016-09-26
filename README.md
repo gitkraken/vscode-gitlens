@@ -56,6 +56,10 @@ Must be using Git and it must be in your path.
 ---
 ## Release Notes
 
+### 0.5.5
+
+  - Fixes another off-by-one issue when diffing with caching
+
 ### 0.5.4
 
  - Fixes off-by-one issues with blame annotations without caching and when diffing with a previous version
@@ -71,7 +75,7 @@ Must be using Git and it must be in your path.
 
 ### 0.5.1
 
- - Adds blame information in the statusBar
+ - Adds blame information in the StatusBar
  - Add new StatusBar settings -- see **Extension Settings** above for details
  - Renames the `gitlens.codeLens.recentChange.command` & `gitlens.codeLens.authors.command` settings options (to align with command names)
  - Adds new `gitlens.diffWithPrevious` option to the `gitlens.codeLens.recentChange.command` & `gitlens.codeLens.authors.command` settings

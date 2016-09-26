@@ -204,7 +204,15 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         lens.command = {
             title: title,
             command: Commands.DiffWithPrevious,
-            arguments: [Uri.file(lens.fileName), commit.repoPath, commit.sha, commit.uri, commit.previousSha, commit.previousUri, line.line]
+            arguments: [
+                Uri.file(lens.fileName),
+                commit.repoPath,
+                commit.sha,
+                commit.uri,
+                commit.previousSha,
+                commit.previousUri,
+                line.line
+            ]
         };
         return lens;
     }
