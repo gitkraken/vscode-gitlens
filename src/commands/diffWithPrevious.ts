@@ -19,7 +19,6 @@ export default class DiffWithPreviousCommand extends EditorCommand {
             }
 
             return this.git.getBlameForLine(uri.fsPath, line)
-                .catch(ex => console.error('[GitLens.DiffWithPreviousCommand]', `getBlameForLine(${line})`, ex))
                 .then(blame => {
                     if (!blame) return;
 
@@ -27,16 +26,17 @@ export default class DiffWithPreviousCommand extends EditorCommand {
                     const commit = blame.commit;
                     if (commit.isUncommitted) {
                         return this.git.getBlameForLine(commit.previousUri.fsPath, blame.line.originalLine + 1, commit.previousSha, commit.repoPath)
-                            .catch(ex => console.error('[GitLens.DiffWithPreviousCommand]', `getBlameForLine(${blame.line.originalLine}, ${commit.previousSha})`, ex))
                             .then(prevBlame => {
                                 if (!prevBlame) return;
 
                                 const prevCommit = prevBlame.commit;
                                 return commands.executeCommand(Commands.DiffWithPrevious, commit.previousUri, commit.repoPath, commit.previousSha, commit.previousUri, prevCommit.sha, prevCommit.uri, blame.line.originalLine);
-                            });
+                            })
+                            .catch(ex => console.error('[GitLens.DiffWithPreviousCommand]', `getBlameForLine(${blame.line.originalLine}, ${commit.previousSha})`, ex));
                     }
                     return commands.executeCommand(Commands.DiffWithPrevious, commit.uri, commit.repoPath, commit.sha, commit.uri, commit.previousSha, commit.previousUri, line);
-                });
+                })
+                .catch(ex => console.error('[GitLens.DiffWithPreviousCommand]', `getBlameForLine(${line})`, ex));
         }
 
         if (!compareWithSha) {
@@ -44,8 +44,8 @@ export default class DiffWithPreviousCommand extends EditorCommand {
         }
 
         return Promise.all([this.git.getVersionedFile(shaUri.fsPath, repoPath, sha), this.git.getVersionedFile(compareWithUri.fsPath, repoPath, compareWithSha)])
-            .catch(ex => console.error('[GitLens.DiffWithPreviousCommand]', 'getVersionedFile', ex))
-            .then(values => commands.executeCommand(BuiltInCommands.Diff, Uri.file(values[1]), Uri.file(values[0]), `${path.basename(compareWithUri.fsPath)} (${compareWithSha}) ↔ ${path.basename(shaUri.fsPath)} (${sha})`)
-                .then(() => commands.executeCommand(BuiltInCommands.RevealLine, {lineNumber: line, at: 'center'})));
+            .then(values => commands.executeCommand(BuiltInCommands.Diff, Uri.file(values[1]), Uri.file(values[0]), `${path.basename(compareWithUri.fsPath)} (${compareWithSha}) ↔ ${path.basename(shaUri.fsPath)} (${sha})`))
+            .then(() => commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' }))
+            .catch(ex => console.error('[GitLens.DiffWithPreviousCommand]', 'getVersionedFile', ex));
     }
 }

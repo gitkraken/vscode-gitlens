@@ -20,7 +20,7 @@ export default class ShowBlameHistoryCommand extends EditorCommand {
         }
 
         return this.git.getBlameLocations(uri.fsPath, range)
-            .catch(ex => console.error('[GitLens.ShowBlameHistoryCommand]', 'getBlameLocations', ex))
-            .then(locations => commands.executeCommand(BuiltInCommands.ShowReferences, uri, position, locations));
+            .then(locations => commands.executeCommand(BuiltInCommands.ShowReferences, uri, position, locations))
+            .catch(ex => console.error('[GitLens.ShowBlameHistoryCommand]', 'getBlameLocations', ex));
     }
 }

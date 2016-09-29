@@ -21,8 +21,8 @@ export default  class ToggleBlameCommand extends EditorCommand {
         }
 
         return this.git.getBlameForLine(uri.fsPath, editor.selection.active.line)
-            .catch(ex => console.error('[GitLens.ToggleBlameCommand]', `getBlameForLine(${editor.selection.active.line})`, ex))
-            .then(blame => this.blameController.toggleBlameAnnotation(editor, blame && blame.commit.sha));
+            .then(blame => this.blameController.toggleBlameAnnotation(editor, blame && blame.commit.sha))
+            .catch(ex => console.error('[GitLens.ToggleBlameCommand]', `getBlameForLine(${editor.selection.active.line})`, ex));
     }
 }
 

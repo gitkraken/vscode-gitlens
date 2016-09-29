@@ -19,7 +19,6 @@ export default class DiffWithWorkingCommand extends EditorCommand {
             }
 
             return this.git.getBlameForLine(uri.fsPath, line)
-                .catch(ex => console.error('[GitLens.DiffWithWorkingCommand]', `getBlameForLine(${line})`, ex))
                 .then(blame => {
                     if (!blame) return;
 
@@ -29,12 +28,13 @@ export default class DiffWithWorkingCommand extends EditorCommand {
                         return commands.executeCommand(Commands.DiffWithWorking, commit.uri, commit.repoPath, commit.previousSha, commit.previousUri, blame.line.line + 1);
                     }
                     return commands.executeCommand(Commands.DiffWithWorking, commit.uri, commit.repoPath, commit.sha, commit.uri, line)
-                });
+                })
+                .catch(ex => console.error('[GitLens.DiffWithWorkingCommand]', `getBlameForLine(${line})`, ex));
         };
 
         return this.git.getVersionedFile(shaUri.fsPath, repoPath, sha)
-            .catch(ex => console.error('[GitLens.DiffWithWorkingCommand]', 'getVersionedFile', ex))
-            .then(compare => commands.executeCommand(BuiltInCommands.Diff, Uri.file(compare), uri, `${path.basename(shaUri.fsPath)} (${sha}) ↔ ${path.basename(uri.fsPath)}`)
-                .then(() => commands.executeCommand(BuiltInCommands.RevealLine, {lineNumber: line, at: 'center'})));
+            .then(compare => commands.executeCommand(BuiltInCommands.Diff, Uri.file(compare), uri, `${path.basename(shaUri.fsPath)} (${sha}) ↔ ${path.basename(uri.fsPath)}`))
+            .then(() => commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' }))
+            .catch(ex => console.error('[GitLens.DiffWithWorkingCommand]', 'getVersionedFile', ex));
     }
 }

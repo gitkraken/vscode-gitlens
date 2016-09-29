@@ -1,6 +1,7 @@
 images/*.gif
-.vscode/**
 typings/**
+.vscode/**
+.vscode-test/**
 out/test/**
 test/**
 src/**
