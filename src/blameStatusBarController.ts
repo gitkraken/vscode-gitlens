@@ -1,11 +1,10 @@
-'use strict'
-import {Disposable, ExtensionContext, StatusBarAlignment, StatusBarItem, TextEditor, window, workspace} from 'vscode';
-import {IConfig, IStatusBarConfig, StatusBarCommand} from './configuration';
-import {WorkspaceState} from './constants';
-import GitProvider, {IGitBlameLine} from './gitProvider';
+'use strict';
+import { Objects } from './system';
+import { Disposable, ExtensionContext, StatusBarAlignment, StatusBarItem, TextEditor, window, workspace } from 'vscode';
+import { IConfig, IStatusBarConfig, StatusBarCommand } from './configuration';
+import { WorkspaceState } from './constants';
+import GitProvider, { IGitBlameLine } from './gitProvider';
 import * as moment from 'moment';
-
-const isEqual = require('lodash.isequal');
 
 export default class BlameStatusBarController extends Disposable {
     private _config: IStatusBarConfig;
@@ -34,7 +33,7 @@ export default class BlameStatusBarController extends Disposable {
     private _onConfigure() {
         const config = workspace.getConfiguration('').get<IConfig>('gitlens');
 
-        if (!isEqual(config.statusBar, this._config)) {
+        if (!Objects.areEquivalent(config.statusBar, this._config)) {
             this._statusBarDisposable && this._statusBarDisposable.dispose();
             this._statusBarItem && this._statusBarItem.dispose();
 
@@ -69,14 +68,19 @@ export default class BlameStatusBarController extends Disposable {
         this._config = config.statusBar;
     }
 
-    private _onActiveSelectionChanged(editor: TextEditor) : void {
+    private async _onActiveSelectionChanged(editor: TextEditor): Promise<void> {
         if (!editor || !editor.document || editor.document.isUntitled) {
             this.clear();
             return;
         }
 
-        this.git.getBlameForLine(editor.document.uri.fsPath, editor.selection.active.line)
-            .then(blame => blame ? this.show(blame) : this.clear());
+        const blame = await this.git.getBlameForLine(editor.document.uri.fsPath, editor.selection.active.line);
+        if (blame) {
+            this.show(blame);
+        }
+        else {
+            this.clear();
+        }
     }
 
     clear() {
@@ -86,7 +90,7 @@ export default class BlameStatusBarController extends Disposable {
     show(blameLine: IGitBlameLine) {
         const commit = blameLine.commit;
         this._statusBarItem.text = `$(git-commit) ${commit.author}, ${moment(commit.date).fromNow()}`;
-        //this._statusBarItem.tooltip = [`Last changed by ${commit.author}`, moment(commit.date).format('MMMM Do, YYYY h:MM a'), '', commit.message].join('\n');
+        //this._statusBarItem.tooltip = [`Last changed by ${commit.author}`, moment(commit.date).format('MMMM Do, YYYY h:MMa'), '', commit.message].join('\n');
 
         switch (this._config.command) {
             case StatusBarCommand.BlameAnnotate:

@@ -1,4 +1,4 @@
-'use strict'
+'use strict';
 
 export const RepoPath = 'repoPath';
 
@@ -12,27 +12,28 @@ export const BuiltInCommands = {
     RevealLine: 'revealLine' as BuiltInCommands,
     ShowReferences: 'editor.action.showReferences' as BuiltInCommands,
     ToggleRenderWhitespace: 'editor.action.toggleRenderWhitespace' as BuiltInCommands
-}
+};
 
-export type Commands = 'gitlens.diffWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
+export type Commands = 'gitlens.diffWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showHistory' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
 export const Commands = {
     DiffWithPrevious: 'gitlens.diffWithPrevious' as Commands,
     DiffWithWorking: 'gitlens.diffWithWorking' as Commands,
     ShowBlame: 'gitlens.showBlame' as Commands,
     ShowBlameHistory: 'gitlens.showBlameHistory' as Commands,
+    ShowHistory: 'gitlens.showHistory' as Commands,
     ToggleBlame: 'gitlens.toggleBlame' as Commands,
-    ToggleCodeLens: 'gitlens.toggleCodeLens' as Commands,
-}
+    ToggleCodeLens: 'gitlens.toggleCodeLens' as Commands
+};
 
 export type DocumentSchemes = 'file' | 'git' | 'git-blame';
 export const DocumentSchemes = {
     File: 'file' as DocumentSchemes,
     Git: 'git' as DocumentSchemes,
     GitBlame: 'git-blame' as DocumentSchemes
-}
+};
 
 export type WorkspaceState = 'hasGitHistoryExtension' | 'repoPath';
 export const WorkspaceState = {
     HasGitHistoryExtension: 'hasGitHistoryExtension' as WorkspaceState,
     RepoPath: 'repoPath' as WorkspaceState
-}
+};

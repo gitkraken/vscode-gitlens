@@ -2,28 +2,29 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as tmp from 'tmp';
-import {spawnPromise} from 'spawn-rx';
+import { spawnPromise } from 'spawn-rx';
 
 export * from './gitEnrichment';
 export * from './enrichers/blameParserEnricher';
+export * from './enrichers/logParserEnricher';
 
 const UncommittedRegex = /^[0]+$/;
 
-function gitCommand(cwd: string,  ...args) {
-    return spawnPromise('git', args, { cwd: cwd })
-        .then(s => {
-            console.log('[GitLens]', 'git', ...args, cwd);
-            return s;
-        })
-        .catch(ex => {
-            const msg = ex && ex.toString();
-            if (msg && (msg.includes('is outside repository') || msg.includes('no such path'))) {
-                console.warn('[GitLens]', 'git', ...args, cwd, msg && msg.replace(/\r?\n|\r/g, ' '));
-            } else {
-                console.error('[GitLens]', 'git', ...args, cwd, msg && msg.replace(/\r?\n|\r/g, ' '));
-            }
-            throw ex;
-        });
+async function gitCommand(cwd: string,  ...args: any[]) {
+    try {
+        const s = await spawnPromise('git', args, { cwd: cwd });
+        console.log('[GitLens]', 'git', ...args, cwd);
+        return s;
+    }
+    catch (ex) {
+        const msg = ex && ex.toString();
+        if (msg && (msg.includes('is outside repository') || msg.includes('no such path'))) {
+            console.warn('[GitLens]', 'git', ...args, cwd, msg && msg.replace(/\r?\n|\r/g, ' '));
+        } else {
+            console.error('[GitLens]', 'git', ...args, cwd, msg && msg.replace(/\r?\n|\r/g, ' '));
+        }
+        throw ex;
+    }
 }
 
 export type GitBlameFormat = '--incremental' | '--line-porcelain' | '--porcelain';
@@ -31,7 +32,7 @@ export const GitBlameFormat = {
     incremental: '--incremental' as GitBlameFormat,
     linePorcelain: '--line-porcelain' as GitBlameFormat,
     porcelain: '--porcelain' as GitBlameFormat
-}
+};
 
 export default class Git {
     static normalizePath(fileName: string, repoPath?: string) {
@@ -70,6 +71,12 @@ export default class Git {
             return gitCommand(root, 'blame', `-L ${startLine},${endLine}`, format, '--root', `${sha}^`, '--', file);
         }
         return gitCommand(root, 'blame', `-L ${startLine},${endLine}`, format, '--root', '--', file);
+    }
+
+    static log(fileName: string, repoPath?: string) {
+        const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
+
+        return gitCommand(root, 'log', `--follow`, `--name-only`, `--no-merges`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename -`, file);
     }
 
     static getVersionedFile(fileName: string, repoPath: string, sha: string) {

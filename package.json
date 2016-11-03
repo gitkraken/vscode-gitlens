@@ -7,7 +7,7 @@
     },
     "publisher": "eamodio",
     "engines": {
-        "vscode": "^1.5.0"
+        "vscode": "^1.6.0"
     },
     "license": "SEE LICENSE IN LICENSE",
     "displayName": "GitLens",
@@ -25,7 +25,7 @@
     "icon": "images/gitlens-icon.png",
     "preview": false,
     "homepage": "https://github.com/eamodio/vscode-gitlens/blob/master/README.md",
-      "bugs": {
+    "bugs": {
         "url": "https://github.com/eamodio/vscode-gitlens/issues"
     },
     "repository": {
@@ -98,6 +98,7 @@
                     "enum": [
                         "gitlens.toggleBlame",
                         "gitlens.showBlameHistory",
+                        "gitlens.showHistory",
                         "gitlens.diffWithPrevious",
                         "git.viewFileHistory"
                     ],
@@ -114,6 +115,7 @@
                     "enum": [
                         "gitlens.toggleBlame",
                         "gitlens.showBlameHistory",
+                        "gitlens.showHistory",
                         "gitlens.diffWithPrevious",
                         "git.viewFileHistory"
                     ],
@@ -130,6 +132,7 @@
                     "enum": [
                         "gitlens.toggleBlame",
                         "gitlens.showBlameHistory",
+                        "gitlens.showHistory",
                         "gitlens.diffWithPrevious",
                         "gitlens.toggleCodeLens",
                         "git.viewFileHistory"
@@ -147,30 +150,29 @@
             "command": "gitlens.diffWithPrevious",
             "title": "Open Diff with Previous Commit",
             "category": "GitLens"
-        },
-        {
+        }, {
             "command": "gitlens.diffWithWorking",
             "title": "Open Diff with Working Tree",
             "category": "GitLens"
-        },
-        {
+        }, {
             "command": "gitlens.showBlame",
             "title": "Show Git Blame Annotations",
             "category": "GitLens"
-        },
-        {
+        }, {
             "command": "gitlens.toggleBlame",
             "title": "Toggle Git Blame Annotations",
             "category": "GitLens"
-        },
-        {
+        }, {
             "command": "gitlens.toggleCodeLens",
             "title": "Toggle Git CodeLens",
             "category": "GitLens"
-        },
-        {
+        }, {
             "command": "gitlens.showBlameHistory",
             "title": "Open Git Blame History",
+            "category": "GitLens"
+        }, {
+            "command": "gitlens.showHistory",
+            "title": "Open Git History",
             "category": "GitLens"
         }],
         "menus": {
@@ -179,18 +181,15 @@
                 "command": "gitlens.toggleBlame",
                 "group": "gitlens"
             }],
-            "editor/context": [
-            {
+            "editor/context": [{
                 "when": "editorTextFocus",
                 "command": "gitlens.diffWithWorking",
                 "group": "gitlens@1.0"
-            },
-            {
+            }, {
                 "when": "editorTextFocus",
                 "command": "gitlens.diffWithPrevious",
                 "group": "gitlens@1.1"
-            },
-            {
+            }, {
                 "when": "editorTextFocus",
                 "command": "gitlens.toggleBlame",
                 "group": "gitlens-blame@1.2"
@@ -201,8 +200,7 @@
             "key": "alt+b",
             "mac": "alt+b",
             "when": "editorTextFocus"
-        },
-        {
+        }, {
             "command": "gitlens.toggleCodeLens",
             "key": "alt+shift+b",
             "mac": "alt+shift+b",
@@ -213,27 +211,29 @@
         "*"
     ],
     "dependencies": {
-        "ignore": "^3.1.5",
+        "ignore": "^3.2.0",
         "lodash.debounce": "^4.0.8",
         "lodash.escaperegexp": "^4.1.2",
         "lodash.isequal": "^4.4.0",
-        "moment": "^2.15.1",
+        "moment": "^2.15.2",
         "spawn-rx": "^2.0.3",
-        "tmp": "^0.0.29"
+        "tmp": "^0.0.30"
     },
     "devDependencies": {
-        "typescript": "^2.0.3",
-        "vscode": "^1.0.0",
-        "mocha": "^3.1.0",
-        "@types/node": "^6.0.41",
+        "mocha": "^3.1.2",
+        "tslint": "^3.15.1",
+        "typescript": "^2.0.6",
+        "vscode": "^1.0.3",
+        "@types/node": "^6.0.46",
         "@types/mocha": "^2.2.32",
         "@types/tmp": "^0.0.31"
     },
     "scripts": {
-        "vscode:prepublish": "tsc -p ./",
         "compile": "tsc -watch -p ./",
-        "postinstall": "node ./node_modules/vscode/bin/install",
+        "lint": "tslint --project tslint.json",
         "pack": "git clean -xdf && npm install && vsce package",
-        "pub": "git clean -xdf --exclude=node_modules/ && npm install && vsce publish"
+        "postinstall": "node ./node_modules/vscode/bin/install",
+        "pub": "git clean -xdf --exclude=node_modules/ && npm install && vsce publish",
+        "vscode:prepublish": "tsc -p ./"
     }
 }

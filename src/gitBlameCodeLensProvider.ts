@@ -1,18 +1,17 @@
 'use strict';
-import {CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelector, ExtensionContext, Location, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri} from 'vscode';
-import {BuiltInCommands, Commands, DocumentSchemes, WorkspaceState} from './constants';
-import GitProvider, {IGitBlame, IGitCommit} from './gitProvider';
-import * as moment from 'moment';
+import { CancellationToken, CodeLens, CodeLensProvider, DocumentSelector, ExtensionContext, Range, TextDocument, Uri } from 'vscode';
+import { Commands, DocumentSchemes } from './constants';
+import GitProvider, { IGitCommit } from './gitProvider';
 import * as path from 'path';
 
 export class GitDiffWithWorkingTreeCodeLens extends CodeLens {
-    constructor(private git: GitProvider, public fileName: string, public commit: IGitCommit, range: Range) {
+    constructor(git: GitProvider, public fileName: string, public commit: IGitCommit, range: Range) {
         super(range);
     }
 }
 
 export class GitDiffWithPreviousCodeLens extends CodeLens {
-    constructor(private git: GitProvider, public fileName: string, public commit: IGitCommit, range: Range) {
+    constructor(git: GitProvider, public fileName: string, public commit: IGitCommit, range: Range) {
         super(range);
     }
 }
@@ -62,6 +61,7 @@ export default class GitBlameCodeLensProvider implements CodeLensProvider {
     resolveCodeLens(lens: CodeLens, token: CancellationToken): Thenable<CodeLens> {
         if (lens instanceof GitDiffWithWorkingTreeCodeLens) return this._resolveDiffWithWorkingTreeCodeLens(lens, token);
         if (lens instanceof GitDiffWithPreviousCodeLens) return this._resolveGitDiffWithPreviousCodeLens(lens, token);
+        return Promise.reject<CodeLens>(null);
     }
 
     _resolveDiffWithWorkingTreeCodeLens(lens: GitDiffWithWorkingTreeCodeLens, token: CancellationToken): Thenable<CodeLens> {

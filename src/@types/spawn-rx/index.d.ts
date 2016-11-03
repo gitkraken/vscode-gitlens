@@ -1,4 +1,4 @@
-/// <reference path="../node_modules/rxjs/Observable.d.ts" />
+/// <reference path="../../../node_modules/rxjs/Observable.d.ts" />
 declare module "spawn-rx" {
     import { Observable } from 'rxjs/Observable';
 

@@ -1,11 +1,11 @@
-'use strict'
-import {Disposable, ExtensionContext, TextEditor, workspace} from 'vscode';
-import {BlameAnnotationProvider} from './blameAnnotationProvider';
+'use strict';
+import { Disposable, ExtensionContext, TextEditor, workspace } from 'vscode';
+import { BlameAnnotationProvider } from './blameAnnotationProvider';
 import GitProvider from './gitProvider';
 
 export default class BlameAnnotationController extends Disposable {
     private _disposable: Disposable;
-    private _annotationProvider: BlameAnnotationProvider|null;
+    private _annotationProvider: BlameAnnotationProvider | undefined;
 
     constructor(private context: ExtensionContext, private git: GitProvider) {
         super(() => this.dispose());
@@ -18,7 +18,7 @@ export default class BlameAnnotationController extends Disposable {
         // }));
 
         subscriptions.push(workspace.onDidCloseTextDocument(d => {
-            if (!this._annotationProvider || this._annotationProvider.uri.toString() !== d.uri.toString()) return;
+            if (!this._annotationProvider || this._annotationProvider.uri.fsPath !== d.uri.fsPath) return;
             this.clear();
         }));
 
@@ -32,25 +32,31 @@ export default class BlameAnnotationController extends Disposable {
 
     clear() {
         this._annotationProvider && this._annotationProvider.dispose();
-        this._annotationProvider = null;
+        this._annotationProvider = undefined;
+    }
+
+    get annotated() {
+        return this._annotationProvider !== undefined;
     }
 
     showBlameAnnotation(editor: TextEditor, sha?: string) {
         if (!editor || !editor.document || editor.document.isUntitled) {
             this.clear();
-            return;
+            return Promise.resolve();
         }
 
         if (!this._annotationProvider) {
             this._annotationProvider = new BlameAnnotationProvider(this.context, this.git, editor);
             return this._annotationProvider.provideBlameAnnotation(sha);
         }
+
+        return Promise.resolve();
     }
 
     toggleBlameAnnotation(editor: TextEditor, sha?: string) {
-        if (!editor ||!editor.document || editor.document.isUntitled || this._annotationProvider) {
+        if (!editor || !editor.document || editor.document.isUntitled || this._annotationProvider) {
             this.clear();
-            return;
+            return Promise.resolve();
         }
 
         return this.showBlameAnnotation(editor, sha);

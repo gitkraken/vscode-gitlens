@@ -1,48 +1,32 @@
 'use strict';
-import { GitBlameFormat, GitCommit, IGitAuthor, IGitBlame, IGitCommit, IGitCommitLine, IGitEnricher } from './../git';
+import { GitCommit, IGitAuthor, IGitCommit, IGitEnricher, IGitLog } from './../git';
 import * as moment from 'moment';
 import * as path from 'path';
 
-interface IBlameEntry {
+interface ILogEntry {
     sha: string;
-    line: number;
-    originalLine: number;
-    lineCount: number;
 
     author?: string;
-    authorEmail?: string;
     authorDate?: string;
-    authorTimeZone?: string;
 
     committer?: string;
-    committerEmail?: string;
     committerDate?: string;
-    committerTimeZone?: string;
-
-    previousSha?: string;
-    previousFileName?: string;
 
     fileName?: string;
 
     summary?: string;
 }
 
-export class GitBlameParserEnricher implements IGitEnricher<IGitBlame> {
-    constructor(public format: GitBlameFormat) {
-        if (format !== GitBlameFormat.incremental) {
-            throw new Error(`Invalid blame format=${format}`);
-        }
-    }
-
-    private _parseEntries(data: string): IBlameEntry[] {
+export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
+    private _parseEntries(data: string): ILogEntry[] {
         if (!data) return null;
 
         const lines = data.split('\n');
         if (!lines.length) return null;
 
-        const entries: IBlameEntry[] = [];
+        const entries: ILogEntry[] = [];
 
-        let entry: IBlameEntry;
+        let entry: ILogEntry;
         let position = -1;
         while (++position < lines.length) {
             let lineParts = lines[position].split(' ');
@@ -52,10 +36,7 @@ export class GitBlameParserEnricher implements IGitEnricher<IGitBlame> {
 
             if (!entry) {
                 entry = {
-                    sha: lineParts[0].substring(0, 8),
-                    originalLine: parseInt(lineParts[1], 10) - 1,
-                    line: parseInt(lineParts[2], 10) - 1,
-                    lineCount: parseInt(lineParts[3], 10)
+                    sha: lineParts[0].substring(0, 8)
                 };
 
                 continue;
@@ -66,45 +47,26 @@ export class GitBlameParserEnricher implements IGitEnricher<IGitBlame> {
                     entry.author = lineParts.slice(1).join(' ').trim();
                     break;
 
-                // case 'author-mail':
-                //     entry.authorEmail = lineParts[1].trim();
-                //     break;
-
-                case 'author-time':
-                    entry.authorDate = lineParts[1];
-                    break;
-
-                case 'author-tz':
-                    entry.authorTimeZone = lineParts[1];
+                case 'author-date':
+                    entry.authorDate = lineParts.slice(1).join(' ').trim();
                     break;
 
                 // case 'committer':
                 //     entry.committer = lineParts.slice(1).join(' ').trim();
                 //     break;
 
-                // case 'committer-mail':
-                //     entry.committerEmail = lineParts[1].trim();
-                //     break;
-
-                // case 'committer-time':
-                //     entry.committerDate = lineParts[1];
-                //     break;
-
-                // case 'committer-tz':
-                //     entry.committerTimeZone = lineParts[1];
+                // case 'committer-date':
+                //     entry.committerDate = lineParts.slice(1).join(' ').trim();
                 //     break;
 
                 case 'summary':
                     entry.summary = lineParts.slice(1).join(' ').trim();
                     break;
 
-                case 'previous':
-                    entry.previousSha = lineParts[1].substring(0, 8);
-                    entry.previousFileName = lineParts.slice(2).join(' ');
-                    break;
-
                 case 'filename':
-                    entry.fileName = lineParts.slice(1).join(' ');
+                    position += 2;
+                    lineParts = lines[position].split(' ');
+                    entry.fileName = lineParts.join(' ');
 
                     entries.push(entry);
                     entry = null;
@@ -118,13 +80,12 @@ export class GitBlameParserEnricher implements IGitEnricher<IGitBlame> {
         return entries;
     }
 
-    enrich(data: string, fileName: string): IGitBlame {
+    enrich(data: string, fileName: string): IGitLog {
         const entries = this._parseEntries(data);
         if (!entries) return null;
 
         const authors: Map<string, IGitAuthor> = new Map();
         const commits: Map<string, IGitCommit> = new Map();
-        const lines: Array<IGitCommitLine> = [];
 
         let repoPath: string;
         let relativeFileName: string;
@@ -149,33 +110,13 @@ export class GitBlameParserEnricher implements IGitEnricher<IGitBlame> {
                     authors.set(entry.author, author);
                 }
 
-                commit = new GitCommit(repoPath, entry.sha, relativeFileName, entry.author, moment(`${entry.authorDate} ${entry.authorTimeZone}`, 'X +-HHmm').toDate(), entry.summary);
+                commit = new GitCommit(repoPath, entry.sha, relativeFileName, entry.author, moment(entry.authorDate).toDate(), entry.summary);
 
                 if (relativeFileName !== entry.fileName) {
                     commit.originalFileName = entry.fileName;
                 }
 
-                if (entry.previousSha) {
-                    commit.previousSha = entry.previousSha;
-                    commit.previousFileName = entry.previousFileName;
-                }
-
                 commits.set(entry.sha, commit);
-            }
-
-            for (let j = 0, len = entry.lineCount; j < len; j++) {
-                const line: IGitCommitLine = {
-                    sha: entry.sha,
-                    line: entry.line + j,
-                    originalLine: entry.originalLine + j
-                };
-
-                if (commit.previousSha) {
-                    line.previousSha = commit.previousSha;
-                }
-
-                commit.lines.push(line);
-                lines[line.line] = line;
             }
         }
 
@@ -192,12 +133,11 @@ export class GitBlameParserEnricher implements IGitEnricher<IGitBlame> {
         //     .sort((a, b) => b.date.getTime() - a.date.getTime())
         //     .forEach(c => sortedCommits.set(c.sha, c));
 
-        return <IGitBlame>{
+        return <IGitLog>{
             repoPath: repoPath,
             authors: sortedAuthors,
             // commits: sortedCommits,
-            commits: commits,
-            lines: lines
+            commits: commits
         };
     }
 }

@@ -9,22 +9,36 @@
 // A task runner that calls a custom npm script that compiles the extension.
 {
     "version": "0.1.0",
-
-    // we want to run npm
     "command": "npm",
-
-    // the command is a shell script
+    "args": ["run"],
     "isShellCommand": true,
-
-    // show the output window only if unrecognized errors occur.
-    "showOutput": "silent",
-
-    // we run the custom script "compile" as defined in package.json
-    "args": ["run", "compile", "--loglevel", "silent"],
-
-    // The tsc compiler is started in watching mode
-    "isWatching": true,
-
+    "showOutput": "always",
+    "suppressTaskName": true,
     // use the standard tsc in watch mode problem matcher to find compile problems in the output.
-    "problemMatcher": "$tsc-watch"
+    "tasks": [{
+        "taskName": "compile",
+        "args": ["compile", "--loglevel", "silent"],
+        "isBuildCommand": true,
+        "isWatching": true,
+        "problemMatcher": "$tsc-watch"
+    }, {
+        "taskName": "tslint",
+        "args": ["lint", "--loglevel", "silent"],
+        "isWatching": true,
+        "problemMatcher": {
+            "owner": "tslint",
+            "fileLocation": [
+                "relative",
+                "${workspaceRoot}"
+            ],
+            "severity": "warning",
+            "pattern": {
+                "regexp": "^(\\S.*)\\[(\\d+), (\\d+)\\]:\\s+(.*)$",
+                "file": 1,
+                "line": 2,
+                "column": 3,
+                "message": 4
+            }
+        }
+    }]
 }

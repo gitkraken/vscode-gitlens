@@ -1,11 +1,10 @@
 'use strict';
-import {CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelector, ExtensionContext, Location, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri, window, workspace} from 'vscode';
-import {BuiltInCommands, Commands, DocumentSchemes, WorkspaceState} from './constants';
-import {CodeLensCommand, CodeLensLocation, ICodeLensesConfig} from './configuration';
-import GitProvider, {IGitBlame, IGitBlameLines, IGitCommit} from './gitProvider';
+import { Iterables, Strings } from './system';
+import { CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelector, ExtensionContext, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri, workspace } from 'vscode';
+import { BuiltInCommands, Commands, DocumentSchemes, WorkspaceState } from './constants';
+import { CodeLensCommand, CodeLensLocation, ICodeLensesConfig } from './configuration';
+import GitProvider, {IGitBlame, IGitBlameLines} from './gitProvider';
 import * as moment from 'moment';
-
-const escapeRegExp = require('lodash.escaperegexp');
 
 export class GitRecentChangeCodeLens extends CodeLens {
     constructor(private git: GitProvider, public fileName: string, public symbolKind: SymbolKind, public blameRange: Range, range: Range) {
@@ -93,6 +92,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             case CodeLensLocation.Custom:
                 return !!(this._config.locationCustomSymbols || []).find(_ => _.toLowerCase() === SymbolKind[kind].toLowerCase());
         }
+        return false;
     }
 
     private _provideCodeLens(fileName: string, document: TextDocument, symbol: SymbolInformation, lenses: CodeLens[]): void {
@@ -106,7 +106,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
 
         let startChar = -1;
         try {
-            startChar = line.text.search(`\\b${escapeRegExp(symbol.name)}\\b`);
+            startChar = line.text.search(`\\b${Strings.escapeRegExp(symbol.name)}\\b`);
         }
         catch (ex) { }
         if (startChar === -1) {
@@ -149,11 +149,12 @@ export default class GitCodeLensProvider implements CodeLensProvider {
     resolveCodeLens(lens: CodeLens, token: CancellationToken): Thenable<CodeLens> {
         if (lens instanceof GitRecentChangeCodeLens) return this._resolveGitRecentChangeCodeLens(lens, token);
         if (lens instanceof GitAuthorsCodeLens) return this._resolveGitAuthorsCodeLens(lens, token);
+        return Promise.reject<CodeLens>(null);
     }
 
     _resolveGitRecentChangeCodeLens(lens: GitRecentChangeCodeLens, token: CancellationToken): Thenable<CodeLens> {
         return lens.getBlame().then(blame => {
-            const recentCommit = blame.commits.values().next().value;
+            const recentCommit = Iterables.first(blame.commits.values());
             const title = `${recentCommit.author}, ${moment(recentCommit.date).fromNow()}`; // - ${SymbolKind[lens.symbolKind]}(${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1})`;
             switch (this._config.recentChange.command) {
                 case CodeLensCommand.BlameAnnotate: return this._applyBlameAnnotateCommand<GitRecentChangeCodeLens>(title, lens, blame);
@@ -168,7 +169,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
     _resolveGitAuthorsCodeLens(lens: GitAuthorsCodeLens, token: CancellationToken): Thenable<CodeLens> {
         return lens.getBlame().then(blame => {
             const count = blame.authors.size;
-            const title = `${count} ${count > 1 ? 'authors' : 'author'} (${blame.authors.values().next().value.name}${count > 1 ? ' and others' : ''})`;
+            const title = `${count} ${count > 1 ? 'authors' : 'author'} (${Iterables.first(blame.authors.values()).name}${count > 1 ? ' and others' : ''})`;
             switch (this._config.authors.command) {
                 case CodeLensCommand.BlameAnnotate: return this._applyBlameAnnotateCommand<GitAuthorsCodeLens>(title, lens, blame);
                 case CodeLensCommand.BlameExplorer: return this._applyBlameExplorerCommand<GitAuthorsCodeLens>(title, lens, blame);

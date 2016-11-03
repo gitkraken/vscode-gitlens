@@ -56,6 +56,13 @@ Must be using Git and it must be in your path.
 ---
 ## Release Notes
 
+### 1.0.0
+
+  - Adds support for git history (log)
+  - Changes `gitlens.diffWithPrevious` command to only be line sensitive if blame annotations are visible, otherwise it uses file history
+  - Changes `gitlens.diffWithWorking` command to only be line sensitive if blame annotations are visible, otherwise it uses file history
+  - Fixes issue where blame annotations would not be cleared properly when switching between open files
+
 ### 0.5.5
 
   - Fixes another off-by-one issue when diffing with caching

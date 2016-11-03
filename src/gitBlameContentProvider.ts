@@ -1,6 +1,6 @@
 'use strict';
-import {Disposable, EventEmitter, ExtensionContext, OverviewRulerLane, Range, TextEditor, TextEditorDecorationType, TextDocumentContentProvider, Uri, window, workspace} from 'vscode';
-import {DocumentSchemes, WorkspaceState} from './constants';
+import { EventEmitter, ExtensionContext, OverviewRulerLane, Range, TextEditor, TextEditorDecorationType, TextDocumentContentProvider, Uri, window } from 'vscode';
+import { DocumentSchemes } from './constants';
 import GitProvider, {IGitBlameUriData} from './gitProvider';
 import * as moment from 'moment';
 
@@ -16,12 +16,12 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
             dark: {
                 backgroundColor: 'rgba(255, 255, 255, 0.15)',
                 gutterIconPath: context.asAbsolutePath('images/blame-dark.png'),
-                overviewRulerColor: 'rgba(255, 255, 255, 0.75)',
+                overviewRulerColor: 'rgba(255, 255, 255, 0.75)'
             },
             light: {
                 backgroundColor: 'rgba(0, 0, 0, 0.15)',
                 gutterIconPath: context.asAbsolutePath('images/blame-light.png'),
-                overviewRulerColor: 'rgba(0, 0, 0, 0.75)',
+                overviewRulerColor: 'rgba(0, 0, 0, 0.75)'
             },
             gutterIconSize: 'contain',
             overviewRulerLane: OverviewRulerLane.Right,
@@ -96,7 +96,7 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
                 editor.setDecorations(this._blameDecoration, blame.lines.map(l => {
                     return {
                         range: editor.document.validateRange(new Range(l.originalLine, 0, l.originalLine, 1000000)),
-                        hoverMessage: `${blame.commit.message}\n${blame.commit.author}\n${moment(blame.commit.date).format('MMMM Do, YYYY hh:MM a')}\n${l.sha}`
+                        hoverMessage: `${blame.commit.message}\n${blame.commit.author}\n${moment(blame.commit.date).format('MMMM Do, YYYY hh:MMa')}\n${l.sha}`
                     };
                 }));
             });

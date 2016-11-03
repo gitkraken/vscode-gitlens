@@ -1,10 +1,10 @@
-'use strict'
+'use strict';
 import {Uri} from 'vscode';
 import Git from './git';
 import * as path from 'path';
 
 export interface IGitEnricher<T> {
-    enrich(data: string, ...args): T;
+    enrich(data: string, ...args: any[]): T;
 }
 
 export interface IGitBlame {
@@ -89,4 +89,10 @@ export interface IGitCommitLine {
     line: number;
     originalLine: number;
     code?: string;
+}
+
+export interface IGitLog {
+    repoPath: string;
+    authors: Map<string, IGitAuthor>;
+    commits: Map<string, IGitCommit>;
 }
