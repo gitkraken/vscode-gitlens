@@ -4,8 +4,9 @@ import BlameAnnotationController from '../blameAnnotationController';
 import { EditorCommand } from './commands';
 import { Commands } from '../constants';
 import GitProvider from '../gitProvider';
+import { Logger } from '../logger';
 
-export default  class ToggleBlameCommand extends EditorCommand {
+export default class ToggleBlameCommand extends EditorCommand {
     constructor(private git: GitProvider, private annotationController: BlameAnnotationController) {
         super(Commands.ToggleBlame);
     }
@@ -25,7 +26,7 @@ export default  class ToggleBlameCommand extends EditorCommand {
             this.annotationController.toggleBlameAnnotation(editor, blame && blame.commit.sha);
         }
         catch (ex) {
-            console.error('[GitLens.ToggleBlameCommand]', `getBlameForLine(${editor.selection.active.line})`, ex);
+            Logger.error('[GitLens.ToggleBlameCommand]', `getBlameForLine(${editor.selection.active.line})`, ex);
         }
     }
 }

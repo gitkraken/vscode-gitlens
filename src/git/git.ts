@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as tmp from 'tmp';
 import { spawnPromise } from 'spawn-rx';
+import { Logger } from '../logger';
 
 export * from './gitEnrichment';
 export * from './enrichers/blameParserEnricher';
@@ -10,18 +11,18 @@ export * from './enrichers/logParserEnricher';
 
 const UncommittedRegex = /^[0]+$/;
 
-async function gitCommand(cwd: string,  ...args: any[]) {
+async function gitCommand(cwd: string, ...args: any[]) {
     try {
         const s = await spawnPromise('git', args, { cwd: cwd });
-        console.log('[GitLens]', 'git', ...args, cwd);
+        Logger.log('git', ...args, cwd);
         return s;
     }
     catch (ex) {
         const msg = ex && ex.toString();
         if (msg && (msg.includes('is outside repository') || msg.includes('no such path'))) {
-            console.warn('[GitLens]', 'git', ...args, cwd, msg && msg.replace(/\r?\n|\r/g, ' '));
+            Logger.warn('git', ...args, cwd, msg && msg.replace(/\r?\n|\r/g, ' '));
         } else {
-            console.error('[GitLens]', 'git', ...args, cwd, msg && msg.replace(/\r?\n|\r/g, ' '));
+            Logger.error('git', ...args, cwd, msg && msg.replace(/\r?\n|\r/g, ' '));
         }
         throw ex;
     }
@@ -41,7 +42,7 @@ export default class Git {
 
     static splitPath(fileName: string, repoPath?: string): [string, string] {
         // if (!path.isAbsolute(fileName)) {
-        //     console.error('[GitLens]', `Git.splitPath(${fileName}) is not an absolute path!`);
+        //     Logger.error(`Git.splitPath(${fileName}) is not an absolute path!`);
         //     debugger;
         // }
         if (repoPath) {
@@ -89,7 +90,7 @@ export default class Git {
                         return;
                     }
 
-                    //console.log(`getVersionedFile(${fileName}, ${sha}); destination=${destination}`);
+                    //Logger.log(`getVersionedFile(${fileName}, ${sha}); destination=${destination}`);
                     fs.appendFile(destination, data, err => {
                         if (err) {
                             reject(err);

@@ -1,8 +1,9 @@
 'use strict';
 import { commands, Position, Range, TextEditor, TextEditorEdit, Uri } from 'vscode';
-import { EditorCommand} from './commands';
+import { EditorCommand } from './commands';
 import { BuiltInCommands, Commands } from '../constants';
 import GitProvider from '../gitProvider';
+import { Logger } from '../logger';
 
 export default class ShowHistoryCommand extends EditorCommand {
     constructor(private git: GitProvider) {
@@ -23,7 +24,7 @@ export default class ShowHistoryCommand extends EditorCommand {
             return commands.executeCommand(BuiltInCommands.ShowReferences, uri, position, locations);
         }
         catch (ex) {
-            console.error('[GitLens.ShowHistoryCommand]', 'getLogLocations', ex);
+            Logger.error('[GitLens.ShowHistoryCommand]', 'getLogLocations', ex);
         }
     }
 }

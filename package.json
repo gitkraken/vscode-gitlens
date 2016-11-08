@@ -7,7 +7,7 @@
     },
     "publisher": "eamodio",
     "engines": {
-        "vscode": "^1.6.0"
+        "vscode": "^1.7.0"
     },
     "license": "SEE LICENSE IN LICENSE",
     "displayName": "GitLens",
@@ -16,11 +16,15 @@
         "Other"
     ],
     "keywords": [
-        "git", "blame", "gitblame", "codelens", "annotation"
+        "git",
+        "blame",
+        "gitblame",
+        "codelens",
+        "annotation"
     ],
     "galleryBanner": {
-        "color": "#f0efe7",
-        "theme": "light"
+        "color": "#56098c",
+        "theme": "dark"
     },
     "icon": "images/gitlens-icon.png",
     "preview": false,
@@ -143,69 +147,107 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Specifies whether git blame output will be cached"
+                },
+                "gitlens.advanced.output.debug": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Specifies whether all output will be sent to the console"
+                },
+                "gitlens.advanced.output.level": {
+                    "type": "string",
+                    "default": "silent",
+                    "enum": [
+                        "silent",
+                        "errors",
+                        "verbose"
+                    ],
+                    "description": "Specifies whether how much (if any) output will be sent to the GitLens output channel"
                 }
             }
         },
-        "commands": [{
-            "command": "gitlens.diffWithPrevious",
-            "title": "Open Diff with Previous Commit",
-            "category": "GitLens"
-        }, {
-            "command": "gitlens.diffWithWorking",
-            "title": "Open Diff with Working Tree",
-            "category": "GitLens"
-        }, {
-            "command": "gitlens.showBlame",
-            "title": "Show Git Blame Annotations",
-            "category": "GitLens"
-        }, {
-            "command": "gitlens.toggleBlame",
-            "title": "Toggle Git Blame Annotations",
-            "category": "GitLens"
-        }, {
-            "command": "gitlens.toggleCodeLens",
-            "title": "Toggle Git CodeLens",
-            "category": "GitLens"
-        }, {
-            "command": "gitlens.showBlameHistory",
-            "title": "Open Git Blame History",
-            "category": "GitLens"
-        }, {
-            "command": "gitlens.showHistory",
-            "title": "Open Git History",
-            "category": "GitLens"
-        }],
-        "menus": {
-            "editor/title": [{
-                "when": "editorTextFocus",
-                "command": "gitlens.toggleBlame",
-                "group": "gitlens"
-            }],
-            "editor/context": [{
-                "when": "editorTextFocus",
-                "command": "gitlens.diffWithWorking",
-                "group": "gitlens@1.0"
-            }, {
-                "when": "editorTextFocus",
+        "commands": [
+            {
                 "command": "gitlens.diffWithPrevious",
-                "group": "gitlens@1.1"
-            }, {
-                "when": "editorTextFocus",
+                "title": "Open Diff with Previous Commit",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.diffWithWorking",
+                "title": "Open Diff with Working Tree",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.showBlame",
+                "title": "Show Git Blame Annotations",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.toggleBlame",
-                "group": "gitlens-blame@1.2"
-            }]
+                "title": "Toggle Git Blame Annotations",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.toggleCodeLens",
+                "title": "Toggle Git CodeLens",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.showBlameHistory",
+                "title": "Open Git Blame History",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.showHistory",
+                "title": "Open Git History",
+                "category": "GitLens"
+            }
+        ],
+        "menus": {
+            "explorer/context": [
+                {
+                    "command": "gitlens.diffWithPrevious",
+                    "group": "gitlens@1.1"
+                }
+            ],
+            "editor/title": [
+                {
+                    "when": "editorTextFocus",
+                    "command": "gitlens.toggleBlame",
+                    "group": "gitlens"
+                }
+            ],
+            "editor/context": [
+                {
+                    "when": "editorTextFocus",
+                    "command": "gitlens.diffWithWorking",
+                    "group": "gitlens@1.0"
+                },
+                {
+                    "when": "editorTextFocus",
+                    "command": "gitlens.diffWithPrevious",
+                    "group": "gitlens@1.1"
+                },
+                {
+                    "when": "editorTextFocus",
+                    "command": "gitlens.toggleBlame",
+                    "group": "gitlens-blame@1.2"
+                }
+            ]
         },
-        "keybindings": [{
-            "command": "gitlens.toggleBlame",
-            "key": "alt+b",
-            "mac": "alt+b",
-            "when": "editorTextFocus"
-        }, {
-            "command": "gitlens.toggleCodeLens",
-            "key": "alt+shift+b",
-            "mac": "alt+shift+b",
-            "when": "editorTextFocus"
-        }]
+        "keybindings": [
+            {
+                "command": "gitlens.toggleBlame",
+                "key": "alt+b",
+                "mac": "alt+b",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "gitlens.toggleCodeLens",
+                "key": "alt+shift+b",
+                "mac": "alt+shift+b",
+                "when": "editorTextFocus"
+            }
+        ]
     },
     "activationEvents": [
         "*"
@@ -222,7 +264,7 @@
     "devDependencies": {
         "mocha": "^3.1.2",
         "tslint": "^3.15.1",
-        "typescript": "^2.0.6",
+        "typescript": "^2.0.8",
         "vscode": "^1.0.3",
         "@types/node": "^6.0.46",
         "@types/mocha": "^2.2.32",

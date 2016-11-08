@@ -3,6 +3,7 @@ import { commands, Position, Range, TextEditor, TextEditorEdit, Uri } from 'vsco
 import { EditorCommand } from './commands';
 import { BuiltInCommands, Commands } from '../constants';
 import GitProvider from '../gitProvider';
+import { Logger } from '../logger';
 
 export default class ShowBlameHistoryCommand extends EditorCommand {
     constructor(private git: GitProvider) {
@@ -24,7 +25,7 @@ export default class ShowBlameHistoryCommand extends EditorCommand {
             return commands.executeCommand(BuiltInCommands.ShowReferences, uri, position, locations);
         }
         catch (ex) {
-            console.error('[GitLens.ShowBlameHistoryCommand]', 'getBlameLocations', ex);
+            Logger.error('[GitLens.ShowBlameHistoryCommand]', 'getBlameLocations', ex);
         }
     }
 }

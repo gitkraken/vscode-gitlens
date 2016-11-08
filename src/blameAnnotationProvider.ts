@@ -1,7 +1,7 @@
 'use strict';
 import { Iterables } from './system';
 import { commands, DecorationOptions, Disposable, ExtensionContext, OverviewRulerLane, Range, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, Uri, window, workspace } from 'vscode';
-import { BuiltInCommands} from './constants';
+import { BuiltInCommands } from './constants';
 import { BlameAnnotationStyle, IBlameConfig } from './configuration';
 import GitProvider, { IGitBlame, IGitCommit } from './gitProvider';
 import * as moment from 'moment';

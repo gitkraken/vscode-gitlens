@@ -4,6 +4,7 @@ import BlameAnnotationController from '../blameAnnotationController';
 import { EditorCommand } from './commands';
 import { Commands } from '../constants';
 import GitProvider from '../gitProvider';
+import { Logger } from '../logger';
 
 export default class ShowBlameCommand extends EditorCommand {
     constructor(private git: GitProvider, private annotationController: BlameAnnotationController) {
@@ -25,7 +26,7 @@ export default class ShowBlameCommand extends EditorCommand {
             this.annotationController.showBlameAnnotation(editor, blame && blame.commit.sha);
         }
         catch (ex) {
-            console.error('[GitLens.ShowBlameCommand]', `getBlameForLine(${editor.selection.active.line})`, ex);
+            Logger.error('[GitLens.ShowBlameCommand]', `getBlameForLine(${editor.selection.active.line})`, ex);
         }
     }
 }

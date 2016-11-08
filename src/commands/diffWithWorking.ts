@@ -5,6 +5,7 @@ import { EditorCommand } from './commands';
 import { BuiltInCommands, Commands } from '../constants';
 import BlameAnnotationController from '../blameAnnotationController';
 import GitProvider from '../gitProvider';
+import { Logger } from '../logger';
 import * as path from 'path';
 
 export default class DiffWithWorkingCommand extends EditorCommand {
@@ -18,7 +19,7 @@ export default class DiffWithWorkingCommand extends EditorCommand {
             return this.git.getVersionedFile(shaUri.fsPath, repoPath, sha)
                 .then(compare => commands.executeCommand(BuiltInCommands.Diff, Uri.file(compare), uri, `${path.basename(shaUri.fsPath)} (${sha}) ↔ ${path.basename(uri.fsPath)}`))
                 .then(() => commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' }))
-                .catch(ex => console.error('[GitLens.DiffWithWorkingCommand]', 'getVersionedFile', ex));
+                .catch(ex => Logger.error('[GitLens.DiffWithWorkingCommand]', 'getVersionedFile', ex));
         }
 
         if (!(uri instanceof Uri)) {
@@ -39,7 +40,7 @@ export default class DiffWithWorkingCommand extends EditorCommand {
                 return commands.executeCommand(Commands.DiffWithWorking, commit.uri, commit.repoPath, commit.sha, commit.uri, line);
             }
             catch (ex) {
-                console.error('[GitLens.DiffWithWorkingCommand]', `getBlameForLine(${line})`, ex);
+                Logger.error('[GitLens.DiffWithWorkingCommand]', `getBlameForLine(${line})`, ex);
             }
         }
         else {
@@ -51,7 +52,7 @@ export default class DiffWithWorkingCommand extends EditorCommand {
                 return commands.executeCommand(Commands.DiffWithWorking, commit.uri, commit.repoPath, commit.sha, commit.uri, line);
             }
             catch (ex) {
-                console.error('[GitLens.DiffWithPreviousCommand]', `getLogForFile(${uri.fsPath})`, ex);
+                Logger.error('[GitLens.DiffWithPreviousCommand]', `getLogForFile(${uri.fsPath})`, ex);
             }
         }
     }

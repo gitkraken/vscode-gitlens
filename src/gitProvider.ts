@@ -5,6 +5,7 @@ import { DocumentSchemes, WorkspaceState } from './constants';
 import { CodeLensVisibility, IConfig } from './configuration';
 import GitCodeLensProvider from './gitCodeLensProvider';
 import Git, { GitBlameParserEnricher, GitBlameFormat, GitCommit, GitLogParserEnricher, IGitAuthor, IGitBlame, IGitBlameCommitLines, IGitBlameLine, IGitBlameLines, IGitCommit, IGitLog } from './git/git';
+import { Logger } from './logger';
 import * as fs from 'fs';
 import * as ignore from 'ignore';
 import * as moment from 'moment';
@@ -149,7 +150,7 @@ export default class GitProvider extends Disposable {
         }
 
         if (this._cache.delete(cacheKey)) {
-            console.log('[GitLens]', `Clear cache entry: cacheKey=${cacheKey}, reason=${RemoveCacheReason[reason]}`);
+            Logger.log(`Clear cache entry for '${cacheKey}', reason=${RemoveCacheReason[reason]}`);
 
             // if (reason === RemoveCacheReason.DocumentSaved) {
             //     // TODO: Killing the code lens provider is too drastic -- makes the editor jump around, need to figure out how to trigger a refresh
@@ -163,6 +164,7 @@ export default class GitProvider extends Disposable {
     }
 
     async getBlameForFile(fileName: string): Promise<IGitBlame | null> {
+        Logger.log(`getBlameForFile('${fileName}')`);
         fileName = Git.normalizePath(fileName);
 
         const cacheKey = this._getCacheEntryKey(fileName);
@@ -178,7 +180,7 @@ export default class GitProvider extends Disposable {
         const ignore = await this._gitignore;
         let blame: Promise<IGitBlame>;
         if (ignore && !ignore.filter([fileName]).length) {
-            console.log('[GitLens]', `Skipping blame; ${fileName} is gitignored`);
+            Logger.log(`Skipping blame; '${fileName}' is gitignored`);
             blame = GitProvider.EmptyPromise;
         }
         else {
@@ -188,7 +190,7 @@ export default class GitProvider extends Disposable {
                     // Trap and cache expected blame errors
                     if (this.UseCaching) {
                         const msg = ex && ex.toString();
-                        console.log('[GitLens]', `Replace blame cache: cacheKey=${cacheKey}`);
+                        Logger.log(`Replace blame cache with empty promise for '${cacheKey}'`);
 
                         entry.blame = <ICachedBlame>{
                             //date: new Date(),
@@ -204,7 +206,7 @@ export default class GitProvider extends Disposable {
         }
 
         if (this.UseCaching) {
-            console.log('[GitLens]', `Add blame cache: cacheKey=${cacheKey}`);
+            Logger.log(`Add ${(blame === GitProvider.EmptyPromise ? 'empty promise to ' : '')}blame cache for '${cacheKey}'`);
 
             entry.blame = <ICachedBlame>{
                 //date: new Date(),
@@ -218,6 +220,8 @@ export default class GitProvider extends Disposable {
     }
 
     async getBlameForLine(fileName: string, line: number, sha?: string, repoPath?: string): Promise<IGitBlameLine | null> {
+        Logger.log(`getBlameForLine('${fileName}', ${line}, ${sha}, ${repoPath})`);
+
         if (this.UseCaching && !sha) {
             const blame = await this.getBlameForFile(fileName);
             const blameLine = blame && blame.lines[line];
@@ -254,6 +258,8 @@ export default class GitProvider extends Disposable {
     }
 
     async getBlameForRange(fileName: string, range: Range): Promise<IGitBlameLines | null> {
+        Logger.log(`getBlameForRange('${fileName}', ${range})`);
+
         const blame = await this.getBlameForFile(fileName);
         if (!blame) return null;
 
@@ -302,6 +308,8 @@ export default class GitProvider extends Disposable {
     }
 
     async getBlameForShaRange(fileName: string, sha: string, range: Range): Promise<IGitBlameCommitLines | null> {
+        Logger.log(`getBlameForShaRange('${fileName}', ${sha}, ${range})`);
+
         const blame = await this.getBlameForFile(fileName);
         if (!blame) return null;
 
@@ -317,6 +325,8 @@ export default class GitProvider extends Disposable {
     }
 
     async getBlameLocations(fileName: string, range: Range): Promise<Location[] | null> {
+        Logger.log(`getBlameForShaRange('${fileName}', ${range})`);
+
         const blame = await this.getBlameForRange(fileName, range);
         if (!blame) return null;
 
@@ -337,6 +347,7 @@ export default class GitProvider extends Disposable {
     }
 
     async getLogForFile(fileName: string) {
+        Logger.log(`getLogForFile('${fileName}')`);
         fileName = Git.normalizePath(fileName);
 
         const cacheKey = this._getCacheEntryKey(fileName);
@@ -352,7 +363,7 @@ export default class GitProvider extends Disposable {
         const ignore = await this._gitignore;
         let log: Promise<IGitLog>;
         if (ignore && !ignore.filter([fileName]).length) {
-            console.log('[GitLens]', `Skipping log; ${fileName} is gitignored`);
+            Logger.log(`Skipping log; '${fileName}' is gitignored`);
             log = GitProvider.EmptyPromise;
         }
         else {
@@ -362,7 +373,7 @@ export default class GitProvider extends Disposable {
                     // Trap and cache expected blame errors
                     if (this.UseCaching) {
                         const msg = ex && ex.toString();
-                        console.log('[GitLens]', `Replace log cache: cacheKey=${cacheKey}`);
+                        Logger.log(`Replace log cache with empty promise for '${cacheKey}'`);
 
                         entry.log = <ICachedLog>{
                             //date: new Date(),
@@ -378,7 +389,7 @@ export default class GitProvider extends Disposable {
         }
 
         if (this.UseCaching) {
-            console.log('[GitLens]', `Add log cache: cacheKey=${cacheKey}`);
+            Logger.log(`Add ${(log === GitProvider.EmptyPromise ? 'empty promise to ' : '')}log cache for '${cacheKey}'`);
 
             entry.log = <ICachedLog>{
                 //date: new Date(),
@@ -392,6 +403,8 @@ export default class GitProvider extends Disposable {
     }
 
     async getLogLocations(fileName: string): Promise<Location[] | null> {
+        Logger.log(`getLogLocations('${fileName}')`);
+
         const log = await this.getLogForFile(fileName);
         if (!log) return null;
 
@@ -412,14 +425,18 @@ export default class GitProvider extends Disposable {
     }
 
     getVersionedFile(fileName: string, repoPath: string, sha: string) {
+        Logger.log(`getVersionedFile('${fileName}', ${repoPath}, ${sha})`);
         return Git.getVersionedFile(fileName, repoPath, sha);
     }
 
     getVersionedFileText(fileName: string, repoPath: string, sha: string) {
+        Logger.log(`getVersionedFileText('${fileName}', ${repoPath}, ${sha})`);
         return Git.getVersionedFileText(fileName, repoPath, sha);
     }
 
     toggleCodeLens(editor: TextEditor) {
+        Logger.log(`toggleCodeLens(${editor})`);
+
         if (this._config.codeLens.visibility !== CodeLensVisibility.OnDemand ||
             (!this._config.codeLens.recentChange.enabled && !this._config.codeLens.authors.enabled)) return;
 

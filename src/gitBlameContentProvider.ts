@@ -1,7 +1,8 @@
 'use strict';
 import { EventEmitter, ExtensionContext, OverviewRulerLane, Range, TextEditor, TextEditorDecorationType, TextDocumentContentProvider, Uri, window } from 'vscode';
 import { DocumentSchemes } from './constants';
-import GitProvider, {IGitBlameUriData} from './gitProvider';
+import GitProvider, { IGitBlameUriData } from './gitProvider';
+import { Logger } from './logger';
 import * as moment from 'moment';
 
 export default class GitBlameContentProvider implements TextDocumentContentProvider {
@@ -29,7 +30,7 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
         });
 
         //this._subscriptions = Disposable.from(
-        //     window.onDidChangeActiveTextEditor(e => e ? console.log(e.document.uri) : console.log('active missing')),
+        //     window.onDidChangeActiveTextEditor(e => e ? Logger.log(e.document.uri) : Logger.log('active missing')),
         //);
     }
 
@@ -63,7 +64,7 @@ export default class GitBlameContentProvider implements TextDocumentContentProvi
 
                 return text;
             })
-            .catch(ex => console.error('[GitLens.GitBlameContentProvider]', 'getVersionedFileText', ex));
+            .catch(ex => Logger.error('[GitLens.GitBlameContentProvider]', 'getVersionedFileText', ex));
 
         // return this.git.getVersionedFile(data.fileName, data.sha).then(dst => {
         //     let uri = Uri.parse(`file:${dst}`)

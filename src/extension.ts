@@ -14,18 +14,19 @@ import ShowBlameHistoryCommand from './commands/showBlameHistory';
 import ShowHistoryCommand from './commands/showHistory';
 import ToggleBlameCommand from './commands/toggleBlame';
 import ToggleCodeLensCommand from './commands/toggleCodeLens';
+import { Logger } from './logger';
 
 // this method is called when your extension is activated
 export function activate(context: ExtensionContext) {
     // Workspace not using a folder. No access to git repo.
     if (!workspace.rootPath) {
-        console.warn('GitLens inactive: no rootPath');
+        Logger.warn('GitLens inactive: no rootPath');
 
         return;
     }
 
     const rootPath = workspace.rootPath.replace(/\\/g, '/');
-    console.log(`GitLens active: ${rootPath}`);
+    Logger.log(`GitLens active: ${rootPath}`);
 
     Git.repoPath(rootPath).then(repoPath => {
         context.workspaceState.update(WorkspaceState.RepoPath, repoPath);
@@ -52,7 +53,7 @@ export function activate(context: ExtensionContext) {
         context.subscriptions.push(new ShowBlameHistoryCommand(git));
         context.subscriptions.push(new ShowHistoryCommand(git));
         context.subscriptions.push(new ToggleCodeLensCommand(git));
-    }).catch(reason => console.warn('[GitLens]', reason));
+    }).catch(reason => Logger.warn(reason));
 }
 
 // this method is called when your extension is deactivated
