@@ -1,5 +1,5 @@
 'use strict';
-import { commands, Position, Range, TextEditor, TextEditorEdit, Uri } from 'vscode';
+import { commands, Position, Range, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { EditorCommand } from './commands';
 import { BuiltInCommands, Commands } from '../constants';
 import GitProvider from '../gitProvider';
@@ -10,7 +10,7 @@ export default class ShowHistoryCommand extends EditorCommand {
         super(Commands.ShowHistory);
     }
 
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, position?: Position) {
+    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, position?: Position, sha?: string, line?: number) {
         if (!(uri instanceof Uri)) {
             if (!editor.document) return undefined;
             uri = editor.document.uri;
@@ -20,11 +20,14 @@ export default class ShowHistoryCommand extends EditorCommand {
         }
 
         try {
-            const locations = await this.git.getLogLocations(uri.fsPath);
+            const locations = await this.git.getLogLocations(uri.fsPath, sha, line);
+            if (!locations) return window.showWarningMessage(`Unable to show history. File is probably not under source control`);
+
             return commands.executeCommand(BuiltInCommands.ShowReferences, uri, position, locations);
         }
         catch (ex) {
             Logger.error('[GitLens.ShowHistoryCommand]', 'getLogLocations', ex);
+            return window.showErrorMessage(`Unable to show history. See output channel for more details`);
         }
     }
 }

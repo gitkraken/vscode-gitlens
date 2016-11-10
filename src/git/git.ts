@@ -77,7 +77,13 @@ export default class Git {
     static log(fileName: string, repoPath?: string) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
-        return gitCommand(root, 'log', `--follow`, `--name-only`, `--no-merges`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename -`, file);
+        return gitCommand(root, 'log', `--follow`, `--name-only`, `--no-merges`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, file);
+    }
+
+    static logRange(fileName: string, start: number, end: number, repoPath?: string) {
+        const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
+
+        return gitCommand(root, 'log', `--name-only`, `--no-merges`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, `-L ${start},${end}:${file}`);
     }
 
     static getVersionedFile(fileName: string, repoPath: string, sha: string) {

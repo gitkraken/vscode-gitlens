@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "0.5.5",
+    "version": "0.9.0",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -18,7 +18,7 @@
     "keywords": [
         "git",
         "blame",
-        "gitblame",
+        "history",
         "codelens",
         "annotation"
     ],
@@ -27,7 +27,7 @@
         "theme": "dark"
     },
     "icon": "images/gitlens-icon.png",
-    "preview": false,
+    "preview": true,
     "homepage": "https://github.com/eamodio/vscode-gitlens/blob/master/README.md",
     "bugs": {
         "url": "https://github.com/eamodio/vscode-gitlens/issues"
@@ -91,6 +91,64 @@
                     "type": "array",
                     "description": "Specifies the set of document symbols to render active document CodeLens on. Must be a member of `SymbolKind`"
                 },
+                "gitlens.codeLens.languageLocations": {
+                    "type": "array",
+                    "default": [
+                        {
+                            "language": "json",
+                            "location": "document"
+                        },
+                        {
+                            "language": "css",
+                            "location": "document"
+                        },
+                        {
+                            "language": "scss",
+                            "location": "document"
+                        },
+                        {
+                            "language": "less",
+                            "location": "document"
+                        }
+                    ],
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "language",
+                            "location"
+                        ],
+                        "properties": {
+                            "language": {
+                                "type": "string",
+                                "description": "Specifies the language to which this CodeLens override applies"
+                            },
+                            "location": {
+                                "type": "string",
+                                "default": "document+containers",
+                                "enum": [
+                                    "all",
+                                    "document+containers",
+                                    "document",
+                                    "custom",
+                                    "none"
+                                ],
+                                "description": "Specifies where CodeLens will be rendered in the active document for the specified language. `all` - render at the top of the document, on container-like (classes, modules, etc), and on member-like (methods, functions, properties, etc) lines. `document+containers` - render at the top of the document and on container-like lines. `document` - only render at the top of the document. `custom` - rendering controlled by `customSymbols`"
+                            },
+                            "customSymbols": {
+                                "type": "string",
+                                "description": "Specifies the set of document symbols to render active document CodeLens on. Must be a member of `SymbolKind`"
+                            }
+                        }
+                    },
+                    "uniqueItems": true,
+                    "enum": [
+                        "all",
+                        "document+containers",
+                        "document",
+                        "custom"
+                    ],
+                    "description": "Specifies where CodeLens will be rendered in the active document for the specified languages"
+                },
                 "gitlens.codeLens.recentChange.enabled": {
                     "type": "boolean",
                     "default": true,
@@ -98,7 +156,7 @@
                 },
                 "gitlens.codeLens.recentChange.command": {
                     "type": "string",
-                    "default": "gitlens.showBlameHistory",
+                    "default": "gitlens.showHistory",
                     "enum": [
                         "gitlens.toggleBlame",
                         "gitlens.showBlameHistory",
@@ -106,7 +164,7 @@
                         "gitlens.diffWithPrevious",
                         "git.viewFileHistory"
                     ],
-                    "description": "Specifies the command executed when the recent change CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
+                    "description": "Specifies the command executed when the recent change CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showHistory` - opens the history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
                 },
                 "gitlens.codeLens.authors.enabled": {
                     "type": "boolean",
@@ -123,7 +181,7 @@
                         "gitlens.diffWithPrevious",
                         "git.viewFileHistory"
                     ],
-                    "description": "Specifies the command executed when the authors CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
+                    "description": "Specifies the command executed when the authors CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showHistory` - opens the history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
                 },
                 "gitlens.statusBar.enabled": {
                     "type": "boolean",
@@ -141,17 +199,27 @@
                         "gitlens.toggleCodeLens",
                         "git.viewFileHistory"
                     ],
-                    "description": "Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
+                    "description": "Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showHistory` - opens the history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
+                },
+                "gitlens.menus.fileDiff.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether file-based diff commands will be added to the context menus"
+                },
+                "gitlens.menus.lineDiff.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether line-based diff commands will be added to the context menus"
                 },
                 "gitlens.advanced.caching.enabled": {
                     "type": "boolean",
                     "default": true,
                     "description": "Specifies whether git blame output will be cached"
                 },
-                "gitlens.advanced.output.debug": {
+                "gitlens.advanced.debug": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Specifies whether all output will be sent to the console"
+                    "description": "Specifies debug mode"
                 },
                 "gitlens.advanced.output.level": {
                     "type": "string",
@@ -168,12 +236,22 @@
         "commands": [
             {
                 "command": "gitlens.diffWithPrevious",
-                "title": "Open Diff with Previous Commit",
+                "title": "Diff with Previous Commit",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.diffLineWithPrevious",
+                "title": "Diff with Previous Commit (line)",
                 "category": "GitLens"
             },
             {
                 "command": "gitlens.diffWithWorking",
-                "title": "Open Diff with Working Tree",
+                "title": "Diff with Working Tree",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.diffLineWithWorking",
+                "title": "Diff with Working Tree (line)",
                 "category": "GitLens"
             },
             {
@@ -206,31 +284,42 @@
             "explorer/context": [
                 {
                     "command": "gitlens.diffWithPrevious",
-                    "group": "gitlens@1.1"
+                    "when": "config.gitlens.menus.fileDiff.enabled && config.git.enabled",
+                    "group": "2_gitlens-file"
                 }
             ],
             "editor/title": [
                 {
-                    "when": "editorTextFocus",
                     "command": "gitlens.toggleBlame",
-                    "group": "gitlens"
+                    "when": "editorTextFocus && config.git.enabled",
+                    "group": "2_gitlens-blame"
                 }
             ],
             "editor/context": [
                 {
-                    "when": "editorTextFocus",
+                    "command": "gitlens.diffLineWithWorking",
+                    "when": "editorTextFocus && config.gitlens.menus.lineDiff.enabled && config.git.enabled",
+                    "group": "3_gitlens-line@1.0"
+                },
+                {
+                    "command": "gitlens.diffLineWithPrevious",
+                    "when": "editorTextFocus && config.gitlens.menus.lineDiff.enabled && config.git.enabled",
+                    "group": "3_gitlens-line@1.1"
+                },
+                {
                     "command": "gitlens.diffWithWorking",
-                    "group": "gitlens@1.0"
+                    "when": "editorTextFocus && config.gitlens.menus.fileDiff.enabled && config.git.enabled",
+                    "group": "3_gitlens-file@1.0"
                 },
                 {
-                    "when": "editorTextFocus",
                     "command": "gitlens.diffWithPrevious",
-                    "group": "gitlens@1.1"
+                    "when": "editorTextFocus && config.gitlens.menus.fileDiff.enabled && config.git.enabled",
+                    "group": "3_gitlens-file@1.1"
                 },
                 {
-                    "when": "editorTextFocus",
                     "command": "gitlens.toggleBlame",
-                    "group": "gitlens-blame@1.2"
+                    "when": "editorTextFocus && config.git.enabled",
+                    "group": "2_gitlens-blame"
                 }
             ]
         },

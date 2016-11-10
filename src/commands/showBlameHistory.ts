@@ -1,5 +1,5 @@
 'use strict';
-import { commands, Position, Range, TextEditor, TextEditorEdit, Uri } from 'vscode';
+import { commands, Position, Range, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { EditorCommand } from './commands';
 import { BuiltInCommands, Commands } from '../constants';
 import GitProvider from '../gitProvider';
@@ -22,10 +22,13 @@ export default class ShowBlameHistoryCommand extends EditorCommand {
 
         try {
             const locations = await this.git.getBlameLocations(uri.fsPath, range);
+            if (!locations) return window.showWarningMessage(`Unable to show blame history. File is probably not under source control`);
+
             return commands.executeCommand(BuiltInCommands.ShowReferences, uri, position, locations);
         }
         catch (ex) {
             Logger.error('[GitLens.ShowBlameHistoryCommand]', 'getBlameLocations', ex);
+            return window.showErrorMessage(`Unable to show blame history. See output channel for more details`);
         }
     }
 }

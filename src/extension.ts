@@ -8,7 +8,9 @@ import GitBlameContentProvider from './gitBlameContentProvider';
 import GitProvider, { Git } from './gitProvider';
 import { WorkspaceState } from './constants';
 import DiffWithPreviousCommand from './commands/diffWithPrevious';
+import DiffLineWithPreviousCommand from './commands/diffLineWithPrevious';
 import DiffWithWorkingCommand from './commands/diffWithWorking';
+import DiffLineWithWorkingCommand from './commands/diffLineWithWorking';
 import ShowBlameCommand from './commands/showBlame';
 import ShowBlameHistoryCommand from './commands/showBlameHistory';
 import ShowHistoryCommand from './commands/showHistory';
@@ -46,8 +48,10 @@ export function activate(context: ExtensionContext) {
         const statusBarController = new BlameStatusBarController(context, git);
         context.subscriptions.push(statusBarController);
 
-        context.subscriptions.push(new DiffWithWorkingCommand(git, annotationController));
-        context.subscriptions.push(new DiffWithPreviousCommand(git, annotationController));
+        context.subscriptions.push(new DiffWithWorkingCommand(git));
+        context.subscriptions.push(new DiffLineWithWorkingCommand(git));
+        context.subscriptions.push(new DiffWithPreviousCommand(git));
+        context.subscriptions.push(new DiffLineWithPreviousCommand(git));
         context.subscriptions.push(new ShowBlameCommand(git, annotationController));
         context.subscriptions.push(new ToggleBlameCommand(git, annotationController));
         context.subscriptions.push(new ShowBlameHistoryCommand(git));

@@ -1,17 +1,17 @@
 'use strict';
 import { CancellationToken, CodeLens, CodeLensProvider, DocumentSelector, ExtensionContext, Range, TextDocument, Uri } from 'vscode';
 import { Commands, DocumentSchemes } from './constants';
-import GitProvider, { IGitCommit } from './gitProvider';
+import GitProvider, { GitCommit } from './gitProvider';
 import * as path from 'path';
 
 export class GitDiffWithWorkingTreeCodeLens extends CodeLens {
-    constructor(git: GitProvider, public fileName: string, public commit: IGitCommit, range: Range) {
+    constructor(git: GitProvider, public fileName: string, public commit: GitCommit, range: Range) {
         super(range);
     }
 }
 
 export class GitDiffWithPreviousCodeLens extends CodeLens {
-    constructor(git: GitProvider, public fileName: string, public commit: IGitCommit, range: Range) {
+    constructor(git: GitProvider, public fileName: string, public commit: GitCommit, range: Range) {
         super(range);
     }
 }
@@ -84,11 +84,7 @@ export default class GitBlameCodeLensProvider implements CodeLensProvider {
             command: Commands.DiffWithPrevious,
             arguments: [
                 Uri.file(lens.fileName),
-                lens.commit.repoPath,
-                lens.commit.sha,
-                lens.commit.uri,
-                lens.commit.previousSha,
-                lens.commit.previousUri,
+                lens.commit,
                 lens.range.start.line
             ]
         };

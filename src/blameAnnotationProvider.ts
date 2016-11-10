@@ -3,7 +3,7 @@ import { Iterables } from './system';
 import { commands, DecorationOptions, Disposable, ExtensionContext, OverviewRulerLane, Range, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, Uri, window, workspace } from 'vscode';
 import { BuiltInCommands } from './constants';
 import { BlameAnnotationStyle, IBlameConfig } from './configuration';
-import GitProvider, { IGitBlame, IGitCommit } from './gitProvider';
+import GitProvider, { GitCommit, IGitBlame } from './gitProvider';
 import * as moment from 'moment';
 
 const blameDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
@@ -218,7 +218,7 @@ export class BlameAnnotationProvider extends Disposable {
         });
     }
 
-    private _getAuthor(commit: IGitCommit, max: number = 17, force: boolean = false) {
+    private _getAuthor(commit: GitCommit, max: number = 17, force: boolean = false) {
         if (!force && !this._config.annotation.author) return '';
         let author = commit.isUncommitted ? 'Uncommitted' : commit.author;
         if (author.length > max) {
@@ -227,12 +227,12 @@ export class BlameAnnotationProvider extends Disposable {
         return author;
     }
 
-    private _getDate(commit: IGitCommit, force?: boolean) {
+    private _getDate(commit: GitCommit, force?: boolean) {
         if (!force && !this._config.annotation.date) return '';
         return moment(commit.date).format('MM/DD/YYYY');
     }
 
-    private _getGutter(commit: IGitCommit) {
+    private _getGutter(commit: GitCommit) {
         const author = this._getAuthor(commit);
         const date = this._getDate(commit);
         if (this._config.annotation.sha) {

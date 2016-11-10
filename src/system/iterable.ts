@@ -43,6 +43,12 @@ export namespace Iterables {
         return typeof source[Symbol.iterator] === 'function';
     }
 
+    export function last<T>(source: Iterable<T>): T {
+        let item: T;
+        for (item of source) { /* noop */ }
+        return item;
+    }
+
     export function* map<T, TMapped>(source: Iterable<T> | IterableIterator<T>, mapper: (item: T) => TMapped): Iterable<TMapped> {
         for (const item of source) {
             yield mapper(item);

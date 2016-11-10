@@ -19,17 +19,19 @@ export interface IBlameConfig {
 export type CodeLensCommand = 'gitlens.toggleBlame' | 'gitlens.showBlameHistory' | 'gitlens.diffWithPrevious' | 'git.viewFileHistory';
 export const CodeLensCommand = {
     BlameAnnotate: Commands.ToggleBlame as CodeLensCommand,
-    BlameExplorer: Commands.ShowBlameHistory as CodeLensCommand,
+    ShowBlameHistory: Commands.ShowBlameHistory as CodeLensCommand,
+    ShowHistory: Commands.ShowHistory as CodeLensCommand,
     DiffWithPrevious: Commands.DiffWithPrevious as CodeLensCommand,
     GitViewHistory: 'git.viewFileHistory' as CodeLensCommand
 };
 
-export type CodeLensLocation = 'all' | 'document+containers' | 'document' | 'custom';
+export type CodeLensLocation = 'all' | 'document+containers' | 'document' | 'custom' | 'none';
 export const CodeLensLocation = {
     All: 'all' as CodeLensLocation,
     DocumentAndContainers: 'document+containers' as CodeLensLocation,
     Document: 'document' as CodeLensLocation,
-    Custom: 'custom' as CodeLensLocation
+    Custom: 'custom' as CodeLensLocation,
+    None: 'none' as CodeLensLocation
 };
 
 export type CodeLensVisibility = 'auto' | 'ondemand' | 'off';
@@ -44,10 +46,17 @@ export interface ICodeLensConfig {
     command: CodeLensCommand;
 }
 
+export interface ICodeLensLanguageLocation {
+    language: string;
+    location: CodeLensLocation;
+    customSymbols?: string[];
+}
+
 export interface ICodeLensesConfig {
     visibility: CodeLensVisibility;
     location: CodeLensLocation;
     locationCustomSymbols: string[];
+    languageLocations: ICodeLensLanguageLocation[];
     recentChange: ICodeLensConfig;
     authors: ICodeLensConfig;
 }
@@ -77,8 +86,8 @@ export interface IAdvancedConfig {
     caching: {
         enabled: boolean;
     };
+    debug: boolean;
     output: {
-        debug: boolean;
         level: OutputLevel;
     };
 }

@@ -1,14 +1,20 @@
 ---
 ## Release Notes
 
-### 1.0.0
+### 0.9.0
 
-  - Adds support for git history (log)
-  - Adds `gitlens.diffWithPrevious` command to the explore context menu
+  - Adds support for git history (log)!
+  - Adds new `gitlens.showHistory` command to open the history explorer
+  - Adds new `gitlens.showHistory` option to the `gitlens.codeLens.recentChange.command` & `gitlens.codeLens.authors.command` settings
+  - Adds per-language CodeLens location customization using the `gitlens.codeLens.languageLocations` setting
+  - Adds new `gitlens.diffLineWithPrevious` command for line sensitive diffs
+  - Adds new `gitlens.diffLineWithWorking` command for line sensitive diffs
+  - Adds `gitlens.diffWithPrevious` command to the explorer context menu
   - Adds output channel logging, controlled by the `gitlens.advanced.output.level` setting
-  - Changes `gitlens.diffWithPrevious` command to only be line sensitive if blame annotations are visible, otherwise it uses file history
-  - Changes `gitlens.diffWithWorking` command to only be line sensitive if blame annotations are visible, otherwise it uses file history
-  - Removes all debug logging, unless the `gitlens.advanced.output.debug` settings it on
+  - Improves performance (significantly) when only showing CodeLens at the document level
+  - Changes `gitlens.diffWithPrevious` command to always be file sensitive diffs
+  - Changes `gitlens.diffWithWorking` command to always be file sensitive diffs
+  - Removes all debug logging, unless the `gitlens.advanced.debug` settings it on
   - Fixes issue where blame annotations would not be cleared properly when switching between open files
 
 ### 0.5.5

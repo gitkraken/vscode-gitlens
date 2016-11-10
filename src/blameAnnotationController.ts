@@ -39,7 +39,7 @@ export default class BlameAnnotationController extends Disposable {
         return this._annotationProvider !== undefined;
     }
 
-    showBlameAnnotation(editor: TextEditor, sha?: string) {
+    showBlameAnnotation(editor: TextEditor, sha?: string): Promise<void> {
         if (!editor || !editor.document || editor.document.isUntitled) {
             this.clear();
             return Promise.resolve();
@@ -53,7 +53,7 @@ export default class BlameAnnotationController extends Disposable {
         return Promise.resolve();
     }
 
-    toggleBlameAnnotation(editor: TextEditor, sha?: string) {
+    toggleBlameAnnotation(editor: TextEditor, sha?: string): Promise<void> {
         if (!editor || !editor.document || editor.document.isUntitled || this._annotationProvider) {
             this.clear();
             return Promise.resolve();

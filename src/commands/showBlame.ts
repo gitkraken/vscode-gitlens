@@ -1,5 +1,5 @@
 'use strict';
-import { TextEditor, TextEditorEdit, Uri } from 'vscode';
+import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import BlameAnnotationController from '../blameAnnotationController';
 import { EditorCommand } from './commands';
 import { Commands } from '../constants';
@@ -23,10 +23,11 @@ export default class ShowBlameCommand extends EditorCommand {
 
         try {
             const blame = await this.git.getBlameForLine(uri.fsPath, editor.selection.active.line);
-            this.annotationController.showBlameAnnotation(editor, blame && blame.commit.sha);
+            return this.annotationController.showBlameAnnotation(editor, blame && blame.commit.sha);
         }
         catch (ex) {
             Logger.error('[GitLens.ShowBlameCommand]', `getBlameForLine(${editor.selection.active.line})`, ex);
+            return window.showErrorMessage(`Unable to show blame annotations. See output channel for more details`);
         }
     }
 }

@@ -1,5 +1,5 @@
 'use strict';
-import {Uri} from 'vscode';
+import { Uri } from 'vscode';
 import Git from './git';
 import * as path from 'path';
 
@@ -10,13 +10,13 @@ export interface IGitEnricher<T> {
 export interface IGitBlame {
     repoPath: string;
     authors: Map<string, IGitAuthor>;
-    commits: Map<string, IGitCommit>;
+    commits: Map<string, GitCommit>;
     lines: IGitCommitLine[];
 }
 
 export interface IGitBlameLine {
     author: IGitAuthor;
-    commit: IGitCommit;
+    commit: GitCommit;
     line: IGitCommitLine;
 }
 
@@ -26,7 +26,7 @@ export interface IGitBlameLines extends IGitBlame {
 
 export interface IGitBlameCommitLines {
     author: IGitAuthor;
-    commit: IGitCommit;
+    commit: GitCommit;
     lines: IGitCommitLine[];
 }
 
@@ -35,7 +35,7 @@ export interface IGitAuthor {
     lineCount: number;
 }
 
-export interface IGitCommit {
+interface IGitCommit {
     repoPath: string;
     sha: string;
     fileName: string;
@@ -57,10 +57,20 @@ export class GitCommit implements IGitCommit {
     originalFileName?: string;
     previousSha?: string;
     previousFileName?: string;
-    private _isUncommitted: boolean|undefined;
+    private _isUncommitted: boolean | undefined;
 
-    constructor(public repoPath: string, public sha: string, public fileName: string, public author: string, public date: Date, public message: string,
-                lines?: IGitCommitLine[], originalFileName?: string, previousSha?: string, previousFileName?: string) {
+    constructor(
+        public repoPath: string,
+        public sha: string,
+        public fileName: string,
+        public author: string,
+        public date: Date,
+        public message: string,
+        lines?: IGitCommitLine[],
+        originalFileName?: string,
+        previousSha?: string,
+        previousFileName?: string
+    ) {
         this.lines = lines || [];
         this.originalFileName = originalFileName;
         this.previousSha = previousSha;
@@ -94,5 +104,5 @@ export interface IGitCommitLine {
 export interface IGitLog {
     repoPath: string;
     authors: Map<string, IGitAuthor>;
-    commits: Map<string, IGitCommit>;
+    commits: Map<string, GitCommit>;
 }

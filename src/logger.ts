@@ -26,7 +26,7 @@ function onConfigurationChange() {
 
 export class Logger {
     static log(message?: any, ...params: any[]): void {
-        if (config.output.debug) {
+        if (config.debug) {
             console.log('[GitLens]', message, ...params);
         }
 
@@ -36,7 +36,7 @@ export class Logger {
     }
 
     static error(message?: any, ...params: any[]): void {
-        if (config.output.debug) {
+        if (config.debug) {
             console.error('[GitLens]', message, ...params);
         }
 
@@ -46,7 +46,7 @@ export class Logger {
     }
 
     static warn(message?: any, ...params: any[]): void {
-        if (config.output.debug) {
+        if (config.debug) {
             console.warn('[GitLens]', message, ...params);
         }
 

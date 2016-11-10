@@ -4,7 +4,7 @@ import { Disposable, DocumentFilter, ExtensionContext, languages, Location, Posi
 import { DocumentSchemes, WorkspaceState } from './constants';
 import { CodeLensVisibility, IConfig } from './configuration';
 import GitCodeLensProvider from './gitCodeLensProvider';
-import Git, { GitBlameParserEnricher, GitBlameFormat, GitCommit, GitLogParserEnricher, IGitAuthor, IGitBlame, IGitBlameCommitLines, IGitBlameLine, IGitBlameLines, IGitCommit, IGitLog } from './git/git';
+import Git, { GitBlameParserEnricher, GitBlameFormat, GitCommit, GitLogParserEnricher, IGitAuthor, IGitBlame, IGitBlameCommitLines, IGitBlameLine, IGitBlameLines, IGitLog } from './git/git';
 import { Logger } from './logger';
 import * as fs from 'fs';
 import * as ignore from 'ignore';
@@ -96,7 +96,11 @@ export default class GitProvider extends Disposable {
     private _onConfigure() {
         const config = workspace.getConfiguration().get<IConfig>('gitlens');
 
-        if (!Objects.areEquivalent(config.codeLens, this._config && this._config.codeLens)) {
+        const codeLensChanged = !Objects.areEquivalent(config.codeLens, this._config && this._config.codeLens);
+        const advancedChanged = !Objects.areEquivalent(config.advanced, this._config && this._config.advanced);
+
+        if (codeLensChanged || advancedChanged) {
+            Logger.log('CodeLens config changed; resetting CodeLens provider');
             this._codeLensProviderDisposable && this._codeLensProviderDisposable.dispose();
             if (config.codeLens.visibility === CodeLensVisibility.Auto && (config.codeLens.recentChange.enabled || config.codeLens.authors.enabled)) {
                 this._codeLensProviderSelector = GitCodeLensProvider.selector;
@@ -106,7 +110,7 @@ export default class GitProvider extends Disposable {
             }
         }
 
-        if (!Objects.areEquivalent(config.advanced, this._config && this._config.advanced)) {
+        if (advancedChanged) {
             if (config.advanced.caching.enabled) {
                 // TODO: Cache needs to be cleared on file changes -- createFileSystemWatcher or timeout?
                 this._cache = new Map();
@@ -163,28 +167,29 @@ export default class GitProvider extends Disposable {
         return Git.repoPath(cwd);
     }
 
-    async getBlameForFile(fileName: string): Promise<IGitBlame | null> {
+    getBlameForFile(fileName: string): Promise<IGitBlame | null> {
         Logger.log(`getBlameForFile('${fileName}')`);
         fileName = Git.normalizePath(fileName);
 
-        const cacheKey = this._getCacheEntryKey(fileName);
-        let entry: CacheEntry | undefined = undefined;
+        let cacheKey: string | undefined;
+        let entry: CacheEntry | undefined;
         if (this.UseCaching) {
+            cacheKey = this._getCacheEntryKey(fileName);
             entry = this._cache.get(cacheKey);
+
             if (entry !== undefined && entry.blame !== undefined) return entry.blame.item;
             if (entry === undefined) {
                 entry = new CacheEntry();
             }
         }
 
-        const ignore = await this._gitignore;
-        let blame: Promise<IGitBlame>;
-        if (ignore && !ignore.filter([fileName]).length) {
-            Logger.log(`Skipping blame; '${fileName}' is gitignored`);
-            blame = GitProvider.EmptyPromise;
-        }
-        else {
-            blame = Git.blame(GitProvider.BlameFormat, fileName)
+        const promise = this._gitignore.then(ignore => {
+            if (ignore && !ignore.filter([fileName]).length) {
+                Logger.log(`Skipping blame; '${fileName}' is gitignored`);
+                return <Promise<IGitBlame>>GitProvider.EmptyPromise;
+            }
+
+            return Git.blame(GitProvider.BlameFormat, fileName)
                 .then(data => new GitBlameParserEnricher(GitProvider.BlameFormat).enrich(data, fileName))
                 .catch(ex => {
                     // Trap and cache expected blame errors
@@ -199,24 +204,24 @@ export default class GitProvider extends Disposable {
                         };
 
                         this._cache.set(cacheKey, entry);
-                        return GitProvider.EmptyPromise;
+                        return <Promise<IGitBlame>>GitProvider.EmptyPromise;
                     }
                     return null;
                 });
-        }
+        });
 
         if (this.UseCaching) {
-            Logger.log(`Add ${(blame === GitProvider.EmptyPromise ? 'empty promise to ' : '')}blame cache for '${cacheKey}'`);
+            Logger.log(`Add blame cache for '${cacheKey}'`);
 
             entry.blame = <ICachedBlame>{
                 //date: new Date(),
-                item: blame
+                item: promise
             };
 
             this._cache.set(cacheKey, entry);
         }
 
-        return blame;
+        return promise;
     }
 
     async getBlameForLine(fileName: string, line: number, sha?: string, repoPath?: string): Promise<IGitBlameLine | null> {
@@ -274,11 +279,11 @@ export default class GitProvider extends Disposable {
         lines.forEach(l => shas.add(l.sha));
 
         const authors: Map<string, IGitAuthor> = new Map();
-        const commits: Map<string, IGitCommit> = new Map();
+        const commits: Map<string, GitCommit> = new Map();
         blame.commits.forEach(c => {
             if (!shas.has(c.sha)) return;
 
-            const commit: IGitCommit = new GitCommit(c.repoPath, c.sha, c.fileName, c.author, c.date, c.message,
+            const commit: GitCommit = new GitCommit(c.repoPath, c.sha, c.fileName, c.author, c.date, c.message,
                 c.lines.filter(l => l.line >= range.start.line && l.line <= range.end.line), c.originalFileName, c.previousSha, c.previousFileName);
             commits.set(c.sha, commit);
 
@@ -346,32 +351,35 @@ export default class GitProvider extends Disposable {
         return locations;
     }
 
-    async getLogForFile(fileName: string) {
-        Logger.log(`getLogForFile('${fileName}')`);
+    getLogForFile(fileName: string, range?: Range): Promise<IGitLog | null> {
+        Logger.log(`getLogForFile('${fileName}', ${range})`);
         fileName = Git.normalizePath(fileName);
 
-        const cacheKey = this._getCacheEntryKey(fileName);
-        let entry: CacheEntry = undefined;
-        if (this.UseCaching) {
+        const useCaching = this.UseCaching && !range;
+
+        let cacheKey: string;
+        let entry: CacheEntry;
+        if (useCaching) {
+            cacheKey = this._getCacheEntryKey(fileName);
             entry = this._cache.get(cacheKey);
+
             if (entry !== undefined && entry.log !== undefined) return entry.log.item;
             if (entry === undefined) {
                 entry = new CacheEntry();
             }
         }
 
-        const ignore = await this._gitignore;
-        let log: Promise<IGitLog>;
-        if (ignore && !ignore.filter([fileName]).length) {
-            Logger.log(`Skipping log; '${fileName}' is gitignored`);
-            log = GitProvider.EmptyPromise;
-        }
-        else {
-            log = Git.log(fileName)
+        const promise = this._gitignore.then(ignore => {
+            if (ignore && !ignore.filter([fileName]).length) {
+                Logger.log(`Skipping log; '${fileName}' is gitignored`);
+                return <Promise<IGitLog>>GitProvider.EmptyPromise;
+            }
+
+            return (range ? Git.logRange(fileName, range.start.line + 1, range.end.line + 1) : Git.log(fileName))
                 .then(data => new GitLogParserEnricher().enrich(data, fileName))
                 .catch(ex => {
                     // Trap and cache expected blame errors
-                    if (this.UseCaching) {
+                    if (useCaching) {
                         const msg = ex && ex.toString();
                         Logger.log(`Replace log cache with empty promise for '${cacheKey}'`);
 
@@ -382,28 +390,28 @@ export default class GitProvider extends Disposable {
                         };
 
                         this._cache.set(cacheKey, entry);
-                        return GitProvider.EmptyPromise;
+                        return <Promise<IGitLog>>GitProvider.EmptyPromise;
                     }
                     return null;
                 });
-        }
+        });
 
-        if (this.UseCaching) {
-            Logger.log(`Add ${(log === GitProvider.EmptyPromise ? 'empty promise to ' : '')}log cache for '${cacheKey}'`);
+        if (useCaching) {
+            Logger.log(`Add log cache for '${cacheKey}'`);
 
             entry.log = <ICachedLog>{
                 //date: new Date(),
-                item: log
+                item: promise
             };
 
             this._cache.set(cacheKey, entry);
         }
 
-        return log;
+        return promise;
     }
 
-    async getLogLocations(fileName: string): Promise<Location[] | null> {
-        Logger.log(`getLogLocations('${fileName}')`);
+    async getLogLocations(fileName: string, sha?: string, line?: number): Promise<Location[] | null> {
+        Logger.log(`getLogLocations('${fileName}', ${sha}, ${line})`);
 
         const log = await this.getLogForFile(fileName);
         if (!log) return null;
@@ -413,12 +421,14 @@ export default class GitProvider extends Disposable {
         const locations: Array<Location> = [];
         Iterables.forEach(log.commits.values(), (c, i) => {
             if (c.isUncommitted) return;
-
-            const decoration = `/*\n    ${c.sha} - ${c.message}\n    ${c.author}, ${moment(c.date).format('MMMM Do, YYYY h:MMa')}\n */`;
-            locations.push(new Location(c.originalFileName
+            const decoration = `\u2937 ${c.author}, ${moment(c.date).format('MMMM Do, YYYY h:MMa')}`;
+            const uri = c.originalFileName
                 ? GitProvider.toGitUri(c, i + 1, commitCount, c.originalFileName, decoration)
-                : GitProvider.toGitUri(c, i + 1, commitCount, undefined, decoration),
-                new Position(2, 0)));
+                : GitProvider.toGitUri(c, i + 1, commitCount, undefined, decoration);
+            locations.push(new Location(uri, new Position(0, 0)));
+            if (c.sha === sha) {
+                locations.push(new Location(uri, new Position(line + 1, 0)));
+            }
         });
 
         return locations;
@@ -486,26 +496,30 @@ export default class GitProvider extends Disposable {
         return JSON.parse(uri.query) as T;
     }
 
-    static toBlameUri(commit: IGitCommit, index: number, commitCount: number, range: Range, originalFileName?: string) {
+    static toBlameUri(commit: GitCommit, index: number, commitCount: number, range: Range, originalFileName?: string) {
         return GitProvider._toGitUri(commit, DocumentSchemes.GitBlame, commitCount, GitProvider._toGitBlameUriData(commit, index, range, originalFileName));
     }
 
-    static toGitUri(commit: IGitCommit, index: number, commitCount: number, originalFileName?: string, decoration?: string) {
+    static toGitUri(commit: GitCommit, index: number, commitCount: number, originalFileName?: string, decoration?: string) {
         return GitProvider._toGitUri(commit, DocumentSchemes.Git, commitCount, GitProvider._toGitUriData(commit, index, originalFileName, decoration));
     }
 
-    private static _toGitUri(commit: IGitCommit, scheme: DocumentSchemes, commitCount: number, data: IGitUriData | IGitBlameUriData) {
+    private static _toGitUri(commit: GitCommit, scheme: DocumentSchemes, commitCount: number, data: IGitUriData | IGitBlameUriData) {
         const pad = (n: number) => ('0000000' + n).slice(-('' + commitCount).length);
         const ext = path.extname(data.fileName);
         // const uriPath = `${dirname(data.fileName)}/${commit.sha}: ${basename(data.fileName, ext)}${ext}`;
-        const uriPath = `${path.dirname(data.fileName)}/${commit.sha}${ext}`;
+        const uriPath = `${path.relative(commit.repoPath, data.fileName.slice(0, -ext.length))}/${commit.sha}${ext}`;
 
+        let message = commit.message;
+        if (message.length > 50) {
+            message = message.substring(0, 49) + '\u2026';
+        }
         // NOTE: Need to specify an index here, since I can't control the sort order -- just alphabetic or by file location
         //return Uri.parse(`${scheme}:${pad(data.index)}. ${commit.author}, ${moment(commit.date).format('MMM D, YYYY hh:MMa')} - ${uriPath}?${JSON.stringify(data)}`);
-        return Uri.parse(`${scheme}:${pad(data.index)}. ${moment(commit.date).format('MMM D, YYYY hh:MMa')} - ${uriPath}?${JSON.stringify(data)}`);
+        return Uri.parse(`${scheme}:${pad(data.index)} \u2022 ${message} \u2022 ${moment(commit.date).format('MMM D, YYYY hh:MMa')} \u2022 ${uriPath}?${JSON.stringify(data)}`);
     }
 
-    private static _toGitUriData<T extends IGitUriData>(commit: IGitCommit, index: number, originalFileName?: string, decoration?: string): T {
+    private static _toGitUriData<T extends IGitUriData>(commit: GitCommit, index: number, originalFileName?: string, decoration?: string): T {
         const fileName = Git.normalizePath(path.join(commit.repoPath, commit.fileName));
         const data = { repoPath: commit.repoPath, fileName: fileName, sha: commit.sha, index: index } as T;
         if (originalFileName) {
@@ -517,7 +531,7 @@ export default class GitProvider extends Disposable {
         return data;
     }
 
-    private static _toGitBlameUriData(commit: IGitCommit, index: number, range: Range, originalFileName?: string) {
+    private static _toGitBlameUriData(commit: GitCommit, index: number, range: Range, originalFileName?: string) {
         const data = this._toGitUriData<IGitBlameUriData>(commit, index, originalFileName);
         data.range = range;
         return data;

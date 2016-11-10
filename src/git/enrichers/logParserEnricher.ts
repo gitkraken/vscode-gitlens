@@ -1,5 +1,5 @@
 'use strict';
-import { GitCommit, IGitAuthor, IGitCommit, IGitEnricher, IGitLog } from './../git';
+import { GitCommit, IGitAuthor, IGitEnricher, IGitLog } from './../git';
 import * as moment from 'moment';
 import * as path from 'path';
 
@@ -35,6 +35,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
             }
 
             if (!entry) {
+                if (!/^[a-f0-9]{40}$/.test(lineParts[0])) continue;
                 entry = {
                     sha: lineParts[0].substring(0, 8)
                 };
@@ -66,7 +67,13 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
                 case 'filename':
                     position += 2;
                     lineParts = lines[position].split(' ');
-                    entry.fileName = lineParts.join(' ');
+                    if (lineParts.length === 1) {
+                        entry.fileName = lineParts[0];
+                    }
+                    else {
+                        entry.fileName = lineParts[3].substring(2);
+                        position += 4;
+                    }
 
                     entries.push(entry);
                     entry = null;
@@ -85,10 +92,11 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
         if (!entries) return null;
 
         const authors: Map<string, IGitAuthor> = new Map();
-        const commits: Map<string, IGitCommit> = new Map();
+        const commits: Map<string, GitCommit> = new Map();
 
         let repoPath: string;
         let relativeFileName: string;
+        let recentCommit: GitCommit;
 
         for (let i = 0, len = entries.length; i < len; i++) {
             const entry = entries[i];
@@ -118,6 +126,12 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
 
                 commits.set(entry.sha, commit);
             }
+
+            if (recentCommit) {
+                recentCommit.previousSha = commit.sha;
+                recentCommit.previousFileName = commit.originalFileName || commit.fileName;
+            }
+            recentCommit = commit;
         }
 
         commits.forEach(c => authors.get(c.author).lineCount += c.lines.length);

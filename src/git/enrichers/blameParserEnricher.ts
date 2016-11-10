@@ -1,5 +1,5 @@
 'use strict';
-import { GitBlameFormat, GitCommit, IGitAuthor, IGitBlame, IGitCommit, IGitCommitLine, IGitEnricher } from './../git';
+import { GitBlameFormat, GitCommit, IGitAuthor, IGitBlame, IGitCommitLine, IGitEnricher } from './../git';
 import * as moment from 'moment';
 import * as path from 'path';
 
@@ -123,7 +123,7 @@ export class GitBlameParserEnricher implements IGitEnricher<IGitBlame> {
         if (!entries) return null;
 
         const authors: Map<string, IGitAuthor> = new Map();
-        const commits: Map<string, IGitCommit> = new Map();
+        const commits: Map<string, GitCommit> = new Map();
         const lines: Array<IGitCommitLine> = [];
 
         let repoPath: string;
