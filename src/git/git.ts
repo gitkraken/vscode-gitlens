@@ -1,28 +1,30 @@
 'use strict';
+import { findGitPath, IGit } from './gitLocator';
+import { Logger } from '../logger';
+import { spawnPromise } from 'spawn-rx';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as tmp from 'tmp';
-import { spawnPromise } from 'spawn-rx';
-import { Logger } from '../logger';
 
 export * from './gitEnrichment';
 export * from './enrichers/blameParserEnricher';
 export * from './enrichers/logParserEnricher';
 
+let git: IGit;
 const UncommittedRegex = /^[0]+$/;
 
 async function gitCommand(cwd: string, ...args: any[]) {
     try {
-        const s = await spawnPromise('git', args, { cwd: cwd });
-        Logger.log('git', ...args, cwd);
+        const s = await spawnPromise(git.path, args, { cwd: cwd });
+        Logger.log('git', ...args, `  cwd='${cwd}'`);
         return s;
     }
     catch (ex) {
         const msg = ex && ex.toString();
-        if (msg && (msg.includes('is outside repository') || msg.includes('no such path'))) {
-            Logger.warn('git', ...args, cwd, msg && msg.replace(/\r?\n|\r/g, ' '));
+        if (msg && (msg.includes('Not a git repository') || msg.includes('is outside repository') || msg.includes('no such path'))) {
+            Logger.warn('git', ...args, `  cwd='${cwd}'`, msg && `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
         } else {
-            Logger.error('git', ...args, cwd, msg && msg.replace(/\r?\n|\r/g, ' '));
+            Logger.error('git', ...args, `  cwd='${cwd}'`, msg && `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
         }
         throw ex;
     }
@@ -52,8 +54,12 @@ export default class Git {
         }
     }
 
-    static repoPath(cwd: string) {
-        return gitCommand(cwd, 'rev-parse', '--show-toplevel').then(data => data.replace(/\r?\n|\r/g, '').replace(/\\/g, '/'));
+    static async repoPath(cwd: string, gitPath?: string) {
+        git = await findGitPath(gitPath);
+
+        let data = await gitCommand(cwd, 'rev-parse', '--show-toplevel');
+        data = data.replace(/\r?\n|\r/g, '').replace(/\\/g, '/');
+        return data;
     }
 
     static blame(format: GitBlameFormat, fileName: string, sha?: string, repoPath?: string) {

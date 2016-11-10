@@ -3,7 +3,7 @@ import { Iterables, Strings } from './system';
 import { CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelector, ExtensionContext, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri, workspace } from 'vscode';
 import { BuiltInCommands, Commands, DocumentSchemes, WorkspaceState } from './constants';
 import { CodeLensCommand, CodeLensLocation, IConfig, ICodeLensLanguageLocation } from './configuration';
-import GitProvider, { GitCommit, IGitBlame, IGitBlameLines, IGitLog } from './gitProvider';
+import GitProvider, { GitCommit, IGitBlame, IGitBlameLines } from './gitProvider';
 import * as moment from 'moment';
 
 export class GitRecentChangeCodeLens extends CodeLens {

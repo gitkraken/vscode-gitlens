@@ -87,6 +87,7 @@ export interface IAdvancedConfig {
         enabled: boolean;
     };
     debug: boolean;
+    git: string;
     output: {
         level: OutputLevel;
     };

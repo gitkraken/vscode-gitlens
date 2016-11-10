@@ -221,6 +221,11 @@
                     "default": false,
                     "description": "Specifies debug mode"
                 },
+                "gitlens.advanced.git": {
+                    "type": "string",
+                    "default": null,
+                    "description": "Specifies a git path to use"
+                },
                 "gitlens.advanced.output.level": {
                     "type": "string",
                     "default": "silent",
@@ -346,8 +351,8 @@
         "lodash.debounce": "^4.0.8",
         "lodash.escaperegexp": "^4.1.2",
         "lodash.isequal": "^4.4.0",
-        "moment": "^2.15.2",
-        "spawn-rx": "^2.0.3",
+        "moment": "^2.16.0",
+        "spawn-rx": "^2.0.6",
         "tmp": "^0.0.30"
     },
     "devDependencies": {
