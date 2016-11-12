@@ -56,6 +56,7 @@ export default class Git {
 
     static async repoPath(cwd: string, gitPath?: string) {
         git = await findGitPath(gitPath);
+        Logger.log(`Git found: ${git.version} @ ${git.path === 'git' ? 'PATH' : git.path}`);
 
         let data = await gitCommand(cwd, 'rev-parse', '--show-toplevel');
         data = data.replace(/\r?\n|\r/g, '').replace(/\\/g, '/');
