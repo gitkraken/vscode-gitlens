@@ -1,6 +1,6 @@
 # GitLens
 
-Provides Git information (most recent commit, # of authors) in CodeLens, on-demand inline blame annotations, status bar blame information, a file and blame history explorer, and commands to compare changes with the working tree or previous versions.
+Provides Git CodeLens information (most recent commit, # of authors), on-demand inline blame annotations, status bar blame information, file and blame history explorers, and commands to compare changes with the working tree or previous versions.
 
 ---
 ## Features
@@ -25,7 +25,7 @@ Provides Git information (most recent commit, # of authors) in CodeLens, on-dema
 ---
 ## Requirements
 
-Must be using Git and it must be in your path.
+Must be using Git.
 
 ---
 ## Extension Settings
