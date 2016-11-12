@@ -2,7 +2,7 @@
 import { commands, Position, Range, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { EditorCommand } from './commands';
 import { BuiltInCommands, Commands } from '../constants';
-import GitProvider from '../gitProvider';
+import GitProvider, { GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 
 export default class ShowBlameHistoryCommand extends EditorCommand {
@@ -20,8 +20,10 @@ export default class ShowBlameHistoryCommand extends EditorCommand {
             position = editor.document.validateRange(new Range(0, 0, 0, 1000000)).start;
         }
 
+        const gitUri = GitUri.fromUri(uri);
+
         try {
-            const locations = await this.git.getBlameLocations(uri.fsPath, range);
+            const locations = await this.git.getBlameLocations(gitUri.fsPath, range);
             if (!locations) return window.showWarningMessage(`Unable to show blame history. File is probably not under source control`);
 
             return commands.executeCommand(BuiltInCommands.ShowReferences, uri, position, locations);

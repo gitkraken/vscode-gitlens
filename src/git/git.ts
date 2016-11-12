@@ -83,13 +83,13 @@ export default class Git {
     static log(fileName: string, repoPath?: string) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
-        return gitCommand(root, 'log', `--follow`, `--name-only`, `--no-merges`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, file);
+        return gitCommand(root, 'log', `--follow`, `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, file);
     }
 
     static logRange(fileName: string, start: number, end: number, repoPath?: string) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
-        return gitCommand(root, 'log', `--name-only`, `--no-merges`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, `-L ${start},${end}:${file}`);
+        return gitCommand(root, 'log', `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, `-L ${start},${end}:${file}`);
     }
 
     static getVersionedFile(fileName: string, repoPath: string, sha: string) {
@@ -102,7 +102,7 @@ export default class Git {
                         return;
                     }
 
-                    //Logger.log(`getVersionedFile(${fileName}, ${sha}); destination=${destination}`);
+                    Logger.log(`getVersionedFile(${fileName}, ${repoPath}, ${sha}); destination=${destination}`);
                     fs.appendFile(destination, data, err => {
                         if (err) {
                             reject(err);

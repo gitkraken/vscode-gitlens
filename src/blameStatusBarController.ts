@@ -1,16 +1,21 @@
 'use strict';
 import { Objects } from './system';
-import { Disposable, ExtensionContext, StatusBarAlignment, StatusBarItem, TextEditor, window, workspace } from 'vscode';
-import { IConfig, IStatusBarConfig, StatusBarCommand } from './configuration';
+import { Disposable, ExtensionContext, StatusBarAlignment, StatusBarItem, TextDocument, TextEditor, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
+import { TextDocumentComparer } from './comparers';
+import { IConfig, StatusBarCommand } from './configuration';
 import { WorkspaceState } from './constants';
-import GitProvider, { IGitBlameLine } from './gitProvider';
+import GitProvider, { GitCommit, GitUri, IGitBlame } from './gitProvider';
 import * as moment from 'moment';
 
 export default class BlameStatusBarController extends Disposable {
-    private _config: IStatusBarConfig;
+    private _blame: Promise<IGitBlame> | undefined;
+    private _config: IConfig;
     private _disposable: Disposable;
-    private _statusBarItem: StatusBarItem|null;
-    private _statusBarDisposable: Disposable|null;
+    private _document: TextDocument | undefined;
+    private _statusBarItem: StatusBarItem | undefined;
+    private _statusBarDisposable: Disposable | undefined;
+    private _uri: GitUri;
+    private _useCaching: boolean;
 
     constructor(private context: ExtensionContext, private git: GitProvider) {
         super(() => this.dispose());
@@ -33,7 +38,7 @@ export default class BlameStatusBarController extends Disposable {
     private _onConfigure() {
         const config = workspace.getConfiguration('').get<IConfig>('gitlens');
 
-        if (!Objects.areEquivalent(config.statusBar, this._config)) {
+        if (!Objects.areEquivalent(config.statusBar, this._config && this._config.statusBar)) {
             this._statusBarDisposable && this._statusBarDisposable.dispose();
             this._statusBarItem && this._statusBarItem.dispose();
 
@@ -47,7 +52,7 @@ export default class BlameStatusBarController extends Disposable {
                         break;
                     case StatusBarCommand.GitViewHistory:
                         if (!this.context.workspaceState.get(WorkspaceState.HasGitHistoryExtension, false)) {
-                            config.statusBar.command = StatusBarCommand.BlameExplorer;
+                            config.statusBar.command = StatusBarCommand.ShowBlameHistory;
                         }
                         break;
                 }
@@ -55,28 +60,70 @@ export default class BlameStatusBarController extends Disposable {
 
                 const subscriptions: Disposable[] = [];
 
-                subscriptions.push(window.onDidChangeActiveTextEditor(this._onActiveSelectionChanged, this));
-                subscriptions.push(window.onDidChangeTextEditorSelection(e => this._onActiveSelectionChanged(e.textEditor)));
+                subscriptions.push(window.onDidChangeActiveTextEditor(this._onActiveTextEditorChanged, this));
+                subscriptions.push(window.onDidChangeTextEditorSelection(this._onActiveSelectionChanged, this));
 
                 this._statusBarDisposable = Disposable.from(...subscriptions);
             } else {
-                this._statusBarDisposable = null;
-                this._statusBarItem = null;
+                this._statusBarDisposable = undefined;
+                this._statusBarItem = undefined;
             }
         }
 
-        this._config = config.statusBar;
+        this._config = config;
+
+        this._onActiveTextEditorChanged(window.activeTextEditor);
     }
 
-    private async _onActiveSelectionChanged(editor: TextEditor): Promise<void> {
-        if (!editor || !editor.document || editor.document.isUntitled) {
+    private async _onActiveTextEditorChanged(e: TextEditor): Promise<void> {
+        if (!e || !e.document || e.document.isUntitled || e.viewColumn === undefined) {
             this.clear();
             return;
         }
 
-        const blame = await this.git.getBlameForLine(editor.document.uri.fsPath, editor.selection.active.line);
-        if (blame) {
-            this.show(blame);
+        this._document = e.document;
+        this._uri = GitUri.fromUri(this._document.uri);
+        const maxLines = this._config.advanced.caching.statusBar.maxLines;
+        this._useCaching = this._config.advanced.caching.enabled && (maxLines <= 0 || this._document.lineCount <= maxLines);
+        if (this._useCaching) {
+            this._blame = this.git.getBlameForFile(this._uri.fsPath, this._uri.sha, this._uri.repoPath);
+        }
+        else {
+            this._blame = undefined;
+        }
+
+        return this._showBlame(e.selection.active.line);
+    }
+
+    private async _onActiveSelectionChanged(e: TextEditorSelectionChangeEvent): Promise<void> {
+        if (!TextDocumentComparer.equals(this._document, e.textEditor && e.textEditor.document)) return;
+
+        return this._showBlame(e.selections[0].active.line);
+    }
+
+    private async _showBlame(line: number) {
+        line = line - this._uri.offset;
+
+        let commit: GitCommit;
+        if (line >= 0) {
+            if (this._useCaching) {
+                const blame = await this._blame;
+                if (!blame || !blame.lines.length) {
+                    this.clear();
+                    return;
+                }
+
+                const sha = blame.lines[line].sha;
+                commit = blame.commits.get(sha);
+            }
+            else {
+                const blameLine = await this.git.getBlameForLine(this._uri.fsPath, line, this._uri.sha, this._uri.repoPath);
+                commit = blameLine && blameLine.commit;
+            }
+        }
+
+        if (commit) {
+            this.show(commit);
         }
         else {
             this.clear();
@@ -85,19 +132,22 @@ export default class BlameStatusBarController extends Disposable {
 
     clear() {
         this._statusBarItem && this._statusBarItem.hide();
+        this._document = undefined;
+        this._blame = undefined;
     }
 
-    show(blameLine: IGitBlameLine) {
-        const commit = blameLine.commit;
+    show(commit: GitCommit) {
         this._statusBarItem.text = `$(git-commit) ${commit.author}, ${moment(commit.date).fromNow()}`;
-        //this._statusBarItem.tooltip = [`Last changed by ${commit.author}`, moment(commit.date).format('MMMM Do, YYYY h:MMa'), '', commit.message].join('\n');
 
-        switch (this._config.command) {
+        switch (this._config.statusBar.command) {
             case StatusBarCommand.BlameAnnotate:
                 this._statusBarItem.tooltip = 'Toggle Blame Annotations';
                 break;
-            case StatusBarCommand.BlameExplorer:
+            case StatusBarCommand.ShowBlameHistory:
                 this._statusBarItem.tooltip = 'Open Blame History';
+                break;
+            case StatusBarCommand.ShowFileHistory:
+                this._statusBarItem.tooltip = 'Open File History';
                 break;
             case StatusBarCommand.DiffWithPrevious:
                 this._statusBarItem.tooltip = 'Compare to Previous Commit';

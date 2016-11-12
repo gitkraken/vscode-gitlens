@@ -35,10 +35,10 @@ export class GitBlameParserEnricher implements IGitEnricher<IGitBlame> {
     }
 
     private _parseEntries(data: string): IBlameEntry[] {
-        if (!data) return null;
+        if (!data) return undefined;
 
         const lines = data.split('\n');
-        if (!lines.length) return null;
+        if (!lines.length) return undefined;
 
         const entries: IBlameEntry[] = [];
 
@@ -107,7 +107,7 @@ export class GitBlameParserEnricher implements IGitEnricher<IGitBlame> {
                     entry.fileName = lineParts.slice(1).join(' ');
 
                     entries.push(entry);
-                    entry = null;
+                    entry = undefined;
                     break;
 
                 default:
@@ -120,7 +120,7 @@ export class GitBlameParserEnricher implements IGitEnricher<IGitBlame> {
 
     enrich(data: string, fileName: string): IGitBlame {
         const entries = this._parseEntries(data);
-        if (!entries) return null;
+        if (!entries) return undefined;
 
         const authors: Map<string, IGitAuthor> = new Map();
         const commits: Map<string, GitCommit> = new Map();

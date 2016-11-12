@@ -58,4 +58,11 @@ export namespace Iterables {
     export function next<T>(source: IterableIterator<T>): T {
         return source.next().value;
     }
+
+    export function some<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): boolean {
+        for (const item of source) {
+            if (predicate(item)) return true;
+        }
+        return false;
+    }
 }

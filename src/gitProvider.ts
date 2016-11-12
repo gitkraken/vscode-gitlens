@@ -39,16 +39,16 @@ enum RemoveCacheReason {
 }
 
 export default class GitProvider extends Disposable {
-    private _cache: Map<string, CacheEntry> | null;
-    private _cacheDisposable: Disposable | null;
+    private _cache: Map<string, CacheEntry> | undefined;
+    private _cacheDisposable: Disposable | undefined;
 
     private _config: IConfig;
     private _disposable: Disposable;
-    private _codeLensProviderDisposable: Disposable | null;
+    private _codeLensProviderDisposable: Disposable | undefined;
     private _codeLensProviderSelector: DocumentFilter;
     private _gitignore: Promise<ignore.Ignore>;
 
-    static EmptyPromise: Promise<IGitBlame | IGitLog> = Promise.resolve(null);
+    static EmptyPromise: Promise<IGitBlame | IGitLog> = Promise.resolve(undefined);
     static BlameFormat = GitBlameFormat.incremental;
 
     constructor(private context: ExtensionContext) {
@@ -58,7 +58,7 @@ export default class GitProvider extends Disposable {
 
         this._onConfigure();
 
-        this._gitignore = new Promise<ignore.Ignore | null>((resolve, reject) => {
+        this._gitignore = new Promise<ignore.Ignore | undefined>((resolve, reject) => {
             const gitignorePath = path.join(repoPath, '.gitignore');
             fs.exists(gitignorePath, e => {
                 if (e) {
@@ -67,11 +67,11 @@ export default class GitProvider extends Disposable {
                             resolve(ignore().add(data));
                             return;
                         }
-                        resolve(null);
+                        resolve(undefined);
                     });
                     return;
                 }
-                resolve(null);
+                resolve(undefined);
             });
         });
 
@@ -106,7 +106,7 @@ export default class GitProvider extends Disposable {
                 this._codeLensProviderSelector = GitCodeLensProvider.selector;
                 this._codeLensProviderDisposable = languages.registerCodeLensProvider(this._codeLensProviderSelector, new GitCodeLensProvider(this.context, this));
             } else {
-                this._codeLensProviderDisposable = null;
+                this._codeLensProviderDisposable = undefined;
             }
         }
 
@@ -127,9 +127,9 @@ export default class GitProvider extends Disposable {
                 this._cacheDisposable = Disposable.from(...disposables);
             } else {
                 this._cacheDisposable && this._cacheDisposable.dispose();
-                this._cacheDisposable = null;
+                this._cacheDisposable = undefined;
                 this._cache && this._cache.clear();
-                this._cache = null;
+                this._cache = undefined;
             }
         }
 
@@ -167,13 +167,15 @@ export default class GitProvider extends Disposable {
         return Git.repoPath(cwd);
     }
 
-    getBlameForFile(fileName: string): Promise<IGitBlame | null> {
-        Logger.log(`getBlameForFile('${fileName}')`);
+    getBlameForFile(fileName: string, sha?: string, repoPath?: string): Promise<IGitBlame | undefined> {
+        Logger.log(`getBlameForFile('${fileName}', ${sha}, ${repoPath})`);
         fileName = Git.normalizePath(fileName);
+
+        const useCaching = this.UseCaching && !sha;
 
         let cacheKey: string | undefined;
         let entry: CacheEntry | undefined;
-        if (this.UseCaching) {
+        if (useCaching) {
             cacheKey = this._getCacheEntryKey(fileName);
             entry = this._cache.get(cacheKey);
 
@@ -189,11 +191,11 @@ export default class GitProvider extends Disposable {
                 return <Promise<IGitBlame>>GitProvider.EmptyPromise;
             }
 
-            return Git.blame(GitProvider.BlameFormat, fileName)
+            return Git.blame(GitProvider.BlameFormat, fileName, sha, repoPath)
                 .then(data => new GitBlameParserEnricher(GitProvider.BlameFormat).enrich(data, fileName))
                 .catch(ex => {
                     // Trap and cache expected blame errors
-                    if (this.UseCaching) {
+                    if (useCaching) {
                         const msg = ex && ex.toString();
                         Logger.log(`Replace blame cache with empty promise for '${cacheKey}'`);
 
@@ -206,11 +208,11 @@ export default class GitProvider extends Disposable {
                         this._cache.set(cacheKey, entry);
                         return <Promise<IGitBlame>>GitProvider.EmptyPromise;
                     }
-                    return null;
+                    return undefined;
                 });
         });
 
-        if (this.UseCaching) {
+        if (useCaching) {
             Logger.log(`Add blame cache for '${cacheKey}'`);
 
             entry.blame = <ICachedBlame>{
@@ -224,13 +226,13 @@ export default class GitProvider extends Disposable {
         return promise;
     }
 
-    async getBlameForLine(fileName: string, line: number, sha?: string, repoPath?: string): Promise<IGitBlameLine | null> {
+    async getBlameForLine(fileName: string, line: number, sha?: string, repoPath?: string): Promise<IGitBlameLine | undefined> {
         Logger.log(`getBlameForLine('${fileName}', ${line}, ${sha}, ${repoPath})`);
 
         if (this.UseCaching && !sha) {
             const blame = await this.getBlameForFile(fileName);
             const blameLine = blame && blame.lines[line];
-            if (!blameLine) return null;
+            if (!blameLine) return undefined;
 
             const commit = blame.commits.get(blameLine.sha);
             return <IGitBlameLine>{
@@ -245,7 +247,7 @@ export default class GitProvider extends Disposable {
         try {
             const data = await Git.blameLines(GitProvider.BlameFormat, fileName, line + 1, line + 1, sha, repoPath);
             const blame = new GitBlameParserEnricher(GitProvider.BlameFormat).enrich(data, fileName);
-            if (!blame) return null;
+            if (!blame) return undefined;
 
             const commit = Iterables.first(blame.commits.values());
             if (repoPath) {
@@ -258,15 +260,15 @@ export default class GitProvider extends Disposable {
             };
         }
         catch (ex) {
-            return null;
+            return undefined;
         }
     }
 
-    async getBlameForRange(fileName: string, range: Range): Promise<IGitBlameLines | null> {
+    async getBlameForRange(fileName: string, range: Range): Promise<IGitBlameLines | undefined> {
         Logger.log(`getBlameForRange('${fileName}', ${range})`);
 
         const blame = await this.getBlameForFile(fileName);
-        if (!blame) return null;
+        if (!blame) return undefined;
 
         if (!blame.lines.length) return Object.assign({ allLines: blame.lines }, blame);
 
@@ -312,11 +314,11 @@ export default class GitProvider extends Disposable {
         };
     }
 
-    async getBlameForShaRange(fileName: string, sha: string, range: Range): Promise<IGitBlameCommitLines | null> {
+    async getBlameForShaRange(fileName: string, sha: string, range: Range): Promise<IGitBlameCommitLines | undefined> {
         Logger.log(`getBlameForShaRange('${fileName}', ${sha}, ${range})`);
 
         const blame = await this.getBlameForFile(fileName);
-        if (!blame) return null;
+        if (!blame) return undefined;
 
         const lines = blame.lines.slice(range.start.line, range.end.line + 1).filter(l => l.sha === sha);
         let commit = blame.commits.get(sha);
@@ -329,11 +331,11 @@ export default class GitProvider extends Disposable {
         };
     }
 
-    async getBlameLocations(fileName: string, range: Range): Promise<Location[] | null> {
+    async getBlameLocations(fileName: string, range: Range): Promise<Location[] | undefined> {
         Logger.log(`getBlameForShaRange('${fileName}', ${range})`);
 
         const blame = await this.getBlameForRange(fileName, range);
-        if (!blame) return null;
+        if (!blame) return undefined;
 
         const commitCount = blame.commits.size;
 
@@ -351,7 +353,7 @@ export default class GitProvider extends Disposable {
         return locations;
     }
 
-    getLogForFile(fileName: string, range?: Range): Promise<IGitLog | null> {
+    getLogForFile(fileName: string, range?: Range): Promise<IGitLog | undefined> {
         Logger.log(`getLogForFile('${fileName}', ${range})`);
         fileName = Git.normalizePath(fileName);
 
@@ -392,7 +394,7 @@ export default class GitProvider extends Disposable {
                         this._cache.set(cacheKey, entry);
                         return <Promise<IGitLog>>GitProvider.EmptyPromise;
                     }
-                    return null;
+                    return undefined;
                 });
         });
 
@@ -410,11 +412,11 @@ export default class GitProvider extends Disposable {
         return promise;
     }
 
-    async getLogLocations(fileName: string, sha?: string, line?: number): Promise<Location[] | null> {
+    async getLogLocations(fileName: string, sha?: string, line?: number): Promise<Location[] | undefined> {
         Logger.log(`getLogLocations('${fileName}', ${sha}, ${line})`);
 
         const log = await this.getLogForFile(fileName);
-        if (!log) return null;
+        if (!log) return undefined;
 
         const commitCount = log.commits.size;
 
@@ -454,7 +456,7 @@ export default class GitProvider extends Disposable {
             this._codeLensProviderDisposable.dispose();
 
             if (editor.document.fileName === (this._codeLensProviderSelector && this._codeLensProviderSelector.pattern)) {
-                this._codeLensProviderDisposable = null;
+                this._codeLensProviderDisposable = undefined;
                 return;
             }
         }
@@ -468,7 +470,7 @@ export default class GitProvider extends Disposable {
         disposables.push(window.onDidChangeActiveTextEditor(e => {
             if (e.viewColumn && e.document !== editor.document) {
                 this._codeLensProviderDisposable && this._codeLensProviderDisposable.dispose();
-                this._codeLensProviderDisposable = null;
+                this._codeLensProviderDisposable = undefined;
             }
         }));
 
@@ -487,7 +489,7 @@ export default class GitProvider extends Disposable {
         return data;
     }
 
-    static fromGitUri(uri: Uri) {
+    static fromGitUri(uri: Uri): IGitUriData {
         if (uri.scheme !== DocumentSchemes.Git) throw new Error(`fromGitUri(uri=${uri}) invalid scheme`);
         return GitProvider._fromGitUri<IGitUriData>(uri);
     }
@@ -535,6 +537,42 @@ export default class GitProvider extends Disposable {
         const data = this._toGitUriData<IGitBlameUriData>(commit, index, originalFileName);
         data.range = range;
         return data;
+    }
+}
+
+export class GitUri extends Uri {
+    offset: number;
+    repoPath?: string | undefined;
+    sha?: string | undefined;
+
+    constructor(uri?: Uri) {
+        super();
+        if (!uri) return;
+
+        const base = <any>this;
+        base._scheme = uri.scheme;
+        base._authority = uri.authority;
+        base._path = uri.path;
+        base._query = uri.query;
+        base._fragment = uri.fragment;
+
+        this.offset = 0;
+        if (uri.scheme === DocumentSchemes.Git || uri.scheme === DocumentSchemes.GitBlame) {
+            const data = GitProvider.fromGitUri(uri);
+            base._fsPath = data.originalFileName || data.fileName;
+
+            this.offset = (data.decoration && data.decoration.split('\n').length) || 0;
+            this.repoPath = data.repoPath;
+            this.sha = data.sha;
+        }
+    }
+
+    fileUri() {
+        return Uri.file(this.fsPath);
+    }
+
+    static fromUri(uri: Uri) {
+        return new GitUri(uri);
     }
 }
 

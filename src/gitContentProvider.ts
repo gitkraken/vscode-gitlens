@@ -1,18 +1,29 @@
 'use strict';
-import { ExtensionContext, TextDocumentContentProvider, Uri } from 'vscode';
+import { ExtensionContext, TextDocumentContentProvider, Uri, window } from 'vscode';
 import { DocumentSchemes } from './constants';
 import GitProvider from './gitProvider';
 import { Logger } from './logger';
+import * as path from 'path';
 
 export default class GitContentProvider implements TextDocumentContentProvider {
     static scheme = DocumentSchemes.Git;
 
     constructor(context: ExtensionContext, private git: GitProvider) { }
 
-    provideTextDocumentContent(uri: Uri): string | Thenable<string> {
+    async provideTextDocumentContent(uri: Uri): Promise<string> {
         const data = GitProvider.fromGitUri(uri);
-        return this.git.getVersionedFileText(data.originalFileName || data.fileName, data.repoPath, data.sha)
-            .then(text => data.decoration ? `${data.decoration}\n${text}` : text)
-            .catch(ex => Logger.error('[GitLens.GitContentProvider]', 'getVersionedFileText', ex));
+        const fileName = data.originalFileName || data.fileName;
+        try {
+            let text = await this.git.getVersionedFileText(fileName, data.repoPath, data.sha);
+            if (data.decoration) {
+                text = `${data.decoration}\n${text}`;
+            }
+            return text;
+        }
+        catch (ex) {
+            Logger.error('[GitLens.GitContentProvider]', 'getVersionedFileText', ex);
+            await window.showErrorMessage(`Unable to show Git revision ${data.sha} of '${path.relative(data.repoPath, fileName)}'`);
+            return undefined;
+        }
     }
 }

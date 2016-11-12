@@ -1,3 +1,4 @@
+'use strict';
 // export * from './system/array';
 // export * from './system/disposable';
 // export * from './system/element';

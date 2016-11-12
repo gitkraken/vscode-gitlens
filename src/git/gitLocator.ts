@@ -1,3 +1,4 @@
+'use strict';
 import { spawnPromise } from 'spawn-rx';
 import * as path from 'path';
 

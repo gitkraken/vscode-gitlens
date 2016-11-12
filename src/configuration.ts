@@ -16,11 +16,11 @@ export interface IBlameConfig {
     };
 }
 
-export type CodeLensCommand = 'gitlens.toggleBlame' | 'gitlens.showBlameHistory' | 'gitlens.diffWithPrevious' | 'git.viewFileHistory';
+export type CodeLensCommand = 'gitlens.toggleBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.diffWithPrevious' | 'git.viewFileHistory';
 export const CodeLensCommand = {
     BlameAnnotate: Commands.ToggleBlame as CodeLensCommand,
     ShowBlameHistory: Commands.ShowBlameHistory as CodeLensCommand,
-    ShowHistory: Commands.ShowHistory as CodeLensCommand,
+    ShowFileHistory: Commands.ShowFileHistory as CodeLensCommand,
     DiffWithPrevious: Commands.DiffWithPrevious as CodeLensCommand,
     GitViewHistory: 'git.viewFileHistory' as CodeLensCommand
 };
@@ -61,10 +61,11 @@ export interface ICodeLensesConfig {
     authors: ICodeLensConfig;
 }
 
-export type StatusBarCommand = 'gitlens.toggleBlame' | 'gitlens.showBlameHistory' | 'gitlens.toggleCodeLens' | 'gitlens.diffWithPrevious' | 'git.viewFileHistory';
+export type StatusBarCommand = 'gitlens.toggleBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.toggleCodeLens' | 'gitlens.diffWithPrevious' | 'git.viewFileHistory';
 export const StatusBarCommand = {
     BlameAnnotate: Commands.ToggleBlame as StatusBarCommand,
-    BlameExplorer: Commands.ShowBlameHistory as StatusBarCommand,
+    ShowBlameHistory: Commands.ShowBlameHistory as StatusBarCommand,
+    ShowFileHistory: Commands.ShowFileHistory as CodeLensCommand,
     DiffWithPrevious: Commands.DiffWithPrevious as StatusBarCommand,
     ToggleCodeLens: Commands.ToggleCodeLens as StatusBarCommand,
     GitViewHistory: 'git.viewFileHistory' as StatusBarCommand
@@ -85,6 +86,9 @@ export const OutputLevel = {
 export interface IAdvancedConfig {
     caching: {
         enabled: boolean;
+        statusBar: {
+            maxLines: number;
+        }
     };
     debug: boolean;
     git: string;

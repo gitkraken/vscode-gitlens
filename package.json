@@ -156,15 +156,15 @@
                 },
                 "gitlens.codeLens.recentChange.command": {
                     "type": "string",
-                    "default": "gitlens.showHistory",
+                    "default": "gitlens.showFileHistory",
                     "enum": [
                         "gitlens.toggleBlame",
                         "gitlens.showBlameHistory",
-                        "gitlens.showHistory",
+                        "gitlens.showFileHistory",
                         "gitlens.diffWithPrevious",
                         "git.viewFileHistory"
                     ],
-                    "description": "Specifies the command executed when the recent change CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showHistory` - opens the history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
+                    "description": "Specifies the command executed when the recent change CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
                 },
                 "gitlens.codeLens.authors.enabled": {
                     "type": "boolean",
@@ -177,11 +177,11 @@
                     "enum": [
                         "gitlens.toggleBlame",
                         "gitlens.showBlameHistory",
-                        "gitlens.showHistory",
+                        "gitlens.showFileHistory",
                         "gitlens.diffWithPrevious",
                         "git.viewFileHistory"
                     ],
-                    "description": "Specifies the command executed when the authors CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showHistory` - opens the history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
+                    "description": "Specifies the command executed when the authors CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
                 },
                 "gitlens.statusBar.enabled": {
                     "type": "boolean",
@@ -194,12 +194,12 @@
                     "enum": [
                         "gitlens.toggleBlame",
                         "gitlens.showBlameHistory",
-                        "gitlens.showHistory",
+                        "gitlens.showFileHistory",
                         "gitlens.diffWithPrevious",
                         "gitlens.toggleCodeLens",
                         "git.viewFileHistory"
                     ],
-                    "description": "Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showHistory` - opens the history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
+                    "description": "Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
                 },
                 "gitlens.menus.fileDiff.enabled": {
                     "type": "boolean",
@@ -208,13 +208,18 @@
                 },
                 "gitlens.menus.lineDiff.enabled": {
                     "type": "boolean",
-                    "default": true,
+                    "default": false,
                     "description": "Specifies whether line-based diff commands will be added to the context menus"
                 },
                 "gitlens.advanced.caching.enabled": {
                     "type": "boolean",
                     "default": true,
                     "description": "Specifies whether git blame output will be cached"
+                },
+                "gitlens.advanced.caching.statusBar.maxLines": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Specifies whether status bar git blame output will be cached for larger documents"
                 },
                 "gitlens.advanced.debug": {
                     "type": "boolean",
@@ -280,8 +285,8 @@
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.showHistory",
-                "title": "Open Git History",
+                "command": "gitlens.showFileHistory",
+                "title": "Open Git File History",
                 "category": "GitLens"
             }
         ],
@@ -289,6 +294,7 @@
             "explorer/context": [
                 {
                     "command": "gitlens.diffWithPrevious",
+                    "alt": "gitlens.diffWithWorking",
                     "when": "config.gitlens.menus.fileDiff.enabled && config.git.enabled",
                     "group": "2_gitlens-file"
                 }
@@ -313,11 +319,13 @@
                 },
                 {
                     "command": "gitlens.diffWithWorking",
+                    "alt": "gitlens.diffLineWithWorking",
                     "when": "editorTextFocus && config.gitlens.menus.fileDiff.enabled && config.git.enabled",
                     "group": "3_gitlens-file@1.0"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
+                    "alt": "gitlens.diffLineWithPrevious",
                     "when": "editorTextFocus && config.gitlens.menus.fileDiff.enabled && config.git.enabled",
                     "group": "3_gitlens-file@1.1"
                 },
@@ -358,7 +366,7 @@
     "devDependencies": {
         "mocha": "^3.1.2",
         "tslint": "^3.15.1",
-        "typescript": "^2.0.8",
+        "typescript": "^2.0.9",
         "vscode": "^1.0.3",
         "@types/node": "^6.0.46",
         "@types/mocha": "^2.2.32",

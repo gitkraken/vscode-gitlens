@@ -14,7 +14,7 @@ export const BuiltInCommands = {
     ToggleRenderWhitespace: 'editor.action.toggleRenderWhitespace' as BuiltInCommands
 };
 
-export type Commands = 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' | 'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showHistory' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
+export type Commands = 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' | 'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
 export const Commands = {
     DiffWithPrevious: 'gitlens.diffWithPrevious' as Commands,
     DiffLineWithPrevious: 'gitlens.diffLineWithPrevious' as Commands,
@@ -22,7 +22,7 @@ export const Commands = {
     DiffLineWithWorking: 'gitlens.diffLineWithWorking' as Commands,
     ShowBlame: 'gitlens.showBlame' as Commands,
     ShowBlameHistory: 'gitlens.showBlameHistory' as Commands,
-    ShowHistory: 'gitlens.showHistory' as Commands,
+    ShowFileHistory: 'gitlens.showFileHistory' as Commands,
     ToggleBlame: 'gitlens.toggleBlame' as Commands,
     ToggleCodeLens: 'gitlens.toggleCodeLens' as Commands
 };

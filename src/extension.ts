@@ -15,7 +15,7 @@ import DiffWithWorkingCommand from './commands/diffWithWorking';
 import DiffLineWithWorkingCommand from './commands/diffLineWithWorking';
 import ShowBlameCommand from './commands/showBlame';
 import ShowBlameHistoryCommand from './commands/showBlameHistory';
-import ShowHistoryCommand from './commands/showHistory';
+import ShowFileHistoryCommand from './commands/showFileHistory';
 import ToggleBlameCommand from './commands/toggleBlame';
 import ToggleCodeLensCommand from './commands/toggleCodeLens';
 
@@ -64,10 +64,10 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new DiffLineWithWorkingCommand(git));
     context.subscriptions.push(new DiffWithPreviousCommand(git));
     context.subscriptions.push(new DiffLineWithPreviousCommand(git));
-    context.subscriptions.push(new ShowBlameCommand(git, annotationController));
-    context.subscriptions.push(new ToggleBlameCommand(git, annotationController));
+    context.subscriptions.push(new ShowBlameCommand(annotationController));
+    context.subscriptions.push(new ToggleBlameCommand(annotationController));
     context.subscriptions.push(new ShowBlameHistoryCommand(git));
-    context.subscriptions.push(new ShowHistoryCommand(git));
+    context.subscriptions.push(new ShowFileHistoryCommand(git));
     context.subscriptions.push(new ToggleCodeLensCommand(git));
 }
 

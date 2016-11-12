@@ -61,7 +61,7 @@ export default class GitBlameCodeLensProvider implements CodeLensProvider {
     resolveCodeLens(lens: CodeLens, token: CancellationToken): Thenable<CodeLens> {
         if (lens instanceof GitDiffWithWorkingTreeCodeLens) return this._resolveDiffWithWorkingTreeCodeLens(lens, token);
         if (lens instanceof GitDiffWithPreviousCodeLens) return this._resolveGitDiffWithPreviousCodeLens(lens, token);
-        return Promise.reject<CodeLens>(null);
+        return Promise.reject<CodeLens>(undefined);
     }
 
     _resolveDiffWithWorkingTreeCodeLens(lens: GitDiffWithWorkingTreeCodeLens, token: CancellationToken): Thenable<CodeLens> {

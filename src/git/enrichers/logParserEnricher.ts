@@ -19,10 +19,10 @@ interface ILogEntry {
 
 export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
     private _parseEntries(data: string): ILogEntry[] {
-        if (!data) return null;
+        if (!data) return undefined;
 
         const lines = data.split('\n');
-        if (!lines.length) return null;
+        if (!lines.length) return undefined;
 
         const entries: ILogEntry[] = [];
 
@@ -49,7 +49,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
                     break;
 
                 case 'author-date':
-                    entry.authorDate = lineParts.slice(1).join(' ').trim();
+                    entry.authorDate = `${lineParts[1]}T${lineParts[2]}${lineParts[3]}`;
                     break;
 
                 // case 'committer':
@@ -76,7 +76,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
                     }
 
                     entries.push(entry);
-                    entry = null;
+                    entry = undefined;
                     break;
 
                 default:
@@ -89,7 +89,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
 
     enrich(data: string, fileName: string): IGitLog {
         const entries = this._parseEntries(data);
-        if (!entries) return null;
+        if (!entries) return undefined;
 
         const authors: Map<string, IGitAuthor> = new Map();
         const commits: Map<string, GitCommit> = new Map();

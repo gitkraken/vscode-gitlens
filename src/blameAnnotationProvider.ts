@@ -1,9 +1,11 @@
 'use strict';
 import { Iterables } from './system';
-import { commands, DecorationOptions, Disposable, ExtensionContext, OverviewRulerLane, Range, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, Uri, window, workspace } from 'vscode';
-import { BuiltInCommands } from './constants';
+import { commands, DecorationOptions, Disposable, ExtensionContext, OverviewRulerLane, Range, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
+import { TextDocumentComparer } from './comparers';
 import { BlameAnnotationStyle, IBlameConfig } from './configuration';
-import GitProvider, { GitCommit, IGitBlame } from './gitProvider';
+import { BuiltInCommands } from './constants';
+import GitProvider, { GitCommit, GitUri, IGitBlame } from './gitProvider';
+import { Logger } from './logger';
 import * as moment from 'moment';
 
 const blameDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
@@ -15,13 +17,13 @@ const blameDecoration: TextEditorDecorationType = window.createTextEditorDecorat
 let highlightDecoration: TextEditorDecorationType;
 
 export class BlameAnnotationProvider extends Disposable {
-    public uri: Uri;
+    public document: TextDocument;
+    public requiresRenderWhitespaceToggle: boolean = false;
 
     private _blame: Promise<IGitBlame>;
     private _config: IBlameConfig;
     private _disposable: Disposable;
-    private _document: TextDocument;
-    private _renderWhitespaceSetting: string;
+    private _uri: GitUri;
 
     constructor(context: ExtensionContext, private git: GitProvider, public editor: TextEditor) {
         super(() => this.dispose());
@@ -44,49 +46,56 @@ export class BlameAnnotationProvider extends Disposable {
             });
         }
 
-        this._document = this.editor.document;
-        this.uri = this._document.uri;
-
-        this._blame = this.git.getBlameForFile(this.uri.fsPath);
+        this.document = this.editor.document;
+        this._uri = GitUri.fromUri(this.document.uri);
+        this._blame = this.git.getBlameForFile(this._uri.fsPath, this._uri.sha, this._uri.repoPath);
 
         this._config = workspace.getConfiguration('gitlens').get<IBlameConfig>('blame');
 
         const subscriptions: Disposable[] = [];
 
+        subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigurationChanged, this));
         subscriptions.push(window.onDidChangeTextEditorSelection(this._onActiveSelectionChanged, this));
 
         this._disposable = Disposable.from(...subscriptions);
+
+        this._onConfigurationChanged();
     }
 
-    dispose() {
+    async dispose(toggleRenderWhitespace: boolean = true) {
         if (this.editor) {
-            // HACK: This only works when switching to another editor - diffs handle whitespace toggle differently
-            if (this._renderWhitespaceSetting !== 'none') {
-                commands.executeCommand(BuiltInCommands.ToggleRenderWhitespace);
-            }
-
             this.editor.setDecorations(blameDecoration, []);
             this.editor.setDecorations(highlightDecoration, []);
+        }
+
+        // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- toggle whitespace back on
+        if (toggleRenderWhitespace && this.requiresRenderWhitespaceToggle) {
+            Logger.log('BlameAnnotationProvider.dispose:', `Toggle whitespace rendering on`);
+            await commands.executeCommand(BuiltInCommands.ToggleRenderWhitespace);
         }
 
         this._disposable && this._disposable.dispose();
     }
 
-    private async _onActiveSelectionChanged(e: TextEditorSelectionChangeEvent) {
-        const blame = await this.git.getBlameForLine(e.textEditor.document.fileName, e.selections[0].active.line);
-        if (blame) {
-            this._applyCommitHighlight(blame.commit.sha);
-        }
+    private _onConfigurationChanged() {
+        const renderWhitespace = workspace.getConfiguration('editor').get<string>('renderWhitespace');
+        this.requiresRenderWhitespaceToggle = !(renderWhitespace == null || renderWhitespace === 'none');
     }
 
-    async provideBlameAnnotation(sha?: string) {
+    private async _onActiveSelectionChanged(e: TextEditorSelectionChangeEvent) {
+        if (!TextDocumentComparer.equals(this.document, e.textEditor && e.textEditor.document)) return;
+
+        return this.setSelection(e.selections[0].active.line);
+    }
+
+    async provideBlameAnnotation(shaOrLine?: string | number): Promise<boolean> {
         const blame = await this._blame;
-        if (!blame || !blame.lines.length) return;
+        if (!blame || !blame.lines.length) return false;
 
         // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- toggle whitespace off
-        this._renderWhitespaceSetting = workspace.getConfiguration('editor').get<string>('renderWhitespace');
-        if (this._renderWhitespaceSetting !== 'none') {
-            commands.executeCommand(BuiltInCommands.ToggleRenderWhitespace);
+        if (this.requiresRenderWhitespaceToggle) {
+            Logger.log('BlameAnnotationProvider.provideBlameAnnotation:', `Toggle whitespace rendering off`);
+            await commands.executeCommand(BuiltInCommands.ToggleRenderWhitespace);
         }
 
         let blameDecorationOptions: DecorationOptions[] | undefined;
@@ -103,23 +112,49 @@ export class BlameAnnotationProvider extends Disposable {
             this.editor.setDecorations(blameDecoration, blameDecorationOptions);
         }
 
-        sha = sha || Iterables.first(blame.commits.values()).sha;
-
-        return this._applyCommitHighlight(sha);
+        this._setSelection(blame, shaOrLine);
+        return true;
     }
 
-    private async _applyCommitHighlight(sha: string) {
+    async setSelection(shaOrLine?: string | number) {
         const blame = await this._blame;
         if (!blame || !blame.lines.length) return;
 
+        return this._setSelection(blame, shaOrLine);
+    }
+
+    private _setSelection(blame: IGitBlame, shaOrLine?: string | number) {
+        const offset = this._uri.offset;
+
+        let sha: string;
+        if (typeof shaOrLine === 'string') {
+            sha = shaOrLine;
+        }
+        else if (typeof shaOrLine === 'number') {
+            const line = shaOrLine - offset;
+            if (line >= 0) {
+                sha = blame.lines[line].sha;
+            }
+        }
+        else {
+            sha = Iterables.first(blame.commits.values()).sha;
+        }
+
+        if (!sha) {
+            this.editor.setDecorations(highlightDecoration, []);
+            return;
+        }
+
         const highlightDecorationRanges = blame.lines
             .filter(l => l.sha === sha)
-            .map(l => this.editor.document.validateRange(new Range(l.line, 0, l.line, 1000000)));
+            .map(l => this.editor.document.validateRange(new Range(l.line + offset, 0, l.line + offset, 1000000)));
 
         this.editor.setDecorations(highlightDecoration, highlightDecorationRanges);
     }
 
     private _getCompactGutterDecorations(blame: IGitBlame): DecorationOptions[] {
+        const offset = this._uri.offset;
+
         let count = 0;
         let lastSha: string;
         return blame.lines.map(l => {
@@ -143,7 +178,7 @@ export class BlameAnnotationProvider extends Disposable {
                 count = -1;
             }
 
-            const isEmptyOrWhitespace = this._document.lineAt(l.line).isEmptyOrWhitespace;
+            const isEmptyOrWhitespace = this.document.lineAt(l.line).isEmptyOrWhitespace;
             if (!isEmptyOrWhitespace) {
                 switch (++count) {
                     case 0:
@@ -164,7 +199,7 @@ export class BlameAnnotationProvider extends Disposable {
             lastSha = l.sha;
 
             return <DecorationOptions>{
-                range: this.editor.document.validateRange(new Range(l.line, 0, l.line, 0)),
+                range: this.editor.document.validateRange(new Range(l.line + offset, 0, l.line + offset, 0)),
                 hoverMessage: hoverMessage,
                 renderOptions: { before: { color: color, contentText: gutter, width: '11em' } }
             };
@@ -172,6 +207,8 @@ export class BlameAnnotationProvider extends Disposable {
     }
 
     private _getExpandedGutterDecorations(blame: IGitBlame): DecorationOptions[] {
+        const offset = this._uri.offset;
+
         let width = 0;
         if (this._config.annotation.sha) {
             width += 5;
@@ -211,7 +248,7 @@ export class BlameAnnotationProvider extends Disposable {
 
             const gutter = this._getGutter(commit);
             return <DecorationOptions>{
-                range: this.editor.document.validateRange(new Range(l.line, 0, l.line, 0)),
+                range: this.editor.document.validateRange(new Range(l.line + offset, 0, l.line + offset, 0)),
                 hoverMessage: hoverMessage,
                 renderOptions: { before: { color: color, contentText: gutter, width: `${width}em` } }
             };
