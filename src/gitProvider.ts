@@ -265,10 +265,15 @@ export default class GitProvider extends Disposable {
     }
 
     async getBlameForRange(fileName: string, range: Range, sha?: string, repoPath?: string): Promise<IGitBlameLines | undefined> {
-        Logger.log(`getBlameForRange('${fileName}', ${range}, ${sha}, ${repoPath})`);
-
+        Logger.log(`getBlameForRange('${fileName}', [${range.start.line}, ${range.end.line}], ${sha}, ${repoPath})`);
         const blame = await this.getBlameForFile(fileName, sha, repoPath);
         if (!blame) return undefined;
+
+        return this.getBlameForRangeSync(blame, fileName, range, sha, repoPath);
+    }
+
+    getBlameForRangeSync(blame: IGitBlame, fileName: string, range: Range, sha?: string, repoPath?: string): IGitBlameLines | undefined {
+        Logger.log(`getBlameForRangeSync('${fileName}', [${range.start.line}, ${range.end.line}], ${sha}, ${repoPath})`);
 
         if (!blame.lines.length) return Object.assign({ allLines: blame.lines }, blame);
 
@@ -315,7 +320,7 @@ export default class GitProvider extends Disposable {
     }
 
     async getBlameLocations(fileName: string, range: Range, sha?: string, repoPath?: string, selectedSha?: string, line?: number): Promise<Location[] | undefined> {
-        Logger.log(`getBlameLocations('${fileName}', ${range}, ${sha}, ${repoPath})`);
+        Logger.log(`getBlameLocations('${fileName}', [${range.start.line}, ${range.end.line}], ${sha}, ${repoPath})`);
 
         const blame = await this.getBlameForRange(fileName, range, sha, repoPath);
         if (!blame) return undefined;
@@ -340,7 +345,7 @@ export default class GitProvider extends Disposable {
     }
 
     getLogForFile(fileName: string, sha?: string, repoPath?: string, range?: Range): Promise<IGitLog | undefined> {
-        Logger.log(`getLogForFile('${fileName}', ${sha}, ${repoPath}, ${range})`);
+        Logger.log(`getLogForFile('${fileName}', ${sha}, ${repoPath}, ${range && `[${range.start.line}, ${range.end.line}]`})`);
         fileName = Git.normalizePath(fileName);
 
         const useCaching = this.UseCaching && !range;
