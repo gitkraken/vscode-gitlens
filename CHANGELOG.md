@@ -1,7 +1,7 @@
 ---
 ## Release Notes
 
-### 0.9.0
+### 1.0.0
 
   - Adds support for git history (log)!
   - Adds support for blame annotations and git commands on file revisions
@@ -15,6 +15,7 @@
   - Adds output channel logging, controlled by the `gitlens.advanced.output.level` setting
   - Switches on-demand CodeLens to be a global toggle (rather than per file)
   - Complete rewrite of the blame annotation provider to reduce overhead and provide better performance
+  - Improves performance of the CodeLens support
   - Improves performance (significantly) when only showing CodeLens at the document level
   - Improves performance of status bar blame support
   - Changes `gitlens.diffWithPrevious` command to always be file sensitive diffs

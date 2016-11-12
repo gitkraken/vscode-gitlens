@@ -1,6 +1,6 @@
 # GitLens
 
-Provides Git information (most recent commit, # of authors) in CodeLens, on-demand inline blame annotations, status bar blame information, a blame explorer, and commands to compare changes with the working tree or previous versions.
+Provides Git information (most recent commit, # of authors) in CodeLens, on-demand inline blame annotations, status bar blame information, a file and blame history explorer, and commands to compare changes with the working tree or previous versions.
 
 ---
 ## Features
@@ -12,7 +12,7 @@ Provides Git information (most recent commit, # of authors) in CodeLens, on-dema
     > Clicking on the CodeLens toggles Git blame annotations on/off
 - Provides on-demand **inline blame annotations** with multiple styles
 - Provides Git blame information about the selected line in the **status bar**
-- Provides a Git **history explorer** to visualize the history of a file or block
+- Provides a Git **file history explorer** to visualize the history of a file
 - Provides a Git **blame history explorer** to visualize the blame history of a file or block
 - Provides ability to **compare diffs** with the working tree as well as with previous versions
 - Provides many configuration settings to allow the **customization** of almost all features
@@ -53,6 +53,5 @@ Must be using Git and it must be in your path.
 ## Known Issues
 
 - Content in the **history explorers** disappears after a bit: [vscode issue](https://github.com/Microsoft/vscode/issues/11360)
-- Highlighted lines disappear in **Blame explorer** after changing selection and returning to a previous selection: [vscode issue](https://github.com/Microsoft/vscode/issues/11360)
 - CodeLens aren't updated properly after a file is saved: [vscode issue](https://github.com/Microsoft/vscode/issues/11546)
-- Visible whitespace causes issue with blame overlay (currently fixed with a hack, but fails randomly): [vscode issue](https://github.com/Microsoft/vscode/issues/11485)
+- Visible whitespace causes issue with blame overlay (currently fixed with a hack, but infrequently and randomly fails): [vscode issue](https://github.com/Microsoft/vscode/issues/11485)

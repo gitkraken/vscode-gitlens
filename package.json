@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "0.9.0",
+    "version": "1.0.0",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -11,7 +11,7 @@
     },
     "license": "SEE LICENSE IN LICENSE",
     "displayName": "GitLens",
-    "description": "Provides Git information (most recent commit, # of authors) in CodeLens, on-demand inline blame annotations, a blame explorer, and commands to compare changes w/ the working tree or previous versions",
+    "description": "Provides Git information (most recent commit, # of authors) in CodeLens, on-demand inline blame annotations, a file and blame history explorer, and commands to compare changes w/ the working tree or previous versions",
     "categories": [
         "Other"
     ],
