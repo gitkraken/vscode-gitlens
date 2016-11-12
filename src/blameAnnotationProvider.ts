@@ -88,6 +88,11 @@ export class BlameAnnotationProvider extends Disposable {
         return this.setSelection(e.selections[0].active.line);
     }
 
+    async supportsBlame(): Promise<boolean> {
+        const blame = await this._blame;
+        return !!(blame && blame.lines.length);
+    }
+
     async provideBlameAnnotation(shaOrLine?: string | number): Promise<boolean> {
         const blame = await this._blame;
         if (!blame || !blame.lines.length) return false;
@@ -168,7 +173,8 @@ export class BlameAnnotationProvider extends Disposable {
                 let previous = blame.commits.get(commit.previousSha);
                 if (previous) {
                     hoverMessage = ['Uncommitted changes', `_${previous.sha}_ - ${previous.message}`, `${previous.author}, ${moment(previous.date).format('MMMM Do, YYYY h:MMa')}`];
-                } else {
+                }
+                else {
                     hoverMessage = ['Uncommitted changes', `_${l.previousSha}_`];
                 }
             }
@@ -216,16 +222,19 @@ export class BlameAnnotationProvider extends Disposable {
         if (this._config.annotation.date) {
             if (width > 0) {
                 width += 7;
-            } else {
+            }
+            else {
                 width += 6;
             }
         }
         if (this._config.annotation.author) {
             if (width > 5 + 6) {
                 width += 12;
-            } else if (width > 0) {
+            }
+            else if (width > 0) {
                 width += 11;
-            } else {
+            }
+            else {
                 width += 10;
             }
         }
@@ -241,7 +250,8 @@ export class BlameAnnotationProvider extends Disposable {
                 let previous = blame.commits.get(commit.previousSha);
                 if (previous) {
                     hoverMessage = ['Uncommitted changes', `_${previous.sha}_ - ${previous.message}`, `${previous.author}, ${moment(previous.date).format('MMMM Do, YYYY h:MMa')}`];
-                } else {
+                }
+                else {
                     hoverMessage = ['Uncommitted changes', `_${l.previousSha}_`];
                 }
             }
@@ -274,9 +284,11 @@ export class BlameAnnotationProvider extends Disposable {
         const date = this._getDate(commit);
         if (this._config.annotation.sha) {
             return `${commit.sha.substring(0, 8)}${(date ? `\\00a0\\2022\\00a0 ${date}` : '')}${(author ? `\\00a0\\2022\\00a0 ${author}` : '')}`;
-        } else if (this._config.annotation.date) {
+        }
+        else if (this._config.annotation.date) {
             return `${date}${(author ? `\\00a0\\2022\\00a0 ${author}` : '')}`;
-        } else {
+        }
+        else {
             return author;
         }
     }

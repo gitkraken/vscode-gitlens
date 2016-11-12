@@ -44,7 +44,20 @@ export default class BlameAnnotationController extends Disposable {
     }
 
     async showBlameAnnotation(editor: TextEditor, shaOrLine?: string | number): Promise<boolean> {
-        if (!editor || !editor.document) return false;
+        if (!editor || !editor.document || editor.viewColumn === undefined) return false;
+
+        const currentProvider = this._annotationProviders.get(editor.viewColumn);
+        if (currentProvider && TextEditorComparer.equals(currentProvider.editor, editor)) {
+            await currentProvider.setSelection(shaOrLine);
+            return true;
+        }
+
+        const provider = new BlameAnnotationProvider(this.context, this.git, editor);
+        if (!await provider.supportsBlame()) return false;
+
+        if (currentProvider) {
+            await this.clear(currentProvider.editor.viewColumn, false);
+        }
 
         if (!this._blameAnnotationsDisposable && this._annotationProviders.size === 0) {
             Logger.log(`Add listener registrations for blame annotations`);
@@ -60,22 +73,12 @@ export default class BlameAnnotationController extends Disposable {
             this._visibleColumns = this._getVisibleColumns(window.visibleTextEditors);
         }
 
-        let provider = this._annotationProviders.get(editor.viewColumn);
-        if (provider) {
-            if (TextEditorComparer.equals(provider.editor, editor)) {
-                await provider.setSelection(shaOrLine);
-                return true;
-            }
-            await this.clear(provider.editor.viewColumn, false);
-        }
-
-        provider = new BlameAnnotationProvider(this.context, this.git, editor);
         this._annotationProviders.set(editor.viewColumn, provider);
         return provider.provideBlameAnnotation(shaOrLine);
     }
 
     async toggleBlameAnnotation(editor: TextEditor, shaOrLine?: string | number): Promise<boolean> {
-        if (!editor || !editor.document) return false;
+        if (!editor || !editor.document || editor.viewColumn === undefined) return false;
 
         let provider = this._annotationProviders.get(editor.viewColumn);
         if (!provider) return this.showBlameAnnotation(editor, shaOrLine);

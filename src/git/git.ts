@@ -23,7 +23,8 @@ async function gitCommand(cwd: string, ...args: any[]) {
         const msg = ex && ex.toString();
         if (msg && (msg.includes('Not a git repository') || msg.includes('is outside repository') || msg.includes('no such path'))) {
             Logger.warn('git', ...args, `  cwd='${cwd}'`, msg && `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
-        } else {
+        }
+        else {
             Logger.error('git', ...args, `  cwd='${cwd}'`, msg && `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
         }
         throw ex;
@@ -47,11 +48,9 @@ export default class Git {
         //     Logger.error(`Git.splitPath(${fileName}) is not an absolute path!`);
         //     debugger;
         // }
-        if (repoPath) {
-            return [fileName.replace(`${repoPath}/`, ''), repoPath];
-        } else {
-            return [path.basename(fileName).replace(/\\/g, '/'), path.dirname(fileName).replace(/\\/g, '/')];
-        }
+        if (repoPath) return [fileName.replace(`${repoPath}/`, ''), repoPath];
+
+        return [path.basename(fileName).replace(/\\/g, '/'), path.dirname(fileName).replace(/\\/g, '/')];
     }
 
     static async repoPath(cwd: string, gitPath?: string) {

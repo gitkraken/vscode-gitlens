@@ -64,7 +64,8 @@ export default class BlameStatusBarController extends Disposable {
                 subscriptions.push(window.onDidChangeTextEditorSelection(this._onActiveSelectionChanged, this));
 
                 this._statusBarDisposable = Disposable.from(...subscriptions);
-            } else {
+            }
+            else {
                 this._statusBarDisposable = undefined;
                 this._statusBarItem = undefined;
             }

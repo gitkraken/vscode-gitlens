@@ -1,6 +1,6 @@
 'use strict';
 import { Functions, Iterables, Objects } from './system';
-import { Disposable, DocumentFilter, ExtensionContext, languages, Location, Position, Range, TextDocument, TextEditor, Uri, window, workspace } from 'vscode';
+import { Disposable, ExtensionContext, languages, Location, Position, Range, TextDocument, TextEditor, Uri, workspace } from 'vscode';
 import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes, WorkspaceState } from './constants';
 import Git, { GitBlameParserEnricher, GitBlameFormat, GitCommit, GitLogParserEnricher, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog } from './git/git';
@@ -45,7 +45,6 @@ export default class GitProvider extends Disposable {
     private _config: IConfig;
     private _disposable: Disposable;
     private _codeLensProviderDisposable: Disposable | undefined;
-    private _codeLensProviderSelector: DocumentFilter;
     private _gitignore: Promise<ignore.Ignore>;
 
     static EmptyPromise: Promise<IGitBlame | IGitLog> = Promise.resolve(undefined);
@@ -103,9 +102,9 @@ export default class GitProvider extends Disposable {
             Logger.log('CodeLens config changed; resetting CodeLens provider');
             this._codeLensProviderDisposable && this._codeLensProviderDisposable.dispose();
             if (config.codeLens.visibility === CodeLensVisibility.Auto && (config.codeLens.recentChange.enabled || config.codeLens.authors.enabled)) {
-                this._codeLensProviderSelector = GitCodeLensProvider.selector;
-                this._codeLensProviderDisposable = languages.registerCodeLensProvider(this._codeLensProviderSelector, new GitCodeLensProvider(this.context, this));
-            } else {
+                this._codeLensProviderDisposable = languages.registerCodeLensProvider(GitCodeLensProvider.selector, new GitCodeLensProvider(this.context, this));
+            }
+            else {
                 this._codeLensProviderDisposable = undefined;
             }
         }
@@ -125,7 +124,8 @@ export default class GitProvider extends Disposable {
                 disposables.push(workspace.onDidChangeTextDocument(e => removeCachedEntryFn(e.document, RemoveCacheReason.DocumentChanged)));
 
                 this._cacheDisposable = Disposable.from(...disposables);
-            } else {
+            }
+            else {
                 this._cacheDisposable && this._cacheDisposable.dispose();
                 this._cacheDisposable = undefined;
                 this._cache && this._cache.clear();
@@ -437,34 +437,18 @@ export default class GitProvider extends Disposable {
     }
 
     toggleCodeLens(editor: TextEditor) {
-        Logger.log(`toggleCodeLens(${editor})`);
-
         if (this._config.codeLens.visibility !== CodeLensVisibility.OnDemand ||
             (!this._config.codeLens.recentChange.enabled && !this._config.codeLens.authors.enabled)) return;
 
+        Logger.log(`toggleCodeLens(${editor})`);
+
         if (this._codeLensProviderDisposable) {
             this._codeLensProviderDisposable.dispose();
-
-            if (editor.document.fileName === (this._codeLensProviderSelector && this._codeLensProviderSelector.pattern)) {
-                this._codeLensProviderDisposable = undefined;
-                return;
-            }
+            this._codeLensProviderDisposable = undefined;
+            return;
         }
 
-        const disposables: Disposable[] = [];
-
-        this._codeLensProviderSelector = <DocumentFilter>{ scheme: DocumentSchemes.File, pattern: editor.document.fileName };
-
-        disposables.push(languages.registerCodeLensProvider(this._codeLensProviderSelector, new GitCodeLensProvider(this.context, this)));
-
-        disposables.push(window.onDidChangeActiveTextEditor(e => {
-            if (e.viewColumn && e.document !== editor.document) {
-                this._codeLensProviderDisposable && this._codeLensProviderDisposable.dispose();
-                this._codeLensProviderDisposable = undefined;
-            }
-        }));
-
-        this._codeLensProviderDisposable = Disposable.from(...disposables);
+        this._codeLensProviderDisposable = languages.registerCodeLensProvider(GitCodeLensProvider.selector, new GitCodeLensProvider(this.context, this));
     }
 
     static isUncommitted(sha: string) {

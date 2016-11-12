@@ -127,9 +127,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
 
         const line = document.lineAt(symbol.location.range.start);
         // Make sure there is only 1 lense per line
-        if (lenses.length && lenses[lenses.length - 1].range.start.line === line.lineNumber) {
-            return;
-        }
+        if (lenses.length && lenses[lenses.length - 1].range.start.line === line.lineNumber) return;
 
         let startChar = -1;
         try {
@@ -138,7 +136,8 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         catch (ex) { }
         if (startChar === -1) {
             startChar = line.firstNonWhitespaceCharacterIndex;
-        } else {
+        }
+        else {
             startChar += Math.floor(symbol.name.length / 2);
         }
 

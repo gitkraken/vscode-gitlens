@@ -13,6 +13,7 @@
   - Adds new `gitlens.diffLineWithWorking` command for line sensitive diffs
   - Adds `gitlens.diffWithPrevious` command to the explorer context menu
   - Adds output channel logging, controlled by the `gitlens.advanced.output.level` setting
+  - Switches on-demand CodeLens to be a global toggle (rather than per file)
   - Complete rewrite of the blame annotation provider to reduce overhead and provide better performance
   - Improves performance (significantly) when only showing CodeLens at the document level
   - Improves performance of status bar blame support
