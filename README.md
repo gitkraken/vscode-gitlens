@@ -7,28 +7,25 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 
 - Provides **CodeLens** on code blocks:
   - **Recent Change** - author and date of the most recent check-in for that block
-    > Clicking on the CodeLens opens a **file history explorer** (by default) with the all the file commits in the right pane and the commit (file) contents on the left
+    - Clicking on the CodeLens opens a **file history explorer** (by default) with the all the file commits in the right pane and the commit (file) contents on the left
   - **Authors** - number of authors of a block and the most prominent author (if there are more than one)
-    > Clicking on the CodeLens toggles Git blame annotations on/off (by default)
+    - Clicking on the CodeLens toggles Git blame annotations on/off (by default)
 - Provides on-demand **inline blame annotations** with multiple styles
 - Provides Git blame information about the selected line in the **status bar**
-  > Clicking on the status bar toggles Git blame annotations on/off (by default)
+  - Clicking on the status bar toggles Git blame annotations on/off (by default)
 - Provides a Git **file history explorer** to visualize the history of a file
 - Provides a Git **blame history explorer** to visualize the blame history of a file or block
 - Provides ability to **compare diffs** with the working tree as well as with previous versions
 - Provides many configuration settings to allow the **customization** of almost all features
 
----
 ## Screenshots
 
-> ![GitLens preview](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/preview-gitlens.gif)
+![GitLens preview](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/preview-gitlens.gif)
 
----
 ## Requirements
 
 Must be using Git.
 
----
 ## Extension Settings
 
 |Name | Description
@@ -50,7 +47,6 @@ Must be using Git.
 |`gitlens.statusBar.enabled`|Specifies whether blame information is shown in the status bar
 |`gitlens.statusBar.command`|"Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
 
----
 ## Known Issues
 
 - Content in the **history explorers** disappears after a bit: [vscode issue](https://github.com/Microsoft/vscode/issues/11360)
