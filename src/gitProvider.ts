@@ -332,9 +332,7 @@ export default class GitProvider extends Disposable {
             if (c.isUncommitted) return;
 
             const decoration = `\u2937 ${c.author}, ${moment(c.date).format('MMMM Do, YYYY h:MMa')}`;
-            const uri = c.originalFileName
-                ? GitProvider.toGitUri(c, i + 1, commitCount, c.originalFileName, decoration)
-                : GitProvider.toGitUri(c, i + 1, commitCount, undefined, decoration);
+            const uri = GitProvider.toGitUri(c, i + 1, commitCount, c.originalFileName, decoration);
             locations.push(new Location(uri, new Position(0, 0)));
             if (c.sha === selectedSha) {
                 locations.push(new Location(uri, new Position(line + 1, 0)));
@@ -418,9 +416,7 @@ export default class GitProvider extends Disposable {
             if (c.isUncommitted) return;
 
             const decoration = `\u2937 ${c.author}, ${moment(c.date).format('MMMM Do, YYYY h:MMa')}`;
-            const uri = c.originalFileName
-                ? GitProvider.toGitUri(c, i + 1, commitCount, c.originalFileName, decoration)
-                : GitProvider.toGitUri(c, i + 1, commitCount, undefined, decoration);
+            const uri = GitProvider.toGitUri(c, i + 1, commitCount, c.originalFileName, decoration);
             locations.push(new Location(uri, new Position(0, 0)));
             if (c.sha === selectedSha) {
                 locations.push(new Location(uri, new Position(line + 1, 0)));
@@ -491,16 +487,15 @@ export default class GitProvider extends Disposable {
     private static _toGitUri(commit: GitCommit, scheme: DocumentSchemes, commitCount: number, data: IGitUriData) {
         const pad = (n: number) => ('0000000' + n).slice(-('' + commitCount).length);
         const ext = path.extname(data.fileName);
-        // const uriPath = `${dirname(data.fileName)}/${commit.sha}: ${basename(data.fileName, ext)}${ext}`;
         const uriPath = `${path.relative(commit.repoPath, data.fileName.slice(0, -ext.length))}/${commit.sha}${ext}`;
 
         let message = commit.message;
         if (message.length > 50) {
             message = message.substring(0, 49) + '\u2026';
         }
+
         // NOTE: Need to specify an index here, since I can't control the sort order -- just alphabetic or by file location
-        //return Uri.parse(`${scheme}:${pad(data.index)}. ${commit.author}, ${moment(commit.date).format('MMM D, YYYY hh:MMa')} - ${uriPath}?${JSON.stringify(data)}`);
-        return Uri.parse(`${scheme}:${pad(data.index)} \u2022 ${message} \u2022 ${moment(commit.date).format('MMM D, YYYY hh:MMa')} \u2022 ${uriPath}?${JSON.stringify(data)}`);
+        return Uri.parse(`${scheme}:${pad(data.index)} \u2022 ${encodeURIComponent(message)} \u2022 ${moment(commit.date).format('MMM D, YYYY hh:MMa')} \u2022 ${encodeURIComponent(uriPath)}?${JSON.stringify(data)}`);
     }
 
     private static _toGitUriData<T extends IGitUriData>(commit: GitCommit, index: number, originalFileName?: string, decoration?: string): T {
