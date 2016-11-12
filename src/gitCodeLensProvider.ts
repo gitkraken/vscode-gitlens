@@ -185,7 +185,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
 
         switch (this._config.codeLens.recentChange.command) {
             case CodeLensCommand.BlameAnnotate: return this._applyBlameAnnotateCommand<GitRecentChangeCodeLens>(title, lens, blame);
-            case CodeLensCommand.ShowBlameHistory: return this._applyShowBlameHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame);
+            case CodeLensCommand.ShowBlameHistory: return this._applyShowBlameHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
             case CodeLensCommand.ShowFileHistory: return this._applyShowFileHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
             case CodeLensCommand.DiffWithPrevious: return this._applyDiffWithPreviousCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
             case CodeLensCommand.GitViewHistory: return this._applyGitHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame);
@@ -218,27 +218,38 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         return lens;
     }
 
-    _applyShowBlameHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: IGitBlameLines) {
+    _applyShowBlameHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: IGitBlameLines, commit?: GitCommit) {
+        let line = lens.range.start.line;
+        if (commit) {
+            const blameLine = commit.lines.find(_ => _.line === line);
+            if (blameLine) {
+                line = blameLine.originalLine;
+            }
+        }
+
+        const position = lens.isFullRange ? new Position(1, 0) : lens.range.start;
         lens.command = {
             title: title,
             command: Commands.ShowBlameHistory,
-            arguments: [Uri.file(lens.fileName), lens.blameRange, lens.range.start]
+            arguments: [Uri.file(lens.fileName), lens.blameRange, position, commit && commit.sha, line]
         };
         return lens;
     }
 
     _applyShowFileHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: IGitBlameLines, commit?: GitCommit) {
         let line = lens.range.start.line;
-        const blameLine = commit.lines.find(_ => _.line === line);
-        if (blameLine) {
-            line = blameLine.originalLine;
+        if (commit) {
+            const blameLine = commit.lines.find(_ => _.line === line);
+            if (blameLine) {
+                line = blameLine.originalLine;
+            }
         }
 
         const position = lens.isFullRange ? new Position(1, 0) : lens.range.start;
         lens.command = {
             title: title,
             command: Commands.ShowFileHistory,
-            arguments: [Uri.file(lens.fileName), position, commit.sha, line]
+            arguments: [Uri.file(lens.fileName), position, commit && commit.sha, line]
         };
         return lens;
     }

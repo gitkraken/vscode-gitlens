@@ -30,8 +30,7 @@ export const Commands = {
 export type DocumentSchemes = 'file' | 'git' | 'git-blame';
 export const DocumentSchemes = {
     File: 'file' as DocumentSchemes,
-    Git: 'git' as DocumentSchemes,
-    GitBlame: 'git-blame' as DocumentSchemes
+    Git: 'git' as DocumentSchemes
 };
 
 export type WorkspaceState = 'hasGitHistoryExtension' | 'repoPath';

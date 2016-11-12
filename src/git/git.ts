@@ -66,7 +66,7 @@ export default class Git {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
         if (sha) {
-            return gitCommand(root, 'blame', format, '--root', `${sha}^`, '--', file);
+            return gitCommand(root, 'blame', format, '--root', `${sha}^!`, '--', file);
         }
         return gitCommand(root, 'blame', format, '--root', '--', file);
     }
@@ -75,20 +75,26 @@ export default class Git {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
         if (sha) {
-            return gitCommand(root, 'blame', `-L ${startLine},${endLine}`, format, '--root', `${sha}^`, '--', file);
+            return gitCommand(root, 'blame', `-L ${startLine},${endLine}`, format, '--root', `${sha}^!`, '--', file);
         }
         return gitCommand(root, 'blame', `-L ${startLine},${endLine}`, format, '--root', '--', file);
     }
 
-    static log(fileName: string, repoPath?: string) {
+    static log(fileName: string, sha?: string, repoPath?: string) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
+        if (sha) {
+            return gitCommand(root, 'log', `--follow`, `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, `origin..${sha}`, '--', file);
+        }
         return gitCommand(root, 'log', `--follow`, `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, file);
     }
 
-    static logRange(fileName: string, start: number, end: number, repoPath?: string) {
+    static logRange(fileName: string, start: number, end: number, sha?: string, repoPath?: string) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
+        if (sha) {
+            return gitCommand(root, 'log', `--follow`, `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, `origin..${sha}`, `-L ${start},${end}:${file}`);
+        }
         return gitCommand(root, 'log', `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, `-L ${start},${end}:${file}`);
     }
 

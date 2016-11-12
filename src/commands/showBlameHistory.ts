@@ -10,7 +10,7 @@ export default class ShowBlameHistoryCommand extends EditorCommand {
         super(Commands.ShowBlameHistory);
     }
 
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, range?: Range, position?: Position) {
+    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, range?: Range, position?: Position, sha?: string, line?: number) {
         if (!(uri instanceof Uri)) {
             if (!editor.document) return undefined;
             uri = editor.document.uri;
@@ -23,7 +23,7 @@ export default class ShowBlameHistoryCommand extends EditorCommand {
         const gitUri = GitUri.fromUri(uri);
 
         try {
-            const locations = await this.git.getBlameLocations(gitUri.fsPath, range);
+            const locations = await this.git.getBlameLocations(gitUri.fsPath, range, gitUri.sha, gitUri.repoPath, sha, line);
             if (!locations) return window.showWarningMessage(`Unable to show blame history. File is probably not under source control`);
 
             return commands.executeCommand(BuiltInCommands.ShowReferences, uri, position, locations);

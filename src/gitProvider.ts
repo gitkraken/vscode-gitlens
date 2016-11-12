@@ -1,10 +1,10 @@
 'use strict';
 import { Functions, Iterables, Objects } from './system';
 import { Disposable, DocumentFilter, ExtensionContext, languages, Location, Position, Range, TextDocument, TextEditor, Uri, window, workspace } from 'vscode';
-import { DocumentSchemes, WorkspaceState } from './constants';
 import { CodeLensVisibility, IConfig } from './configuration';
+import { DocumentSchemes, WorkspaceState } from './constants';
+import Git, { GitBlameParserEnricher, GitBlameFormat, GitCommit, GitLogParserEnricher, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog } from './git/git';
 import GitCodeLensProvider from './gitCodeLensProvider';
-import Git, { GitBlameParserEnricher, GitBlameFormat, GitCommit, GitLogParserEnricher, IGitAuthor, IGitBlame, IGitBlameCommitLines, IGitBlameLine, IGitBlameLines, IGitLog } from './git/git';
 import { Logger } from './logger';
 import * as fs from 'fs';
 import * as ignore from 'ignore';
@@ -264,10 +264,10 @@ export default class GitProvider extends Disposable {
         }
     }
 
-    async getBlameForRange(fileName: string, range: Range): Promise<IGitBlameLines | undefined> {
-        Logger.log(`getBlameForRange('${fileName}', ${range})`);
+    async getBlameForRange(fileName: string, range: Range, sha?: string, repoPath?: string): Promise<IGitBlameLines | undefined> {
+        Logger.log(`getBlameForRange('${fileName}', ${range}, ${sha}, ${repoPath})`);
 
-        const blame = await this.getBlameForFile(fileName);
+        const blame = await this.getBlameForFile(fileName, sha, repoPath);
         if (!blame) return undefined;
 
         if (!blame.lines.length) return Object.assign({ allLines: blame.lines }, blame);
@@ -314,27 +314,10 @@ export default class GitProvider extends Disposable {
         };
     }
 
-    async getBlameForShaRange(fileName: string, sha: string, range: Range): Promise<IGitBlameCommitLines | undefined> {
-        Logger.log(`getBlameForShaRange('${fileName}', ${sha}, ${range})`);
+    async getBlameLocations(fileName: string, range: Range, sha?: string, repoPath?: string, selectedSha?: string, line?: number): Promise<Location[] | undefined> {
+        Logger.log(`getBlameLocations('${fileName}', ${range}, ${sha}, ${repoPath})`);
 
-        const blame = await this.getBlameForFile(fileName);
-        if (!blame) return undefined;
-
-        const lines = blame.lines.slice(range.start.line, range.end.line + 1).filter(l => l.sha === sha);
-        let commit = blame.commits.get(sha);
-        commit = new GitCommit(commit.repoPath, commit.sha, commit.fileName, commit.author, commit.date, commit.message,
-            lines, commit.originalFileName, commit.previousSha, commit.previousFileName);
-        return {
-            author: Object.assign({}, blame.authors.get(commit.author), { lineCount: commit.lines.length }),
-            commit: commit,
-            lines: lines
-        };
-    }
-
-    async getBlameLocations(fileName: string, range: Range): Promise<Location[] | undefined> {
-        Logger.log(`getBlameForShaRange('${fileName}', ${range})`);
-
-        const blame = await this.getBlameForRange(fileName, range);
+        const blame = await this.getBlameForRange(fileName, range, sha, repoPath);
         if (!blame) return undefined;
 
         const commitCount = blame.commits.size;
@@ -343,18 +326,21 @@ export default class GitProvider extends Disposable {
         Iterables.forEach(blame.commits.values(), (c, i) => {
             if (c.isUncommitted) return;
 
-            const uri = GitProvider.toBlameUri(c, i + 1, commitCount, range);
-            c.lines.forEach(l => locations.push(new Location(c.originalFileName
-                ? GitProvider.toBlameUri(c, i + 1, commitCount, range, c.originalFileName)
-                : uri,
-                new Position(l.originalLine, 0))));
+            const decoration = `\u2937 ${c.author}, ${moment(c.date).format('MMMM Do, YYYY h:MMa')}`;
+            const uri = c.originalFileName
+                ? GitProvider.toGitUri(c, i + 1, commitCount, c.originalFileName, decoration)
+                : GitProvider.toGitUri(c, i + 1, commitCount, undefined, decoration);
+            locations.push(new Location(uri, new Position(0, 0)));
+            if (c.sha === selectedSha) {
+                locations.push(new Location(uri, new Position(line + 1, 0)));
+            }
         });
 
         return locations;
     }
 
-    getLogForFile(fileName: string, range?: Range): Promise<IGitLog | undefined> {
-        Logger.log(`getLogForFile('${fileName}', ${range})`);
+    getLogForFile(fileName: string, sha?: string, repoPath?: string, range?: Range): Promise<IGitLog | undefined> {
+        Logger.log(`getLogForFile('${fileName}', ${sha}, ${repoPath}, ${range})`);
         fileName = Git.normalizePath(fileName);
 
         const useCaching = this.UseCaching && !range;
@@ -377,7 +363,9 @@ export default class GitProvider extends Disposable {
                 return <Promise<IGitLog>>GitProvider.EmptyPromise;
             }
 
-            return (range ? Git.logRange(fileName, range.start.line + 1, range.end.line + 1) : Git.log(fileName))
+            return (range
+                ? Git.logRange(fileName, range.start.line + 1, range.end.line + 1, sha, repoPath)
+                : Git.log(fileName, sha, repoPath))
                 .then(data => new GitLogParserEnricher().enrich(data, fileName))
                 .catch(ex => {
                     // Trap and cache expected blame errors
@@ -412,10 +400,10 @@ export default class GitProvider extends Disposable {
         return promise;
     }
 
-    async getLogLocations(fileName: string, sha?: string, line?: number): Promise<Location[] | undefined> {
-        Logger.log(`getLogLocations('${fileName}', ${sha}, ${line})`);
+    async getLogLocations(fileName: string, sha?: string, repoPath?: string, selectedSha?: string, line?: number): Promise<Location[] | undefined> {
+        Logger.log(`getLogLocations('${fileName}', ${sha}, ${repoPath}, ${selectedSha}, ${line})`);
 
-        const log = await this.getLogForFile(fileName);
+        const log = await this.getLogForFile(fileName, sha, repoPath);
         if (!log) return undefined;
 
         const commitCount = log.commits.size;
@@ -423,12 +411,13 @@ export default class GitProvider extends Disposable {
         const locations: Array<Location> = [];
         Iterables.forEach(log.commits.values(), (c, i) => {
             if (c.isUncommitted) return;
+
             const decoration = `\u2937 ${c.author}, ${moment(c.date).format('MMMM Do, YYYY h:MMa')}`;
             const uri = c.originalFileName
                 ? GitProvider.toGitUri(c, i + 1, commitCount, c.originalFileName, decoration)
                 : GitProvider.toGitUri(c, i + 1, commitCount, undefined, decoration);
             locations.push(new Location(uri, new Position(0, 0)));
-            if (c.sha === sha) {
+            if (c.sha === selectedSha) {
                 locations.push(new Location(uri, new Position(line + 1, 0)));
             }
         });
@@ -481,14 +470,6 @@ export default class GitProvider extends Disposable {
         return Git.isUncommitted(sha);
     }
 
-    static fromBlameUri(uri: Uri): IGitBlameUriData {
-        if (uri.scheme !== DocumentSchemes.GitBlame) throw new Error(`fromGitUri(uri=${uri}) invalid scheme`);
-        const data = GitProvider._fromGitUri<IGitBlameUriData>(uri);
-        const range = <any>data.range as Position[];
-        data.range = new Range(range[0].line, range[0].character, range[1].line, range[1].character);
-        return data;
-    }
-
     static fromGitUri(uri: Uri): IGitUriData {
         if (uri.scheme !== DocumentSchemes.Git) throw new Error(`fromGitUri(uri=${uri}) invalid scheme`);
         return GitProvider._fromGitUri<IGitUriData>(uri);
@@ -498,15 +479,11 @@ export default class GitProvider extends Disposable {
         return JSON.parse(uri.query) as T;
     }
 
-    static toBlameUri(commit: GitCommit, index: number, commitCount: number, range: Range, originalFileName?: string) {
-        return GitProvider._toGitUri(commit, DocumentSchemes.GitBlame, commitCount, GitProvider._toGitBlameUriData(commit, index, range, originalFileName));
-    }
-
     static toGitUri(commit: GitCommit, index: number, commitCount: number, originalFileName?: string, decoration?: string) {
         return GitProvider._toGitUri(commit, DocumentSchemes.Git, commitCount, GitProvider._toGitUriData(commit, index, originalFileName, decoration));
     }
 
-    private static _toGitUri(commit: GitCommit, scheme: DocumentSchemes, commitCount: number, data: IGitUriData | IGitBlameUriData) {
+    private static _toGitUri(commit: GitCommit, scheme: DocumentSchemes, commitCount: number, data: IGitUriData) {
         const pad = (n: number) => ('0000000' + n).slice(-('' + commitCount).length);
         const ext = path.extname(data.fileName);
         // const uriPath = `${dirname(data.fileName)}/${commit.sha}: ${basename(data.fileName, ext)}${ext}`;
@@ -532,12 +509,6 @@ export default class GitProvider extends Disposable {
         }
         return data;
     }
-
-    private static _toGitBlameUriData(commit: GitCommit, index: number, range: Range, originalFileName?: string) {
-        const data = this._toGitUriData<IGitBlameUriData>(commit, index, originalFileName);
-        data.range = range;
-        return data;
-    }
 }
 
 export class GitUri extends Uri {
@@ -557,7 +528,7 @@ export class GitUri extends Uri {
         base._fragment = uri.fragment;
 
         this.offset = 0;
-        if (uri.scheme === DocumentSchemes.Git || uri.scheme === DocumentSchemes.GitBlame) {
+        if (uri.scheme === DocumentSchemes.Git) {
             const data = GitProvider.fromGitUri(uri);
             base._fsPath = data.originalFileName || data.fileName;
 
@@ -583,8 +554,4 @@ export interface IGitUriData {
     sha: string;
     index: number;
     decoration?: string;
-}
-
-export interface IGitBlameUriData extends IGitUriData {
-    range: Range;
 }
