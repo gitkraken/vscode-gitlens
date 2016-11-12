@@ -7,11 +7,12 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 
 - Provides **CodeLens** on code blocks:
   - **Recent Change** - author and date of the most recent check-in for that block
-    > Clicking on the CodeLens opens a **Blame history explorer** with the commits and changed lines in the right pane and the commit (file) contents on the left
+    > Clicking on the CodeLens opens a **file history explorer** (by default) with the all the file commits in the right pane and the commit (file) contents on the left
   - **Authors** - number of authors of a block and the most prominent author (if there are more than one)
-    > Clicking on the CodeLens toggles Git blame annotations on/off
+    > Clicking on the CodeLens toggles Git blame annotations on/off (by default)
 - Provides on-demand **inline blame annotations** with multiple styles
 - Provides Git blame information about the selected line in the **status bar**
+  > Clicking on the status bar toggles Git blame annotations on/off (by default)
 - Provides a Git **file history explorer** to visualize the history of a file
 - Provides a Git **blame history explorer** to visualize the blame history of a file or block
 - Provides ability to **compare diffs** with the working tree as well as with previous versions
