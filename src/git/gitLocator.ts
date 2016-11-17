@@ -34,18 +34,18 @@ async function findGitDarwin(): Promise<IGit> {
         }
         catch (ex) {
             if (ex.code === 2) {
-                return Promise.reject('Unable to find git');
+                return Promise.reject(new Error('Unable to find git'));
             }
             return findSpecificGit(path);
         }
     }
     catch (ex) {
-        return Promise.reject('Unable to find git');
+        return Promise.reject(new Error('Unable to find git'));
     }
 }
 
 function findSystemGitWin32(basePath: string): Promise<IGit> {
-    if (!basePath) return Promise.reject('Unable to find git');
+    if (!basePath) return Promise.reject(new Error('Unable to find git'));
     return findSpecificGit(path.join(basePath, 'Git', 'cmd', 'git.exe'));
 }
 
@@ -69,7 +69,7 @@ export async function findGitPath(path?: string): Promise<IGit> {
             }
         }
         catch (ex) {
-            return Promise.reject('Unable to find git');
+            return Promise.reject(new Error('Unable to find git'));
         }
     }
 }

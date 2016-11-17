@@ -38,7 +38,9 @@ export async function activate(context: ExtensionContext) {
     }
     catch (ex) {
         Logger.error(ex);
-        await window.showErrorMessage(`GitLens: Unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'gitlens.advanced.git' is pointed to its installed location.`);
+        if (ex.message.includes('Unable to find git')) {
+            await window.showErrorMessage(`GitLens: Unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'gitlens.advanced.git' is pointed to its installed location.`);
+        }
         return;
     }
 
