@@ -16,13 +16,13 @@ export interface IBlameConfig {
     };
 }
 
-export type CodeLensCommand = 'gitlens.toggleBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.diffWithPrevious' | 'git.viewFileHistory';
+export type CodeLensCommand = 'gitlens.toggleBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.diffWithPrevious' | 'gitlens.showQuickFileHistory';
 export const CodeLensCommand = {
     BlameAnnotate: Commands.ToggleBlame as CodeLensCommand,
     ShowBlameHistory: Commands.ShowBlameHistory as CodeLensCommand,
     ShowFileHistory: Commands.ShowFileHistory as CodeLensCommand,
     DiffWithPrevious: Commands.DiffWithPrevious as CodeLensCommand,
-    GitViewHistory: 'git.viewFileHistory' as CodeLensCommand
+    ShowQuickFileHistory: Commands.ShowQuickFileHistory as CodeLensCommand
 };
 
 export type CodeLensLocation = 'all' | 'document+containers' | 'document' | 'custom' | 'none';
@@ -61,14 +61,14 @@ export interface ICodeLensesConfig {
     authors: ICodeLensConfig;
 }
 
-export type StatusBarCommand = 'gitlens.toggleBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.toggleCodeLens' | 'gitlens.diffWithPrevious' | 'git.viewFileHistory';
+export type StatusBarCommand = 'gitlens.toggleBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.toggleCodeLens' | 'gitlens.diffWithPrevious' | 'gitlens.showQuickFileHistory';
 export const StatusBarCommand = {
     BlameAnnotate: Commands.ToggleBlame as StatusBarCommand,
     ShowBlameHistory: Commands.ShowBlameHistory as StatusBarCommand,
     ShowFileHistory: Commands.ShowFileHistory as CodeLensCommand,
     DiffWithPrevious: Commands.DiffWithPrevious as StatusBarCommand,
     ToggleCodeLens: Commands.ToggleCodeLens as StatusBarCommand,
-    GitViewHistory: 'git.viewFileHistory' as StatusBarCommand
+    ShowQuickFileHistory: Commands.ShowQuickFileHistory as StatusBarCommand
 };
 
 export interface IStatusBarConfig {

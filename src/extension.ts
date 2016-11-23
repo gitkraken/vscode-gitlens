@@ -1,5 +1,5 @@
 'use strict';
-import { ExtensionContext, extensions, languages, window, workspace } from 'vscode';
+import { ExtensionContext, languages, window, workspace } from 'vscode';
 import BlameAnnotationController from './blameAnnotationController';
 import BlameStatusBarController from './blameStatusBarController';
 import DiffLineWithPreviousCommand from './commands/diffLineWithPrevious';
@@ -9,6 +9,8 @@ import DiffWithWorkingCommand from './commands/diffWithWorking';
 import ShowBlameCommand from './commands/showBlame';
 import ShowBlameHistoryCommand from './commands/showBlameHistory';
 import ShowFileHistoryCommand from './commands/showFileHistory';
+import ShowQuickFileHistoryCommand from './commands/showQuickFileHistory';
+import ShowQuickRepoHistoryCommand from './commands/showQuickRepoHistory';
 import ToggleBlameCommand from './commands/toggleBlame';
 import ToggleCodeLensCommand from './commands/toggleCodeLens';
 import { IAdvancedConfig } from './configuration';
@@ -45,7 +47,6 @@ export async function activate(context: ExtensionContext) {
     }
 
     context.workspaceState.update(WorkspaceState.RepoPath, repoPath);
-    context.workspaceState.update(WorkspaceState.HasGitHistoryExtension, extensions.getExtension('donjayamanne.githistory') !== undefined);
 
     const git = new GitProvider(context);
     context.subscriptions.push(git);
@@ -68,6 +69,8 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new ToggleBlameCommand(annotationController));
     context.subscriptions.push(new ShowBlameHistoryCommand(git));
     context.subscriptions.push(new ShowFileHistoryCommand(git));
+    context.subscriptions.push(new ShowQuickFileHistoryCommand(git));
+    context.subscriptions.push(new ShowQuickRepoHistoryCommand(git));
     context.subscriptions.push(new ToggleCodeLensCommand(git));
 }
 

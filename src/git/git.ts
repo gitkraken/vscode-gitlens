@@ -89,6 +89,12 @@ export default class Git {
         return gitCommand(root, 'log', `--follow`, `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, file);
     }
 
+    static logMostRecent(fileName: string, repoPath?: string) {
+        const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName, repoPath));
+
+        return gitCommand(root, 'log', `-n1`, `--follow`, `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, file);
+    }
+
     static logRange(fileName: string, start: number, end: number, sha?: string, repoPath?: string) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
@@ -96,6 +102,10 @@ export default class Git {
             return gitCommand(root, 'log', `--follow`, `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, `origin..${sha}`, `-L ${start},${end}:${file}`);
         }
         return gitCommand(root, 'log', `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, `-L ${start},${end}:${file}`);
+    }
+
+    static logRepo(repoPath: string) {
+        return gitCommand(repoPath, 'log', `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`);
     }
 
     static getVersionedFile(fileName: string, repoPath: string, sha: string) {

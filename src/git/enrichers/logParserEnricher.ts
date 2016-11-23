@@ -13,12 +13,13 @@ interface ILogEntry {
     committerDate?: string;
 
     fileName?: string;
+    fileNames?: string[];
 
     summary?: string;
 }
 
 export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
-    private _parseEntries(data: string): ILogEntry[] {
+    private _parseEntries(data: string, isRepoPath: boolean): ILogEntry[] {
         if (!data) return undefined;
 
         const lines = data.split('\n');
@@ -65,14 +66,34 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
                     break;
 
                 case 'filename':
-                    position += 2;
-                    lineParts = lines[position].split(' ');
-                    if (lineParts.length === 1) {
-                        entry.fileName = lineParts[0];
+                    if (isRepoPath) {
+                        position++;
+                        while (++position < lines.length) {
+                            lineParts = lines[position].split(' ');
+                            if (/^[a-f0-9]{40}$/.test(lineParts[0])) {
+                                position--;
+                                break;
+                            }
+
+                            if (entry.fileNames == null) {
+                                entry.fileNames = [lineParts[0]];
+                            }
+                            else {
+                                entry.fileNames.push(lineParts[0]);
+                            }
+                        }
+                        entry.fileName = entry.fileNames.join(', ');
                     }
                     else {
-                        entry.fileName = lineParts[3].substring(2);
-                        position += 4;
+                        position += 2;
+                        lineParts = lines[position].split(' ');
+                        if (lineParts.length === 1) {
+                            entry.fileName = lineParts[0];
+                        }
+                        else {
+                            entry.fileName = lineParts[3].substring(2);
+                            position += 4;
+                        }
                     }
 
                     entries.push(entry);
@@ -87,8 +108,9 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
         return entries;
     }
 
-    enrich(data: string, fileName: string): IGitLog {
-        const entries = this._parseEntries(data);
+    enrich(data: string, fileNameOrRepoPath: string): IGitLog {
+        const isRepoPath = !path.extname(fileNameOrRepoPath);
+        const entries = this._parseEntries(data, isRepoPath);
         if (!entries) return undefined;
 
         const authors: Map<string, IGitAuthor> = new Map();
@@ -98,13 +120,22 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
         let relativeFileName: string;
         let recentCommit: GitCommit;
 
+        if (isRepoPath) {
+            repoPath = fileNameOrRepoPath;
+        }
+
         for (let i = 0, len = entries.length; i < len; i++) {
             const entry = entries[i];
 
-            if (i === 0) {
-                // Try to get the repoPath from the most recent commit
-                repoPath = fileName.replace(`/${entry.fileName}`, '');
-                relativeFileName = path.relative(repoPath, fileName).replace(/\\/g, '/');
+            if (i === 0 || isRepoPath) {
+                if (isRepoPath) {
+                    relativeFileName = entry.fileName;
+                }
+                else {
+                    // Try to get the repoPath from the most recent commit
+                    repoPath = fileNameOrRepoPath.replace(`/${entry.fileName}`, '');
+                    relativeFileName = path.relative(repoPath, fileNameOrRepoPath).replace(/\\/g, '/');
+                }
             }
 
             let commit = commits.get(entry.sha);
@@ -129,7 +160,9 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
 
             if (recentCommit) {
                 recentCommit.previousSha = commit.sha;
-                recentCommit.previousFileName = commit.originalFileName || commit.fileName;
+                if (!isRepoPath) {
+                    recentCommit.previousFileName = commit.originalFileName || commit.fileName;
+                }
             }
             recentCommit = commit;
         }

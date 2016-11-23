@@ -1,7 +1,7 @@
 'use strict';
 import { Functions, Iterables, Strings } from './system';
 import { CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelector, ExtensionContext, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri, workspace } from 'vscode';
-import { BuiltInCommands, Commands, DocumentSchemes, WorkspaceState } from './constants';
+import { BuiltInCommands, Commands, DocumentSchemes } from './constants';
 import { CodeLensCommand, CodeLensLocation, IConfig, ICodeLensLanguageLocation } from './configuration';
 import GitProvider, { GitCommit, GitUri, IGitBlame, IGitBlameLines } from './gitProvider';
 import * as moment from 'moment';
@@ -30,11 +30,9 @@ export default class GitCodeLensProvider implements CodeLensProvider {
     static selector: DocumentSelector = { scheme: DocumentSchemes.File };
 
     private _config: IConfig;
-    private _hasGitHistoryExtension: boolean;
 
     constructor(context: ExtensionContext, private git: GitProvider) {
         this._config = workspace.getConfiguration('').get<IConfig>('gitlens');
-        this._hasGitHistoryExtension = context.workspaceState.get(WorkspaceState.HasGitHistoryExtension, false);
     }
 
     async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
@@ -197,7 +195,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             case CodeLensCommand.ShowBlameHistory: return this._applyShowBlameHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
             case CodeLensCommand.ShowFileHistory: return this._applyShowFileHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
             case CodeLensCommand.DiffWithPrevious: return this._applyDiffWithPreviousCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
-            case CodeLensCommand.GitViewHistory: return this._applyGitHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame);
+            case CodeLensCommand.ShowQuickFileHistory: return this._applyShowQuickFileHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame);
             default: return lens;
         }
     }
@@ -212,7 +210,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             case CodeLensCommand.ShowBlameHistory: return this._applyShowBlameHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
             case CodeLensCommand.ShowFileHistory: return this._applyShowFileHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
             case CodeLensCommand.DiffWithPrevious: return this._applyDiffWithPreviousCommand<GitAuthorsCodeLens>(title, lens, blame);
-            case CodeLensCommand.GitViewHistory: return this._applyGitHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
+            case CodeLensCommand.ShowQuickFileHistory: return this._applyShowQuickFileHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
             default: return lens;
         }
     }
@@ -280,12 +278,10 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         return lens;
     }
 
-    _applyGitHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: IGitBlameLines): T {
-        if (!this._hasGitHistoryExtension) return this._applyShowFileHistoryCommand(title, lens, blame);
-
+    _applyShowQuickFileHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: IGitBlameLines): T {
         lens.command = {
             title: title,
-            command: CodeLensCommand.GitViewHistory,
+            command: CodeLensCommand.ShowQuickFileHistory,
             arguments: [Uri.file(lens.uri.fsPath)]
         };
         return lens;

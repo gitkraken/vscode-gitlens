@@ -22,10 +22,6 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 
 ![GitLens preview](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/preview-gitlens.gif)
 
-## Requirements
-
-Must be using Git.
-
 ## Extension Settings
 
 |Name | Description
@@ -39,13 +35,13 @@ Must be using Git.
 |`gitlens.codeLens.locationCustomSymbols`|Specifies the set of document symbols to render active document CodeLens on. Must be a member of `SymbolKind`
 |`gitlens.codeLens.languageLocations`|Specifies where CodeLens will be rendered in the active document for the specified languages
 |`gitlens.codeLens.recentChange.enabled`|Specifies whether the recent change CodeLens is shown
-|`gitlens.codeLens.recentChange.command`|Specifies the command executed when the recent change CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension
+|`gitlens.codeLens.recentChange.command`|Specifies the command executed when the recent change CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `gitlens.showQuickFileHistory` - shows a file history picker
 |`gitlens.codeLens.authors.enabled`|Specifies whether the authors CodeLens is shown
-|`gitlens.codeLens.authors.command`|Specifies the command executed when the authors CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension
+|`gitlens.codeLens.authors.command`|Specifies the command executed when the authors CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `gitlens.showQuickFileHistory` - shows a file history picker
 |`gitlens.menus.fileDiff.enabled`|Specifies whether file-based diff commands will be added to the context menus
 |`gitlens.menus.lineDiff.enabled`|Specifies whether line-based diff commands will be added to the context menus
 |`gitlens.statusBar.enabled`|Specifies whether blame information is shown in the status bar
-|`gitlens.statusBar.command`|"Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `git.viewFileHistory` - opens a file history picker, which requires the Git History (git log) extension"
+|`gitlens.statusBar.command`|"Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `gitlens.showQuickFileHistory` - shows a file history picker
 
 ## Known Issues
 

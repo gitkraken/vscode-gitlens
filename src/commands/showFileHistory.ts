@@ -23,13 +23,13 @@ export default class ShowFileHistoryCommand extends EditorCommand {
 
         try {
             const locations = await this.git.getLogLocations(gitUri.fsPath, gitUri.sha, gitUri.repoPath, sha, line);
-            if (!locations) return window.showWarningMessage(`Unable to show history. File is probably not under source control`);
+            if (!locations) return window.showWarningMessage(`Unable to show file history. File is probably not under source control`);
 
             return commands.executeCommand(BuiltInCommands.ShowReferences, uri, position, locations);
         }
         catch (ex) {
             Logger.error('[GitLens.ShowFileHistoryCommand]', 'getLogLocations', ex);
-            return window.showErrorMessage(`Unable to show history. See output channel for more details`);
+            return window.showErrorMessage(`Unable to show file history. See output channel for more details`);
         }
     }
 }

@@ -3,7 +3,6 @@ import { Objects } from './system';
 import { Disposable, ExtensionContext, StatusBarAlignment, StatusBarItem, TextDocument, TextEditor, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
 import { TextDocumentComparer } from './comparers';
 import { IConfig, StatusBarCommand } from './configuration';
-import { WorkspaceState } from './constants';
 import GitProvider, { GitCommit, GitUri, IGitBlame } from './gitProvider';
 import * as moment from 'moment';
 
@@ -17,7 +16,7 @@ export default class BlameStatusBarController extends Disposable {
     private _uri: GitUri;
     private _useCaching: boolean;
 
-    constructor(private context: ExtensionContext, private git: GitProvider) {
+    constructor(context: ExtensionContext, private git: GitProvider) {
         super(() => this.dispose());
 
         this._onConfigure();
@@ -48,11 +47,6 @@ export default class BlameStatusBarController extends Disposable {
                     case StatusBarCommand.ToggleCodeLens:
                         if (config.codeLens.visibility !== 'ondemand') {
                             config.statusBar.command = StatusBarCommand.BlameAnnotate;
-                        }
-                        break;
-                    case StatusBarCommand.GitViewHistory:
-                        if (!this.context.workspaceState.get(WorkspaceState.HasGitHistoryExtension, false)) {
-                            config.statusBar.command = StatusBarCommand.ShowBlameHistory;
                         }
                         break;
                 }
@@ -156,7 +150,7 @@ export default class BlameStatusBarController extends Disposable {
             case StatusBarCommand.ToggleCodeLens:
                 this._statusBarItem.tooltip = 'Toggle Blame CodeLens';
                 break;
-            case StatusBarCommand.GitViewHistory:
+            case StatusBarCommand.ShowQuickFileHistory:
                 this._statusBarItem.tooltip = 'View Git File History';
                 break;
         }

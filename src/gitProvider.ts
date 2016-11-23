@@ -167,6 +167,11 @@ export default class GitProvider extends Disposable {
         return Git.repoPath(cwd);
     }
 
+    async getRepoPathFromFile(fileName: string): Promise<string | undefined> {
+        const log = await this.getMostRecentLogForFile(fileName);
+        return log && log.repoPath;
+    }
+
     getBlameForFile(fileName: string, sha?: string, repoPath?: string): Promise<IGitBlame | undefined> {
         Logger.log(`getBlameForFile('${fileName}', ${sha}, ${repoPath})`);
         fileName = Git.normalizePath(fileName);
@@ -342,6 +347,30 @@ export default class GitProvider extends Disposable {
         return locations;
     }
 
+    async getLogForRepo(repoPath: string): Promise<IGitLog | undefined> {
+        Logger.log(`getLogForRepo('${repoPath}')`);
+        try {
+            const data = await Git.logRepo(repoPath);
+            return new GitLogParserEnricher().enrich(data, repoPath);
+        }
+        catch (ex) {
+            return undefined;
+        }
+    }
+
+    async getMostRecentLogForFile(fileName: string): Promise<IGitLog | undefined> {
+        Logger.log(`getMostRecentLogForFile('${fileName}')`);
+        fileName = Git.normalizePath(fileName);
+
+        try {
+            const data = await Git.logMostRecent(fileName);
+            return new GitLogParserEnricher().enrich(data, fileName);
+        }
+        catch (ex) {
+            return undefined;
+        }
+    }
+
     getLogForFile(fileName: string, sha?: string, repoPath?: string, range?: Range): Promise<IGitLog | undefined> {
         Logger.log(`getLogForFile('${fileName}', ${sha}, ${repoPath}, ${range && `[${range.start.line}, ${range.end.line}]`})`);
         fileName = Git.normalizePath(fileName);
@@ -371,7 +400,7 @@ export default class GitProvider extends Disposable {
                 : Git.log(fileName, sha, repoPath))
                 .then(data => new GitLogParserEnricher().enrich(data, fileName))
                 .catch(ex => {
-                    // Trap and cache expected blame errors
+                    // Trap and cache expected log errors
                     if (useCaching) {
                         const msg = ex && ex.toString();
                         Logger.log(`Replace log cache with empty promise for '${cacheKey}'`);

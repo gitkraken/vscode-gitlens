@@ -1,6 +1,18 @@
 ---
 ## Release Notes
 
+### 1.1.0
+
+  - Adds new `gitlens.showQuickFileHistory` command to show the file history in a quick-pick list (palette)
+  - Adds new `gitlens.showQuickRepoHistory` command to show the repository history in a quick-pick list (palette)
+  - Adds `gitlens.showQuickFileHistory` option to the `gitlens.codeLens.recentChange.command`, `gitlens.codeLens.authors.command`, and `gitlens.statusBar.command` settings
+  - Removes `git.viewFileHistory` option from the `gitlens.codeLens.recentChange.command`, `gitlens.codeLens.authors.command`, and `gitlens.statusBar.command` settings
+  - Changes the `gitlens.statusBar.command` settings default to `gitlens.showQuickFileHistory` instead of `gitlens.toggleBlame`
+
+### 1.0.2
+
+  - Fixes [#16](https://github.com/eamodio/vscode-gitlens/issues/16) - incorrect 'Unable to find Git' message
+
 ### 1.0.0
 
   - Adds support for git history (log)!

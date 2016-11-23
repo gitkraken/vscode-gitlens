@@ -17,7 +17,6 @@
         "no-internal-module": true,
         "no-reference": true,
         "no-trailing-whitespace": true,
-        "no-unreachable": true,
         "no-unsafe-finally": true,
         "no-unused-expression": false,
         "no-unused-new": true,
