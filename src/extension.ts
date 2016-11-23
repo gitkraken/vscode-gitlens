@@ -70,7 +70,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new ShowBlameHistoryCommand(git));
     context.subscriptions.push(new ShowFileHistoryCommand(git));
     context.subscriptions.push(new ShowQuickFileHistoryCommand(git));
-    context.subscriptions.push(new ShowQuickRepoHistoryCommand(git));
+    context.subscriptions.push(new ShowQuickRepoHistoryCommand(git, repoPath));
     context.subscriptions.push(new ToggleCodeLensCommand(git));
 }
 

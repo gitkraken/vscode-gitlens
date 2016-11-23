@@ -1,7 +1,7 @@
 'use strict';
 import { Iterables } from '../system';
-import { commands, QuickPickItem, QuickPickOptions, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { EditorCommand } from './commands';
+import { commands, QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
+import { Command } from './commands';
 import { Commands } from '../constants';
 import GitProvider, { GitCommit, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
@@ -32,23 +32,32 @@ class FileQuickPickItem implements QuickPickItem {
     }
 }
 
-export default class ShowQuickRepoHistoryCommand extends EditorCommand {
-    constructor(private git: GitProvider) {
+export default class ShowQuickRepoHistoryCommand extends Command {
+    constructor(private git: GitProvider, public repoPath: string) {
         super(Commands.ShowQuickRepoHistory);
     }
 
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri) {
+    async execute(uri?: Uri) {
         if (!(uri instanceof Uri)) {
-            if (!editor.document) return undefined;
-            uri = editor.document.uri;
+            const document = window.activeTextEditor && window.activeTextEditor.document;
+            if (document)  {
+                uri = document.uri;
+            }
         }
 
-        const gitUri = GitUri.fromUri(uri);
-
-        let repoPath = gitUri.repoPath;
         try {
+            let repoPath: string;
+            if (uri instanceof Uri) {
+                const gitUri = GitUri.fromUri(uri);
+                repoPath = gitUri.repoPath;
+
+                if (!repoPath) {
+                    repoPath = await this.git.getRepoPathFromFile(gitUri.fsPath);
+                }
+            }
+
             if (!repoPath) {
-                repoPath = await this.git.getRepoPathFromFile(gitUri.fsPath);
+                repoPath = this.repoPath;
             }
 
             if (!repoPath) return window.showWarningMessage(`Unable to show repository history`);
@@ -72,9 +81,11 @@ export default class ShowQuickRepoHistoryCommand extends EditorCommand {
 
                 if (filePick) {
                     const commit = new GitCommit(commitPick.commit.repoPath, commitPick.commit.sha, filePick.fileName, commitPick.commit.author, commitPick.commit.date, commitPick.commit.message, undefined, undefined, commitPick.commit.previousSha);
-                    commands.executeCommand(Commands.DiffWithWorking, filePick.uri, commit);
+                    return commands.executeCommand(Commands.DiffWithWorking, filePick.uri, commit);
                 }
             }
+
+            return undefined;
         }
         catch (ex) {
             Logger.error('[GitLens.ShowQuickRepoHistoryCommand]', 'getLogLocations', ex);
