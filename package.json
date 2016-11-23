@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -379,6 +379,14 @@
     "activationEvents": [
         "*"
     ],
+    "scripts": {
+        "compile": "tsc -watch -p ./",
+        "lint": "tslint --project tslint.json",
+        "pack": "git clean -xdf && npm install && vsce package",
+        "postinstall": "node ./node_modules/vscode/bin/install",
+        "pub": "git clean -xdf --exclude=node_modules/ && npm install && vsce publish",
+        "vscode:prepublish": "tsc -p ./"
+    },
     "dependencies": {
         "ignore": "^3.2.0",
         "lodash.debounce": "^4.0.8",
@@ -390,20 +398,12 @@
         "tmp": "^0.0.31"
     },
     "devDependencies": {
-        "mocha": "^3.1.2",
-        "tslint": "^4.0.1",
-        "typescript": "^2.0.10",
-        "vscode": "^1.0.3",
-        "@types/node": "^6.0.50",
+        "@types/node": "^6.0.51",
         "@types/mocha": "^2.2.33",
-        "@types/tmp": "^0.0.31"
-    },
-    "scripts": {
-        "compile": "tsc -watch -p ./",
-        "lint": "tslint --project tslint.json",
-        "pack": "git clean -xdf && npm install && vsce package",
-        "postinstall": "node ./node_modules/vscode/bin/install",
-        "pub": "git clean -xdf --exclude=node_modules/ && npm install && vsce publish",
-        "vscode:prepublish": "tsc -p ./"
+        "@types/tmp": "^0.0.31",
+        "mocha": "^3.1.2",
+        "tslint": "^4.0.2",
+        "typescript": "^2.0.10",
+        "vscode": "^1.0.3"
     }
 }

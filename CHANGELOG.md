@@ -1,6 +1,11 @@
 ---
 ## Release Notes
 
+### 1.1.1
+
+  - Allows `gitlens.showQuickRepoHistory` command to run without an open editor (falls back to the folder repository)
+  - Adds logging for tracking [#18](https://github.com/eamodio/vscode-gitlens/issues/18) - GitLens only displayed for some files
+
 ### 1.1.0
 
   - Adds new `gitlens.showQuickFileHistory` command to show the file history in a quick-pick list (palette)

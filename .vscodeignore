@@ -1,5 +1,4 @@
 images/*.gif
-typings/**
 .vscode/**
 .vscode-test/**
 out/test/**
@@ -8,4 +7,3 @@ src/**
 **/*.map
 .gitignore
 tsconfig.json
-vsc-extension-quickstart.md

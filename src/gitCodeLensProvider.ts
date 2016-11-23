@@ -4,6 +4,7 @@ import { CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelect
 import { BuiltInCommands, Commands, DocumentSchemes } from './constants';
 import { CodeLensCommand, CodeLensLocation, IConfig, ICodeLensLanguageLocation } from './configuration';
 import GitProvider, { GitCommit, GitUri, IGitBlame, IGitBlameLines } from './gitProvider';
+import { Logger } from './logger';
 import * as moment from 'moment';
 
 export class GitRecentChangeCodeLens extends CodeLens {
@@ -67,6 +68,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             if (!blame || !blame.lines.length) return lenses;
 
             const symbols = values[1] as SymbolInformation[];
+            Logger.log('GitCodeLensProvider.provideCodeLenses:', `${symbols.length} symbol(s) found`);
             symbols.forEach(sym => this._provideCodeLens(gitUri, document, sym, languageLocations, blame, lenses));
         }
 

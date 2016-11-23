@@ -1,9 +1,6 @@
 {
     "compilerOptions": {
-        "lib": [
-            "es6",
-            "es2015"
-        ],
+        "lib": [ "es6" ],
         "module": "commonjs",
         "noFallthroughCasesInSwitch": true,
         "noImplicitAny": true,
@@ -15,11 +12,7 @@
         "rootDir": ".",
         "sourceMap": true,
         "strictNullChecks": false,
-        "target": "es6",
-        "typeRoots": [
-        "./node_modules/@types",
-        "./@types"
-        ]
+        "target": "es6"
     },
     "exclude": [
         "node_modules",
