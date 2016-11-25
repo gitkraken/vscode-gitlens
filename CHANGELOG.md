@@ -1,6 +1,12 @@
 ---
 ## Release Notes
 
+### 1.2.0
+
+  - Adds compare (working vs previous) options to repository history
+  - Adds compare (working vs previous) options to file history
+  - Fixes issue with repository history compare with commits with multiple files
+
 ### 1.1.1
 
   - Allows `gitlens.showQuickRepoHistory` command to run without an open editor (falls back to the folder repository)
