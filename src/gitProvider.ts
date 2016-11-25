@@ -351,7 +351,7 @@ export default class GitProvider extends Disposable {
         Logger.log(`getLogForRepo('${repoPath}')`);
         try {
             const data = await Git.logRepo(repoPath);
-            return new GitLogParserEnricher().enrich(data, repoPath);
+            return new GitLogParserEnricher().enrich(data, repoPath, true);
         }
         catch (ex) {
             return undefined;
@@ -529,7 +529,7 @@ export class GitUri extends Uri {
     repoPath?: string | undefined;
     sha?: string | undefined;
 
-    constructor(uri?: Uri) {
+    constructor(uri?: Uri, commit?: GitCommit) {
         super();
         if (!uri) return;
 
@@ -549,10 +549,20 @@ export class GitUri extends Uri {
             this.repoPath = data.repoPath;
             this.sha = data.sha;
         }
+        else if (commit) {
+            base._fsPath = commit.originalFileName || commit.fileName;
+
+            this.repoPath = commit.repoPath;
+            this.sha = commit.sha;
+        }
     }
 
     fileUri() {
         return Uri.file(this.fsPath);
+    }
+
+    static fromCommit(uri: Uri, commit: GitCommit) {
+        return new GitUri(uri, commit);
     }
 
     static fromUri(uri: Uri) {

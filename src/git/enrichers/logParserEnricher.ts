@@ -108,8 +108,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
         return entries;
     }
 
-    enrich(data: string, fileNameOrRepoPath: string): IGitLog {
-        const isRepoPath = !path.extname(fileNameOrRepoPath);
+    enrich(data: string, fileNameOrRepoPath: string, isRepoPath: boolean = false): IGitLog {
         const entries = this._parseEntries(data, isRepoPath);
         if (!entries) return undefined;
 

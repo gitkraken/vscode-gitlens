@@ -1,37 +1,12 @@
 'use strict';
 import { Iterables } from '../system';
-import { commands, QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
+import { commands, QuickPickOptions, Uri, window } from 'vscode';
 import { Command } from './commands';
 import { Commands } from '../constants';
-import GitProvider, { GitCommit, GitUri } from '../gitProvider';
+import GitProvider, { GitUri } from '../gitProvider';
 import { Logger } from '../logger';
+import { CommitQuickPickItem, CompareQuickPickItem, FileQuickPickItem } from './quickPickItems';
 import * as moment from 'moment';
-import * as path from 'path';
-
-class CommitQuickPickItem implements QuickPickItem {
-    label: string;
-    description: string;
-    detail: string;
-
-    constructor(public commit: GitCommit) {
-        this.label = `${commit.author}, ${moment(commit.date).fromNow()}`;
-        this.description = `\u2022 ${commit.sha} \u2014 ${commit.fileName}`;
-        this.detail = commit.message;
-    }
-}
-
-class FileQuickPickItem implements QuickPickItem {
-    label: string;
-    description: string;
-    detail: string;
-    uri: GitUri;
-
-    constructor(commit: GitCommit, public fileName: string) {
-        this.label = fileName;
-        this.uri = GitUri.fromUri(Uri.file(path.resolve(commit.repoPath, fileName)));
-    }
-}
-
 export default class ShowQuickRepoHistoryCommand extends Command {
     constructor(private git: GitProvider, public repoPath: string) {
         super(Commands.ShowQuickRepoHistory);
@@ -40,7 +15,7 @@ export default class ShowQuickRepoHistoryCommand extends Command {
     async execute(uri?: Uri) {
         if (!(uri instanceof Uri)) {
             const document = window.activeTextEditor && window.activeTextEditor.document;
-            if (document)  {
+            if (document) {
                 uri = document.uri;
             }
         }
@@ -65,7 +40,7 @@ export default class ShowQuickRepoHistoryCommand extends Command {
             const log = await this.git.getLogForRepo(repoPath);
             if (!log) return window.showWarningMessage(`Unable to show repository history`);
 
-            const items = Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c));
+            const items = Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c, ` \u2014 ${c.fileName}`));
             const commitPick = await window.showQuickPick(Array.from(items), <QuickPickOptions>{
                 matchOnDescription: true,
                 matchOnDetail: true
@@ -76,12 +51,43 @@ export default class ShowQuickRepoHistoryCommand extends Command {
                 const filePick = await window.showQuickPick(items, <QuickPickOptions>{
                     matchOnDescription: true,
                     matchOnDetail: true,
-                    placeHolder: `${commitPick.commit.author}, ${moment(commitPick.commit.date).fromNow()} \u2022 ${commitPick.commit.sha}`
+                    placeHolder: `${commitPick.commit.sha} \u2022 ${commitPick.commit.author}, ${moment(commitPick.commit.date).fromNow()}`
                 });
 
                 if (filePick) {
-                    const commit = new GitCommit(commitPick.commit.repoPath, commitPick.commit.sha, filePick.fileName, commitPick.commit.author, commitPick.commit.date, commitPick.commit.message, undefined, undefined, commitPick.commit.previousSha);
-                    return commands.executeCommand(Commands.DiffWithWorking, filePick.uri, commit);
+                    const log = await this.git.getLogForFile(filePick.uri.fsPath);
+                    if (!log) return window.showWarningMessage(`Unable to open diff`);
+
+                    const commit = Iterables.find(log.commits.values(), c => c.sha === commitPick.commit.sha);
+
+                    let command: Commands | undefined = Commands.DiffWithWorking;
+                    if (commit.previousSha) {
+                        const items: CompareQuickPickItem[] = [
+                            {
+                                label: `Compare with Working Tree`,
+                                description: `\u2022 ${commit.sha}  $(git-compare)  ${commit.fileName}`,
+                                detail: null,
+                                command: Commands.DiffWithWorking
+                            },
+                            {
+                                label: `Compare with Previous Commit`,
+                                description: `\u2022 ${commit.previousSha}  $(git-compare)  ${commit.sha}`,
+                                detail: null,
+                                command: Commands.DiffWithPrevious
+                            }
+                        ];
+
+                        const comparePick = await window.showQuickPick(items, <QuickPickOptions>{
+                            matchOnDescription: true,
+                            placeHolder: `${commit.fileName} \u2022 ${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()}`
+                        });
+
+                        command = comparePick ? comparePick.command : undefined;
+                    }
+
+                    if (command) {
+                        return commands.executeCommand(command, commit.uri, commit);
+                    }
                 }
             }
 
