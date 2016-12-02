@@ -239,7 +239,7 @@
                         "errors",
                         "verbose"
                     ],
-                    "description": "Specifies whether how much (if any) output will be sent to the GitLens output channel"
+                    "description": "Specifies how much (if any) output will be sent to the GitLens output channel"
                 }
             }
         },

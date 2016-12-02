@@ -1,7 +1,7 @@
 'use strict';
 import { TextEditor, TextEditorEdit } from 'vscode';
 import { EditorCommand } from './commands';
-import { Commands} from '../constants';
+import { Commands } from '../constants';
 import GitProvider from '../gitProvider';
 
 export default class ToggleCodeLensCommand extends EditorCommand {
