@@ -126,7 +126,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         if (!this._isValidSymbol(symbol.kind, languageLocation)) return;
 
         const line = document.lineAt(symbol.location.range.start);
-        // Make sure there is only 1 lense per line
+        // Make sure there is only 1 lens per line
         if (lenses.length && lenses[lenses.length - 1].range.start.line === line.lineNumber) return;
 
         let startChar = -1;
@@ -149,8 +149,8 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         }
 
         if (this._config.codeLens.authors.enabled) {
+            let multiline = !symbol.location.range.isSingleLine;
             // HACK for Omnisharp, since it doesn't return full ranges
-            let multiline = (symbol.location.range.end.line - symbol.location.range.start.line) > 1;
             if (!multiline && document.languageId === 'csharp') {
                 switch (symbol.kind) {
                     case SymbolKind.File:

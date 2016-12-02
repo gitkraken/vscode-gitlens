@@ -398,9 +398,9 @@
         "tmp": "^0.0.31"
     },
     "devDependencies": {
-        "@types/node": "^6.0.51",
+        "@types/node": "^0.0.2",
         "@types/mocha": "^2.2.33",
-        "@types/tmp": "^0.0.31",
+        "@types/tmp": "^0.0.32",
         "mocha": "^3.2.0",
         "tslint": "^4.0.2",
         "typescript": "^2.0.10",
