@@ -23,7 +23,7 @@ export default class ShowQuickRepoHistoryCommand extends Command {
         try {
             let repoPath: string;
             if (uri instanceof Uri) {
-                const gitUri = GitUri.fromUri(uri);
+                const gitUri = GitUri.fromUri(uri, this.git);
                 repoPath = gitUri.repoPath;
 
                 if (!repoPath) {

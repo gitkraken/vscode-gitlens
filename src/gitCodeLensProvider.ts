@@ -50,7 +50,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
 
         if (languageLocations.location === CodeLensLocation.None) return lenses;
 
-        const gitUri = GitUri.fromUri(document.uri);
+        const gitUri = GitUri.fromUri(document.uri, this.git);
 
         const blamePromise = this.git.getBlameForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath);
         let blame: IGitBlame;

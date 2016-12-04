@@ -71,13 +71,13 @@ export default class BlameStatusBarController extends Disposable {
     }
 
     private async _onActiveTextEditorChanged(e: TextEditor): Promise<void> {
-        if (!e || !e.document || e.document.isUntitled || e.viewColumn === undefined) {
+        if (!e || !e.document || e.document.isUntitled || (e.viewColumn === undefined && !this.git.hasGitUriForFile(e))) {
             this.clear();
             return;
         }
 
         this._document = e.document;
-        this._uri = GitUri.fromUri(this._document.uri);
+        this._uri = GitUri.fromUri(this._document.uri, this.git);
         const maxLines = this._config.advanced.caching.statusBar.maxLines;
         this._useCaching = this._config.advanced.caching.enabled && (maxLines <= 0 || this._document.lineCount <= maxLines);
         if (this._useCaching) {

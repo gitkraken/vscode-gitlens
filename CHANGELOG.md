@@ -1,6 +1,10 @@
 ---
 ## Release Notes
 
+### 1.3.0
+
+  - Adds support for blame and history (log) on files opened via compare commands -- allows for deep navigation through git history
+
 ### 1.2.0
 
   - Adds compare (working vs previous) options to repository history

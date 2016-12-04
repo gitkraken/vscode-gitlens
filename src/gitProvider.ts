@@ -14,7 +14,11 @@ import * as path from 'path';
 export { Git };
 export * from './git/git';
 
-class CacheEntry {
+class UriCacheEntry {
+    constructor(public uri: GitUri) { }
+}
+
+class GitCacheEntry {
     blame?: ICachedBlame;
     log?: ICachedLog;
 
@@ -39,8 +43,9 @@ enum RemoveCacheReason {
 }
 
 export default class GitProvider extends Disposable {
-    private _cache: Map<string, CacheEntry> | undefined;
+    private _gitCache: Map<string, GitCacheEntry> | undefined;
     private _cacheDisposable: Disposable | undefined;
+    private _uriCache: Map<string, UriCacheEntry> | undefined;
 
     private _config: IConfig;
     private _disposable: Disposable;
@@ -85,11 +90,16 @@ export default class GitProvider extends Disposable {
         this._disposable && this._disposable.dispose();
         this._codeLensProviderDisposable && this._codeLensProviderDisposable.dispose();
         this._cacheDisposable && this._cacheDisposable.dispose();
-        this._cache && this._cache.clear();
+        this._uriCache && this._uriCache.clear();
+        this._gitCache && this._gitCache.clear();
     }
 
-    public get UseCaching() {
-        return !!this._cache;
+    public get UseUriCaching() {
+        return !!this._uriCache;
+    }
+
+    public get UseGitCaching() {
+        return !!this._gitCache;
     }
 
     private _onConfigure() {
@@ -112,7 +122,8 @@ export default class GitProvider extends Disposable {
         if (advancedChanged) {
             if (config.advanced.caching.enabled) {
                 // TODO: Cache needs to be cleared on file changes -- createFileSystemWatcher or timeout?
-                this._cache = new Map();
+                this._gitCache = new Map();
+                this._uriCache = new Map();
 
                 const disposables: Disposable[] = [];
 
@@ -128,8 +139,12 @@ export default class GitProvider extends Disposable {
             else {
                 this._cacheDisposable && this._cacheDisposable.dispose();
                 this._cacheDisposable = undefined;
-                this._cache && this._cache.clear();
-                this._cache = undefined;
+
+                this._uriCache && this._uriCache.clear();
+                this._uriCache = undefined;
+
+                this._gitCache && this._gitCache.clear();
+                this._gitCache = undefined;
             }
         }
 
@@ -141,19 +156,26 @@ export default class GitProvider extends Disposable {
     }
 
     private _removeCachedEntry(document: TextDocument, reason: RemoveCacheReason) {
-        if (!this.UseCaching) return;
+        if (!this.UseGitCaching) return;
         if (document.uri.scheme !== DocumentSchemes.File) return;
 
         const fileName = Git.normalizePath(document.fileName);
 
         const cacheKey = this._getCacheEntryKey(fileName);
+
         if (reason === RemoveCacheReason.DocumentClosed) {
+            // Don't remove this from cache because at least for now DocumentClosed can't really be trusted
+            // It seems to fire when an editor is no longer visible (but the tab still is)
+            // if (this._fileCache.delete(cacheKey)) {
+            //     Logger.log(`Clear uri cache entry for '${cacheKey}', reason=${RemoveCacheReason[reason]}`);
+            // }
+
             // Don't remove broken blame on close (since otherwise we'll have to run the broken blame again)
-            const entry = this._cache.get(cacheKey);
+            const entry = this._gitCache.get(cacheKey);
             if (entry && entry.hasErrors) return;
         }
 
-        if (this._cache.delete(cacheKey)) {
+        if (this._gitCache.delete(cacheKey)) {
             Logger.log(`Clear cache entry for '${cacheKey}', reason=${RemoveCacheReason[reason]}`);
 
             // if (reason === RemoveCacheReason.DocumentSaved) {
@@ -161,6 +183,32 @@ export default class GitProvider extends Disposable {
             //     this._registerCodeLensProvider();
             // }
         }
+    }
+
+    hasGitUriForFile(editor: TextEditor): boolean;
+    hasGitUriForFile(fileName: string): boolean;
+    hasGitUriForFile(fileNameOrEditor: string | TextEditor): boolean {
+        if (!this.UseUriCaching) return false;
+
+        let fileName: string;
+        if (typeof fileNameOrEditor === 'string') {
+            fileName = fileNameOrEditor;
+        }
+        else {
+            if (!fileNameOrEditor || !fileNameOrEditor.document || !fileNameOrEditor.document.uri) return false;
+            fileName = fileNameOrEditor.document.uri.fsPath;
+        }
+
+        const cacheKey = this._getCacheEntryKey(fileName);
+        return this._uriCache.has(cacheKey);
+    }
+
+    getGitUriForFile(fileName: string) {
+        if (!this.UseUriCaching) return undefined;
+
+        const cacheKey = this._getCacheEntryKey(fileName);
+        const entry = this._uriCache.get(cacheKey);
+        return entry && entry.uri;
     }
 
     getRepoPath(cwd: string): Promise<string> {
@@ -176,17 +224,17 @@ export default class GitProvider extends Disposable {
         Logger.log(`getBlameForFile('${fileName}', ${sha}, ${repoPath})`);
         fileName = Git.normalizePath(fileName);
 
-        const useCaching = this.UseCaching && !sha;
+        const useCaching = this.UseGitCaching && !sha;
 
         let cacheKey: string | undefined;
-        let entry: CacheEntry | undefined;
+        let entry: GitCacheEntry | undefined;
         if (useCaching) {
             cacheKey = this._getCacheEntryKey(fileName);
-            entry = this._cache.get(cacheKey);
+            entry = this._gitCache.get(cacheKey);
 
             if (entry !== undefined && entry.blame !== undefined) return entry.blame.item;
             if (entry === undefined) {
-                entry = new CacheEntry();
+                entry = new GitCacheEntry();
             }
         }
 
@@ -210,7 +258,7 @@ export default class GitProvider extends Disposable {
                             errorMessage: msg
                         };
 
-                        this._cache.set(cacheKey, entry);
+                        this._gitCache.set(cacheKey, entry);
                         return <Promise<IGitBlame>>GitProvider.EmptyPromise;
                     }
                     return undefined;
@@ -225,7 +273,7 @@ export default class GitProvider extends Disposable {
                 item: promise
             };
 
-            this._cache.set(cacheKey, entry);
+            this._gitCache.set(cacheKey, entry);
         }
 
         return promise;
@@ -234,7 +282,7 @@ export default class GitProvider extends Disposable {
     async getBlameForLine(fileName: string, line: number, sha?: string, repoPath?: string): Promise<IGitBlameLine | undefined> {
         Logger.log(`getBlameForLine('${fileName}', ${line}, ${sha}, ${repoPath})`);
 
-        if (this.UseCaching && !sha) {
+        if (this.UseGitCaching && !sha) {
             const blame = await this.getBlameForFile(fileName);
             const blameLine = blame && blame.lines[line];
             if (!blameLine) return undefined;
@@ -375,17 +423,17 @@ export default class GitProvider extends Disposable {
         Logger.log(`getLogForFile('${fileName}', ${sha}, ${repoPath}, ${range && `[${range.start.line}, ${range.end.line}]`})`);
         fileName = Git.normalizePath(fileName);
 
-        const useCaching = this.UseCaching && !range;
+        const useCaching = this.UseGitCaching && !range;
 
         let cacheKey: string;
-        let entry: CacheEntry;
+        let entry: GitCacheEntry;
         if (useCaching) {
             cacheKey = this._getCacheEntryKey(fileName);
-            entry = this._cache.get(cacheKey);
+            entry = this._gitCache.get(cacheKey);
 
             if (entry !== undefined && entry.log !== undefined) return entry.log.item;
             if (entry === undefined) {
-                entry = new CacheEntry();
+                entry = new GitCacheEntry();
             }
         }
 
@@ -411,7 +459,7 @@ export default class GitProvider extends Disposable {
                             errorMessage: msg
                         };
 
-                        this._cache.set(cacheKey, entry);
+                        this._gitCache.set(cacheKey, entry);
                         return <Promise<IGitLog>>GitProvider.EmptyPromise;
                     }
                     return undefined;
@@ -426,7 +474,7 @@ export default class GitProvider extends Disposable {
                 item: promise
             };
 
-            this._cache.set(cacheKey, entry);
+            this._gitCache.set(cacheKey, entry);
         }
 
         return promise;
@@ -455,9 +503,16 @@ export default class GitProvider extends Disposable {
         return locations;
     }
 
-    getVersionedFile(fileName: string, repoPath: string, sha: string) {
+    async getVersionedFile(fileName: string, repoPath: string, sha: string) {
         Logger.log(`getVersionedFile('${fileName}', ${repoPath}, ${sha})`);
-        return Git.getVersionedFile(fileName, repoPath, sha);
+
+        const file = await Git.getVersionedFile(fileName, repoPath, sha);
+        if (this.UseUriCaching) {
+            const cacheKey = this._getCacheEntryKey(file);
+            const entry = new UriCacheEntry(new GitUri(Uri.file(fileName), { sha, repoPath, fileName }));
+            this._uriCache.set(cacheKey, entry);
+        }
+        return file;
     }
 
     getVersionedFileText(fileName: string, repoPath: string, sha: string) {
@@ -524,12 +579,19 @@ export default class GitProvider extends Disposable {
     }
 }
 
+export interface IGitCommitInfo {
+    sha: string;
+    repoPath: string;
+    fileName: string;
+    originalFileName?: string;
+}
+
 export class GitUri extends Uri {
     offset: number;
     repoPath?: string | undefined;
     sha?: string | undefined;
 
-    constructor(uri?: Uri, commit?: GitCommit) {
+    constructor(uri?: Uri, commit?: IGitCommitInfo) {
         super();
         if (!uri) return;
 
@@ -561,11 +623,12 @@ export class GitUri extends Uri {
         return Uri.file(this.fsPath);
     }
 
-    static fromCommit(uri: Uri, commit: GitCommit) {
-        return new GitUri(uri, commit);
-    }
+    static fromUri(uri: Uri, git?: GitProvider) {
+        if (git) {
+            const gitUri = git.getGitUriForFile(uri.fsPath);
+            if (gitUri) return gitUri;
+        }
 
-    static fromUri(uri: Uri) {
         return new GitUri(uri);
     }
 }

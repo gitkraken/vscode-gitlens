@@ -29,7 +29,7 @@ export default class DiffWithPreviousCommand extends EditorCommand {
         }
 
         if (!commit || rangeOrLine instanceof Range) {
-            const gitUri = GitUri.fromUri(uri);
+            const gitUri = GitUri.fromUri(uri, this.git);
 
             try {
                 const log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, <Range>rangeOrLine);

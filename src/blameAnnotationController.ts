@@ -44,9 +44,10 @@ export default class BlameAnnotationController extends Disposable {
     }
 
     async showBlameAnnotation(editor: TextEditor, shaOrLine?: string | number): Promise<boolean> {
-        if (!editor || !editor.document || editor.viewColumn === undefined) return false;
+        if (!editor || !editor.document) return false;
+        if (editor.viewColumn === undefined && !this.git.hasGitUriForFile(editor)) return false;
 
-        const currentProvider = this._annotationProviders.get(editor.viewColumn);
+        const currentProvider = this._annotationProviders.get(editor.viewColumn || -1);
         if (currentProvider && TextEditorComparer.equals(currentProvider.editor, editor)) {
             await currentProvider.setSelection(shaOrLine);
             return true;
@@ -56,7 +57,7 @@ export default class BlameAnnotationController extends Disposable {
         if (!await provider.supportsBlame()) return false;
 
         if (currentProvider) {
-            await this.clear(currentProvider.editor.viewColumn, false);
+            await this.clear(currentProvider.editor.viewColumn || -1, false);
         }
 
         if (!this._blameAnnotationsDisposable && this._annotationProviders.size === 0) {
@@ -73,36 +74,38 @@ export default class BlameAnnotationController extends Disposable {
             this._visibleColumns = this._getVisibleColumns(window.visibleTextEditors);
         }
 
-        this._annotationProviders.set(editor.viewColumn, provider);
+        this._annotationProviders.set(editor.viewColumn || -1, provider);
         return provider.provideBlameAnnotation(shaOrLine);
     }
 
     async toggleBlameAnnotation(editor: TextEditor, shaOrLine?: string | number): Promise<boolean> {
-        if (!editor || !editor.document || editor.viewColumn === undefined) return false;
+        if (!editor || !editor.document) return false;
+        if (editor.viewColumn === undefined && !this.git.hasGitUriForFile(editor)) return false;
 
-        let provider = this._annotationProviders.get(editor.viewColumn);
+        let provider = this._annotationProviders.get(editor.viewColumn || -1);
         if (!provider) return this.showBlameAnnotation(editor, shaOrLine);
 
-        await this.clear(provider.editor.viewColumn);
+        await this.clear(provider.editor.viewColumn || -1);
         return false;
     }
 
     private _getVisibleColumns(editors: TextEditor[]): Set<number> {
         const set: Set<number> = new Set();
         for (const e of editors) {
-            if (e.viewColumn === undefined) continue;
-
+            if (e.viewColumn === undefined && !this.git.hasGitUriForFile(e)) continue;
             set.add(e.viewColumn);
         }
         return set;
     }
 
     private _onActiveTextEditorChanged(e: TextEditor) {
-        if (e.viewColumn === undefined || this._pendingWhitespaceToggles.size === 0) return;
+        if (this._pendingWhitespaceToggles.size === 0 || (e.viewColumn === undefined && !this.git.hasGitUriForFile(e))) return;
 
-        if (this._pendingWhitespaceToggles.has(e.viewColumn)) {
-            Logger.log('ActiveTextEditorChanged:', `Remove pending whitespace toggle for column ${e.viewColumn}`);
-            this._pendingWhitespaceToggles.delete(e.viewColumn);
+        const viewColumn = e.viewColumn || -1;
+
+        if (this._pendingWhitespaceToggles.has(viewColumn)) {
+            Logger.log('ActiveTextEditorChanged:', `Remove pending whitespace toggle for column ${viewColumn}`);
+            this._pendingWhitespaceToggles.delete(viewColumn);
 
             // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- toggle whitespace back on
             Logger.log('ActiveTextEditorChanged:', `Toggle whitespace rendering on`);
@@ -137,8 +140,10 @@ export default class BlameAnnotationController extends Disposable {
     private async _onTextEditorViewColumnChanged(e: TextEditorViewColumnChangeEvent) {
         this._visibleColumns = this._getVisibleColumns(window.visibleTextEditors);
 
-        Logger.log('TextEditorViewColumnChanged:', `Clear blame annotations for column ${e.viewColumn}`);
-        await this.clear(e.viewColumn);
+        const viewColumn = e.viewColumn || -1;
+
+        Logger.log('TextEditorViewColumnChanged:', `Clear blame annotations for column ${viewColumn}`);
+        await this.clear(viewColumn);
 
         for (const [key, p] of this._annotationProviders) {
             if (!TextEditorComparer.equals(p.editor, e.textEditor)) continue;
@@ -168,7 +173,7 @@ export default class BlameAnnotationController extends Disposable {
 
             Logger.log('VisibleTextEditorsChanged:', `Clear blame annotations for column ${key}`);
             const editor = window.activeTextEditor;
-            if (p.requiresRenderWhitespaceToggle && (editor && editor.viewColumn !== key)) {
+            if (p.requiresRenderWhitespaceToggle && (editor && (editor.viewColumn || -1) !== key)) {
                 this.clear(key, false);
 
                 if (!this._pendingWhitespaceToggleDisposable) {

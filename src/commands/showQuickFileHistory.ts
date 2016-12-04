@@ -19,7 +19,7 @@ export default class ShowQuickFileHistoryCommand extends EditorCommand {
             uri = editor.document.uri;
         }
 
-        const gitUri = GitUri.fromUri(uri);
+        const gitUri = GitUri.fromUri(uri, this.git);
 
         try {
             const log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath);

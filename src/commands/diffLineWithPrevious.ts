@@ -21,7 +21,7 @@ export default class DiffLineWithPreviousCommand extends EditorCommand {
         line = line || editor.selection.active.line;
 
         if (!commit || GitProvider.isUncommitted(commit.sha)) {
-            const gitUri = GitUri.fromUri(uri);
+            const gitUri = GitUri.fromUri(uri, this.git);
             const blameline = line - gitUri.offset;
             if (blameline < 0) return undefined;
 

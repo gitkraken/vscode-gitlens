@@ -47,7 +47,8 @@ export class BlameAnnotationProvider extends Disposable {
         }
 
         this.document = this.editor.document;
-        this._uri = GitUri.fromUri(this.document.uri);
+        this._uri = GitUri.fromUri(this.document.uri, this.git);
+
         this._blame = this.git.getBlameForFile(this._uri.fsPath, this._uri.sha, this._uri.repoPath);
 
         this._config = workspace.getConfiguration('gitlens').get<IBlameConfig>('blame');

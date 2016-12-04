@@ -22,7 +22,7 @@ export default class GitRevisionCodeLensProvider implements CodeLensProvider {
     constructor(context: ExtensionContext, private git: GitProvider) { }
 
     async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
-        const gitUri = GitUri.fromUri(document.uri);
+        const gitUri = GitUri.fromUri(document.uri, this.git);
 
         const lenses: CodeLens[] = [];
 

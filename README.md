@@ -45,6 +45,6 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 
 ## Known Issues
 
-- Content in the **history explorers** disappears after a bit: [vscode issue](https://github.com/Microsoft/vscode/issues/11360)
+- Content in the **history explorers** disappears after a bit: [vscode issue](https://github.com/Microsoft/vscode/issues/16098)
 - CodeLens aren't updated properly after a file is saved: [vscode issue](https://github.com/Microsoft/vscode/issues/11546)
 - Visible whitespace causes issue with blame overlay (currently fixed with a hack, but infrequently and randomly fails): [vscode issue](https://github.com/Microsoft/vscode/issues/11485)
