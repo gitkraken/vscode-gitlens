@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "1.3.0",
+    "version": "1.3.1",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -246,32 +246,32 @@
         "commands": [
             {
                 "command": "gitlens.diffWithPrevious",
-                "title": "Diff with Previous Commit",
+                "title": "Diff Commit with Previous",
                 "category": "GitLens"
             },
             {
                 "command": "gitlens.diffLineWithPrevious",
-                "title": "Diff with Previous Commit (line)",
+                "title": "Diff Commit (line) with Previous",
                 "category": "GitLens"
             },
             {
                 "command": "gitlens.diffWithWorking",
-                "title": "Diff with Working Tree",
+                "title": "Diff Commit with Working Tree",
                 "category": "GitLens"
             },
             {
                 "command": "gitlens.diffLineWithWorking",
-                "title": "Diff with Working Tree (line)",
+                "title": "Diff Commit (line) with Working Tree",
                 "category": "GitLens"
             },
             {
                 "command": "gitlens.showBlame",
-                "title": "Show Git Blame Annotations",
+                "title": "Show Blame Annotations",
                 "category": "GitLens"
             },
             {
                 "command": "gitlens.toggleBlame",
-                "title": "Toggle Git Blame Annotations",
+                "title": "Toggle Blame Annotations",
                 "category": "GitLens"
             },
             {
@@ -281,7 +281,7 @@
             },
             {
                 "command": "gitlens.showBlameHistory",
-                "title": "Open Git Blame History Explorer",
+                "title": "Open Blame History Explorer",
                 "category": "GitLens"
             },
             {
@@ -303,61 +303,75 @@
         "menus": {
             "explorer/context": [
                 {
-                    "command": "gitlens.showQuickFileHistory",
-                    "when": "config.git.enabled",
-                    "group": "2_gitlens-file@1.0"
+                    "command": "gitlens.diffWithWorking",
+                    "when": "config.gitlens.menus.fileDiff.enabled && config.git.enabled",
+                    "group": "2_gitlens-file"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
-                    "alt": "gitlens.diffWithWorking",
                     "when": "config.gitlens.menus.fileDiff.enabled && config.git.enabled",
-                    "group": "2_gitlens-file@1.1"
+                    "group": "2_gitlens-file"
+                },
+                {
+                    "command": "gitlens.showQuickFileHistory",
+                    "when": "config.git.enabled",
+                    "group": "3_gitlens-file"
                 }
             ],
             "editor/title": [
                 {
-                    "command": "gitlens.toggleBlame",
-                    "when": "editorTextFocus && config.git.enabled",
+                    "command": "gitlens.diffWithWorking",
+                    "when": "config.gitlens.menus.fileDiff.enabled && config.git.enabled",
+                    "group": "2_gitlens"
+                },
+                {
+                    "command": "gitlens.diffWithPrevious",
+                    "when": "config.gitlens.menus.fileDiff.enabled && config.git.enabled",
                     "group": "2_gitlens"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
                     "when": "editorTextFocus && config.git.enabled",
                     "group": "3_gitlens"
+                },
+                {
+                    "command": "gitlens.toggleBlame",
+                    "when": "editorTextFocus && config.git.enabled",
+                    "group": "3_gitlens"
                 }
             ],
             "editor/context": [
                 {
-                    "command": "gitlens.toggleBlame",
-                    "when": "editorTextFocus && config.git.enabled",
-                    "group": "2_gitlens"
-                },
-                {
-                    "command": "gitlens.showQuickFileHistory",
-                    "when": "config.git.enabled",
-                    "group": "3_gitlens@1.0"
+                    "command": "gitlens.diffWithWorking",
+                    "alt": "gitlens.diffLineWithWorking",
+                    "when": "editorTextFocus && config.gitlens.menus.fileDiff.enabled && config.git.enabled",
+                    "group": "2_gitlens@1.0"
                 },
                 {
                     "command": "gitlens.diffLineWithWorking",
                     "when": "editorTextFocus && config.gitlens.menus.lineDiff.enabled && config.git.enabled",
-                    "group": "3_gitlens@1.1"
-                },
-                {
-                    "command": "gitlens.diffLineWithPrevious",
-                    "when": "editorTextFocus && config.gitlens.menus.lineDiff.enabled && config.git.enabled",
-                    "group": "3_gitlens@1.2"
-                },
-                {
-                    "command": "gitlens.diffWithWorking",
-                    "alt": "gitlens.diffLineWithWorking",
-                    "when": "editorTextFocus && config.gitlens.menus.fileDiff.enabled && config.git.enabled",
-                    "group": "3_gitlens@1.3"
+                    "group": "2_gitlens@1.1"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
                     "alt": "gitlens.diffLineWithPrevious",
                     "when": "editorTextFocus && config.gitlens.menus.fileDiff.enabled && config.git.enabled",
-                    "group": "3_gitlens@1.4"
+                    "group": "2_gitlens@1.2"
+                },
+                {
+                    "command": "gitlens.diffLineWithPrevious",
+                    "when": "editorTextFocus && config.gitlens.menus.lineDiff.enabled && config.git.enabled",
+                    "group": "2_gitlens@1.3"
+                },
+                {
+                    "command": "gitlens.showQuickFileHistory",
+                    "when": "config.git.enabled",
+                    "group": "3_gitlens"
+                },
+                {
+                    "command": "gitlens.toggleBlame",
+                    "when": "editorTextFocus && config.git.enabled",
+                    "group": "3_gitlens"
                 }
             ]
         },

@@ -1,6 +1,14 @@
 ---
 ## Release Notes
 
+### 1.3.1
+
+  - Renames `Diff` commands for better clarity
+  - Removes `Git` from the commands as it feels unnecessary
+  - Reorders the context menu commands
+  - Adds `Diff Commit with Working Tree` to the explorer context menu (assuming `gitlens.menus.fileDiff.enabled` is `true`)
+  - Adds `Diff Commit with Working Tree` & `Diff Commit with Previous` to the editor title context menu (assuming `gitlens.menus.fileDiff.enabled` is `true`)
+
 ### 1.3.0
 
   - Adds support for blame and history (log) on files opened via compare commands -- allows for deep navigation through git history
