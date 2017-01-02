@@ -1,6 +1,13 @@
 'use strict';
 
 export namespace Iterables {
+    export function every<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): boolean {
+        for (const item of source) {
+            if (!predicate(item)) return false;
+        }
+        return true;
+    }
+
     export function* filter<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): Iterable<T> {
         for (const item of source) {
             if (predicate(item)) yield item;
@@ -39,6 +46,10 @@ export namespace Iterables {
         }
     }
 
+    export function has<T>(source: Iterable<T> | IterableIterator<T>, item: T): boolean {
+        return some(source, _ => _ === item);
+    }
+
     export function isIterable(source: Iterable<any>): boolean {
         return typeof source[Symbol.iterator] === 'function';
     }
@@ -59,10 +70,37 @@ export namespace Iterables {
         return source.next().value;
     }
 
+    export function* skip<T>(source: Iterable<T> | IterableIterator<T>, count: number): Iterable<T> {
+        let i = 0;
+        for (const item of source) {
+            if (i >= count) yield item;
+            i++;
+        }
+    }
+
     export function some<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): boolean {
         for (const item of source) {
             if (predicate(item)) return true;
         }
         return false;
+    }
+
+    export function* take<T>(source: Iterable<T> | IterableIterator<T>, count: number): Iterable<T> {
+        if (count > 0) {
+            let i = 0;
+            for (const item of source) {
+                yield item;
+                i++;
+                if (i >= count) break;
+            }
+        }
+    }
+
+    export function* union<T>(...sources: (Iterable<T> | IterableIterator<T>)[]): Iterable<T> {
+        for (const source of sources) {
+            for (const item of source) {
+                yield item;
+            }
+        }
     }
 }
