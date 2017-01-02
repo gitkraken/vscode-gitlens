@@ -32,3 +32,15 @@ export class FileQuickPickItem implements QuickPickItem {
         this.uri = GitUri.fromUri(Uri.file(path.resolve(commit.repoPath, fileName)));
     }
 }
+
+export class ShowAllCommitsQuickPickItem implements QuickPickItem {
+    label: string;
+    description: string;
+    detail: string;
+
+    constructor(maxItems: number) {
+        this.label = `Show All Commits`;
+        this.description = `\u2014 Currently only showing the first ${maxItems} commits`;
+        this.detail = `This may take a while`;
+    }
+}

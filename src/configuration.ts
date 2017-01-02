@@ -92,6 +92,7 @@ export interface IAdvancedConfig {
     };
     debug: boolean;
     git: string;
+    maxQuickHistory: number;
     output: {
         level: OutputLevel;
     };

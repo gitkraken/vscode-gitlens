@@ -38,13 +38,11 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 |`gitlens.codeLens.recentChange.command`|Specifies the command executed when the recent change CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `gitlens.showQuickFileHistory` - shows a file history picker
 |`gitlens.codeLens.authors.enabled`|Specifies whether the authors CodeLens is shown
 |`gitlens.codeLens.authors.command`|Specifies the command executed when the authors CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `gitlens.showQuickFileHistory` - shows a file history picker
-|`gitlens.menus.fileDiff.enabled`|Specifies whether file-based diff commands will be added to the context menus
-|`gitlens.menus.lineDiff.enabled`|Specifies whether line-based diff commands will be added to the context menus
+|`gitlens.menus.diff.enabled`|Specifies whether diff commands will be added to the context menus
 |`gitlens.statusBar.enabled`|Specifies whether blame information is shown in the status bar
 |`gitlens.statusBar.command`|"Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `gitlens.showQuickFileHistory` - shows a file history picker
 
 ## Known Issues
 
-- Content in the **history explorers** disappears after a bit: [vscode issue](https://github.com/Microsoft/vscode/issues/16098)
 - CodeLens aren't updated properly after a file is saved: [vscode issue](https://github.com/Microsoft/vscode/issues/11546)
 - Visible whitespace causes issue with blame overlay (currently fixed with a hack, but infrequently and randomly fails): [vscode issue](https://github.com/Microsoft/vscode/issues/11485)

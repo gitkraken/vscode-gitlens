@@ -1,6 +1,18 @@
 ---
 ## Release Notes
 
+### 1.4.0
+
+  - Adds `alt+h` shortcut for the `gitlens.showQuickFileHistory` command
+  - Adds `shift+alt+h` shortcut for the `gitlens.showQuickRepoHistory` command
+  - Adds `gitlens.advanced.maxQuickHistory` to limit the number of quick history entries to show (for better performance); Defaults to 200
+  - Adds `gitlens.diffLineWithPrevious` as `alt` context menu item for `gitlens.diffWithPrevious`
+  - Adds `gitlens.diffLineWithWorking` as `alt` context menu item for `gitlens.diffWithWorking`
+  - Adds `gitlens.showFileHistory` as `alt` context menu item for `gitlens.showQuickFileHistory`
+  - Removes context menu for `gitlens.diffLineWithPrevious` -- since it is now the `alt` of `gitlens.diffWithPrevious`
+  - Removes context menu for `gitlens.diffLineWithWorking` -- since it is now the `alt` of `gitlens.diffWithWorking`
+  - Replaces `gitlens.menus.fileDiff.enabled` and `gitlens.menus.lineDiff.enabled` with `gitlens.menus.diff.enabled` -- since the switch between file and line diff is now controlled by the `alt` key
+
 ### 1.3.1
 
   - Renames `Diff` commands for better clarity

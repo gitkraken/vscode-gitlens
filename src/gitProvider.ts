@@ -47,7 +47,7 @@ export default class GitProvider extends Disposable {
     private _cacheDisposable: Disposable | undefined;
     private _uriCache: Map<string, UriCacheEntry> | undefined;
 
-    private _config: IConfig;
+    config: IConfig;
     private _disposable: Disposable;
     private _codeLensProviderDisposable: Disposable | undefined;
     private _gitignore: Promise<ignore.Ignore>;
@@ -105,8 +105,8 @@ export default class GitProvider extends Disposable {
     private _onConfigure() {
         const config = workspace.getConfiguration().get<IConfig>('gitlens');
 
-        const codeLensChanged = !Objects.areEquivalent(config.codeLens, this._config && this._config.codeLens);
-        const advancedChanged = !Objects.areEquivalent(config.advanced, this._config && this._config.advanced);
+        const codeLensChanged = !Objects.areEquivalent(config.codeLens, this.config && this.config.codeLens);
+        const advancedChanged = !Objects.areEquivalent(config.advanced, this.config && this.config.advanced);
 
         if (codeLensChanged || advancedChanged) {
             Logger.log('CodeLens config changed; resetting CodeLens provider');
@@ -148,7 +148,7 @@ export default class GitProvider extends Disposable {
             }
         }
 
-        this._config = config;
+        this.config = config;
     }
 
     private _getCacheEntryKey(fileName: string) {
@@ -216,7 +216,7 @@ export default class GitProvider extends Disposable {
     }
 
     async getRepoPathFromFile(fileName: string): Promise<string | undefined> {
-        const log = await this.getMostRecentLogForFile(fileName);
+        const log = await this.getLogForFile(fileName, undefined, undefined, undefined, 1);
         return log && log.repoPath;
     }
 
@@ -241,7 +241,7 @@ export default class GitProvider extends Disposable {
         const promise = this._gitignore.then(ignore => {
             if (ignore && !ignore.filter([fileName]).length) {
                 Logger.log(`Skipping blame; '${fileName}' is gitignored`);
-                return <Promise<IGitBlame>>GitProvider.EmptyPromise;
+                return GitProvider.EmptyPromise as Promise<IGitBlame>;
             }
 
             return Git.blame(GitProvider.BlameFormat, fileName, sha, repoPath)
@@ -252,14 +252,14 @@ export default class GitProvider extends Disposable {
                         const msg = ex && ex.toString();
                         Logger.log(`Replace blame cache with empty promise for '${cacheKey}'`);
 
-                        entry.blame = <ICachedBlame>{
+                        entry.blame = {
                             //date: new Date(),
                             item: GitProvider.EmptyPromise,
                             errorMessage: msg
-                        };
+                        } as ICachedBlame;
 
                         this._gitCache.set(cacheKey, entry);
-                        return <Promise<IGitBlame>>GitProvider.EmptyPromise;
+                        return GitProvider.EmptyPromise as Promise<IGitBlame>;
                     }
                     return undefined;
                 });
@@ -268,10 +268,10 @@ export default class GitProvider extends Disposable {
         if (useCaching) {
             Logger.log(`Add blame cache for '${cacheKey}'`);
 
-            entry.blame = <ICachedBlame>{
+            entry.blame = {
                 //date: new Date(),
                 item: promise
-            };
+            } as ICachedBlame;
 
             this._gitCache.set(cacheKey, entry);
         }
@@ -288,11 +288,11 @@ export default class GitProvider extends Disposable {
             if (!blameLine) return undefined;
 
             const commit = blame.commits.get(blameLine.sha);
-            return <IGitBlameLine>{
+            return {
                 author: Object.assign({}, blame.authors.get(commit.author), { lineCount: commit.lines.length }),
                 commit: commit,
                 line: blameLine
-            };
+            } as IGitBlameLine;
         }
 
         fileName = Git.normalizePath(fileName);
@@ -306,11 +306,11 @@ export default class GitProvider extends Disposable {
             if (repoPath) {
                 commit.repoPath = repoPath;
             }
-            return <IGitBlameLine>{
+            return {
                 author: Iterables.first(blame.authors.values()),
                 commit: commit,
                 line: blame.lines[line]
-            };
+            } as IGitBlameLine;
         }
         catch (ex) {
             return undefined;
@@ -364,12 +364,12 @@ export default class GitProvider extends Disposable {
             .sort((a, b) => b.lineCount - a.lineCount)
             .forEach(a => sortedAuthors.set(a.name, a));
 
-        return <IGitBlameLines>{
+        return {
             authors: sortedAuthors,
             commits: commits,
             lines: lines,
             allLines: blame.lines
-        };
+        } as IGitBlameLines;
     }
 
     async getBlameLocations(fileName: string, range: Range, sha?: string, repoPath?: string, selectedSha?: string, line?: number): Promise<Location[] | undefined> {
@@ -395,10 +395,15 @@ export default class GitProvider extends Disposable {
         return locations;
     }
 
-    async getLogForRepo(repoPath: string): Promise<IGitLog | undefined> {
-        Logger.log(`getLogForRepo('${repoPath}')`);
+    async getLogForRepo(repoPath: string, maxCount?: number): Promise<IGitLog | undefined> {
+        Logger.log(`getLogForRepo('${repoPath}', ${maxCount})`);
+
+        if (maxCount == null) {
+            maxCount = this.config.advanced.maxQuickHistory || 0;
+        }
+
         try {
-            const data = await Git.logRepo(repoPath);
+            const data = await Git.logRepo(repoPath, maxCount);
             return new GitLogParserEnricher().enrich(data, repoPath, true);
         }
         catch (ex) {
@@ -406,24 +411,11 @@ export default class GitProvider extends Disposable {
         }
     }
 
-    async getMostRecentLogForFile(fileName: string): Promise<IGitLog | undefined> {
-        Logger.log(`getMostRecentLogForFile('${fileName}')`);
+    getLogForFile(fileName: string, sha?: string, repoPath?: string, range?: Range, maxCount?: number): Promise<IGitLog | undefined> {
+        Logger.log(`getLogForFile('${fileName}', ${sha}, ${repoPath}, ${range && `[${range.start.line}, ${range.end.line}]`}, ${maxCount})`);
         fileName = Git.normalizePath(fileName);
 
-        try {
-            const data = await Git.logMostRecent(fileName);
-            return new GitLogParserEnricher().enrich(data, fileName);
-        }
-        catch (ex) {
-            return undefined;
-        }
-    }
-
-    getLogForFile(fileName: string, sha?: string, repoPath?: string, range?: Range): Promise<IGitLog | undefined> {
-        Logger.log(`getLogForFile('${fileName}', ${sha}, ${repoPath}, ${range && `[${range.start.line}, ${range.end.line}]`})`);
-        fileName = Git.normalizePath(fileName);
-
-        const useCaching = this.UseGitCaching && !range;
+        const useCaching = this.UseGitCaching && !range && !maxCount;
 
         let cacheKey: string;
         let entry: GitCacheEntry;
@@ -440,12 +432,12 @@ export default class GitProvider extends Disposable {
         const promise = this._gitignore.then(ignore => {
             if (ignore && !ignore.filter([fileName]).length) {
                 Logger.log(`Skipping log; '${fileName}' is gitignored`);
-                return <Promise<IGitLog>>GitProvider.EmptyPromise;
+                return GitProvider.EmptyPromise as Promise<IGitLog>;
             }
 
             return (range
-                ? Git.logRange(fileName, range.start.line + 1, range.end.line + 1, sha, repoPath)
-                : Git.log(fileName, sha, repoPath))
+                ? Git.logRange(fileName, range.start.line + 1, range.end.line + 1, sha, repoPath, maxCount)
+                : Git.log(fileName, sha, repoPath, maxCount))
                 .then(data => new GitLogParserEnricher().enrich(data, fileName))
                 .catch(ex => {
                     // Trap and cache expected log errors
@@ -453,14 +445,14 @@ export default class GitProvider extends Disposable {
                         const msg = ex && ex.toString();
                         Logger.log(`Replace log cache with empty promise for '${cacheKey}'`);
 
-                        entry.log = <ICachedLog>{
+                        entry.log = {
                             //date: new Date(),
                             item: GitProvider.EmptyPromise,
                             errorMessage: msg
-                        };
+                        } as ICachedLog;
 
                         this._gitCache.set(cacheKey, entry);
-                        return <Promise<IGitLog>>GitProvider.EmptyPromise;
+                        return GitProvider.EmptyPromise as Promise<IGitLog>;
                     }
                     return undefined;
                 });
@@ -469,10 +461,10 @@ export default class GitProvider extends Disposable {
         if (useCaching) {
             Logger.log(`Add log cache for '${cacheKey}'`);
 
-            entry.log = <ICachedLog>{
+            entry.log = {
                 //date: new Date(),
                 item: promise
-            };
+            } as ICachedLog;
 
             this._gitCache.set(cacheKey, entry);
         }
@@ -521,8 +513,8 @@ export default class GitProvider extends Disposable {
     }
 
     toggleCodeLens(editor: TextEditor) {
-        if (this._config.codeLens.visibility !== CodeLensVisibility.OnDemand ||
-            (!this._config.codeLens.recentChange.enabled && !this._config.codeLens.authors.enabled)) return;
+        if (this.config.codeLens.visibility !== CodeLensVisibility.OnDemand ||
+            (!this.config.codeLens.recentChange.enabled && !this.config.codeLens.authors.enabled)) return;
 
         Logger.log(`toggleCodeLens(${editor})`);
 
@@ -595,7 +587,7 @@ export class GitUri extends Uri {
         super();
         if (!uri) return;
 
-        const base = <any>this;
+        const base = this as any;
         base._scheme = uri.scheme;
         base._authority = uri.authority;
         base._path = uri.path;

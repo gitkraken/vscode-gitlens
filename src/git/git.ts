@@ -13,6 +13,8 @@ export * from './enrichers/logParserEnricher';
 let git: IGit;
 const UncommittedRegex = /^[0]+$/;
 
+const DefaultLogParams = [`log`, `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`];
+
 async function gitCommand(cwd: string, ...args: any[]) {
     try {
         const s = await spawnPromise(git.path, args, { cwd: cwd });
@@ -65,68 +67,84 @@ export default class Git {
     static blame(format: GitBlameFormat, fileName: string, sha?: string, repoPath?: string) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
+        const params = [`blame`, `--root`, format];
         if (sha) {
-            return gitCommand(root, 'blame', format, '--root', `${sha}^!`, '--', file);
+            params.push(`${sha}^!`);
         }
-        return gitCommand(root, 'blame', format, '--root', '--', file);
+
+        return gitCommand(root, ...params, `--`, file);
     }
 
     static blameLines(format: GitBlameFormat, fileName: string, startLine: number, endLine: number, sha?: string, repoPath?: string) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
+        const params = [`blame`, `--root`, format, `-L ${startLine},${endLine}`];
         if (sha) {
-            return gitCommand(root, 'blame', `-L ${startLine},${endLine}`, format, '--root', `${sha}^!`, '--', file);
+            params.push(`${sha}^!`);
         }
-        return gitCommand(root, 'blame', `-L ${startLine},${endLine}`, format, '--root', '--', file);
+
+        return gitCommand(root, ...params, `--`, file);
     }
 
-    static log(fileName: string, sha?: string, repoPath?: string) {
+    static log(fileName: string, sha?: string, repoPath?: string, maxCount?: number) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
-        if (sha) {
-            return gitCommand(root, 'log', `--follow`, `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, `origin..${sha}`, '--', file);
+        const params = [...DefaultLogParams, `--follow`];
+        if (maxCount) {
+            params.push(`-n${maxCount}`);
         }
-        return gitCommand(root, 'log', `--follow`, `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, file);
+        if (sha) {
+            params.push(`origin..${sha}`);
+            params.push(`--`);
+        }
+
+        return gitCommand(root, ...params, file);
     }
 
-    static logMostRecent(fileName: string, repoPath?: string) {
-        const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName, repoPath));
-
-        return gitCommand(root, 'log', `-n1`, `--follow`, `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, file);
-    }
-
-    static logRange(fileName: string, start: number, end: number, sha?: string, repoPath?: string) {
+    static logRange(fileName: string, start: number, end: number, sha?: string, repoPath?: string, maxCount?: number) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
-        if (sha) {
-            return gitCommand(root, 'log', `--follow`, `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, `origin..${sha}`, `-L ${start},${end}:${file}`);
+        const params = [...DefaultLogParams];
+        if (maxCount) {
+            params.push(`-n${maxCount}`);
         }
-        return gitCommand(root, 'log', `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`, `-L ${start},${end}:${file}`);
+        if (sha) {
+            params.push(`--follow`);
+            params.push(`origin..${sha}`);
+        }
+        params.push(`-L ${start},${end}:${file}`);
+
+        return gitCommand(root, ...params);
     }
 
-    static logRepo(repoPath: string) {
-        return gitCommand(repoPath, 'log', `--name-only`, `--no-merges`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`);
+    static logRepo(repoPath: string, maxCount?: number) {
+        const params = [...DefaultLogParams];
+        if (maxCount) {
+            params.push(`-n${maxCount}`);
+        }
+        return gitCommand(repoPath, ...params);
     }
 
     static getVersionedFile(fileName: string, repoPath: string, sha: string) {
         return new Promise<string>((resolve, reject) => {
             Git.getVersionedFileText(fileName, repoPath, sha).then(data => {
                 const ext = path.extname(fileName);
-                tmp.file({ prefix: `${path.basename(fileName, ext)}-${sha}__`, postfix: ext }, (err, destination, fd, cleanupCallback) => {
-                    if (err) {
-                        reject(err);
-                        return;
-                    }
-
-                    Logger.log(`getVersionedFile(${fileName}, ${repoPath}, ${sha}); destination=${destination}`);
-                    fs.appendFile(destination, data, err => {
+                tmp.file({ prefix: `${path.basename(fileName, ext)}-${sha}__`, postfix: ext },
+                    (err, destination, fd, cleanupCallback) => {
                         if (err) {
                             reject(err);
                             return;
                         }
-                        resolve(destination);
+
+                        Logger.log(`getVersionedFile(${fileName}, ${repoPath}, ${sha}); destination=${destination}`);
+                        fs.appendFile(destination, data, err => {
+                            if (err) {
+                                reject(err);
+                                return;
+                            }
+                            resolve(destination);
+                        });
                     });
-                });
             });
         });
     }
@@ -135,7 +153,7 @@ export default class Git {
         const [file, root] = Git.splitPath(Git.normalizePath(fileName), repoPath);
         sha = sha.replace('^', '');
 
-        if (Git.isUncommitted(sha)) return new Promise<string>((resolve, reject) => reject(new Error(`sha=${sha} is uncommitted`)));
+        if (Git.isUncommitted(sha)) return Promise.reject(new Error(`sha=${sha} is uncommitted`));
         return gitCommand(root, 'show', `${sha}:./${file}`);
     }
 
