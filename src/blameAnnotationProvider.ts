@@ -205,11 +205,11 @@ export class BlameAnnotationProvider extends Disposable {
 
             lastSha = l.sha;
 
-            return <DecorationOptions>{
+            return {
                 range: this.editor.document.validateRange(new Range(l.line + offset, 0, l.line + offset, 0)),
                 hoverMessage: hoverMessage,
                 renderOptions: { before: { color: color, contentText: gutter, width: '11em' } }
-            };
+            } as DecorationOptions;
         });
     }
 
@@ -258,11 +258,11 @@ export class BlameAnnotationProvider extends Disposable {
             }
 
             const gutter = this._getGutter(commit);
-            return <DecorationOptions>{
+            return {
                 range: this.editor.document.validateRange(new Range(l.line + offset, 0, l.line + offset, 0)),
                 hoverMessage: hoverMessage,
                 renderOptions: { before: { color: color, contentText: gutter, width: `${width}em` } }
-            };
+            } as DecorationOptions;
         });
     }
 

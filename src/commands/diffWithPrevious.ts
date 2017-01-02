@@ -32,7 +32,7 @@ export default class DiffWithPreviousCommand extends EditorCommand {
             const gitUri = GitUri.fromUri(uri, this.git);
 
             try {
-                const log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, <Range>rangeOrLine);
+                const log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, rangeOrLine as Range);
                 if (!log) return window.showWarningMessage(`Unable to open diff. File is probably not under source control`);
 
                 const sha = (commit && commit.sha) || gitUri.sha;

@@ -192,12 +192,12 @@ export class GitBlameParserEnricher implements IGitEnricher<IGitBlame> {
         //     .sort((a, b) => b.date.getTime() - a.date.getTime())
         //     .forEach(c => sortedCommits.set(c.sha, c));
 
-        return <IGitBlame>{
+        return {
             repoPath: repoPath,
             authors: sortedAuthors,
             // commits: sortedCommits,
             commits: commits,
             lines: lines
-        };
+        } as IGitBlame;
     }
 }

@@ -179,11 +179,11 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
         //     .sort((a, b) => b.date.getTime() - a.date.getTime())
         //     .forEach(c => sortedCommits.set(c.sha, c));
 
-        return <IGitLog>{
+        return {
             repoPath: repoPath,
             authors: sortedAuthors,
             // commits: sortedCommits,
             commits: commits
-        };
+        } as IGitLog;
     }
 }

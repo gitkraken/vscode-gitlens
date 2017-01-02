@@ -39,11 +39,11 @@ export default class GitCodeLensProvider implements CodeLensProvider {
     async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
         let languageLocations = this._config.codeLens.languageLocations.find(_ => _.language.toLowerCase() === document.languageId);
         if (languageLocations == null) {
-            languageLocations = <ICodeLensLanguageLocation>{
+            languageLocations = {
                 language: undefined,
                 location: this._config.codeLens.location,
                 customSymbols: this._config.codeLens.locationCustomSymbols
-            };
+            } as ICodeLensLanguageLocation;
         }
 
         const lenses: CodeLens[] = [];
@@ -60,8 +60,8 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         }
         else {
             const values = await Promise.all([
-                <Promise<any>>blamePromise,
-                <Promise<any>>commands.executeCommand(BuiltInCommands.ExecuteDocumentSymbolProvider, document.uri)
+                blamePromise as Promise<any>,
+                commands.executeCommand(BuiltInCommands.ExecuteDocumentSymbolProvider, document.uri) as Promise<any>
             ]);
 
             blame = values[0] as IGitBlame;
