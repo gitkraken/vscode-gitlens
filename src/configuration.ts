@@ -92,6 +92,9 @@ export interface IAdvancedConfig {
     };
     debug: boolean;
     git: string;
+    gitignore: {
+        enabled: boolean;
+    };
     maxQuickHistory: number;
     output: {
         level: OutputLevel;

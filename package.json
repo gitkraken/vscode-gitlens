@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "1.4.0",
+    "version": "1.4.1",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -225,6 +225,11 @@
                     "type": "string",
                     "default": null,
                     "description": "Specifies a git path to use"
+                },
+                "gitlens.advanced.gitignore.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to parse the root .gitignore file for better performance (i.e. avoids blaming excluded files)"
                 },
                 "gitlens.advanced.maxQuickHistory": {
                     "type": "number",

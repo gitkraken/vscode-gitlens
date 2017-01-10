@@ -45,6 +45,7 @@ enum RemoveCacheReason {
 export default class GitProvider extends Disposable {
     private _gitCache: Map<string, GitCacheEntry> | undefined;
     private _cacheDisposable: Disposable | undefined;
+    private _repoPath: string;
     private _uriCache: Map<string, UriCacheEntry> | undefined;
 
     config: IConfig;
@@ -58,26 +59,9 @@ export default class GitProvider extends Disposable {
     constructor(private context: ExtensionContext) {
         super(() => this.dispose());
 
-        const repoPath = context.workspaceState.get(WorkspaceState.RepoPath) as string;
+        this._repoPath = context.workspaceState.get(WorkspaceState.RepoPath) as string;
 
         this._onConfigure();
-
-        this._gitignore = new Promise<ignore.Ignore | undefined>((resolve, reject) => {
-            const gitignorePath = path.join(repoPath, '.gitignore');
-            fs.exists(gitignorePath, e => {
-                if (e) {
-                    fs.readFile(gitignorePath, 'utf8', (err, data) => {
-                        if (!err) {
-                            resolve(ignore().add(data));
-                            return;
-                        }
-                        resolve(undefined);
-                    });
-                    return;
-                }
-                resolve(undefined);
-            });
-        });
 
         const subscriptions: Disposable[] = [];
 
@@ -146,6 +130,28 @@ export default class GitProvider extends Disposable {
                 this._gitCache && this._gitCache.clear();
                 this._gitCache = undefined;
             }
+
+            this._gitignore = new Promise<ignore.Ignore | undefined>((resolve, reject) => {
+                if (!config.advanced.gitignore.enabled) {
+                    resolve(undefined);
+                    return;
+                }
+
+                const gitignorePath = path.join(this._repoPath, '.gitignore');
+                fs.exists(gitignorePath, e => {
+                    if (e) {
+                        fs.readFile(gitignorePath, 'utf8', (err, data) => {
+                            if (!err) {
+                                resolve(ignore().add(data));
+                                return;
+                            }
+                            resolve(undefined);
+                        });
+                        return;
+                    }
+                    resolve(undefined);
+                });
+            });
         }
 
         this.config = config;
