@@ -4,6 +4,7 @@ import { Disposable, ExtensionContext, languages, Location, Position, Range, Tex
 import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes, WorkspaceState } from './constants';
 import Git, { GitBlameParserEnricher, GitBlameFormat, GitCommit, GitLogParserEnricher, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog } from './git/git';
+import { IGitUriData, GitUri } from './git/gitUri';
 import GitCodeLensProvider from './gitCodeLensProvider';
 import { Logger } from './logger';
 import * as fs from 'fs';
@@ -11,7 +12,7 @@ import * as ignore from 'ignore';
 import * as moment from 'moment';
 import * as path from 'path';
 
-export { Git };
+export { Git, GitUri };
 export * from './git/git';
 
 class UriCacheEntry {
@@ -575,67 +576,4 @@ export default class GitProvider extends Disposable {
         }
         return data;
     }
-}
-
-export interface IGitCommitInfo {
-    sha: string;
-    repoPath: string;
-    fileName: string;
-    originalFileName?: string;
-}
-
-export class GitUri extends Uri {
-    offset: number;
-    repoPath?: string | undefined;
-    sha?: string | undefined;
-
-    constructor(uri?: Uri, commit?: IGitCommitInfo) {
-        super();
-        if (!uri) return;
-
-        const base = this as any;
-        base._scheme = uri.scheme;
-        base._authority = uri.authority;
-        base._path = uri.path;
-        base._query = uri.query;
-        base._fragment = uri.fragment;
-
-        this.offset = 0;
-        if (uri.scheme === DocumentSchemes.Git) {
-            const data = GitProvider.fromGitUri(uri);
-            base._fsPath = data.originalFileName || data.fileName;
-
-            this.offset = (data.decoration && data.decoration.split('\n').length) || 0;
-            this.repoPath = data.repoPath;
-            this.sha = data.sha;
-        }
-        else if (commit) {
-            base._fsPath = commit.originalFileName || commit.fileName;
-
-            this.repoPath = commit.repoPath;
-            this.sha = commit.sha;
-        }
-    }
-
-    fileUri() {
-        return Uri.file(this.fsPath);
-    }
-
-    static fromUri(uri: Uri, git?: GitProvider) {
-        if (git) {
-            const gitUri = git.getGitUriForFile(uri.fsPath);
-            if (gitUri) return gitUri;
-        }
-
-        return new GitUri(uri);
-    }
-}
-
-export interface IGitUriData {
-    repoPath: string;
-    fileName: string;
-    originalFileName?: string;
-    sha: string;
-    index: number;
-    decoration?: string;
 }
