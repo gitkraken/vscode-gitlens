@@ -1,6 +1,9 @@
 ---
 ## Release Notes
 
+### 1.4.2
+  - Fixes issue where file history wouldn't compare correctly to working tree if the filename had changed
+
 ### 1.4.1
   - Adds `gitlens.advanced.gitignore.enabled` to enable/disable .gitignore parsing. Addresses [#20](https://github.com/eamodio/vscode-gitlens/issues/20) - Nested .gitignore files can cause blame to fail with a repo within another repo
 

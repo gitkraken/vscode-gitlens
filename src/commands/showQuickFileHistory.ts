@@ -76,7 +76,7 @@ export default class ShowQuickFileHistoryCommand extends EditorCommand {
             }
 
             if (command) {
-                return commands.executeCommand(command, commit.uri, commit);
+                return commands.executeCommand(command, uri, commit);
             }
         }
         catch (ex) {
