@@ -412,19 +412,19 @@
         "ignore": "^3.2.0",
         "lodash.debounce": "^4.0.8",
         "lodash.escaperegexp": "^4.1.2",
-        "lodash.isequal": "^4.4.0",
+        "lodash.isequal": "^4.5.0",
         "lodash.once": "^4.1.1",
         "moment": "^2.17.1",
-        "spawn-rx": "^2.0.7",
+        "spawn-rx": "^2.0.8",
         "tmp": "^0.0.31"
     },
     "devDependencies": {
         "@types/node": "^6.0.55",
-        "@types/mocha": "^2.2.35",
+        "@types/mocha": "^2.2.37",
         "@types/tmp": "^0.0.32",
         "mocha": "^3.2.0",
-        "tslint": "^4.2.0",
-        "typescript": "^2.1.4",
+        "tslint": "^4.3.1",
+        "typescript": "^2.1.5",
         "vscode": "^1.0.3"
     }
 }
