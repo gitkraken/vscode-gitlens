@@ -1,6 +1,10 @@
 ---
 ## Release Notes
 
+### 1.4.3
+  - Adds some logging to hopefully trap [#22](https://github.com/eamodio/vscode-gitlens/issues/22) - Cannot read property 'sha' of undefined
+  - Fixes issue with the latest insiders build (1.9.0-insider f67f87c5498d9361c0b29781c341fd032815314b) where there is a collision of document schemes
+
 ### 1.4.2
   - Fixes issue where file history wouldn't compare correctly to working tree if the filename had changed
 
