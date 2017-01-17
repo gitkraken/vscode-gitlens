@@ -4,6 +4,7 @@ import { Disposable, ExtensionContext, StatusBarAlignment, StatusBarItem, TextDo
 import { TextDocumentComparer } from './comparers';
 import { IConfig, StatusBarCommand } from './configuration';
 import GitProvider, { GitCommit, GitUri, IGitBlame } from './gitProvider';
+import { Logger } from './logger';
 import * as moment from 'moment';
 
 export default class BlameStatusBarController extends Disposable {
@@ -108,8 +109,14 @@ export default class BlameStatusBarController extends Disposable {
                     return;
                 }
 
-                const sha = blame.lines[line].sha;
-                commit = blame.commits.get(sha);
+                try {
+                    const sha = blame.lines[line].sha;
+                    commit = blame.commits.get(sha);
+                }
+                catch (ex) {
+                    Logger.error(`DEBUG(${this._uri.toString()}): Line ${line} not found in blame; lines=${blame.lines.length}, uriOffset=${this._uri.offset}, repoPath=${blame.repoPath}`);
+                    throw ex;
+                }
             }
             else {
                 const blameLine = await this.git.getBlameForLine(this._uri.fsPath, line, this._uri.sha, this._uri.repoPath);
