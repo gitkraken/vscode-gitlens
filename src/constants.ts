@@ -29,10 +29,10 @@ export const Commands = {
     ToggleCodeLens: 'gitlens.toggleCodeLens' as Commands
 };
 
-export type DocumentSchemes = 'file' | 'git' | 'git-blame';
+export type DocumentSchemes = 'file' | 'gitlens-git';
 export const DocumentSchemes = {
     File: 'file' as DocumentSchemes,
-    Git: 'git' as DocumentSchemes
+    Git: 'gitlens-git' as DocumentSchemes
 };
 
 export type WorkspaceState = 'repoPath';
