@@ -6,6 +6,7 @@ import GitProvider, { GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 
 export default class ShowFileHistoryCommand extends EditorCommand {
+
     constructor(private git: GitProvider) {
         super(Commands.ShowFileHistory);
     }

@@ -6,6 +6,7 @@ abstract class Comparer<T> {
 }
 
 class UriComparer extends Comparer<Uri> {
+
     equals(lhs: Uri, rhs: Uri) {
         if (!lhs && !rhs) return true;
         if ((lhs && !rhs) || (!lhs && rhs)) return false;
@@ -15,6 +16,7 @@ class UriComparer extends Comparer<Uri> {
 }
 
 class TextDocumentComparer extends Comparer<TextDocument> {
+
     equals(lhs: TextDocument, rhs: TextDocument) {
         if (!lhs && !rhs) return true;
         if ((lhs && !rhs) || (!lhs && rhs)) return false;
@@ -24,6 +26,7 @@ class TextDocumentComparer extends Comparer<TextDocument> {
 }
 
 class TextEditorComparer extends Comparer<TextEditor> {
+
     equals(lhs: TextEditor, rhs: TextEditor) {
         if (!lhs && !rhs) return true;
         if ((lhs && !rhs) || (!lhs && rhs)) return false;

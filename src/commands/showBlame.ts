@@ -6,6 +6,7 @@ import { Commands } from '../constants';
 import { Logger } from '../logger';
 
 export default class ShowBlameCommand extends EditorCommand {
+
     constructor(private annotationController: BlameAnnotationController) {
         super(Commands.ShowBlame);
     }

@@ -6,6 +6,7 @@ import { Logger } from './logger';
 import * as path from 'path';
 
 export default class GitContentProvider implements TextDocumentContentProvider {
+
     static scheme = DocumentSchemes.Git;
 
     constructor(context: ExtensionContext, private git: GitProvider) { }

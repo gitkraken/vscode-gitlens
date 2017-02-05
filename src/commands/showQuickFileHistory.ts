@@ -9,6 +9,7 @@ import { CommitQuickPickItem, CompareQuickPickItem, ShowAllCommitsQuickPickItem 
 import * as moment from 'moment';
 
 export default class ShowQuickFileHistoryCommand extends EditorCommand {
+
     constructor(private git: GitProvider) {
         super(Commands.ShowQuickFileHistory);
     }

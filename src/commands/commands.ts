@@ -3,6 +3,7 @@ import { commands, Disposable, TextEditor, TextEditorEdit } from 'vscode';
 import { Commands } from '../constants';
 
 export abstract class Command extends Disposable {
+
     private _disposable: Disposable;
 
     constructor(command: Commands) {

@@ -8,6 +8,7 @@ import { Logger } from './logger';
 import * as moment from 'moment';
 
 export class GitRecentChangeCodeLens extends CodeLens {
+
     constructor(private blame: () => IGitBlameLines, public uri: GitUri, public symbolKind: SymbolKind, public blameRange: Range, public isFullRange: boolean, range: Range) {
         super(range);
     }
@@ -18,6 +19,7 @@ export class GitRecentChangeCodeLens extends CodeLens {
 }
 
 export class GitAuthorsCodeLens extends CodeLens {
+
     constructor(private blame: () => IGitBlameLines, public uri: GitUri, public symbolKind: SymbolKind, public blameRange: Range, public isFullRange: boolean, range: Range) {
         super(range);
     }
@@ -28,6 +30,7 @@ export class GitAuthorsCodeLens extends CodeLens {
 }
 
 export default class GitCodeLensProvider implements CodeLensProvider {
+
     static selector: DocumentSelector = { scheme: DocumentSchemes.File };
 
     private _config: IConfig;

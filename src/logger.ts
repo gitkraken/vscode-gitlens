@@ -25,6 +25,7 @@ function onConfigurationChange() {
 }
 
 export class Logger {
+
     static log(message?: any, ...params: any[]): void {
         if (config.debug) {
             console.log('[GitLens]', message, ...params);

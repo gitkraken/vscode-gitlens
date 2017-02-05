@@ -5,6 +5,7 @@ import { Commands } from '../constants';
 import GitProvider from '../gitProvider';
 
 export default class ToggleCodeLensCommand extends EditorCommand {
+
     constructor(private git: GitProvider) {
         super(Commands.ToggleCodeLens);
     }

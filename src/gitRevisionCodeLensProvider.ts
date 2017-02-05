@@ -5,18 +5,21 @@ import { Commands, DocumentSchemes } from './constants';
 import GitProvider, { GitCommit, GitUri } from './gitProvider';
 
 export class GitDiffWithWorkingCodeLens extends CodeLens {
+
     constructor(git: GitProvider, public fileName: string, public commit: GitCommit, range: Range) {
         super(range);
     }
 }
 
 export class GitDiffWithPreviousCodeLens extends CodeLens {
+
     constructor(git: GitProvider, public fileName: string, public commit: GitCommit, range: Range) {
         super(range);
     }
 }
 
 export default class GitRevisionCodeLensProvider implements CodeLensProvider {
+
     static selector: DocumentSelector = { scheme: DocumentSchemes.Git };
 
     constructor(context: ExtensionContext, private git: GitProvider) { }

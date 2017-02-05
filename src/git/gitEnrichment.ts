@@ -53,6 +53,7 @@ interface IGitCommit {
 }
 
 export class GitCommit implements IGitCommit {
+
     lines: IGitCommitLine[];
     originalFileName?: string;
     previousSha?: string;

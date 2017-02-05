@@ -41,6 +41,7 @@ export const GitBlameFormat = {
 };
 
 export default class Git {
+
     static normalizePath(fileName: string, repoPath?: string) {
         return fileName.replace(/\\/g, '/');
     }

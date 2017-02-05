@@ -6,6 +6,7 @@ import GitProvider, { GitCommit, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 
 export default class DiffLineWithPreviousCommand extends EditorCommand {
+
     constructor(private git: GitProvider) {
         super(Commands.DiffLineWithPrevious);
     }

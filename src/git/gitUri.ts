@@ -4,6 +4,7 @@ import { DocumentSchemes } from '../constants';
 import GitProvider from '../gitProvider';
 
 export class GitUri extends Uri {
+
     offset: number;
     repoPath?: string | undefined;
     sha?: string | undefined;

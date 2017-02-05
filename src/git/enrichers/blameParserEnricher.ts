@@ -28,6 +28,7 @@ interface IBlameEntry {
 }
 
 export class GitBlameParserEnricher implements IGitEnricher<IGitBlame> {
+
     constructor(public format: GitBlameFormat) {
         if (format !== GitBlameFormat.incremental) {
             throw new Error(`Invalid blame format=${format}`);

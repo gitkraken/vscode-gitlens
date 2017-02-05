@@ -16,10 +16,12 @@ export { Git, GitUri };
 export * from './git/git';
 
 class UriCacheEntry {
+
     constructor(public uri: GitUri) { }
 }
 
 class GitCacheEntry {
+
     blame?: ICachedBlame;
     log?: ICachedLog;
 
@@ -44,6 +46,7 @@ enum RemoveCacheReason {
 }
 
 export default class GitProvider extends Disposable {
+
     private _gitCache: Map<string, GitCacheEntry> | undefined;
     private _cacheDisposable: Disposable | undefined;
     private _repoPath: string;

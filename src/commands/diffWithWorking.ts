@@ -8,6 +8,7 @@ import { Logger } from '../logger';
 import * as path from 'path';
 
 export default class DiffWithWorkingCommand extends EditorCommand {
+
     constructor(private git: GitProvider) {
         super(Commands.DiffWithWorking);
     }

@@ -17,6 +17,7 @@ const blameDecoration: TextEditorDecorationType = window.createTextEditorDecorat
 let highlightDecoration: TextEditorDecorationType;
 
 export class BlameAnnotationProvider extends Disposable {
+
     public document: TextDocument;
     public requiresRenderWhitespaceToggle: boolean = false;
 

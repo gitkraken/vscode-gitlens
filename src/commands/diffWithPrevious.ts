@@ -9,6 +9,7 @@ import * as moment from 'moment';
 import * as path from 'path';
 
 export default class DiffWithPreviousCommand extends EditorCommand {
+
     constructor(private git: GitProvider) {
         super(Commands.DiffWithPrevious);
     }

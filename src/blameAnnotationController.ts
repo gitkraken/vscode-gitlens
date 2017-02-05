@@ -8,6 +8,7 @@ import GitProvider from './gitProvider';
 import { Logger } from './logger';
 
 export default class BlameAnnotationController extends Disposable {
+
     private _annotationProviders: Map<number, BlameAnnotationProvider> = new Map();
     private _blameAnnotationsDisposable: Disposable;
     private _pendingWhitespaceToggleDisposable: Disposable;

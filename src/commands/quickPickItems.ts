@@ -6,6 +6,7 @@ import * as moment from 'moment';
 import * as path from 'path';
 
 export class CommitQuickPickItem implements QuickPickItem {
+
     label: string;
     description: string;
     detail: string;
@@ -22,6 +23,7 @@ export interface CompareQuickPickItem extends QuickPickItem {
 }
 
 export class FileQuickPickItem implements QuickPickItem {
+
     label: string;
     description: string;
     detail: string;
@@ -34,6 +36,7 @@ export class FileQuickPickItem implements QuickPickItem {
 }
 
 export class ShowAllCommitsQuickPickItem implements QuickPickItem {
+
     label: string;
     description: string;
     detail: string;

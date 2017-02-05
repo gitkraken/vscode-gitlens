@@ -19,6 +19,7 @@ interface ILogEntry {
 }
 
 export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
+
     private _parseEntries(data: string, isRepoPath: boolean): ILogEntry[] {
         if (!data) return undefined;
 

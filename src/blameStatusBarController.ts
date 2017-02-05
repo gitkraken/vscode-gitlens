@@ -8,6 +8,7 @@ import { Logger } from './logger';
 import * as moment from 'moment';
 
 export default class BlameStatusBarController extends Disposable {
+
     private _blame: Promise<IGitBlame> | undefined;
     private _config: IConfig;
     private _disposable: Disposable;
