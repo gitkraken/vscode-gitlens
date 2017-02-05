@@ -7,7 +7,7 @@
     },
     "publisher": "eamodio",
     "engines": {
-        "vscode": "^1.7.0"
+        "vscode": "^1.9.0"
     },
     "license": "SEE LICENSE IN LICENSE",
     "displayName": "GitLens",
@@ -419,11 +419,11 @@
         "tmp": "^0.0.31"
     },
     "devDependencies": {
-        "@types/node": "^6.0.55",
-        "@types/mocha": "^2.2.37",
+        "@types/node": "^7.0.5",
+        "@types/mocha": "^2.2.39",
         "@types/tmp": "^0.0.32",
         "mocha": "^3.2.0",
-        "tslint": "^4.3.1",
+        "tslint": "^4.4.2",
         "typescript": "^2.1.5",
         "vscode": "^1.0.3"
     }

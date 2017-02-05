@@ -1,23 +1,24 @@
 'use strict';
 import { Functions, IDeferred } from './system';
-import { commands, Disposable, ExtensionContext, TextDocument, TextEditor, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
+import { Disposable, ExtensionContext, TextDocument, TextEditor, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
 import { BlameAnnotationProvider } from './blameAnnotationProvider';
 import { TextDocumentComparer, TextEditorComparer } from './comparers';
-import { BuiltInCommands } from './constants';
 import GitProvider from './gitProvider';
 import { Logger } from './logger';
+import WhitespaceController from './whitespaceController';
 
 export default class BlameAnnotationController extends Disposable {
 
     private _annotationProviders: Map<number, BlameAnnotationProvider> = new Map();
     private _blameAnnotationsDisposable: Disposable;
-    private _pendingWhitespaceToggleDisposable: Disposable;
     private _pendingClearAnnotations: Map<number, (() => void) & IDeferred> = new Map();
-    private _pendingWhitespaceToggles: Set<number> = new Set();
     private _visibleColumns: Set<number>;
+    private _whitespaceController: WhitespaceController;
 
     constructor(private context: ExtensionContext, private git: GitProvider) {
         super(() => this.dispose());
+
+        this._whitespaceController = new WhitespaceController(context);
     }
 
     dispose() {
@@ -27,7 +28,7 @@ export default class BlameAnnotationController extends Disposable {
         this._annotationProviders.forEach(async (p, i) => await this.clear(i));
 
         this._blameAnnotationsDisposable && this._blameAnnotationsDisposable.dispose();
-        this._pendingWhitespaceToggleDisposable && this._pendingWhitespaceToggleDisposable.dispose();
+        this._whitespaceController && this._whitespaceController.dispose();
     }
 
     async clear(column: number, toggleRenderWhitespace: boolean = true) {
@@ -54,7 +55,7 @@ export default class BlameAnnotationController extends Disposable {
             return true;
         }
 
-        const provider = new BlameAnnotationProvider(this.context, this.git, editor);
+        const provider = new BlameAnnotationProvider(this.context, this.git, this._whitespaceController, editor);
         if (!await provider.supportsBlame()) return false;
 
         if (currentProvider) {
@@ -97,27 +98,6 @@ export default class BlameAnnotationController extends Disposable {
             set.add(e.viewColumn);
         }
         return set;
-    }
-
-    private _onActiveTextEditorChanged(e: TextEditor) {
-        if (this._pendingWhitespaceToggles.size === 0 || (e.viewColumn === undefined && !this.git.hasGitUriForFile(e))) return;
-
-        const viewColumn = e.viewColumn || -1;
-
-        if (this._pendingWhitespaceToggles.has(viewColumn)) {
-            Logger.log('ActiveTextEditorChanged:', `Remove pending whitespace toggle for column ${viewColumn}`);
-            this._pendingWhitespaceToggles.delete(viewColumn);
-
-            // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- toggle whitespace back on
-            Logger.log('ActiveTextEditorChanged:', `Toggle whitespace rendering on`);
-            commands.executeCommand(BuiltInCommands.ToggleRenderWhitespace);
-        }
-
-        if (this._pendingWhitespaceToggles.size === 0) {
-            Logger.log('ActiveTextEditorChanged:', `Remove listener registrations for pending whitespace toggles`);
-            this._pendingWhitespaceToggleDisposable.dispose();
-            this._pendingWhitespaceToggleDisposable = undefined;
-        }
     }
 
     private _onTextDocumentClosed(e: TextDocument) {
@@ -174,16 +154,8 @@ export default class BlameAnnotationController extends Disposable {
 
             Logger.log('VisibleTextEditorsChanged:', `Clear blame annotations for column ${key}`);
             const editor = window.activeTextEditor;
-            if (p.requiresRenderWhitespaceToggle && (editor && (editor.viewColumn || -1) !== key)) {
+            if (editor && (editor.viewColumn || -1) !== key) {
                 this.clear(key, false);
-
-                if (!this._pendingWhitespaceToggleDisposable) {
-                    Logger.log('VisibleTextEditorsChanged:', `Add listener registrations for pending whitespace toggles`);
-                    this._pendingWhitespaceToggleDisposable = window.onDidChangeActiveTextEditor(this._onActiveTextEditorChanged, this);
-                }
-
-                Logger.log('VisibleTextEditorsChanged:', `Add pending whitespace toggle for column ${key}`);
-                this._pendingWhitespaceToggles.add(key);
             }
             else {
                 this.clear(key);

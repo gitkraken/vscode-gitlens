@@ -1,11 +1,12 @@
 'use strict';
 import { Iterables } from './system';
-import { commands, DecorationOptions, Disposable, ExtensionContext, OverviewRulerLane, Range, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
+import { DecorationOptions, Disposable, ExtensionContext, OverviewRulerLane, Range, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
 import { TextDocumentComparer } from './comparers';
 import { BlameAnnotationStyle, IBlameConfig } from './configuration';
-import { BuiltInCommands } from './constants';
+// import { BuiltInCommands } from './constants';
 import GitProvider, { GitCommit, GitUri, IGitBlame } from './gitProvider';
 import { Logger } from './logger';
+import WhitespaceController from './whitespaceController';
 import * as moment from 'moment';
 
 const blameDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
@@ -19,14 +20,13 @@ let highlightDecoration: TextEditorDecorationType;
 export class BlameAnnotationProvider extends Disposable {
 
     public document: TextDocument;
-    public requiresRenderWhitespaceToggle: boolean = false;
 
     private _blame: Promise<IGitBlame>;
     private _config: IBlameConfig;
     private _disposable: Disposable;
     private _uri: GitUri;
 
-    constructor(context: ExtensionContext, private git: GitProvider, public editor: TextEditor) {
+    constructor(context: ExtensionContext, private git: GitProvider, private whitespaceController: WhitespaceController, public editor: TextEditor) {
         super(() => this.dispose());
 
         if (!highlightDecoration) {
@@ -56,12 +56,9 @@ export class BlameAnnotationProvider extends Disposable {
 
         const subscriptions: Disposable[] = [];
 
-        subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigurationChanged, this));
         subscriptions.push(window.onDidChangeTextEditorSelection(this._onActiveSelectionChanged, this));
 
         this._disposable = Disposable.from(...subscriptions);
-
-        this._onConfigurationChanged();
     }
 
     async dispose(toggleRenderWhitespace: boolean = true) {
@@ -71,17 +68,12 @@ export class BlameAnnotationProvider extends Disposable {
         }
 
         // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- toggle whitespace back on
-        if (toggleRenderWhitespace && this.requiresRenderWhitespaceToggle) {
+        if (toggleRenderWhitespace) {
             Logger.log('BlameAnnotationProvider.dispose:', `Toggle whitespace rendering on`);
-            await commands.executeCommand(BuiltInCommands.ToggleRenderWhitespace);
+            await this.whitespaceController.restore();
         }
 
         this._disposable && this._disposable.dispose();
-    }
-
-    private _onConfigurationChanged() {
-        const renderWhitespace = workspace.getConfiguration('editor').get<string>('renderWhitespace');
-        this.requiresRenderWhitespaceToggle = !(renderWhitespace == null || renderWhitespace === 'none');
     }
 
     private async _onActiveSelectionChanged(e: TextEditorSelectionChangeEvent) {
@@ -100,10 +92,8 @@ export class BlameAnnotationProvider extends Disposable {
         if (!blame || !blame.lines.length) return false;
 
         // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- toggle whitespace off
-        if (this.requiresRenderWhitespaceToggle) {
-            Logger.log('BlameAnnotationProvider.provideBlameAnnotation:', `Toggle whitespace rendering off`);
-            await commands.executeCommand(BuiltInCommands.ToggleRenderWhitespace);
-        }
+        Logger.log('BlameAnnotationProvider.provideBlameAnnotation:', `Toggle whitespace rendering off`);
+        await this.whitespaceController.override();
 
         let blameDecorationOptions: DecorationOptions[] | undefined;
         switch (this._config.annotation.style) {
