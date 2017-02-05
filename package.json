@@ -245,6 +245,11 @@
                         "verbose"
                     ],
                     "description": "Specifies how much (if any) output will be sent to the GitLens output channel"
+                },
+                "gitlens.advanced.toggleWhitespace.enabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Specifies whether or not to toggle whitespace off then showing blame annotations (*may* be required by certain fonts/themes)"
                 }
             }
         },

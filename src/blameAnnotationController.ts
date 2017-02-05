@@ -3,6 +3,7 @@ import { Functions } from './system';
 import { Disposable, ExtensionContext, TextDocument, TextEditor, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
 import { BlameAnnotationProvider } from './blameAnnotationProvider';
 import { TextDocumentComparer, TextEditorComparer } from './comparers';
+// import { IAdvancedConfig } from './configuration';
 import GitProvider from './gitProvider';
 import { Logger } from './logger';
 import WhitespaceController from './whitespaceController';
@@ -11,12 +12,19 @@ export default class BlameAnnotationController extends Disposable {
 
     private _annotationProviders: Map<number, BlameAnnotationProvider> = new Map();
     private _blameAnnotationsDisposable: Disposable;
+    private _disposable: Disposable;
     private _whitespaceController: WhitespaceController | undefined;
 
     constructor(private context: ExtensionContext, private git: GitProvider) {
         super(() => this.dispose());
 
-        this._whitespaceController = new WhitespaceController(context);
+        this._onConfigure();
+
+        const subscriptions: Disposable[] = [];
+
+        subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigure, this));
+
+        this._disposable = Disposable.from(...subscriptions);
     }
 
     dispose() {
@@ -24,6 +32,17 @@ export default class BlameAnnotationController extends Disposable {
 
         this._blameAnnotationsDisposable && this._blameAnnotationsDisposable.dispose();
         this._whitespaceController && this._whitespaceController.dispose();
+        this._disposable && this._disposable.dispose();
+    }
+
+    private _onConfigure() {
+        const toggleWhitespace = workspace.getConfiguration('gitlens.advanced.toggleWhitespace').get<boolean>('enabled');
+        if (toggleWhitespace && !this._whitespaceController) {
+            this._whitespaceController = new WhitespaceController();
+        }
+        else if (!toggleWhitespace && this._whitespaceController) {
+            this._whitespaceController.dispose();
+        }
     }
 
     async clear(column: number) {

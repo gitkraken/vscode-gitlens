@@ -1,5 +1,5 @@
 'use strict';
-import { Disposable, ExtensionContext, workspace } from 'vscode';
+import { Disposable, workspace } from 'vscode';
 import { Logger } from './logger';
 
 enum SettingLocation {
@@ -12,12 +12,13 @@ export default class WhitespaceController extends Disposable {
 
     private _count: number = 0;
     private _disposable: Disposable;
+    private _disposed: boolean = false;
     private _ignoreNextConfigChange: boolean = false;
     private _renderWhitespace: string;
     private _renderWhitespaceLocation: SettingLocation = SettingLocation.default;
     private _requiresOverride: boolean;
 
-    constructor(context: ExtensionContext) {
+    constructor() {
         super(() => this.dispose());
 
         const subscriptions: Disposable[] = [];
@@ -30,12 +31,16 @@ export default class WhitespaceController extends Disposable {
     }
 
     dispose() {
+        this._disposed = true;
         if (this._count !== 0) {
             this._restoreWhitespace();
+            this._count = 0;
         }
     }
 
     private _onConfigurationChanged() {
+        if (this._disposed) return;
+
         if (this._ignoreNextConfigChange) {
             this._ignoreNextConfigChange = false;
             Logger.log(`Whitespace changed; ignored`);
@@ -70,6 +75,8 @@ export default class WhitespaceController extends Disposable {
     }
 
     override() {
+        if (this._disposed) return;
+
         Logger.log(`Request whitespace override; count=${this._count}`);
         if (this._count === 0 && this._requiresOverride) {
             this._ignoreNextConfigChange = true;
@@ -86,6 +93,8 @@ export default class WhitespaceController extends Disposable {
     }
 
     restore() {
+        if (this._disposed) return;
+
         Logger.log(`Request whitespace restore; count=${this._count}`);
         this._count--;
         if (this._count === 0 && this._requiresOverride) {

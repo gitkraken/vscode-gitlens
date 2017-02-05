@@ -99,6 +99,9 @@ export interface IAdvancedConfig {
     output: {
         level: OutputLevel;
     };
+    toggleWhitespace: {
+        enabled: boolean;
+    };
 }
 
 export interface IConfig {
