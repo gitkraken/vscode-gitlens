@@ -1,5 +1,5 @@
 'use strict';
-import { Functions, IDeferred } from './system';
+import { Functions } from './system';
 import { Disposable, ExtensionContext, TextDocument, TextEditor, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
 import { BlameAnnotationProvider } from './blameAnnotationProvider';
 import { TextDocumentComparer, TextEditorComparer } from './comparers';
@@ -11,9 +11,7 @@ export default class BlameAnnotationController extends Disposable {
 
     private _annotationProviders: Map<number, BlameAnnotationProvider> = new Map();
     private _blameAnnotationsDisposable: Disposable;
-    private _pendingClearAnnotations: Map<number, (() => void) & IDeferred> = new Map();
-    private _visibleColumns: Set<number>;
-    private _whitespaceController: WhitespaceController;
+    private _whitespaceController: WhitespaceController | undefined;
 
     constructor(private context: ExtensionContext, private git: GitProvider) {
         super(() => this.dispose());
@@ -22,21 +20,18 @@ export default class BlameAnnotationController extends Disposable {
     }
 
     dispose() {
-        for (const fn of this._pendingClearAnnotations.values()) {
-            fn.cancel();
-        }
         this._annotationProviders.forEach(async (p, i) => await this.clear(i));
 
         this._blameAnnotationsDisposable && this._blameAnnotationsDisposable.dispose();
         this._whitespaceController && this._whitespaceController.dispose();
     }
 
-    async clear(column: number, toggleRenderWhitespace: boolean = true) {
+    async clear(column: number) {
         const provider = this._annotationProviders.get(column);
         if (!provider) return;
 
         this._annotationProviders.delete(column);
-        await provider.dispose(toggleRenderWhitespace);
+        await provider.dispose();
 
         if (this._annotationProviders.size === 0) {
             Logger.log(`Remove listener registrations for blame annotations`);
@@ -59,7 +54,7 @@ export default class BlameAnnotationController extends Disposable {
         if (!await provider.supportsBlame()) return false;
 
         if (currentProvider) {
-            await this.clear(currentProvider.editor.viewColumn || -1, false);
+            await this.clear(currentProvider.editor.viewColumn || -1);
         }
 
         if (!this._blameAnnotationsDisposable && this._annotationProviders.size === 0) {
@@ -72,8 +67,6 @@ export default class BlameAnnotationController extends Disposable {
             subscriptions.push(workspace.onDidCloseTextDocument(this._onTextDocumentClosed, this));
 
             this._blameAnnotationsDisposable = Disposable.from(...subscriptions);
-
-            this._visibleColumns = this._getVisibleColumns(window.visibleTextEditors);
         }
 
         this._annotationProviders.set(editor.viewColumn || -1, provider);
@@ -91,36 +84,16 @@ export default class BlameAnnotationController extends Disposable {
         return false;
     }
 
-    private _getVisibleColumns(editors: TextEditor[]): Set<number> {
-        const set: Set<number> = new Set();
-        for (const e of editors) {
-            if (e.viewColumn === undefined && !this.git.hasGitUriForFile(e)) continue;
-            set.add(e.viewColumn);
-        }
-        return set;
-    }
-
     private _onTextDocumentClosed(e: TextDocument) {
         for (const [key, p] of this._annotationProviders) {
             if (!TextDocumentComparer.equals(p.document, e)) continue;
 
-            Logger.log('TextDocumentClosed:', `Add pending clear of blame annotations for column ${key}`);
-
-            // Since we don't know if a whole column is going away -- we don't know if we should reset the whitespace
-            // So defer until onDidChangeVisibleTextEditors fires
-            const fn = Functions.debounce(() => {
-                this._pendingClearAnnotations.delete(key);
-                this.clear(key);
-            }, 250);
-            this._pendingClearAnnotations.set(key, fn);
-
-            fn();
+            Logger.log('TextDocumentClosed:', `Clear blame annotations for column ${key}`);
+            this.clear(key);
         }
     }
 
     private async _onTextEditorViewColumnChanged(e: TextEditorViewColumnChangeEvent) {
-        this._visibleColumns = this._getVisibleColumns(window.visibleTextEditors);
-
         const viewColumn = e.viewColumn || -1;
 
         Logger.log('TextEditorViewColumnChanged:', `Clear blame annotations for column ${viewColumn}`);
@@ -130,36 +103,18 @@ export default class BlameAnnotationController extends Disposable {
             if (!TextEditorComparer.equals(p.editor, e.textEditor)) continue;
 
             Logger.log('TextEditorViewColumnChanged:', `Clear blame annotations for column ${key}`);
-            await this.clear(key, false);
+            await this.clear(key);
         }
     }
 
     private async _onVisibleTextEditorsChanged(e: TextEditor[]) {
         if (e.every(_ => _.document.uri.scheme === 'inmemory')) return;
 
-        this._visibleColumns = this._getVisibleColumns(e);
-
-        for (const [key, fn] of this._pendingClearAnnotations) {
-            Logger.log('VisibleTextEditorsChanged:', `Remove pending blame annotations for column ${key}`);
-            fn.cancel();
-            this._pendingClearAnnotations.delete(key);
-
-            // Clear and reset the whitespace depending on if the column went away
-            Logger.log('VisibleTextEditorsChanged:', `Clear blame annotations for column ${key}`);
-            await this.clear(key, this._visibleColumns.has(key));
-        }
-
         for (const [key, p] of this._annotationProviders) {
             if (e.some(_ => TextEditorComparer.equals(p.editor, _))) continue;
 
             Logger.log('VisibleTextEditorsChanged:', `Clear blame annotations for column ${key}`);
-            const editor = window.activeTextEditor;
-            if (editor && (editor.viewColumn || -1) !== key) {
-                this.clear(key, false);
-            }
-            else {
-                this.clear(key);
-            }
+            this.clear(key);
         }
     }
 }

@@ -3,9 +3,7 @@ import { Iterables } from './system';
 import { DecorationOptions, Disposable, ExtensionContext, OverviewRulerLane, Range, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
 import { TextDocumentComparer } from './comparers';
 import { BlameAnnotationStyle, IBlameConfig } from './configuration';
-// import { BuiltInCommands } from './constants';
 import GitProvider, { GitCommit, GitUri, IGitBlame } from './gitProvider';
-import { Logger } from './logger';
 import WhitespaceController from './whitespaceController';
 import * as moment from 'moment';
 
@@ -26,7 +24,7 @@ export class BlameAnnotationProvider extends Disposable {
     private _disposable: Disposable;
     private _uri: GitUri;
 
-    constructor(context: ExtensionContext, private git: GitProvider, private whitespaceController: WhitespaceController, public editor: TextEditor) {
+    constructor(context: ExtensionContext, private git: GitProvider, private whitespaceController: WhitespaceController | undefined, public editor: TextEditor) {
         super(() => this.dispose());
 
         if (!highlightDecoration) {
@@ -61,17 +59,14 @@ export class BlameAnnotationProvider extends Disposable {
         this._disposable = Disposable.from(...subscriptions);
     }
 
-    async dispose(toggleRenderWhitespace: boolean = true) {
+    async dispose() {
         if (this.editor) {
             this.editor.setDecorations(blameDecoration, []);
             this.editor.setDecorations(highlightDecoration, []);
         }
 
-        // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- toggle whitespace back on
-        if (toggleRenderWhitespace) {
-            Logger.log('BlameAnnotationProvider.dispose:', `Toggle whitespace rendering on`);
-            await this.whitespaceController.restore();
-        }
+        // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- restore whitespace
+        this.whitespaceController && await this.whitespaceController.restore();
 
         this._disposable && this._disposable.dispose();
     }
@@ -91,9 +86,8 @@ export class BlameAnnotationProvider extends Disposable {
         const blame = await this._blame;
         if (!blame || !blame.lines.length) return false;
 
-        // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- toggle whitespace off
-        Logger.log('BlameAnnotationProvider.provideBlameAnnotation:', `Toggle whitespace rendering off`);
-        await this.whitespaceController.override();
+        // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- override whitespace (turn off)
+        this.whitespaceController && await this.whitespaceController.override();
 
         let blameDecorationOptions: DecorationOptions[] | undefined;
         switch (this._config.annotation.style) {
@@ -183,13 +177,13 @@ export class BlameAnnotationProvider extends Disposable {
                         gutter = commit.sha.substring(0, 8);
                         break;
                     case 1:
-                        gutter = `\\00a6\\00a0 ${this._getAuthor(commit, 17, true)}`;
+                        gutter = `\\02759\\00a0 ${this._getAuthor(commit, 17, true)}`;
                         break;
                     case 2:
-                        gutter = `\\00a6\\00a0 ${this._getDate(commit, true)}`;
+                        gutter = `\\02759\\00a0 ${this._getDate(commit, true)}`;
                         break;
                     default:
-                        gutter = '\\00a6\\00a0';
+                        gutter = '\\02759';
                         break;
                 }
             }
