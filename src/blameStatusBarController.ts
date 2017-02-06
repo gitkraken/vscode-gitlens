@@ -211,6 +211,20 @@ export default class BlameStatusBarController extends Disposable {
         }
 
         if (this._config.blame.annotation.activeLine !== 'off') {
+            let activeLine = this._config.blame.annotation.activeLine;
+
+            // Because the inline annotations can be noisy -- only show them if the document isn't dirty
+            if (editor && editor.document && editor.document.isDirty) {
+                editor.setDecorations(activeLineDecoration, []);
+                switch (activeLine) {
+                    case 'both':
+                        activeLine = 'hover';
+                        break;
+                    case 'inline':
+                        return;
+                }
+            }
+
             const offset = this._uri.offset;
 
             const config = {
@@ -234,7 +248,7 @@ export default class BlameStatusBarController extends Disposable {
             const hoverMessage = BlameAnnotationFormatter.getAnnotationHover(config, blameLine, logCommit || commit);
 
             let decorationOptions: DecorationOptions;
-            switch (this._config.blame.annotation.activeLine) {
+            switch (activeLine) {
                 case 'both':
                     decorationOptions = {
                         range: editor.document.validateRange(new Range(blameLine.line + offset, 0, blameLine.line + offset, 1000000)),
