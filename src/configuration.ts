@@ -15,9 +15,7 @@ export interface IBlameConfig {
         author: boolean;
         date: 'off' | 'relative' | 'absolute';
         message: boolean;
-        activeLine: {
-            enabled: boolean;
-        };
+        activeLine: 'off' | 'inline' | 'hover' | 'both';
     };
 }
 

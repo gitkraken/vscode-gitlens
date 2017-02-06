@@ -167,8 +167,6 @@ export class BlameAnnotationProvider extends Disposable {
                 color = l.previousSha ? '#999999' : '#6b6b6b';
             }
 
-            const hoverMessage = BlameAnnotationFormatter.getAnnotationHover(this._config, l, commit, blame);
-
             let gutter = '';
             if (lastSha !== l.sha) {
                 count = -1;
@@ -191,6 +189,8 @@ export class BlameAnnotationProvider extends Disposable {
                         break;
                 }
             }
+
+            const hoverMessage = BlameAnnotationFormatter.getAnnotationHover(this._config, l, commit);
 
             // Escape single quotes because for some reason that breaks the ::before or ::after element
             gutter = gutter.replace(/\'/g, '\\\'');
@@ -274,11 +274,10 @@ export class BlameAnnotationProvider extends Disposable {
                 }
             }
 
-            const hoverMessage = BlameAnnotationFormatter.getAnnotationHover(this._config, l, commit, blame);
-
             const format = trailing ? BlameAnnotationFormat.Unconstrained : BlameAnnotationFormat.Constrained;
             // Escape single quotes because for some reason that breaks the ::before or ::after element
             const gutter = BlameAnnotationFormatter.getAnnotation(this._config, commit, format).replace(/\'/g, '\\\'');
+            const hoverMessage = BlameAnnotationFormatter.getAnnotationHover(this._config, l, commit);
 
             let renderOptions: DecorationInstanceRenderOptions;
             if (trailing) {

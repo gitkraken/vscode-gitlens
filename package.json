@@ -77,10 +77,16 @@
                     "default": false,
                     "description": "Specifies whether the commit message will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles"
                 },
-                "gitlens.blame.annotation.activeLine.enabled": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Specifies whether to show a trailing blame annotation (sha and commit message) of the active line"
+                "gitlens.blame.annotation.activeLine": {
+                    "type": "string",
+                    "default": "both",
+                    "enum": [
+                        "off",
+                        "inline",
+                        "hover",
+                        "both"
+                    ],
+                    "description": "Specifies whether and how to show blame annotations on the active line. `off` - no annotation. `inline` - adds a trailing annotation to the active line. `hover` - adds hover annotation to the active line. `both` - adds both `inline` and `hover` annotations"
                 },
                 "gitlens.codeLens.visibility": {
                     "type": "string",

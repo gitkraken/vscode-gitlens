@@ -1,6 +1,6 @@
 'use strict';
 import { IBlameConfig } from './configuration';
-import { GitCommit, IGitBlame, IGitCommitLine } from './gitProvider';
+import { GitCommit, IGitCommitLine } from './gitProvider';
 import * as moment from 'moment';
 
 export const defaultShaLength = 8;
@@ -50,38 +50,24 @@ export default class BlameAnnotationFormatter {
         return message;
     }
 
-    static getAnnotationHover(config: IBlameConfig, line: IGitCommitLine, commit: GitCommit, blame?: IGitBlame): string | Array<string> {
+    static getAnnotationHover(config: IBlameConfig, line: IGitCommitLine, commit: GitCommit): string | Array<string> {
+        const message = commit.message.replace(/\n/g, '\n\n');
         if (commit.isUncommitted) {
-            let previous = blame && blame.commits.get(commit.previousSha);
-            if (previous) {
-                return [
-                    'Uncommitted changes',
-                    `_${previous.sha}_ - ${previous.message}`,
-                    `${previous.author}, ${moment(previous.date).format('MMMM Do, YYYY h:MMa')}`
-                ];
-            }
-
-            return [
-                'Uncommitted changes',
-                `_${line.previousSha}_`
-            ];
+            return `\`${'0'.repeat(8)}\` &nbsp; __Uncommitted changes__ \n\n > ${message}`;
         }
 
-        return [
-            `_${commit.sha}_ - ${commit.message}`,
-            `${commit.author}, ${moment(commit.date).format('MMMM Do, YYYY h:MMa')}`
-        ];
+        return `\`${commit.sha}\` &nbsp; __${commit.author}__, ${moment(commit.date).fromNow()} _(${moment(commit.date).format('MMMM Do, YYYY h:MMa')})_ \n\n > ${message}`;
     }
 
-    static getAuthorAndDate(config: IBlameConfig, commit: GitCommit, format?: string/*, truncate: boolean = false*/, force: boolean = false) {
+    static getAuthorAndDate(config: IBlameConfig, commit: GitCommit, format?: string, force: boolean = false) {
         if (!force && !config.annotation.author && (!config.annotation.date || config.annotation.date === 'off')) return '';
 
         if (!config.annotation.author) {
-            return this.getDate(config, commit, format); //, truncate);
+            return this.getDate(config, commit, format);
         }
 
         if (!config.annotation.date || config.annotation.date === 'off') {
-            return this.getAuthor(config, commit); //, truncate ? defaultAuthorLength : 0);
+            return this.getAuthor(config, commit);
         }
 
         return `${this.getAuthor(config, commit)}, ${this.getDate(config, commit, format)}`;

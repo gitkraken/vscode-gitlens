@@ -72,7 +72,7 @@ export default class BlameStatusBarController extends Disposable {
 
         if (!Objects.areEquivalent(config.blame.annotation.activeLine, this._config && this._config.blame.annotation.activeLine)) {
             changed = true;
-            if (!config.blame.annotation.activeLine.enabled && this._editor) {
+            if (config.blame.annotation.activeLine !== 'off' && this._editor) {
                 this._editor.setDecorations(activeLineDecoration, []);
             }
         }
@@ -81,7 +81,7 @@ export default class BlameStatusBarController extends Disposable {
 
         if (!changed) return;
 
-        let trackActiveLine = config.statusBar.enabled || config.blame.annotation.activeLine.enabled;
+        let trackActiveLine = config.statusBar.enabled || config.blame.annotation.activeLine !== 'off';
         if (trackActiveLine && !this._activeEditorLineDisposable) {
             const subscriptions: Disposable[] = [];
 
@@ -176,7 +176,7 @@ export default class BlameStatusBarController extends Disposable {
         this._statusBarItem && this._statusBarItem.hide();
     }
 
-    show(commit: GitCommit, blameLine: IGitCommitLine, editor: TextEditor) {
+    async show(commit: GitCommit, blameLine: IGitCommitLine, editor: TextEditor) {
         if (this._config.statusBar.enabled) {
             this._statusBarItem.text = `$(git-commit) ${commit.author}, ${moment(commit.date).fromNow()}`;
 
@@ -204,7 +204,7 @@ export default class BlameStatusBarController extends Disposable {
             this._statusBarItem.show();
         }
 
-        if (this._config.blame.annotation.activeLine.enabled) {
+        if (this._config.blame.annotation.activeLine !== 'off') {
             const offset = this._uri.offset;
 
             const config = {
@@ -218,20 +218,51 @@ export default class BlameStatusBarController extends Disposable {
 
             // Escape single quotes because for some reason that breaks the ::before or ::after element
             const annotation = BlameAnnotationFormatter.getAnnotation(config, commit, BlameAnnotationFormat.Unconstrained).replace(/\'/g, '\\\'');
-            const hoverMessage = BlameAnnotationFormatter.getAnnotationHover(config, blameLine, commit);
 
-            const decorationOptions = {
-                range: editor.document.validateRange(new Range(blameLine.line + offset, 1000000, blameLine.line + offset, 1000000)),
-                hoverMessage: hoverMessage,
-                renderOptions: {
-                    after: {
-                        color: 'rgba(153, 153, 153, 0.3)',
-                        contentText: annotation
-                    }
-                } as DecorationInstanceRenderOptions
-            } as DecorationOptions;
+            // Get the full commit message -- since blame only returns the summary
+            let logCommit: GitCommit;
+            if (!commit.isUncommitted) {
+                const log = await this.git.getLogForFile(this._uri.fsPath, commit.sha, this._uri.repoPath, undefined, 1);
+                logCommit = log && log.commits.get(commit.sha);
+            }
+            const hoverMessage = BlameAnnotationFormatter.getAnnotationHover(config, blameLine, logCommit || commit);
 
-            editor.setDecorations(activeLineDecoration, [decorationOptions]);
+            let decorationOptions: DecorationOptions;
+            switch (this._config.blame.annotation.activeLine) {
+                case 'both':
+                    decorationOptions = {
+                        range: editor.document.validateRange(new Range(blameLine.line + offset, 0, blameLine.line + offset, 1000000)),
+                        hoverMessage: hoverMessage,
+                        renderOptions: {
+                            after: {
+                                color: 'rgba(153, 153, 153, 0.3)',
+                                contentText: annotation
+                            }
+                        } as DecorationInstanceRenderOptions
+                    } as DecorationOptions;
+                    break;
+
+                case 'inline':
+                    decorationOptions = {
+                        range: editor.document.validateRange(new Range(blameLine.line + offset, 1000000, blameLine.line + offset, 1000000)),
+                        renderOptions: {
+                            after: {
+                                color: 'rgba(153, 153, 153, 0.3)',
+                                contentText: annotation
+                            }
+                        } as DecorationInstanceRenderOptions
+                    } as DecorationOptions;
+                    break;
+
+                case 'hover':
+                    decorationOptions = {
+                        range: editor.document.validateRange(new Range(blameLine.line + offset, 0, blameLine.line + offset, 1000000)),
+                        hoverMessage: hoverMessage
+                    } as DecorationOptions;
+                    break;
+            }
+
+            decorationOptions && editor.setDecorations(activeLineDecoration, [decorationOptions]);
         }
     }
 }
