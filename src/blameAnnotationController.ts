@@ -42,6 +42,7 @@ export default class BlameAnnotationController extends Disposable {
         }
         else if (!toggleWhitespace && this._whitespaceController) {
             this._whitespaceController.dispose();
+            this._whitespaceController = undefined;
         }
     }
 
