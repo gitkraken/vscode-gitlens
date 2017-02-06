@@ -1,10 +1,11 @@
 'use strict';
 import { Commands } from './constants';
 
-export type BlameAnnotationStyle = 'compact' | 'expanded';
+export type BlameAnnotationStyle = 'compact' | 'expanded' | 'trailing';
 export const BlameAnnotationStyle = {
     Compact: 'compact' as BlameAnnotationStyle,
-    Expanded: 'expanded' as BlameAnnotationStyle
+    Expanded: 'expanded' as BlameAnnotationStyle,
+    Trailing: 'trailing' as BlameAnnotationStyle
 };
 
 export interface IBlameConfig {
@@ -12,7 +13,11 @@ export interface IBlameConfig {
         style: BlameAnnotationStyle;
         sha: boolean;
         author: boolean;
-        date: boolean;
+        date: 'off' | 'relative' | 'absolute';
+        message: boolean;
+        activeLine: {
+            enabled: boolean;
+        };
     };
 }
 

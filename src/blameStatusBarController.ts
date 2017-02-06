@@ -1,20 +1,28 @@
 'use strict';
 import { Objects } from './system';
-import { Disposable, ExtensionContext, StatusBarAlignment, StatusBarItem, TextDocument, TextEditor, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
-import { TextDocumentComparer } from './comparers';
-import { IConfig, StatusBarCommand } from './configuration';
-import GitProvider, { GitCommit, GitUri, IGitBlame } from './gitProvider';
+import { DecorationOptions, DecorationInstanceRenderOptions, DecorationRenderOptions, Disposable, ExtensionContext, Range, StatusBarAlignment, StatusBarItem, TextEditorDecorationType, TextEditor, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
+import BlameAnnotationFormatter, { BlameAnnotationFormat } from './blameAnnotationFormatter';
+import { TextEditorComparer } from './comparers';
+import { IBlameConfig, IConfig, StatusBarCommand } from './configuration';
+import { DocumentSchemes } from './constants';
+import GitProvider, { GitCommit, GitUri, IGitBlame, IGitCommitLine } from './gitProvider';
 import { Logger } from './logger';
 import * as moment from 'moment';
 
+const activeLineDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
+    after: {
+        margin: '0 0 0 4em'
+    }
+} as DecorationRenderOptions);
+
 export default class BlameStatusBarController extends Disposable {
 
+    private _activeEditorLineDisposable: Disposable | undefined;
     private _blame: Promise<IGitBlame> | undefined;
     private _config: IConfig;
     private _disposable: Disposable;
-    private _document: TextDocument | undefined;
+    private _editor: TextEditor | undefined;
     private _statusBarItem: StatusBarItem | undefined;
-    private _statusBarDisposable: Disposable | undefined;
     private _uri: GitUri;
     private _useCaching: boolean;
 
@@ -31,7 +39,9 @@ export default class BlameStatusBarController extends Disposable {
     }
 
     dispose() {
-        this._statusBarDisposable && this._statusBarDisposable.dispose();
+        this._editor && this._editor.setDecorations(activeLineDecoration, []);
+
+        this._activeEditorLineDisposable && this._activeEditorLineDisposable.dispose();
         this._statusBarItem && this._statusBarItem.dispose();
         this._disposable && this._disposable.dispose();
     }
@@ -39,12 +49,12 @@ export default class BlameStatusBarController extends Disposable {
     private _onConfigure() {
         const config = workspace.getConfiguration('').get<IConfig>('gitlens');
 
-        if (!Objects.areEquivalent(config.statusBar, this._config && this._config.statusBar)) {
-            this._statusBarDisposable && this._statusBarDisposable.dispose();
-            this._statusBarItem && this._statusBarItem.dispose();
+        let changed: boolean = false;
 
+        if (!Objects.areEquivalent(config.statusBar, this._config && this._config.statusBar)) {
+            changed = true;
             if (config.statusBar.enabled) {
-                this._statusBarItem = window.createStatusBarItem(StatusBarAlignment.Right, 1000);
+                this._statusBarItem = this._statusBarItem || window.createStatusBarItem(StatusBarAlignment.Right, 1000);
                 switch (config.statusBar.command) {
                     case StatusBarCommand.ToggleCodeLens:
                         if (config.codeLens.visibility !== 'ondemand') {
@@ -53,35 +63,59 @@ export default class BlameStatusBarController extends Disposable {
                         break;
                 }
                 this._statusBarItem.command = config.statusBar.command;
-
-                const subscriptions: Disposable[] = [];
-
-                subscriptions.push(window.onDidChangeActiveTextEditor(this._onActiveTextEditorChanged, this));
-                subscriptions.push(window.onDidChangeTextEditorSelection(this._onActiveSelectionChanged, this));
-
-                this._statusBarDisposable = Disposable.from(...subscriptions);
             }
-            else {
-                this._statusBarDisposable = undefined;
+            else if (!config.statusBar.enabled && this._statusBarItem) {
+                this._statusBarItem.dispose();
                 this._statusBarItem = undefined;
+            }
+        }
+
+        if (!Objects.areEquivalent(config.blame.annotation.activeLine, this._config && this._config.blame.annotation.activeLine)) {
+            changed = true;
+            if (!config.blame.annotation.activeLine.enabled && this._editor) {
+                this._editor.setDecorations(activeLineDecoration, []);
             }
         }
 
         this._config = config;
 
+        if (!changed) return;
+
+        let trackActiveLine = config.statusBar.enabled || config.blame.annotation.activeLine.enabled;
+        if (trackActiveLine && !this._activeEditorLineDisposable) {
+            const subscriptions: Disposable[] = [];
+
+            subscriptions.push(window.onDidChangeActiveTextEditor(this._onActiveTextEditorChanged, this));
+            subscriptions.push(window.onDidChangeTextEditorSelection(this._onActiveSelectionChanged, this));
+
+            this._activeEditorLineDisposable = Disposable.from(...subscriptions);
+        }
+        else if (!trackActiveLine && this._activeEditorLineDisposable) {
+            this._activeEditorLineDisposable.dispose();
+            this._activeEditorLineDisposable = undefined;
+        }
+
         this._onActiveTextEditorChanged(window.activeTextEditor);
     }
 
     private async _onActiveTextEditorChanged(e: TextEditor): Promise<void> {
-        if (!e || !e.document || e.document.isUntitled || (e.viewColumn === undefined && !this.git.hasGitUriForFile(e))) {
-            this.clear();
+        const previousEditor = this._editor;
+        previousEditor && previousEditor.setDecorations(activeLineDecoration, []);
+
+        if (!e || !e.document || e.document.isUntitled ||
+            (e.document.uri.scheme !== DocumentSchemes.File && e.document.uri.scheme !== DocumentSchemes.Git) ||
+            (e.viewColumn === undefined && !this.git.hasGitUriForFile(e))) {
+            this.clear(e);
+
+            this._editor = undefined;
+
             return;
         }
 
-        this._document = e.document;
-        this._uri = GitUri.fromUri(this._document.uri, this.git);
+        this._editor = e;
+        this._uri = GitUri.fromUri(e.document.uri, this.git);
         const maxLines = this._config.advanced.caching.statusBar.maxLines;
-        this._useCaching = this._config.advanced.caching.enabled && (maxLines <= 0 || this._document.lineCount <= maxLines);
+        this._useCaching = this._config.advanced.caching.enabled && (maxLines <= 0 || e.document.lineCount <= maxLines);
         if (this._useCaching) {
             this._blame = this.git.getBlameForFile(this._uri.fsPath, this._uri.sha, this._uri.repoPath);
         }
@@ -89,29 +123,31 @@ export default class BlameStatusBarController extends Disposable {
             this._blame = undefined;
         }
 
-        return this._showBlame(e.selection.active.line);
+        return await this._showBlame(e.selection.active.line, e);
     }
 
     private async _onActiveSelectionChanged(e: TextEditorSelectionChangeEvent): Promise<void> {
-        if (!TextDocumentComparer.equals(this._document, e.textEditor && e.textEditor.document)) return;
+        if (!TextEditorComparer.equals(e.textEditor, this._editor)) return;
 
-        return this._showBlame(e.selections[0].active.line);
+        return await this._showBlame(e.selections[0].active.line, e.textEditor);
     }
 
-    private async _showBlame(line: number) {
+    private async _showBlame(line: number, editor: TextEditor) {
         line = line - this._uri.offset;
 
+        let commitLine: IGitCommitLine;
         let commit: GitCommit;
         if (line >= 0) {
             if (this._useCaching) {
-                const blame = await this._blame;
+                const blame = this._blame && await this._blame;
                 if (!blame || !blame.lines.length) {
-                    this.clear();
+                    this.clear(editor);
                     return;
                 }
 
                 try {
-                    const sha = blame.lines[line].sha;
+                    commitLine = blame.lines[line];
+                    const sha = commitLine.sha;
                     commit = blame.commits.get(sha);
                 }
                 catch (ex) {
@@ -121,48 +157,81 @@ export default class BlameStatusBarController extends Disposable {
             }
             else {
                 const blameLine = await this.git.getBlameForLine(this._uri.fsPath, line, this._uri.sha, this._uri.repoPath);
+                commitLine = blameLine && blameLine.line;
                 commit = blameLine && blameLine.commit;
             }
         }
 
         if (commit) {
-            this.show(commit);
+            this.show(commit, commitLine, editor);
         }
         else {
-            this.clear();
+            this.clear(editor);
         }
     }
 
-    clear() {
+    clear(editor: TextEditor, previousEditor?: TextEditor) {
+        editor && editor.setDecorations(activeLineDecoration, []);
+
         this._statusBarItem && this._statusBarItem.hide();
-        this._document = undefined;
-        this._blame = undefined;
     }
 
-    show(commit: GitCommit) {
-        this._statusBarItem.text = `$(git-commit) ${commit.author}, ${moment(commit.date).fromNow()}`;
+    show(commit: GitCommit, blameLine: IGitCommitLine, editor: TextEditor) {
+        if (this._config.statusBar.enabled) {
+            this._statusBarItem.text = `$(git-commit) ${commit.author}, ${moment(commit.date).fromNow()}`;
 
-        switch (this._config.statusBar.command) {
-            case StatusBarCommand.BlameAnnotate:
-                this._statusBarItem.tooltip = 'Toggle Blame Annotations';
-                break;
-            case StatusBarCommand.ShowBlameHistory:
-                this._statusBarItem.tooltip = 'Open Blame History';
-                break;
-            case StatusBarCommand.ShowFileHistory:
-                this._statusBarItem.tooltip = 'Open File History';
-                break;
-            case StatusBarCommand.DiffWithPrevious:
-                this._statusBarItem.tooltip = 'Compare to Previous Commit';
-                break;
-            case StatusBarCommand.ToggleCodeLens:
-                this._statusBarItem.tooltip = 'Toggle Blame CodeLens';
-                break;
-            case StatusBarCommand.ShowQuickFileHistory:
-                this._statusBarItem.tooltip = 'View Git File History';
-                break;
+            switch (this._config.statusBar.command) {
+                case StatusBarCommand.BlameAnnotate:
+                    this._statusBarItem.tooltip = 'Toggle Blame Annotations';
+                    break;
+                case StatusBarCommand.ShowBlameHistory:
+                    this._statusBarItem.tooltip = 'Open Blame History';
+                    break;
+                case StatusBarCommand.ShowFileHistory:
+                    this._statusBarItem.tooltip = 'Open File History';
+                    break;
+                case StatusBarCommand.DiffWithPrevious:
+                    this._statusBarItem.tooltip = 'Compare to Previous Commit';
+                    break;
+                case StatusBarCommand.ToggleCodeLens:
+                    this._statusBarItem.tooltip = 'Toggle Blame CodeLens';
+                    break;
+                case StatusBarCommand.ShowQuickFileHistory:
+                    this._statusBarItem.tooltip = 'View Git File History';
+                    break;
+            }
+
+            this._statusBarItem.show();
         }
 
-        this._statusBarItem.show();
+        if (this._config.blame.annotation.activeLine.enabled) {
+            const offset = this._uri.offset;
+
+            const config = {
+                annotation: {
+                    sha: true,
+                    author: this._config.statusBar.enabled ? false : this._config.blame.annotation.author,
+                    date: this._config.statusBar.enabled ? 'off' : this._config.blame.annotation.date,
+                    message: true
+                }
+            } as IBlameConfig;
+
+            // Escape single quotes because for some reason that breaks the ::before or ::after element
+            const annotation = BlameAnnotationFormatter.getAnnotation(config, commit, BlameAnnotationFormat.Unconstrained).replace(/\'/g, '\\\'');
+            const hoverMessage = BlameAnnotationFormatter.getAnnotationHover(config, blameLine, commit);
+
+            const decorationOptions = {
+                range: editor.document.validateRange(new Range(blameLine.line + offset, 1000000, blameLine.line + offset, 1000000)),
+                hoverMessage: hoverMessage,
+                renderOptions: {
+                    after: {
+                        color: 'rgba(153, 153, 153, 0.3)',
+                        contentText: annotation
+                    }
+                } as DecorationInstanceRenderOptions
+            } as DecorationOptions;
+
+            editor.setDecorations(activeLineDecoration, [decorationOptions]);
+        }
     }
 }

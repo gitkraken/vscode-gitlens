@@ -1,17 +1,20 @@
 'use strict';
 import { Iterables } from './system';
-import { DecorationOptions, Disposable, ExtensionContext, OverviewRulerLane, Range, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
+import { DecorationInstanceRenderOptions, DecorationOptions, DecorationRenderOptions, Disposable, ExtensionContext, OverviewRulerLane, Range, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
+import BlameAnnotationFormatter, { BlameAnnotationFormat, defaultShaLength, defaultAuthorLength } from './blameAnnotationFormatter';
 import { TextDocumentComparer } from './comparers';
 import { BlameAnnotationStyle, IBlameConfig } from './configuration';
-import GitProvider, { GitCommit, GitUri, IGitBlame } from './gitProvider';
+import GitProvider, { GitUri, IGitBlame } from './gitProvider';
 import WhitespaceController from './whitespaceController';
-import * as moment from 'moment';
 
 const blameDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
     before: {
         margin: '0 1.75em 0 0'
+    },
+    after: {
+        margin: '0 0 0 4em'
     }
-});
+} as DecorationRenderOptions);
 
 let highlightDecoration: TextEditorDecorationType;
 
@@ -87,7 +90,9 @@ export class BlameAnnotationProvider extends Disposable {
         if (!blame || !blame.lines.length) return false;
 
         // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- override whitespace (turn off)
-        this.whitespaceController && await this.whitespaceController.override();
+        if (this._config.annotation.style !== BlameAnnotationStyle.Trailing) {
+            this.whitespaceController && await this.whitespaceController.override();
+        }
 
         let blameDecorationOptions: DecorationOptions[] | undefined;
         switch (this._config.annotation.style) {
@@ -95,7 +100,10 @@ export class BlameAnnotationProvider extends Disposable {
                 blameDecorationOptions = this._getCompactGutterDecorations(blame);
                 break;
             case BlameAnnotationStyle.Expanded:
-                blameDecorationOptions = this._getExpandedGutterDecorations(blame);
+                blameDecorationOptions = this._getExpandedGutterDecorations(blame, false);
+                break;
+            case BlameAnnotationStyle.Trailing:
+                blameDecorationOptions = this._getExpandedGutterDecorations(blame, true);
                 break;
         }
 
@@ -149,21 +157,17 @@ export class BlameAnnotationProvider extends Disposable {
         let count = 0;
         let lastSha: string;
         return blame.lines.map(l => {
-            let color = l.previousSha ? '#999999' : '#6b6b6b';
             let commit = blame.commits.get(l.sha);
-            let hoverMessage: string | Array<string> = [`_${l.sha}_ - ${commit.message}`, `${commit.author}, ${moment(commit.date).format('MMMM Do, YYYY h:MMa')}`];
 
+            let color: string;
             if (commit.isUncommitted) {
                 color = 'rgba(0, 188, 242, 0.6)';
-
-                let previous = blame.commits.get(commit.previousSha);
-                if (previous) {
-                    hoverMessage = ['Uncommitted changes', `_${previous.sha}_ - ${previous.message}`, `${previous.author}, ${moment(previous.date).format('MMMM Do, YYYY h:MMa')}`];
-                }
-                else {
-                    hoverMessage = ['Uncommitted changes', `_${l.previousSha}_`];
-                }
             }
+            else {
+                color = l.previousSha ? '#999999' : '#6b6b6b';
+            }
+
+            const hoverMessage = BlameAnnotationFormatter.getAnnotationHover(this._config, l, commit, blame);
 
             let gutter = '';
             if (lastSha !== l.sha) {
@@ -174,13 +178,13 @@ export class BlameAnnotationProvider extends Disposable {
             if (!isEmptyOrWhitespace) {
                 switch (++count) {
                     case 0:
-                        gutter = commit.sha.substring(0, 8);
+                        gutter = commit.sha.substring(0, defaultShaLength);
                         break;
                     case 1:
-                        gutter = `\\02759\\00a0 ${this._getAuthor(commit, 17, true)}`;
+                        gutter = `\\02759\\00a0 ${BlameAnnotationFormatter.getAuthor(this._config, commit, defaultAuthorLength, true)}`;
                         break;
                     case 2:
-                        gutter = `\\02759\\00a0 ${this._getDate(commit, true)}`;
+                        gutter = `\\02759\\00a0 ${BlameAnnotationFormatter.getDate(this._config, commit, 'MM/DD/YYYY', true, true)}`;
                         break;
                     default:
                         gutter = '\\02759';
@@ -188,94 +192,118 @@ export class BlameAnnotationProvider extends Disposable {
                 }
             }
 
+            // Escape single quotes because for some reason that breaks the ::before or ::after element
+            gutter = gutter.replace(/\'/g, '\\\'');
+
             lastSha = l.sha;
 
             return {
-                range: this.editor.document.validateRange(new Range(l.line + offset, 0, l.line + offset, 0)),
+                range: this.editor.document.validateRange(new Range(l.line + offset, 0, l.line + offset, 1000000)),
                 hoverMessage: hoverMessage,
-                renderOptions: { before: { color: color, contentText: gutter, width: '11em' } }
+                renderOptions: {
+                    before: {
+                        color: color,
+                        contentText: gutter,
+                        width: '11em'
+                    }
+                }
             } as DecorationOptions;
         });
     }
 
-    private _getExpandedGutterDecorations(blame: IGitBlame): DecorationOptions[] {
+    private _getExpandedGutterDecorations(blame: IGitBlame, trailing: boolean = false): DecorationOptions[] {
         const offset = this._uri.offset;
 
         let width = 0;
-        if (this._config.annotation.sha) {
-            width += 5;
-        }
-        if (this._config.annotation.date) {
-            if (width > 0) {
-                width += 7;
+        if (!trailing) {
+            if (this._config.annotation.sha) {
+                width += 5;
             }
-            else {
-                width += 6;
+            if (this._config.annotation.date && this._config.annotation.date !== 'off') {
+                if (width > 0) {
+                    width += 7;
+                }
+                else {
+                    width += 6;
+                }
+
+                if (this._config.annotation.date === 'relative') {
+                    width += 2;
+                }
             }
-        }
-        if (this._config.annotation.author) {
-            if (width > 5 + 6) {
-                width += 12;
+            if (this._config.annotation.author) {
+                if (width > 5 + 6) {
+                    width += 12;
+                }
+                else if (width > 0) {
+                    width += 11;
+                }
+                else {
+                    width += 10;
+                }
             }
-            else if (width > 0) {
-                width += 11;
-            }
-            else {
-                width += 10;
+            if (this._config.annotation.message) {
+                if (width > 5 + 6 + 10) {
+                    width += 21;
+                }
+                else if (width > 5 + 6) {
+                    width += 21;
+                }
+                else if (width > 0) {
+                    width += 21;
+                }
+                else {
+                    width += 19;
+                }
             }
         }
 
         return blame.lines.map(l => {
-            let color = l.previousSha ? '#999999' : '#6b6b6b';
             let commit = blame.commits.get(l.sha);
-            let hoverMessage: string | Array<string> = [`_${l.sha}_ - ${commit.message}`, `${commit.author}, ${moment(commit.date).format('MMMM Do, YYYY h:MMa')}`];
 
+            let color: string;
             if (commit.isUncommitted) {
                 color = 'rgba(0, 188, 242, 0.6)';
-
-                let previous = blame.commits.get(commit.previousSha);
-                if (previous) {
-                    hoverMessage = ['Uncommitted changes', `_${previous.sha}_ - ${previous.message}`, `${previous.author}, ${moment(previous.date).format('MMMM Do, YYYY h:MMa')}`];
+            }
+            else {
+                if (trailing) {
+                    color = l.previousSha ? 'rgba(153, 153, 153, 0.5)' : 'rgba(107, 107, 107, 0.5)';
                 }
                 else {
-                    hoverMessage = ['Uncommitted changes', `_${l.previousSha}_`];
+                    color = l.previousSha ? 'rgb(153, 153, 153)' : 'rgb(107, 107, 107)';
                 }
             }
 
-            const gutter = this._getGutter(commit);
+            const hoverMessage = BlameAnnotationFormatter.getAnnotationHover(this._config, l, commit, blame);
+
+            const format = trailing ? BlameAnnotationFormat.Unconstrained : BlameAnnotationFormat.Constrained;
+            // Escape single quotes because for some reason that breaks the ::before or ::after element
+            const gutter = BlameAnnotationFormatter.getAnnotation(this._config, commit, format).replace(/\'/g, '\\\'');
+
+            let renderOptions: DecorationInstanceRenderOptions;
+            if (trailing) {
+                renderOptions = {
+                    after: {
+                        color: color,
+                        contentText: gutter
+                    }
+                } as DecorationInstanceRenderOptions;
+            }
+            else {
+                renderOptions = {
+                    before: {
+                        color: color,
+                        contentText: gutter,
+                        width: `${width}em`
+                    }
+                } as DecorationInstanceRenderOptions;
+            }
+
             return {
-                range: this.editor.document.validateRange(new Range(l.line + offset, 0, l.line + offset, 0)),
+                range: this.editor.document.validateRange(new Range(l.line + offset, 0, l.line + offset, 1000000)),
                 hoverMessage: hoverMessage,
-                renderOptions: { before: { color: color, contentText: gutter, width: `${width}em` } }
+                renderOptions: renderOptions
             } as DecorationOptions;
         });
-    }
-
-    private _getAuthor(commit: GitCommit, max: number = 17, force: boolean = false) {
-        if (!force && !this._config.annotation.author) return '';
-        let author = commit.isUncommitted ? 'Uncommitted' : commit.author;
-        if (author.length > max) {
-            return `${author.substring(0, max - 1)}\\2026`;
-        }
-        return author;
-    }
-
-    private _getDate(commit: GitCommit, force?: boolean) {
-        if (!force && !this._config.annotation.date) return '';
-        return moment(commit.date).format('MM/DD/YYYY');
-    }
-
-    private _getGutter(commit: GitCommit) {
-        const author = this._getAuthor(commit);
-        const date = this._getDate(commit);
-        if (this._config.annotation.sha) {
-            return `${commit.sha.substring(0, 8)}${(date ? `\\00a0\\2022\\00a0 ${date}` : '')}${(author ? `\\00a0\\2022\\00a0 ${author}` : '')}`;
-        }
-        else if (this._config.annotation.date) {
-            return `${date}${(author ? `\\00a0\\2022\\00a0 ${author}` : '')}`;
-        }
-        else {
-            return author;
-        }
     }
 }

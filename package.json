@@ -47,24 +47,40 @@
                     "default": "expanded",
                     "enum": [
                         "compact",
-                        "expanded"
+                        "expanded",
+                        "trailing"
                     ],
-                    "description": "Specifies the style of the blame annotations. `compact` - groups annotations to limit the repetition and also adds author and date when possible. `expanded` - shows an annotation on every line"
+                    "description": "Specifies the style of the blame annotations. `compact` - groups annotations to limit the repetition and also adds author and date when possible. `expanded` - shows an annotation before every line. `trailing` - shows an annotation after every line"
                 },
                 "gitlens.blame.annotation.sha": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether the commit sha will be shown in the blame annotations. Applies only to the `expanded` annotation style"
+                    "description": "Specifies whether the commit sha will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles"
                 },
                 "gitlens.blame.annotation.author": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether the committer will be shown in the blame annotations. Applies only to the `expanded` annotation style"
+                    "description": "Specifies whether the committer will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles"
                 },
                 "gitlens.blame.annotation.date": {
+                    "type": "string",
+                    "default": "off",
+                    "enum": [
+                        "off",
+                        "relative",
+                        "absolute"
+                    ],
+                    "description": "Specifies whether and how the commit date will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles"
+                },
+                "gitlens.blame.annotation.message": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Specifies whether the commit date will be shown in the blame annotations. Applies only to the `expanded` annotation style"
+                    "description": "Specifies whether the commit message will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles"
+                },
+                "gitlens.blame.annotation.activeLine.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether to show a trailing blame annotation (sha and commit message) of the active line"
                 },
                 "gitlens.codeLens.visibility": {
                     "type": "string",
@@ -183,6 +199,11 @@
                     ],
                     "description": "Specifies the command executed when the authors CodeLens is clicked.  `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `gitlens.showQuickFileHistory` - shows a file history picker"
                 },
+                "gitlens.menus.diff.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether diff commands will be added to the context menus"
+                },
                 "gitlens.statusBar.enabled": {
                     "type": "boolean",
                     "default": true,
@@ -200,11 +221,6 @@
                         "gitlens.showQuickFileHistory"
                     ],
                     "description": "Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `gitlens.showQuickFileHistory` - shows a file history picker"
-                },
-                "gitlens.menus.diff.enabled": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Specifies whether diff commands will be added to the context menus"
                 },
                 "gitlens.advanced.caching.enabled": {
                     "type": "boolean",
