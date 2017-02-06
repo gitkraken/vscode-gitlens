@@ -374,27 +374,35 @@
             ],
             "editor/context": [
                 {
-                    "command": "gitlens.diffWithWorking",
-                    "alt": "gitlens.diffLineWithWorking",
+                    "command": "gitlens.diffLineWithWorking",
                     "when": "editorTextFocus && config.gitlens.menus.diff.enabled && config.git.enabled",
                     "group": "2_gitlens@1.0"
                 },
                 {
-                    "command": "gitlens.diffWithPrevious",
-                    "alt": "gitlens.diffLineWithPrevious",
+                    "command": "gitlens.diffLineWithPrevious",
                     "when": "editorTextFocus && config.gitlens.menus.diff.enabled && config.git.enabled",
                     "group": "2_gitlens@1.1"
+                },
+                {
+                    "command": "gitlens.diffWithWorking",
+                    "when": "editorTextFocus && config.gitlens.menus.diff.enabled && config.git.enabled",
+                    "group": "3_gitlens@1.0"
+                },
+                {
+                    "command": "gitlens.diffWithPrevious",
+                    "when": "editorTextFocus && config.gitlens.menus.diff.enabled && config.git.enabled",
+                    "group": "3_gitlens@1.1"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
                     "alt": "gitlens.showFileHistory",
                     "when": "config.git.enabled",
-                    "group": "3_gitlens"
+                    "group": "4_gitlens"
                 },
                 {
                     "command": "gitlens.toggleBlame",
                     "when": "editorTextFocus && config.git.enabled",
-                    "group": "3_gitlens"
+                    "group": "4_gitlens"
                 }
             ]
         },
