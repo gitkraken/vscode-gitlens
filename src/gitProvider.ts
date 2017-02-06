@@ -1,6 +1,6 @@
 'use strict';
-import { Functions, Iterables, Objects } from './system';
-import { Disposable, ExtensionContext, languages, Location, Position, Range, TextDocument, TextEditor, Uri, workspace } from 'vscode';
+import { /*Functions,*/ Iterables, Objects } from './system';
+import { Disposable, Event, EventEmitter, ExtensionContext, languages, Location, Position, Range, TextDocument, TextEditor, Uri, workspace } from 'vscode';
 import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes, WorkspaceState } from './constants';
 import Git, { GitBlameParserEnricher, GitBlameFormat, GitCommit, GitLogParserEnricher, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog } from './git/git';
@@ -41,11 +41,15 @@ interface ICachedLog extends ICachedItem<IGitLog> { }
 
 enum RemoveCacheReason {
     DocumentClosed,
-    DocumentSaved,
-    DocumentChanged
+    DocumentSaved
 }
 
 export default class GitProvider extends Disposable {
+
+    private _onDidRemoveCacheEntryEmitter = new EventEmitter<void>();
+    get onDidRemoveCacheEntry(): Event<void> {
+        return this._onDidRemoveCacheEntryEmitter.event;
+    }
 
     private _gitCache: Map<string, GitCacheEntry> | undefined;
     private _cacheDisposable: Disposable | undefined;
@@ -53,8 +57,9 @@ export default class GitProvider extends Disposable {
     private _uriCache: Map<string, UriCacheEntry> | undefined;
 
     config: IConfig;
-    private _disposable: Disposable;
+    private _codeLensProvider: GitCodeLensProvider | undefined;
     private _codeLensProviderDisposable: Disposable | undefined;
+    private _disposable: Disposable;
     private _gitignore: Promise<ignore.Ignore>;
 
     static EmptyPromise: Promise<IGitBlame | IGitLog> = Promise.resolve(undefined);
@@ -76,7 +81,11 @@ export default class GitProvider extends Disposable {
 
     dispose() {
         this._disposable && this._disposable.dispose();
+
         this._codeLensProviderDisposable && this._codeLensProviderDisposable.dispose();
+        this._codeLensProviderDisposable = undefined;
+        this._codeLensProvider = undefined;
+
         this._cacheDisposable && this._cacheDisposable.dispose();
         this._uriCache && this._uriCache.clear();
         this._gitCache && this._gitCache.clear();
@@ -98,12 +107,20 @@ export default class GitProvider extends Disposable {
 
         if (codeLensChanged || advancedChanged) {
             Logger.log('CodeLens config changed; resetting CodeLens provider');
-            this._codeLensProviderDisposable && this._codeLensProviderDisposable.dispose();
+            // this._codeLensProviderDisposable && this._codeLensProviderDisposable.dispose();
             if (config.codeLens.visibility === CodeLensVisibility.Auto && (config.codeLens.recentChange.enabled || config.codeLens.authors.enabled)) {
-                this._codeLensProviderDisposable = languages.registerCodeLensProvider(GitCodeLensProvider.selector, new GitCodeLensProvider(this.context, this));
+                if (this._codeLensProvider) {
+                    this._codeLensProvider.reset();
+                }
+                else {
+                    this._codeLensProvider = new GitCodeLensProvider(this.context, this);
+                    this._codeLensProviderDisposable = languages.registerCodeLensProvider(GitCodeLensProvider.selector, this._codeLensProvider);
+                }
             }
             else {
+                this._codeLensProviderDisposable && this._codeLensProviderDisposable.dispose();
                 this._codeLensProviderDisposable = undefined;
+                this._codeLensProvider = undefined;
             }
         }
 
@@ -117,10 +134,7 @@ export default class GitProvider extends Disposable {
 
                 // TODO: Maybe stop clearing on close and instead limit to a certain number of recent blames
                 disposables.push(workspace.onDidCloseTextDocument(d => this._removeCachedEntry(d, RemoveCacheReason.DocumentClosed)));
-
-                const removeCachedEntryFn = Functions.debounce(this._removeCachedEntry.bind(this), 2500);
-                disposables.push(workspace.onDidSaveTextDocument(d => removeCachedEntryFn(d, RemoveCacheReason.DocumentSaved)));
-                disposables.push(workspace.onDidChangeTextDocument(e => removeCachedEntryFn(e.document, RemoveCacheReason.DocumentChanged)));
+                disposables.push(workspace.onDidSaveTextDocument(d => this._removeCachedEntry(d, RemoveCacheReason.DocumentSaved)));
 
                 this._cacheDisposable = Disposable.from(...disposables);
             }
@@ -188,10 +202,12 @@ export default class GitProvider extends Disposable {
         if (this._gitCache.delete(cacheKey)) {
             Logger.log(`Clear cache entry for '${cacheKey}', reason=${RemoveCacheReason[reason]}`);
 
-            // if (reason === RemoveCacheReason.DocumentSaved) {
-            //     // TODO: Killing the code lens provider is too drastic -- makes the editor jump around, need to figure out how to trigger a refresh
-            //     this._registerCodeLensProvider();
-            // }
+            if (reason === RemoveCacheReason.DocumentSaved) {
+                this._onDidRemoveCacheEntryEmitter.fire();
+
+                // Refresh the codelenses with the update blame
+                this._codeLensProvider && this._codeLensProvider.reset();
+            }
         }
     }
 

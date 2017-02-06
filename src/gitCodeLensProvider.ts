@@ -1,6 +1,6 @@
 'use strict';
 import { Functions, Iterables, Strings } from './system';
-import { CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelector, ExtensionContext, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri, workspace } from 'vscode';
+import { CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelector, Event, EventEmitter, ExtensionContext, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri, workspace } from 'vscode';
 import { BuiltInCommands, Commands, DocumentSchemes } from './constants';
 import { CodeLensCommand, CodeLensLocation, IConfig, ICodeLensLanguageLocation } from './configuration';
 import GitProvider, { GitCommit, GitUri, IGitBlame, IGitBlameLines } from './gitProvider';
@@ -31,12 +31,22 @@ export class GitAuthorsCodeLens extends CodeLens {
 
 export default class GitCodeLensProvider implements CodeLensProvider {
 
+    private _onDidChangeCodeLensesEmitter = new EventEmitter<void>();
+    public get onDidChangeCodeLenses(): Event<void> {
+        return this._onDidChangeCodeLensesEmitter.event;
+    }
+
     static selector: DocumentSelector = { scheme: DocumentSchemes.File };
 
     private _config: IConfig;
 
     constructor(context: ExtensionContext, private git: GitProvider) {
         this._config = workspace.getConfiguration('').get<IConfig>('gitlens');
+    }
+
+    reset() {
+        Logger.log('Triggering a reset of the git CodeLens provider');
+        this._onDidChangeCodeLensesEmitter.fire();
     }
 
     async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {

@@ -34,6 +34,7 @@ export default class BlameStatusBarController extends Disposable {
         const subscriptions: Disposable[] = [];
 
         subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigure, this));
+        subscriptions.push(git.onDidRemoveCacheEntry(this._onRemoveCacheEntry, this));
 
         this._disposable = Disposable.from(...subscriptions);
     }
@@ -95,6 +96,11 @@ export default class BlameStatusBarController extends Disposable {
             this._activeEditorLineDisposable = undefined;
         }
 
+        this._onActiveTextEditorChanged(window.activeTextEditor);
+    }
+
+    private _onRemoveCacheEntry() {
+        this._blame = undefined;
         this._onActiveTextEditorChanged(window.activeTextEditor);
     }
 
