@@ -93,7 +93,7 @@ export default class WhitespaceController extends Disposable {
     }
 
     restore() {
-        if (this._disposed) return;
+        if (this._disposed || this._count === 0) return;
 
         Logger.log(`Request whitespace restore; count=${this._count}`);
         this._count--;
