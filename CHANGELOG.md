@@ -1,5 +1,17 @@
----
 ## Release Notes
+
+### 2.0.0
+  - Adds `gitlens.blame.annotation.activeLine` to specify whether and how to show blame annotations on the active line
+  - Adds full commit message (rather than just summary) to active line hover if `gitlens.blame.annotation.activeLine` is not `off`
+  - Adds new `trailing` blame annotation style -- adds annotations after the code lines rather than before
+  - Adds `gitlens.blame.annotation.message` to show the commit message in `expanded` and `trailing` blame annotaion styles
+  - Adds support for relative dates in blame annotations. Use `gitlens.blame.annotation.date`
+  - Changes the design of hover annotations -- much cleaner now
+  - Disables automatic whitespace toggling by default as it is seemingly no longer needed as [vscode issue](https://github.com/Microsoft/vscode/issues/11485) seems fixed. It can be re-enabled with `gitlens.advanced.toggleWhitespace.enabled`
+  - Fixes issue where the statusBar blame would get stuck switching between editors
+  - Fixes issue where CodeLens aren't updated properly after a file is saved
+  - Re-adds context menu for `gitlens.diffLineWithPrevious` -- since [vscode issue](https://github.com/Microsoft/vscode/issues/15395)
+  - Re-adds context menu for `gitlens.diffLineWithWorking` -- since [vscode issue](https://github.com/Microsoft/vscode/issues/15395)
 
 ### 1.4.3
   - Adds some logging to hopefully trap [#22](https://github.com/eamodio/vscode-gitlens/issues/22) - Cannot read property 'sha' of undefined
