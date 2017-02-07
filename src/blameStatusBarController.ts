@@ -1,8 +1,8 @@
 'use strict';
 import { Objects } from './system';
-import { DecorationOptions, DecorationInstanceRenderOptions, DecorationRenderOptions, Disposable, ExtensionContext, Range, StatusBarAlignment, StatusBarItem, TextEditorDecorationType, TextEditor, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
+import { DecorationOptions, DecorationInstanceRenderOptions, DecorationRenderOptions, Disposable, ExtensionContext, Range, StatusBarAlignment, StatusBarItem, TextDocumentChangeEvent, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
 import BlameAnnotationFormatter, { BlameAnnotationFormat } from './blameAnnotationFormatter';
-import { TextEditorComparer } from './comparers';
+import { TextDocumentComparer, TextEditorComparer } from './comparers';
 import { IBlameConfig, IConfig, StatusBarCommand } from './configuration';
 import { DocumentSchemes } from './constants';
 import GitProvider, { GitCommit, GitUri, IGitBlame, IGitCommitLine } from './gitProvider';
@@ -87,7 +87,8 @@ export default class BlameStatusBarController extends Disposable {
             const subscriptions: Disposable[] = [];
 
             subscriptions.push(window.onDidChangeActiveTextEditor(this._onActiveTextEditorChanged, this));
-            subscriptions.push(window.onDidChangeTextEditorSelection(this._onActiveSelectionChanged, this));
+            subscriptions.push(window.onDidChangeTextEditorSelection(this._onEditorSelectionChanged, this));
+            subscriptions.push(workspace.onDidChangeTextDocument(this._onDocumentChanged, this));
 
             this._activeEditorLineDisposable = Disposable.from(...subscriptions);
         }
@@ -132,10 +133,18 @@ export default class BlameStatusBarController extends Disposable {
         return await this._showBlame(e.selection.active.line, e);
     }
 
-    private async _onActiveSelectionChanged(e: TextEditorSelectionChangeEvent): Promise<void> {
+    private async _onEditorSelectionChanged(e: TextEditorSelectionChangeEvent): Promise<void> {
+        // Make sure this is for the editor we are tracking
         if (!TextEditorComparer.equals(e.textEditor, this._editor)) return;
 
         return await this._showBlame(e.selections[0].active.line, e.textEditor);
+    }
+
+    private async _onDocumentChanged(e: TextDocumentChangeEvent): Promise<void> {
+        // Make sure this is for the editor we are tracking
+        if (!this._editor || !TextDocumentComparer.equals(e.document, this._editor.document)) return;
+
+        return await this._showBlame(this._editor.selections[0].active.line, this._editor);
     }
 
     private async _showBlame(line: number, editor: TextEditor) {
