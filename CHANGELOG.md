@@ -1,5 +1,8 @@
 ## Release Notes
 
+### 2.0.1
+  - Fixes [#26](https://github.com/eamodio/vscode-gitlens/issues/26) - Active line annotation doesn't disappear properly after delete
+
 ### 2.0.0
   - Adds `gitlens.blame.annotation.activeLine` to specify whether and how to show blame annotations on the active line
   - Adds full commit message (rather than just summary) to active line hover if `gitlens.blame.annotation.activeLine` is not `off`
