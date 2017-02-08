@@ -2,6 +2,7 @@
 import { ExtensionContext, languages, window, workspace } from 'vscode';
 import BlameAnnotationController from './blameAnnotationController';
 import BlameStatusBarController from './blameStatusBarController';
+import { configureCssCharacters } from './blameAnnotationFormatter';
 import DiffLineWithPreviousCommand from './commands/diffLineWithPrevious';
 import DiffLineWithWorkingCommand from './commands/diffLineWithWorking';
 import DiffWithPreviousCommand from './commands/diffWithPrevious';
@@ -13,7 +14,7 @@ import ShowQuickFileHistoryCommand from './commands/showQuickFileHistory';
 import ShowQuickRepoHistoryCommand from './commands/showQuickRepoHistory';
 import ToggleBlameCommand from './commands/toggleBlame';
 import ToggleCodeLensCommand from './commands/toggleCodeLens';
-import { IAdvancedConfig } from './configuration';
+import { IAdvancedConfig, IBlameConfig } from './configuration';
 import { WorkspaceState } from './constants';
 import GitContentProvider from './gitContentProvider';
 import GitProvider, { Git } from './gitProvider';
@@ -32,7 +33,10 @@ export async function activate(context: ExtensionContext) {
     const rootPath = workspace.rootPath.replace(/\\/g, '/');
     Logger.log(`GitLens active: ${rootPath}`);
 
-    const gitPath = workspace.getConfiguration('gitlens').get<IAdvancedConfig>('advanced').git;
+    const config = workspace.getConfiguration('gitlens');
+    const gitPath = config.get<IAdvancedConfig>('advanced').git;
+
+    configureCssCharacters(config.get<IBlameConfig>('blame'));
 
     let repoPath: string;
     try {
