@@ -1,7 +1,7 @@
 'use strict';
 import { Iterables } from './system';
 import { DecorationInstanceRenderOptions, DecorationOptions, DecorationRenderOptions, Disposable, ExtensionContext, OverviewRulerLane, Range, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
-import BlameAnnotationFormatter, { BlameAnnotationFormat, defaultShaLength, defaultAuthorLength } from './blameAnnotationFormatter';
+import BlameAnnotationFormatter, { BlameAnnotationFormat, cssIndent, defaultShaLength, defaultAuthorLength } from './blameAnnotationFormatter';
 import { TextDocumentComparer } from './comparers';
 import { BlameAnnotationStyle, IBlameConfig } from './configuration';
 import GitProvider, { GitUri, IGitBlame } from './gitProvider';
@@ -180,13 +180,13 @@ export class BlameAnnotationProvider extends Disposable {
                         gutter = commit.sha.substring(0, defaultShaLength);
                         break;
                     case 1:
-                        gutter = `\\02759\\00a0 ${BlameAnnotationFormatter.getAuthor(this._config, commit, defaultAuthorLength, true)}`;
+                        gutter = `${cssIndent} ${BlameAnnotationFormatter.getAuthor(this._config, commit, defaultAuthorLength, true)}`;
                         break;
                     case 2:
-                        gutter = `\\02759\\00a0 ${BlameAnnotationFormatter.getDate(this._config, commit, 'MM/DD/YYYY', true, true)}`;
+                        gutter = `${cssIndent} ${BlameAnnotationFormatter.getDate(this._config, commit, 'MM/DD/YYYY', true, true)}`;
                         break;
                     default:
-                        gutter = '\\02759';
+                        gutter = `${cssIndent}`;
                         break;
                 }
             }
