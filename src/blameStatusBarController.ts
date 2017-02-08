@@ -6,7 +6,6 @@ import { TextDocumentComparer, TextEditorComparer } from './comparers';
 import { IBlameConfig, IConfig, StatusBarCommand } from './configuration';
 import { DocumentSchemes } from './constants';
 import GitProvider, { GitCommit, GitUri, IGitBlame, IGitCommitLine } from './gitProvider';
-import { Logger } from './logger';
 import * as moment from 'moment';
 
 const activeLineDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
@@ -160,15 +159,9 @@ export default class BlameStatusBarController extends Disposable {
                     return;
                 }
 
-                try {
-                    commitLine = blame.lines[line];
-                    const sha = commitLine.sha;
-                    commit = blame.commits.get(sha);
-                }
-                catch (ex) {
-                    Logger.error(`DEBUG(${this._uri.toString()}): Line ${line} not found in blame; lines=${blame.lines.length}, uriOffset=${this._uri.offset}, repoPath=${blame.repoPath}`);
-                    throw ex;
-                }
+                commitLine = blame.lines[line];
+                const sha = commitLine && commitLine.sha;
+                commit = sha && blame.commits.get(sha);
             }
             else {
                 const blameLine = await this.git.getBlameForLine(this._uri.fsPath, line, this._uri.sha, this._uri.repoPath);
@@ -246,6 +239,7 @@ export default class BlameStatusBarController extends Disposable {
             } as IBlameConfig;
 
             // Escape single quotes because for some reason that breaks the ::before or ::after element
+            // https://github.com/Microsoft/vscode/issues/19922 remove once this is released
             const annotation = BlameAnnotationFormatter.getAnnotation(config, commit, BlameAnnotationFormat.Unconstrained).replace(/\'/g, '\\\'');
 
             // Get the full commit message -- since blame only returns the summary
