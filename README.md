@@ -47,4 +47,5 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 
 ## Known Issues
 
+- Visible whitespace causes issue ([vscode issue](https://github.com/Microsoft/vscode/issues/11485)) with `expanded` & `compact` blame annotations when using a non-monospace font -- use `gitlens.advanced.toggleWhitespace.enabled` if you are using a non-monospace font
 - Menu `alt` commands aren't working: [vscode issue](https://github.com/Microsoft/vscode/issues/15395)

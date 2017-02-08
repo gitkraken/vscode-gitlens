@@ -1,5 +1,10 @@
 ## Release Notes
 
+### 2.0.2
+  - Adds auto-enable of whitespace toggling when using font-ligatures because of [vscode issue](https://github.com/Microsoft/vscode/issues/11485)
+  - Adds `gitlens.blame.annotation.characters.*` settings to provide some control over how annotations are displayed
+  - Fixes [#22](https://github.com/eamodio/vscode-gitlens/issues/22) - Cannot read property 'sha' of undefined
+
 ### 2.0.1
   - Fixes [#26](https://github.com/eamodio/vscode-gitlens/issues/26) - Active line annotation doesn't disappear properly after delete
 
