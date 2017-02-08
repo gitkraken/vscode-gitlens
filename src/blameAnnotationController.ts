@@ -36,7 +36,13 @@ export default class BlameAnnotationController extends Disposable {
     }
 
     private _onConfigure() {
-        const toggleWhitespace = workspace.getConfiguration('gitlens.advanced.toggleWhitespace').get<boolean>('enabled');
+        let toggleWhitespace = workspace.getConfiguration('gitlens.advanced.toggleWhitespace').get<boolean>('enabled');
+        if (!toggleWhitespace) {
+            // Until https://github.com/Microsoft/vscode/issues/11485 is fixed we need to toggle whitespace for non-monospace fonts and ligatures
+            // TODO: detect monospace font
+            toggleWhitespace = workspace.getConfiguration('editor').get<boolean>('fontLigatures');
+        }
+
         if (toggleWhitespace && !this._whitespaceController) {
             this._whitespaceController = new WhitespaceController();
         }
