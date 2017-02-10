@@ -95,7 +95,7 @@ export default class Git {
             params.push(`-n${maxCount}`);
         }
         if (sha) {
-            params.push(`origin..${sha}`);
+            params.push(sha);
             params.push(`--`);
         }
 
@@ -111,17 +111,20 @@ export default class Git {
         }
         if (sha) {
             params.push(`--follow`);
-            params.push(`origin..${sha}`);
+            params.push(sha);
         }
         params.push(`-L ${start},${end}:${file}`);
 
         return gitCommand(root, ...params);
     }
 
-    static logRepo(repoPath: string, maxCount?: number) {
+    static logRepo(repoPath: string, sha?: string, maxCount?: number) {
         const params = [...DefaultLogParams];
         if (maxCount) {
             params.push(`-n${maxCount}`);
+        }
+        if (sha) {
+            params.push(`${sha}^!`);
         }
         return gitCommand(repoPath, ...params);
     }

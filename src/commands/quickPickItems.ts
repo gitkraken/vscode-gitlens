@@ -31,10 +31,12 @@ export class FileQuickPickItem implements QuickPickItem {
     label: string;
     description: string;
     detail: string;
+    sha: string;
     uri: GitUri;
 
     constructor(commit: GitCommit, public fileName: string) {
         this.label = fileName;
+        this.sha = commit.sha;
         this.uri = GitUri.fromUri(Uri.file(path.resolve(commit.repoPath, fileName)));
     }
 }

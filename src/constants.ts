@@ -14,7 +14,7 @@ export const BuiltInCommands = {
     ToggleRenderWhitespace: 'editor.action.toggleRenderWhitespace' as BuiltInCommands
 };
 
-export type Commands = 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' | 'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
+export type Commands = 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' | 'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
 export const Commands = {
     DiffWithPrevious: 'gitlens.diffWithPrevious' as Commands,
     DiffLineWithPrevious: 'gitlens.diffLineWithPrevious' as Commands,
@@ -23,6 +23,7 @@ export const Commands = {
     ShowBlame: 'gitlens.showBlame' as Commands,
     ShowBlameHistory: 'gitlens.showBlameHistory' as Commands,
     ShowFileHistory: 'gitlens.showFileHistory' as Commands,
+    ShowQuickCommitDetails: 'gitlens.showQuickCommitDetails' as Commands,
     ShowQuickFileHistory: 'gitlens.showQuickFileHistory' as Commands,
     ShowQuickRepoHistory: 'gitlens.showQuickRepoHistory' as Commands,
     ToggleBlame: 'gitlens.toggleBlame' as Commands,

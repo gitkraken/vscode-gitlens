@@ -421,7 +421,7 @@ export default class GitProvider extends Disposable {
         return locations;
     }
 
-    async getLogForRepo(repoPath: string, maxCount?: number): Promise<IGitLog | undefined> {
+    async getLogForRepo(repoPath: string, sha?: string, maxCount?: number): Promise<IGitLog | undefined> {
         Logger.log(`getLogForRepo('${repoPath}', ${maxCount})`);
 
         if (maxCount == null) {
@@ -429,7 +429,7 @@ export default class GitProvider extends Disposable {
         }
 
         try {
-            const data = await Git.logRepo(repoPath, maxCount);
+            const data = await Git.logRepo(repoPath, sha, maxCount);
             return new GitLogParserEnricher().enrich(data, repoPath, true);
         }
         catch (ex) {

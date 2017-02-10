@@ -10,6 +10,7 @@ import DiffWithWorkingCommand from './commands/diffWithWorking';
 import ShowBlameCommand from './commands/showBlame';
 import ShowBlameHistoryCommand from './commands/showBlameHistory';
 import ShowFileHistoryCommand from './commands/showFileHistory';
+import ShowQuickCommitDetailsCommand from './commands/showQuickCommitDetails';
 import ShowQuickFileHistoryCommand from './commands/showQuickFileHistory';
 import ShowQuickRepoHistoryCommand from './commands/showQuickRepoHistory';
 import ToggleBlameCommand from './commands/toggleBlame';
@@ -73,6 +74,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new ToggleBlameCommand(annotationController));
     context.subscriptions.push(new ShowBlameHistoryCommand(git));
     context.subscriptions.push(new ShowFileHistoryCommand(git));
+    context.subscriptions.push(new ShowQuickCommitDetailsCommand(git));
     context.subscriptions.push(new ShowQuickFileHistoryCommand(git));
     context.subscriptions.push(new ShowQuickRepoHistoryCommand(git, repoPath));
     context.subscriptions.push(new ToggleCodeLensCommand(git));

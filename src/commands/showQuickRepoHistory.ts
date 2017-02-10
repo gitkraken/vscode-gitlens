@@ -43,7 +43,7 @@ export default class ShowQuickRepoHistoryCommand extends Command {
 
             if (!repoPath) return window.showWarningMessage(`Unable to show repository history`);
 
-            const log = await this.git.getLogForRepo(repoPath, maxCount);
+            const log = await this.git.getLogForRepo(repoPath, undefined, maxCount);
             if (!log) return window.showWarningMessage(`Unable to show repository history`);
 
             const commits = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c, ` \u2014 ${c.fileName}`))) as QuickPickItem[];
@@ -93,7 +93,8 @@ export default class ShowQuickRepoHistoryCommand extends Command {
 
             const filePick = pick as FileQuickPickItem;
             if (filePick) {
-                const log = await this.git.getLogForFile(filePick.uri.fsPath);
+                // TODO need to make log for file -- go from commit to HEAD so we can get the current filename
+                const log = await this.git.getLogForFile(filePick.uri.fsPath, filePick.sha);
                 if (!log) return window.showWarningMessage(`Unable to open diff`);
 
                 const commit = Iterables.find(log.commits.values(), c => c.sha === commitPick.commit.sha);

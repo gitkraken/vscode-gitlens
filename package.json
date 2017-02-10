@@ -342,6 +342,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.showQuickCommitDetails",
+                "title": "Show Commit Details",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.showQuickFileHistory",
                 "title": "Show File History",
                 "category": "GitLens"
@@ -449,6 +454,11 @@
                 "command": "gitlens.showQuickRepoHistory",
                 "key": "shift+alt+h",
                 "mac": "shift+alt+h"
+            },
+            {
+                "command": "gitlens.showQuickCommitDetails",
+                "key": "alt+c",
+                "mac": "alt+c"
             },
             {
                 "command": "gitlens.diffLineWithPrevious",
