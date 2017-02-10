@@ -129,27 +129,28 @@ export default class Git {
         return gitCommand(repoPath, ...params);
     }
 
-    static getVersionedFile(fileName: string, repoPath: string, sha: string) {
+    static async getVersionedFile(fileName: string, repoPath: string, sha: string) {
+        const data = await Git.getVersionedFileText(fileName, repoPath, sha);
+
+        const ext = path.extname(fileName);
         return new Promise<string>((resolve, reject) => {
-            Git.getVersionedFileText(fileName, repoPath, sha).then(data => {
-                const ext = path.extname(fileName);
-                tmp.file({ prefix: `${path.basename(fileName, ext)}-${sha}__`, postfix: ext },
-                    (err, destination, fd, cleanupCallback) => {
+            tmp.file({ prefix: `${path.basename(fileName, ext)}-${sha}__`, postfix: ext },
+                (err, destination, fd, cleanupCallback) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+
+                    Logger.log(`getVersionedFile(${fileName}, ${repoPath}, ${sha}); destination=${destination}`);
+                    fs.appendFile(destination, data, err => {
                         if (err) {
                             reject(err);
                             return;
                         }
 
-                        Logger.log(`getVersionedFile(${fileName}, ${repoPath}, ${sha}); destination=${destination}`);
-                        fs.appendFile(destination, data, err => {
-                            if (err) {
-                                reject(err);
-                                return;
-                            }
-                            resolve(destination);
-                        });
+                        resolve(destination);
                     });
-            });
+                });
         });
     }
 
