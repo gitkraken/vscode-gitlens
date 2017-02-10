@@ -27,6 +27,7 @@ export default class DiffWithPreviousCommand extends EditorCommand {
         let line = editor.selection.active.line;
         if (typeof rangeOrLine === 'number') {
             line = rangeOrLine || line;
+            rangeOrLine = undefined;
         }
 
         if (!commit || rangeOrLine instanceof Range) {
@@ -50,11 +51,39 @@ export default class DiffWithPreviousCommand extends EditorCommand {
         }
 
         try {
-            const values = await Promise.all([
-                this.git.getVersionedFile(commit.uri.fsPath, commit.repoPath, commit.sha),
-                this.git.getVersionedFile(commit.previousUri.fsPath, commit.repoPath, commit.previousSha)
-            ]);
-            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(values[1]), Uri.file(values[0]), `${path.basename(commit.previousUri.fsPath)} (${commit.previousSha}) ↔ ${path.basename(commit.uri.fsPath)} (${commit.sha})`);
+            let rhs: string;
+            try {
+                rhs = await this.git.getVersionedFile(commit.uri.fsPath, commit.repoPath, commit.sha);
+            }
+            catch (ex) {
+                if (ex.message.includes(`fatal: Path '${commit.originalFileName}' does not exist in '${commit.sha}'`)) {
+                    try {
+                        rhs = await this.git.getVersionedFile(commit.fileName, commit.repoPath, commit.sha);
+                    }
+                    catch (ex) {
+                        Logger.error('[GitLens.DiffWithPreviousCommand]', 'getVersionedFile', ex);
+                        return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
+                    }
+                }
+            }
+
+            let lhs: string;
+            try {
+                lhs = await this.git.getVersionedFile(commit.previousUri.fsPath, commit.repoPath, commit.previousSha);
+            }
+            catch (ex) {
+                if (ex.message.includes(`fatal: Path '${commit.previousFileName}' does not exist in '${commit.previousSha}'`)) {
+                    try {
+                        lhs = await this.git.getVersionedFile(commit.uri.fsPath, commit.repoPath, commit.previousSha);
+                    }
+                    catch (ex) {
+                        Logger.error('[GitLens.DiffWithPreviousCommand]', 'getVersionedFile', ex);
+                        return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
+                    }
+                }
+            }
+
+            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.previousUri.fsPath)} (${commit.previousSha}) ↔ ${path.basename(commit.uri.fsPath)} (${commit.sha})`);
             return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' });
         }
         catch (ex) {

@@ -1,9 +1,10 @@
 'use strict';
 import { commands, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { EditorCommand } from './commands';
-import { Commands } from '../constants';
+import { BuiltInCommands, Commands } from '../constants';
 import GitProvider, { GitCommit, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
+import * as path from 'path';
 
 export default class DiffLineWithPreviousCommand extends EditorCommand {
 
@@ -20,9 +21,9 @@ export default class DiffLineWithPreviousCommand extends EditorCommand {
         }
 
         line = line || editor.selection.active.line;
+        const gitUri = GitUri.fromUri(uri, this.git);
 
         if (!commit || GitProvider.isUncommitted(commit.sha)) {
-            const gitUri = GitUri.fromUri(uri, this.git);
             const blameline = line - gitUri.offset;
             if (blameline < 0) return undefined;
 
@@ -30,21 +31,19 @@ export default class DiffLineWithPreviousCommand extends EditorCommand {
                 const blame = await this.git.getBlameForLine(gitUri.fsPath, blameline, gitUri.sha, gitUri.repoPath);
                 if (!blame) return window.showWarningMessage(`Unable to open diff. File is probably not under source control`);
 
-                // If the line is uncommitted, find the previous commit
                 commit = blame.commit;
-                if (commit.isUncommitted) {
-                    try {
-                        const prevBlame = await this.git.getBlameForLine(commit.previousUri.fsPath, blame.line.originalLine + 1, commit.previousSha, commit.repoPath);
-                        if (!prevBlame) return undefined;
+                // If the current commit matches the blame, show the previous
+                if (gitUri.sha === commit.sha) {
+                    commit = new GitCommit(commit.repoPath, commit.previousSha, commit.previousFileName, commit.author, commit.date, commit.message);
+                    line = blame.line.line + 1 + gitUri.offset;
+                }
 
-                        const prevCommit = prevBlame.commit;
-                        commit = new GitCommit(commit.repoPath, commit.sha, commit.fileName, commit.author, commit.date, commit.message, commit.lines, commit.originalFileName, prevCommit.sha, prevCommit.fileName);
-                        line = blame.line.originalLine + 1 + gitUri.offset;
-                    }
-                    catch (ex) {
-                        Logger.error('[GitLens.DiffWithPreviousLineCommand]', `getBlameForLine(${blame.line.originalLine}, ${commit.previousSha})`, ex);
-                        return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
-                    }
+                // If the line is uncommitted, find the previous commit and treat it as a DiffWithWorking
+                if (commit.isUncommitted) {
+                    uri = commit.uri;
+                    commit = new GitCommit(commit.repoPath, commit.previousSha, commit.previousFileName, commit.author, commit.date, commit.message);
+                    line = blame.line.line + 1 + gitUri.offset;
+                    return commands.executeCommand(Commands.DiffWithWorking, uri, commit, line);
                 }
             }
             catch (ex) {
@@ -53,6 +52,17 @@ export default class DiffLineWithPreviousCommand extends EditorCommand {
             }
         }
 
-        return commands.executeCommand(Commands.DiffWithPrevious, commit.uri, commit, line);
+        try {
+            const values = await Promise.all([
+                this.git.getVersionedFile(gitUri.fsPath, gitUri.repoPath, gitUri.sha),
+                this.git.getVersionedFile(commit.uri.fsPath, commit.repoPath, commit.sha)
+            ]);
+            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(values[1]), Uri.file(values[0]), `${path.basename(commit.uri.fsPath)} (${commit.sha}) ↔ ${path.basename(gitUri.fsPath)} (${gitUri.sha})`);
+            return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' });
+        }
+        catch (ex) {
+            Logger.error('[GitLens.DiffWithPreviousLineCommand]', 'getVersionedFile', ex);
+            return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
+        }
     }
 }
