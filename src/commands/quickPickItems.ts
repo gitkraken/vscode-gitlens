@@ -5,6 +5,10 @@ import { GitCommit, GitUri } from '../gitProvider';
 import * as moment from 'moment';
 import * as path from 'path';
 
+export interface BackQuickPickItem extends QuickPickItem {
+    command: Commands;
+}
+
 export class CommitQuickPickItem implements QuickPickItem {
 
     label: string;
