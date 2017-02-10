@@ -434,6 +434,12 @@
                 "when": "editorTextFocus"
             },
             {
+                "command": "gitlens.toggleCodeLens",
+                "key": "alt+shift+b",
+                "mac": "alt+shift+b",
+                "when": "editorTextFocus"
+            },
+            {
                 "command": "gitlens.showQuickFileHistory",
                 "key": "alt+h",
                 "mac": "alt+h",
@@ -445,9 +451,27 @@
                 "mac": "shift+alt+h"
             },
             {
-                "command": "gitlens.toggleCodeLens",
-                "key": "alt+shift+b",
-                "mac": "alt+shift+b",
+                "command": "gitlens.diffLineWithPrevious",
+                "key": "alt+p",
+                "mac": "alt+p",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "gitlens.diffWithPrevious",
+                "key": "shift+alt+p",
+                "mac": "shift+alt+p",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "gitlens.diffLineWithWorking",
+                "key": "alt+w",
+                "mac": "alt+w",
+                "when": "editorTextFocus"
+            },
+            {
+                "command": "gitlens.diffWithWorking",
+                "key": "shift+alt+w",
+                "mac": "shift+alt+w",
                 "when": "editorTextFocus"
             }
         ]
