@@ -62,7 +62,7 @@ export async function activate(context: ExtensionContext) {
     const annotationController = new BlameAnnotationController(context, git);
     context.subscriptions.push(annotationController);
 
-    const statusBarController = new BlameStatusBarController(context, git);
+    const statusBarController = new BlameStatusBarController(context, git, annotationController);
     context.subscriptions.push(statusBarController);
 
     context.subscriptions.push(new DiffWithWorkingCommand(git));

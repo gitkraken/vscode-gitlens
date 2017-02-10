@@ -4,11 +4,11 @@ const _once = require('lodash.once');
 
 export interface IDeferred {
     cancel(): void;
-    flush(): void;
+    flush(...args: any[]): void;
 }
 
 export namespace Functions {
-    export function debounce<T extends Function>(fn: T, wait?: number, options?: any): T & IDeferred {
+    export function debounce<T extends Function>(fn: T, wait?: number, options?: { leading?: boolean, maxWait?: number, trailing?: boolean }): T & IDeferred {
         return _debounce(fn, wait, options);
     }
 

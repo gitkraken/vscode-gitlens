@@ -99,6 +99,13 @@ export default class BlameAnnotationController extends Disposable {
         return provider.provideBlameAnnotation(shaOrLine);
     }
 
+    isAnnotating(editor: TextEditor): boolean {
+        if (!editor || !editor.document) return false;
+        if (editor.viewColumn === undefined && !this.git.hasGitUriForFile(editor)) return false;
+
+        return !!this._annotationProviders.get(editor.viewColumn || -1);
+    }
+
     async toggleBlameAnnotation(editor: TextEditor, shaOrLine?: string | number): Promise<boolean> {
         if (!editor || !editor.document) return false;
         if (editor.viewColumn === undefined && !this.git.hasGitUriForFile(editor)) return false;

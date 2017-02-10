@@ -2,7 +2,6 @@
 
 Provides Git CodeLens information (most recent commit, # of authors), on-demand inline blame annotations, status bar blame information, file and blame history explorers, and commands to compare changes with the working tree or previous versions.
 
----
 ## Features
 
 - Provides (optional) **CodeLens** on code blocks:

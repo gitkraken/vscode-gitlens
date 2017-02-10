@@ -1,6 +1,7 @@
 'use strict';
-import { Objects } from './system';
+import { Functions, Objects } from './system';
 import { DecorationOptions, DecorationInstanceRenderOptions, DecorationRenderOptions, Disposable, ExtensionContext, Range, StatusBarAlignment, StatusBarItem, TextDocumentChangeEvent, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
+import BlameAnnotationController from './blameAnnotationController';
 import BlameAnnotationFormatter, { BlameAnnotationFormat } from './blameAnnotationFormatter';
 import { TextDocumentComparer, TextEditorComparer } from './comparers';
 import { IBlameConfig, IConfig, StatusBarCommand } from './configuration';
@@ -19,14 +20,18 @@ export default class BlameStatusBarController extends Disposable {
     private _activeEditorLineDisposable: Disposable | undefined;
     private _blame: Promise<IGitBlame> | undefined;
     private _config: IConfig;
+    private _currentLine: number = -1;
     private _disposable: Disposable;
     private _editor: TextEditor | undefined;
+    private _showBlameDebounced: (line: number, editor: TextEditor) => Promise<void>;
     private _statusBarItem: StatusBarItem | undefined;
     private _uri: GitUri;
     private _useCaching: boolean;
 
-    constructor(context: ExtensionContext, private git: GitProvider) {
+    constructor(context: ExtensionContext, private git: GitProvider, private annotationController: BlameAnnotationController) {
         super(() => this.dispose());
+
+        this._showBlameDebounced = Functions.debounce(this._showBlame, 50);
 
         this._onConfigure();
 
@@ -104,7 +109,9 @@ export default class BlameStatusBarController extends Disposable {
         this._onActiveTextEditorChanged(window.activeTextEditor);
     }
 
-    private async _onActiveTextEditorChanged(e: TextEditor): Promise<void> {
+    private _onActiveTextEditorChanged(e: TextEditor) {
+        this._currentLine = -1;
+
         const previousEditor = this._editor;
         previousEditor && previousEditor.setDecorations(activeLineDecoration, []);
 
@@ -129,21 +136,26 @@ export default class BlameStatusBarController extends Disposable {
             this._blame = undefined;
         }
 
-        return await this._showBlame(e.selection.active.line, e);
+        this._showBlame(e.selection.active.line, e);
     }
 
-    private async _onEditorSelectionChanged(e: TextEditorSelectionChangeEvent): Promise<void> {
+    private _onEditorSelectionChanged(e: TextEditorSelectionChangeEvent): void {
         // Make sure this is for the editor we are tracking
         if (!TextEditorComparer.equals(e.textEditor, this._editor)) return;
 
-        return await this._showBlame(e.selections[0].active.line, e.textEditor);
+        const line = e.selections[0].active.line;
+        if (line === this._currentLine) return;
+        this._currentLine = line;
+
+        this._showBlameDebounced(line, e.textEditor);
     }
 
-    private async _onDocumentChanged(e: TextDocumentChangeEvent): Promise<void> {
+    private _onDocumentChanged(e: TextDocumentChangeEvent) {
         // Make sure this is for the editor we are tracking
         if (!this._editor || !TextDocumentComparer.equals(e.document, this._editor.document)) return;
+        this._currentLine = -1;
 
-        return await this._showBlame(this._editor.selections[0].active.line, this._editor);
+        this._showBlame(this._editor.selections[0].active.line, this._editor);
     }
 
     private async _showBlame(line: number, editor: TextEditor) {
@@ -248,26 +260,24 @@ export default class BlameStatusBarController extends Disposable {
                 const log = await this.git.getLogForFile(this._uri.fsPath, commit.sha, this._uri.repoPath, undefined, 1);
                 logCommit = log && log.commits.get(commit.sha);
             }
-            const hoverMessage = BlameAnnotationFormatter.getAnnotationHover(config, blameLine, logCommit || commit);
+
+            let hoverMessage: string | string[];
+            if (activeLine !== 'inline') {
+                // If the messages match (or we couldn't find the log), then this is a possible duplicate annotation
+                const possibleDuplicate = !logCommit || logCommit.message === commit.message;
+                // If we don't have a possible dupe or we aren't showing annotations get the hover message
+                if (!possibleDuplicate || !this.annotationController.isAnnotating(editor)) {
+                    hoverMessage = BlameAnnotationFormatter.getAnnotationHover(config, blameLine, logCommit || commit);
+                }
+            }
 
             let decorationOptions: DecorationOptions;
             switch (activeLine) {
                 case 'both':
+                case 'inline':
                     decorationOptions = {
                         range: editor.document.validateRange(new Range(blameLine.line + offset, 0, blameLine.line + offset, 1000000)),
                         hoverMessage: hoverMessage,
-                        renderOptions: {
-                            after: {
-                                color: 'rgba(153, 153, 153, 0.3)',
-                                contentText: annotation
-                            }
-                        } as DecorationInstanceRenderOptions
-                    } as DecorationOptions;
-                    break;
-
-                case 'inline':
-                    decorationOptions = {
-                        range: editor.document.validateRange(new Range(blameLine.line + offset, 1000000, blameLine.line + offset, 1000000)),
                         renderOptions: {
                             after: {
                                 color: 'rgba(153, 153, 153, 0.3)',
