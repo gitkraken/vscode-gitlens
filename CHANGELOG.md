@@ -1,5 +1,21 @@
 ## Release Notes
 
+### 2.1.0
+  - Adds a new GitLens logo and changes all images to svg
+  - Adds `alt+p` shortcut for the `gitlens.diffLineWithPrevious` command
+  - Adds `shift+alt+p` shortcut for the `gitlens.diffWithPrevious` command
+  - Adds `alt+w` shortcut for the `gitlens.diffLineWithWorking` command
+  - Adds `shift+alt+w` shortcut for the `gitlens.diffWithWorking` command
+  - Adds `gitlens.copyShaToClipboard` to copy commit sha to the clipboard ([#28](https://github.com/eamodio/vscode-gitlens/issues/28))
+  - Adds `gitlens.showQuickCommitDetails` to show a quickpick list of details for a commit
+  - Adds `go back` choice to `gitlens.showQuickCommitDetails`, `gitlens.showQuickFileHistory`, and `gitlens.showQuickRepoHistory` quickpick lists
+  - Adds `gitlens.blame.annotation.highlight` to specify whether and how to highlight blame annotations ([#24](https://github.com/eamodio/vscode-gitlens/issues/24))
+  - Greatly improves performance of line navigation when either active line annotations or status bar blame is enabled
+  - Fixes [#29](https://github.com/eamodio/vscode-gitlens/issues/29) - Commit info tooltip duplicated for current line when blame is enabled
+  - Fixes issue where sometimes the commit history shown wasn't complete
+  - Fixes issues with `gitlens.diffLineWithPrevious` and `gitlens.diffWithPrevious` not following renames properly
+  - Fixes issues with `gitlens.diffLineWithPrevious` and `gitlens.diffWithPrevious` not always grabbing the correct commit
+
 ### 2.0.2
   - Adds auto-enable of whitespace toggling when using font-ligatures because of [vscode issue](https://github.com/Microsoft/vscode/issues/11485)
   - Adds `gitlens.blame.annotation.characters.*` settings to provide some control over how annotations are displayed
@@ -12,11 +28,11 @@
   - Adds `gitlens.blame.annotation.activeLine` to specify whether and how to show blame annotations on the active line
   - Adds full commit message (rather than just summary) to active line hover if `gitlens.blame.annotation.activeLine` is not `off`
   - Adds new `trailing` blame annotation style -- adds annotations after the code lines rather than before
-  - Adds `gitlens.blame.annotation.message` to show the commit message in `expanded` and `trailing` blame annotaion styles
+  - Adds `gitlens.blame.annotation.message` to show the commit message in `expanded` and `trailing` blame annotation styles
   - Adds support for relative dates in blame annotations. Use `gitlens.blame.annotation.date`
   - Changes the design of hover annotations -- much cleaner now
   - Disables automatic whitespace toggling by default as it is seemingly no longer needed as [vscode issue](https://github.com/Microsoft/vscode/issues/11485) seems fixed. It can be re-enabled with `gitlens.advanced.toggleWhitespace.enabled`
-  - Fixes issue where the statusBar blame would get stuck switching between editors
+  - Fixes issue where the status bar blame would get stuck switching between editors
   - Fixes issue where CodeLens aren't updated properly after a file is saved
   - Re-adds context menu for `gitlens.diffLineWithPrevious` -- since [vscode issue](https://github.com/Microsoft/vscode/issues/15395)
   - Re-adds context menu for `gitlens.diffLineWithWorking` -- since [vscode issue](https://github.com/Microsoft/vscode/issues/15395)
@@ -120,8 +136,8 @@
 
 ### 0.5.1
 
- - Adds blame information in the StatusBar
- - Add new StatusBar settings -- see **Extension Settings** above for details
+ - Adds blame information in the status bar
+ - Add new status bar settings -- see **Extension Settings** above for details
  - Renames the `gitlens.codeLens.recentChange.command` & `gitlens.codeLens.authors.command` settings options (to align with command names)
  - Adds new `gitlens.diffWithPrevious` option to the `gitlens.codeLens.recentChange.command` & `gitlens.codeLens.authors.command` settings
  - Fixes Diff with Previous when the selection is uncommitted
