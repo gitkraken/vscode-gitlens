@@ -47,10 +47,11 @@ export default class ShowQuickRepoHistoryCommand extends Command {
             if (!log) return window.showWarningMessage(`Unable to show repository history`);
 
             const commits = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c, ` \u2014 ${c.fileName}`))) as QuickPickItem[];
-            let placeHolder = '';
+            let placeHolder = 'Search by commit message, filename, or sha';
             if (maxCount !== 0 && commits.length === this.git.config.advanced.maxQuickHistory) {
-                placeHolder = `Only showing the first ${this.git.config.advanced.maxQuickHistory} commits`;
-                commits.push(new ShowAllCommitsQuickPickItem(this.git.config.advanced.maxQuickHistory));
+                // placeHolder += `; Only showing the first ${this.git.config.advanced.maxQuickHistory} commits`;
+                // commits.push(new ShowAllCommitsQuickPickItem(this.git.config.advanced.maxQuickHistory));
+                commits.splice(0, 0, new ShowAllCommitsQuickPickItem(this.git.config.advanced.maxQuickHistory));
             }
 
             let pick: QuickPickItem;

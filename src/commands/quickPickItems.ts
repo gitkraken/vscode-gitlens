@@ -48,7 +48,7 @@ export class ShowAllCommitsQuickPickItem implements QuickPickItem {
     detail: string;
 
     constructor(maxItems: number) {
-        this.label = `Show All Commits`;
+        this.label = `\u21BB Show All Commits`;
         this.description = `\u2014 Currently only showing the first ${maxItems} commits`;
         this.detail = `This may take a while`;
     }
