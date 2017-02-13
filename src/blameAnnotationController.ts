@@ -1,28 +1,40 @@
 'use strict';
 import { Functions } from './system';
-import { Disposable, ExtensionContext, TextDocument, TextEditor, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
+import { DecorationRenderOptions, Disposable, ExtensionContext, OverviewRulerLane, TextDocument, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
 import { BlameAnnotationProvider } from './blameAnnotationProvider';
 import { TextDocumentComparer, TextEditorComparer } from './comparers';
-// import { IAdvancedConfig } from './configuration';
+import { IBlameConfig } from './configuration';
 import GitProvider from './gitProvider';
 import { Logger } from './logger';
 import WhitespaceController from './whitespaceController';
+
+export const blameDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
+    before: {
+        margin: '0 1.75em 0 0'
+    },
+    after: {
+        margin: '0 0 0 4em'
+    }
+} as DecorationRenderOptions);
+
+export let highlightDecoration: TextEditorDecorationType;
 
 export default class BlameAnnotationController extends Disposable {
 
     private _annotationProviders: Map<number, BlameAnnotationProvider> = new Map();
     private _blameAnnotationsDisposable: Disposable;
+    private _config: IBlameConfig;
     private _disposable: Disposable;
     private _whitespaceController: WhitespaceController | undefined;
 
     constructor(private context: ExtensionContext, private git: GitProvider) {
         super(() => this.dispose());
 
-        this._onConfigure();
+        this._onConfigurationChanged();
 
         const subscriptions: Disposable[] = [];
 
-        subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigure, this));
+        subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigurationChanged, this));
 
         this._disposable = Disposable.from(...subscriptions);
     }
@@ -35,7 +47,7 @@ export default class BlameAnnotationController extends Disposable {
         this._disposable && this._disposable.dispose();
     }
 
-    private _onConfigure() {
+    private _onConfigurationChanged() {
         let toggleWhitespace = workspace.getConfiguration('gitlens.advanced.toggleWhitespace').get<boolean>('enabled');
         if (!toggleWhitespace) {
             // Until https://github.com/Microsoft/vscode/issues/11485 is fixed we need to toggle whitespace for non-monospace fonts and ligatures
@@ -50,6 +62,68 @@ export default class BlameAnnotationController extends Disposable {
             this._whitespaceController.dispose();
             this._whitespaceController = undefined;
         }
+
+        const config = workspace.getConfiguration('gitlens').get<IBlameConfig>('blame');
+
+        if (config.annotation.highlight !== (this._config && this._config.annotation.highlight)) {
+            highlightDecoration && highlightDecoration.dispose();
+
+            switch (config.annotation.highlight) {
+                case 'none':
+                    highlightDecoration = undefined;
+                    break;
+
+                case 'gutter':
+                    highlightDecoration = window.createTextEditorDecorationType({
+                        dark: {
+                            gutterIconPath: this.context.asAbsolutePath('images/blame-dark.svg'),
+                            overviewRulerColor: 'rgba(255, 255, 255, 0.75)'
+                        },
+                        light: {
+                            gutterIconPath: this.context.asAbsolutePath('images/blame-light.svg'),
+                            overviewRulerColor: 'rgba(0, 0, 0, 0.75)'
+                        },
+                        gutterIconSize: 'contain',
+                        overviewRulerLane: OverviewRulerLane.Right
+                    });
+                    break;
+
+                case 'line':
+                    highlightDecoration = window.createTextEditorDecorationType({
+                        dark: {
+                            backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                            overviewRulerColor: 'rgba(255, 255, 255, 0.75)'
+                        },
+                        light: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.15)',
+                            overviewRulerColor: 'rgba(0, 0, 0, 0.75)'
+                        },
+                        overviewRulerLane: OverviewRulerLane.Right,
+                        isWholeLine: true
+                    });
+                    break;
+
+                case 'both':
+                    highlightDecoration = window.createTextEditorDecorationType({
+                        dark: {
+                            backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                            gutterIconPath: this.context.asAbsolutePath('images/blame-dark.svg'),
+                            overviewRulerColor: 'rgba(255, 255, 255, 0.75)'
+                        },
+                        light: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.15)',
+                            gutterIconPath: this.context.asAbsolutePath('images/blame-light.svg'),
+                            overviewRulerColor: 'rgba(0, 0, 0, 0.75)'
+                        },
+                        gutterIconSize: 'contain',
+                        overviewRulerLane: OverviewRulerLane.Right,
+                        isWholeLine: true
+                    });
+                    break;
+            }
+        }
+
+        this._config = config;
     }
 
     async clear(column: number) {

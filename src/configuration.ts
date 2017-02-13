@@ -11,6 +11,7 @@ export const BlameAnnotationStyle = {
 export interface IBlameConfig {
     annotation: {
         style: BlameAnnotationStyle;
+        highlight: 'none' | 'gutter' | 'line' | 'both';
         sha: boolean;
         author: boolean;
         date: 'off' | 'relative' | 'absolute';

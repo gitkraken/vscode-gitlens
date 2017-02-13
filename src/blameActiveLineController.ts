@@ -33,11 +33,11 @@ export default class BlameActiveLineController extends Disposable {
 
         this._updateBlameDebounced = Functions.debounce(this._updateBlame, 50);
 
-        this._onConfigure();
+        this._onConfigurationChanged();
 
         const subscriptions: Disposable[] = [];
 
-        subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigure, this));
+        subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigurationChanged, this));
         subscriptions.push(git.onDidRemoveCacheEntry(this._onRemoveCacheEntry, this));
 
         this._disposable = Disposable.from(...subscriptions);
@@ -51,7 +51,7 @@ export default class BlameActiveLineController extends Disposable {
         this._disposable && this._disposable.dispose();
     }
 
-    private _onConfigure() {
+    private _onConfigurationChanged() {
         const config = workspace.getConfiguration('').get<IConfig>('gitlens');
 
         let changed: boolean = false;

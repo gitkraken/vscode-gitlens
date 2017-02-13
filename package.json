@@ -52,6 +52,17 @@
                     ],
                     "description": "Specifies the style of the blame annotations. `compact` - groups annotations to limit the repetition and also adds author and date when possible. `expanded` - shows an annotation before every line. `trailing` - shows an annotation after every line"
                 },
+                "gitlens.blame.annotation.highlight": {
+                    "type": "string",
+                    "default": "both",
+                    "enum": [
+                        "none",
+                        "gutter",
+                        "line",
+                        "both"
+                    ],
+                    "description": "Specifies whether and how to highlight blame annotations. `none` - no highlight. `gutter` - adds a gutter icon. `line` - adds a full-line highlight. `both` - adds both `gutter` and `line` highlights"
+                },
                 "gitlens.blame.annotation.sha": {
                     "type": "boolean",
                     "default": true,

@@ -27,6 +27,7 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 |Name | Description
 |-----|------------
 |`gitlens.blame.annotation.style`|Specifies the style of the blame annotations. `compact` - groups annotations to limit the repetition and also adds author and date when possible. `expanded` - shows an annotation on every line
+|`gitlens.blame.annotation.highlight`|Specifies whether and how to highlight blame annotations. `none` - no highlight. `gutter` - adds a gutter icon. `line` - adds a full-line highlight. `both` - adds both `gutter` and `line` highlights
 |`gitlens.blame.annotation.sha`|Specifies whether the commit sha will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles
 |`gitlens.blame.annotation.author`|Specifies whether the committer will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles
 |`gitlens.blame.annotation.date`|Specifies whether the commit date will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles

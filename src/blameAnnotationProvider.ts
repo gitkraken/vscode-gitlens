@@ -1,22 +1,12 @@
 'use strict';
 import { Iterables } from './system';
-import { DecorationInstanceRenderOptions, DecorationOptions, DecorationRenderOptions, Disposable, ExtensionContext, OverviewRulerLane, Range, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
+import { DecorationInstanceRenderOptions, DecorationOptions, Disposable, ExtensionContext, Range, TextDocument, TextEditor, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
 import BlameAnnotationFormatter, { BlameAnnotationFormat, cssIndent, defaultShaLength, defaultAuthorLength } from './blameAnnotationFormatter';
+import { blameDecoration, highlightDecoration } from './blameAnnotationController';
 import { TextDocumentComparer } from './comparers';
 import { BlameAnnotationStyle, IBlameConfig } from './configuration';
 import GitProvider, { GitUri, IGitBlame } from './gitProvider';
 import WhitespaceController from './whitespaceController';
-
-const blameDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
-    before: {
-        margin: '0 1.75em 0 0'
-    },
-    after: {
-        margin: '0 0 0 4em'
-    }
-} as DecorationRenderOptions);
-
-let highlightDecoration: TextEditorDecorationType;
 
 export class BlameAnnotationProvider extends Disposable {
 
@@ -29,24 +19,6 @@ export class BlameAnnotationProvider extends Disposable {
 
     constructor(context: ExtensionContext, private git: GitProvider, private whitespaceController: WhitespaceController | undefined, public editor: TextEditor) {
         super(() => this.dispose());
-
-        if (!highlightDecoration) {
-            highlightDecoration = window.createTextEditorDecorationType({
-                dark: {
-                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                    gutterIconPath: context.asAbsolutePath('images/blame-dark.svg'),
-                    overviewRulerColor: 'rgba(255, 255, 255, 0.75)'
-                },
-                light: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.15)',
-                    gutterIconPath: context.asAbsolutePath('images/blame-light.svg'),
-                    overviewRulerColor: 'rgba(0, 0, 0, 0.75)'
-                },
-                gutterIconSize: 'contain',
-                overviewRulerLane: OverviewRulerLane.Right,
-                isWholeLine: true
-            });
-        }
 
         this.document = this.editor.document;
         this._uri = GitUri.fromUri(this.document.uri, this.git);
@@ -65,7 +37,7 @@ export class BlameAnnotationProvider extends Disposable {
     async dispose() {
         if (this.editor) {
             this.editor.setDecorations(blameDecoration, []);
-            this.editor.setDecorations(highlightDecoration, []);
+            highlightDecoration && this.editor.setDecorations(highlightDecoration, []);
         }
 
         // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- restore whitespace
@@ -123,6 +95,8 @@ export class BlameAnnotationProvider extends Disposable {
     }
 
     private _setSelection(blame: IGitBlame, shaOrLine?: string | number) {
+        if (!highlightDecoration) return;
+
         const offset = this._uri.offset;
 
         let sha: string;
