@@ -441,6 +441,11 @@
                     "group": "1_gitlens@2"
                 },
                 {
+                    "command": "gitlens.showQuickCommitDetails",
+                    "when": "editorTextFocus && config.git.enabled",
+                    "group": "1_gitlens@3"
+                },
+                {
                     "command": "gitlens.toggleBlame",
                     "when": "editorTextFocus && config.git.enabled",
                     "group": "2_gitlens@1"
