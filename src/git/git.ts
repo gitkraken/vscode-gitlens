@@ -70,7 +70,7 @@ export default class Git {
 
         const params = [`blame`, `--root`, format];
         if (sha) {
-            params.push(`${sha}^!`);
+            params.push(sha);
         }
 
         return gitCommand(root, ...params, `--`, file);
@@ -81,7 +81,7 @@ export default class Git {
 
         const params = [`blame`, `--root`, format, `-L ${startLine},${endLine}`];
         if (sha) {
-            params.push(`${sha}^!`);
+            params.push(sha);
         }
 
         return gitCommand(root, ...params, `--`, file);

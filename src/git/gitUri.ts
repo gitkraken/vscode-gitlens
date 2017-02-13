@@ -42,6 +42,8 @@ export class GitUri extends Uri {
     }
 
     static fromUri(uri: Uri, git?: GitProvider) {
+        if (uri instanceof GitUri) return uri;
+
         if (git) {
             const gitUri = git.getGitUriForFile(uri.fsPath);
             if (gitUri) return gitUri;

@@ -133,7 +133,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
                 }
                 else {
                     // Try to get the repoPath from the most recent commit
-                    repoPath = fileNameOrRepoPath.replace(`/${entry.fileName}`, '');
+                    repoPath = fileNameOrRepoPath.replace(fileNameOrRepoPath.startsWith('/') ? `/${entry.fileName}` : entry.fileName, '');
                     relativeFileName = path.relative(repoPath, fileNameOrRepoPath).replace(/\\/g, '/');
                 }
             }
@@ -160,9 +160,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
 
             if (recentCommit) {
                 recentCommit.previousSha = commit.sha;
-                if (!isRepoPath) {
-                    recentCommit.previousFileName = commit.originalFileName || commit.fileName;
-                }
+                recentCommit.previousFileName = commit.originalFileName || commit.fileName;
             }
             recentCommit = commit;
         }

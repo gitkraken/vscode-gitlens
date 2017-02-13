@@ -441,7 +441,7 @@ export default class GitProvider extends Disposable {
         Logger.log(`getLogForFile('${fileName}', ${sha}, ${repoPath}, ${range && `[${range.start.line}, ${range.end.line}]`}, ${maxCount})`);
         fileName = Git.normalizePath(fileName);
 
-        const useCaching = this.UseGitCaching && !range && !maxCount;
+        const useCaching = this.UseGitCaching && !sha && !range && !maxCount;
 
         let cacheKey: string;
         let entry: GitCacheEntry;
@@ -464,7 +464,7 @@ export default class GitProvider extends Disposable {
             return (range
                 ? Git.logRange(fileName, range.start.line + 1, range.end.line + 1, sha, repoPath, maxCount)
                 : Git.log(fileName, sha, repoPath, maxCount))
-                .then(data => new GitLogParserEnricher().enrich(data, fileName))
+                .then(data => new GitLogParserEnricher().enrich(data, repoPath || fileName, !!repoPath))
                 .catch(ex => {
                     // Trap and cache expected log errors
                     if (useCaching) {
