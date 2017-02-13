@@ -34,12 +34,12 @@ export class BlameAnnotationProvider extends Disposable {
             highlightDecoration = window.createTextEditorDecorationType({
                 dark: {
                     backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                    gutterIconPath: context.asAbsolutePath('images/blame-dark.png'),
+                    gutterIconPath: context.asAbsolutePath('images/blame-dark.svg'),
                     overviewRulerColor: 'rgba(255, 255, 255, 0.75)'
                 },
                 light: {
                     backgroundColor: 'rgba(0, 0, 0, 0.15)',
-                    gutterIconPath: context.asAbsolutePath('images/blame-light.png'),
+                    gutterIconPath: context.asAbsolutePath('images/blame-light.svg'),
                     overviewRulerColor: 'rgba(0, 0, 0, 0.75)'
                 },
                 gutterIconSize: 'contain',

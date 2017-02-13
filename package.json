@@ -26,7 +26,7 @@
         "color": "#56098c",
         "theme": "dark"
     },
-    "icon": "images/gitlens-icon.png",
+    "icon": "images/gitlens-icon.svg",
     "preview": false,
     "homepage": "https://github.com/eamodio/vscode-gitlens/blob/master/README.md",
     "bugs": {
@@ -324,7 +324,11 @@
             {
                 "command": "gitlens.toggleBlame",
                 "title": "Toggle Blame Annotations",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/git-icon-dark.svg",
+                    "light": "images/git-icon-light.svg"
+                }
             },
             {
                 "command": "gitlens.toggleCodeLens",
@@ -384,12 +388,12 @@
                 {
                     "command": "gitlens.toggleBlame",
                     "when": "config.git.enabled",
-                    "group": "1_gitlens@1"
+                    "group": "navigation@100"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
                     "when": "config.git.enabled",
-                    "group": "1_gitlens@2"
+                    "group": "1_gitlens"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
