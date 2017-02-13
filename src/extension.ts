@@ -1,7 +1,7 @@
 'use strict';
 import { ExtensionContext, languages, window, workspace } from 'vscode';
+import BlameActiveLineController from './blameActiveLineController';
 import BlameAnnotationController from './blameAnnotationController';
-import BlameStatusBarController from './blameStatusBarController';
 import { configureCssCharacters } from './blameAnnotationFormatter';
 import DiffLineWithPreviousCommand from './commands/diffLineWithPrevious';
 import DiffLineWithWorkingCommand from './commands/diffLineWithWorking';

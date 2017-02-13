@@ -15,7 +15,7 @@ const activeLineDecoration: TextEditorDecorationType = window.createTextEditorDe
     }
 } as DecorationRenderOptions);
 
-export default class BlameStatusBarController extends Disposable {
+export default class BlameActiveLineController extends Disposable {
 
     private _activeEditorLineDisposable: Disposable | undefined;
     private _blame: Promise<IGitBlame> | undefined;
@@ -23,15 +23,15 @@ export default class BlameStatusBarController extends Disposable {
     private _currentLine: number = -1;
     private _disposable: Disposable;
     private _editor: TextEditor | undefined;
-    private _showBlameDebounced: (line: number, editor: TextEditor) => Promise<void>;
     private _statusBarItem: StatusBarItem | undefined;
+    private _updateBlameDebounced: (line: number, editor: TextEditor) => Promise<void>;
     private _uri: GitUri;
     private _useCaching: boolean;
 
     constructor(context: ExtensionContext, private git: GitProvider, private annotationController: BlameAnnotationController) {
         super(() => this.dispose());
 
-        this._showBlameDebounced = Functions.debounce(this._showBlame, 50);
+        this._updateBlameDebounced = Functions.debounce(this._updateBlame, 50);
 
         this._onConfigure();
 
@@ -136,7 +136,7 @@ export default class BlameStatusBarController extends Disposable {
             this._blame = undefined;
         }
 
-        this._showBlame(e.selection.active.line, e);
+        this._updateBlame(e.selection.active.line, e);
     }
 
     private _onEditorSelectionChanged(e: TextEditorSelectionChangeEvent): void {
@@ -147,7 +147,7 @@ export default class BlameStatusBarController extends Disposable {
         if (line === this._currentLine) return;
         this._currentLine = line;
 
-        this._showBlameDebounced(line, e.textEditor);
+        this._updateBlameDebounced(line, e.textEditor);
     }
 
     private _onDocumentChanged(e: TextDocumentChangeEvent) {
@@ -155,10 +155,10 @@ export default class BlameStatusBarController extends Disposable {
         if (!this._editor || !TextDocumentComparer.equals(e.document, this._editor.document)) return;
         this._currentLine = -1;
 
-        this._showBlame(this._editor.selections[0].active.line, this._editor);
+        this._updateBlame(this._editor.selections[0].active.line, this._editor);
     }
 
-    private async _showBlame(line: number, editor: TextEditor) {
+    private async _updateBlame(line: number, editor: TextEditor) {
         line = line - this._uri.offset;
 
         let commitLine: IGitCommitLine;
