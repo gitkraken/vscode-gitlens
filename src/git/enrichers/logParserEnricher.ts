@@ -109,7 +109,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
         return entries;
     }
 
-    enrich(data: string, fileNameOrRepoPath: string, isRepoPath: boolean = false): IGitLog {
+    enrich(data: string, type: 'file' | 'repo', fileNameOrRepoPath: string, isRepoPath: boolean = false): IGitLog {
         const entries = this._parseEntries(data, isRepoPath);
         if (!entries) return undefined;
 
@@ -160,7 +160,10 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
 
             if (recentCommit) {
                 recentCommit.previousSha = commit.sha;
-                recentCommit.previousFileName = commit.originalFileName || commit.fileName;
+                // Only add a filename if this is a file log
+                if (type === 'file') {
+                    recentCommit.previousFileName = commit.originalFileName || commit.fileName;
+                }
             }
             recentCommit = commit;
         }

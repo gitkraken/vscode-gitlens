@@ -87,7 +87,7 @@ export default class Git {
         return gitCommand(root, ...params, `--`, file);
     }
 
-    static log(fileName: string, sha?: string, repoPath?: string, maxCount?: number) {
+    static log(fileName: string, sha?: string, repoPath?: string, maxCount?: number, reverse: boolean = false) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
         const params = [...DefaultLogParams, `--follow`];
@@ -95,7 +95,12 @@ export default class Git {
             params.push(`-n${maxCount}`);
         }
         if (sha) {
-            params.push(sha);
+            if (reverse) {
+                params.push(`${sha}..HEAD`);
+            }
+            else {
+                params.push(sha);
+            }
             params.push(`--`);
         }
 

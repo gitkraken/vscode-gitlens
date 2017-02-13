@@ -229,6 +229,30 @@ export default class GitProvider extends Disposable {
         return this._uriCache.has(cacheKey);
     }
 
+    async findMostRecentCommitForFile(fileName: string, sha?: string): Promise<GitCommit> {
+        const exists = await new Promise<boolean>((resolve, reject) => fs.exists(fileName, e => resolve(e)));
+        if (exists) return null;
+
+        return undefined;
+
+        // TODO: Get this to work -- for some reason a reverse log won't return the renamed file
+        // Not sure how else to figure this out
+
+        // let log: IGitLog;
+        // let commit: GitCommit;
+        // while (true) {
+        //     // Go backward from the current commit to head to find the latest filename
+        //     log = await this.getLogForFile(fileName, sha, undefined, undefined, undefined, true);
+        //     if (!log) break;
+
+        //     commit = Iterables.first(log.commits.values());
+        //     sha = commit.sha;
+        //     fileName = commit.fileName;
+        // }
+
+        // return commit;
+    }
+
     getGitUriForFile(fileName: string) {
         if (!this.UseUriCaching) return undefined;
 
@@ -430,14 +454,14 @@ export default class GitProvider extends Disposable {
 
         try {
             const data = await Git.logRepo(repoPath, sha, maxCount);
-            return new GitLogParserEnricher().enrich(data, repoPath, true);
+            return new GitLogParserEnricher().enrich(data, 'repo', repoPath, true);
         }
         catch (ex) {
             return undefined;
         }
     }
 
-    getLogForFile(fileName: string, sha?: string, repoPath?: string, range?: Range, maxCount?: number): Promise<IGitLog | undefined> {
+    getLogForFile(fileName: string, sha?: string, repoPath?: string, range?: Range, maxCount?: number, reverse: boolean = false): Promise<IGitLog | undefined> {
         Logger.log(`getLogForFile('${fileName}', ${sha}, ${repoPath}, ${range && `[${range.start.line}, ${range.end.line}]`}, ${maxCount})`);
         fileName = Git.normalizePath(fileName);
 
@@ -463,8 +487,8 @@ export default class GitProvider extends Disposable {
 
             return (range
                 ? Git.logRange(fileName, range.start.line + 1, range.end.line + 1, sha, repoPath, maxCount)
-                : Git.log(fileName, sha, repoPath, maxCount))
-                .then(data => new GitLogParserEnricher().enrich(data, repoPath || fileName, !!repoPath))
+                : Git.log(fileName, sha, repoPath, maxCount, reverse))
+                .then(data => new GitLogParserEnricher().enrich(data, 'file', repoPath || fileName, !!repoPath))
                 .catch(ex => {
                     // Trap and cache expected log errors
                     if (useCaching) {

@@ -93,8 +93,10 @@ export default class ShowQuickRepoHistoryCommand extends Command {
 
             const filePick = pick as FileQuickPickItem;
             if (filePick) {
-                // TODO need to make log for file -- go from commit to HEAD so we can get the current filename
-                const log = await this.git.getLogForFile(filePick.uri.fsPath, filePick.sha);
+                // Get the most recent commit -- so that we can find the real working filename if there was a rename
+                const workingCommit = await this.git.findMostRecentCommitForFile(filePick.uri.fsPath, filePick.sha);
+
+                const log = await this.git.getLogForFile(filePick.uri.fsPath, filePick.sha, undefined, undefined, 2);
                 if (!log) return window.showWarningMessage(`Unable to open diff`);
 
                 const commit = Iterables.find(log.commits.values(), c => c.sha === commitPick.commit.sha);
@@ -103,7 +105,7 @@ export default class ShowQuickRepoHistoryCommand extends Command {
                 const items: CompareQuickPickItem[] = [
                     {
                         label: `Compare with Working Tree`,
-                        description: `\u2022 ${commit.sha}  $(git-compare)  ${commit.fileName}`,
+                        description: `\u2022 ${commit.sha}  $(git-compare)  ${(workingCommit || commit).fileName}`,
                         command: Commands.DiffWithWorking
                     }
                 ];
