@@ -1,5 +1,8 @@
 ## Release Notes
 
+### 2.1.1
+  - Fixes overzealous active line annotation updating on document changes
+
 ### 2.1.0
   - Adds a new GitLens logo and changes all images to svg
   - Adds `alt+p` shortcut for the `gitlens.diffLineWithPrevious` command
