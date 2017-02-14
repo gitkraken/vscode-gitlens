@@ -23,6 +23,7 @@ export default class BlameActiveLineController extends Disposable {
     private _currentLine: number = -1;
     private _disposable: Disposable;
     private _editor: TextEditor | undefined;
+    private _editorIsDirty: boolean;
     private _statusBarItem: StatusBarItem | undefined;
     private _updateBlameDebounced: (line: number, editor: TextEditor) => Promise<void>;
     private _uri: GitUri;
@@ -153,7 +154,11 @@ export default class BlameActiveLineController extends Disposable {
     private _onDocumentChanged(e: TextDocumentChangeEvent) {
         // Make sure this is for the editor we are tracking
         if (!this._editor || !TextDocumentComparer.equals(e.document, this._editor.document)) return;
-        this._currentLine = -1;
+
+        const line = this._editor.selections[0].active.line;
+        if (line === this._currentLine && this._editorIsDirty === this._editor.document.isDirty) return;
+        this._currentLine = line;
+        this._editorIsDirty = this._editor.document.isDirty;
 
         this._updateBlame(this._editor.selections[0].active.line, this._editor);
     }
