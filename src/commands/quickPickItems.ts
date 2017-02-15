@@ -5,8 +5,9 @@ import { GitCommit, GitUri } from '../gitProvider';
 import * as moment from 'moment';
 import * as path from 'path';
 
-export interface BackQuickPickItem extends QuickPickItem {
+export interface CommandQuickPickItem extends QuickPickItem {
     command: Commands;
+    args?: any[];
 }
 
 export class CommitQuickPickItem implements QuickPickItem {
@@ -20,10 +21,6 @@ export class CommitQuickPickItem implements QuickPickItem {
         this.description = `$(git-commit) ${commit.sha}${descriptionSuffix}`;
         this.detail = commit.message;
     }
-}
-
-export interface CompareQuickPickItem extends QuickPickItem {
-    command: Commands;
 }
 
 export class FileQuickPickItem implements QuickPickItem {
@@ -48,7 +45,7 @@ export class ShowAllCommitsQuickPickItem implements QuickPickItem {
     detail: string;
 
     constructor(maxItems: number) {
-        this.label = `\u21BB Show All Commits`;
+        this.label = `$(sync) Show Full History`;
         this.description = `\u2014 Currently only showing the first ${maxItems} commits`;
         this.detail = `This may take a while`;
     }

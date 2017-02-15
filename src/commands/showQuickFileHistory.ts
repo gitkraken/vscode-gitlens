@@ -5,7 +5,7 @@ import { EditorCommand } from './commands';
 import { Commands } from '../constants';
 import GitProvider, { GitUri } from '../gitProvider';
 import { Logger } from '../logger';
-import { BackQuickPickItem, CommitQuickPickItem, CompareQuickPickItem, ShowAllCommitsQuickPickItem } from './quickPickItems';
+import { CommandQuickPickItem, CommitQuickPickItem, ShowAllCommitsQuickPickItem } from './quickPickItems';
 import * as moment from 'moment';
 
 export default class ShowQuickFileHistoryCommand extends EditorCommand {
@@ -31,60 +31,72 @@ export default class ShowQuickFileHistoryCommand extends EditorCommand {
             if (!log) return window.showWarningMessage(`Unable to show file history. File is probably not under source control`);
 
             const commits = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))) as QuickPickItem[];
-            let placeHolderSuffix = '';
             if (maxCount !== 0 && commits.length === this.git.config.advanced.maxQuickHistory) {
-                placeHolderSuffix = ` \u2014 Only showing the first ${this.git.config.advanced.maxQuickHistory} commits`;
-                commits.push(new ShowAllCommitsQuickPickItem(this.git.config.advanced.maxQuickHistory));
+                commits.splice(0, 0, new ShowAllCommitsQuickPickItem(this.git.config.advanced.maxQuickHistory));
             }
+
+            commits.splice(0, 0, {
+                label: `$(repo) Show Repository History`,
+                command: Commands.ShowQuickRepoHistory
+            } as CommandQuickPickItem);
 
             const pick = await window.showQuickPick(commits, {
                 matchOnDescription: true,
                 matchOnDetail: true,
-                placeHolder: `${Iterables.first(log.commits.values()).fileName}${placeHolderSuffix}`
+                placeHolder: `${Iterables.first(log.commits.values()).fileName}`
             } as QuickPickOptions);
 
             if (!pick) return undefined;
+
             if (pick instanceof ShowAllCommitsQuickPickItem) {
                 return commands.executeCommand(Commands.ShowQuickFileHistory, uri, 0);
+            }
+
+            if (!(pick instanceof CommitQuickPickItem)) {
+                const commandPick = pick && pick as CommandQuickPickItem;
+                if (commandPick) {
+                    return commands.executeCommand(commandPick.command, ...(commandPick.args || []));
+                }
             }
 
             const commitPick = pick as CommitQuickPickItem;
             const commit = commitPick.commit;
 
-            let command: Commands | undefined = Commands.DiffWithWorking;
-            const items: (CompareQuickPickItem | BackQuickPickItem)[] = [
+            const items: CommandQuickPickItem[] = [
                 {
-                    label: `Compare with Working Tree`,
-                    description: `\u2022 ${commit.sha}  $(git-compare)  ${commit.fileName}`,
-                    command: Commands.DiffWithWorking
+                    label: `$(diff) Compare with Working Tree`,
+                    description: `$(git-commit) ${commit.sha} \u00a0 $(git-compare) \u00a0 $(file-text) ${commit.fileName}`,
+                    command: Commands.DiffWithWorking,
+                    args: [commit.uri, commit]
                 }
             ];
 
             if (commit.previousSha) {
                 items.push({
-                    label: `Compare with Previous Commit`,
-                    description: `\u2022 ${commit.previousSha}  $(git-compare)  ${commit.sha}`,
-                    command: Commands.DiffWithPrevious
+                    label: `$(diff) Compare with Previous Commit`,
+                    description: `$(git-commit) ${commit.previousSha} \u00a0 $(git-compare) \u00a0 $(git-commit) ${commit.sha}`,
+                    command: Commands.DiffWithPrevious,
+                    args: [commit.uri, commit]
                 });
             }
 
             items.push({
                 label: `go back \u21A9`,
                 description: null,
-                command: Commands.ShowQuickFileHistory
-            } as BackQuickPickItem);
+                command: Commands.ShowQuickFileHistory,
+                args: [uri, maxCount]
+            } as CommandQuickPickItem);
 
-            const comparePick = await window.showQuickPick(items, {
+            const commandPick = await window.showQuickPick(items, {
                 matchOnDescription: true,
-                placeHolder: `${commit.fileName} \u2022 ${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()}`
+                placeHolder: `${commit.fileName} \u2022 ${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`
             } as QuickPickOptions);
 
-            command = comparePick ? comparePick.command : undefined;
-
-            if (command) {
-                if (command === Commands.ShowQuickFileHistory) return commands.executeCommand(command, uri, maxCount);
-                return commands.executeCommand(command, uri, commit);
+            if (commandPick) {
+                return commands.executeCommand(commandPick.command, ...(commandPick.args || []));
             }
+
+            return undefined;
         }
         catch (ex) {
             Logger.error('[GitLens.ShowQuickFileHistoryCommand]', 'getLogLocations', ex);

@@ -5,7 +5,7 @@ import { EditorCommand } from './commands';
 import { Commands } from '../constants';
 import GitProvider, { GitUri } from '../gitProvider';
 import { Logger } from '../logger';
-import { BackQuickPickItem, CommitQuickPickItem, CompareQuickPickItem, FileQuickPickItem } from './quickPickItems';
+import { CommandQuickPickItem, CommitQuickPickItem, FileQuickPickItem } from './quickPickItems';
 import * as moment from 'moment';
 
 export default class ShowQuickCommitDetailsCommand extends EditorCommand {
@@ -43,10 +43,10 @@ export default class ShowQuickCommitDetailsCommand extends EditorCommand {
         }
 
         try {
-            const log = await this.git.getLogForRepo(repoPath, sha, 0);
+            let log = await this.git.getLogForRepo(repoPath, sha, 0);
             if (!log) return window.showWarningMessage(`Unable to show commit details`);
 
-            const commit = Iterables.first(log.commits.values());
+            let commit = Iterables.first(log.commits.values());
             const commitPick = new CommitQuickPickItem(commit, ` \u2014 ${commit.fileName}`);
             const files = commitPick.commit.fileName
                 .split(', ')
@@ -56,52 +56,65 @@ export default class ShowQuickCommitDetailsCommand extends EditorCommand {
             const filePick = await window.showQuickPick(files, {
                 matchOnDescription: true,
                 matchOnDetail: true,
-                placeHolder: `${commitPick.commit.sha} \u2022 ${commitPick.commit.author}, ${moment(commitPick.commit.date).fromNow()}`
+                placeHolder: `${commitPick.commit.sha} \u2022 ${commitPick.commit.author}, ${moment(commitPick.commit.date).fromNow()} \u2022 ${commitPick.commit.message}`
             } as QuickPickOptions);
 
-            if (filePick) {
-                // Get the most recent commit -- so that we can find the real working filename if there was a rename
-                const workingCommit = await this.git.findMostRecentCommitForFile(filePick.uri.fsPath, filePick.sha);
+            if (!filePick) return undefined;
 
-                const log = await this.git.getLogForFile(filePick.uri.fsPath, filePick.sha, undefined, undefined, 2);
-                if (!log) return window.showWarningMessage(`Unable to open diff`);
+            // Get the most recent commit -- so that we can find the real working filename if there was a rename
+            const workingCommit = await this.git.findMostRecentCommitForFile(filePick.uri.fsPath, filePick.sha);
 
-                const commit = Iterables.find(log.commits.values(), c => c.sha === commitPick.commit.sha);
+            log = await this.git.getLogForFile(filePick.uri.fsPath, filePick.sha, undefined, undefined, 2);
+            if (!log) return window.showWarningMessage(`Unable to open diff`);
 
-                let command: Commands | undefined = Commands.DiffWithWorking;
-                const items: CompareQuickPickItem[] = [
-                    {
-                        label: `Compare with Working Tree`,
-                        description: `\u2022 ${commit.sha}  $(git-compare)  ${(workingCommit || commit).fileName}`,
-                        command: Commands.DiffWithWorking
-                    }
-                ];
+            commit = Iterables.find(log.commits.values(), c => c.sha === commitPick.commit.sha);
 
-                if (commit.previousSha) {
-                    items.push({
-                        label: `Compare with Previous Commit`,
-                        description: `\u2022 ${commit.previousSha}  $(git-compare)  ${commit.sha}`,
-                        command: Commands.DiffWithPrevious
-                    });
+            const items: CommandQuickPickItem[] = [
+                {
+                    label: `$(diff) Compare with Working Tree`,
+                    description: `$(git-commit) ${commit.sha} \u00a0 $(git-compare) \u00a0 $(file-text) ${(workingCommit || commit).fileName}`,
+                    command: Commands.DiffWithWorking,
+                    args: [commit.uri, commit]
                 }
+            ];
 
+            if (commit.previousSha) {
                 items.push({
-                    label: `go back \u21A9`,
-                    description: null,
-                    command: Commands.ShowQuickCommitDetails
-                } as BackQuickPickItem);
+                    label: `$(diff) Compare with Previous Commit`,
+                    description: `$(git-commit) ${commit.previousSha} \u00a0 $(git-compare) \u00a0 $(git-commit) ${commit.sha}`,
+                    command: Commands.DiffWithPrevious,
+                    args: [commit.uri, commit]
+                });
+            }
 
-                const comparePick = await window.showQuickPick(items, {
-                    matchOnDescription: true,
-                    placeHolder: `${commit.fileName} \u2022 ${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()}`
-                } as QuickPickOptions);
+            items.push({
+                label: `$(versions) Show History of ${commit.fileName}`,
+                description: `\u2022 since $(git-commit) ${commit.sha}`,
+                command: Commands.ShowQuickFileHistory,
+                args: [new GitUri(commit.uri, commit)]
+            } as CommandQuickPickItem);
 
-                command = comparePick ? comparePick.command : undefined;
+            items.push({
+                label: `$(versions) Show Full History of ${commit.fileName}`,
+                command: Commands.ShowQuickFileHistory,
+                description: `\u2022 this could fail if the file was renamed`,
+                args: [commit.uri] // TODO: This won't work for renames
+            } as CommandQuickPickItem);
 
-                if (command) {
-                    if (command === Commands.ShowQuickCommitDetails) return commands.executeCommand(command, uri), sha;
-                    return commands.executeCommand(command, commit.uri, commit);
-                }
+            items.push({
+                label: `$(reply) go back \u21A9`,
+                description: null,
+                command: Commands.ShowQuickCommitDetails,
+                args: [uri]
+            } as CommandQuickPickItem);
+
+            const commandPick = await window.showQuickPick(items, {
+                matchOnDescription: true,
+                placeHolder: `${commit.fileName} \u2022 ${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`
+            } as QuickPickOptions);
+
+            if (commandPick) {
+                return commands.executeCommand(commandPick.command, ...(commandPick.args || []));
             }
 
             return undefined;
