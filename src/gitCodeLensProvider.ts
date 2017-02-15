@@ -45,6 +45,8 @@ export default class GitCodeLensProvider implements CodeLensProvider {
     }
 
     reset() {
+        this._config = workspace.getConfiguration('').get<IConfig>('gitlens');
+
         Logger.log('Triggering a reset of the git CodeLens provider');
         this._onDidChangeCodeLensesEmitter.fire();
     }
