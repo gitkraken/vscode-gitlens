@@ -1,12 +1,12 @@
 'use strict';
 import { Iterables } from '../system';
-import { commands, QuickPickOptions, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
+import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { EditorCommand } from './commands';
 import { Commands } from '../constants';
-import GitProvider, { GitUri } from '../gitProvider';
+import GitProvider, { GitCommit, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, CommitQuickPickItem, FileQuickPickItem } from './quickPickItems';
-import * as moment from 'moment';
+import { CommandQuickPickItem, FileQuickPickItem } from './quickPickItems';
+import { CommitQuickPick, CommitFilesQuickPick } from './quickPicks';
 
 export default class ShowQuickCommitDetailsCommand extends EditorCommand {
 
@@ -14,7 +14,7 @@ export default class ShowQuickCommitDetailsCommand extends EditorCommand {
         super(Commands.ShowQuickCommitDetails);
     }
 
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, sha?: string) {
+    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, sha?: string, commit?: GitCommit, goBackCommand?: CommandQuickPickItem, options: { showFileHistory?: boolean } = { showFileHistory: true }) {
         if (!(uri instanceof Uri)) {
             if (!editor.document) return undefined;
             uri = editor.document.uri;
@@ -43,78 +43,60 @@ export default class ShowQuickCommitDetailsCommand extends EditorCommand {
         }
 
         try {
-            let log = await this.git.getLogForRepo(repoPath, sha, 0);
-            if (!log) return window.showWarningMessage(`Unable to show commit details`);
+            let pick: FileQuickPickItem | CommandQuickPickItem;
+            let alreadyPickedCommit = !!commit;
+            let workingFileName: string;
+            if (!alreadyPickedCommit) {
+                let log = await this.git.getLogForRepo(repoPath, sha, 0);
+                if (!log) return window.showWarningMessage(`Unable to show commit details`);
 
-            let commit = Iterables.first(log.commits.values());
-            const commitPick = new CommitQuickPickItem(commit, ` \u2014 ${commit.fileName}`);
-            const files = commitPick.commit.fileName
-                .split(', ')
-                .filter(_ => !!_)
-                .map(f => new FileQuickPickItem(commitPick.commit, f));
+                commit = Iterables.first(log.commits.values());
 
-            const filePick = await window.showQuickPick(files, {
-                matchOnDescription: true,
-                matchOnDetail: true,
-                placeHolder: `${commitPick.commit.sha} \u2022 ${commitPick.commit.author}, ${moment(commitPick.commit.date).fromNow()} \u2022 ${commitPick.commit.message}`
-            } as QuickPickOptions);
+                pick = await CommitFilesQuickPick.show(commit, uri, goBackCommand);
+                if (!pick) return undefined;
 
-            if (!filePick) return undefined;
-
-            // Get the most recent commit -- so that we can find the real working filename if there was a rename
-            const workingCommit = await this.git.findMostRecentCommitForFile(filePick.uri.fsPath, filePick.sha);
-
-            log = await this.git.getLogForFile(filePick.uri.fsPath, filePick.sha, undefined, undefined, 2);
-            if (!log) return window.showWarningMessage(`Unable to open diff`);
-
-            commit = Iterables.find(log.commits.values(), c => c.sha === commitPick.commit.sha);
-
-            const items: CommandQuickPickItem[] = [
-                {
-                    label: `$(diff) Compare with Working Tree`,
-                    description: `$(git-commit) ${commit.sha} \u00a0 $(git-compare) \u00a0 $(file-text) ${(workingCommit || commit).fileName}`,
-                    command: Commands.DiffWithWorking,
-                    args: [commit.uri, commit]
+                if (pick instanceof CommandQuickPickItem) {
+                    return pick.execute();
                 }
-            ];
 
-            if (commit.previousSha) {
-                items.push({
-                    label: `$(diff) Compare with Previous Commit`,
-                    description: `$(git-commit) ${commit.previousSha} \u00a0 $(git-compare) \u00a0 $(git-commit) ${commit.sha}`,
-                    command: Commands.DiffWithPrevious,
-                    args: [commit.uri, commit]
-                });
+                // Attempt to the most recent commit -- so that we can find the real working filename if there was a rename
+                const workingCommit = await this.git.findMostRecentCommitForFile(pick.uri.fsPath, pick.sha);
+                // TODO: Leave this at undefined until findMostRecentCommitForFile actually works
+                workingFileName = !workingCommit ? pick.fileName : undefined;
+
+                log = await this.git.getLogForFile(pick.uri.fsPath, pick.sha, undefined, undefined, 2);
+                if (!log) return window.showWarningMessage(`Unable to open diff`);
+
+                commit = Iterables.find(log.commits.values(), c => c.sha === commit.sha);
+                uri = pick.uri || uri;
+            }
+            else {
+                // Attempt to the most recent commit -- so that we can find the real working filename if there was a rename
+                const workingCommit = await this.git.findMostRecentCommitForFile(commit.uri.fsPath, commit.sha);
+                // TODO: Leave this at undefined until findMostRecentCommitForFile actually works
+                workingFileName = !workingCommit ? commit.fileName : undefined;
             }
 
-            items.push({
-                label: `$(versions) Show History of ${commit.fileName}`,
-                description: `\u2022 since $(git-commit) ${commit.sha}`,
-                command: Commands.ShowQuickFileHistory,
-                args: [new GitUri(commit.uri, commit)]
-            } as CommandQuickPickItem);
+            pick = await CommitQuickPick.show(commit, workingFileName, uri,
+                // Create a command to get back to where we are right now
+                new CommandQuickPickItem({
+                    label: `go back \u21A9`,
+                    description: null
+                }, Commands.ShowQuickCommitDetails, [new GitUri(commit.uri, commit), sha, commit, goBackCommand, options]),
+                // If we have already picked a commit, just jump back to the previous (since we skipped a quickpick menu)
+                // Otherwise setup a normal back command
+                alreadyPickedCommit
+                    ? goBackCommand
+                    : new CommandQuickPickItem({
+                        label: `go back \u21A9`,
+                        description: null
+                    }, Commands.ShowQuickCommitDetails, [new GitUri(commit.uri, commit), sha, undefined, goBackCommand, options]),
+                { showFileHistory: options.showFileHistory });
 
-            items.push({
-                label: `$(versions) Show Full History of ${commit.fileName}`,
-                command: Commands.ShowQuickFileHistory,
-                description: `\u2022 this could fail if the file was renamed`,
-                args: [commit.uri] // TODO: This won't work for renames
-            } as CommandQuickPickItem);
+            if (!pick) return undefined;
 
-            items.push({
-                label: `$(reply) go back \u21A9`,
-                description: null,
-                command: Commands.ShowQuickCommitDetails,
-                args: [uri]
-            } as CommandQuickPickItem);
-
-            const commandPick = await window.showQuickPick(items, {
-                matchOnDescription: true,
-                placeHolder: `${commit.fileName} \u2022 ${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`
-            } as QuickPickOptions);
-
-            if (commandPick) {
-                return commands.executeCommand(commandPick.command, ...(commandPick.args || []));
+            if (pick instanceof CommandQuickPickItem) {
+                return pick.execute();
             }
 
             return undefined;

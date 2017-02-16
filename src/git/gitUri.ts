@@ -38,7 +38,7 @@ export class GitUri extends Uri {
     }
 
     fileUri() {
-        return Uri.file(this.fsPath);
+        return Uri.file(this.sha ? this.path : this.fsPath);
     }
 
     static fromUri(uri: Uri, git?: GitProvider) {
