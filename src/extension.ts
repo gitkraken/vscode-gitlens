@@ -1,5 +1,5 @@
 'use strict';
-import { ExtensionContext, languages, window, workspace } from 'vscode';
+import { commands, ExtensionContext, languages, window, workspace } from 'vscode';
 import BlameActiveLineController from './blameActiveLineController';
 import BlameAnnotationController from './blameAnnotationController';
 import { configureCssCharacters } from './blameAnnotationFormatter';
@@ -17,7 +17,7 @@ import ShowQuickRepoHistoryCommand from './commands/showQuickRepoHistory';
 import ToggleBlameCommand from './commands/toggleBlame';
 import ToggleCodeLensCommand from './commands/toggleCodeLens';
 import { IAdvancedConfig, IBlameConfig } from './configuration';
-import { WorkspaceState } from './constants';
+import { BuiltInCommands, WorkspaceState } from './constants';
 import GitContentProvider from './gitContentProvider';
 import GitProvider, { Git } from './gitProvider';
 import GitRevisionCodeLensProvider from './gitRevisionCodeLensProvider';
@@ -49,8 +49,18 @@ export async function activate(context: ExtensionContext) {
         if (ex.message.includes('Unable to find git')) {
             await window.showErrorMessage(`GitLens: Unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'gitlens.advanced.git' is pointed to its installed location.`);
         }
+        commands.executeCommand(BuiltInCommands.SetContext, 'gitlens:enabled', false);
         return;
     }
+
+    let gitEnabled = workspace.getConfiguration('git').get<boolean>('enabled');
+    commands.executeCommand(BuiltInCommands.SetContext, 'gitlens:enabled', gitEnabled);
+    context.subscriptions.push(workspace.onDidChangeConfiguration(() => {
+        if (gitEnabled !== workspace.getConfiguration('git').get<boolean>('enabled')) {
+            gitEnabled = !gitEnabled;
+            commands.executeCommand(BuiltInCommands.SetContext, 'gitlens:enabled', gitEnabled);
+        }
+    }, this));
 
     context.workspaceState.update(WorkspaceState.RepoPath, repoPath);
 
