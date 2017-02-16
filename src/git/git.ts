@@ -167,6 +167,13 @@ export default class Git {
         return gitCommand(root, 'show', `${sha}:./${file}`);
     }
 
+    static statusForFile(fileName: string, repoPath: string): Promise<string> {
+        const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
+
+        const params = ['status', file, '--short'];
+        return gitCommand(root, ...params);
+    }
+
     static isUncommitted(sha: string) {
         return UncommittedRegex.test(sha);
     }

@@ -42,7 +42,7 @@ export default class DiffLineWithPreviousCommand extends EditorCommand {
                 if (commit.isUncommitted) {
                     uri = commit.uri;
                     commit = new GitCommit(commit.repoPath, commit.previousSha, commit.previousFileName, commit.author, commit.date, commit.message);
-                    line = blame.line.line + 1 + gitUri.offset;
+                    line = (blame.line.line + 1) + gitUri.offset;
                     return commands.executeCommand(Commands.DiffWithWorking, uri, commit, line);
                 }
             }

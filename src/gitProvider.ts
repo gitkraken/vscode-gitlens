@@ -545,6 +545,17 @@ export default class GitProvider extends Disposable {
         return locations;
     }
 
+    async getStatusForFile(fileName: string, repoPath: string) {
+        Logger.log(`getStatusForFile('${fileName}', ${repoPath})`);
+        return (await Git.statusForFile(fileName, repoPath)).trim();
+    }
+
+    async isFileUncommitted(fileName: string, repoPath: string) {
+        Logger.log(`isFileUncommitted('${fileName}', ${repoPath})`);
+        const status = await this.getStatusForFile(fileName, repoPath);
+        return status && status.length;
+    }
+
     async getVersionedFile(fileName: string, repoPath: string, sha: string) {
         Logger.log(`getVersionedFile('${fileName}', ${repoPath}, ${sha})`);
 
