@@ -5,38 +5,52 @@ import { Commands } from '../constants';
 import { GitCommit, GitUri, IGitLog } from '../gitProvider';
 import { CommandQuickPickItem, CommitQuickPickItem, FileQuickPickItem } from './quickPickItems';
 import * as moment from 'moment';
+import * as path from 'path';
 
 export class CommitQuickPick {
 
     static async show(commit: GitCommit, workingFileName: string, uri: Uri, currentCommand?: CommandQuickPickItem, goBackCommand?: CommandQuickPickItem, options: { showFileHistory?: boolean } = {}): Promise<CommandQuickPickItem | undefined> {
-        const items: CommandQuickPickItem[] = [
-            new CommandQuickPickItem({
-                label: `$(diff) Compare with Working Tree`,
-                description: `$(git-commit) ${commit.sha} \u00a0 $(git-compare) \u00a0 $(file-text) ${workingFileName || commit.fileName}`
-            }, Commands.DiffWithWorking, [uri, commit])
-        ];
+        const items: CommandQuickPickItem[] = [];
 
         if (commit.previousSha) {
             items.push(new CommandQuickPickItem({
-                label: `$(diff) Compare with Previous Commit`,
-                description: `$(git-commit) ${commit.previousSha} \u00a0 $(git-compare) \u00a0 $(git-commit) ${commit.sha}`
+                label: `$(git-compare) Compare with Previous Commit`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.previousSha} \u00a0 $(git-compare) \u00a0 $(git-commit) ${commit.sha}`
             }, Commands.DiffWithPrevious, [commit.uri, commit]));
         }
 
-        if (options.showFileHistory) {
-            items.push(new CommandQuickPickItem({
-                label: `$(versions) Show Previous Commit History`,
-                description: `\u2022 ${commit.fileName}`,
-                detail: `Shows the previous commit history starting at $(git-commit) ${commit.sha}`
-            }, Commands.ShowQuickFileHistory, [new GitUri(commit.uri, commit), undefined, undefined, currentCommand]));
+        items.push(new CommandQuickPickItem({
+            label: `$(git-compare) Compare with Working Tree`,
+            description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.sha} \u00a0 $(git-compare) \u00a0 $(file-text) ${workingFileName || commit.fileName}`
+        }, Commands.DiffWithWorking, [uri, commit]));
 
+        items.push(new CommandQuickPickItem({
+            label: `$(clippy) Copy Commit Sha to Clipboard`,
+            description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.sha}`
+        }, Commands.CopyShaToClipboard, [uri, commit.sha]));
+
+        items.push(new CommandQuickPickItem({
+            label: `$(diff) Show Changed Files`,
+            description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.sha}`,
+            detail: `Shows all the changed files in commit $(git-commit) ${commit.sha}`
+        }, Commands.ShowQuickCommitDetails, [new GitUri(commit.uri, commit), commit.sha, undefined, currentCommand]));
+
+        if (options.showFileHistory) {
+            const fileName = path.basename(commit.fileName);
+            fileName;
             if (workingFileName) {
                 items.push(new CommandQuickPickItem({
                     label: `$(versions) Show Commit History`,
-                    description: `\u2022 ${commit.fileName}`,
-                    detail: `Shows the commit history starting at the most recent commit`
+                    description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.fileName}`,
+                    detail: `Shows the commit history of the file, starting at the most recent commit`
                 }, Commands.ShowQuickFileHistory, [commit.uri, undefined, undefined, currentCommand]));
             }
+
+            items.push(new CommandQuickPickItem({
+                label: `$(versions) Show Previous Commit History`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.fileName}`,
+                detail: `Shows the previous commit history of the file, starting at $(git-commit) ${commit.sha}`
+            }, Commands.ShowQuickFileHistory, [new GitUri(commit.uri, commit), undefined, undefined, currentCommand]));
         }
 
         if (goBackCommand) {
@@ -78,7 +92,7 @@ export class FileCommitsQuickPick {
         if (maxCount !== 0 && items.length >= defaultMaxCount) {
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `$(sync) Show All Commits`,
-                description: `\u2014 Currently only showing the first ${defaultMaxCount} commits`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 Currently only showing the first ${defaultMaxCount} commits`,
                 detail: `This may take a while`
             }, Commands.ShowQuickFileHistory, [uri, 0, undefined, goBackCommand]));
         }
@@ -115,7 +129,7 @@ export class RepoCommitsQuickPick {
         if (maxCount !== 0 && items.length >= defaultMaxCount) {
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `$(sync) Show All Commits`,
-                description: `\u2014 Currently only showing the first ${defaultMaxCount} commits`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 Currently only showing the first ${defaultMaxCount} commits`,
                 detail: `This may take a while`
             }, Commands.ShowQuickRepoHistory, [uri, 0, undefined, goBackCommand]));
         }
