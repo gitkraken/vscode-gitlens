@@ -1,5 +1,27 @@
 ## Release Notes
 
+### 2.2.0
+  - Overhauls the `gitlens.showQuickRepoHistory`, `gitlens.showQuickFileHistory`, and `gitlens.showQuickCommitDetails` quickpick lists
+    - Adds `Show Repository History` command to `gitlens.showQuickFileHistory` quickpick list
+    - Adds `Show Previous Commits History` command to `gitlens.showQuickCommitDetails` quickpick list
+    - Adds `Show Commits History` command to `gitlens.showQuickCommitDetails` quickpick list
+    - Adds `Copy Commit Sha to Clipboard` command to `gitlens.showQuickCommitDetails` quickpick list
+    - Adds `Show Changed Files` command to `gitlens.showQuickCommitDetails` quickpick list
+    - Adds more robust `go back` navigation in quickpick lists
+    - Adds commit message to placeholder text of many quickpick lists
+    - Adds icons for some commands
+  - Adds `gitlens.diffWithPrevious` command to the editor content menu
+  - Adds `gitlens.diffWithWorking` command to the editor content menu
+  - Changes behavior of `gitlens.showQuickFileHistory` when executed via CodeLens to open commit details directly
+  - Changes `gitlens.diffWithPrevious` command to behave as `gitlens.diffWithWorking` if the file has uncommitted changes
+  - Renames `gitlens.diffWithPrevious` command from `Diff Commit with Previous` to `Compare with Previous Commit`
+  - Renames `gitlens.diffLineWithPrevious` command from `Diff Commit (line) with Previous` to `Compare Line with Previous Commit`
+  - Renames `gitlens.diffWithWorking` command from `Diff Commit with Working Tree` to `Compare with Working Tree`
+  - Renames `gitlens.diffLineWithWorking` command from `Diff Commit (line) with Working Tree` to `Compare Line with Working Tree`
+  - Fixes [#31](https://github.com/eamodio/vscode-gitlens/issues/31) - Disable gitlens if the project does not have `.git` folder
+  - Fixes issue where quickpick lists could fail if there was no active editor
+  - Fixes CodeLens not updating in response to configuration changes
+
 ### 2.1.1
   - Fixes overzealous active line annotation updating on document changes
 
