@@ -2,7 +2,7 @@
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand } from './commands';
 import { Commands } from '../constants';
-import GitProvider, { GitUri } from '../gitProvider';
+import GitProvider, { GitCommit, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 import { CommandQuickPickItem } from './quickPickItems';
 import { FileCommitsQuickPick } from './quickPicks';
@@ -13,7 +13,7 @@ export default class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
         super(Commands.ShowQuickFileHistory);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, maxCount?: number, goBackCommand?: CommandQuickPickItem) {
+    async execute(editor: TextEditor, uri?: Uri, maxCount?: number, commit?: GitCommit, goBackCommand?: CommandQuickPickItem) {
         if (!(uri instanceof Uri)) {
             if (!editor || !editor.document) return undefined;
             uri = editor.document.uri;
@@ -26,23 +26,27 @@ export default class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
         }
 
         try {
-            const log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, undefined, maxCount);
-            if (!log) return window.showWarningMessage(`Unable to show file history. File is probably not under source control`);
+            if (!commit) {
+                const log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, undefined, maxCount);
+                if (!log) return window.showWarningMessage(`Unable to show file history. File is probably not under source control`);
 
-            let pick = await FileCommitsQuickPick.show(log, uri, maxCount, this.git.config.advanced.maxQuickHistory, goBackCommand);
-            if (!pick) return undefined;
+                let pick = await FileCommitsQuickPick.show(log, uri, maxCount, this.git.config.advanced.maxQuickHistory, goBackCommand);
+                if (!pick) return undefined;
 
-            if (pick instanceof CommandQuickPickItem) {
-                return pick.execute();
+                if (pick instanceof CommandQuickPickItem) {
+                    return pick.execute();
+                }
+
+                commit = pick.commit;
             }
 
             return commands.executeCommand(Commands.ShowQuickCommitDetails,
-                new GitUri(pick.commit.uri, pick.commit),
-                pick.commit.sha, pick.commit,
+                new GitUri(commit.uri, commit),
+                commit.sha, commit,
                 new CommandQuickPickItem({
                     label: `go back \u21A9`,
                     description: null
-                }, Commands.ShowQuickFileHistory, [uri, maxCount, goBackCommand]),
+                }, Commands.ShowQuickFileHistory, [uri, maxCount, undefined, goBackCommand]),
                 { showFileHistory: false });
         }
         catch (ex) {

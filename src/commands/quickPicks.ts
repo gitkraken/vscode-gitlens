@@ -28,14 +28,14 @@ export class CommitQuickPick {
                 label: `$(versions) Show Previous Commit History`,
                 description: `\u2022 ${commit.fileName}`,
                 detail: `Shows the previous commit history starting at $(git-commit) ${commit.sha}`
-            }, Commands.ShowQuickFileHistory, [new GitUri(commit.uri, commit), undefined, currentCommand]));
+            }, Commands.ShowQuickFileHistory, [new GitUri(commit.uri, commit), undefined, undefined, currentCommand]));
 
             if (workingFileName) {
                 items.push(new CommandQuickPickItem({
                     label: `$(versions) Show Commit History`,
                     description: `\u2022 ${commit.fileName}`,
                     detail: `Shows the commit history starting at the most recent commit`
-                }, Commands.ShowQuickFileHistory, [commit.uri, undefined, currentCommand]));
+                }, Commands.ShowQuickFileHistory, [commit.uri, undefined, undefined, currentCommand]));
             }
         }
 
@@ -80,7 +80,7 @@ export class FileCommitsQuickPick {
                 label: `$(sync) Show All Commits`,
                 description: `\u2014 Currently only showing the first ${defaultMaxCount} commits`,
                 detail: `This may take a while`
-            }, Commands.ShowQuickFileHistory, [uri, 0, goBackCommand]));
+            }, Commands.ShowQuickFileHistory, [uri, 0, undefined, goBackCommand]));
         }
 
         // Only show the full repo option if we are the root
