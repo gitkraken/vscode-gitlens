@@ -5,13 +5,10 @@ import { Commands } from '../constants';
 import { GitCommit, GitUri, IGitLog } from '../gitProvider';
 import { CommandQuickPickItem, CommitQuickPickItem, FileQuickPickItem } from './quickPickItems';
 import * as moment from 'moment';
-import * as path from 'path';
 
 export class CommitQuickPick {
 
     static async show(commit: GitCommit, workingFileName: string, uri: Uri, currentCommand?: CommandQuickPickItem, goBackCommand?: CommandQuickPickItem, options: { showFileHistory?: boolean } = {}): Promise<CommandQuickPickItem | undefined> {
-        const fileName = path.basename(commit.fileName);
-
         const items: CommandQuickPickItem[] = [
             new CommandQuickPickItem({
                 label: `$(diff) Compare with Working Tree`,
@@ -28,14 +25,16 @@ export class CommitQuickPick {
 
         if (options.showFileHistory) {
             items.push(new CommandQuickPickItem({
-                label: `$(versions) Show History of ${fileName}`,
-                description: `\u2022 since $(git-commit) ${commit.sha}`
+                label: `$(versions) Show Previous Commit History`,
+                description: `\u2022 ${commit.fileName}`,
+                detail: `Shows the previous commit history starting at $(git-commit) ${commit.sha}`
             }, Commands.ShowQuickFileHistory, [new GitUri(commit.uri, commit), undefined, currentCommand]));
 
             if (workingFileName) {
                 items.push(new CommandQuickPickItem({
-                    label: `$(versions) Show Full History of ${fileName}`,
-                    description: null
+                    label: `$(versions) Show Commit History`,
+                    description: `\u2022 ${commit.fileName}`,
+                    detail: `Shows the commit history starting at the most recent commit`
                 }, Commands.ShowQuickFileHistory, [commit.uri, undefined, currentCommand]));
             }
         }
@@ -76,23 +75,24 @@ export class FileCommitsQuickPick {
     static async show(log: IGitLog, uri: Uri, maxCount: number, defaultMaxCount: number, goBackCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
+        if (maxCount !== 0 && items.length >= defaultMaxCount) {
+            items.splice(0, 0, new CommandQuickPickItem({
+                label: `$(sync) Show All Commits`,
+                description: `\u2014 Currently only showing the first ${defaultMaxCount} commits`,
+                detail: `This may take a while`
+            }, Commands.ShowQuickFileHistory, [uri, 0, goBackCommand]));
+        }
+
         // Only show the full repo option if we are the root
         if (!goBackCommand) {
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `$(repo) Show Repository History`,
-                description: null
+                description: null,
+                detail: 'Shows the commit history of the repository'
             }, Commands.ShowQuickRepoHistory, [undefined, undefined, undefined, new CommandQuickPickItem({
                 label: `go back \u21A9`,
                 description: null
             }, Commands.ShowQuickFileHistory, [uri, maxCount])]));
-        }
-
-        if (maxCount !== 0 && items.length === defaultMaxCount) {
-            items.splice(0, 0, new CommandQuickPickItem({
-                label: `$(sync) Show Full History`,
-                description: `\u2014 Currently only showing the first ${defaultMaxCount} commits`,
-                detail: `This may take a while`
-            }, Commands.ShowQuickFileHistory, [uri, 0, goBackCommand]));
         }
 
         if (goBackCommand) {
@@ -111,9 +111,10 @@ export class RepoCommitsQuickPick {
 
     static async show(log: IGitLog, uri: Uri, maxCount: number, defaultMaxCount: number, goBackCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c, ` \u2014 ${c.fileName}`))) as (CommitQuickPickItem | CommandQuickPickItem)[];
-        if (maxCount !== 0 && items.length === defaultMaxCount) {
+
+        if (maxCount !== 0 && items.length >= defaultMaxCount) {
             items.splice(0, 0, new CommandQuickPickItem({
-                label: `$(sync) Show Full History`,
+                label: `$(sync) Show All Commits`,
                 description: `\u2014 Currently only showing the first ${defaultMaxCount} commits`,
                 detail: `This may take a while`
             }, Commands.ShowQuickRepoHistory, [uri, 0, undefined, goBackCommand]));
