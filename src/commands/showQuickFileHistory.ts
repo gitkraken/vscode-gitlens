@@ -1,21 +1,21 @@
 'use strict';
-import { commands, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { EditorCommand } from './commands';
+import { commands, TextEditor, Uri, window } from 'vscode';
+import { ActiveEditorCommand } from './commands';
 import { Commands } from '../constants';
 import GitProvider, { GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 import { CommandQuickPickItem } from './quickPickItems';
 import { FileCommitsQuickPick } from './quickPicks';
 
-export default class ShowQuickFileHistoryCommand extends EditorCommand {
+export default class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
 
     constructor(private git: GitProvider) {
         super(Commands.ShowQuickFileHistory);
     }
 
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, maxCount?: number, goBackCommand?: CommandQuickPickItem) {
+    async execute(editor: TextEditor, uri?: Uri, maxCount?: number, goBackCommand?: CommandQuickPickItem) {
         if (!(uri instanceof Uri)) {
-            if (!editor.document) return undefined;
+            if (!editor || !editor.document) return undefined;
             uri = editor.document.uri;
         }
 

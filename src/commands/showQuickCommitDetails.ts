@@ -1,22 +1,22 @@
 'use strict';
 import { Iterables } from '../system';
-import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { EditorCommand } from './commands';
+import { TextEditor, Uri, window } from 'vscode';
+import { ActiveEditorCommand } from './commands';
 import { Commands } from '../constants';
 import GitProvider, { GitCommit, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, FileQuickPickItem } from './quickPickItems';
 import { CommitQuickPick, CommitFilesQuickPick } from './quickPicks';
 
-export default class ShowQuickCommitDetailsCommand extends EditorCommand {
+export default class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
 
     constructor(private git: GitProvider) {
         super(Commands.ShowQuickCommitDetails);
     }
 
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, sha?: string, commit?: GitCommit, goBackCommand?: CommandQuickPickItem, options: { showFileHistory?: boolean } = { showFileHistory: true }) {
+    async execute(editor: TextEditor, uri?: Uri, sha?: string, commit?: GitCommit, goBackCommand?: CommandQuickPickItem, options: { showFileHistory?: boolean } = { showFileHistory: true }) {
         if (!(uri instanceof Uri)) {
-            if (!editor.document) return undefined;
+            if (!editor || !editor.document) return undefined;
             uri = editor.document.uri;
         }
 
@@ -24,9 +24,10 @@ export default class ShowQuickCommitDetailsCommand extends EditorCommand {
 
         let repoPath = gitUri.repoPath;
 
-        let line = editor.selection.active.line;
         if (!sha) {
-            const blameline = line - gitUri.offset;
+            if (!editor) return undefined;
+
+            const blameline = editor.selection.active.line - gitUri.offset;
             if (blameline < 0) return undefined;
 
             try {
