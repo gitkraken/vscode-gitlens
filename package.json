@@ -209,7 +209,7 @@
                 },
                 "gitlens.codeLens.recentChange.command": {
                     "type": "string",
-                    "default": "gitlens.showFileHistory",
+                    "default": "gitlens.showQuickFileHistory",
                     "enum": [
                         "gitlens.toggleBlame",
                         "gitlens.showBlameHistory",

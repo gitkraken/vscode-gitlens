@@ -12,12 +12,14 @@
     - Adds icons for some commands
   - Adds `gitlens.diffWithPrevious` command to the editor content menu
   - Adds `gitlens.diffWithWorking` command to the editor content menu
+  - Changes the default command of `gitlens.codeLens.recentChange.command` to `gitlens.showQuickFileHistory`
   - Changes behavior of `gitlens.showQuickFileHistory` when executed via CodeLens to open commit details directly
   - Changes `gitlens.diffWithPrevious` command to behave as `gitlens.diffWithWorking` if the file has uncommitted changes
   - Renames `gitlens.diffWithPrevious` command from `Diff Commit with Previous` to `Compare with Previous Commit`
   - Renames `gitlens.diffLineWithPrevious` command from `Diff Commit (line) with Previous` to `Compare Line with Previous Commit`
   - Renames `gitlens.diffWithWorking` command from `Diff Commit with Working Tree` to `Compare with Working Tree`
   - Renames `gitlens.diffLineWithWorking` command from `Diff Commit (line) with Working Tree` to `Compare Line with Working Tree`
+  - Fixes issues with certain git commands not working on Windows
   - Fixes [#31](https://github.com/eamodio/vscode-gitlens/issues/31) - Disable gitlens if the project does not have `.git` folder
   - Fixes issue where quickpick lists could fail if there was no active editor
   - Fixes CodeLens not updating in response to configuration changes
