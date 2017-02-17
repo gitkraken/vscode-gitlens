@@ -1,18 +1,21 @@
 ## Release Notes
 
 ### 2.2.1
-  - Overhauls the `gitlens.showQuickRepoHistory`, `gitlens.showQuickFileHistory`, and `gitlens.showQuickCommitDetails` quickpick lists
-    - Adds `Show Repository History` command to `gitlens.showQuickFileHistory` quickpick list
-    - Adds `Show Previous Commits History` command to `gitlens.showQuickCommitDetails` quickpick list
-    - Adds `Show Commits History` command to `gitlens.showQuickCommitDetails` quickpick list
-    - Adds `Copy Commit Sha to Clipboard` command to `gitlens.showQuickCommitDetails` quickpick list
-    - Adds `Show Changed Files` command to `gitlens.showQuickCommitDetails` quickpick list
-    - Adds more robust `go back` navigation in quickpick lists
-    - Adds commit message to placeholder text of many quickpick lists
+  - Overhauls the `gitlens.showQuickRepoHistory`, `gitlens.showQuickFileHistory`, and `gitlens.showQuickCommitDetails` quick pick lists
+    - Adds `Show Repository History` command to `gitlens.showQuickFileHistory` quick pick list
+    - Adds `Show Previous Commits History` command to `gitlens.showQuickCommitDetails` quick pick list
+    - Adds `Show Commits History` command to `gitlens.showQuickCommitDetails` quick pick list
+    - Adds `Copy Commit Sha to Clipboard` command to `gitlens.showQuickCommitDetails` quick pick list
+    - Adds `Show Changed Files` command to `gitlens.showQuickCommitDetails` quick pick list
+    - Adds more robust `go back` navigation in quick pick lists
+    - Adds commit message to placeholder text of many quick pick lists
     - Adds icons for some commands
   - Adds `gitlens.diffWithPrevious` command to the editor content menu
   - Adds `gitlens.diffWithWorking` command to the editor content menu
-  - Changes the default command of `gitlens.codeLens.recentChange.command` to `gitlens.showQuickFileHistory`
+  - Adds `gitlens.showQuickRepoHistory` and `gitlens.showQuickCommitDetails` commands to CodeLens
+  - Adds `gitlens.showQuickRepoHistory` and `gitlens.showQuickCommitDetails` commands to the status bar
+  - Changes the default command of `gitlens.codeLens.recentChange.command` to `gitlens.showQuickCommitDetails`
+  - Changes the default command of `gitlens.statusBar.command` to `gitlens.showQuickCommitDetails`
   - Changes behavior of `gitlens.showQuickFileHistory` when executed via CodeLens to open commit details directly
   - Changes `gitlens.diffWithPrevious` command to behave as `gitlens.diffWithWorking` if the file has uncommitted changes
   - Renames `gitlens.diffWithPrevious` command from `Diff Commit with Previous` to `Compare with Previous Commit`
@@ -21,7 +24,7 @@
   - Renames `gitlens.diffLineWithWorking` command from `Diff Commit (line) with Working Tree` to `Compare Line with Working Tree`
   - Fixes issues with certain git commands not working on Windows
   - Fixes [#31](https://github.com/eamodio/vscode-gitlens/issues/31) - Disable gitlens if the project does not have `.git` folder
-  - Fixes issue where quickpick lists could fail if there was no active editor
+  - Fixes issue where quick pick lists could fail if there was no active editor
   - Fixes CodeLens not updating in response to configuration changes
 
 ### 2.1.1
@@ -34,8 +37,8 @@
   - Adds `alt+w` shortcut for the `gitlens.diffLineWithWorking` command
   - Adds `shift+alt+w` shortcut for the `gitlens.diffWithWorking` command
   - Adds `gitlens.copyShaToClipboard` to copy commit sha to the clipboard ([#28](https://github.com/eamodio/vscode-gitlens/issues/28))
-  - Adds `gitlens.showQuickCommitDetails` to show a quickpick list of details for a commit
-  - Adds `go back` choice to `gitlens.showQuickCommitDetails`, `gitlens.showQuickFileHistory`, and `gitlens.showQuickRepoHistory` quickpick lists
+  - Adds `gitlens.showQuickCommitDetails` to show a quick pick list of details for a commit
+  - Adds `go back` choice to `gitlens.showQuickCommitDetails`, `gitlens.showQuickFileHistory`, and `gitlens.showQuickRepoHistory` quick pick lists
   - Adds `gitlens.blame.annotation.highlight` to specify whether and how to highlight blame annotations ([#24](https://github.com/eamodio/vscode-gitlens/issues/24))
   - Greatly improves performance of line navigation when either active line annotations or status bar blame is enabled
   - Fixes [#29](https://github.com/eamodio/vscode-gitlens/issues/29) - Commit info tooltip duplicated for current line when blame is enabled

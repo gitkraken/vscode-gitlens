@@ -26,13 +26,15 @@ export interface IBlameConfig {
     };
 }
 
-export type CodeLensCommand = 'gitlens.toggleBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.diffWithPrevious' | 'gitlens.showQuickFileHistory';
+export type CodeLensCommand = 'gitlens.toggleBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.diffWithPrevious' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory';
 export const CodeLensCommand = {
     BlameAnnotate: Commands.ToggleBlame as CodeLensCommand,
     ShowBlameHistory: Commands.ShowBlameHistory as CodeLensCommand,
     ShowFileHistory: Commands.ShowFileHistory as CodeLensCommand,
     DiffWithPrevious: Commands.DiffWithPrevious as CodeLensCommand,
-    ShowQuickFileHistory: Commands.ShowQuickFileHistory as CodeLensCommand
+    ShowQuickCommitDetails: Commands.ShowQuickCommitDetails as CodeLensCommand,
+    ShowQuickFileHistory: Commands.ShowQuickFileHistory as CodeLensCommand,
+    ShowQuickRepoHistory: Commands.ShowQuickRepoHistory as CodeLensCommand
 };
 
 export type CodeLensLocation = 'all' | 'document+containers' | 'document' | 'custom' | 'none';
@@ -71,14 +73,16 @@ export interface ICodeLensesConfig {
     authors: ICodeLensConfig;
 }
 
-export type StatusBarCommand = 'gitlens.toggleBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.toggleCodeLens' | 'gitlens.diffWithPrevious' | 'gitlens.showQuickFileHistory';
+export type StatusBarCommand = 'gitlens.toggleBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.toggleCodeLens' | 'gitlens.diffWithPrevious' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory';
 export const StatusBarCommand = {
     BlameAnnotate: Commands.ToggleBlame as StatusBarCommand,
     ShowBlameHistory: Commands.ShowBlameHistory as StatusBarCommand,
     ShowFileHistory: Commands.ShowFileHistory as CodeLensCommand,
     DiffWithPrevious: Commands.DiffWithPrevious as StatusBarCommand,
     ToggleCodeLens: Commands.ToggleCodeLens as StatusBarCommand,
-    ShowQuickFileHistory: Commands.ShowQuickFileHistory as StatusBarCommand
+    ShowQuickCommitDetails: Commands.ShowQuickCommitDetails as StatusBarCommand,
+    ShowQuickFileHistory: Commands.ShowQuickFileHistory as StatusBarCommand,
+    ShowQuickRepoHistory: Commands.ShowQuickRepoHistory as StatusBarCommand
 };
 
 export interface IStatusBarConfig {

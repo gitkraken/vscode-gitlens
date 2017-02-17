@@ -212,7 +212,9 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             case CodeLensCommand.ShowBlameHistory: return this._applyShowBlameHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
             case CodeLensCommand.ShowFileHistory: return this._applyShowFileHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
             case CodeLensCommand.DiffWithPrevious: return this._applyDiffWithPreviousCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
+            case CodeLensCommand.ShowQuickCommitDetails: return this._applyShowQuickCommitDetailsCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
             case CodeLensCommand.ShowQuickFileHistory: return this._applyShowQuickFileHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
+            case CodeLensCommand.ShowQuickRepoHistory: return this._applyShowQuickRepoHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
             default: return lens;
         }
     }
@@ -227,7 +229,9 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             case CodeLensCommand.ShowBlameHistory: return this._applyShowBlameHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
             case CodeLensCommand.ShowFileHistory: return this._applyShowFileHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
             case CodeLensCommand.DiffWithPrevious: return this._applyDiffWithPreviousCommand<GitAuthorsCodeLens>(title, lens, blame);
+            case CodeLensCommand.ShowQuickCommitDetails: return this._applyShowQuickCommitDetailsCommand<GitAuthorsCodeLens>(title, lens, blame);
             case CodeLensCommand.ShowQuickFileHistory: return this._applyShowQuickFileHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
+            case CodeLensCommand.ShowQuickRepoHistory: return this._applyShowQuickRepoHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
             default: return lens;
         }
     }
@@ -295,11 +299,29 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         return lens;
     }
 
-    _applyShowQuickFileHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: IGitBlameLines, commit?: GitCommit): T {
+    _applyShowQuickCommitDetailsCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: IGitBlameLines, commit?: GitCommit): T {
         lens.command = {
             title: title,
             command: CodeLensCommand.ShowQuickFileHistory,
             arguments: [Uri.file(lens.uri.fsPath), undefined, commit]
+        };
+        return lens;
+    }
+
+    _applyShowQuickFileHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: IGitBlameLines, commit?: GitCommit): T {
+        lens.command = {
+            title: title,
+            command: CodeLensCommand.ShowQuickFileHistory,
+            arguments: [Uri.file(lens.uri.fsPath)]
+        };
+        return lens;
+    }
+
+    _applyShowQuickRepoHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: IGitBlameLines, commit?: GitCommit): T {
+        lens.command = {
+            title: title,
+            command: CodeLensCommand.ShowQuickRepoHistory,
+            arguments: [Uri.file(lens.uri.fsPath)]
         };
         return lens;
     }

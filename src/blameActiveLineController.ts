@@ -227,7 +227,13 @@ export default class BlameActiveLineController extends Disposable {
                     this._statusBarItem.tooltip = 'Toggle Git CodeLens';
                     break;
                 case StatusBarCommand.ShowQuickFileHistory:
+                    this._statusBarItem.tooltip = 'Show Commit Details';
+                    break;
+                case StatusBarCommand.ShowQuickFileHistory:
                     this._statusBarItem.tooltip = 'Show File History';
+                    break;
+                case StatusBarCommand.ShowQuickFileHistory:
+                    this._statusBarItem.tooltip = 'Show Repository History';
                     break;
             }
 
