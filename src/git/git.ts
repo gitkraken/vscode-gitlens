@@ -47,13 +47,17 @@ export default class Git {
     }
 
     static splitPath(fileName: string, repoPath?: string): [string, string] {
-        // if (!path.isAbsolute(fileName)) {
-        //     Logger.error(`Git.splitPath(${fileName}) is not an absolute path!`);
-        //     debugger;
-        // }
-        if (repoPath) return [fileName.replace(`${repoPath}/`, ''), repoPath];
+        if (repoPath) {
+            return [
+                fileName.replace(repoPath.endsWith('/') ? repoPath : `${repoPath}/`, ''),
+                repoPath
+            ];
+        }
 
-        return [path.basename(fileName).replace(/\\/g, '/'), path.dirname(fileName).replace(/\\/g, '/')];
+        return [
+            path.basename(fileName).replace(/\\/g, '/'),
+            path.dirname(fileName).replace(/\\/g, '/')
+        ];
     }
 
     static async repoPath(cwd: string, gitPath?: string) {
