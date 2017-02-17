@@ -1,6 +1,6 @@
 ## Release Notes
 
-### 2.2.0
+### 2.2.1
   - Overhauls the `gitlens.showQuickRepoHistory`, `gitlens.showQuickFileHistory`, and `gitlens.showQuickCommitDetails` quickpick lists
     - Adds `Show Repository History` command to `gitlens.showQuickFileHistory` quickpick list
     - Adds `Show Previous Commits History` command to `gitlens.showQuickCommitDetails` quickpick list
