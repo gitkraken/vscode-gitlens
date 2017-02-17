@@ -16,7 +16,7 @@
   - Adds `gitlens.showQuickRepoHistory` and `gitlens.showQuickCommitDetails` commands to the status bar
   - Changes the default command of `gitlens.codeLens.recentChange.command` to `gitlens.showQuickCommitDetails`
   - Changes the default command of `gitlens.statusBar.command` to `gitlens.showQuickCommitDetails`
-  - Changes behavior of `gitlens.showQuickFileHistory` when executed via CodeLens to open commit details directly
+  - Changes Changes behavior of `gitlens.showQuickCommitDetails` to show commit commands rather than file set (use `Show Changed Files` command to get to the file set)
   - Changes `gitlens.diffWithPrevious` command to behave as `gitlens.diffWithWorking` if the file has uncommitted changes
   - Renames `gitlens.diffWithPrevious` command from `Diff Commit with Previous` to `Compare with Previous Commit`
   - Renames `gitlens.diffLineWithPrevious` command from `Diff Commit (line) with Previous` to `Compare Line with Previous Commit`

@@ -1,6 +1,6 @@
 'use strict';
 import { Iterables } from '../system';
-import { TextEditor, Uri, window } from 'vscode';
+import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand } from './commands';
 import { Commands } from '../constants';
 import GitProvider, { GitCommit, GitUri } from '../gitProvider';
@@ -36,6 +36,8 @@ export default class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
 
                 sha = blame.commit.isUncommitted ? blame.commit.previousSha : blame.commit.sha;
                 repoPath = blame.commit.repoPath;
+
+                return commands.executeCommand(Commands.ShowQuickFileHistory, uri, undefined, blame.commit);
             }
             catch (ex) {
                 Logger.error('[GitLens.ShowQuickCommitDetails]', `getBlameForLine(${blameline})`, ex);
