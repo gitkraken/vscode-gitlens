@@ -6,16 +6,19 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 
 - Provides (optional) **CodeLens** on code blocks:
   - **Recent Change** - author and date of the most recent check-in for that block
-    - Clicking on the CodeLens opens a **file history explorer** (by default) with the all the file commits in the right pane and the commit (file) contents on the left
+    - Clicking on the CodeLens opens a **commit details quick pick** ui (by default) with commands for comparing, navigating, and exploring commits
   - **Authors** - number of authors of a block and the most prominent author (if there are more than one)
     - Clicking on the CodeLens toggles Git blame annotations on/off (by default)
 - Provides on-demand **inline blame annotations** with multiple styles (compact, expanded, and trailing)
 - Provides (optional) Git blame information about the selected line in the **status bar**
   - Clicking on the status bar toggles Git blame annotations on/off (by default)
 - Provides (optional) Git blame information about the selected line to the right of the line
-- Provides a Git **file history explorer** to visualize the history of a file
-- Provides a Git **blame history explorer** to visualize the blame history of a file or block
 - Provides ability to **compare diffs** with the working tree as well as with previous versions
+- Provides a Git **commit details quick pick** ui with detailed information about the commit, complete with commands for comparing, navigating, and exploring commits
+- Provides a Git **file history quick pick** ui for exploring the commit history of a file
+- Provides a Git **repository history quick pick** ui for exploring the commit history of a repository
+- Provides a Git **file history explorer** (peek style ui) to visualize the history of a file
+- Provides a Git **blame history explorer** (peek style ui) to visualize the blame history of a file or block
 - Provides many configuration settings to allow the **customization** of almost all features
 
 ## Screenshots
