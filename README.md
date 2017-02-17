@@ -21,9 +21,12 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 - Provides a Git **blame history explorer** (peek style ui) to visualize the blame history of a file or block
 - Provides many configuration settings to allow the **customization** of almost all features
 
-## Screenshots
+## Feature Previews
+#### Featuring CodeLens and commands, toggling inline blame annotations, and showing quick pick ui and commands
+![GitLens preview 1](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/gitlens-preview1.gif)
 
-![GitLens preview](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/preview-gitlens.gif)
+#### Featuring active line blame annotation and hovers, status bar commit details and commands, quick pick ui and commands, compare with previous, etc
+![GitLens preview 2](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/gitlens-preview2.gif)
 
 ## Extension Settings
 
