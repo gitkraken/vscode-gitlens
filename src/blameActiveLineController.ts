@@ -290,7 +290,7 @@ export default class BlameActiveLineController extends Disposable {
                         hoverMessage: hoverMessage,
                         renderOptions: {
                             after: {
-                                color: 'rgba(153, 153, 153, 0.3)',
+                                color: 'rgba(153, 153, 153, 0.35)',
                                 contentText: annotation
                             }
                         } as DecorationInstanceRenderOptions
