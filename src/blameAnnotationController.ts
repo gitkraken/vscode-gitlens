@@ -1,6 +1,6 @@
 'use strict';
 import { Functions } from './system';
-import { DecorationRenderOptions, Disposable, ExtensionContext, OverviewRulerLane, TextDocument, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
+import { DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, TextDocument, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
 import { BlameAnnotationProvider } from './blameAnnotationProvider';
 import { TextDocumentComparer, TextEditorComparer } from './comparers';
 import { IBlameConfig } from './configuration';
@@ -20,6 +20,11 @@ export const blameDecoration: TextEditorDecorationType = window.createTextEditor
 export let highlightDecoration: TextEditorDecorationType;
 
 export default class BlameAnnotationController extends Disposable {
+
+    private _onDidToggleBlameAnnotationsEmitter = new EventEmitter<void>();
+    get onDidToggleBlameAnnotations(): Event<void> {
+        return this._onDidToggleBlameAnnotationsEmitter.event;
+    }
 
     private _annotationProviders: Map<number, BlameAnnotationProvider> = new Map();
     private _blameAnnotationsDisposable: Disposable;
@@ -138,6 +143,8 @@ export default class BlameAnnotationController extends Disposable {
             this._blameAnnotationsDisposable && this._blameAnnotationsDisposable.dispose();
             this._blameAnnotationsDisposable = undefined;
         }
+
+        this._onDidToggleBlameAnnotationsEmitter.fire();
     }
 
     async showBlameAnnotation(editor: TextEditor, shaOrLine?: string | number): Promise<boolean> {
@@ -170,7 +177,11 @@ export default class BlameAnnotationController extends Disposable {
         }
 
         this._annotationProviders.set(editor.viewColumn || -1, provider);
-        return provider.provideBlameAnnotation(shaOrLine);
+        if (await provider.provideBlameAnnotation(shaOrLine)) {
+            this._onDidToggleBlameAnnotationsEmitter.fire();
+            return true;
+        }
+        return false;
     }
 
     isAnnotating(editor: TextEditor): boolean {

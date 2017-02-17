@@ -1,5 +1,5 @@
 'use strict';
-import { /*Functions,*/ Iterables, Objects } from './system';
+import { Iterables, Objects } from './system';
 import { Disposable, Event, EventEmitter, ExtensionContext, languages, Location, Position, Range, TextDocument, TextEditor, Uri, workspace } from 'vscode';
 import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes, WorkspaceState } from './constants';
