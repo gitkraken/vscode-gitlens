@@ -299,6 +299,11 @@
                     ],
                     "description": "Specifies how much (if any) output will be sent to the GitLens output channel"
                 },
+                "gitlens.advanced.quickPick.closeOnFocusOut": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to close the QuickPick menu when focus is lost"
+                },
                 "gitlens.advanced.toggleWhitespace.enabled": {
                     "type": "boolean",
                     "default": false,

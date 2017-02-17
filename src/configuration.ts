@@ -109,6 +109,9 @@ export interface IAdvancedConfig {
     output: {
         level: OutputLevel;
     };
+    quickPick: {
+        closeOnFocusOut: boolean;
+    };
     toggleWhitespace: {
         enabled: boolean;
     };

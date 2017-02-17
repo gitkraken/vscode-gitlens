@@ -1,11 +1,16 @@
 'use strict';
 import { Iterables } from '../system';
-import { QuickPickOptions, Uri, window } from 'vscode';
+import { QuickPickOptions, Uri, window, workspace } from 'vscode';
+import { IAdvancedConfig } from '../configuration';
 import { Commands } from '../constants';
 import { GitCommit, GitUri, IGitLog } from '../gitProvider';
 import { CommandQuickPickItem, CommitQuickPickItem, FileQuickPickItem } from './quickPickItems';
 import * as moment from 'moment';
 import * as path from 'path';
+
+function getQuickPickIgnoreFocusOut() {
+    return !workspace.getConfiguration('gitlens').get<IAdvancedConfig>('advanced').quickPick.closeOnFocusOut;
+}
 
 export class CommitQuickPick {
 
@@ -59,7 +64,8 @@ export class CommitQuickPick {
 
         return await window.showQuickPick(items, {
             matchOnDescription: true,
-            placeHolder: `${commit.fileName} \u2022 ${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`
+            placeHolder: `${commit.fileName} \u2022 ${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`,
+            ignoreFocusOut: getQuickPickIgnoreFocusOut()
         } as QuickPickOptions);
     }
 }
@@ -79,7 +85,8 @@ export class CommitFilesQuickPick {
         return await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: `${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`
+            placeHolder: `${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`,
+            ignoreFocusOut: getQuickPickIgnoreFocusOut()
         } as QuickPickOptions);
     }
 }
@@ -116,7 +123,8 @@ export class FileCommitsQuickPick {
         return await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: `${Iterables.first(log.commits.values()).fileName}`
+            placeHolder: `${Iterables.first(log.commits.values()).fileName}`,
+            ignoreFocusOut: getQuickPickIgnoreFocusOut()
         } as QuickPickOptions);
     }
 }
@@ -141,7 +149,8 @@ export class RepoCommitsQuickPick {
         return await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: 'Search by commit message, filename, or sha'
+            placeHolder: 'Search by commit message, filename, or sha',
+            ignoreFocusOut: getQuickPickIgnoreFocusOut()
         } as QuickPickOptions);
     }
 }
