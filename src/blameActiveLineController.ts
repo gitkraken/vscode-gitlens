@@ -210,19 +210,19 @@ export default class BlameActiveLineController extends Disposable {
                     this._statusBarItem.tooltip = 'Toggle Blame Annotations';
                     break;
                 case StatusBarCommand.ShowBlameHistory:
-                    this._statusBarItem.tooltip = 'Open Blame History';
+                    this._statusBarItem.tooltip = 'Open Blame History Explorer';
                     break;
                 case StatusBarCommand.ShowFileHistory:
-                    this._statusBarItem.tooltip = 'Open File History';
+                    this._statusBarItem.tooltip = 'Open File History Explorer';
                     break;
                 case StatusBarCommand.DiffWithPrevious:
-                    this._statusBarItem.tooltip = 'Compare to Previous Commit';
+                    this._statusBarItem.tooltip = 'Compare with Previous Commit';
                     break;
                 case StatusBarCommand.ToggleCodeLens:
-                    this._statusBarItem.tooltip = 'Toggle Blame CodeLens';
+                    this._statusBarItem.tooltip = 'Toggle Git CodeLens';
                     break;
                 case StatusBarCommand.ShowQuickFileHistory:
-                    this._statusBarItem.tooltip = 'View Git File History';
+                    this._statusBarItem.tooltip = 'Show File History';
                     break;
             }
 
