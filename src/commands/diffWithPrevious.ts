@@ -41,10 +41,11 @@ export default class DiffWithPreviousCommand extends EditorCommand {
                     }
                 }
 
-                const log = await this.git.getLogForFile(gitUri.fsPath, undefined, gitUri.repoPath, rangeOrLine as Range);
+                const sha = (commit && commit.sha) || gitUri.sha;
+
+                const log = await this.git.getLogForFile(gitUri.fsPath, undefined, gitUri.repoPath, rangeOrLine as Range, sha ? undefined : 2);
                 if (!log) return window.showWarningMessage(`Unable to open diff. File is probably not under source control`);
 
-                const sha = (commit && commit.sha) || gitUri.sha;
                 commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
             }
             catch (ex) {
