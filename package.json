@@ -386,6 +386,11 @@
                 "command": "gitlens.copyShaToClipboard",
                 "title": "Copy Commit Sha to Clipboard",
                 "category": "GitLens"
+            },
+            {
+                "command": "gitlens.copyMessageToClipboard",
+                "title": "Copy Commit Message to Clipboard",
+                "category": "GitLens"
             }
         ],
         "menus": {
@@ -440,6 +445,10 @@
                 },
                 {
                     "command": "gitlens.copyShaToClipboard",
+                    "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.copyMessageToClipboard",
                     "when": "gitlens:enabled"
                 }
             ],
@@ -535,6 +544,11 @@
                     "command": "gitlens.copyShaToClipboard",
                     "when": "editorTextFocus && gitlens:enabled",
                     "group": "9_gitlens@1"
+                },
+                {
+                    "command": "gitlens.copyMessageToClipboard",
+                    "when": "editorTextFocus && gitlens:enabled",
+                    "group": "9_gitlens@2"
                 }
             ]
         },

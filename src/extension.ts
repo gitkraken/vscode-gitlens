@@ -3,6 +3,7 @@ import { commands, ExtensionContext, languages, window, workspace } from 'vscode
 import BlameActiveLineController from './blameActiveLineController';
 import BlameAnnotationController from './blameAnnotationController';
 import { configureCssCharacters } from './blameAnnotationFormatter';
+import CopyMessageToClipboardCommand from './commands/copyMessageToClipboard';
 import CopyShaToClipboardCommand from './commands/copyShaToClipboard';
 import DiffLineWithPreviousCommand from './commands/diffLineWithPrevious';
 import DiffLineWithWorkingCommand from './commands/diffLineWithWorking';
@@ -77,6 +78,7 @@ export async function activate(context: ExtensionContext) {
     const activeLineController = new BlameActiveLineController(context, git, annotationController);
     context.subscriptions.push(activeLineController);
 
+    context.subscriptions.push(new CopyMessageToClipboardCommand(git, repoPath));
     context.subscriptions.push(new CopyShaToClipboardCommand(git));
     context.subscriptions.push(new DiffWithWorkingCommand(git));
     context.subscriptions.push(new DiffLineWithWorkingCommand(git));

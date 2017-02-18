@@ -35,6 +35,11 @@ export class CommitQuickPick {
         }, Commands.CopyShaToClipboard, [uri, commit.sha]));
 
         items.push(new CommandQuickPickItem({
+            label: `$(clippy) Copy Commit Message to Clipboard`,
+            description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.message}`
+        }, Commands.CopyMessageToClipboard, [uri, commit.sha, commit.message]));
+
+        items.push(new CommandQuickPickItem({
             label: `$(diff) Show Changed Files`,
             description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.sha}`,
             detail: `Shows all the changed files in commit $(git-commit) ${commit.sha}`
