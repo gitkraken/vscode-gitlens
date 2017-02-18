@@ -1,5 +1,13 @@
 ## Release Notes
 
+### 2.5.1
+  - Adds `gitlens.copyMessageToClipboard` command to copy commit message to the clipboard
+  - Adds `gitlens.copyMessageToClipboard` to the editor content menu
+  - Adds `Copy Commit Message to Clipboard` command to `gitlens.showQuickCommitDetails` quick pick list
+  - Changes behavior of `gitlens.copyShaToClipboard` to copy the sha of the most recent commit to the repository if there is no active editor
+  - Changes behavior of `gitlens.showQuickFileHistory` to execute `gitlens.showQuickRepoHistory` if there is no active editor
+  - Fixes issue where shortcut keys weren't disabled if GitLens was disabled
+
 ### 2.5.0
   - Overhauls the `gitlens.showQuickRepoHistory`, `gitlens.showQuickFileHistory`, and `gitlens.showQuickCommitDetails` quick pick lists
     - Adds `Show Repository History` command to `gitlens.showQuickFileHistory` quick pick list
@@ -36,8 +44,8 @@
   - Adds `shift+alt+p` shortcut for the `gitlens.diffWithPrevious` command
   - Adds `alt+w` shortcut for the `gitlens.diffLineWithWorking` command
   - Adds `shift+alt+w` shortcut for the `gitlens.diffWithWorking` command
-  - Adds `gitlens.copyShaToClipboard` to copy commit sha to the clipboard ([#28](https://github.com/eamodio/vscode-gitlens/issues/28))
-  - Adds `gitlens.showQuickCommitDetails` to show a quick pick list of details for a commit
+  - Adds `gitlens.copyShaToClipboard` command to copy commit sha to the clipboard ([#28](https://github.com/eamodio/vscode-gitlens/issues/28))
+  - Adds `gitlens.showQuickCommitDetails` command to show a quick pick list of details for a commit
   - Adds `go back` choice to `gitlens.showQuickCommitDetails`, `gitlens.showQuickFileHistory`, and `gitlens.showQuickRepoHistory` quick pick lists
   - Adds `gitlens.blame.annotation.highlight` to specify whether and how to highlight blame annotations ([#24](https://github.com/eamodio/vscode-gitlens/issues/24))
   - Greatly improves performance of line navigation when either active line annotations or status bar blame is enabled
