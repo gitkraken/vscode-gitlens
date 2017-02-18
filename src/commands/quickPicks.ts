@@ -3,7 +3,7 @@ import { Iterables } from '../system';
 import { QuickPickOptions, Uri, window, workspace } from 'vscode';
 import { IAdvancedConfig } from '../configuration';
 import { Commands } from '../constants';
-import { GitCommit, GitUri, IGitLog } from '../gitProvider';
+import GitProvider, { GitCommit, GitUri, IGitLog } from '../gitProvider';
 import { CommandQuickPickItem, CommitQuickPickItem, FileQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem } from './quickPickItems';
 import * as moment from 'moment';
 import * as path from 'path';
@@ -14,8 +14,17 @@ function getQuickPickIgnoreFocusOut() {
 
 export class CommitQuickPick {
 
-    static async show(commit: GitCommit, workingFileName: string, uri: Uri, currentCommand?: CommandQuickPickItem, goBackCommand?: CommandQuickPickItem, options: { showFileHistory?: boolean } = {}): Promise<CommandQuickPickItem | undefined> {
+    static async show(git: GitProvider, commit: GitCommit, workingFileName: string, uri: Uri, currentCommand?: CommandQuickPickItem, goBackCommand?: CommandQuickPickItem, options: { showFileHistory?: boolean } = {}): Promise<CommandQuickPickItem | undefined> {
         const items: CommandQuickPickItem[] = [];
+
+        const isUncommitted = commit.isUncommitted;
+        if (isUncommitted) {
+            // Since we can't trust the previous sha on an uncommitted commit, find the last commit for this file
+            const log = await git.getLogForFile(commit.uri.fsPath, undefined, undefined, undefined, 2);
+            if (!log) return undefined;
+
+            commit = Iterables.first(log.commits.values());
+        }
 
         if (commit.previousSha) {
             items.push(new CommandQuickPickItem({
@@ -71,7 +80,7 @@ export class CommitQuickPick {
 
         return await window.showQuickPick(items, {
             matchOnDescription: true,
-            placeHolder: `${commit.fileName} \u2022 ${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`,
+            placeHolder: `${commit.fileName} \u2022 ${isUncommitted ? 'Uncommitted changes showing ' : '' } ${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
         } as QuickPickOptions);
     }

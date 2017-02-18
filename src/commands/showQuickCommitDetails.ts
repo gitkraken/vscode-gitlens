@@ -80,7 +80,7 @@ export default class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
                 workingFileName = !workingCommit ? commit.fileName : undefined;
             }
 
-            pick = await CommitQuickPick.show(commit, workingFileName, uri,
+            pick = await CommitQuickPick.show(this.git, commit, workingFileName, uri,
                 // Create a command to get back to where we are right now
                 new CommandQuickPickItem({
                     label: `go back \u21A9`,
