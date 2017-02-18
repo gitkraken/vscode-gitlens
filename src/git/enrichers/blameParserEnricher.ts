@@ -1,5 +1,5 @@
 'use strict';
-import { GitBlameFormat, GitCommit, IGitAuthor, IGitBlame, IGitCommitLine, IGitEnricher } from './../git';
+import Git, { GitBlameFormat, GitCommit, IGitAuthor, IGitBlame, IGitCommitLine, IGitEnricher } from './../git';
 import * as moment from 'moment';
 import * as path from 'path';
 
@@ -64,7 +64,9 @@ export class GitBlameParserEnricher implements IGitEnricher<IGitBlame> {
 
             switch (lineParts[0]) {
                 case 'author':
-                    entry.author = lineParts.slice(1).join(' ').trim();
+                    entry.author = Git.isUncommitted(entry.sha)
+                        ? 'Uncommitted'
+                        : lineParts.slice(1).join(' ').trim();
                     break;
 
                 // case 'author-mail':

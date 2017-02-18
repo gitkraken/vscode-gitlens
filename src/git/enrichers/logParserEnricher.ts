@@ -1,5 +1,5 @@
 'use strict';
-import { GitCommit, IGitAuthor, IGitEnricher, IGitLog } from './../git';
+import Git, { GitCommit, IGitAuthor, IGitEnricher, IGitLog } from './../git';
 import * as moment from 'moment';
 import * as path from 'path';
 
@@ -47,7 +47,9 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
 
             switch (lineParts[0]) {
                 case 'author':
-                    entry.author = lineParts.slice(1).join(' ').trim();
+                    entry.author = Git.isUncommitted(entry.sha)
+                        ? 'Uncommitted'
+                        : lineParts.slice(1).join(' ').trim();
                     break;
 
                 case 'author-date':
