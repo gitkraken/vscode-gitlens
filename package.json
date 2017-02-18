@@ -557,53 +557,55 @@
                 "command": "gitlens.toggleBlame",
                 "key": "alt+b",
                 "mac": "alt+b",
-                "when": "editorTextFocus"
+                "when": "editorTextFocus && gitlens:enabled"
             },
             {
                 "command": "gitlens.toggleCodeLens",
                 "key": "alt+shift+b",
                 "mac": "alt+shift+b",
-                "when": "editorTextFocus"
+                "when": "editorTextFocus && gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickFileHistory",
                 "key": "alt+h",
                 "mac": "alt+h",
-                "when": "editorTextFocus"
+                "when": "gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickRepoHistory",
                 "key": "shift+alt+h",
-                "mac": "shift+alt+h"
+                "mac": "shift+alt+h",
+                "when": "gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickCommitDetails",
                 "key": "alt+c",
-                "mac": "alt+c"
+                "mac": "alt+c",
+                "when": "editorTextFocus && gitlens:enabled"
             },
             {
                 "command": "gitlens.diffLineWithPrevious",
                 "key": "alt+p",
                 "mac": "alt+p",
-                "when": "editorTextFocus"
+                "when": "editorTextFocus && gitlens:enabled"
             },
             {
                 "command": "gitlens.diffWithPrevious",
                 "key": "shift+alt+p",
                 "mac": "shift+alt+p",
-                "when": "editorTextFocus"
+                "when": "editorTextFocus && gitlens:enabled"
             },
             {
                 "command": "gitlens.diffLineWithWorking",
                 "key": "alt+w",
                 "mac": "alt+w",
-                "when": "editorTextFocus"
+                "when": "editorTextFocus && gitlens:enabled"
             },
             {
                 "command": "gitlens.diffWithWorking",
                 "key": "shift+alt+w",
                 "mac": "shift+alt+w",
-                "when": "editorTextFocus"
+                "when": "editorTextFocus && gitlens:enabled"
             }
         ]
     },
