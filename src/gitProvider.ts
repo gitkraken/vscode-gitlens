@@ -188,12 +188,6 @@ export default class GitProvider extends Disposable {
         const cacheKey = this._getCacheEntryKey(fileName);
 
         if (reason === RemoveCacheReason.DocumentClosed) {
-            // Don't remove this from cache because at least for now DocumentClosed can't really be trusted
-            // It seems to fire when an editor is no longer visible (but the tab still is)
-            // if (this._fileCache.delete(cacheKey)) {
-            //     Logger.log(`Clear uri cache entry for '${cacheKey}', reason=${RemoveCacheReason[reason]}`);
-            // }
-
             // Don't remove broken blame on close (since otherwise we'll have to run the broken blame again)
             const entry = this._gitCache.get(cacheKey);
             if (entry && entry.hasErrors) return;
