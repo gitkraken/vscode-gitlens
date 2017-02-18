@@ -1,5 +1,9 @@
 ## Release Notes
 
+### 2.5.2
+  - Adds `Open File` command to `gitlens.showQuickCommitDetails` quick pick list
+  - Adds `Open Files` command to `gitlens.showQuickCommitDetails` quick pick list
+
 ### 2.5.1
   - Adds `gitlens.copyMessageToClipboard` command to copy commit message to the clipboard
   - Adds `gitlens.copyMessageToClipboard` to the editor content menu
