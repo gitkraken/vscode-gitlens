@@ -15,8 +15,11 @@ export default class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
 
     async execute(editor: TextEditor, uri?: Uri, maxCount?: number, commit?: GitCommit, goBackCommand?: CommandQuickPickItem) {
         if (!(uri instanceof Uri)) {
-            if (!editor || !editor.document) return undefined;
-            uri = editor.document.uri;
+            uri = editor && editor.document && editor.document.uri;
+        }
+
+        if (!uri) {
+            return commands.executeCommand(Commands.ShowQuickRepoHistory);
         }
 
         const gitUri = GitUri.fromUri(uri, this.git);
