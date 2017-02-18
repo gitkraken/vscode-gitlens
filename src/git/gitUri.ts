@@ -1,7 +1,8 @@
 'use strict';
 import { Uri } from 'vscode';
 import { DocumentSchemes } from '../constants';
-import GitProvider from '../gitProvider';
+import GitProvider, { Git } from '../gitProvider';
+import * as path from 'path';
 
 export class GitUri extends Uri {
 
@@ -26,14 +27,24 @@ export class GitUri extends Uri {
             base._fsPath = data.originalFileName || data.fileName;
 
             this.offset = (data.decoration && data.decoration.split('\n').length) || 0;
-            this.repoPath = data.repoPath;
-            this.sha = data.sha;
+            if (!Git.isUncommitted(data.sha)) {
+                this.sha = data.sha;
+                this.repoPath = data.repoPath;
+            }
+            else {
+                base._fsPath = path.join(data.repoPath, base._fsPath);
+            }
         }
         else if (commit) {
             base._fsPath = commit.originalFileName || commit.fileName;
 
-            this.repoPath = commit.repoPath;
-            this.sha = commit.sha;
+            if (!Git.isUncommitted(commit.sha)) {
+                this.sha = commit.sha;
+                this.repoPath = commit.repoPath;
+            }
+            else {
+                base._fsPath = path.join(commit.repoPath, base._fsPath);
+            }
         }
     }
 
