@@ -4,7 +4,7 @@ import { QuickPickOptions, Uri, window, workspace } from 'vscode';
 import { IAdvancedConfig } from '../configuration';
 import { Commands } from '../constants';
 import { GitCommit, GitUri, IGitLog } from '../gitProvider';
-import { CommandQuickPickItem, CommitQuickPickItem, FileQuickPickItem } from './quickPickItems';
+import { CommandQuickPickItem, CommitQuickPickItem, FileQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem } from './quickPickItems';
 import * as moment from 'moment';
 import * as path from 'path';
 
@@ -28,6 +28,8 @@ export class CommitQuickPick {
             label: `$(git-compare) Compare with Working Tree`,
             description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.sha} \u00a0 $(git-compare) \u00a0 $(file-text) ${workingFileName || commit.fileName}`
         }, Commands.DiffWithWorking, [uri, commit]));
+
+        items.push(new OpenFileCommandQuickPickItem(commit));
 
         items.push(new CommandQuickPickItem({
             label: `$(clippy) Copy Commit Sha to Clipboard`,
@@ -78,21 +80,28 @@ export class CommitQuickPick {
 export class CommitFilesQuickPick {
 
     static async show(commit: GitCommit, uri: Uri, goBackCommand?: CommandQuickPickItem): Promise<FileQuickPickItem | CommandQuickPickItem | undefined> {
-        const items: (FileQuickPickItem | CommandQuickPickItem)[] = commit.fileName
-            .split(', ')
-            .filter(_ => !!_)
-            .map(f => new FileQuickPickItem(commit, f));
+        const fileNames = commit.fileName.split(', ').filter(_ => !!_);
+        const items: (FileQuickPickItem | CommandQuickPickItem)[] = fileNames.map(f => new FileQuickPickItem(commit, f));
+
+        items.splice(0, 0, new OpenFilesCommandQuickPickItem(commit, fileNames));
 
         if (goBackCommand) {
             items.splice(0, 0, goBackCommand);
         }
 
-        return await window.showQuickPick(items, {
+        const result = await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
             placeHolder: `${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
+            // onDidSelectItem: (item: QuickPickItem) => {
+            //     if (item instanceof FileQuickPickItem) {
+            //         item.preview();
+            //     }
+            // }
         } as QuickPickOptions);
+
+        return result;
     }
 }
 
