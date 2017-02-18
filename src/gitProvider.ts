@@ -187,8 +187,8 @@ export default class GitProvider extends Disposable {
 
         const cacheKey = this._getCacheEntryKey(fileName);
 
-        if (reason === RemoveCacheReason.DocumentClosed) {
-            // Don't remove broken blame on close (since otherwise we'll have to run the broken blame again)
+        if (reason === RemoveCacheReason.DocumentSaved) {
+            // Don't remove broken blame on save (since otherwise we'll have to run the broken blame again)
             const entry = this._gitCache.get(cacheKey);
             if (entry && entry.hasErrors) return;
         }
