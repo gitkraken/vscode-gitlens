@@ -79,7 +79,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(activeLineController);
 
     context.subscriptions.push(new CopyMessageToClipboardCommand(git, repoPath));
-    context.subscriptions.push(new CopyShaToClipboardCommand(git));
+    context.subscriptions.push(new CopyShaToClipboardCommand(git, repoPath));
     context.subscriptions.push(new DiffWithWorkingCommand(git));
     context.subscriptions.push(new DiffLineWithWorkingCommand(git));
     context.subscriptions.push(new DiffWithPreviousCommand(git));

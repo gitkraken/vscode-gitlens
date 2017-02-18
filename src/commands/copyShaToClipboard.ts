@@ -1,27 +1,37 @@
 'use strict';
-import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { EditorCommand } from './commands';
+import { Iterables } from '../system';
+import { TextEditor, Uri, window } from 'vscode';
+import { ActiveEditorCommand } from './commands';
 import { Commands } from '../constants';
 import GitProvider, { GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 import { copy } from 'copy-paste';
 
-export default class CopyShaToClipboard extends EditorCommand {
+export default class CopyShaToClipboardCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitProvider) {
+    constructor(private git: GitProvider, public repoPath: string) {
         super(Commands.CopyShaToClipboard);
     }
 
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, sha?: string): Promise<any> {
+    async execute(editor: TextEditor, uri?: Uri, sha?: string): Promise<any> {
         if (!(uri instanceof Uri)) {
-            if (!editor.document) return undefined;
-            uri = editor.document.uri;
+            uri = editor && editor.document && editor.document.uri;
         }
 
-        const line = editor.selection.active.line;
-        const gitUri = GitUri.fromUri(uri, this.git);
-
         try {
+            // If we don't have an editor then get the sha of the last commit to the repository
+            if (!uri) {
+                const log = await this.git.getLogForRepo(this.repoPath, undefined, 1);
+                if (!log) return undefined;
+
+                sha = Iterables.first(log.commits.values()).sha;
+                copy(sha);
+                return undefined;
+            }
+
+            const line = editor.selection.active.line;
+            const gitUri = GitUri.fromUri(uri, this.git);
+
             if (!sha) {
                 const blameline = line - gitUri.offset;
                 if (blameline < 0) return undefined;
@@ -33,7 +43,7 @@ export default class CopyShaToClipboard extends EditorCommand {
                     sha = blame.commit.sha;
                 }
                 catch (ex) {
-                    Logger.error('[GitLens.CopyShaToClipboard]', `getBlameForLine(${blameline})`, ex);
+                    Logger.error('[GitLens.CopyShaToClipboardCommand]', `getBlameForLine(${blameline})`, ex);
                     return window.showErrorMessage(`Unable to copy sha. See output channel for more details`);
                 }
             }
@@ -42,7 +52,7 @@ export default class CopyShaToClipboard extends EditorCommand {
             return undefined;
         }
         catch (ex) {
-            Logger.error('GitLens.CopyShaToClipboard', ex);
+            Logger.error('GitLens.CopyShaToClipboardCommand', ex);
             return window.showErrorMessage(`Unable to copy sha. See output channel for more details`);
         }
     }
