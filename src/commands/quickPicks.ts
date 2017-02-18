@@ -80,7 +80,7 @@ export class CommitQuickPick {
 
         return await window.showQuickPick(items, {
             matchOnDescription: true,
-            placeHolder: `${commit.fileName} \u2022 ${isUncommitted ? 'Uncommitted changes showing ' : '' } ${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`,
+            placeHolder: `${commit.fileName} \u2022 ${isUncommitted ? 'Uncommitted \u21E8 ' : '' }${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
         } as QuickPickOptions);
     }
