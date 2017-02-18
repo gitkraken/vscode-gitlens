@@ -3,6 +3,9 @@
 ### 2.5.2
   - Adds `Open File` command to `gitlens.showQuickCommitDetails` quick pick list
   - Adds `Open Files` command to `gitlens.showQuickCommitDetails` quick pick list
+  - Changes `Not Committed Yet` author for uncommitted changes to `Uncommitted`
+  - Improves performance of git-log operations in `gitlens.diffWithPrevious` and `gitlens.diffWithWorking` commands
+  - Fixes showing `gitlens.showQuickCommitDetails` quick pick list for uncommitted changes -- now shows the previous commit details
 
 ### 2.5.1
   - Adds `gitlens.copyMessageToClipboard` command to copy commit message to the clipboard
