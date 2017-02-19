@@ -9,6 +9,7 @@
 // A task runner that calls a custom npm script that compiles the extension.
 {
     "version": "0.1.0",
+    "_runner": "terminal",
     "command": "npm",
     "args": ["run"],
     "isShellCommand": true,
@@ -19,12 +20,12 @@
         "taskName": "compile",
         "args": ["compile", "--loglevel", "silent"],
         "isBuildCommand": true,
-        "isWatching": true,
+        "isBackground": true,
         "problemMatcher": "$tsc-watch"
     }, {
         "taskName": "tslint",
         "args": ["lint", "--loglevel", "silent"],
-        "isWatching": true,
+        "isBackground": true,
         "problemMatcher": {
             "owner": "tslint",
             "fileLocation": [
