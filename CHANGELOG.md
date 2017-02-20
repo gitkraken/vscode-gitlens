@@ -1,5 +1,8 @@
 ## Release Notes
 
+### 2.5.4
+  - Fixes extra spacing in annotations
+
 ### 2.5.3
   - Fixes [#27](https://github.com/eamodio/vscode-gitlens/issues/27) - Annotations are broken in vscode insider build
 
