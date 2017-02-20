@@ -40,10 +40,10 @@ export default class BlameAnnotationFormatter {
         if (format === BlameAnnotationFormat.Unconstrained) {
             const authorAndDate = this.getAuthorAndDate(config, commit, 'MMMM Do, YYYY h:MMa');
             if (config.annotation.sha) {
-                message = `${sha}${(authorAndDate ? `${cssPadding}${cssSeparator}${cssPadding} ${authorAndDate}` : '')}${(message ? `${cssPadding}${cssSeparator}${cssPadding} ${message}` : '')}`;
+                message = `${sha}${(authorAndDate ? `${cssPadding}${cssSeparator}${cssPadding}${authorAndDate}` : '')}${(message ? `${cssPadding}${cssSeparator}${cssPadding}${message}` : '')}`;
             }
             else if (config.annotation.author || config.annotation.date) {
-                message = `${authorAndDate}${(message ? `${cssPadding}${cssSeparator}${cssPadding} ${message}` : '')}`;
+                message = `${authorAndDate}${(message ? `${cssPadding}${cssSeparator}${cssPadding}${message}` : '')}`;
             }
 
             return message;
@@ -52,13 +52,13 @@ export default class BlameAnnotationFormatter {
         const author = this.getAuthor(config, commit, defaultAuthorLength);
         const date = this.getDate(config, commit, 'MM/DD/YYYY', true);
         if (config.annotation.sha) {
-            message = `${sha}${(author ? `${cssPadding}${cssSeparator}${cssPadding} ${author}` : '')}${(date ? `${cssPadding}${cssSeparator}${cssPadding} ${date}` : '')}${(message ? `${cssPadding}${cssSeparator}${cssPadding} ${message}` : '')}`;
+            message = `${sha}${(author ? `${cssPadding}${cssSeparator}${cssPadding}${author}` : '')}${(date ? `${cssPadding}${cssSeparator}${cssPadding}${date}` : '')}${(message ? `${cssPadding}${cssSeparator}${cssPadding}${message}` : '')}`;
         }
         else if (config.annotation.author) {
-            message = `${author}${(date ? `${cssPadding}${cssSeparator}${cssPadding} ${date}` : '')}${(message ? `${cssPadding}${cssSeparator}${cssPadding} ${message}` : '')}`;
+            message = `${author}${(date ? `${cssPadding}${cssSeparator}${cssPadding}${date}` : '')}${(message ? `${cssPadding}${cssSeparator}${cssPadding}${message}` : '')}`;
         }
         else if (config.annotation.date) {
-            message = `${date}${(message ? `${cssPadding}${cssSeparator}${cssPadding} ${message}` : '')}`;
+            message = `${date}${(message ? `${cssPadding}${cssSeparator}${cssPadding}${message}` : '')}`;
         }
 
         return message;
