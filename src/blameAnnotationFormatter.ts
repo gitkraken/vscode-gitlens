@@ -9,22 +9,21 @@ export const defaultRelativeDateLength = 13;
 export const defaultAuthorLength = 16;
 export const defaultMessageLength = 32;
 
-export let cssEllipse = '\\002026';
-export let cssIndent = '\\002759';
-export let cssSeparator = '\\002022';
-export let cssPadding = '\\0000a0';
+const defaultCssEllipse = '\u2026';
+const defaultCssIndent = '\u2759';
+const defaultCssPadding = '\u00a0';
+const defaultCssSeparator = '\u2022';
 
-let cssEllipseLength: number = 1;
-
-const cssUnicodeMatcher = /\\[0-9a-fA-F]{1,6}/;
+export let cssEllipse = defaultCssEllipse;
+export let cssIndent = defaultCssIndent;
+export let cssPadding = defaultCssPadding;
+export let cssSeparator = defaultCssSeparator;
 
 export function configureCssCharacters(config: IBlameConfig) {
-    cssEllipse = config.annotation.characters.ellipse || cssEllipse;
-    cssIndent = config.annotation.characters.indent || cssIndent;
-    cssPadding = config.annotation.characters.padding || cssPadding;
-    cssSeparator = config.annotation.characters.separator || cssSeparator;
-
-    cssEllipseLength = cssUnicodeMatcher.test(cssEllipse) ? 1 : cssEllipse.length;
+    cssEllipse = config.annotation.characters.ellipse || defaultCssEllipse;
+    cssIndent = config.annotation.characters.indent || defaultCssIndent;
+    cssPadding = config.annotation.characters.padding || defaultCssSeparator;
+    cssSeparator = config.annotation.characters.separator || defaultCssSeparator;
 }
 
 export enum BlameAnnotationFormat {
@@ -95,11 +94,11 @@ export default class BlameAnnotationFormatter {
         if (!truncateTo) return author;
 
         if (author.length > truncateTo) {
-            return `${author.substring(0, truncateTo - cssEllipseLength)}${cssEllipse}`;
+            return `${author.substring(0, truncateTo - cssEllipse.length)}${cssEllipse}`;
         }
 
         if (force) return author; // Don't pad when just asking for the value
-        return author + `${cssPadding}`.repeat(truncateTo - author.length);
+        return author + cssPadding.repeat(truncateTo - author.length);
     }
 
     static getDate(config: IBlameConfig, commit: GitCommit, format?: string, truncate: boolean = false, force: boolean = false) {
@@ -112,11 +111,11 @@ export default class BlameAnnotationFormatter {
 
         const truncateTo = config.annotation.date === 'relative' ? defaultRelativeDateLength : defaultAbsoluteDateLength;
         if (date.length > truncateTo) {
-            return `${date.substring(0, truncateTo - cssEllipseLength)}${cssEllipse}`;
+            return `${date.substring(0, truncateTo - cssEllipse.length)}${cssEllipse}`;
         }
 
         if (force) return date; // Don't pad when just asking for the value
-        return date + `${cssPadding}`.repeat(truncateTo - date.length);
+        return date + cssPadding.repeat(truncateTo - date.length);
     }
 
     static getMessage(config: IBlameConfig, commit: GitCommit, truncateTo: number = 0, force: boolean = false) {
@@ -124,7 +123,7 @@ export default class BlameAnnotationFormatter {
 
         let message = commit.isUncommitted ? 'Uncommited change' : commit.message;
         if (truncateTo && message.length > truncateTo) {
-            return `${message.substring(0, truncateTo - cssEllipseLength)}${cssEllipse}`;
+            return `${message.substring(0, truncateTo - cssEllipse.length)}${cssEllipse}`;
         }
 
         return message;

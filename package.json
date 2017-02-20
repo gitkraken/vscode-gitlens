@@ -101,22 +101,22 @@
                 },
                 "gitlens.blame.annotation.characters.ellipse": {
                     "type": "string",
-                    "default": "\\2026",
+                    "default": "\u2026",
                     "description": "Specifies the ellipse character to use in blame annotations"
                 },
                 "gitlens.blame.annotation.characters.indent": {
                     "type": "string",
-                    "default": "\\2759",
+                    "default": "\u2759",
                     "description": "Specifies the indent character to use in `compact` blame annotations"
                 },
                 "gitlens.blame.annotation.characters.padding": {
                     "type": "string",
-                    "default": "\\00a0",
+                    "default": "\u00a0",
                     "description": "Specifies the padding character (typically a non-breaking space) to use in blame annotations"
                 },
                 "gitlens.blame.annotation.characters.separator": {
                     "type": "string",
-                    "default": "\\2022",
+                    "default": "\u2022",
                     "description": "Specifies the separator character to use in blame annotations"
                 },
                 "gitlens.codeLens.visibility": {
