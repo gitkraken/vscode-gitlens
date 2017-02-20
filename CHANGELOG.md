@@ -1,5 +1,8 @@
 ## Release Notes
 
+### 2.5.3
+  - Fixes [#27](https://github.com/eamodio/vscode-gitlens/issues/27) - Annotations are broken in vscode insider build
+
 ### 2.5.2
   - Adds `Open File` command to `gitlens.showQuickCommitDetails` quick pick list
   - Adds `Open Files` command to `gitlens.showQuickCommitDetails` quick pick list
