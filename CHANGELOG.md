@@ -1,5 +1,8 @@
 ## Release Notes
 
+### 2.5.6
+  - Fixes [#32](https://github.com/eamodio/vscode-gitlens/issues/32) - 00000000 Uncommitted changes distracting
+
 ### 2.5.5
   - Fixes [#25](https://github.com/eamodio/vscode-gitlens/issues/25) - Blame information isn't updated after git operations (commit, reset, etc)
 
