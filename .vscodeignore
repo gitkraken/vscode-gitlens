@@ -7,3 +7,4 @@ src/**
 **/*.map
 .gitignore
 tsconfig.json
+tslint.json
