@@ -1,5 +1,8 @@
 ## Release Notes
 
+### 2.5.5
+  - Fixes [#25](https://github.com/eamodio/vscode-gitlens/issues/25) - Blame information isn't updated after git operations (commit, reset, etc)
+
 ### 2.5.4
   - Fixes extra spacing in annotations
 
