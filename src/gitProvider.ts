@@ -1,6 +1,6 @@
 'use strict';
 import { Iterables, Objects } from './system';
-import { Disposable, Event, EventEmitter, ExtensionContext, languages, Location, Position, Range, TextDocument, TextEditor, Uri, workspace } from 'vscode';
+import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, languages, Location, Position, Range, TextDocument, TextEditor, Uri, workspace } from 'vscode';
 import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes, WorkspaceState } from './constants';
 import Git, { GitBlameParserEnricher, GitBlameFormat, GitCommit, GitLogParserEnricher, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog } from './git/git';
@@ -46,9 +46,9 @@ enum RemoveCacheReason {
 
 export default class GitProvider extends Disposable {
 
-    private _onDidRemoveCacheEntryEmitter = new EventEmitter<void>();
-    get onDidRemoveCacheEntry(): Event<void> {
-        return this._onDidRemoveCacheEntryEmitter.event;
+    private _onDidChangeGitCacheEmitter = new EventEmitter<void>();
+    get onDidChangeGitCache(): Event<void> {
+        return this._onDidChangeGitCacheEmitter.event;
     }
 
     private _gitCache: Map<string, GitCacheEntry> | undefined;
@@ -60,6 +60,7 @@ export default class GitProvider extends Disposable {
     private _codeLensProvider: GitCodeLensProvider | undefined;
     private _codeLensProviderDisposable: Disposable | undefined;
     private _disposable: Disposable;
+    private _fsWatcher: FileSystemWatcher;
     private _gitignore: Promise<ignore.Ignore>;
 
     static EmptyPromise: Promise<IGitBlame | IGitLog> = Promise.resolve(undefined);
@@ -87,8 +88,15 @@ export default class GitProvider extends Disposable {
         this._codeLensProvider = undefined;
 
         this._cacheDisposable && this._cacheDisposable.dispose();
-        this._uriCache && this._uriCache.clear();
+        this._cacheDisposable = undefined;
+
+        this._fsWatcher && this._fsWatcher.dispose();
+        this._fsWatcher = undefined;
+
         this._gitCache && this._gitCache.clear();
+        this._gitCache = undefined;
+        this._uriCache && this._uriCache.clear();
+        this._uriCache = undefined;
     }
 
     public get UseUriCaching() {
@@ -107,7 +115,6 @@ export default class GitProvider extends Disposable {
 
         if (codeLensChanged || advancedChanged) {
             Logger.log('CodeLens config changed; resetting CodeLens provider');
-            // this._codeLensProviderDisposable && this._codeLensProviderDisposable.dispose();
             if (config.codeLens.visibility === CodeLensVisibility.Auto && (config.codeLens.recentChange.enabled || config.codeLens.authors.enabled)) {
                 if (this._codeLensProvider) {
                     this._codeLensProvider.reset();
@@ -126,15 +133,18 @@ export default class GitProvider extends Disposable {
 
         if (advancedChanged) {
             if (config.advanced.caching.enabled) {
-                // TODO: Cache needs to be cleared on file changes -- createFileSystemWatcher or timeout?
                 this._gitCache = new Map();
                 this._uriCache = new Map();
 
+                this._cacheDisposable && this._cacheDisposable.dispose();
+
+                this._fsWatcher = this._fsWatcher || workspace.createFileSystemWatcher('**/.git/index', true, false, true);
+
                 const disposables: Disposable[] = [];
 
-                // TODO: Maybe stop clearing on close and instead limit to a certain number of recent blames
                 disposables.push(workspace.onDidCloseTextDocument(d => this._removeCachedEntry(d, RemoveCacheReason.DocumentClosed)));
                 disposables.push(workspace.onDidSaveTextDocument(d => this._removeCachedEntry(d, RemoveCacheReason.DocumentSaved)));
+                disposables.push(this._fsWatcher.onDidChange(this._onGitChanged, this));
 
                 this._cacheDisposable = Disposable.from(...disposables);
             }
@@ -142,11 +152,14 @@ export default class GitProvider extends Disposable {
                 this._cacheDisposable && this._cacheDisposable.dispose();
                 this._cacheDisposable = undefined;
 
-                this._uriCache && this._uriCache.clear();
-                this._uriCache = undefined;
+                this._fsWatcher && this._fsWatcher.dispose();
+                this._fsWatcher = undefined;
 
                 this._gitCache && this._gitCache.clear();
                 this._gitCache = undefined;
+
+                this._uriCache && this._uriCache.clear();
+                this._uriCache = undefined;
             }
 
             this._gitignore = new Promise<ignore.Ignore | undefined>((resolve, reject) => {
@@ -179,6 +192,13 @@ export default class GitProvider extends Disposable {
         return fileName.toLowerCase();
     }
 
+    private _onGitChanged() {
+        this._gitCache && this._gitCache.clear();
+
+        this._onDidChangeGitCacheEmitter.fire();
+        this._codeLensProvider && this._codeLensProvider.reset();
+    }
+
     private _removeCachedEntry(document: TextDocument, reason: RemoveCacheReason) {
         if (!this.UseGitCaching) return;
         if (document.uri.scheme !== DocumentSchemes.File) return;
@@ -197,9 +217,9 @@ export default class GitProvider extends Disposable {
             Logger.log(`Clear cache entry for '${cacheKey}', reason=${RemoveCacheReason[reason]}`);
 
             if (reason === RemoveCacheReason.DocumentSaved) {
-                this._onDidRemoveCacheEntryEmitter.fire();
+                this._onDidChangeGitCacheEmitter.fire();
 
-                // Refresh the codelenses with the update blame
+                // Refresh the codelenses with the updated blame
                 this._codeLensProvider && this._codeLensProvider.reset();
             }
         }

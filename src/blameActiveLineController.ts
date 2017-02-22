@@ -39,7 +39,7 @@ export default class BlameActiveLineController extends Disposable {
         const subscriptions: Disposable[] = [];
 
         subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigurationChanged, this));
-        subscriptions.push(git.onDidRemoveCacheEntry(this._onRemoveCacheEntry, this));
+        subscriptions.push(git.onDidChangeGitCache(this._onGitCacheChanged, this));
         subscriptions.push(annotationController.onDidToggleBlameAnnotations(this._onBlameAnnotationToggled, this));
 
         this._disposable = Disposable.from(...subscriptions);
@@ -110,7 +110,7 @@ export default class BlameActiveLineController extends Disposable {
         this._onActiveTextEditorChanged(window.activeTextEditor);
     }
 
-    private _onRemoveCacheEntry() {
+    private _onGitCacheChanged() {
         this._blame = undefined;
         this._onActiveTextEditorChanged(window.activeTextEditor);
     }
