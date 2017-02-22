@@ -282,7 +282,7 @@ export default class BlameActiveLineController extends Disposable {
                 // If the messages match (or we couldn't find the log), then this is a possible duplicate annotation
                 const possibleDuplicate = !logCommit || logCommit.message === commit.message;
                 // If we don't have a possible dupe or we aren't showing annotations get the hover message
-                if (!possibleDuplicate || !this.annotationController.isAnnotating(editor)) {
+                if (!commit.isUncommitted && (!possibleDuplicate || !this.annotationController.isAnnotating(editor))) {
                     hoverMessage = BlameAnnotationFormatter.getAnnotationHover(config, blameLine, logCommit || commit);
                 }
             }
