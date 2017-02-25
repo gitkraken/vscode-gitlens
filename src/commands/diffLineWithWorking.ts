@@ -1,7 +1,6 @@
 'use strict';
 import { commands, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { EditorCommand } from './commands';
-import { Commands } from '../constants';
+import { Commands, EditorCommand } from '../commands';
 import GitProvider, { GitCommit, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 

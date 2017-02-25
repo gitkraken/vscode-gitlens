@@ -1,5 +1,5 @@
 'use strict';
-import { Commands } from './constants';
+import { Commands } from './commands';
 
 export type BlameAnnotationStyle = 'compact' | 'expanded' | 'trailing';
 export const BlameAnnotationStyle = {

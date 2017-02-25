@@ -1,7 +1,8 @@
 'use strict';
 import { Iterables } from './system';
 import { CancellationToken, CodeLens, CodeLensProvider, DocumentSelector, ExtensionContext, Range, TextDocument, Uri } from 'vscode';
-import { Commands, DocumentSchemes } from './constants';
+import { Commands } from './commands';
+import { DocumentSchemes } from './constants';
 import GitProvider, { GitCommit, GitUri } from './gitProvider';
 
 export class GitDiffWithWorkingCodeLens extends CodeLens {

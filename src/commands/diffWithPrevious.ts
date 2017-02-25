@@ -1,8 +1,8 @@
 'use strict';
 import { Iterables } from '../system';
 import { commands, Range, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { EditorCommand } from './commands';
-import { BuiltInCommands, Commands } from '../constants';
+import { Commands, EditorCommand } from '../commands';
+import { BuiltInCommands } from '../constants';
 import GitProvider, { GitCommit, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 import * as moment from 'moment';

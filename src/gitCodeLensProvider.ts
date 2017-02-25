@@ -1,7 +1,8 @@
 'use strict';
 import { Functions, Iterables, Strings } from './system';
 import { CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelector, Event, EventEmitter, ExtensionContext, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri, workspace } from 'vscode';
-import { BuiltInCommands, Commands, DocumentSchemes } from './constants';
+import { Commands } from './commands';
+import { BuiltInCommands, DocumentSchemes } from './constants';
 import { CodeLensCommand, CodeLensLocation, IConfig, ICodeLensLanguageLocation } from './configuration';
 import GitProvider, { GitCommit, GitUri, IGitBlame, IGitBlameLines } from './gitProvider';
 import { Logger } from './logger';

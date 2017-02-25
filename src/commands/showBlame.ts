@@ -1,8 +1,7 @@
 'use strict';
 import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import BlameAnnotationController from '../blameAnnotationController';
-import { EditorCommand } from './commands';
-import { Commands } from '../constants';
+import { Commands, EditorCommand } from '../commands';
 import { Logger } from '../logger';
 
 export default class ShowBlameCommand extends EditorCommand {
