@@ -1,5 +1,9 @@
 ## Release Notes
 
+### 2.6.0
+  - Adds `gitlens.showQuickRepoStatus` command to show a quick pick list of files changed
+  - Adds `alt+s` shortcut for the `gitlens.showQuickRepoStatus` command
+
 ### 2.5.6
   - Fixes [#32](https://github.com/eamodio/vscode-gitlens/issues/32) - 00000000 Uncommitted changes distracting
 
