@@ -2,9 +2,9 @@
 import { Iterables } from '../system';
 import { QuickPickOptions, Uri, window, workspace } from 'vscode';
 import { IAdvancedConfig } from '../configuration';
-import { Commands } from '../constants';
-import GitProvider, { GitCommit, GitUri, IGitLog } from '../gitProvider';
-import { CommandQuickPickItem, CommitQuickPickItem, FileQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem } from './quickPickItems';
+import { Commands } from '../commands';
+import GitProvider, { GitCommit, GitFileStatus, GitFileStatusItem, GitUri, IGitLog } from '../gitProvider';
+import { CommandQuickPickItem, CommitQuickPickItem, FileQuickPickItem, OpenCommitFileCommandQuickPickItem, OpenStatusFileCommandQuickPickItem, OpenCommitFilesCommandQuickPickItem, OpenStatusFilesCommandQuickPickItem } from './quickPickItems';
 import * as moment from 'moment';
 import * as path from 'path';
 
@@ -16,6 +16,8 @@ export class CommitQuickPick {
 
     static async show(git: GitProvider, commit: GitCommit, workingFileName: string, uri: Uri, currentCommand?: CommandQuickPickItem, goBackCommand?: CommandQuickPickItem, options: { showFileHistory?: boolean } = {}): Promise<CommandQuickPickItem | undefined> {
         const items: CommandQuickPickItem[] = [];
+
+        const workingName = (workingFileName && path.basename(workingFileName)) || path.basename(commit.fileName);
 
         const isUncommitted = commit.isUncommitted;
         if (isUncommitted) {
@@ -35,10 +37,10 @@ export class CommitQuickPick {
 
         items.push(new CommandQuickPickItem({
             label: `$(git-compare) Compare with Working Tree`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.sha} \u00a0 $(git-compare) \u00a0 $(file-text) ${workingFileName || commit.fileName}`
+            description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.sha} \u00a0 $(git-compare) \u00a0 $(file-text) ${workingName}`
         }, Commands.DiffWithWorking, [uri, commit]));
 
-        items.push(new OpenFileCommandQuickPickItem(commit));
+        items.push(new OpenCommitFileCommandQuickPickItem(commit));
 
         items.push(new CommandQuickPickItem({
             label: `$(clippy) Copy Commit Sha to Clipboard`,
@@ -52,24 +54,22 @@ export class CommitQuickPick {
 
         items.push(new CommandQuickPickItem({
             label: `$(diff) Show Changed Files`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.sha}`,
-            detail: `Shows all the changed files in commit $(git-commit) ${commit.sha}`
+            description: undefined, //`\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.sha}`,
+            detail: `Shows all of the changed files in commit $(git-commit) ${commit.sha}`
         }, Commands.ShowQuickCommitDetails, [new GitUri(commit.uri, commit), commit.sha, undefined, currentCommand]));
 
         if (options.showFileHistory) {
-            const fileName = path.basename(commit.fileName);
-            fileName;
             if (workingFileName) {
                 items.push(new CommandQuickPickItem({
                     label: `$(versions) Show Commit History`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.fileName}`,
+                    description: undefined, //`\u00a0 \u2014 \u00a0\u00a0 ${path.basename(commit.fileName)}`,
                     detail: `Shows the commit history of the file, starting at the most recent commit`
                 }, Commands.ShowQuickFileHistory, [commit.uri, undefined, undefined, currentCommand]));
             }
 
             items.push(new CommandQuickPickItem({
                 label: `$(versions) Show Previous Commit History`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.fileName}`,
+                description: undefined, //`\u00a0 \u2014 \u00a0\u00a0 ${path.basename(commit.fileName)}`,
                 detail: `Shows the previous commit history of the file, starting at $(git-commit) ${commit.sha}`
             }, Commands.ShowQuickFileHistory, [new GitUri(commit.uri, commit), undefined, undefined, currentCommand]));
         }
@@ -80,7 +80,7 @@ export class CommitQuickPick {
 
         return await window.showQuickPick(items, {
             matchOnDescription: true,
-            placeHolder: `${commit.fileName} \u2022 ${isUncommitted ? 'Uncommitted \u21E8 ' : '' }${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`,
+            placeHolder: `${path.basename(commit.fileName)} \u00a0\u2022\u00a0 ${path.dirname(commit.fileName)} \u2022 ${isUncommitted ? 'Uncommitted \u21E8 ' : '' }${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
         } as QuickPickOptions);
     }
@@ -92,7 +92,7 @@ export class CommitFilesQuickPick {
         const fileNames = commit.fileName.split(', ').filter(_ => !!_);
         const items: (FileQuickPickItem | CommandQuickPickItem)[] = fileNames.map(f => new FileQuickPickItem(commit, f));
 
-        items.splice(0, 0, new OpenFilesCommandQuickPickItem(commit, fileNames));
+        items.splice(0, 0, new OpenCommitFilesCommandQuickPickItem(commit, fileNames));
 
         if (goBackCommand) {
             items.splice(0, 0, goBackCommand);
@@ -143,10 +143,12 @@ export class FileCommitsQuickPick {
             items.splice(0, 0, goBackCommand);
         }
 
+        const fileName = Iterables.first(log.commits.values()).fileName;
+
         return await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: `${Iterables.first(log.commits.values()).fileName}`,
+            placeHolder: `${path.basename(fileName)} \u00a0\u2022\u00a0 ${path.dirname(fileName)}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
         } as QuickPickOptions);
     }
@@ -173,6 +175,44 @@ export class RepoCommitsQuickPick {
             matchOnDescription: true,
             matchOnDetail: true,
             placeHolder: 'Search by commit message, filename, or sha',
+            ignoreFocusOut: getQuickPickIgnoreFocusOut()
+        } as QuickPickOptions);
+    }
+}
+
+export class RepoStatusesQuickPick {
+
+    static async show(statuses: GitFileStatusItem[], goBackCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+        // Sort the status by staged and then filename
+        statuses.sort((a, b) => (a.staged ? -1 : 1) - (b.staged ? -1 : 1) || a.fileName.localeCompare(b.fileName));
+
+        const items = Array.from(Iterables.map(statuses, s => new OpenStatusFileCommandQuickPickItem(s))) as (OpenStatusFileCommandQuickPickItem | CommandQuickPickItem)[];
+
+        if (statuses.some(_ => _.staged)) {
+            const index = statuses.findIndex(_ => !_.staged);
+            if (index > -1) {
+                items.splice(index, 0, new OpenStatusFilesCommandQuickPickItem(statuses.filter(_ => _.status !== GitFileStatus.Deleted && !_.staged), {
+                    label: `$(file-symlink-file) Open Unstaged Files`,
+                    description: undefined,
+                    detail: `Opens all of the unstaged files in the repository`
+                }));
+
+                items.splice(0, 0, new OpenStatusFilesCommandQuickPickItem(statuses.filter(_ => _.status !== GitFileStatus.Deleted && _.staged), {
+                    label: `$(file-symlink-file) Open Staged Files`,
+                    description: undefined,
+                    detail: `Opens all of the staged files in the repository`
+                }));
+            }
+        }
+        items.splice(0, 0, new OpenStatusFilesCommandQuickPickItem(statuses.filter(_ => _.status !== GitFileStatus.Deleted)));
+
+        if (goBackCommand) {
+            items.splice(0, 0, goBackCommand);
+        }
+
+        return await window.showQuickPick(items, {
+            matchOnDescription: true,
+            placeHolder: 'Showing the repository status',
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
         } as QuickPickOptions);
     }

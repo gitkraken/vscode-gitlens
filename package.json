@@ -383,6 +383,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.showQuickRepoStatus",
+                "title": "Show Repository Status",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.copyShaToClipboard",
                 "title": "Copy Commit Sha to Clipboard",
                 "category": "GitLens"
@@ -444,6 +449,10 @@
                     "when": "gitlens:enabled"
                 },
                 {
+                    "command": "gitlens.showQuickRepoStatus",
+                    "when": "gitlens:enabled"
+                },
+                {
                     "command": "gitlens.copyShaToClipboard",
                     "when": "gitlens:enabled"
                 },
@@ -478,7 +487,12 @@
                 {
                     "command": "gitlens.showQuickFileHistory",
                     "when": "gitlens:enabled",
-                    "group": "1_gitlens"
+                    "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.showQuickRepoStatus",
+                    "when": "gitlens:enabled",
+                    "group": "1_gitlens@2"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
@@ -575,6 +589,12 @@
                 "command": "gitlens.showQuickRepoHistory",
                 "key": "shift+alt+h",
                 "mac": "shift+alt+h",
+                "when": "gitlens:enabled"
+            },
+            {
+                "command": "gitlens.showQuickRepoStatus",
+                "key": "alt+s",
+                "mac": "alt+s",
                 "when": "gitlens:enabled"
             },
             {

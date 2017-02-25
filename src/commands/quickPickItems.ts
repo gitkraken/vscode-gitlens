@@ -1,11 +1,19 @@
 'use strict';
 import { commands, QuickPickItem, TextEditor, Uri, window, workspace } from 'vscode';
-import { BuiltInCommands, Commands } from '../constants';
-import { GitCommit, GitUri } from '../gitProvider';
+import { Commands } from '../commands';
+import { BuiltInCommands } from '../constants';
+import { GitCommit, GitFileStatusItem, GitUri } from '../gitProvider';
 import * as moment from 'moment';
 import * as path from 'path';
 
+export interface PartialQuickPickItem {
+    label?: string;
+    description?: string;
+    detail?: string;
+}
+
 export class CommandQuickPickItem implements QuickPickItem {
+
     label: string;
     description: string;
     detail: string;
@@ -20,57 +28,132 @@ export class CommandQuickPickItem implements QuickPickItem {
 }
 
 export class OpenFilesCommandQuickPickItem extends CommandQuickPickItem {
-    label: string;
-    description: string;
-    detail: string;
 
-    constructor(private commit: GitCommit, private fileNames?: string[]) {
-        super({
-            label: `$(file-symlink-file) Open Files`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 $(file-text) ${commit.fileName}`,
-            detail: `Opens all the files in commit $(git-commit) ${commit.sha}`
-        }, undefined, undefined);
+    constructor(public fileNames: string[], public repoPath: string, item: QuickPickItem) {
+        super(item, undefined, undefined);
+    }
 
-        if (!this.fileNames) {
-            this.fileNames = commit.fileName.split(', ').filter(_ => !!_);
-        }
+    getUri(fileName: string) {
+        return Uri.file(path.resolve(this.repoPath, fileName));
     }
 
     async execute(): Promise<{}> {
-        const repoPath = this.commit.repoPath;
-        for (const file of this.fileNames) {
-            try {
-                const uri = Uri.file(path.resolve(repoPath, file));
-                const document = await workspace.openTextDocument(uri);
-                await window.showTextDocument(document, 1, true);
-            }
-            catch (ex) { }
+        for (const fileName of this.fileNames) {
+            this.open(fileName);
         }
         return undefined;
     }
-}
 
-export class OpenFileCommandQuickPickItem extends CommandQuickPickItem {
-    label: string;
-    description: string;
-    detail: string;
-
-    constructor(private commit: GitCommit) {
-        super({
-            label: `$(file-symlink-file) Open File`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 $(file-text) ${commit.fileName}`
-        }, undefined, undefined);
-    }
-
-    async execute(): Promise<{}> {
-        const repoPath = this.commit.repoPath;
+    async open(fileName: string): Promise<TextEditor | undefined> {
         try {
-            const file = path.resolve(repoPath, this.commit.fileName);
-            return await commands.executeCommand(BuiltInCommands.Open, Uri.file(file));
+            const uri = this.getUri(fileName);
+            const document = await workspace.openTextDocument(uri);
+            return window.showTextDocument(document, 1, true);
         }
         catch (ex) {
             return undefined;
         }
+    }
+}
+
+export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPickItem {
+
+    constructor(commit: GitCommit, fileNames?: string[], item?: PartialQuickPickItem) {
+        const repoPath = commit.repoPath;
+
+        if (!fileNames) {
+            fileNames = commit.fileName.split(', ').filter(_ => !!_);
+        }
+
+        item = {
+            ...{
+                label: `$(file-symlink-file) Open Files`,
+                description: undefined,
+                detail: `Opens all of the files in commit $(git-commit) ${commit.sha}`
+            },
+            ...item
+        };
+
+        super(fileNames, repoPath, item as QuickPickItem);
+    }
+}
+
+export class OpenStatusFilesCommandQuickPickItem extends OpenFilesCommandQuickPickItem {
+
+    constructor(statuses: GitFileStatusItem[], item?: PartialQuickPickItem) {
+        const repoPath = statuses[0].repoPath;
+        const fileNames = statuses.map(_ => _.fileName);
+
+        item = {
+            ...{
+                label: `$(file-symlink-file) Open Files`,
+                description: undefined,
+                detail: `Opens all of the changed files in the repository`
+            },
+            ...item
+        };
+
+        super(fileNames, repoPath, item as QuickPickItem);
+    }
+}
+
+export class OpenFileCommandQuickPickItem extends CommandQuickPickItem {
+
+    constructor(public fileName: string, public repoPath: string, item: QuickPickItem) {
+        super(item, undefined, undefined);
+    }
+
+    getUri() {
+        return Uri.file(path.resolve(this.repoPath, this.fileName));
+    }
+
+    async execute(): Promise<{}> {
+        try {
+            const uri = this.getUri();
+            return await commands.executeCommand(BuiltInCommands.Open, uri);
+        }
+        catch (ex) {
+            return undefined;
+        }
+    }
+}
+
+export class OpenCommitFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
+
+    constructor(commit: GitCommit, item?: PartialQuickPickItem) {
+        item = {
+            ...{
+                label: `$(file-symlink-file) Open File`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 ${path.basename(commit.fileName)} \u00a0\u2022\u00a0 ${path.dirname(commit.fileName)}`
+            },
+            ...item
+        };
+
+        super(commit.fileName, commit.repoPath, item as QuickPickItem);
+    }
+}
+
+const statusOcticons = [
+    '\u00a0$(question)',
+    '\u00a0$(diff-ignored)',
+    '\u00a0$(diff-added)',
+    '\u00a0$(diff-modified)',
+    '\u00a0$(diff-removed)',
+    '\u00a0$(diff-renamed)'
+];
+
+export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
+
+    constructor(status: GitFileStatusItem, item?: PartialQuickPickItem) {
+        item = {
+            ...{
+                label: `${status.staged ? '$(check)' : '\u00a0\u00a0\u00a0'}\u00a0${statusOcticons[status.status]}\u00a0\u00a0\u00a0${path.basename(status.fileName)}`,
+                description: path.dirname(status.fileName)
+            },
+            ...item
+        };
+
+        super(status.fileName, status.repoPath, item as QuickPickItem);
     }
 }
 
@@ -97,26 +180,11 @@ export class FileQuickPickItem implements QuickPickItem {
     uri: GitUri;
 
     constructor(commit: GitCommit, public fileName: string) {
-        this.label = fileName;
+        this.label = path.basename(fileName);
+        this.description = path.dirname(fileName);
 
         this.sha = commit.sha;
         this.uri = GitUri.fromUri(Uri.file(path.resolve(commit.repoPath, fileName)));
-    }
-
-    async open(): Promise<TextEditor | undefined> {
-        let document = workspace.textDocuments.find(_ => _.fileName === this.uri.fsPath);
-        const existing = !!document;
-        try {
-            if (!document) {
-                document = await workspace.openTextDocument(this.uri);
-            }
-
-            const editor = await window.showTextDocument(document, 1, true);
-            return existing ? undefined : editor;
-        }
-        catch (ex) {
-            return undefined;
-        }
     }
 
     async preview(): Promise<{}> {

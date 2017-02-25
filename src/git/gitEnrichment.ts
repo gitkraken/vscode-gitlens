@@ -107,3 +107,58 @@ export interface IGitLog {
     authors: Map<string, IGitAuthor>;
     commits: Map<string, GitCommit>;
 }
+
+export enum GitFileStatus {
+    Unknown,
+    Untracked,
+    Added,
+    Modified,
+    Deleted,
+    Renamed
+}
+
+export class GitFileStatusItem {
+
+    staged: boolean;
+    status: GitFileStatus;
+    fileName: string;
+
+    constructor(public repoPath: string, status: string) {
+        this.fileName = status.substring(3);
+        this.parseStatus(status);
+    }
+
+    private parseStatus(status: string) {
+        const indexStatus = status[0];
+        const workTreeStatus = status[1];
+
+        this.staged = workTreeStatus === ' ';
+
+        if (indexStatus === '?' && workTreeStatus === '?') {
+            this.status = GitFileStatus.Untracked;
+            return;
+        }
+
+        if (indexStatus === 'A') {
+            this.status = GitFileStatus.Added;
+            return;
+        }
+
+        if (indexStatus === 'M' || workTreeStatus === 'M') {
+            this.status = GitFileStatus.Modified;
+            return;
+        }
+
+        if (indexStatus === 'D' || workTreeStatus === 'D') {
+            this.status = GitFileStatus.Deleted;
+            return;
+        }
+
+        if (indexStatus === 'R') {
+            this.status = GitFileStatus.Renamed;
+            return;
+        }
+
+        this.status = GitFileStatus.Unknown;
+    }
+}

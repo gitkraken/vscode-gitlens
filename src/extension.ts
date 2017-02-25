@@ -15,6 +15,7 @@ import ShowFileHistoryCommand from './commands/showFileHistory';
 import ShowQuickCommitDetailsCommand from './commands/showQuickCommitDetails';
 import ShowQuickFileHistoryCommand from './commands/showQuickFileHistory';
 import ShowQuickRepoHistoryCommand from './commands/showQuickRepoHistory';
+import ShowQuickRepoStatusCommand from './commands/showQuickRepoStatus';
 import ToggleBlameCommand from './commands/toggleBlame';
 import ToggleCodeLensCommand from './commands/toggleCodeLens';
 import { IAdvancedConfig, IBlameConfig } from './configuration';
@@ -91,6 +92,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new ShowQuickCommitDetailsCommand(git));
     context.subscriptions.push(new ShowQuickFileHistoryCommand(git));
     context.subscriptions.push(new ShowQuickRepoHistoryCommand(git, repoPath));
+    context.subscriptions.push(new ShowQuickRepoStatusCommand(git, repoPath));
     context.subscriptions.push(new ToggleCodeLensCommand(git));
 }
 

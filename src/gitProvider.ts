@@ -3,7 +3,7 @@ import { Iterables, Objects } from './system';
 import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, languages, Location, Position, Range, TextDocument, TextEditor, Uri, workspace } from 'vscode';
 import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes, WorkspaceState } from './constants';
-import Git, { GitBlameParserEnricher, GitBlameFormat, GitCommit, GitLogParserEnricher, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog } from './git/git';
+import Git, { GitBlameParserEnricher, GitBlameFormat, GitCommit, GitFileStatusItem, GitLogParserEnricher, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog } from './git/git';
 import { IGitUriData, GitUri } from './git/gitUri';
 import GitCodeLensProvider from './gitCodeLensProvider';
 import { Logger } from './logger';
@@ -559,15 +559,22 @@ export default class GitProvider extends Disposable {
         return locations;
     }
 
-    async getStatusForFile(fileName: string, repoPath: string) {
-        Logger.log(`getStatusForFile('${fileName}', ${repoPath})`);
-        return (await Git.statusForFile(fileName, repoPath)).trim();
+    async getStatusForFile(fileName: string, repoPath: string): Promise<GitFileStatusItem> {
+        Logger.log(`getStatusForFile('${fileName}', '${repoPath}')`);
+        const status = await Git.statusFile(fileName, repoPath);
+        return status && status.trim().length && new GitFileStatusItem(repoPath, status);
     }
 
-    async isFileUncommitted(fileName: string, repoPath: string) {
+    async getStatusesForRepo(repoPath: string): Promise<GitFileStatusItem[]> {
+        Logger.log(`getStatusForRepo('${repoPath}')`);
+        const statuses = (await Git.statusRepo(repoPath)).split('\n').filter(_ => !!_);
+        return statuses.map(_ => new GitFileStatusItem(repoPath, _));
+    }
+
+    async isFileUncommitted(fileName: string, repoPath: string): Promise<boolean> {
         Logger.log(`isFileUncommitted('${fileName}', ${repoPath})`);
         const status = await this.getStatusForFile(fileName, repoPath);
-        return status && status.length;
+        return !!status;
     }
 
     async getVersionedFile(fileName: string, repoPath: string, sha: string) {
