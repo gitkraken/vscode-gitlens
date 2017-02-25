@@ -38,7 +38,7 @@ export default class ShowQuickRepoHistoryCommand extends ActiveEditorCommand {
             if (!repoPath) return window.showWarningMessage(`Unable to show repository history`);
 
             if (!commit) {
-                const log = await this.git.getLogForRepo(this.repoPath, undefined, maxCount);
+                const log = await this.git.getLogForRepo(repoPath, undefined, maxCount);
                 if (!log) return window.showWarningMessage(`Unable to show repository history`);
 
                 const pick = await RepoCommitsQuickPick.show(log, uri, maxCount, this.git.config.advanced.maxQuickHistory, goBackCommand);
