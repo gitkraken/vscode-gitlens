@@ -61,14 +61,14 @@ export class CommitQuickPick {
         if (options.showFileHistory) {
             if (workingFileName) {
                 items.push(new CommandQuickPickItem({
-                    label: `$(versions) Show Commit History`,
+                    label: `$(history) Show File History`,
                     description: undefined, //`\u00a0 \u2014 \u00a0\u00a0 ${path.basename(commit.fileName)}`,
                     detail: `Shows the commit history of the file, starting at the most recent commit`
                 }, Commands.ShowQuickFileHistory, [commit.uri, undefined, undefined, currentCommand]));
             }
 
             items.push(new CommandQuickPickItem({
-                label: `$(versions) Show Previous Commit History`,
+                label: `$(history) Show Previous File History`,
                 description: undefined, //`\u00a0 \u2014 \u00a0\u00a0 ${path.basename(commit.fileName)}`,
                 detail: `Shows the previous commit history of the file, starting at $(git-commit) ${commit.sha}`
             }, Commands.ShowQuickFileHistory, [new GitUri(commit.uri, commit), undefined, undefined, currentCommand]));
