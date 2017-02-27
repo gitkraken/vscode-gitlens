@@ -81,7 +81,7 @@ export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPi
 export class OpenStatusFilesCommandQuickPickItem extends OpenFilesCommandQuickPickItem {
 
     constructor(statuses: GitFileStatusItem[], item?: PartialQuickPickItem) {
-        const repoPath = statuses[0].repoPath;
+        const repoPath = statuses.length && statuses[0].repoPath;
         const fileNames = statuses.map(_ => _.fileName);
 
         item = {

@@ -214,7 +214,10 @@ export class RepoStatusesQuickPick {
                 }));
             }
         }
-        items.splice(0, 0, new OpenStatusFilesCommandQuickPickItem(statuses.filter(_ => _.status !== GitFileStatus.Deleted)));
+
+        if (statuses.length) {
+            items.splice(0, 0, new OpenStatusFilesCommandQuickPickItem(statuses.filter(_ => _.status !== GitFileStatus.Deleted)));
+        }
 
         if (goBackCommand) {
             items.splice(0, 0, goBackCommand);
@@ -222,7 +225,7 @@ export class RepoStatusesQuickPick {
 
         return await window.showQuickPick(items, {
             matchOnDescription: true,
-            placeHolder: 'Showing the repository status',
+            placeHolder: statuses.length ? 'Repository has changes' : 'Repository has no changes',
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
         } as QuickPickOptions);
     }
