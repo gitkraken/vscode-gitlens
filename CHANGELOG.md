@@ -1,5 +1,8 @@
 ## Release Notes
 
+### 2.7.1
+- Adds proper support for multi-line commit messages
+- Fixes [#33](https://github.com/eamodio/vscode-gitlens/issues/33) - Commit message styled as title in popup, when message starts with hash symbol
 ### 2.7.0
 - Adds file status icons (added, modified, deleted, etc) to the `gitlens.showQuickCommitDetails` quick pick list
 - Adds `Copy Commit Sha to Clipboard` command to commit files quick pick list
