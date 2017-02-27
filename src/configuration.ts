@@ -1,5 +1,6 @@
 'use strict';
 import { Commands } from './commands';
+import { OutputLevel } from './logger';
 
 export type BlameAnnotationStyle = 'compact' | 'expanded' | 'trailing';
 export const BlameAnnotationStyle = {
@@ -89,13 +90,6 @@ export interface IStatusBarConfig {
     enabled: boolean;
     command: StatusBarCommand;
 }
-
-export type OutputLevel = 'silent' | 'errors' | 'verbose';
-export const OutputLevel = {
-    Silent: 'silent' as OutputLevel,
-    Errors: 'errors' as OutputLevel,
-    Verbose: 'verbose' as OutputLevel
-};
 
 export interface IAdvancedConfig {
     caching: {

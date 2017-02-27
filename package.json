@@ -653,8 +653,8 @@
     },
     "devDependencies": {
         "@types/copy-paste": "^1.1.30",
-        "@types/node": "^7.0.5",
         "@types/mocha": "^2.2.39",
+        "@types/node": "^7.0.5",
         "@types/tmp": "^0.0.32",
         "mocha": "^3.2.0",
         "tslint": "^4.4.2",

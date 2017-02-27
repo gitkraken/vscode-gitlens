@@ -27,6 +27,8 @@ import { Logger } from './logger';
 
 // this method is called when your extension is activated
 export async function activate(context: ExtensionContext) {
+    Logger.configure(context);
+
     // Workspace not using a folder. No access to git repo.
     if (!workspace.rootPath) {
         Logger.warn('GitLens inactive: no rootPath');

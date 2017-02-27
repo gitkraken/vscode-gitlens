@@ -1,57 +1,71 @@
 'use strict';
-import { Objects } from './system';
-import { OutputChannel, window, workspace } from 'vscode';
-import { IAdvancedConfig, OutputLevel } from './configuration';
+import { ExtensionContext, OutputChannel, window, workspace } from 'vscode';
+import { IAdvancedConfig } from './configuration';
 
-let config: IAdvancedConfig;
+const ConfigurationName = 'gitlens';
+const OutputChannelName = 'GitLens';
+const ConsolePrefix = `[${OutputChannelName}]`;
+
+export type OutputLevel = 'silent' | 'errors' | 'verbose';
+export const OutputLevel = {
+    Silent: 'silent' as OutputLevel,
+    Errors: 'errors' as OutputLevel,
+    Verbose: 'verbose' as OutputLevel
+};
+
+let debug = false;
+let level: OutputLevel = OutputLevel.Silent;
 let output: OutputChannel;
 
-workspace.onDidChangeConfiguration(onConfigurationChange);
-onConfigurationChange();
+function onConfigurationChanged() {
+    const cfg = workspace.getConfiguration(ConfigurationName).get<IAdvancedConfig>('advanced');
 
-function onConfigurationChange() {
-    const cfg = workspace.getConfiguration('gitlens').get<IAdvancedConfig>('advanced');
+    if (cfg.debug !== debug || cfg.output.level !== level) {
+        debug = cfg.debug;
+        level = cfg.output.level;
 
-    if (!Objects.areEquivalent(cfg.output, config && config.output)) {
-        if (cfg.output.level === OutputLevel.Silent) {
+        if (level === OutputLevel.Silent) {
             output && output.dispose();
         }
-        else if (!output) {
-            output = window.createOutputChannel('GitLens');
+        else {
+            output = output && window.createOutputChannel(OutputChannelName);
         }
     }
-
-    config = cfg;
 }
 
 export class Logger {
 
+    static configure(context: ExtensionContext) {
+        context.subscriptions.push(workspace.onDidChangeConfiguration(onConfigurationChanged));
+        onConfigurationChanged();
+    }
+
     static log(message?: any, ...params: any[]): void {
-        if (config.debug) {
-            console.log('[GitLens]', message, ...params);
+        if (debug && level !== OutputLevel.Silent) {
+            console.log(ConsolePrefix, message, ...params);
         }
 
-        if (config.output.level === OutputLevel.Verbose) {
+        if (level === OutputLevel.Verbose) {
             output.appendLine([message, ...params].join(' '));
         }
     }
 
     static error(message?: any, ...params: any[]): void {
-        if (config.debug) {
-            console.error('[GitLens]', message, ...params);
+        if (debug) {
+            console.error(ConsolePrefix, message, ...params);
         }
 
-        if (config.output.level !== OutputLevel.Silent) {
+        if (level !== OutputLevel.Silent) {
             output.appendLine([message, ...params].join(' '));
         }
     }
 
     static warn(message?: any, ...params: any[]): void {
-        if (config.debug) {
-            console.warn('[GitLens]', message, ...params);
+        if (debug) {
+            console.warn(ConsolePrefix, message, ...params);
         }
 
-        if (config.output.level !== OutputLevel.Silent) {
+        if (level !== OutputLevel.Silent) {
             output.appendLine([message, ...params].join(' '));
         }
     }
