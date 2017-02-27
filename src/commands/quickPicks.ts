@@ -3,7 +3,7 @@ import { Iterables } from '../system';
 import { QuickPickOptions, Uri, window, workspace } from 'vscode';
 import { IAdvancedConfig } from '../configuration';
 import { Commands } from '../commands';
-import GitProvider, { GitCommit, GitFileStatus, GitFileStatusItem, GitUri, IGitLog } from '../gitProvider';
+import GitProvider, { GitCommit, GitFileStatusItem, GitLogCommit, GitUri, IGitLog } from '../gitProvider';
 import { CommandQuickPickItem, CommitQuickPickItem, FileQuickPickItem, OpenCommitFileCommandQuickPickItem, OpenStatusFileCommandQuickPickItem, OpenCommitFilesCommandQuickPickItem, OpenStatusFilesCommandQuickPickItem } from './quickPickItems';
 import * as moment from 'moment';
 import * as path from 'path';
@@ -88,11 +88,10 @@ export class CommitQuickPick {
 
 export class CommitFilesQuickPick {
 
-    static async show(commit: GitCommit, uri: Uri, goBackCommand?: CommandQuickPickItem): Promise<FileQuickPickItem | CommandQuickPickItem | undefined> {
-        const fileNames = commit.fileName.split(', ').filter(_ => !!_);
-        const items: (FileQuickPickItem | CommandQuickPickItem)[] = fileNames.map(f => new FileQuickPickItem(commit, f));
+    static async show(commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem): Promise<FileQuickPickItem | CommandQuickPickItem | undefined> {
+        const items: (FileQuickPickItem | CommandQuickPickItem)[] = commit.fileStatuses.map(fs => new FileQuickPickItem(commit, fs.fileName, fs.status));
 
-        items.splice(0, 0, new OpenCommitFilesCommandQuickPickItem(commit, fileNames));
+        items.splice(0, 0, new OpenCommitFilesCommandQuickPickItem(commit));
 
         items.splice(1, 0, new CommandQuickPickItem({
             label: `$(clippy) Copy Commit Sha to Clipboard`,
@@ -201,13 +200,13 @@ export class RepoStatusesQuickPick {
         if (statuses.some(_ => _.staged)) {
             const index = statuses.findIndex(_ => !_.staged);
             if (index > -1) {
-                items.splice(index, 0, new OpenStatusFilesCommandQuickPickItem(statuses.filter(_ => _.status !== GitFileStatus.Deleted && !_.staged), {
+                items.splice(index, 0, new OpenStatusFilesCommandQuickPickItem(statuses.filter(_ => _.status !== 'D' && !_.staged), {
                     label: `$(file-symlink-file) Open Unstaged Files`,
                     description: undefined,
                     detail: `Opens all of the unstaged files in the repository`
                 }));
 
-                items.splice(0, 0, new OpenStatusFilesCommandQuickPickItem(statuses.filter(_ => _.status !== GitFileStatus.Deleted && _.staged), {
+                items.splice(0, 0, new OpenStatusFilesCommandQuickPickItem(statuses.filter(_ => _.status !== 'D' && _.staged), {
                     label: `$(file-symlink-file) Open Staged Files`,
                     description: undefined,
                     detail: `Opens all of the staged files in the repository`
@@ -216,7 +215,7 @@ export class RepoStatusesQuickPick {
         }
 
         if (statuses.length) {
-            items.splice(0, 0, new OpenStatusFilesCommandQuickPickItem(statuses.filter(_ => _.status !== GitFileStatus.Deleted)));
+            items.splice(0, 0, new OpenStatusFilesCommandQuickPickItem(statuses.filter(_ => _.status !== 'D')));
         }
 
         if (goBackCommand) {

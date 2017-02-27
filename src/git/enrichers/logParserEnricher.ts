@@ -1,5 +1,5 @@
 'use strict';
-import Git, { GitCommit, IGitAuthor, IGitEnricher, IGitLog } from './../git';
+import Git, { GitFileStatus, GitLogCommit, IGitAuthor, IGitEnricher, IGitLog } from './../git';
 import * as moment from 'moment';
 import * as path from 'path';
 
@@ -13,7 +13,9 @@ interface ILogEntry {
     committerDate?: string;
 
     fileName?: string;
-    fileNames?: string[];
+    fileStatuses?: { status: GitFileStatus, fileName: string }[];
+
+    status?: GitFileStatus;
 
     summary?: string;
 }
@@ -78,22 +80,25 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
                                 break;
                             }
 
-                            if (entry.fileNames == null) {
-                                entry.fileNames = [lineParts[0]];
+                            if (entry.fileStatuses == null) {
+                                entry.fileStatuses = [];
                             }
-                            else {
-                                entry.fileNames.push(lineParts[0]);
-                            }
+                            entry.fileStatuses.push({
+                                status: lineParts[0][0] as GitFileStatus,
+                                fileName: lineParts[0].substring(2)
+                            });
                         }
-                        entry.fileName = entry.fileNames.join(', ');
+                        entry.fileName = entry.fileStatuses.filter(_ => !!_.fileName).map(_ => _.fileName).join(', ');
                     }
                     else {
                         position += 2;
                         lineParts = lines[position].split(' ');
                         if (lineParts.length === 1) {
-                            entry.fileName = lineParts[0];
+                            entry.status = lineParts[0][0] as GitFileStatus;
+                            entry.fileName = lineParts[0].substring(2);
                         }
                         else {
+                            entry.status = lineParts[3][0] as GitFileStatus;
                             entry.fileName = lineParts[3].substring(2);
                             position += 4;
                         }
@@ -116,11 +121,11 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
         if (!entries) return undefined;
 
         const authors: Map<string, IGitAuthor> = new Map();
-        const commits: Map<string, GitCommit> = new Map();
+        const commits: Map<string, GitLogCommit> = new Map();
 
         let repoPath: string;
         let relativeFileName: string;
-        let recentCommit: GitCommit;
+        let recentCommit: GitLogCommit;
 
         if (isRepoPath) {
             repoPath = fileNameOrRepoPath;
@@ -151,7 +156,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
                     authors.set(entry.author, author);
                 }
 
-                commit = new GitCommit(repoPath, entry.sha, relativeFileName, entry.author, moment(entry.authorDate).toDate(), entry.summary);
+                commit = new GitLogCommit(repoPath, entry.sha, relativeFileName, entry.author, moment(entry.authorDate).toDate(), entry.summary, entry.status, entry.fileStatuses);
 
                 if (relativeFileName !== entry.fileName) {
                     commit.originalFileName = entry.fileName;

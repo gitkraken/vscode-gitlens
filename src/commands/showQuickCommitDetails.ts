@@ -2,7 +2,7 @@
 import { Iterables } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from '../commands';
-import GitProvider, { GitCommit, GitUri } from '../gitProvider';
+import GitProvider, { GitCommit, GitLogCommit, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, FileQuickPickItem } from './quickPickItems';
 import { CommitQuickPick, CommitFilesQuickPick } from './quickPicks';
@@ -54,7 +54,7 @@ export default class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
 
                 commit = Iterables.first(log.commits.values());
 
-                pick = await CommitFilesQuickPick.show(commit, uri, goBackCommand);
+                pick = await CommitFilesQuickPick.show(commit as GitLogCommit, uri, goBackCommand);
                 if (!pick) return undefined;
 
                 if (pick instanceof CommandQuickPickItem) {

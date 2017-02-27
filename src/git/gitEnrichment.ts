@@ -72,6 +72,8 @@ export class GitCommit implements IGitCommit {
         previousSha?: string,
         previousFileName?: string
     ) {
+        this.fileName = this.fileName.replace(/, ?$/, '');
+
         this.lines = lines || [];
         this.originalFileName = originalFileName;
         this.previousSha = previousSha;
@@ -101,6 +103,37 @@ export class GitCommit implements IGitCommit {
     }
 }
 
+export class GitLogCommit extends GitCommit {
+
+    fileStatuses: { status: GitFileStatus, fileName: string }[];
+    status: GitFileStatus;
+
+    constructor(
+        repoPath: string,
+        sha: string,
+        fileName: string,
+        author: string,
+        date: Date,
+        message: string,
+        status?: GitFileStatus,
+        fileStatuses?: { status: GitFileStatus, fileName: string }[],
+        lines?: IGitCommitLine[],
+        originalFileName?: string,
+        previousSha?: string,
+        previousFileName?: string
+    ) {
+        super(repoPath, sha, fileName, author, date, message, lines, originalFileName, previousSha, previousFileName);
+        this.status = status;
+
+        if (fileStatuses) {
+            this.fileStatuses = fileStatuses.filter(_ => !!_.fileName);
+        }
+        else {
+            this.fileStatuses = [{ status: status, fileName: fileName }];
+        }
+    }
+}
+
 export interface IGitCommitLine {
     sha: string;
     previousSha?: string;
@@ -115,14 +148,7 @@ export interface IGitLog {
     commits: Map<string, GitCommit>;
 }
 
-export enum GitFileStatus {
-    Unknown,
-    Untracked,
-    Added,
-    Modified,
-    Deleted,
-    Renamed
-}
+export declare type GitFileStatus = '?' | 'A' | 'C' | 'D' | 'M' | 'R' | 'U';
 
 export class GitFileStatusItem {
 
@@ -136,36 +162,10 @@ export class GitFileStatusItem {
     }
 
     private parseStatus(status: string) {
-        const indexStatus = status[0];
-        const workTreeStatus = status[1];
+        const indexStatus = status[0].trim();
+        const workTreeStatus = status[1].trim();
 
-        this.staged = workTreeStatus === ' ';
-
-        if (indexStatus === '?' && workTreeStatus === '?') {
-            this.status = GitFileStatus.Untracked;
-            return;
-        }
-
-        if (indexStatus === 'A') {
-            this.status = GitFileStatus.Added;
-            return;
-        }
-
-        if (indexStatus === 'M' || workTreeStatus === 'M') {
-            this.status = GitFileStatus.Modified;
-            return;
-        }
-
-        if (indexStatus === 'D' || workTreeStatus === 'D') {
-            this.status = GitFileStatus.Deleted;
-            return;
-        }
-
-        if (indexStatus === 'R') {
-            this.status = GitFileStatus.Renamed;
-            return;
-        }
-
-        this.status = GitFileStatus.Unknown;
+        this.staged = !!indexStatus;
+        this.status = (indexStatus || workTreeStatus || 'U') as GitFileStatus;
     }
 }

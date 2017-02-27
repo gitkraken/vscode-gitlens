@@ -13,7 +13,7 @@ export * from './enrichers/logParserEnricher';
 let git: IGit;
 const UncommittedRegex = /^[0]+$/;
 
-const DefaultLogParams = [`log`, `--name-only`, `--full-history`, `-m`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`];
+const DefaultLogParams = [`log`, `--name-status`, `--full-history`, `-m`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nsummary %s%nfilename ?`];
 
 async function gitCommand(cwd: string, ...args: any[]) {
     try {

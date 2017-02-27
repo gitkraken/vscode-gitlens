@@ -2,9 +2,22 @@
 import { commands, QuickPickItem, TextEditor, Uri, window, workspace } from 'vscode';
 import { Commands } from '../commands';
 import { BuiltInCommands } from '../constants';
-import { GitCommit, GitFileStatusItem, GitUri } from '../gitProvider';
+import { GitCommit, GitFileStatus, GitFileStatusItem, GitLogCommit, GitUri } from '../gitProvider';
 import * as moment from 'moment';
 import * as path from 'path';
+
+const statusOcticonsMap = {
+    '?': '$(diff-ignored)',
+    A: '$(diff-added)',
+    C: '$(diff-added)',
+    D: '$(diff-removed)',
+    M: '$(diff-modified)',
+    R: '$(diff-renamed)',
+    U: '$(question)'
+};
+function getStatusIcon(status: GitFileStatus, missing: string = '\u00a0\u00a0\u00a0\u00a0'): string {
+    return statusOcticonsMap[status] || missing;
+}
 
 export interface PartialQuickPickItem {
     label?: string;
@@ -58,12 +71,8 @@ export class OpenFilesCommandQuickPickItem extends CommandQuickPickItem {
 
 export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPickItem {
 
-    constructor(commit: GitCommit, fileNames?: string[], item?: PartialQuickPickItem) {
+    constructor(commit: GitLogCommit, item?: PartialQuickPickItem) {
         const repoPath = commit.repoPath;
-
-        if (!fileNames) {
-            fileNames = commit.fileName.split(', ').filter(_ => !!_);
-        }
 
         item = {
             ...{
@@ -74,7 +83,7 @@ export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPi
             ...item
         };
 
-        super(fileNames, repoPath, item as QuickPickItem);
+        super(commit.fileStatuses.map(_ => _.fileName), repoPath, item as QuickPickItem);
     }
 }
 
@@ -133,15 +142,6 @@ export class OpenCommitFileCommandQuickPickItem extends OpenFileCommandQuickPick
     }
 }
 
-const statusOcticons = [
-    '\u00a0$(question)',
-    '\u00a0$(diff-ignored)',
-    '\u00a0$(diff-added)',
-    '\u00a0$(diff-modified)',
-    '\u00a0$(diff-removed)',
-    '\u00a0$(diff-renamed)'
-];
-
 export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 
     constructor(status: GitFileStatusItem, item?: PartialQuickPickItem) {
@@ -150,9 +150,10 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
             directory = undefined;
         }
 
+        const icon = getStatusIcon(status.status);
         item = {
             ...{
-                label: `${status.staged ? '$(check)' : '\u00a0\u00a0\u00a0'}\u00a0${statusOcticons[status.status]}\u00a0\u00a0\u00a0${path.basename(status.fileName)}`,
+                label: `${status.staged ? '$(check)' : '\u00a0\u00a0\u00a0'}\u00a0\u00a0${icon}\u00a0\u00a0\u00a0${path.basename(status.fileName)}`,
                 description: directory
             },
             ...item
@@ -184,8 +185,9 @@ export class FileQuickPickItem implements QuickPickItem {
     sha: string;
     uri: GitUri;
 
-    constructor(commit: GitCommit, public fileName: string) {
-        this.label = `$(info) ${path.basename(fileName)}`;
+    constructor(commit: GitCommit, public fileName: string, public status: GitFileStatus) {
+        const icon = getStatusIcon(status);
+        this.label = `${icon} ${path.basename(fileName)}`;
 
         let directory = path.dirname(fileName);
         if (!directory || directory === '.') {
