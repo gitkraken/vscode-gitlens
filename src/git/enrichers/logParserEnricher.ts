@@ -68,6 +68,10 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
 
                 case 'summary':
                     entry.summary = lineParts.slice(1).join(' ').trim();
+                    while (++position < lines.length) {
+                        if (!lines[position]) break;
+                        entry.summary += `\n${lines[position]}`;
+                    }
                     break;
 
                 case 'filename':
