@@ -124,7 +124,7 @@ export class OpenCommitFileCommandQuickPickItem extends OpenFileCommandQuickPick
         item = {
             ...{
                 label: `$(file-symlink-file) Open File`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 ${path.basename(commit.fileName)} \u00a0\u2022\u00a0 ${path.dirname(commit.fileName)}`
+                description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.getFormattedPath()}`
             },
             ...item
         };
@@ -145,10 +145,15 @@ const statusOcticons = [
 export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 
     constructor(status: GitFileStatusItem, item?: PartialQuickPickItem) {
+        let directory = path.dirname(status.fileName);
+        if (!directory || directory === '.') {
+            directory = undefined;
+        }
+
         item = {
             ...{
                 label: `${status.staged ? '$(check)' : '\u00a0\u00a0\u00a0'}\u00a0${statusOcticons[status.status]}\u00a0\u00a0\u00a0${path.basename(status.fileName)}`,
-                description: path.dirname(status.fileName)
+                description: directory
             },
             ...item
         };
@@ -180,8 +185,14 @@ export class FileQuickPickItem implements QuickPickItem {
     uri: GitUri;
 
     constructor(commit: GitCommit, public fileName: string) {
-        this.label = path.basename(fileName);
-        this.description = path.dirname(fileName);
+        this.label = `$(info) ${path.basename(fileName)}`;
+
+        let directory = path.dirname(fileName);
+        if (!directory || directory === '.') {
+            directory = undefined;
+        }
+
+        this.description = directory;
 
         this.sha = commit.sha;
         this.uri = GitUri.fromUri(Uri.file(path.resolve(commit.repoPath, fileName)));

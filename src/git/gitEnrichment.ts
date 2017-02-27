@@ -92,6 +92,13 @@ export class GitCommit implements IGitCommit {
     get uri(): Uri {
         return Uri.file(path.join(this.repoPath, this.originalFileName || this.fileName));
     }
+
+    getFormattedPath(separator: string = ' \u00a0\u2022\u00a0 '): string {
+        const directory = path.dirname(this.fileName);
+        return (!directory || directory === '.')
+            ? path.basename(this.fileName)
+            : `${path.basename(this.fileName)}${separator}${directory}`;
+    }
 }
 
 export interface IGitCommitLine {

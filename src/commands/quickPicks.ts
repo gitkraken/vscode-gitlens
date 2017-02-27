@@ -80,7 +80,7 @@ export class CommitQuickPick {
 
         return await window.showQuickPick(items, {
             matchOnDescription: true,
-            placeHolder: `${path.basename(commit.fileName)} \u00a0\u2022\u00a0 ${path.dirname(commit.fileName)} \u2022 ${isUncommitted ? 'Uncommitted \u21E8 ' : '' }${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`,
+            placeHolder: `${commit.getFormattedPath()} \u2022 ${isUncommitted ? 'Uncommitted \u21E8 ' : '' }${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
         } as QuickPickOptions);
     }
@@ -153,12 +153,12 @@ export class FileCommitsQuickPick {
             items.splice(0, 0, goBackCommand);
         }
 
-        const fileName = Iterables.first(log.commits.values()).fileName;
+        const commit = Iterables.first(log.commits.values());
 
         return await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: `${path.basename(fileName)} \u00a0\u2022\u00a0 ${path.dirname(fileName)}`,
+            placeHolder: commit.getFormattedPath(),
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
         } as QuickPickOptions);
     }
