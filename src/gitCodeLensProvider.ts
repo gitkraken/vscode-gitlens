@@ -5,7 +5,7 @@ import { Commands } from './commands';
 import { BuiltInCommands, DocumentSchemes } from './constants';
 import { CodeLensCommand, CodeLensLocation, IConfig, ICodeLensLanguageLocation } from './configuration';
 import GitProvider, { GitCommit, GitUri, IGitBlame, IGitBlameLines } from './gitProvider';
-import { Logger } from './logger';
+import { Logger, OutputLevel } from './logger';
 import * as moment from 'moment';
 
 export class GitRecentChangeCodeLens extends CodeLens {
@@ -204,7 +204,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
 
         const recentCommit = Iterables.first(blame.commits.values());
         let title = `${recentCommit.author}, ${moment(recentCommit.date).fromNow()}`;
-        if (this._config.advanced.debug) {
+        if (this._config.advanced.debug && this._config.advanced.output.level === OutputLevel.Verbose) {
             title += ` [${recentCommit.sha}, Symbol(${SymbolKind[lens.symbolKind]}), Lines(${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1})]`;
         }
 
