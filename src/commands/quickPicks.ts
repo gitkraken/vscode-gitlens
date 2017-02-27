@@ -94,6 +94,16 @@ export class CommitFilesQuickPick {
 
         items.splice(0, 0, new OpenCommitFilesCommandQuickPickItem(commit, fileNames));
 
+        items.splice(1, 0, new CommandQuickPickItem({
+            label: `$(clippy) Copy Commit Sha to Clipboard`,
+            description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.sha}`
+        }, Commands.CopyShaToClipboard, [uri, commit.sha]));
+
+        items.splice(2, 0, new CommandQuickPickItem({
+            label: `$(clippy) Copy Commit Message to Clipboard`,
+            description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.message}`
+        }, Commands.CopyMessageToClipboard, [uri, commit.sha, commit.message]));
+
         if (goBackCommand) {
             items.splice(0, 0, goBackCommand);
         }
