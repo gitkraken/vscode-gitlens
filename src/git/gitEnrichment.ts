@@ -169,3 +169,16 @@ export class GitFileStatusItem {
         this.status = (indexStatus || workTreeStatus || 'U') as GitFileStatus;
     }
 }
+
+const statusOcticonsMap = {
+    '?': '$(diff-ignored)',
+    A: '$(diff-added)',
+    C: '$(diff-added)',
+    D: '$(diff-removed)',
+    M: '$(diff-modified)',
+    R: '$(diff-renamed)',
+    U: '$(question)'
+};
+export function getGitStatusIcon(status: GitFileStatus, missing: string = '\u00a0\u00a0\u00a0\u00a0'): string {
+    return statusOcticonsMap[status] || missing;
+}

@@ -3,8 +3,7 @@ import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from '../commands';
 import GitProvider, { GitUri } from '../gitProvider';
 import { Logger } from '../logger';
-import { CommandQuickPickItem } from './quickPickItems';
-import { RepoStatusesQuickPick } from './quickPicks';
+import { CommandQuickPickItem, RepoStatusQuickPick } from '../quickPicks/repoStatus';
 
 export default class ShowQuickRepoStatusCommand extends ActiveEditorCommand {
 
@@ -36,22 +35,12 @@ export default class ShowQuickRepoStatusCommand extends ActiveEditorCommand {
             const statuses = await this.git.getStatusesForRepo(repoPath);
             if (!statuses) return window.showWarningMessage(`Unable to show repository status`);
 
-            const pick = await RepoStatusesQuickPick.show(statuses, goBackCommand);
+            const pick = await RepoStatusQuickPick.show(statuses, goBackCommand);
             if (!pick) return undefined;
 
             if (pick instanceof CommandQuickPickItem) {
                 return pick.execute();
             }
-
-            // commit = pick.commit;
-
-            // return commands.executeCommand(Commands.ShowQuickCommitDetails,
-            //     new GitUri(commit.uri, commit),
-            //     commit.sha, undefined,
-            //     new CommandQuickPickItem({
-            //         label: `go back \u21A9`,
-            //         description: null
-            //     }, Commands.ShowQuickRepoHistory, [uri, maxCount, undefined, goBackCommand]));
         }
         catch (ex) {
             Logger.error('[GitLens.ShowQuickRepoStatusCommand]', ex);

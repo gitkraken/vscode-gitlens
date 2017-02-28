@@ -3,8 +3,7 @@ import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from '../commands';
 import GitProvider, { GitCommit, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
-import { CommandQuickPickItem } from './quickPickItems';
-import { RepoCommitsQuickPick } from './quickPicks';
+import { CommandQuickPickItem, RepoHistoryQuickPick } from '../quickPicks/repoHistory';
 
 export default class ShowQuickRepoHistoryCommand extends ActiveEditorCommand {
 
@@ -41,7 +40,7 @@ export default class ShowQuickRepoHistoryCommand extends ActiveEditorCommand {
                 const log = await this.git.getLogForRepo(repoPath, undefined, maxCount);
                 if (!log) return window.showWarningMessage(`Unable to show repository history`);
 
-                const pick = await RepoCommitsQuickPick.show(log, uri, maxCount, this.git.config.advanced.maxQuickHistory, goBackCommand);
+                const pick = await RepoHistoryQuickPick.show(log, uri, maxCount, this.git.config.advanced.maxQuickHistory, goBackCommand);
                 if (!pick) return undefined;
 
                 if (pick instanceof CommandQuickPickItem) {

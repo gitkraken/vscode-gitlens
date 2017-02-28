@@ -12,6 +12,7 @@ import * as ignore from 'ignore';
 import * as moment from 'moment';
 import * as path from 'path';
 
+export { getGitStatusIcon } from './git/gitEnrichment';
 export { Git, GitUri };
 export * from './git/git';
 

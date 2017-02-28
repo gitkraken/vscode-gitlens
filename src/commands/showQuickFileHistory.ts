@@ -3,8 +3,7 @@ import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from '../commands';
 import GitProvider, { GitCommit, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
-import { CommandQuickPickItem } from './quickPickItems';
-import { FileCommitsQuickPick } from './quickPicks';
+import { CommandQuickPickItem, FileHistoryQuickPick } from '../quickPicks/fileHistory';
 
 export default class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
 
@@ -32,7 +31,7 @@ export default class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
                 const log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, undefined, maxCount);
                 if (!log) return window.showWarningMessage(`Unable to show file history. File is probably not under source control`);
 
-                let pick = await FileCommitsQuickPick.show(log, uri, maxCount, this.git.config.advanced.maxQuickHistory, goBackCommand);
+                let pick = await FileHistoryQuickPick.show(log, uri, maxCount, this.git.config.advanced.maxQuickHistory, goBackCommand);
                 if (!pick) return undefined;
 
                 if (pick instanceof CommandQuickPickItem) {

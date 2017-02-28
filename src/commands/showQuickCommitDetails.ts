@@ -4,8 +4,7 @@ import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from '../commands';
 import GitProvider, { GitCommit, GitLogCommit, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, FileQuickPickItem } from './quickPickItems';
-import { CommitQuickPick, CommitFilesQuickPick } from './quickPicks';
+import { CommandQuickPickItem, CommitFileDetailsQuickPick, CommitDetailsQuickPick, CommitWithFileStatusQuickPickItem } from '../quickPicks/commitDetails';
 
 export default class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
 
@@ -45,7 +44,7 @@ export default class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
         }
 
         try {
-            let pick: FileQuickPickItem | CommandQuickPickItem;
+            let pick: CommitWithFileStatusQuickPickItem | CommandQuickPickItem;
             let alreadyPickedCommit = !!commit;
             let workingFileName: string;
             if (!alreadyPickedCommit) {
@@ -54,7 +53,7 @@ export default class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
 
                 commit = Iterables.first(log.commits.values());
 
-                pick = await CommitFilesQuickPick.show(commit as GitLogCommit, uri, goBackCommand);
+                pick = await CommitDetailsQuickPick.show(commit as GitLogCommit, uri, goBackCommand);
                 if (!pick) return undefined;
 
                 if (pick instanceof CommandQuickPickItem) {
@@ -79,7 +78,7 @@ export default class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
                 workingFileName = !workingCommit ? commit.fileName : undefined;
             }
 
-            pick = await CommitQuickPick.show(this.git, commit, workingFileName, uri,
+            pick = await CommitFileDetailsQuickPick.show(this.git, commit, workingFileName, uri,
                 // Create a command to get back to where we are right now
                 new CommandQuickPickItem({
                     label: `go back \u21A9`,
