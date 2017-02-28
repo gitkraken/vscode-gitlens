@@ -53,5 +53,6 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 
 ## Known Issues
 
+- If the `Copy to * clipboard` commands don't work on Linux -- `xclip` needs to be installed. You can install it via `sudo apt-get install xclip`
 - Visible whitespace causes issue ([vscode issue](https://github.com/Microsoft/vscode/issues/11485)) with `expanded` & `compact` blame annotations when using a non-monospace font -- use `gitlens.advanced.toggleWhitespace.enabled` if you are using a non-monospace font
 - Menu `alt` commands aren't working: [vscode issue](https://github.com/Microsoft/vscode/issues/15395)
