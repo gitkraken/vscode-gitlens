@@ -121,7 +121,7 @@ export default class BlameActiveLineController extends Disposable {
         const previousEditor = this._editor;
         previousEditor && previousEditor.setDecorations(activeLineDecoration, []);
 
-        if (!e || !e.document || e.document.isUntitled ||
+        if (!e || !e.document || (e.document.isUntitled && e.document.uri.scheme !== DocumentSchemes.Git) ||
             (e.document.uri.scheme !== DocumentSchemes.File && e.document.uri.scheme !== DocumentSchemes.Git) ||
             (e.viewColumn === undefined && !this.git.hasGitUriForFile(e))) {
             this.clear(e);
