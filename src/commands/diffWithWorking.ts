@@ -1,13 +1,13 @@
 'use strict';
 import { Iterables } from '../system';
 import { commands, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { Commands, EditorCommand } from '../commands';
+import { Commands, EditorCommand } from './commands';
 import { BuiltInCommands } from '../constants';
 import GitProvider, { GitCommit, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 import * as path from 'path';
 
-export default class DiffWithWorkingCommand extends EditorCommand {
+export class DiffWithWorkingCommand extends EditorCommand {
 
     constructor(private git: GitProvider) {
         super(Commands.DiffWithWorking);

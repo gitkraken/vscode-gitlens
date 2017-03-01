@@ -1,9 +1,9 @@
 'use strict';
 import { TextEditor, TextEditorEdit } from 'vscode';
-import { Commands, EditorCommand } from '../commands';
+import { Commands, EditorCommand } from './commands';
 import GitProvider from '../gitProvider';
 
-export default class ToggleCodeLensCommand extends EditorCommand {
+export class ToggleCodeLensCommand extends EditorCommand {
 
     constructor(private git: GitProvider) {
         super(Commands.ToggleCodeLens);

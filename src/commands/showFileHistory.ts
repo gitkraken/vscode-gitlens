@@ -1,11 +1,11 @@
 'use strict';
 import { commands, Position, Range, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { Commands, EditorCommand } from '../commands';
+import { Commands, EditorCommand } from './commands';
 import { BuiltInCommands } from '../constants';
 import GitProvider, { GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 
-export default class ShowFileHistoryCommand extends EditorCommand {
+export class ShowFileHistoryCommand extends EditorCommand {
 
     constructor(private git: GitProvider) {
         super(Commands.ShowFileHistory);

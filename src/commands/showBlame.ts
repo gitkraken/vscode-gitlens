@@ -1,10 +1,10 @@
 'use strict';
 import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import BlameAnnotationController from '../blameAnnotationController';
-import { Commands, EditorCommand } from '../commands';
+import { Commands, EditorCommand } from './commands';
 import { Logger } from '../logger';
 
-export default class ShowBlameCommand extends EditorCommand {
+export class ShowBlameCommand extends EditorCommand {
 
     constructor(private annotationController: BlameAnnotationController) {
         super(Commands.ShowBlame);

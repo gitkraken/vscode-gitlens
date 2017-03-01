@@ -1,10 +1,10 @@
 'use strict';
 import { commands, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { Commands, EditorCommand } from '../commands';
+import { Commands, EditorCommand } from './commands';
 import GitProvider, { GitCommit, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 
-export default class DiffLineWithWorkingCommand extends EditorCommand {
+export class DiffLineWithWorkingCommand extends EditorCommand {
 
     constructor(private git: GitProvider) {
         super(Commands.DiffLineWithWorking);

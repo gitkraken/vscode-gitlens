@@ -1,12 +1,12 @@
 'use strict';
 import { Iterables } from '../system';
 import { TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands } from '../commands';
+import { ActiveEditorCommand, Commands } from './commands';
 import GitProvider, { GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 import { copy } from 'copy-paste';
 
-export default class CopyShaToClipboardCommand extends ActiveEditorCommand {
+export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 
     constructor(private git: GitProvider, public repoPath: string) {
         super(Commands.CopyShaToClipboard);

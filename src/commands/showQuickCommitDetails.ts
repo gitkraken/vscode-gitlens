@@ -1,12 +1,12 @@
 'use strict';
 import { Iterables } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands } from '../commands';
+import { ActiveEditorCommand, Commands } from './commands';
 import GitProvider, { GitCommit, GitLogCommit, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, CommitFileDetailsQuickPick, CommitDetailsQuickPick, CommitWithFileStatusQuickPickItem } from '../quickPicks/commitDetails';
+import { CommandQuickPickItem, CommitFileDetailsQuickPick, CommitDetailsQuickPick, CommitWithFileStatusQuickPickItem } from '../quickPicks';
 
-export default class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
+export class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
 
     constructor(private git: GitProvider) {
         super(Commands.ShowQuickCommitDetails);
@@ -56,7 +56,7 @@ export default class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
                 pick = await CommitDetailsQuickPick.show(commit as GitLogCommit, uri, goBackCommand);
                 if (!pick) return undefined;
 
-                if (pick instanceof CommandQuickPickItem) {
+                if (!(pick instanceof CommitWithFileStatusQuickPickItem)) {
                     return pick.execute();
                 }
 
