@@ -13,7 +13,8 @@ interface ILogEntry {
     committerDate?: string;
 
     fileName?: string;
-    fileStatuses?: { status: GitFileStatus, fileName: string }[];
+    originalFileName?: string;
+    fileStatuses?: { status: GitFileStatus, fileName: string, originalFileName: string }[];
 
     status?: GitFileStatus;
 
@@ -87,10 +88,26 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
                             if (entry.fileStatuses == null) {
                                 entry.fileStatuses = [];
                             }
-                            entry.fileStatuses.push({
+
+                            const status = {
                                 status: lineParts[0][0] as GitFileStatus,
-                                fileName: lineParts[0].substring(2)
-                            });
+                                fileName: lineParts[0].substring(1),
+                                originalFileName: undefined as string
+                            };
+
+                            const index = status.fileName.indexOf('\t') + 1;
+                            if (index) {
+                                const next = status.fileName.indexOf('\t', index) + 1;
+                                if (next) {
+                                    status.originalFileName = status.fileName.substring(index, next - 1);
+                                    status.fileName = status.fileName.substring(next);
+                                }
+                                else {
+                                    status.fileName = status.fileName.substring(index);
+                                }
+                            }
+
+                            entry.fileStatuses.push(status);
                         }
                         entry.fileName = entry.fileStatuses.filter(_ => !!_.fileName).map(_ => _.fileName).join(', ');
                     }
@@ -99,12 +116,24 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
                         lineParts = lines[position].split(' ');
                         if (lineParts.length === 1) {
                             entry.status = lineParts[0][0] as GitFileStatus;
-                            entry.fileName = lineParts[0].substring(2);
+                            entry.fileName = lineParts[0].substring(1);
                         }
                         else {
                             entry.status = lineParts[3][0] as GitFileStatus;
-                            entry.fileName = lineParts[3].substring(2);
+                            entry.fileName = lineParts[0].substring(1);
                             position += 4;
+                        }
+
+                        const index = entry.fileName.indexOf('\t') + 1;
+                        if (index) {
+                            const next = entry.fileName.indexOf('\t', index) + 1;
+                            if (next) {
+                                entry.originalFileName = entry.fileName.substring(index, next - 1);
+                                entry.fileName = entry.fileName.substring(next);
+                            }
+                            else {
+                                entry.fileName = entry.fileName.substring(index);
+                            }
                         }
                     }
 
@@ -160,7 +189,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
                     authors.set(entry.author, author);
                 }
 
-                commit = new GitLogCommit(repoPath, entry.sha, relativeFileName, entry.author, moment(entry.authorDate).toDate(), entry.summary, entry.status, entry.fileStatuses);
+                commit = new GitLogCommit(repoPath, entry.sha, relativeFileName, entry.author, moment(entry.authorDate).toDate(), entry.summary, entry.status, entry.fileStatuses, undefined, entry.originalFileName);
 
                 if (relativeFileName !== entry.fileName) {
                     commit.originalFileName = entry.fileName;
