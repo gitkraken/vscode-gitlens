@@ -9,6 +9,7 @@ import { ShowBlameCommand, ToggleBlameCommand } from './commands';
 import { ShowBlameHistoryCommand, ShowFileHistoryCommand } from './commands';
 import { ShowQuickCommitDetailsCommand, ShowQuickFileHistoryCommand, ShowQuickRepoHistoryCommand, ShowQuickRepoStatusCommand} from './commands';
 import { ToggleCodeLensCommand } from './commands';
+import { Keyboard } from './commands';
 import { IAdvancedConfig, IBlameConfig } from './configuration';
 import { BuiltInCommands, WorkspaceState } from './constants';
 import GitContentProvider from './gitContentProvider';
@@ -71,6 +72,8 @@ export async function activate(context: ExtensionContext) {
 
     const activeLineController = new BlameActiveLineController(context, git, annotationController);
     context.subscriptions.push(activeLineController);
+
+    context.subscriptions.push(new Keyboard(context));
 
     context.subscriptions.push(new CopyMessageToClipboardCommand(git, repoPath));
     context.subscriptions.push(new CopyShaToClipboardCommand(git, repoPath));

@@ -1,7 +1,7 @@
 'use strict';
 import { QuickPickItem, Uri } from 'vscode';
 import { getGitStatusIcon, GitCommit, GitFileStatus, GitUri } from '../gitProvider';
-import { openEditor } from './quickPicks';
+import { OpenFileCommandQuickPickItem } from './quickPicks';
 import * as moment from 'moment';
 import * as path from 'path';
 
@@ -18,31 +18,27 @@ export class CommitQuickPickItem implements QuickPickItem {
     }
 }
 
-export class CommitWithFileStatusQuickPickItem implements QuickPickItem {
+export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickItem {
 
-    label: string;
-    description: string;
-    detail: string;
-
+    fileName: string;
     sha: string;
-    uri: GitUri;
+    status: GitFileStatus;
 
-    constructor(commit: GitCommit, public fileName: string, public status: GitFileStatus) {
+    constructor(commit: GitCommit, fileName: string, status: GitFileStatus) {
         const icon = getGitStatusIcon(status);
-        this.label = `\u00a0\u00a0\u00a0\u00a0${icon}\u00a0\u00a0 ${path.basename(fileName)}`;
 
         let directory = path.dirname(fileName);
         if (!directory || directory === '.') {
             directory = undefined;
         }
 
-        this.description = directory;
+        super(GitUri.fromUri(Uri.file(path.resolve(commit.repoPath, fileName))), {
+            label: `\u00a0\u00a0\u00a0\u00a0${icon}\u00a0\u00a0 ${path.basename(fileName)}`,
+            description: directory
+        });
 
+        this.fileName = fileName;
         this.sha = commit.sha;
-        this.uri = GitUri.fromUri(Uri.file(path.resolve(commit.repoPath, fileName)));
-    }
-
-    async preview(): Promise<{}> {
-        return openEditor(this.uri, true);
+        this.status = status;
     }
 }

@@ -1,7 +1,7 @@
 'use strict';
 import { Iterables } from '../system';
-import { QuickPickOptions, Uri, window } from 'vscode';
-import { Commands } from '../commands';
+import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
+import { Commands, Keyboard } from '../commands';
 import { IGitLog } from '../gitProvider';
 import { CommitQuickPickItem } from './gitQuickPicks';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './quickPicks';
@@ -25,11 +25,20 @@ export class RepoHistoryQuickPick {
             items.splice(0, 0, goBackCommand);
         }
 
-        return await window.showQuickPick(items, {
+        await Keyboard.instance.enterScope(['left', goBackCommand]);
+
+        const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
             placeHolder: 'Search by commit message, filename, or sha',
-            ignoreFocusOut: getQuickPickIgnoreFocusOut()
+            ignoreFocusOut: getQuickPickIgnoreFocusOut(),
+            onDidSelectItem: (item: QuickPickItem) => {
+                Keyboard.instance.setKeyCommand('right', item);
+            }
         } as QuickPickOptions);
+
+        await Keyboard.instance.exitScope();
+
+        return pick;
     }
 }

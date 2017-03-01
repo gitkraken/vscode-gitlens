@@ -1,6 +1,7 @@
 'use strict';
 import { Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
+import { Keyboard } from '../commands';
 import { getGitStatusIcon, GitFileStatusItem } from '../gitProvider';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem } from './quickPicks';
 import * as path from 'path';
@@ -72,10 +73,19 @@ export class RepoStatusQuickPick {
             items.splice(0, 0, goBackCommand);
         }
 
-        return await window.showQuickPick(items, {
+        await Keyboard.instance.enterScope(['left', goBackCommand]);
+
+        const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             placeHolder: statuses.length ? 'Repository has changes' : 'Repository has no changes',
-            ignoreFocusOut: getQuickPickIgnoreFocusOut()
+            ignoreFocusOut: getQuickPickIgnoreFocusOut(),
+            onDidSelectItem: (item: QuickPickItem) => {
+                Keyboard.instance.setKeyCommand('right', item);
+            }
         } as QuickPickOptions);
+
+        await Keyboard.instance.exitScope();
+
+        return pick;
     }
 }

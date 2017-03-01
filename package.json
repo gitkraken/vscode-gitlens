@@ -319,6 +319,16 @@
         },
         "commands": [
             {
+                "command": "gitlens.key.left",
+                "title": "Left KeyPress",
+                "category": "GitLens:KeyPress"
+            },
+            {
+                "command": "gitlens.key.right",
+                "title": "Right KeyPress",
+                "category": "GitLens:KeyPress"
+            },
+            {
                 "command": "gitlens.diffWithPrevious",
                 "title": "Compare with Previous Commit",
                 "category": "GitLens"
@@ -400,6 +410,14 @@
         ],
         "menus": {
             "commandPalette": [
+                {
+                    "command": "gitlens.key.left",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.key.right",
+                    "when": "false"
+                },
                 {
                     "command": "gitlens.diffWithPrevious",
                     "when": "gitlens:enabled"
@@ -567,6 +585,16 @@
             ]
         },
         "keybindings": [
+            {
+                "command": "gitlens.key.left",
+                "key": "alt+left",
+                "when": "gitlens:key"
+            },
+            {
+                "command": "gitlens.key.right",
+                "key": "alt+right",
+                "when": "gitlens:key"
+            },
             {
                 "command": "gitlens.toggleBlame",
                 "key": "alt+b",

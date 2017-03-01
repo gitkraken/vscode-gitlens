@@ -1,7 +1,7 @@
 'use strict';
 import { Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
-import { Commands } from '../commands';
+import { Commands, Keyboard } from '../commands';
 import GitProvider, { GitCommit, GitLogCommit, GitUri } from '../gitProvider';
 import { CommitWithFileStatusQuickPickItem } from './gitQuickPicks';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem } from './quickPicks';
@@ -55,19 +55,21 @@ export class CommitDetailsQuickPick {
             items.splice(0, 0, goBackCommand);
         }
 
-        const result = await window.showQuickPick(items, {
+        await Keyboard.instance.enterScope(['left', goBackCommand]);
+
+        const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
             placeHolder: `${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`,
-            ignoreFocusOut: getQuickPickIgnoreFocusOut()
-            // onDidSelectItem: (item: QuickPickItem) => {
-            //     if (item instanceof FileQuickPickItem) {
-            //         item.preview();
-            //     }
-            // }
+            ignoreFocusOut: getQuickPickIgnoreFocusOut(),
+            onDidSelectItem: (item: QuickPickItem) => {
+                Keyboard.instance.setKeyCommand('right', item);
+            }
         } as QuickPickOptions);
 
-        return result;
+        await Keyboard.instance.exitScope();
+
+        return pick;
     }
 }
 
@@ -137,10 +139,19 @@ export class CommitFileDetailsQuickPick {
             items.splice(0, 0, goBackCommand);
         }
 
-        return await window.showQuickPick(items, {
+        await Keyboard.instance.enterScope(['left', goBackCommand]);
+
+        const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             placeHolder: `${commit.getFormattedPath()} \u2022 ${isUncommitted ? 'Uncommitted \u21E8 ' : '' }${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`,
-            ignoreFocusOut: getQuickPickIgnoreFocusOut()
+            ignoreFocusOut: getQuickPickIgnoreFocusOut(),
+            onDidSelectItem: (item: QuickPickItem) => {
+                Keyboard.instance.setKeyCommand('right', item);
+            }
         } as QuickPickOptions);
+
+        await Keyboard.instance.exitScope();
+
+        return pick;
     }
 }

@@ -1,4 +1,6 @@
 'use strict';
+export { Keyboard } from './commands/keyboard';
+
 export { ActiveEditorCommand, Command, Commands, EditorCommand } from './commands/commands';
 export { CopyMessageToClipboardCommand } from './commands/copyMessageToClipboard';
 export { CopyShaToClipboardCommand } from './commands/copyShaToClipboard';
