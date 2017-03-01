@@ -1,5 +1,8 @@
 ## Release Notes
 
+### 2.8.1
+- Fixes issue where `Compare with *` commands fail to open when there is no active editor
+
 ### 2.8.0
 - Adds new `Open File` command on the `gitlens.showQuickCommitDetails` quick pick list to open the commit version of the file
 - Adds new `Open File` command on the `gitlens.showQuickCommitDetails` quick pick list to open the commit version of the files
