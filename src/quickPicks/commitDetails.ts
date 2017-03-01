@@ -13,9 +13,20 @@ export { CommandQuickPickItem, CommitWithFileStatusQuickPickItem };
 export class OpenCommitFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 
     constructor(commit: GitCommit, item?: QuickPickItem) {
+        const uri = GitProvider.toGitContentUri(commit);
+        super(uri, item || {
+            label: `$(file-symlink-file) Open File`,
+            description: `\u00a0 \u2014 \u00a0\u00a0 as of \u00a0 $(git-commit) \u00a0 ${commit.sha} \u00a0\u2022\u00a0 ${commit.getFormattedPath()}`
+        });
+    }
+}
+
+export class OpenCommitWorkingTreeFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
+
+    constructor(commit: GitCommit, item?: QuickPickItem) {
         const uri = Uri.file(path.resolve(commit.repoPath, commit.fileName));
         super(uri, item || {
-            label: `$(file-symlink-file) Open Working Tree File`,
+            label: `$(file-symlink-file) Open Working File`,
             description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.getFormattedPath()}`
         });
     }
@@ -25,11 +36,24 @@ export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPi
 
     constructor(commit: GitLogCommit, item?: QuickPickItem) {
         const repoPath = commit.repoPath;
+        const uris = commit.fileStatuses.map(_ => GitProvider.toGitContentUri(commit.sha, _.fileName, repoPath, commit.originalFileName));
+        super(uris, item || {
+            label: `$(file-symlink-file) Open Files`,
+            description: `\u00a0 \u2014 \u00a0\u00a0 as of \u00a0 $(git-commit) \u00a0 ${commit.sha}`
+            //detail: `Opens all of the changed files in $(git-commit) ${commit.sha}`
+        });
+    }
+}
+
+export class OpenCommitWorkingTreeFilesCommandQuickPickItem extends OpenFilesCommandQuickPickItem {
+
+    constructor(commit: GitLogCommit, versioned: boolean = false, item?: QuickPickItem) {
+        const repoPath = commit.repoPath;
         const uris = commit.fileStatuses.map(_ => Uri.file(path.resolve(repoPath, _.fileName)));
         super(uris, item || {
-            label: `$(file-symlink-file) Open Working Tree Files`,
-            description: undefined,
-            detail: `Opens all of the files in commit $(git-commit) ${commit.sha}`
+            label: `$(file-symlink-file) Open Working Files`,
+            description: undefined
+            //detail: `Opens all of the changed file in the working tree`
         });
     }
 }
@@ -49,7 +73,8 @@ export class CommitDetailsQuickPick {
             description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.message}`
         }, Commands.CopyMessageToClipboard, [uri, commit.sha, commit.message]));
 
-        items.splice(2, 0, new OpenCommitFilesCommandQuickPickItem(commit));
+        items.splice(2, 0, new OpenCommitWorkingTreeFilesCommandQuickPickItem(commit));
+        items.splice(3, 0, new OpenCommitFilesCommandQuickPickItem(commit));
 
         if (goBackCommand) {
             items.splice(0, 0, goBackCommand);
@@ -117,6 +142,7 @@ export class CommitFileDetailsQuickPick {
             description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.message}`
         }, Commands.CopyMessageToClipboard, [uri, commit.sha, commit.message]));
 
+        items.push(new OpenCommitWorkingTreeFileCommandQuickPickItem(commit));
         items.push(new OpenCommitFileCommandQuickPickItem(commit));
 
         if (options.showFileHistory) {

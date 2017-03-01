@@ -12,7 +12,7 @@ export default class GitContentProvider implements TextDocumentContentProvider {
     constructor(context: ExtensionContext, private git: GitProvider) { }
 
     async provideTextDocumentContent(uri: Uri): Promise<string> {
-        const data = GitProvider.fromGitUri(uri);
+        const data = GitProvider.fromGitContentUri(uri);
         const fileName = data.originalFileName || data.fileName;
         try {
             let text = await this.git.getVersionedFileText(fileName, data.repoPath, data.sha) as string;

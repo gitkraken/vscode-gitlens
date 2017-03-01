@@ -23,7 +23,7 @@ export class GitUri extends Uri {
 
         this.offset = 0;
         if (uri.scheme === DocumentSchemes.Git) {
-            const data = GitProvider.fromGitUri(uri);
+            const data = GitProvider.fromGitContentUri(uri);
             base._fsPath = data.originalFileName || data.fileName;
 
             this.offset = (data.decoration && data.decoration.split('\n').length) || 0;
@@ -72,10 +72,10 @@ export interface IGitCommitInfo {
 }
 
 export interface IGitUriData {
-    repoPath: string;
-    fileName: string;
-    originalFileName?: string;
     sha: string;
-    index: number;
+    fileName: string;
+    repoPath: string;
+    originalFileName?: string;
+    index?: number;
     decoration?: string;
 }

@@ -450,7 +450,7 @@ export default class GitProvider extends Disposable {
             if (c.isUncommitted) return;
 
             const decoration = `\u2937 ${c.author}, ${moment(c.date).format('MMMM Do, YYYY h:MMa')}`;
-            const uri = GitProvider.toGitUri(c, i + 1, commitCount, c.originalFileName, decoration);
+            const uri = GitProvider.toReferenceGitContentUri(c, i + 1, commitCount, c.originalFileName, decoration);
             locations.push(new Location(uri, new Position(0, 0)));
             if (c.sha === selectedSha) {
                 locations.push(new Location(uri, new Position(line + 1, 0)));
@@ -550,7 +550,7 @@ export default class GitProvider extends Disposable {
             if (c.isUncommitted) return;
 
             const decoration = `\u2937 ${c.author}, ${moment(c.date).format('MMMM Do, YYYY h:MMa')}`;
-            const uri = GitProvider.toGitUri(c, i + 1, commitCount, c.originalFileName, decoration);
+            const uri = GitProvider.toReferenceGitContentUri(c, i + 1, commitCount, c.originalFileName, decoration);
             locations.push(new Location(uri, new Position(0, 0)));
             if (c.sha === selectedSha) {
                 locations.push(new Location(uri, new Position(line + 1, 0)));
@@ -614,20 +614,41 @@ export default class GitProvider extends Disposable {
         return Git.isUncommitted(sha);
     }
 
-    static fromGitUri(uri: Uri): IGitUriData {
+    static fromGitContentUri(uri: Uri): IGitUriData {
         if (uri.scheme !== DocumentSchemes.Git) throw new Error(`fromGitUri(uri=${uri}) invalid scheme`);
-        return GitProvider._fromGitUri<IGitUriData>(uri);
+        return GitProvider._fromGitContentUri<IGitUriData>(uri);
     }
 
-    private static _fromGitUri<T extends IGitUriData>(uri: Uri): T {
+    private static _fromGitContentUri<T extends IGitUriData>(uri: Uri): T {
         return JSON.parse(uri.query) as T;
     }
 
-    static toGitUri(commit: GitCommit, index: number, commitCount: number, originalFileName?: string, decoration?: string) {
-        return GitProvider._toGitUri(commit, DocumentSchemes.Git, commitCount, GitProvider._toGitUriData(commit, index, originalFileName, decoration));
+    static toGitContentUri(sha: string, fileName: string, repoPath: string, originalFileName: string): Uri;
+    static toGitContentUri(commit: GitCommit): Uri;
+    static toGitContentUri(shaOrcommit: string | GitCommit, fileName?: string, repoPath?: string, originalFileName?: string): Uri {
+        let data: IGitUriData;
+        if (typeof shaOrcommit === 'string') {
+            data = GitProvider._toGitUriData({
+                sha: shaOrcommit,
+                fileName: fileName,
+                repoPath: repoPath,
+                originalFileName: originalFileName
+            });
+        }
+        else {
+            data = GitProvider._toGitUriData(shaOrcommit, undefined, shaOrcommit.originalFileName);
+            fileName = shaOrcommit.fileName;
+        }
+
+        const extension = path.extname(fileName);
+        return Uri.parse(`${DocumentSchemes.Git}:${path.basename(fileName, extension)}:${data.sha}${extension}?${JSON.stringify(data)}`);
     }
 
-    private static _toGitUri(commit: GitCommit, scheme: DocumentSchemes, commitCount: number, data: IGitUriData) {
+    static toReferenceGitContentUri(commit: GitCommit, index: number, commitCount: number, originalFileName?: string, decoration?: string): Uri {
+        return GitProvider._toReferenceGitContentUri(commit, DocumentSchemes.Git, commitCount, GitProvider._toGitUriData(commit, index, originalFileName, decoration));
+    }
+
+    private static _toReferenceGitContentUri(commit: GitCommit, scheme: DocumentSchemes, commitCount: number, data: IGitUriData) {
         const pad = (n: number) => ('0000000' + n).slice(-('' + commitCount).length);
         const ext = path.extname(data.fileName);
         const uriPath = `${path.relative(commit.repoPath, data.fileName.slice(0, -ext.length))}/${commit.sha}${ext}`;
@@ -641,11 +662,11 @@ export default class GitProvider extends Disposable {
         return Uri.parse(`${scheme}:${pad(data.index)} \u2022 ${encodeURIComponent(message)} \u2022 ${moment(commit.date).format('MMM D, YYYY hh:MMa')} \u2022 ${encodeURIComponent(uriPath)}?${JSON.stringify(data)}`);
     }
 
-    private static _toGitUriData<T extends IGitUriData>(commit: GitCommit, index: number, originalFileName?: string, decoration?: string): T {
-        const fileName = Git.normalizePath(path.join(commit.repoPath, commit.fileName));
+    private static _toGitUriData<T extends IGitUriData>(commit: IGitUriData, index?: number, originalFileName?: string, decoration?: string): T {
+        const fileName = Git.normalizePath(path.resolve(commit.repoPath, commit.fileName));
         const data = { repoPath: commit.repoPath, fileName: fileName, sha: commit.sha, index: index } as T;
         if (originalFileName) {
-            data.originalFileName = Git.normalizePath(path.join(commit.repoPath, originalFileName));
+            data.originalFileName = Git.normalizePath(path.resolve(commit.repoPath, originalFileName));
         }
         if (decoration) {
             data.decoration = decoration;
