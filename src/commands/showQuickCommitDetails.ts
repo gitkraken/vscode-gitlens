@@ -65,11 +65,11 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
                 // TODO: Leave this at undefined until findMostRecentCommitForFile actually works
                 workingFileName = !workingCommit ? pick.fileName : undefined;
 
-                log = await this.git.getLogForFile(pick.uri.fsPath, pick.sha, undefined, undefined, 2);
-                if (!log) return window.showWarningMessage(`Unable to open diff`);
+                log = await this.git.getLogForFile(pick.gitUri.fsPath, pick.sha, undefined, undefined, 2);
+                if (!log) return window.showWarningMessage(`Unable to show commit details`);
 
                 commit = Iterables.find(log.commits.values(), c => c.sha === commit.sha);
-                uri = pick.uri || uri;
+                uri = pick.gitUri || uri;
             }
             else {
                 // Attempt to the most recent commit -- so that we can find the real working filename if there was a rename
