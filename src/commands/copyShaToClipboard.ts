@@ -28,10 +28,10 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
                 return undefined;
             }
 
-            const line = editor.selection.active.line;
             const gitUri = GitUri.fromUri(uri, this.git);
 
             if (!sha) {
+                const line = editor.selection.active.line;
                 const blameline = line - gitUri.offset;
                 if (blameline < 0) return undefined;
 

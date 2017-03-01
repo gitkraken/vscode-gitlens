@@ -28,11 +28,11 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 return undefined;
             }
 
-            const line = editor.selection.active.line;
             const gitUri = GitUri.fromUri(uri, this.git);
 
             if (!message) {
                 if (!sha) {
+                    const line = editor.selection.active.line;
                     const blameline = line - gitUri.offset;
                     if (blameline < 0) return undefined;
 
