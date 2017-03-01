@@ -26,11 +26,12 @@ export default class GitRevisionCodeLensProvider implements CodeLensProvider {
     constructor(context: ExtensionContext, private git: GitProvider) { }
 
     async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
-        const gitUri = GitUri.fromUri(document.uri, this.git);
+        const data = GitProvider.fromGitContentUri(document.uri);
+        const gitUri = new GitUri(Uri.file(data.fileName), data);
 
         const lenses: CodeLens[] = [];
 
-        const log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath);
+        const log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, undefined, 2);
         if (!log) return lenses;
 
         const commit = (gitUri.sha && log.commits.get(gitUri.sha)) || Iterables.first(log.commits.values());
@@ -53,7 +54,7 @@ export default class GitRevisionCodeLensProvider implements CodeLensProvider {
 
     _resolveDiffWithWorkingTreeCodeLens(lens: GitDiffWithWorkingCodeLens, token: CancellationToken): Thenable<CodeLens> {
         lens.command = {
-            title: `Compare (${lens.commit.sha}) with Working Tree`,
+            title: `Compare ${lens.commit.sha} with Working Tree`,
             command: Commands.DiffWithWorking,
             arguments: [
                 Uri.file(lens.fileName),
@@ -66,7 +67,7 @@ export default class GitRevisionCodeLensProvider implements CodeLensProvider {
 
     _resolveGitDiffWithPreviousCodeLens(lens: GitDiffWithPreviousCodeLens, token: CancellationToken): Thenable<CodeLens> {
         lens.command = {
-            title: `Compare (${lens.commit.sha}) with Previous (${lens.commit.previousSha})`,
+            title: `Compare ${lens.commit.sha} with Previous ${lens.commit.previousSha}`,
             command: Commands.DiffWithPrevious,
             arguments: [
                 Uri.file(lens.fileName),
