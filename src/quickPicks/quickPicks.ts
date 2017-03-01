@@ -10,7 +10,7 @@ export function getQuickPickIgnoreFocusOut() {
 
 export async function openEditor(uri: Uri, pinned: boolean = false) {
     try {
-        if (pinned) return await commands.executeCommand(BuiltInCommands.Open, uri);
+        if (!pinned) return await commands.executeCommand(BuiltInCommands.Open, uri);
 
         const document = await workspace.openTextDocument(uri);
         return window.showTextDocument(document, (window.activeTextEditor && window.activeTextEditor.viewColumn) || 1, true);
@@ -41,16 +41,12 @@ export class OpenFileCommandQuickPickItem extends CommandQuickPickItem {
         super(item, undefined, undefined);
     }
 
-    async execute(): Promise<{}> {
-        return this.preview();
+    async execute(pinned: boolean = false): Promise<{}> {
+        return this.open(pinned);
     }
 
-    async open(): Promise<TextEditor | undefined> {
-        return openEditor(this.uri);
-    }
-
-    async preview(): Promise<{}> {
-        return openEditor(this.uri, true);
+    async open(pinned: boolean = false): Promise<TextEditor | undefined> {
+        return openEditor(this.uri, pinned);
     }
 }
 
@@ -62,7 +58,7 @@ export class OpenFilesCommandQuickPickItem extends CommandQuickPickItem {
 
     async execute(): Promise<{}> {
         for (const uri of this.uris) {
-            openEditor(uri);
+            openEditor(uri, true);
         }
         return undefined;
     }
