@@ -1,8 +1,25 @@
 ## Release Notes
 
+### 2.8.0
+- Adds new `Open File` command on the `gitlens.showQuickCommitDetails` quick pick list to open the commit version of the file
+- Adds new `Open File` command on the `gitlens.showQuickCommitDetails` quick pick list to open the commit version of the files
+- Adds `alt+left` keyboard shortcut in quick pick list to `go back`
+- Adds `alt+right` keyboard shortcut in quick pick list to execute the currently selected item while keeping the quick pick open (in most cases)
+- `alt+right` keyboard shortcut on commit details file name, will open the commit version of the file
+- Indents the file statuses on the `gitlens.showQuickCommitDetails` quick pick list
+- Renames `Open File` to `Open Working File` on the `gitlens.showQuickCommitDetails` quick pick list
+- Renames `Open File` and `Open Working Files` on the `gitlens.showQuickCommitDetails` quick pick list
+- Reorders some quick pick lists
+- Fixes [#34](https://github.com/eamodio/vscode-gitlens/issues/34) - Open file should open the selected version of the file
+- Fixes some issue where some editors opened by the quickpick would not be opened in preview tabs
+- Fixes issue where copy to clipboard commands would fail if there was no active editor
+- Fixes issue where active line annotations would show for opened versioned files
+- Fixes issue where CodeLens compare commands on opened versioned files would fail
+
 ### 2.7.1
 - Adds proper support for multi-line commit messages
 - Fixes [#33](https://github.com/eamodio/vscode-gitlens/issues/33) - Commit message styled as title in popup, when message starts with hash symbol
+
 ### 2.7.0
 - Adds file status icons (added, modified, deleted, etc) to the `gitlens.showQuickCommitDetails` quick pick list
 - Adds `Copy Commit Sha to Clipboard` command to commit files quick pick list
