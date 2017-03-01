@@ -91,6 +91,18 @@ export default class Git {
         return gitCommand(root, ...params, `--`, file);
     }
 
+    static diffStatus(repoPath: string, sha1?: string, sha2?: string) {
+        const params = [`diff`, `--name- status`, `-M`];
+        if (sha1) {
+            params.push(sha1);
+        }
+        if (sha2) {
+            params.push(sha2);
+        }
+
+        return gitCommand(repoPath, ...params);
+    }
+
     static log(fileName: string, sha?: string, repoPath?: string, maxCount?: number, reverse: boolean = false) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
