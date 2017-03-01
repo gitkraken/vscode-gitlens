@@ -1,26 +1,26 @@
 'use strict';
-import { commands, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { Commands, EditorCommand } from './commands';
+import { commands, TextEditor, Uri, window } from 'vscode';
+import { ActiveEditorCommand, Commands } from './commands';
 import { BuiltInCommands } from '../constants';
 import GitProvider, { GitCommit, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 import * as path from 'path';
 
-export class DiffLineWithPreviousCommand extends EditorCommand {
+export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 
     constructor(private git: GitProvider) {
         super(Commands.DiffLineWithPrevious);
     }
 
     async execute(editor: TextEditor): Promise<any>;
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri: Uri): Promise<any>;
-    async execute(editor: TextEditor, edit?: TextEditorEdit, uri?: Uri, commit?: GitCommit, line?: number): Promise<any> {
+    async execute(editor: TextEditor, uri: Uri): Promise<any>;
+    async execute(editor: TextEditor, uri?: Uri, commit?: GitCommit, line?: number): Promise<any> {
         if (!(uri instanceof Uri)) {
-            if (!editor.document) return undefined;
+            if (!editor || !editor.document) return undefined;
             uri = editor.document.uri;
         }
 
-        line = line || editor.selection.active.line;
+        line = line ||(editor && editor.selection.active.line) || 0;
         let gitUri = GitUri.fromUri(uri, this.git);
 
         if (!commit || GitProvider.isUncommitted(commit.sha)) {

@@ -1,30 +1,30 @@
 'use strict';
 import { Iterables } from '../system';
-import { commands, Range, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { Commands, EditorCommand } from './commands';
+import { commands, Range, TextEditor, Uri, window } from 'vscode';
+import { ActiveEditorCommand, Commands } from './commands';
 import { BuiltInCommands } from '../constants';
 import GitProvider, { GitCommit, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 import * as moment from 'moment';
 import * as path from 'path';
 
-export class DiffWithPreviousCommand extends EditorCommand {
+export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
     constructor(private git: GitProvider) {
         super(Commands.DiffWithPrevious);
     }
 
     async execute(editor: TextEditor): Promise<any>;
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri: Uri): Promise<any>;
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri: Uri, commit: GitCommit, range?: Range): Promise<any>;
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri: Uri, commit: GitCommit, line?: number): Promise<any>;
-    async execute(editor: TextEditor, edit?: TextEditorEdit, uri?: Uri, commit?: GitCommit, rangeOrLine?: Range | number): Promise<any> {
+    async execute(editor: TextEditor, uri: Uri): Promise<any>;
+    async execute(editor: TextEditor, uri: Uri, commit: GitCommit, range?: Range): Promise<any>;
+    async execute(editor: TextEditor, uri: Uri, commit: GitCommit, line?: number): Promise<any>;
+    async execute(editor: TextEditor, uri?: Uri, commit?: GitCommit, rangeOrLine?: Range | number): Promise<any> {
         if (!(uri instanceof Uri)) {
-            if (!editor.document) return undefined;
+            if (!editor || !editor.document) return undefined;
             uri = editor.document.uri;
         }
 
-        let line = editor.selection.active.line;
+        let line = (editor && editor.selection.active.line) || 0;
         if (typeof rangeOrLine === 'number') {
             line = rangeOrLine || line;
             rangeOrLine = undefined;
