@@ -38,7 +38,7 @@ export default class BlameAnnotationFormatter {
         let message = this.getMessage(config, commit, format === BlameAnnotationFormat.Unconstrained ? 0 : defaultMessageLength);
 
         if (format === BlameAnnotationFormat.Unconstrained) {
-            const authorAndDate = this.getAuthorAndDate(config, commit, 'MMMM Do, YYYY h:MMa');
+            const authorAndDate = this.getAuthorAndDate(config, commit, config.annotation.dateFormat || 'MMMM Do, YYYY h:MMa');
             if (config.annotation.sha) {
                 message = `${sha}${(authorAndDate ? `${cssPadding}${cssSeparator}${cssPadding}${authorAndDate}` : '')}${(message ? `${cssPadding}${cssSeparator}${cssPadding}${message}` : '')}`;
             }
@@ -50,7 +50,7 @@ export default class BlameAnnotationFormatter {
         }
 
         const author = this.getAuthor(config, commit, defaultAuthorLength);
-        const date = this.getDate(config, commit, 'MM/DD/YYYY', true);
+        const date = this.getDate(config, commit, config.annotation.dateFormat || 'MM/DD/YYYY', true);
         if (config.annotation.sha) {
             message = `${sha}${(author ? `${cssPadding}${cssSeparator}${cssPadding}${author}` : '')}${(date ? `${cssPadding}${cssSeparator}${cssPadding}${date}` : '')}${(message ? `${cssPadding}${cssSeparator}${cssPadding}${message}` : '')}`;
         }
@@ -70,10 +70,10 @@ export default class BlameAnnotationFormatter {
             return `\`${'0'.repeat(8)}\` &nbsp; __Uncommitted changes__`;
         }
 
-        return `\`${commit.sha}\` &nbsp; __${commit.author}__, ${moment(commit.date).fromNow()} _(${moment(commit.date).format('MMMM Do, YYYY h:MMa')})_ \n\n${message}`;
+        return `\`${commit.sha}\` &nbsp; __${commit.author}__, ${moment(commit.date).fromNow()} _(${moment(commit.date).format(config.annotation.dateFormat || 'MMMM Do, YYYY h:MMa')})_ \n\n${message}`;
     }
 
-    static getAuthorAndDate(config: IBlameConfig, commit: GitCommit, format?: string, force: boolean = false) {
+    static getAuthorAndDate(config: IBlameConfig, commit: GitCommit, format: string, force: boolean = false) {
         if (!force && !config.annotation.author && (!config.annotation.date || config.annotation.date === 'off')) return '';
 
         if (!config.annotation.author) {
@@ -101,7 +101,7 @@ export default class BlameAnnotationFormatter {
         return author + cssPadding.repeat(truncateTo - author.length);
     }
 
-    static getDate(config: IBlameConfig, commit: GitCommit, format?: string, truncate: boolean = false, force: boolean = false) {
+    static getDate(config: IBlameConfig, commit: GitCommit, format: string, truncate: boolean = false, force: boolean = false) {
         if (!force && (!config.annotation.date || config.annotation.date === 'off')) return '';
 
         const date = config.annotation.date === 'relative'

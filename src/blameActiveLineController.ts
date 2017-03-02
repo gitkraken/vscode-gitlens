@@ -208,7 +208,24 @@ export default class BlameActiveLineController extends Disposable {
 
     async show(commit: GitCommit, blameLine: IGitCommitLine, editor: TextEditor) {
         if (this._config.statusBar.enabled) {
-            this._statusBarItem.text = `$(git-commit) ${commit.author}, ${moment(commit.date).fromNow()}`;
+            switch (this._config.statusBar.date) {
+                case 'off':
+                    this._statusBarItem.text = `$(git-commit) ${commit.author}`;
+                    break;
+                case 'absolute':
+                    const dateFormat = this._config.statusBar.dateFormat || 'MMMM Do, YYYY h:MMa';
+                    let date: string;
+                    try {
+                        date = moment(commit.date).format(dateFormat);
+                    } catch (ex) {
+                        date = moment(commit.date).format('MMMM Do, YYYY h:MMa');
+                    }
+                    this._statusBarItem.text = `$(git-commit) ${commit.author}, ${date}`;
+                    break;
+                default:
+                    this._statusBarItem.text = `$(git-commit) ${commit.author}, ${moment(commit.date).fromNow()}`;
+                    break;
+            }
 
             switch (this._config.statusBar.command) {
                 case StatusBarCommand.BlameAnnotate:

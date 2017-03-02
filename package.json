@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "2.8.1",
+    "version": "2.8.2",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -81,7 +81,12 @@
                         "relative",
                         "absolute"
                     ],
-                    "description": "Specifies whether and how the commit date will be shown in the blame annotations. `off` - no date. `relative` - relative date (e.g. 1 day ago). `absolute` - date in `MMMM Do, YYYY h:MMa` format. Applies only to the `expanded` & `trailing` annotation styles"
+                    "description": "Specifies whether and how the commit date will be shown in the blame annotations. `off` - no date. `relative` - relative date (e.g. 1 day ago). `absolute` - date format specified by `gitlens.blame.annotation.dateFormat`. Applies only to the `expanded` & `trailing` annotation styles"
+                },
+                "gitlens.blame.annotation.dateFormat": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Specifies the date format of how absolute dates will be shown in the blame annotations. See https://momentjs.com/docs/#/displaying/format/ for valid formats"
                 },
                 "gitlens.blame.annotation.message": {
                     "type": "boolean",
@@ -264,6 +269,21 @@
                         "gitlens.showQuickRepoHistory"
                     ],
                     "description": "Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickFileHistory` - shows a repository history quick pick"
+                },
+                "gitlens.statusBar.date": {
+                    "type": "string",
+                    "default": "relative",
+                    "enum": [
+                        "off",
+                        "relative",
+                        "absolute"
+                    ],
+                    "description": "Specifies whether and how the commit date will be shown in the blame status bar. `off` - no date. `relative` - relative date (e.g. 1 day ago). `absolute` - date format specified by `gitlens.statusBar.dateFormat`"
+                },
+                "gitlens.statusBar.dateFormat": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Specifies the date format of how absolute dates will be shown in the blame status bar. See https://momentjs.com/docs/#/displaying/format/ for valid formats"
                 },
                 "gitlens.advanced.caching.enabled": {
                     "type": "boolean",

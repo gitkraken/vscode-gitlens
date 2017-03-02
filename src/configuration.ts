@@ -16,6 +16,7 @@ export interface IBlameConfig {
         sha: boolean;
         author: boolean;
         date: 'off' | 'relative' | 'absolute';
+        dateFormat: string;
         message: boolean;
         activeLine: 'off' | 'inline' | 'hover' | 'both';
         characters: {
@@ -89,6 +90,8 @@ export const StatusBarCommand = {
 export interface IStatusBarConfig {
     enabled: boolean;
     command: StatusBarCommand;
+    date: 'off' | 'relative' | 'absolute';
+    dateFormat: string;
 }
 
 export interface IAdvancedConfig {

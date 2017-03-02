@@ -36,7 +36,8 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 |`gitlens.blame.annotation.highlight`|Specifies whether and how to highlight blame annotations. `none` - no highlight. `gutter` - adds a gutter icon. `line` - adds a full-line highlight. `both` - adds both `gutter` and `line` highlights
 |`gitlens.blame.annotation.sha`|Specifies whether the commit sha will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles
 |`gitlens.blame.annotation.author`|Specifies whether the committer will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles
-|`gitlens.blame.annotation.date`|Specifies whether and how the commit date will be shown in the blame annotations. `off` - no date. `relative` - relative date (e.g. 1 day ago). `absolute` - date in `MMMM Do, YYYY h:MMa` format. Applies only to the `expanded` & `trailing` annotation styles
+|`gitlens.blame.annotation.date`|Specifies whether and how the commit date will be shown in the blame annotations. `off` - no date. `relative` - relative date (e.g. 1 day ago). `absolute` - date format specified by `gitlens.blame.annotation.dateFormat`. Applies only to the `expanded` & `trailing` annotation styles
+|`gitlens.blame.annotation.dateFormat`|Specifies the date format of how absolute dates will be shown in the blame annotations. See https://momentjs.com/docs/#/displaying/format/ for valid formats
 |`gitlens.blame.annotation.message`|Specifies whether the commit message will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles
 |`gitlens.blame.annotation.activeLine`|Specifies whether and how to show blame annotations on the active line. `off` - no annotation. `inline` - adds a trailing annotation to the active line. `hover` - adds hover annotation to the active line. `both` - adds both `inline` and `hover` annotations
 |`gitlens.codeLens.visibility`|Specifies when CodeLens will be triggered in the active document. `auto` - automatically. `ondemand` - only when requested. `off` - disables all active document CodeLens
@@ -50,6 +51,8 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 |`gitlens.menus.diff.enabled`|Specifies whether diff commands will be added to the context menus
 |`gitlens.statusBar.enabled`|Specifies whether blame information is shown in the status bar
 |`gitlens.statusBar.command`|"Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickFileHistory` - shows a repository history quick pick
+|`gitlens.statusBar.date`|Specifies whether and how the commit date will be shown in the blame status bar. `off` - no date. `relative` - relative date (e.g. 1 day ago). `absolute` - date format specified by `gitlens.statusBar.dateFormat`
+|`gitlens.statusBar.dateFormat`|Specifies the date format of how absolute dates will be shown in the blame status bar. See https://momentjs.com/docs/#/displaying/format/ for valid formats
 
 ## Known Issues
 

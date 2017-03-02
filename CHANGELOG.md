@@ -1,5 +1,11 @@
 ## Release Notes
 
+### 2.8.2
+- Adds `gitlens.blame.annotation.dateFormat` to specify how absolute commit dates will be shown in the blame annotations
+- Adds `gitlens.statusBar.date` to specify whether and how the commit date will be shown in the blame status bar
+- Adds `gitlens.statusBar.dateFormat` to specify how absolute commit dates will be shown in the blame status bar
+- Fixes [#39](https://github.com/eamodio/vscode-gitlens/issues/39) - Add date format options for status bar blame
+
 ### 2.8.1
 - Fixes issue where `Compare with *` commands fail to open when there is no active editor
 

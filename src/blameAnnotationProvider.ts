@@ -157,7 +157,7 @@ export class BlameAnnotationProvider extends Disposable {
                         gutter = `${cssIndent} ${BlameAnnotationFormatter.getAuthor(this._config, commit, defaultAuthorLength, true)}`;
                         break;
                     case 2:
-                        gutter = `${cssIndent} ${BlameAnnotationFormatter.getDate(this._config, commit, 'MM/DD/YYYY', true, true)}`;
+                        gutter = `${cssIndent} ${BlameAnnotationFormatter.getDate(this._config, commit, this._config.annotation.dateFormat || 'MM/DD/YYYY', true, true)}`;
                         break;
                     default:
                         gutter = `${cssIndent}`;
