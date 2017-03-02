@@ -81,7 +81,7 @@
                         "relative",
                         "absolute"
                     ],
-                    "description": "Specifies whether and how the commit date will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles"
+                    "description": "Specifies whether and how the commit date will be shown in the blame annotations. `off` - no date. `relative` - relative date (e.g. 1 day ago). `absolute` - date in `MMMM Do, YYYY h:MMa` format. Applies only to the `expanded` & `trailing` annotation styles"
                 },
                 "gitlens.blame.annotation.message": {
                     "type": "boolean",
