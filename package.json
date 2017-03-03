@@ -563,7 +563,7 @@
             "editor/context": [
                 {
                     "command": "gitlens.diffLineWithPrevious",
-                    "when": "editorTextFocus && gitlens:enabled && gitlens:isBlameable && && config.gitlens.menus.diff.enabled",
+                    "when": "editorTextFocus && gitlens:enabled && gitlens:isBlameable && config.gitlens.menus.diff.enabled",
                     "group": "1_gitlens@1"
                 },
                 {
