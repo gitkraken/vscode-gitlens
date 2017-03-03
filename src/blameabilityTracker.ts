@@ -62,15 +62,20 @@ export class BlameabilityTracker extends Disposable {
     private _onTextDocumentChanged(e: TextDocumentChangeEvent) {
         if (!TextDocumentComparer.equals(this._editor && this._editor.document, e && e.document)) return;
 
-        this._unsubscribeToDocumentChanges();
-        this.updateBlameability(false);
+        // Can't unsubscribe here because undo doesn't trigger any other event
+        //this._unsubscribeToDocumentChanges();
+        //this.updateBlameability(false);
+
+        // We have to defer because isDirty is not reliable inside this event
+        setTimeout(() => this.updateBlameability(!e.document.isDirty), 1);
     }
 
     private _onTextDocumentSaved(e: TextDocument) {
         if (!TextDocumentComparer.equals(this._editor && this._editor.document, e)) return;
 
-        this._subscribeToDocumentChanges();
-        this.updateBlameability(true);
+        // Don't need to resubscribe as we aren't unsubscribing on document changes anymore
+        //this._subscribeToDocumentChanges();
+        this.updateBlameability(!e.isDirty);
     }
 
     private _subscribeToDocumentChanges() {

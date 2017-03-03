@@ -157,10 +157,6 @@ export class BlameActiveLineController extends Disposable {
         // Make sure this is for the editor we are tracking
         if (!TextEditorComparer.equals(this._editor, e.editor)) return;
 
-        const line = this._editor.selection.active.line;
-        if (line === this._currentLine) return;
-        this._currentLine = line;
-
         this._updateBlame(this._editor.selection.active.line, this._editor);
     }
 
