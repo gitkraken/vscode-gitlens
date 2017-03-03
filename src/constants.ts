@@ -16,10 +16,11 @@ export const BuiltInCommands = {
     ToggleRenderWhitespace: 'editor.action.toggleRenderWhitespace' as BuiltInCommands
 };
 
-export type DocumentSchemes = 'file' | 'gitlens-git';
+export type DocumentSchemes = 'file' | 'git' | 'gitlens-git';
 export const DocumentSchemes = {
     File: 'file' as DocumentSchemes,
-    Git: 'gitlens-git' as DocumentSchemes
+    Git: 'git' as DocumentSchemes,
+    GitLensGit: 'gitlens-git' as DocumentSchemes
 };
 
 export type WorkspaceState = 'repoPath';

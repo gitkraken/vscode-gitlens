@@ -612,6 +612,12 @@ export class GitProvider extends Disposable {
         return Git.getVersionedFileText(fileName, repoPath, sha);
     }
 
+    isEditorBlameable(editor: TextEditor): boolean {
+        return (editor.viewColumn !== undefined ||
+            editor.document.uri.scheme === DocumentSchemes.Git ||
+            this.hasGitUriForFile(editor));
+    }
+
     toggleCodeLens(editor: TextEditor) {
         if (this.config.codeLens.visibility !== CodeLensVisibility.OnDemand ||
             (!this.config.codeLens.recentChange.enabled && !this.config.codeLens.authors.enabled)) return;
@@ -632,7 +638,7 @@ export class GitProvider extends Disposable {
     }
 
     static fromGitContentUri(uri: Uri): IGitUriData {
-        if (uri.scheme !== DocumentSchemes.Git) throw new Error(`fromGitUri(uri=${uri}) invalid scheme`);
+        if (uri.scheme !== DocumentSchemes.GitLensGit) throw new Error(`fromGitUri(uri=${uri}) invalid scheme`);
         return GitProvider._fromGitContentUri<IGitUriData>(uri);
     }
 
@@ -658,11 +664,11 @@ export class GitProvider extends Disposable {
         }
 
         const extension = path.extname(fileName);
-        return Uri.parse(`${DocumentSchemes.Git}:${path.basename(fileName, extension)}:${data.sha}${extension}?${JSON.stringify(data)}`);
+        return Uri.parse(`${DocumentSchemes.GitLensGit}:${path.basename(fileName, extension)}:${data.sha}${extension}?${JSON.stringify(data)}`);
     }
 
     static toReferenceGitContentUri(commit: GitCommit, index: number, commitCount: number, originalFileName?: string, decoration?: string): Uri {
-        return GitProvider._toReferenceGitContentUri(commit, DocumentSchemes.Git, commitCount, GitProvider._toGitUriData(commit, index, originalFileName, decoration));
+        return GitProvider._toReferenceGitContentUri(commit, DocumentSchemes.GitLensGit, commitCount, GitProvider._toGitUriData(commit, index, originalFileName, decoration));
     }
 
     private static _toReferenceGitContentUri(commit: GitCommit, scheme: DocumentSchemes, commitCount: number, data: IGitUriData) {

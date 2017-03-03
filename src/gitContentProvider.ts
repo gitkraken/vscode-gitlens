@@ -7,7 +7,7 @@ import * as path from 'path';
 
 export class GitContentProvider implements TextDocumentContentProvider {
 
-    static scheme = DocumentSchemes.Git;
+    static scheme = DocumentSchemes.GitLensGit;
 
     constructor(context: ExtensionContext, private git: GitProvider) { }
 

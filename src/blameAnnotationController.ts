@@ -5,7 +5,7 @@ import { BlameabilityChangeEvent, BlameabilityTracker } from './blameabilityTrac
 import { BlameAnnotationProvider } from './blameAnnotationProvider';
 import { TextDocumentComparer, TextEditorComparer } from './comparers';
 import { IBlameConfig } from './configuration';
-import { GitProvider } from './gitProvider';
+import { GitProvider, GitUri } from './gitProvider';
 import { Logger } from './logger';
 import { WhitespaceController } from './whitespaceController';
 
@@ -153,8 +153,7 @@ export class BlameAnnotationController extends Disposable {
     }
 
     async showBlameAnnotation(editor: TextEditor, shaOrLine?: string | number): Promise<boolean> {
-        if (!editor || !editor.document) return false;
-        if (editor.viewColumn === undefined && !this.git.hasGitUriForFile(editor)) return false;
+        if (!editor || !editor.document || !this.git.isEditorBlameable(editor)) return false;
 
         const currentProvider = this._annotationProviders.get(editor.viewColumn || -1);
         if (currentProvider && TextEditorComparer.equals(currentProvider.editor, editor)) {
@@ -162,7 +161,8 @@ export class BlameAnnotationController extends Disposable {
             return true;
         }
 
-        const provider = new BlameAnnotationProvider(this.context, this.git, this._whitespaceController, editor);
+        const gitUri = await GitUri.fromUri(editor.document.uri, this.git);
+        const provider = new BlameAnnotationProvider(this.context, this.git, this._whitespaceController, editor, gitUri);
         if (!await provider.supportsBlame()) return false;
 
         if (currentProvider) {
@@ -191,15 +191,13 @@ export class BlameAnnotationController extends Disposable {
     }
 
     isAnnotating(editor: TextEditor): boolean {
-        if (!editor || !editor.document) return false;
-        if (editor.viewColumn === undefined && !this.git.hasGitUriForFile(editor)) return false;
+        if (!editor || !editor.document || !this.git.isEditorBlameable(editor)) return false;
 
         return !!this._annotationProviders.get(editor.viewColumn || -1);
     }
 
     async toggleBlameAnnotation(editor: TextEditor, shaOrLine?: string | number): Promise<boolean> {
-        if (!editor || !editor.document) return false;
-        if (editor.viewColumn === undefined && !this.git.hasGitUriForFile(editor)) return false;
+        if (!editor || !editor.document || !this.git.isEditorBlameable(editor)) return false;
 
         let provider = this._annotationProviders.get(editor.viewColumn || -1);
         if (!provider) return this.showBlameAnnotation(editor, shaOrLine);

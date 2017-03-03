@@ -1,4 +1,5 @@
 'use strict';
+import { Iterables } from '../system';
 import { Uri } from 'vscode';
 import { DocumentSchemes } from '../constants';
 import { Git, GitProvider } from '../gitProvider';
@@ -22,7 +23,7 @@ export class GitUri extends Uri {
         base._fragment = uri.fragment;
 
         this.offset = 0;
-        if (uri.scheme === DocumentSchemes.Git) {
+        if (uri.scheme === DocumentSchemes.GitLensGit) {
             const data = GitProvider.fromGitContentUri(uri);
             base._fsPath = data.originalFileName || data.fileName;
 
@@ -52,12 +53,17 @@ export class GitUri extends Uri {
         return Uri.file(this.sha ? this.path : this.fsPath);
     }
 
-    static fromUri(uri: Uri, git?: GitProvider) {
+    static async fromUri(uri: Uri, git: GitProvider) {
         if (uri instanceof GitUri) return uri;
 
-        if (git) {
-            const gitUri = git.getGitUriForFile(uri.fsPath);
-            if (gitUri) return gitUri;
+        const gitUri = git.getGitUriForFile(uri.fsPath);
+        if (gitUri) return gitUri;
+
+        // If this is a git uri, assume it is showing the most recent commit
+        if (uri.scheme === 'git' && uri.query === '~') {
+            const log = await git.getLogForFile(uri.fsPath, undefined, undefined, undefined, 1);
+            const commit = log && Iterables.first(log.commits.values());
+            if (commit) return new GitUri(uri, commit);
         }
 
         return new GitUri(uri);

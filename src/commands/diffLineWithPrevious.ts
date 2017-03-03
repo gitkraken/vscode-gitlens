@@ -20,7 +20,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
             uri = editor.document.uri;
         }
 
-        const gitUri = GitUri.fromUri(uri, this.git);
+        const gitUri = await GitUri.fromUri(uri, this.git);
         line = line || (editor && editor.selection.active.line) || gitUri.offset;
 
         if (!commit || GitProvider.isUncommitted(commit.sha)) {

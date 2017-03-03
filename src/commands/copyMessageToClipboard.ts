@@ -28,7 +28,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 return undefined;
             }
 
-            const gitUri = GitUri.fromUri(uri, this.git);
+            const gitUri = await GitUri.fromUri(uri, this.git);
 
             if (!message) {
                 if (!sha) {

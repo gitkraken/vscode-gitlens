@@ -20,7 +20,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
             return commands.executeCommand(Commands.ShowQuickRepoHistory);
         }
 
-        const gitUri = GitUri.fromUri(uri, this.git);
+        const gitUri = await GitUri.fromUri(uri, this.git);
 
         if (maxCount == null) {
             maxCount = this.git.config.advanced.maxQuickHistory;

@@ -24,7 +24,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
         line = line || (editor && editor.selection.active.line) || 0;
 
         if (!commit || GitProvider.isUncommitted(commit.sha)) {
-            const gitUri = GitUri.fromUri(uri, this.git);
+            const gitUri = await GitUri.fromUri(uri, this.git);
 
             try {
                 const log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, undefined, gitUri.sha ? undefined : 1);
@@ -38,7 +38,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
             }
         }
 
-        const gitUri = GitUri.fromUri(uri, this.git);
+        const gitUri = await GitUri.fromUri(uri, this.git);
 
         try {
             const compare = await this.git.getVersionedFile(commit.uri.fsPath, commit.repoPath, commit.sha);

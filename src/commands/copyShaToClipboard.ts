@@ -28,7 +28,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
                 return undefined;
             }
 
-            const gitUri = GitUri.fromUri(uri, this.git);
+            const gitUri = await GitUri.fromUri(uri, this.git);
 
             if (!sha) {
                 if (editor && editor.document && editor.document.isDirty) return undefined;

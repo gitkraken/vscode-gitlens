@@ -39,7 +39,7 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
         });
 
         this.fileName = fileName;
-        this.gitUri = GitUri.fromUri(Uri.file(path.resolve(commit.repoPath, fileName)));
+        this.gitUri = new GitUri(Uri.file(path.resolve(commit.repoPath, fileName)));
         this.sha = commit.sha;
         this.status = status;
     }

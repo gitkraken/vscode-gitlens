@@ -107,15 +107,24 @@ export class BlameActiveLineController extends Disposable {
         this._onActiveTextEditorChanged(window.activeTextEditor);
     }
 
-    private _onActiveTextEditorChanged(editor: TextEditor) {
+    private isEditorBlameable(editor: TextEditor): boolean {
+        if (!editor || !editor.document) return false;
+
+        const scheme = editor.document.uri.scheme;
+        if (scheme !== DocumentSchemes.File && scheme !== DocumentSchemes.Git && scheme !== DocumentSchemes.GitLensGit) return false;
+
+        if (editor.document.isUntitled && scheme !== DocumentSchemes.Git && scheme !== DocumentSchemes.GitLensGit) return false;
+
+        return this.git.isEditorBlameable(editor);
+    }
+
+    private async _onActiveTextEditorChanged(editor: TextEditor) {
         this._currentLine = -1;
 
         const previousEditor = this._editor;
         previousEditor && previousEditor.setDecorations(activeLineDecoration, []);
 
-        if (!editor || !editor.document || (editor.document.isUntitled && editor.document.uri.scheme !== DocumentSchemes.Git) ||
-            (editor.document.uri.scheme !== DocumentSchemes.File && editor.document.uri.scheme !== DocumentSchemes.Git) ||
-            (editor.viewColumn === undefined && !this.git.hasGitUriForFile(editor))) {
+        if (!this.isEditorBlameable(editor)) {
             this.clear(editor);
 
             this._editor = undefined;
@@ -125,7 +134,7 @@ export class BlameActiveLineController extends Disposable {
 
         this._blameable = editor && editor.document && !editor.document.isDirty;
         this._editor = editor;
-        this._uri = GitUri.fromUri(editor.document.uri, this.git);
+        this._uri = await GitUri.fromUri(editor.document.uri, this.git);
         const maxLines = this._config.advanced.caching.statusBar.maxLines;
         this._useCaching = this._config.advanced.caching.enabled && (maxLines <= 0 || editor.document.lineCount <= maxLines);
         if (this._useCaching) {

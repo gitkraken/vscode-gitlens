@@ -19,7 +19,7 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCommand {
         try {
             let repoPath: string;
             if (uri instanceof Uri) {
-                const gitUri = GitUri.fromUri(uri, this.git);
+                const gitUri = await GitUri.fromUri(uri, this.git);
                 repoPath = gitUri.repoPath;
 
                 if (!repoPath) {

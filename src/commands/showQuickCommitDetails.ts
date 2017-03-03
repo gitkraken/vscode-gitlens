@@ -18,7 +18,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
             uri = editor.document.uri;
         }
 
-        const gitUri = GitUri.fromUri(uri, this.git);
+        const gitUri = await GitUri.fromUri(uri, this.git);
 
         let repoPath = gitUri.repoPath;
 

@@ -15,15 +15,13 @@ export class BlameAnnotationProvider extends Disposable {
     private _blame: Promise<IGitBlame>;
     private _config: IBlameConfig;
     private _disposable: Disposable;
-    private _uri: GitUri;
 
-    constructor(context: ExtensionContext, private git: GitProvider, private whitespaceController: WhitespaceController | undefined, public editor: TextEditor) {
+    constructor(context: ExtensionContext, private git: GitProvider, private whitespaceController: WhitespaceController | undefined, public editor: TextEditor, private uri: GitUri) {
         super(() => this.dispose());
 
         this.document = this.editor.document;
-        this._uri = GitUri.fromUri(this.document.uri, this.git);
 
-        this._blame = this.git.getBlameForFile(this._uri.fsPath, this._uri.sha, this._uri.repoPath);
+        this._blame = this.git.getBlameForFile(this.uri.fsPath, this.uri.sha, this.uri.repoPath);
 
         this._config = workspace.getConfiguration('gitlens').get<IBlameConfig>('blame');
 
@@ -104,7 +102,7 @@ export class BlameAnnotationProvider extends Disposable {
     private _setSelection(blame: IGitBlame, shaOrLine?: string | number) {
         if (!BlameDecorations.highlight) return;
 
-        const offset = this._uri.offset;
+        const offset = this.uri.offset;
 
         let sha: string;
         if (typeof shaOrLine === 'string') {
@@ -134,7 +132,7 @@ export class BlameAnnotationProvider extends Disposable {
     }
 
     private _getCompactGutterDecorations(blame: IGitBlame): DecorationOptions[] {
-        const offset = this._uri.offset;
+        const offset = this.uri.offset;
 
         let count = 0;
         let lastSha: string;
@@ -195,7 +193,7 @@ export class BlameAnnotationProvider extends Disposable {
     }
 
     private _getExpandedGutterDecorations(blame: IGitBlame, trailing: boolean = false): DecorationOptions[] {
-        const offset = this._uri.offset;
+        const offset = this.uri.offset;
 
         let width = 0;
         if (!trailing) {

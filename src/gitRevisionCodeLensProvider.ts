@@ -21,7 +21,7 @@ export class GitDiffWithPreviousCodeLens extends CodeLens {
 
 export class GitRevisionCodeLensProvider implements CodeLensProvider {
 
-    static selector: DocumentSelector = { scheme: DocumentSchemes.Git };
+    static selector: DocumentSelector = { scheme: DocumentSchemes.GitLensGit };
 
     constructor(context: ExtensionContext, private git: GitProvider) { }
 

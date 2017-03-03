@@ -31,7 +31,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
         }
 
         if (!commit || rangeOrLine instanceof Range) {
-            const gitUri = GitUri.fromUri(uri, this.git);
+            const gitUri = await GitUri.fromUri(uri, this.git);
 
             try {
                 if (!gitUri.sha) {

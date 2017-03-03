@@ -22,7 +22,7 @@ export class ShowFileHistoryCommand extends EditorCommand {
             position = editor.document.validateRange(new Range(0, 0, 0, 1000000)).start;
         }
 
-        const gitUri = GitUri.fromUri(uri, this.git);
+        const gitUri = await GitUri.fromUri(uri, this.git);
 
         try {
             const locations = await this.git.getLogLocations(gitUri.fsPath, gitUri.sha, gitUri.repoPath, sha, line);
