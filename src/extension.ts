@@ -1,7 +1,7 @@
 'use strict';
 import { commands, ExtensionContext, languages, window, workspace } from 'vscode';
-import BlameActiveLineController from './blameActiveLineController';
-import BlameAnnotationController from './blameAnnotationController';
+import { BlameActiveLineController } from './blameActiveLineController';
+import { BlameAnnotationController } from './blameAnnotationController';
 import { configureCssCharacters } from './blameAnnotationFormatter';
 import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './commands';
 import { DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithPreviousCommand, DiffWithWorkingCommand} from './commands';
@@ -12,9 +12,9 @@ import { ToggleCodeLensCommand } from './commands';
 import { Keyboard } from './commands';
 import { IAdvancedConfig, IBlameConfig } from './configuration';
 import { BuiltInCommands, WorkspaceState } from './constants';
-import GitContentProvider from './gitContentProvider';
-import GitProvider, { Git } from './gitProvider';
-import GitRevisionCodeLensProvider from './gitRevisionCodeLensProvider';
+import { GitContentProvider } from './gitContentProvider';
+import { Git, GitProvider } from './gitProvider';
+import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { Logger } from './logger';
 
 // this method is called when your extension is activated

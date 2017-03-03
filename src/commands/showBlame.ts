@@ -1,6 +1,6 @@
 'use strict';
 import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import BlameAnnotationController from '../blameAnnotationController';
+import { BlameAnnotationController } from '../blameAnnotationController';
 import { Commands, EditorCommand } from './commands';
 import { Logger } from '../logger';
 

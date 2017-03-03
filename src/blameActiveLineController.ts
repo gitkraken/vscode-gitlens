@@ -1,12 +1,12 @@
 'use strict';
 import { Functions, Objects } from './system';
-import { DecorationOptions, DecorationInstanceRenderOptions, DecorationRenderOptions, Disposable, ExtensionContext, Range, StatusBarAlignment, StatusBarItem, TextDocumentChangeEvent, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
-import BlameAnnotationController from './blameAnnotationController';
-import BlameAnnotationFormatter, { BlameAnnotationFormat } from './blameAnnotationFormatter';
-import { TextDocumentComparer, TextEditorComparer } from './comparers';
+import { DecorationOptions, DecorationInstanceRenderOptions, DecorationRenderOptions, Disposable, ExtensionContext, Range, StatusBarAlignment, StatusBarItem, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
+import { BlameAnnotationController } from './blameAnnotationController';
+import { BlameAnnotationFormat, BlameAnnotationFormatter } from './blameAnnotationFormatter';
+import { TextEditorComparer } from './comparers';
 import { IBlameConfig, IConfig, StatusBarCommand } from './configuration';
 import { DocumentSchemes } from './constants';
-import GitProvider, { GitCommit, GitUri, IGitBlame, IGitCommitLine } from './gitProvider';
+import { GitCommit, GitProvider, GitUri, IGitBlame, IGitCommitLine } from './gitProvider';
 import * as moment from 'moment';
 
 const activeLineDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
@@ -15,7 +15,7 @@ const activeLineDecoration: TextEditorDecorationType = window.createTextEditorDe
     }
 } as DecorationRenderOptions);
 
-export default class BlameActiveLineController extends Disposable {
+export class BlameActiveLineController extends Disposable {
 
     private _activeEditorLineDisposable: Disposable | undefined;
     private _blame: Promise<IGitBlame> | undefined;

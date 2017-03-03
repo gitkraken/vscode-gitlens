@@ -45,7 +45,7 @@ enum RemoveCacheReason {
     DocumentSaved
 }
 
-export default class GitProvider extends Disposable {
+export class GitProvider extends Disposable {
 
     private _onDidChangeGitCacheEmitter = new EventEmitter<void>();
     get onDidChangeGitCache(): Event<void> {

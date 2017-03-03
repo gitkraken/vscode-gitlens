@@ -1,7 +1,7 @@
 'use strict';
 import { Uri } from 'vscode';
 import { DocumentSchemes } from '../constants';
-import GitProvider, { Git } from '../gitProvider';
+import { Git, GitProvider } from '../gitProvider';
 import * as path from 'path';
 
 export class GitUri extends Uri {

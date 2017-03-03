@@ -1,6 +1,6 @@
 'use strict';
 import { QuickPickItem, Uri } from 'vscode';
-import GitProvider, { getGitStatusIcon, GitCommit, GitFileStatus, GitUri } from '../gitProvider';
+import { getGitStatusIcon, GitCommit, GitFileStatus, GitProvider, GitUri } from '../gitProvider';
 import { OpenFileCommandQuickPickItem } from './quickPicks';
 import * as moment from 'moment';
 import * as path from 'path';

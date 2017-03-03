@@ -8,7 +8,7 @@ enum SettingLocation {
     default
 }
 
-export default class WhitespaceController extends Disposable {
+export class WhitespaceController extends Disposable {
 
     private _count: number = 0;
     private _disposable: Disposable;

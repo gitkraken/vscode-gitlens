@@ -1,7 +1,7 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
-import GitProvider, { GitUri } from '../gitProvider';
+import { GitProvider, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepoStatusQuickPick } from '../quickPicks';
 

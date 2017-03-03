@@ -31,7 +31,7 @@ export enum BlameAnnotationFormat {
     Unconstrained
 }
 
-export default class BlameAnnotationFormatter {
+export class BlameAnnotationFormatter {
 
     static getAnnotation(config: IBlameConfig, commit: GitCommit, format: BlameAnnotationFormat) {
         const sha = commit.sha.substring(0, defaultShaLength);

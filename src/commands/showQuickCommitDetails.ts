@@ -2,7 +2,7 @@
 import { Iterables } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
-import GitProvider, { GitCommit, GitLogCommit, GitUri } from '../gitProvider';
+import { GitCommit, GitLogCommit, GitProvider, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitFileDetailsQuickPick, CommitDetailsQuickPick, CommitWithFileStatusQuickPickItem } from '../quickPicks';
 

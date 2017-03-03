@@ -1,6 +1,6 @@
 'use strict';
 import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import BlameAnnotationController from '../blameAnnotationController';
+import { BlameAnnotationController } from '../blameAnnotationController';
 import { Commands, EditorCommand } from './commands';
 import { Logger } from '../logger';
 
@@ -11,6 +11,8 @@ export class ToggleBlameCommand extends EditorCommand {
     }
 
     async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, sha?: string): Promise<any> {
+        if (editor && editor.document && editor.document.isDirty) return undefined;
+
         try {
             if (sha) {
                 return this.annotationController.toggleBlameAnnotation(editor, sha);

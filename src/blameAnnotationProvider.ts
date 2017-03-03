@@ -1,12 +1,12 @@
 'use strict';
 import { Iterables } from './system';
 import { DecorationInstanceRenderOptions, DecorationOptions, Disposable, ExtensionContext, Range, TextDocument, TextEditor, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
-import BlameAnnotationFormatter, { BlameAnnotationFormat, cssIndent, defaultShaLength, defaultAuthorLength } from './blameAnnotationFormatter';
+import { BlameAnnotationFormat, BlameAnnotationFormatter, cssIndent, defaultShaLength, defaultAuthorLength } from './blameAnnotationFormatter';
 import { blameDecoration, highlightDecoration } from './blameAnnotationController';
 import { TextDocumentComparer } from './comparers';
 import { BlameAnnotationStyle, IBlameConfig } from './configuration';
-import GitProvider, { GitUri, IGitBlame } from './gitProvider';
-import WhitespaceController from './whitespaceController';
+import { GitProvider, GitUri, IGitBlame } from './gitProvider';
+import { WhitespaceController } from './whitespaceController';
 
 export class BlameAnnotationProvider extends Disposable {
 

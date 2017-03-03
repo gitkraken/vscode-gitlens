@@ -1,11 +1,11 @@
 'use strict';
 import { ExtensionContext, TextDocumentContentProvider, Uri, window } from 'vscode';
 import { DocumentSchemes } from './constants';
-import GitProvider from './gitProvider';
+import { GitProvider } from './gitProvider';
 import { Logger } from './logger';
 import * as path from 'path';
 
-export default class GitContentProvider implements TextDocumentContentProvider {
+export class GitContentProvider implements TextDocumentContentProvider {
 
     static scheme = DocumentSchemes.Git;
 

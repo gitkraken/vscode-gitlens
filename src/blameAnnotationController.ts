@@ -4,9 +4,9 @@ import { DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionCont
 import { BlameAnnotationProvider } from './blameAnnotationProvider';
 import { TextDocumentComparer, TextEditorComparer } from './comparers';
 import { IBlameConfig } from './configuration';
-import GitProvider from './gitProvider';
+import { GitProvider } from './gitProvider';
 import { Logger } from './logger';
-import WhitespaceController from './whitespaceController';
+import { WhitespaceController } from './whitespaceController';
 
 export const blameDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
     before: {
@@ -19,7 +19,7 @@ export const blameDecoration: TextEditorDecorationType = window.createTextEditor
 
 export let highlightDecoration: TextEditorDecorationType;
 
-export default class BlameAnnotationController extends Disposable {
+export class BlameAnnotationController extends Disposable {
 
     private _onDidToggleBlameAnnotationsEmitter = new EventEmitter<void>();
     get onDidToggleBlameAnnotations(): Event<void> {

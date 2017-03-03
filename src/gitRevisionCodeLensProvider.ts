@@ -3,7 +3,7 @@ import { Iterables } from './system';
 import { CancellationToken, CodeLens, CodeLensProvider, DocumentSelector, ExtensionContext, Range, TextDocument, Uri } from 'vscode';
 import { Commands } from './commands';
 import { DocumentSchemes } from './constants';
-import GitProvider, { GitCommit, GitUri } from './gitProvider';
+import { GitCommit, GitProvider, GitUri } from './gitProvider';
 
 export class GitDiffWithWorkingCodeLens extends CodeLens {
 
@@ -19,7 +19,7 @@ export class GitDiffWithPreviousCodeLens extends CodeLens {
     }
 }
 
-export default class GitRevisionCodeLensProvider implements CodeLensProvider {
+export class GitRevisionCodeLensProvider implements CodeLensProvider {
 
     static selector: DocumentSelector = { scheme: DocumentSchemes.Git };
 

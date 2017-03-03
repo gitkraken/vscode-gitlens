@@ -2,7 +2,7 @@
 import { Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard } from '../commands';
-import GitProvider, { GitCommit, GitLogCommit, GitUri } from '../gitProvider';
+import { GitCommit, GitLogCommit, GitProvider, GitUri } from '../gitProvider';
 import { CommitWithFileStatusQuickPickItem } from './gitQuickPicks';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem } from './quickPicks';
 import * as moment from 'moment';

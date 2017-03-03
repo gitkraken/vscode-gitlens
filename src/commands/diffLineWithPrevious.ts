@@ -2,7 +2,7 @@
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
 import { BuiltInCommands } from '../constants';
-import GitProvider, { GitCommit, GitUri } from '../gitProvider';
+import { GitCommit, GitProvider, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
 import * as path from 'path';
 

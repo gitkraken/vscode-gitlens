@@ -4,7 +4,7 @@ import { CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelect
 import { Commands } from './commands';
 import { BuiltInCommands, DocumentSchemes } from './constants';
 import { CodeLensCommand, CodeLensLocation, IConfig, ICodeLensLanguageLocation } from './configuration';
-import GitProvider, { GitCommit, GitUri, IGitBlame, IGitBlameLines } from './gitProvider';
+import { GitCommit, GitProvider, GitUri, IGitBlame, IGitBlameLines } from './gitProvider';
 import { Logger, OutputLevel } from './logger';
 import * as moment from 'moment';
 
