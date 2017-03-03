@@ -40,6 +40,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
     static selector: DocumentSelector = { scheme: DocumentSchemes.File };
 
     private _config: IConfig;
+    private _documentIsDirty: boolean;
 
     constructor(context: ExtensionContext, private git: GitProvider) {
         this._config = workspace.getConfiguration('').get<IConfig>('gitlens');
@@ -53,6 +54,8 @@ export default class GitCodeLensProvider implements CodeLensProvider {
     }
 
     async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
+        this._documentIsDirty = document.isDirty;
+
         let languageLocations = this._config.codeLens.languageLocations.find(_ => _.language.toLowerCase() === document.languageId);
         if (languageLocations == null) {
             languageLocations = {
@@ -93,7 +96,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             if (!lenses.find(l => l.range.start.line === 0 && l.range.end.line === 0)) {
                 const blameRange = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
                 let blameForRangeFn: () => IGitBlameLines;
-                if (this._config.codeLens.recentChange.enabled) {
+                if (this._documentIsDirty || this._config.codeLens.recentChange.enabled) {
                     blameForRangeFn = Functions.once(() => this.git.getBlameForRangeSync(blame, gitUri.fsPath, blameRange, gitUri.sha, gitUri.repoPath));
                     lenses.push(new GitRecentChangeCodeLens(blameForRangeFn, gitUri, SymbolKind.File, blameRange, true, new Range(0, 0, 0, blameRange.start.character)));
                 }
@@ -101,7 +104,9 @@ export default class GitCodeLensProvider implements CodeLensProvider {
                     if (!blameForRangeFn) {
                         blameForRangeFn = Functions.once(() => this.git.getBlameForRangeSync(blame, gitUri.fsPath, blameRange, gitUri.sha, gitUri.repoPath));
                     }
-                    lenses.push(new GitAuthorsCodeLens(blameForRangeFn, gitUri, SymbolKind.File, blameRange, true, new Range(0, 1, 0, blameRange.start.character)));
+                    if (!this._documentIsDirty) {
+                        lenses.push(new GitAuthorsCodeLens(blameForRangeFn, gitUri, SymbolKind.File, blameRange, true, new Range(0, 1, 0, blameRange.start.character)));
+                    }
                 }
             }
         }
@@ -158,7 +163,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         }
 
         let blameForRangeFn: () => IGitBlameLines;
-        if (this._config.codeLens.recentChange.enabled) {
+        if (this._documentIsDirty || this._config.codeLens.recentChange.enabled) {
             blameForRangeFn = Functions.once(() => this.git.getBlameForRangeSync(blame, gitUri.fsPath, symbol.location.range, gitUri.sha, gitUri.repoPath));
             lenses.push(new GitRecentChangeCodeLens(blameForRangeFn, gitUri, symbol.kind, symbol.location.range, false, line.range.with(new Position(line.range.start.line, startChar))));
             startChar++;
@@ -188,7 +193,9 @@ export default class GitCodeLensProvider implements CodeLensProvider {
                 if (!blameForRangeFn) {
                     blameForRangeFn = Functions.once(() => this.git.getBlameForRangeSync(blame, gitUri.fsPath, symbol.location.range, gitUri.sha, gitUri.repoPath));
                 }
-                lenses.push(new GitAuthorsCodeLens(blameForRangeFn, gitUri, symbol.kind, symbol.location.range, false, line.range.with(new Position(line.range.start.line, startChar))));
+                if (!this._documentIsDirty) {
+                    lenses.push(new GitAuthorsCodeLens(blameForRangeFn, gitUri, symbol.kind, symbol.location.range, false, line.range.with(new Position(line.range.start.line, startChar))));
+                }
             }
         }
     }
@@ -200,10 +207,30 @@ export default class GitCodeLensProvider implements CodeLensProvider {
     }
 
     _resolveGitRecentChangeCodeLens(lens: GitRecentChangeCodeLens, token: CancellationToken): CodeLens {
+        // Since blame information isn't valid when there are unsaved changes -- update the lenses appropriately
+        let title: string;
+        if (this._documentIsDirty) {
+            if (this._config.codeLens.recentChange.enabled && this._config.codeLens.authors.enabled) {
+                title = 'Cannot determine recent change or authors (unsaved changes)';
+            }
+            else if (this._config.codeLens.recentChange.enabled) {
+                title = 'Cannot determine recent change (unsaved changes)';
+            }
+            else {
+                title = 'Cannot determine authors (unsaved changes)';
+            }
+
+            lens.command = {
+                title: title,
+                command: undefined
+            };
+            return lens;
+        }
+
         const blame = lens.getBlame();
 
         const recentCommit = Iterables.first(blame.commits.values());
-        let title = `${recentCommit.author}, ${moment(recentCommit.date).fromNow()}`;
+        title = `${recentCommit.author}, ${moment(recentCommit.date).fromNow()}`;
         if (this._config.advanced.debug && this._config.advanced.output.level === OutputLevel.Verbose) {
             title += ` [${recentCommit.sha}, Symbol(${SymbolKind[lens.symbolKind]}), Lines(${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1})]`;
         }
@@ -223,7 +250,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
     _resolveGitAuthorsCodeLens(lens: GitAuthorsCodeLens, token: CancellationToken): CodeLens {
         const blame = lens.getBlame();
         const count = blame.authors.size;
-        const title = `${count} ${count > 1 ? 'authors' : 'author'} (${Iterables.first(blame.authors.values()).name}${count > 1 ? ' and others' : ''})`;
+        let title = `${count} ${count > 1 ? 'authors' : 'author'} (${Iterables.first(blame.authors.values()).name}${count > 1 ? ' and others' : ''})`;
 
         switch (this._config.codeLens.authors.command) {
             case CodeLensCommand.BlameAnnotate: return this._applyBlameAnnotateCommand<GitAuthorsCodeLens>(title, lens, blame);

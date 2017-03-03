@@ -32,7 +32,9 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 
             if (!message) {
                 if (!sha) {
-                    const line = editor.selection.active.line;
+                    if (editor && editor.document && editor.document.isDirty) return undefined;
+
+                    const line = (editor && editor.selection.active.line) || gitUri.offset;
                     const blameline = line - gitUri.offset;
                     if (blameline < 0) return undefined;
 

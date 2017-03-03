@@ -1,5 +1,6 @@
 'use strict';
 import { commands, ExtensionContext, languages, window, workspace } from 'vscode';
+import { BlameabilityTracker } from './blameabilityTracker';
 import { BlameActiveLineController } from './blameActiveLineController';
 import { BlameAnnotationController } from './blameAnnotationController';
 import { configureCssCharacters } from './blameAnnotationFormatter';
@@ -63,14 +64,17 @@ export async function activate(context: ExtensionContext) {
     const git = new GitProvider(context);
     context.subscriptions.push(git);
 
+    const blameabilityTracker = new BlameabilityTracker(git);
+    context.subscriptions.push(blameabilityTracker);
+
     context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider(context, git)));
 
     context.subscriptions.push(languages.registerCodeLensProvider(GitRevisionCodeLensProvider.selector, new GitRevisionCodeLensProvider(context, git)));
 
-    const annotationController = new BlameAnnotationController(context, git);
+    const annotationController = new BlameAnnotationController(context, git, blameabilityTracker);
     context.subscriptions.push(annotationController);
 
-    const activeLineController = new BlameActiveLineController(context, git, annotationController);
+    const activeLineController = new BlameActiveLineController(context, git, blameabilityTracker, annotationController);
     context.subscriptions.push(activeLineController);
 
     context.subscriptions.push(new Keyboard(context));

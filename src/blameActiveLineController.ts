@@ -1,6 +1,7 @@
 'use strict';
 import { Functions, Objects } from './system';
 import { DecorationOptions, DecorationInstanceRenderOptions, DecorationRenderOptions, Disposable, ExtensionContext, Range, StatusBarAlignment, StatusBarItem, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
+import { BlameabilityChangeEvent, BlameabilityTracker } from './blameabilityTracker';
 import { BlameAnnotationController } from './blameAnnotationController';
 import { BlameAnnotationFormat, BlameAnnotationFormatter } from './blameAnnotationFormatter';
 import { TextEditorComparer } from './comparers';
@@ -19,17 +20,17 @@ export class BlameActiveLineController extends Disposable {
 
     private _activeEditorLineDisposable: Disposable | undefined;
     private _blame: Promise<IGitBlame> | undefined;
+    private _blameable: boolean;
     private _config: IConfig;
     private _currentLine: number = -1;
     private _disposable: Disposable;
     private _editor: TextEditor | undefined;
-    private _editorIsDirty: boolean;
     private _statusBarItem: StatusBarItem | undefined;
     private _updateBlameDebounced: (line: number, editor: TextEditor) => Promise<void>;
     private _uri: GitUri;
     private _useCaching: boolean;
 
-    constructor(context: ExtensionContext, private git: GitProvider, private annotationController: BlameAnnotationController) {
+    constructor(context: ExtensionContext, private git: GitProvider, private blameabilityTracker: BlameabilityTracker, private annotationController: BlameAnnotationController) {
         super(() => this.dispose());
 
         this._updateBlameDebounced = Functions.debounce(this._updateBlame, 50);
@@ -93,8 +94,8 @@ export class BlameActiveLineController extends Disposable {
             const subscriptions: Disposable[] = [];
 
             subscriptions.push(window.onDidChangeActiveTextEditor(this._onActiveTextEditorChanged, this));
-            subscriptions.push(window.onDidChangeTextEditorSelection(this._onEditorSelectionChanged, this));
-            subscriptions.push(workspace.onDidChangeTextDocument(this._onDocumentChanged, this));
+            subscriptions.push(window.onDidChangeTextEditorSelection(this._onTextEditorSelectionChanged, this));
+            subscriptions.push(this.blameabilityTracker.onDidChange(this._onBlameabilityChanged, this));
 
             this._activeEditorLineDisposable = Disposable.from(...subscriptions);
         }
@@ -106,6 +107,54 @@ export class BlameActiveLineController extends Disposable {
         this._onActiveTextEditorChanged(window.activeTextEditor);
     }
 
+    private _onActiveTextEditorChanged(editor: TextEditor) {
+        this._currentLine = -1;
+
+        const previousEditor = this._editor;
+        previousEditor && previousEditor.setDecorations(activeLineDecoration, []);
+
+        if (!editor || !editor.document || (editor.document.isUntitled && editor.document.uri.scheme !== DocumentSchemes.Git) ||
+            (editor.document.uri.scheme !== DocumentSchemes.File && editor.document.uri.scheme !== DocumentSchemes.Git) ||
+            (editor.viewColumn === undefined && !this.git.hasGitUriForFile(editor))) {
+            this.clear(editor);
+
+            this._editor = undefined;
+
+            return;
+        }
+
+        this._blameable = editor && editor.document && !editor.document.isDirty;
+        this._editor = editor;
+        this._uri = GitUri.fromUri(editor.document.uri, this.git);
+        const maxLines = this._config.advanced.caching.statusBar.maxLines;
+        this._useCaching = this._config.advanced.caching.enabled && (maxLines <= 0 || editor.document.lineCount <= maxLines);
+        if (this._useCaching) {
+            this._blame = this.git.getBlameForFile(this._uri.fsPath, this._uri.sha, this._uri.repoPath);
+        }
+        else {
+            this._blame = undefined;
+        }
+
+        this._updateBlame(editor.selection.active.line, editor);
+    }
+
+    private _onBlameabilityChanged(e: BlameabilityChangeEvent) {
+        this._blameable = e.blameable;
+        if (!e.blameable || !this._editor) {
+            this.clear(e.editor);
+            return;
+        }
+
+        // Make sure this is for the editor we are tracking
+        if (!TextEditorComparer.equals(this._editor, e.editor)) return;
+
+        const line = this._editor.selection.active.line;
+        if (line === this._currentLine) return;
+        this._currentLine = line;
+
+        this._updateBlame(this._editor.selection.active.line, this._editor);
+    }
+
     private _onBlameAnnotationToggled() {
         this._onActiveTextEditorChanged(window.activeTextEditor);
     }
@@ -115,39 +164,9 @@ export class BlameActiveLineController extends Disposable {
         this._onActiveTextEditorChanged(window.activeTextEditor);
     }
 
-    private _onActiveTextEditorChanged(e: TextEditor) {
-        this._currentLine = -1;
-
-        const previousEditor = this._editor;
-        previousEditor && previousEditor.setDecorations(activeLineDecoration, []);
-
-        if (!e || !e.document || (e.document.isUntitled && e.document.uri.scheme !== DocumentSchemes.Git) ||
-            (e.document.uri.scheme !== DocumentSchemes.File && e.document.uri.scheme !== DocumentSchemes.Git) ||
-            (e.viewColumn === undefined && !this.git.hasGitUriForFile(e))) {
-            this.clear(e);
-
-            this._editor = undefined;
-
-            return;
-        }
-
-        this._editor = e;
-        this._uri = GitUri.fromUri(e.document.uri, this.git);
-        const maxLines = this._config.advanced.caching.statusBar.maxLines;
-        this._useCaching = this._config.advanced.caching.enabled && (maxLines <= 0 || e.document.lineCount <= maxLines);
-        if (this._useCaching) {
-            this._blame = this.git.getBlameForFile(this._uri.fsPath, this._uri.sha, this._uri.repoPath);
-        }
-        else {
-            this._blame = undefined;
-        }
-
-        this._updateBlame(e.selection.active.line, e);
-    }
-
-    private _onEditorSelectionChanged(e: TextEditorSelectionChangeEvent): void {
+    private _onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent): void {
         // Make sure this is for the editor we are tracking
-        if (!TextEditorComparer.equals(e.textEditor, this._editor)) return;
+        if (!this._blameable || !TextEditorComparer.equals(this._editor, e.textEditor)) return;
 
         const line = e.selections[0].active.line;
         if (line === this._currentLine) return;
@@ -156,24 +175,13 @@ export class BlameActiveLineController extends Disposable {
         this._updateBlameDebounced(line, e.textEditor);
     }
 
-    private _onDocumentChanged(e: TextDocumentChangeEvent) {
-        // Make sure this is for the editor we are tracking
-        if (!this._editor || !TextDocumentComparer.equals(e.document, this._editor.document)) return;
-
-        const line = this._editor.selections[0].active.line;
-        if (line === this._currentLine && this._editorIsDirty === this._editor.document.isDirty) return;
-        this._currentLine = line;
-        this._editorIsDirty = this._editor.document.isDirty;
-
-        this._updateBlame(this._editor.selections[0].active.line, this._editor);
-    }
-
     private async _updateBlame(line: number, editor: TextEditor) {
         line = line - this._uri.offset;
 
-        let commitLine: IGitCommitLine;
         let commit: GitCommit;
-        if (line >= 0) {
+        let commitLine: IGitCommitLine;
+        // Since blame information isn't valid when there are unsaved changes -- don't show any status
+        if (this._blameable && line >= 0) {
             if (this._useCaching) {
                 const blame = this._blame && await this._blame;
                 if (!blame || !blame.lines.length) {
@@ -202,6 +210,10 @@ export class BlameActiveLineController extends Disposable {
 
     clear(editor: TextEditor, previousEditor?: TextEditor) {
         editor && editor.setDecorations(activeLineDecoration, []);
+        // I have no idea why the decorators sometimes don't get removed, but if they don't try again with a tiny delay
+        if (editor) {
+            setTimeout(() => editor.setDecorations(activeLineDecoration, []), 1);
+        }
 
         this._statusBarItem && this._statusBarItem.hide();
     }
@@ -258,20 +270,7 @@ export class BlameActiveLineController extends Disposable {
         }
 
         if (this._config.blame.annotation.activeLine !== 'off') {
-            let activeLine = this._config.blame.annotation.activeLine;
-
-            // Because the inline annotations can be noisy -- only show them if the document isn't dirty
-            if (editor && editor.document && editor.document.isDirty) {
-                editor.setDecorations(activeLineDecoration, []);
-                switch (activeLine) {
-                    case 'both':
-                        activeLine = 'hover';
-                        break;
-                    case 'inline':
-                        return;
-                }
-            }
-
+            const activeLine = this._config.blame.annotation.activeLine;
             const offset = this._uri.offset;
 
             const config = {

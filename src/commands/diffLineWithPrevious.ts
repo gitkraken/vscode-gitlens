@@ -20,10 +20,12 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
             uri = editor.document.uri;
         }
 
-        line = line ||(editor && editor.selection.active.line) || 0;
-        let gitUri = GitUri.fromUri(uri, this.git);
+        const gitUri = GitUri.fromUri(uri, this.git);
+        line = line || (editor && editor.selection.active.line) || gitUri.offset;
 
         if (!commit || GitProvider.isUncommitted(commit.sha)) {
+            if (editor && editor.document && editor.document.isDirty) return undefined;
+
             const blameline = line - gitUri.offset;
             if (blameline < 0) return undefined;
 

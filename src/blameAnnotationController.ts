@@ -1,6 +1,7 @@
 'use strict';
 import { Functions } from './system';
 import { DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, TextDocument, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
+import { BlameabilityChangeEvent, BlameabilityTracker } from './blameabilityTracker';
 import { BlameAnnotationProvider } from './blameAnnotationProvider';
 import { TextDocumentComparer, TextEditorComparer } from './comparers';
 import { IBlameConfig } from './configuration';
@@ -8,16 +9,17 @@ import { GitProvider } from './gitProvider';
 import { Logger } from './logger';
 import { WhitespaceController } from './whitespaceController';
 
-export const blameDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
-    before: {
-        margin: '0 1.75em 0 0'
-    },
-    after: {
-        margin: '0 0 0 4em'
-    }
-} as DecorationRenderOptions);
-
-export let highlightDecoration: TextEditorDecorationType;
+export const BlameDecorations = {
+    annotation: window.createTextEditorDecorationType({
+        before: {
+            margin: '0 1.75em 0 0'
+        },
+        after: {
+            margin: '0 0 0 4em'
+        }
+    } as DecorationRenderOptions),
+    highlight: undefined as TextEditorDecorationType
+};
 
 export class BlameAnnotationController extends Disposable {
 
@@ -32,7 +34,7 @@ export class BlameAnnotationController extends Disposable {
     private _disposable: Disposable;
     private _whitespaceController: WhitespaceController | undefined;
 
-    constructor(private context: ExtensionContext, private git: GitProvider) {
+    constructor(private context: ExtensionContext, private git: GitProvider, private blameabilityTracker: BlameabilityTracker) {
         super(() => this.dispose());
 
         this._onConfigurationChanged();
@@ -46,6 +48,9 @@ export class BlameAnnotationController extends Disposable {
 
     dispose() {
         this._annotationProviders.forEach(async (p, i) => await this.clear(i));
+
+        BlameDecorations.annotation && BlameDecorations.annotation.dispose();
+        BlameDecorations.highlight && BlameDecorations.highlight.dispose();
 
         this._blameAnnotationsDisposable && this._blameAnnotationsDisposable.dispose();
         this._whitespaceController && this._whitespaceController.dispose();
@@ -71,15 +76,11 @@ export class BlameAnnotationController extends Disposable {
         const config = workspace.getConfiguration('gitlens').get<IBlameConfig>('blame');
 
         if (config.annotation.highlight !== (this._config && this._config.annotation.highlight)) {
-            highlightDecoration && highlightDecoration.dispose();
+            BlameDecorations.highlight && BlameDecorations.highlight.dispose();
 
             switch (config.annotation.highlight) {
-                case 'none':
-                    highlightDecoration = undefined;
-                    break;
-
                 case 'gutter':
-                    highlightDecoration = window.createTextEditorDecorationType({
+                    BlameDecorations.highlight = window.createTextEditorDecorationType({
                         dark: {
                             gutterIconPath: this.context.asAbsolutePath('images/blame-dark.svg'),
                             overviewRulerColor: 'rgba(255, 255, 255, 0.75)'
@@ -94,7 +95,7 @@ export class BlameAnnotationController extends Disposable {
                     break;
 
                 case 'line':
-                    highlightDecoration = window.createTextEditorDecorationType({
+                    BlameDecorations.highlight = window.createTextEditorDecorationType({
                         dark: {
                             backgroundColor: 'rgba(255, 255, 255, 0.15)',
                             overviewRulerColor: 'rgba(255, 255, 255, 0.75)'
@@ -109,7 +110,7 @@ export class BlameAnnotationController extends Disposable {
                     break;
 
                 case 'both':
-                    highlightDecoration = window.createTextEditorDecorationType({
+                    BlameDecorations.highlight = window.createTextEditorDecorationType({
                         dark: {
                             backgroundColor: 'rgba(255, 255, 255, 0.15)',
                             gutterIconPath: this.context.asAbsolutePath('images/blame-dark.svg'),
@@ -124,6 +125,10 @@ export class BlameAnnotationController extends Disposable {
                         overviewRulerLane: OverviewRulerLane.Right,
                         isWholeLine: true
                     });
+                    break;
+
+                default:
+                    BlameDecorations.highlight = undefined;
                     break;
             }
         }
@@ -172,6 +177,7 @@ export class BlameAnnotationController extends Disposable {
             subscriptions.push(window.onDidChangeVisibleTextEditors(Functions.debounce(this._onVisibleTextEditorsChanged, 100), this));
             subscriptions.push(window.onDidChangeTextEditorViewColumn(this._onTextEditorViewColumnChanged, this));
             subscriptions.push(workspace.onDidCloseTextDocument(this._onTextDocumentClosed, this));
+            subscriptions.push(this.blameabilityTracker.onDidChange(this._onBlameabilityChanged, this));
 
             this._blameAnnotationsDisposable = Disposable.from(...subscriptions);
         }
@@ -200,6 +206,17 @@ export class BlameAnnotationController extends Disposable {
 
         await this.clear(provider.editor.viewColumn || -1);
         return false;
+    }
+
+    private _onBlameabilityChanged(e: BlameabilityChangeEvent) {
+        if (e.blameable || !e.editor) return;
+
+        for (const [key, p] of this._annotationProviders) {
+            if (!TextDocumentComparer.equals(p.document, e.editor.document)) continue;
+
+            Logger.log('BlameabilityChanged:', `Clear blame annotations for column ${key}`);
+            this.clear(key);
+        }
     }
 
     private _onTextDocumentClosed(e: TextDocument) {

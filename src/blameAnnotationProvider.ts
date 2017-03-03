@@ -2,7 +2,7 @@
 import { Iterables } from './system';
 import { DecorationInstanceRenderOptions, DecorationOptions, Disposable, ExtensionContext, Range, TextDocument, TextEditor, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
 import { BlameAnnotationFormat, BlameAnnotationFormatter, cssIndent, defaultShaLength, defaultAuthorLength } from './blameAnnotationFormatter';
-import { blameDecoration, highlightDecoration } from './blameAnnotationController';
+import { BlameDecorations } from './blameAnnotationController';
 import { TextDocumentComparer } from './comparers';
 import { BlameAnnotationStyle, IBlameConfig } from './configuration';
 import { GitProvider, GitUri, IGitBlame } from './gitProvider';
@@ -36,8 +36,15 @@ export class BlameAnnotationProvider extends Disposable {
 
     async dispose() {
         if (this.editor) {
-            this.editor.setDecorations(blameDecoration, []);
-            highlightDecoration && this.editor.setDecorations(highlightDecoration, []);
+            try {
+                this.editor.setDecorations(BlameDecorations.annotation, []);
+                BlameDecorations.highlight && this.editor.setDecorations(BlameDecorations.highlight, []);
+                // I have no idea why the decorators sometimes don't get removed, but if they don't try again with a tiny delay
+                if (BlameDecorations.highlight) {
+                    setTimeout(() =>  this.editor.setDecorations(BlameDecorations.highlight, []), 1);
+                }
+            }
+            catch (ex) { }
         }
 
         // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- restore whitespace
@@ -80,7 +87,7 @@ export class BlameAnnotationProvider extends Disposable {
         }
 
         if (blameDecorationOptions) {
-            this.editor.setDecorations(blameDecoration, blameDecorationOptions);
+            this.editor.setDecorations(BlameDecorations.annotation, blameDecorationOptions);
         }
 
         this._setSelection(blame, shaOrLine);
@@ -95,7 +102,7 @@ export class BlameAnnotationProvider extends Disposable {
     }
 
     private _setSelection(blame: IGitBlame, shaOrLine?: string | number) {
-        if (!highlightDecoration) return;
+        if (!BlameDecorations.highlight) return;
 
         const offset = this._uri.offset;
 
@@ -115,7 +122,7 @@ export class BlameAnnotationProvider extends Disposable {
         }
 
         if (!sha) {
-            this.editor.setDecorations(highlightDecoration, []);
+            this.editor.setDecorations(BlameDecorations.highlight, []);
             return;
         }
 
@@ -123,7 +130,7 @@ export class BlameAnnotationProvider extends Disposable {
             .filter(l => l.sha === sha)
             .map(l => this.editor.document.validateRange(new Range(l.line + offset, 0, l.line + offset, 1000000)));
 
-        this.editor.setDecorations(highlightDecoration, highlightDecorationRanges);
+        this.editor.setDecorations(BlameDecorations.highlight, highlightDecorationRanges);
     }
 
     private _getCompactGutterDecorations(blame: IGitBlame): DecorationOptions[] {

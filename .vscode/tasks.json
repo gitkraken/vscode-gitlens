@@ -8,8 +8,7 @@
 
 // A task runner that calls a custom npm script that compiles the extension.
 {
-    "version": "0.1.0",
-    "_runner": "terminal",
+    "version": "2.0.0",
     "command": "npm",
     "args": ["run"],
     "isShellCommand": true,

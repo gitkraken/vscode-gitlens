@@ -1,5 +1,13 @@
 ## Release Notes
 
+### 2.9.0
+- To accomodate the realization that blame information is invalid when a file has unsaved changes, the following behavior changes have been made
+  - Status bar blame information will hide
+  - CodeLens change to a `Cannot determine...` message and become unclickable
+  - Many menu choices and commands will hide
+- Fixes [#38](https://github.com/eamodio/vscode-gitlens/issues/38) - Toggle Blame Annotation button shows even when it isn't valid
+- Fixes [#36](https://github.com/eamodio/vscode-gitlens/issues/36) - Blame information is invalid when a file has unsaved changes
+
 ### 2.8.2
 - Adds `gitlens.blame.annotation.dateFormat` to specify how absolute commit dates will be shown in the blame annotations
 - Adds `gitlens.statusBar.date` to specify whether and how the commit date will be shown in the blame status bar

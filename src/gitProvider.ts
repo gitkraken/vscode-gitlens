@@ -52,6 +52,11 @@ export class GitProvider extends Disposable {
         return this._onDidChangeGitCacheEmitter.event;
     }
 
+    private _onDidBlameFailEmitter = new EventEmitter<string>();
+    get onDidBlameFail(): Event<string> {
+        return this._onDidBlameFailEmitter.event;
+    }
+
     private _gitCache: Map<string, GitCacheEntry> | undefined;
     private _cacheDisposable: Disposable | undefined;
     private _repoPath: string;
@@ -98,6 +103,12 @@ export class GitProvider extends Disposable {
         this._gitCache = undefined;
         this._uriCache && this._uriCache.clear();
         this._uriCache = undefined;
+    }
+
+    public getBlameability(fileName: string): boolean {
+        const cacheKey = this.getCacheEntryKey(Git.normalizePath(fileName));
+        const entry = this._gitCache.get(cacheKey);
+        return !(entry && entry.hasErrors);
     }
 
     public get UseUriCaching() {
@@ -189,7 +200,7 @@ export class GitProvider extends Disposable {
         this.config = config;
     }
 
-    private _getCacheEntryKey(fileName: string) {
+    getCacheEntryKey(fileName: string) {
         return fileName.toLowerCase();
     }
 
@@ -206,7 +217,7 @@ export class GitProvider extends Disposable {
 
         const fileName = Git.normalizePath(document.fileName);
 
-        const cacheKey = this._getCacheEntryKey(fileName);
+        const cacheKey = this.getCacheEntryKey(fileName);
 
         if (reason === RemoveCacheReason.DocumentSaved) {
             // Don't remove broken blame on save (since otherwise we'll have to run the broken blame again)
@@ -240,7 +251,7 @@ export class GitProvider extends Disposable {
             fileName = fileNameOrEditor.document.uri.fsPath;
         }
 
-        const cacheKey = this._getCacheEntryKey(fileName);
+        const cacheKey = this.getCacheEntryKey(fileName);
         return this._uriCache.has(cacheKey);
     }
 
@@ -271,7 +282,7 @@ export class GitProvider extends Disposable {
     getGitUriForFile(fileName: string) {
         if (!this.UseUriCaching) return undefined;
 
-        const cacheKey = this._getCacheEntryKey(fileName);
+        const cacheKey = this.getCacheEntryKey(fileName);
         const entry = this._uriCache.get(cacheKey);
         return entry && entry.uri;
     }
@@ -294,7 +305,7 @@ export class GitProvider extends Disposable {
         let cacheKey: string | undefined;
         let entry: GitCacheEntry | undefined;
         if (useCaching) {
-            cacheKey = this._getCacheEntryKey(fileName);
+            cacheKey = this.getCacheEntryKey(fileName);
             entry = this._gitCache.get(cacheKey);
 
             if (entry !== undefined && entry.blame !== undefined) return entry.blame.item;
@@ -306,6 +317,9 @@ export class GitProvider extends Disposable {
         const promise = this._gitignore.then(ignore => {
             if (ignore && !ignore.filter([fileName]).length) {
                 Logger.log(`Skipping blame; '${fileName}' is gitignored`);
+                if (cacheKey) {
+                    this._onDidBlameFailEmitter.fire(cacheKey);
+                }
                 return GitProvider.EmptyPromise as Promise<IGitBlame>;
             }
 
@@ -323,6 +337,7 @@ export class GitProvider extends Disposable {
                             errorMessage: msg
                         } as ICachedBlame;
 
+                        this._onDidBlameFailEmitter.fire(cacheKey);
                         this._gitCache.set(cacheKey, entry);
                         return GitProvider.EmptyPromise as Promise<IGitBlame>;
                     }
@@ -485,7 +500,7 @@ export class GitProvider extends Disposable {
         let cacheKey: string;
         let entry: GitCacheEntry;
         if (useCaching) {
-            cacheKey = this._getCacheEntryKey(fileName);
+            cacheKey = this.getCacheEntryKey(fileName);
             entry = this._gitCache.get(cacheKey);
 
             if (entry !== undefined && entry.log !== undefined) return entry.log.item;
@@ -583,7 +598,7 @@ export class GitProvider extends Disposable {
 
         const file = await Git.getVersionedFile(fileName, repoPath, sha);
         if (this.UseUriCaching) {
-            const cacheKey = this._getCacheEntryKey(file);
+            const cacheKey = this.getCacheEntryKey(file);
             const entry = new UriCacheEntry(new GitUri(Uri.file(fileName), { sha, repoPath, fileName }));
             this._uriCache.set(cacheKey, entry);
         }
