@@ -106,6 +106,8 @@ export class GitProvider extends Disposable {
     }
 
     public getBlameability(fileName: string): boolean {
+        if (!this.UseGitCaching) return true;
+
         const cacheKey = this.getCacheEntryKey(Git.normalizePath(fileName));
         const entry = this._gitCache.get(cacheKey);
         return !(entry && entry.hasErrors);
