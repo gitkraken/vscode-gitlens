@@ -17,6 +17,7 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 - Provides a Git **commit details quick pick** ui with detailed information about the commit, complete with commands for comparing, navigating, and exploring commits
 - Provides a Git **file history quick pick** ui for exploring the commit history of a file
 - Provides a Git **repository history quick pick** ui for exploring the commit history of a repository
+- Provides a Git **repository status quick pick** ui for exploring the status of a repository
 - Provides a Git **file history explorer** (peek style ui) to visualize the history of a file
 - Provides a Git **blame history explorer** (peek style ui) to visualize the blame history of a file or block
 - Provides many configuration settings to allow the **customization** of almost all features
