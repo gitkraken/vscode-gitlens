@@ -1,5 +1,14 @@
 ## Release Notes
 
+### 2.10.0
+- Adds blame and active line annotation support to git diff split view
+- Adds command (compare, copy sha/message, etc) support to git diff split view
+- Fixes startup failure if caching was disabled
+- Fixes missing `Compare Line with Previous Commit` context menu item
+- Fixes [#41](https://github.com/eamodio/vscode-gitlens/issues/41) - Toggle Blame annotations on compare files page
+- Fixes issue with undo (to a saved state) not causing annotations to reappear properly
+- Attempts to fix [#42](https://github.com/eamodio/vscode-gitlens/issues/42) - Cursor on Uncommitted message
+
 ### 2.9.0
 - To accomodate the realization that blame information is invalid when a file has unsaved changes, the following behavior changes have been made
   - Status bar blame information will hide
