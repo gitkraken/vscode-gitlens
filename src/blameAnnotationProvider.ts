@@ -172,10 +172,6 @@ export class BlameAnnotationProvider extends Disposable {
 
             const hoverMessage = BlameAnnotationFormatter.getAnnotationHover(this._config, l, commit);
 
-            // Escape single quotes because for some reason that breaks the ::before or ::after element
-            // https://github.com/Microsoft/vscode/issues/19922 remove once this is released
-            gutter = gutter.replace(/\'/g, '\\\'');
-
             lastSha = l.sha;
 
             return {
@@ -256,9 +252,7 @@ export class BlameAnnotationProvider extends Disposable {
             }
 
             const format = trailing ? BlameAnnotationFormat.Unconstrained : BlameAnnotationFormat.Constrained;
-            // Escape single quotes because for some reason that breaks the ::before or ::after element
-            // https://github.com/Microsoft/vscode/issues/19922 remove once this is released
-            const gutter = BlameAnnotationFormatter.getAnnotation(this._config, commit, format).replace(/\'/g, '\\\'');
+            const gutter = BlameAnnotationFormatter.getAnnotation(this._config, commit, format);
             const hoverMessage = BlameAnnotationFormatter.getAnnotationHover(this._config, l, commit);
 
             let renderOptions: DecorationInstanceRenderOptions;

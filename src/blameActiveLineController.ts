@@ -287,9 +287,7 @@ export class BlameActiveLineController extends Disposable {
                 }
             } as IBlameConfig;
 
-            // Escape single quotes because for some reason that breaks the ::before or ::after element
-            // https://github.com/Microsoft/vscode/issues/19922 remove once this is released
-            const annotation = BlameAnnotationFormatter.getAnnotation(config, commit, BlameAnnotationFormat.Unconstrained).replace(/\'/g, '\\\'');
+            const annotation = BlameAnnotationFormatter.getAnnotation(config, commit, BlameAnnotationFormat.Unconstrained);
 
             // Get the full commit message -- since blame only returns the summary
             let logCommit: GitCommit;
