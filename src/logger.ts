@@ -28,7 +28,7 @@ function onConfigurationChanged() {
             output && output.dispose();
         }
         else {
-            output = output && window.createOutputChannel(OutputChannelName);
+            output = output || window.createOutputChannel(OutputChannelName);
         }
     }
 }
