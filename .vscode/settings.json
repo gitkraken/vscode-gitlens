@@ -1,11 +1,14 @@
 {
+    "editor.insertSpaces": true,
     "files.exclude": {
         "node_modules": true,
         "out": true
     },
+    "files.trimTrailingWhitespace": true,
     "search.exclude": {
         "node_modules": true,
         "out": true
     },
+    "javascript.format.insertSpaceAfterFunctionKeywordForAnonymousFunctions": false,
     "typescript.tsdk": "./node_modules/typescript/lib" // we want to use the TS server from our node_modules folder to control its version
 }

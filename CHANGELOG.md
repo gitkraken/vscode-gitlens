@@ -1,5 +1,10 @@
 ## Release Notes
 
+### 2.10.1
+- Fixes [#43](https://github.com/eamodio/vscode-gitlens/issues/43) - File-level CodeLens isn't using the blame of the whole file as it should
+- Fixes issue with single quotes (') in annotations
+- Fixes output channel logging (also adds more debug information to CodeLens -- when enabled)
+
 ### 2.10.0
 - Adds blame and active line annotation support to git diff split view
 - Adds command (compare, copy sha/message, etc) support to git diff split view
