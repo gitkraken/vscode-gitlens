@@ -232,7 +232,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         const recentCommit = Iterables.first(blame.commits.values());
         title = `${recentCommit.author}, ${moment(recentCommit.date).fromNow()}`;
         if (this._config.advanced.debug && this._config.advanced.output.level === OutputLevel.Verbose) {
-            title += ` [${recentCommit.sha}, Symbol(${SymbolKind[lens.symbolKind]}), Lines(${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1})]`;
+            title += ` [Commit (${recentCommit.sha}), Symbol (${SymbolKind[lens.symbolKind]}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1})]`;
         }
 
         switch (this._config.codeLens.recentChange.command) {
@@ -251,6 +251,9 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         const blame = lens.getBlame();
         const count = blame.authors.size;
         let title = `${count} ${count > 1 ? 'authors' : 'author'} (${Iterables.first(blame.authors.values()).name}${count > 1 ? ' and others' : ''})`;
+        if (this._config.advanced.debug && this._config.advanced.output.level === OutputLevel.Verbose) {
+            title += ` [Authors (${Iterables.join(Iterables.map(blame.authors.values(), _ => _.name), ', ')}), Symbol (${SymbolKind[lens.symbolKind]}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1})]`;
+        }
 
         switch (this._config.codeLens.authors.command) {
             case CodeLensCommand.BlameAnnotate: return this._applyBlameAnnotateCommand<GitAuthorsCodeLens>(title, lens, blame);

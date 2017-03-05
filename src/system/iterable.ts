@@ -54,6 +54,28 @@ export namespace Iterables {
         return typeof source[Symbol.iterator] === 'function';
     }
 
+    export function join(source: Iterable<any>, separator: string): string {
+        let value: string = '';
+
+        const iterator = source[Symbol.iterator]();
+        let next = iterator.next();
+        if (next.done) return value;
+
+        while (true) {
+            const s = next.value.toString();
+
+            next = iterator.next();
+            if (next.done) {
+                value += s;
+                break;
+            }
+
+            value += `${s}${separator}`;
+        }
+
+        return value;
+    }
+
     export function last<T>(source: Iterable<T>): T {
         let item: T;
         for (item of source) { /* noop */ }
