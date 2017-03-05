@@ -114,37 +114,66 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         return lenses;
     }
 
-    private _isValidSymbol(kind: SymbolKind, languageLocation: ICodeLensLanguageLocation) {
+    private _validateSymbolAndGetBlameRange(document: TextDocument, symbol: SymbolInformation, languageLocation: ICodeLensLanguageLocation): Range | undefined {
+        let valid: boolean = false;
+        let range: Range | undefined;
         switch (languageLocation.location) {
             case CodeLensLocation.All:
             case CodeLensLocation.DocumentAndContainers:
-                switch (kind) {
+                switch (symbol.kind) {
                     case SymbolKind.File:
+                        valid = true;
+                        // Adjust the range to be the whole file
+                        range = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
+                        break;
                     case SymbolKind.Package:
                     case SymbolKind.Module:
+                        // Adjust the range to be the whole file
+                        if (symbol.location.range.start.line === 0 && symbol.location.range.end.line === 0) {
+                            range = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
+                        }
+                        valid = true;
+                        break;
                     case SymbolKind.Namespace:
                     case SymbolKind.Class:
                     case SymbolKind.Interface:
-                        return true;
+                        valid = true;
+                        break;
                     case SymbolKind.Constructor:
                     case SymbolKind.Method:
                     case SymbolKind.Function:
                     case SymbolKind.Property:
                     case SymbolKind.Enum:
-                        return languageLocation.location === CodeLensLocation.All;
-                    default:
-                        return false;
+                        valid = languageLocation.location === CodeLensLocation.All;
+                        break;
                 }
-            case CodeLensLocation.Document:
-                return false;
+                break;
             case CodeLensLocation.Custom:
-                return !!(languageLocation.customSymbols || []).find(_ => _.toLowerCase() === SymbolKind[kind].toLowerCase());
+                valid = !!(languageLocation.customSymbols || []).find(_ => _.toLowerCase() === SymbolKind[symbol.kind].toLowerCase());
+                if (valid) {
+                    switch (symbol.kind) {
+                        case SymbolKind.File:
+                            // Adjust the range to be the whole file
+                            range = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
+                            break;
+                        case SymbolKind.Package:
+                        case SymbolKind.Module:
+                            // Adjust the range to be the whole file
+                            if (symbol.location.range.start.line === 0 && symbol.location.range.end.line === 0) {
+                                range = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
+                            }
+                            break;
+                    }
+                }
+                break;
         }
-        return false;
+
+        return valid ? range || symbol.location.range : undefined;
     }
 
     private _provideCodeLens(gitUri: GitUri, document: TextDocument, symbol: SymbolInformation, languageLocation: ICodeLensLanguageLocation, blame: IGitBlame, lenses: CodeLens[]): void {
-        if (!this._isValidSymbol(symbol.kind, languageLocation)) return;
+        const blameRange = this._validateSymbolAndGetBlameRange(document, symbol, languageLocation);
+        if (!blameRange) return;
 
         const line = document.lineAt(symbol.location.range.start);
         // Make sure there is only 1 lens per line
@@ -164,17 +193,18 @@ export default class GitCodeLensProvider implements CodeLensProvider {
 
         let blameForRangeFn: () => IGitBlameLines;
         if (this._documentIsDirty || this._config.codeLens.recentChange.enabled) {
-            blameForRangeFn = Functions.once(() => this.git.getBlameForRangeSync(blame, gitUri.fsPath, symbol.location.range, gitUri.sha, gitUri.repoPath));
-            lenses.push(new GitRecentChangeCodeLens(blameForRangeFn, gitUri, symbol.kind, symbol.location.range, false, line.range.with(new Position(line.range.start.line, startChar))));
+            blameForRangeFn = Functions.once(() => this.git.getBlameForRangeSync(blame, gitUri.fsPath, blameRange, gitUri.sha, gitUri.repoPath));
+            lenses.push(new GitRecentChangeCodeLens(blameForRangeFn, gitUri, symbol.kind, blameRange, false, line.range.with(new Position(line.range.start.line, startChar))));
             startChar++;
         }
 
         if (this._config.codeLens.authors.enabled) {
-            let multiline = !symbol.location.range.isSingleLine;
+            let multiline = !blameRange.isSingleLine;
             // HACK for Omnisharp, since it doesn't return full ranges
             if (!multiline && document.languageId === 'csharp') {
                 switch (symbol.kind) {
                     case SymbolKind.File:
+                        break;
                     case SymbolKind.Package:
                     case SymbolKind.Module:
                     case SymbolKind.Namespace:
@@ -191,10 +221,10 @@ export default class GitCodeLensProvider implements CodeLensProvider {
 
             if (multiline) {
                 if (!blameForRangeFn) {
-                    blameForRangeFn = Functions.once(() => this.git.getBlameForRangeSync(blame, gitUri.fsPath, symbol.location.range, gitUri.sha, gitUri.repoPath));
+                    blameForRangeFn = Functions.once(() => this.git.getBlameForRangeSync(blame, gitUri.fsPath, blameRange, gitUri.sha, gitUri.repoPath));
                 }
                 if (!this._documentIsDirty) {
-                    lenses.push(new GitAuthorsCodeLens(blameForRangeFn, gitUri, symbol.kind, symbol.location.range, false, line.range.with(new Position(line.range.start.line, startChar))));
+                    lenses.push(new GitAuthorsCodeLens(blameForRangeFn, gitUri, symbol.kind, blameRange, false, line.range.with(new Position(line.range.start.line, startChar))));
                 }
             }
         }
