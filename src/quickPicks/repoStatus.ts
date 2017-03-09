@@ -1,12 +1,10 @@
 'use strict';
 import { Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
-import { Keyboard } from '../commands';
+import { Commands, Keyboard } from '../commands';
 import { getGitStatusIcon, GitFileStatusItem } from '../gitProvider';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem } from './quickPicks';
+import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem } from './quickPicks';
 import * as path from 'path';
-
-export { CommandQuickPickItem };
 
 export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 
@@ -26,17 +24,17 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
     }
 }
 
-export class OpenStatusFilesCommandQuickPickItem extends OpenFilesCommandQuickPickItem {
+export class OpenStatusFilesCommandQuickPickItem extends CommandQuickPickItem {
 
     constructor(statuses: GitFileStatusItem[], item?: QuickPickItem) {
         const repoPath = statuses.length && statuses[0].repoPath;
         const uris = statuses.map(_ => Uri.file(path.resolve(repoPath, _.fileName)));
 
-        super(uris, item || {
-            label: `$(file-symlink-file) Open Files`,
-            description: undefined,
-            detail: `Opens all of the changed files in the repository`
-        });
+        super(item || {
+            label: `$(file-symlink-file) Open Changed Files`,
+            description: undefined
+            //detail: `Opens all of the changed files in the repository`
+        }, Commands.OpenChangedFiles, [undefined, uris]);
     }
 }
 
@@ -49,23 +47,42 @@ export class RepoStatusQuickPick {
         const items = Array.from(Iterables.map(statuses, s => new OpenStatusFileCommandQuickPickItem(s))) as (OpenStatusFileCommandQuickPickItem | OpenStatusFilesCommandQuickPickItem | CommandQuickPickItem)[];
 
         if (statuses.some(_ => _.staged)) {
-            const index = statuses.findIndex(_ => !_.staged);
-            if (index > -1) {
-                items.splice(index, 0, new OpenStatusFilesCommandQuickPickItem(statuses.filter(_ => _.status !== 'D' && !_.staged), {
-                    label: `$(file-symlink-file) Open Unstaged Files`,
-                    description: undefined,
-                    detail: `Opens all of the unstaged files in the repository`
+            let index = 0;
+            const unstagedIndex = statuses.findIndex(_ => !_.staged);
+            if (unstagedIndex > -1) {
+                items.splice(unstagedIndex, 0, new CommandQuickPickItem({
+                    label: `Unstaged Files`,
+                    description: undefined
+                }, Commands.ShowQuickRepoStatus, [goBackCommand]));
+
+                items.splice(index++, 0, new OpenStatusFilesCommandQuickPickItem(statuses.filter(_ => _.status !== 'D' && _.staged), {
+                    label: `$(file-symlink-file) Open Staged Files`,
+                    description: undefined
                 }));
 
-                items.splice(0, 0, new OpenStatusFilesCommandQuickPickItem(statuses.filter(_ => _.status !== 'D' && _.staged), {
-                    label: `$(file-symlink-file) Open Staged Files`,
-                    description: undefined,
-                    detail: `Opens all of the staged files in the repository`
+                items.splice(index++, 0, new OpenStatusFilesCommandQuickPickItem(statuses.filter(_ => _.status !== 'D' && !_.staged), {
+                    label: `$(file-symlink-file) Open Unstaged Files`,
+                    description: undefined
                 }));
             }
+
+            items.splice(index++, 0, new CommandQuickPickItem({
+                label: `Staged Files`,
+                description: undefined
+            }, Commands.ShowQuickRepoStatus, [goBackCommand]));
+        }
+        else if (statuses.some(_ => !_.staged)) {
+            items.splice(0, 0, new CommandQuickPickItem({
+                label: `Unstaged Files`,
+                description: undefined
+            }, Commands.ShowQuickRepoStatus, [goBackCommand]));
         }
 
         if (statuses.length) {
+            items.splice(0, 0, new CommandQuickPickItem({
+                label: '$(x) Close Unchanged Files',
+                description: null
+            }, Commands.CloseUnchangedFiles));
             items.splice(0, 0, new OpenStatusFilesCommandQuickPickItem(statuses.filter(_ => _.status !== 'D')));
         }
 

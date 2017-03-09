@@ -224,6 +224,9 @@ export class BlameActiveLineController extends Disposable {
     }
 
     async show(commit: GitCommit, blameLine: IGitCommitLine, editor: TextEditor) {
+        // I have no idea why I need this protection -- but it happens
+        if (!editor.document) return;
+
         if (this._config.statusBar.enabled) {
             switch (this._config.statusBar.date) {
                 case 'off':
@@ -260,8 +263,11 @@ export class BlameActiveLineController extends Disposable {
                 case StatusBarCommand.ToggleCodeLens:
                     this._statusBarItem.tooltip = 'Toggle Git CodeLens';
                     break;
-                case StatusBarCommand.ShowQuickFileHistory:
+                case StatusBarCommand.ShowQuickCommitDetails:
                     this._statusBarItem.tooltip = 'Show Commit Details';
+                    break;
+                case StatusBarCommand.ShowQuickCommitFileDetails:
+                    this._statusBarItem.tooltip = 'Show Line Commit Details';
                     break;
                 case StatusBarCommand.ShowQuickFileHistory:
                     this._statusBarItem.tooltip = 'Show File History';
@@ -295,6 +301,9 @@ export class BlameActiveLineController extends Disposable {
                 const log = await this.git.getLogForFile(this._uri.fsPath, commit.sha, this._uri.repoPath, undefined, 1);
                 logCommit = log && log.commits.get(commit.sha);
             }
+
+            // I have no idea why I need this protection -- but it happens
+            if (!editor.document) return;
 
             let hoverMessage: string | string[];
             if (activeLine !== 'inline') {

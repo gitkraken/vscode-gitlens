@@ -1,5 +1,28 @@
 ## Release Notes
 
+### 2.11.0
+- Adds `gitlens.showQuickCommitFileDetails` command to show a quick pick list of details for a file commit
+- Adds `gitlens.showQuickCommitFileDetails` command to CodeLens
+- Adds `gitlens.showQuickCommitFileDetails` command to the status bar
+- Adds `gitlens.closeUnchangedFiles` command to close any editors that don't have uncommitted changes
+- Adds `gitlens.openChangedFiles` command to open all files that have uncommitted changes
+- Adds `gitlens.diffDirectory` command to open the configured git difftool to compare directory versions
+- Adds `Directory Compare with Previous Commit` command on the `gitlens.showQuickCommitDetails` quick pick
+- Adds `Directory Compare with Working Tree` command on the `gitlens.showQuickCommitDetails` quick pick
+- Adds a `Changed Files` grouping on the `gitlens.showQuickCommitDetails` quick pick
+- Adds a `Close Unchanged Files` command on the `gitlens.showQuickRepoStatus` quick pick
+- Adds a contextual description to the `go back` command in quick pick lists
+- Changes layout of the `gitlens.showQuickRepoStatus` quick pick for better clarity
+- Changes behavior of `gitlens.showQuickCommitDetails` to show commit a quick pick list of details for a commit
+- Changes default of `gitlens.codeLens.recentChange.command` to be `gitlens.showQuickCommitFileDetails` (though there is no visible behavior change)
+- Renames `Open Files` to `Open Changed Files` on the `gitlens.showQuickCommitDetails` quick pick
+- Renames `Open Working Files` to `Open Changed Working Files` on the `gitlens.showQuickCommitDetails` quick pick
+- Renames `Show Changed Files` to `Show Commit Details` on the `gitlens.showQuickCommitFileDetails` quick pick
+- Renames `Open Files` to `Open Changed Files` on the `gitlens.showQuickRepoStatus` quick pick
+- Fixes [#44](https://github.com/eamodio/vscode-gitlens/issues/43) by adding a warning message about Git version requirements
+- Fixes intermittent errors when adding active line annotations
+- Fixes intermittent errors when opening multiple files via quick picks
+
 ### 2.10.1
 - Fixes [#43](https://github.com/eamodio/vscode-gitlens/issues/43) - File-level CodeLens isn't using the blame of the whole file as it should
 - Fixes issue with single quotes (') in annotations
@@ -108,7 +131,7 @@
 - Adds `gitlens.showQuickRepoHistory` and `gitlens.showQuickCommitDetails` commands to the status bar
 - Changes the default command of `gitlens.codeLens.recentChange.command` to `gitlens.showQuickCommitDetails`
 - Changes the default command of `gitlens.statusBar.command` to `gitlens.showQuickCommitDetails`
-- Changes Changes behavior of `gitlens.showQuickCommitDetails` to show commit commands rather than file set (use `Show Changed Files` command to get to the file set)
+- Changes behavior of `gitlens.showQuickCommitDetails` to show commit commands rather than file set (use `Show Changed Files` command to get to the file set)
 - Changes `gitlens.diffWithPrevious` command to behave as `gitlens.diffWithWorking` if the file has uncommitted changes
 - Renames `gitlens.diffWithPrevious` command from `Diff Commit with Previous` to `Compare with Previous Commit`
 - Renames `gitlens.diffLineWithPrevious` command from `Diff Commit (line) with Previous` to `Compare Line with Previous Commit`

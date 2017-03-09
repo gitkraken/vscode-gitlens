@@ -103,12 +103,15 @@ export class GitCommit implements IGitCommit {
     }
 }
 
+export type GitLogType = 'file' | 'repo';
+
 export class GitLogCommit extends GitCommit {
 
     fileStatuses: { status: GitFileStatus, fileName: string }[];
     status: GitFileStatus;
 
     constructor(
+        public type: GitLogType,
         repoPath: string,
         sha: string,
         fileName: string,
@@ -145,7 +148,7 @@ export interface IGitCommitLine {
 export interface IGitLog {
     repoPath: string;
     authors: Map<string, IGitAuthor>;
-    commits: Map<string, GitCommit>;
+    commits: Map<string, GitLogCommit>;
 }
 
 export declare type GitFileStatus = '?' | 'A' | 'C' | 'D' | 'M' | 'R' | 'U';

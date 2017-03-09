@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "2.10.1",
+    "version": "2.11.0",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -214,17 +214,18 @@
                 },
                 "gitlens.codeLens.recentChange.command": {
                     "type": "string",
-                    "default": "gitlens.showQuickCommitDetails",
+                    "default": "gitlens.showQuickCommitFileDetails",
                     "enum": [
                         "gitlens.toggleBlame",
                         "gitlens.showBlameHistory",
                         "gitlens.showFileHistory",
                         "gitlens.diffWithPrevious",
                         "gitlens.showQuickCommitDetails",
+                        "gitlens.showQuickCommitFileDetails",
                         "gitlens.showQuickFileHistory",
                         "gitlens.showQuickRepoHistory"
                     ],
-                    "description": "Specifies the command executed when the recent change CodeLens is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickFileHistory` - shows a repository history quick pick"
+                    "description": "Specifies the command executed when the recent change CodeLens is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickFileHistory` - shows a repository history quick pick"
                 },
                 "gitlens.codeLens.authors.enabled": {
                     "type": "boolean",
@@ -240,10 +241,11 @@
                         "gitlens.showFileHistory",
                         "gitlens.diffWithPrevious",
                         "gitlens.showQuickCommitDetails",
+                        "gitlens.showQuickCommitFileDetails",
                         "gitlens.showQuickFileHistory",
                         "gitlens.showQuickRepoHistory"
                     ],
-                    "description": "Specifies the command executed when the authors CodeLens is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickFileHistory` - shows a repository history quick pick"
+                    "description": "Specifies the command executed when the authors CodeLens is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickFileHistory` - shows a repository history quick pick"
                 },
                 "gitlens.menus.diff.enabled": {
                     "type": "boolean",
@@ -265,10 +267,11 @@
                         "gitlens.diffWithPrevious",
                         "gitlens.toggleCodeLens",
                         "gitlens.showQuickCommitDetails",
+                        "gitlens.showQuickCommitFileDetails",
                         "gitlens.showQuickFileHistory",
                         "gitlens.showQuickRepoHistory"
                     ],
-                    "description": "Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickFileHistory` - shows a repository history quick pick"
+                    "description": "Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current checked-in file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickFileHistory` - shows a repository history quick pick"
                 },
                 "gitlens.statusBar.date": {
                     "type": "string",
@@ -349,6 +352,11 @@
                 "category": "GitLens:KeyPress"
             },
             {
+                "command": "gitlens.diffDirectory",
+                "title": "Directory Compare",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.diffWithPrevious",
                 "title": "Compare with Previous Commit",
                 "category": "GitLens"
@@ -403,6 +411,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.showQuickCommitFileDetails",
+                "title": "Show Line Commit Details",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.showQuickFileHistory",
                 "title": "Show File History",
                 "category": "GitLens"
@@ -426,6 +439,16 @@
                 "command": "gitlens.copyMessageToClipboard",
                 "title": "Copy Commit Message to Clipboard",
                 "category": "GitLens"
+            },
+            {
+                "command": "gitlens.closeUnchangedFiles",
+                "title": "Close Unchanged Files",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.openChangedFiles",
+                "title": "Open Changed Files",
+                "category": "GitLens"
             }
         ],
         "menus": {
@@ -437,6 +460,10 @@
                 {
                     "command": "gitlens.key.right",
                     "when": "false"
+                },
+                {
+                    "command": "gitlens.diffDirectory",
+                    "when": "gitlens:enabled"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
@@ -479,6 +506,10 @@
                     "when": "gitlens:enabled && gitlens:isBlameable"
                 },
                 {
+                    "command": "gitlens.showQuickCommitFileDetails",
+                    "when": "gitlens:enabled && gitlens:isBlameable"
+                },
+                {
                     "command": "gitlens.showQuickFileHistory",
                     "when": "gitlens:enabled"
                 },
@@ -497,6 +528,14 @@
                 {
                     "command": "gitlens.copyMessageToClipboard",
                     "when": "gitlens:enabled && gitlens:isBlameable"
+                },
+                {
+                    "command": "gitlens.closeUnchangedFiles",
+                    "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.openChangedFiles",
+                    "when": "gitlens:enabled"
                 }
             ],
             "explorer/context": [
@@ -572,7 +611,7 @@
                     "group": "1_gitlens@2"
                 },
                 {
-                    "command": "gitlens.showQuickCommitDetails",
+                    "command": "gitlens.showQuickCommitFileDetails",
                     "when": "editorTextFocus && gitlens:enabled && gitlens:isBlameable",
                     "group": "1_gitlens@3"
                 },
@@ -651,7 +690,7 @@
                 "when": "gitlens:enabled"
             },
             {
-                "command": "gitlens.showQuickCommitDetails",
+                "command": "gitlens.showQuickCommitFileDetails",
                 "key": "alt+c",
                 "mac": "alt+c",
                 "when": "editorTextFocus && gitlens:enabled"
@@ -701,17 +740,17 @@
         "lodash.isequal": "^4.5.0",
         "lodash.once": "^4.1.1",
         "moment": "^2.17.1",
-        "spawn-rx": "^2.0.8",
+        "spawn-rx": "^2.0.10",
         "tmp": "^0.0.31"
     },
     "devDependencies": {
         "@types/copy-paste": "^1.1.30",
         "@types/mocha": "^2.2.39",
-        "@types/node": "^7.0.5",
+        "@types/node": "^7.0.7",
         "@types/tmp": "^0.0.32",
         "mocha": "^3.2.0",
-        "tslint": "^4.4.2",
+        "tslint": "^4.5.1",
         "typescript": "^2.2.1",
-        "vscode": "^1.0.3"
+        "vscode": "^1.0.5"
     }
 }

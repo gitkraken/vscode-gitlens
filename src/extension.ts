@@ -4,11 +4,12 @@ import { BlameabilityTracker } from './blameabilityTracker';
 import { BlameActiveLineController } from './blameActiveLineController';
 import { BlameAnnotationController } from './blameAnnotationController';
 import { configureCssCharacters } from './blameAnnotationFormatter';
+import { CloseUnchangedFilesCommand, OpenChangedFilesCommand } from './commands';
 import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './commands';
-import { DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithPreviousCommand, DiffWithWorkingCommand} from './commands';
+import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithPreviousCommand, DiffWithWorkingCommand} from './commands';
 import { ShowBlameCommand, ToggleBlameCommand } from './commands';
 import { ShowBlameHistoryCommand, ShowFileHistoryCommand } from './commands';
-import { ShowQuickCommitDetailsCommand, ShowQuickFileHistoryCommand, ShowQuickRepoHistoryCommand, ShowQuickRepoStatusCommand} from './commands';
+import { ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand, ShowQuickFileHistoryCommand, ShowQuickRepoHistoryCommand, ShowQuickRepoStatusCommand} from './commands';
 import { ToggleCodeLensCommand } from './commands';
 import { Keyboard } from './commands';
 import { IAdvancedConfig, IBlameConfig } from './configuration';
@@ -44,10 +45,17 @@ export async function activate(context: ExtensionContext) {
     catch (ex) {
         Logger.error(ex);
         if (ex.message.includes('Unable to find git')) {
-            await window.showErrorMessage(`GitLens: Unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'gitlens.advanced.git' is pointed to its installed location.`);
+            await window.showErrorMessage(`GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'gitlens.advanced.git' is pointed to its installed location.`);
         }
         commands.executeCommand(BuiltInCommands.SetContext, 'gitlens:enabled', false);
         return;
+    }
+
+    const version = Git.gitInfo().version;
+    const [major, minor] = version.split('.');
+    // If git is less than v2.2.0
+    if (parseInt(major, 10) < 2 || parseInt(minor, 10) < 2) {
+        await window.showErrorMessage(`GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git.`);
     }
 
     let gitEnabled = workspace.getConfiguration('git').get<boolean>('enabled');
@@ -79,8 +87,11 @@ export async function activate(context: ExtensionContext) {
 
     context.subscriptions.push(new Keyboard(context));
 
+    context.subscriptions.push(new CloseUnchangedFilesCommand(git, repoPath));
+    context.subscriptions.push(new OpenChangedFilesCommand(git, repoPath));
     context.subscriptions.push(new CopyMessageToClipboardCommand(git, repoPath));
     context.subscriptions.push(new CopyShaToClipboardCommand(git, repoPath));
+    context.subscriptions.push(new DiffDirectoryCommand(git, repoPath));
     context.subscriptions.push(new DiffWithWorkingCommand(git));
     context.subscriptions.push(new DiffLineWithWorkingCommand(git));
     context.subscriptions.push(new DiffWithPreviousCommand(git));
@@ -90,6 +101,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new ShowBlameHistoryCommand(git));
     context.subscriptions.push(new ShowFileHistoryCommand(git));
     context.subscriptions.push(new ShowQuickCommitDetailsCommand(git));
+    context.subscriptions.push(new ShowQuickCommitFileDetailsCommand(git));
     context.subscriptions.push(new ShowQuickFileHistoryCommand(git));
     context.subscriptions.push(new ShowQuickRepoHistoryCommand(git, repoPath));
     context.subscriptions.push(new ShowQuickRepoStatusCommand(git, repoPath));

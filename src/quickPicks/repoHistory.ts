@@ -6,8 +6,6 @@ import { IGitLog } from '../gitProvider';
 import { CommitQuickPickItem } from './gitQuickPicks';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './quickPicks';
 
-export { CommandQuickPickItem, CommitQuickPickItem };
-
 export class RepoHistoryQuickPick {
 
     static async show(log: IGitLog, uri: Uri, maxCount: number, defaultMaxCount: number, goBackCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
@@ -18,7 +16,7 @@ export class RepoHistoryQuickPick {
                 label: `$(sync) Show All Commits`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 Currently only showing the first ${defaultMaxCount} commits`,
                 detail: `This may take a while`
-            }, Commands.ShowQuickRepoHistory, [uri, 0, undefined, goBackCommand]));
+            }, Commands.ShowQuickRepoHistory, [uri, 0, goBackCommand]));
         }
 
         if (goBackCommand) {

@@ -1,7 +1,7 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
-import { GitProvider, GitUri } from '../gitProvider';
+import { GitProvider } from '../gitProvider';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepoStatusQuickPick } from '../quickPicks';
 
@@ -17,19 +17,7 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCommand {
         }
 
         try {
-            let repoPath: string;
-            if (uri instanceof Uri) {
-                const gitUri = await GitUri.fromUri(uri, this.git);
-                repoPath = gitUri.repoPath;
-
-                if (!repoPath) {
-                    repoPath = await this.git.getRepoPathFromFile(gitUri.fsPath);
-                }
-            }
-
-            if (!repoPath) {
-                repoPath = this.repoPath;
-            }
+            const repoPath = await this.git.getRepoPathFromUri(uri, this.repoPath);
             if (!repoPath) return window.showWarningMessage(`Unable to show repository status`);
 
             const statuses = await this.git.getStatusesForRepo(repoPath);

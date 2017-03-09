@@ -1,18 +1,23 @@
 'use strict';
-import { commands, Disposable, TextEditor, TextEditorEdit, window } from 'vscode';
+import { commands, Disposable, TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
+import { BuiltInCommands } from '../constants';
 
-export type Commands = 'gitlens.copyMessageToClipboard' | 'gitlens.copyShaToClipboard' | 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' | 'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory' | 'gitlens.showQuickRepoStatus' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
+export type Commands = 'gitlens.closeUnchangedFiles' | 'gitlens.copyMessageToClipboard' | 'gitlens.copyShaToClipboard' | 'gitlens.diffDirectory' | 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' | 'gitlens.openChangedFiles' | 'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory' | 'gitlens.showQuickRepoStatus' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
 export const Commands = {
+    CloseUnchangedFiles: 'gitlens.closeUnchangedFiles' as Commands,
     CopyMessageToClipboard: 'gitlens.copyMessageToClipboard' as Commands,
     CopyShaToClipboard: 'gitlens.copyShaToClipboard' as Commands,
+    DiffDirectory: 'gitlens.diffDirectory' as Commands,
     DiffWithPrevious: 'gitlens.diffWithPrevious' as Commands,
     DiffLineWithPrevious: 'gitlens.diffLineWithPrevious' as Commands,
     DiffWithWorking: 'gitlens.diffWithWorking' as Commands,
     DiffLineWithWorking: 'gitlens.diffLineWithWorking' as Commands,
+    OpenChangedFiles: 'gitlens.openChangedFiles' as Commands,
     ShowBlame: 'gitlens.showBlame' as Commands,
     ShowBlameHistory: 'gitlens.showBlameHistory' as Commands,
     ShowFileHistory: 'gitlens.showFileHistory' as Commands,
     ShowQuickCommitDetails: 'gitlens.showQuickCommitDetails' as Commands,
+    ShowQuickCommitFileDetails: 'gitlens.showQuickCommitFileDetails' as Commands,
     ShowQuickFileHistory: 'gitlens.showQuickFileHistory' as Commands,
     ShowQuickRepoHistory: 'gitlens.showQuickRepoHistory' as Commands,
     ShowQuickRepoStatus: 'gitlens.showQuickRepoStatus' as Commands,
@@ -68,4 +73,16 @@ export abstract class ActiveEditorCommand extends Disposable {
     }
 
     abstract execute(editor: TextEditor, ...args: any[]): any;
+}
+
+export async function openEditor(uri: Uri, pinned: boolean = false) {
+    try {
+        if (!pinned) return await commands.executeCommand(BuiltInCommands.Open, uri);
+
+        const document = await workspace.openTextDocument(uri);
+        return window.showTextDocument(document, (window.activeTextEditor && window.activeTextEditor.viewColumn) || 1, true);
+    }
+    catch (ex) {
+        return undefined;
+    }
 }

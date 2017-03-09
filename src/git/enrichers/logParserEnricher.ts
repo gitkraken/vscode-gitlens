@@ -1,5 +1,5 @@
 'use strict';
-import Git, { GitFileStatus, GitLogCommit, IGitAuthor, IGitEnricher, IGitLog } from './../git';
+import Git, { GitFileStatus, GitLogCommit, GitLogType, IGitAuthor, IGitEnricher, IGitLog } from './../git';
 import * as moment from 'moment';
 import * as path from 'path';
 
@@ -149,7 +149,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
         return entries;
     }
 
-    enrich(data: string, type: 'file' | 'repo', fileNameOrRepoPath: string, isRepoPath: boolean = false): IGitLog {
+    enrich(data: string, type: GitLogType, fileNameOrRepoPath: string, isRepoPath: boolean = false): IGitLog {
         const entries = this._parseEntries(data, isRepoPath);
         if (!entries) return undefined;
 
@@ -189,7 +189,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
                     authors.set(entry.author, author);
                 }
 
-                commit = new GitLogCommit(repoPath, entry.sha, relativeFileName, entry.author, moment(entry.authorDate).toDate(), entry.summary, entry.status, entry.fileStatuses, undefined, entry.originalFileName);
+                commit = new GitLogCommit(type, repoPath, entry.sha, relativeFileName, entry.author, moment(entry.authorDate).toDate(), entry.summary, entry.status, entry.fileStatuses, undefined, entry.originalFileName);
 
                 if (relativeFileName !== entry.fileName) {
                     commit.originalFileName = entry.fileName;

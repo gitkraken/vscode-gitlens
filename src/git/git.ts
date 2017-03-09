@@ -91,8 +91,17 @@ export default class Git {
         return gitCommand(root, ...params, `--`, file);
     }
 
+    static diffDir(repoPath: string, sha1: string, sha2?: string) {
+        const params = [`difftool`, `--dir-diff`, sha1];
+        if (sha2) {
+            params.push(sha2);
+        }
+
+        return gitCommand(repoPath, ...params);
+    }
+
     static diffStatus(repoPath: string, sha1?: string, sha2?: string) {
-        const params = [`diff`, `--name- status`, `-M`];
+        const params = [`diff`, `--name-status`, `-M`];
         if (sha1) {
             params.push(sha1);
         }
@@ -101,6 +110,43 @@ export default class Git {
         }
 
         return gitCommand(repoPath, ...params);
+    }
+
+    static async getVersionedFile(fileName: string, repoPath: string, sha: string) {
+        const data = await Git.getVersionedFileText(fileName, repoPath, sha);
+
+        const ext = path.extname(fileName);
+        return new Promise<string>((resolve, reject) => {
+            tmp.file({ prefix: `${path.basename(fileName, ext)}-${sha}__`, postfix: ext },
+                (err, destination, fd, cleanupCallback) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+
+                    Logger.log(`getVersionedFile(${fileName}, ${repoPath}, ${sha}); destination=${destination}`);
+                    fs.appendFile(destination, data, err => {
+                        if (err) {
+                            reject(err);
+                            return;
+                        }
+
+                        resolve(destination);
+                    });
+                });
+        });
+    }
+
+    static getVersionedFileText(fileName: string, repoPath: string, sha: string) {
+        const [file, root] = Git.splitPath(Git.normalizePath(fileName), repoPath);
+        sha = sha.replace('^', '');
+
+        if (Git.isUncommitted(sha)) return Promise.reject(new Error(`sha=${sha} is uncommitted`));
+        return gitCommand(root, 'show', `${sha}:./${file}`);
+    }
+
+    static gitInfo(): IGit {
+        return git;
     }
 
     static log(fileName: string, sha?: string, repoPath?: string, maxCount?: number, reverse: boolean = false) {
@@ -148,39 +194,6 @@ export default class Git {
             params.push(`${sha}^!`);
         }
         return gitCommand(repoPath, ...params);
-    }
-
-    static async getVersionedFile(fileName: string, repoPath: string, sha: string) {
-        const data = await Git.getVersionedFileText(fileName, repoPath, sha);
-
-        const ext = path.extname(fileName);
-        return new Promise<string>((resolve, reject) => {
-            tmp.file({ prefix: `${path.basename(fileName, ext)}-${sha}__`, postfix: ext },
-                (err, destination, fd, cleanupCallback) => {
-                    if (err) {
-                        reject(err);
-                        return;
-                    }
-
-                    Logger.log(`getVersionedFile(${fileName}, ${repoPath}, ${sha}); destination=${destination}`);
-                    fs.appendFile(destination, data, err => {
-                        if (err) {
-                            reject(err);
-                            return;
-                        }
-
-                        resolve(destination);
-                    });
-                });
-        });
-    }
-
-    static getVersionedFileText(fileName: string, repoPath: string, sha: string) {
-        const [file, root] = Git.splitPath(Git.normalizePath(fileName), repoPath);
-        sha = sha.replace('^', '');
-
-        if (Git.isUncommitted(sha)) return Promise.reject(new Error(`sha=${sha} is uncommitted`));
-        return gitCommand(root, 'show', `${sha}:./${file}`);
     }
 
     static statusFile(fileName: string, repoPath: string): Promise<string> {

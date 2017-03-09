@@ -293,13 +293,22 @@ export class GitProvider extends Disposable {
         return Git.repoPath(cwd);
     }
 
+    async getRepoPathFromUri(uri?: Uri, fallbackRepoPath?: string): Promise<string | undefined> {
+        if (!(uri instanceof Uri)) return fallbackRepoPath;
+
+        const gitUri = await GitUri.fromUri(uri, this);
+        if (gitUri.repoPath) return gitUri.repoPath;
+
+        return (await this.getRepoPathFromFile(gitUri.fsPath)) || fallbackRepoPath;
+    }
+
     async getRepoPathFromFile(fileName: string): Promise<string | undefined> {
         const log = await this.getLogForFile(fileName, undefined, undefined, undefined, 1);
         return log && log.repoPath;
     }
 
     getBlameForFile(fileName: string, sha?: string, repoPath?: string): Promise<IGitBlame | undefined> {
-        Logger.log(`getBlameForFile('${fileName}', ${sha}, ${repoPath})`);
+        Logger.log(`getBlameForFile('${fileName}', ${sha}, '${repoPath}')`);
         fileName = Git.normalizePath(fileName);
 
         const useCaching = this.UseGitCaching && !sha;
@@ -362,7 +371,7 @@ export class GitProvider extends Disposable {
     }
 
     async getBlameForLine(fileName: string, line: number, sha?: string, repoPath?: string): Promise<IGitBlameLine | undefined> {
-        Logger.log(`getBlameForLine('${fileName}', ${line}, ${sha}, ${repoPath})`);
+        Logger.log(`getBlameForLine('${fileName}', ${line}, ${sha}, '${repoPath}')`);
 
         if (this.UseGitCaching && !sha) {
             const blame = await this.getBlameForFile(fileName);
@@ -400,7 +409,7 @@ export class GitProvider extends Disposable {
     }
 
     async getBlameForRange(fileName: string, range: Range, sha?: string, repoPath?: string): Promise<IGitBlameLines | undefined> {
-        Logger.log(`getBlameForRange('${fileName}', [${range.start.line}, ${range.end.line}], ${sha}, ${repoPath})`);
+        Logger.log(`getBlameForRange('${fileName}', [${range.start.line}, ${range.end.line}], ${sha}, '${repoPath}')`);
         const blame = await this.getBlameForFile(fileName, sha, repoPath);
         if (!blame) return undefined;
 
@@ -408,7 +417,7 @@ export class GitProvider extends Disposable {
     }
 
     getBlameForRangeSync(blame: IGitBlame, fileName: string, range: Range, sha?: string, repoPath?: string): IGitBlameLines | undefined {
-        Logger.log(`getBlameForRangeSync('${fileName}', [${range.start.line}, ${range.end.line}], ${sha}, ${repoPath})`);
+        Logger.log(`getBlameForRangeSync('${fileName}', [${range.start.line}, ${range.end.line}], ${sha}, '${repoPath}')`);
 
         if (!blame.lines.length) return Object.assign({ allLines: blame.lines }, blame);
 
@@ -455,7 +464,7 @@ export class GitProvider extends Disposable {
     }
 
     async getBlameLocations(fileName: string, range: Range, sha?: string, repoPath?: string, selectedSha?: string, line?: number): Promise<Location[] | undefined> {
-        Logger.log(`getBlameLocations('${fileName}', [${range.start.line}, ${range.end.line}], ${sha}, ${repoPath})`);
+        Logger.log(`getBlameLocations('${fileName}', [${range.start.line}, ${range.end.line}], ${sha}, '${repoPath}')`);
 
         const blame = await this.getBlameForRange(fileName, range, sha, repoPath);
         if (!blame) return undefined;
@@ -494,7 +503,7 @@ export class GitProvider extends Disposable {
     }
 
     getLogForFile(fileName: string, sha?: string, repoPath?: string, range?: Range, maxCount?: number, reverse: boolean = false): Promise<IGitLog | undefined> {
-        Logger.log(`getLogForFile('${fileName}', ${sha}, ${repoPath}, ${range && `[${range.start.line}, ${range.end.line}]`}, ${maxCount})`);
+        Logger.log(`getLogForFile('${fileName}', ${sha}, '${repoPath}', ${range && `[${range.start.line}, ${range.end.line}]`}, ${maxCount})`);
         fileName = Git.normalizePath(fileName);
 
         const useCaching = this.UseGitCaching && !sha && !range && !maxCount;
@@ -555,7 +564,7 @@ export class GitProvider extends Disposable {
     }
 
     async getLogLocations(fileName: string, sha?: string, repoPath?: string, selectedSha?: string, line?: number): Promise<Location[] | undefined> {
-        Logger.log(`getLogLocations('${fileName}', ${sha}, ${repoPath}, ${selectedSha}, ${line})`);
+        Logger.log(`getLogLocations('${fileName}', ${sha}, '${repoPath}', ${selectedSha}, ${line})`);
 
         const log = await this.getLogForFile(fileName, sha, repoPath);
         if (!log) return undefined;
@@ -590,13 +599,13 @@ export class GitProvider extends Disposable {
     }
 
     async isFileUncommitted(fileName: string, repoPath: string): Promise<boolean> {
-        Logger.log(`isFileUncommitted('${fileName}', ${repoPath})`);
+        Logger.log(`isFileUncommitted('${fileName}', '${repoPath}')`);
         const status = await this.getStatusForFile(fileName, repoPath);
         return !!status;
     }
 
     async getVersionedFile(fileName: string, repoPath: string, sha: string) {
-        Logger.log(`getVersionedFile('${fileName}', ${repoPath}, ${sha})`);
+        Logger.log(`getVersionedFile('${fileName}', '${repoPath}', ${sha})`);
 
         const file = await Git.getVersionedFile(fileName, repoPath, sha);
         if (this.UseUriCaching) {
@@ -608,7 +617,7 @@ export class GitProvider extends Disposable {
     }
 
     getVersionedFileText(fileName: string, repoPath: string, sha: string) {
-        Logger.log(`getVersionedFileText('${fileName}', ${repoPath}, ${sha})`);
+        Logger.log(`getVersionedFileText('${fileName}', '${repoPath}', ${sha})`);
         return Git.getVersionedFileText(fileName, repoPath, sha);
     }
 
@@ -616,6 +625,11 @@ export class GitProvider extends Disposable {
         return (editor.viewColumn !== undefined ||
             editor.document.uri.scheme === DocumentSchemes.Git ||
             this.hasGitUriForFile(editor));
+    }
+
+    openDirectoryDiff(repoPath: string, sha1: string, sha2?: string) {
+        Logger.log(`openDirectoryDiff('${repoPath}', ${sha1}, ${sha2})`);
+        return Git.diffDir(repoPath, sha1, sha2);
     }
 
     toggleCodeLens(editor: TextEditor) {
