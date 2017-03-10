@@ -63,12 +63,23 @@ export class BlameAnnotationProvider extends Disposable {
     }
 
     async provideBlameAnnotation(shaOrLine?: string | number): Promise<boolean> {
-        const blame = await this._blame;
-        if (!blame || !blame.lines.length) return false;
-
+        let whitespacePromise: Promise<void>;
         // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- override whitespace (turn off)
         if (this._config.annotation.style !== BlameAnnotationStyle.Trailing) {
-            this.whitespaceController && await this.whitespaceController.override();
+            whitespacePromise = this.whitespaceController && this.whitespaceController.override();
+        }
+
+        let blame: IGitBlame;
+        if (whitespacePromise) {
+            [blame] = await Promise.all([this._blame, whitespacePromise]);
+        }
+        else {
+            blame = await this._blame;
+        }
+
+        if (!blame || !blame.lines.length) {
+            this.whitespaceController && await this.whitespaceController.restore();
+            return false;
         }
 
         let blameDecorationOptions: DecorationOptions[] | undefined;
