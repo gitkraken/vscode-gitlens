@@ -1,5 +1,10 @@
 ## Release Notes
 
+### 2.11.1
+- Adds blame and active line annotation support to git diff split view (right side)
+- Adds command (compare, copy sha/message, etc) support to git diff split view (right side)
+- Fixes intermittent issues when toggling whitespace for blame annotations
+
 ### 2.11.0
 - Adds `gitlens.showQuickCommitFileDetails` command to show a quick pick list of details for a file commit
 - Adds `gitlens.showQuickCommitFileDetails` command to CodeLens
