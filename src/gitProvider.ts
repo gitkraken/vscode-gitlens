@@ -623,6 +623,7 @@ export class GitProvider extends Disposable {
 
     isEditorBlameable(editor: TextEditor): boolean {
         return (editor.viewColumn !== undefined ||
+            editor.document.uri.scheme === DocumentSchemes.File ||
             editor.document.uri.scheme === DocumentSchemes.Git ||
             this.hasGitUriForFile(editor));
     }
