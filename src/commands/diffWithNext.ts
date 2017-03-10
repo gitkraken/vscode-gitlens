@@ -3,22 +3,22 @@ import { Iterables } from '../system';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
 import { BuiltInCommands } from '../constants';
-import { GitCommit, GitProvider, GitUri } from '../gitProvider';
+import { GitLogCommit, GitProvider, GitUri } from '../gitProvider';
 import { Logger } from '../logger';
-import * as moment from 'moment';
+// import * as moment from 'moment';
 import * as path from 'path';
 
-export class DiffWithPreviousCommand extends ActiveEditorCommand {
+export class DiffWithNextCommand extends ActiveEditorCommand {
 
     constructor(private git: GitProvider) {
-        super(Commands.DiffWithPrevious);
+        super(Commands.DiffWithNext);
     }
 
     async execute(editor: TextEditor): Promise<any>;
     async execute(editor: TextEditor, uri: Uri): Promise<any>;
-    async execute(editor: TextEditor, uri: Uri, commit: GitCommit, range?: Range): Promise<any>;
-    async execute(editor: TextEditor, uri: Uri, commit: GitCommit, line?: number): Promise<any>;
-    async execute(editor: TextEditor, uri?: Uri, commit?: GitCommit, rangeOrLine?: Range | number): Promise<any> {
+    async execute(editor: TextEditor, uri: Uri, commit: GitLogCommit, range?: Range): Promise<any>;
+    async execute(editor: TextEditor, uri: Uri, commit: GitLogCommit, line?: number): Promise<any>;
+    async execute(editor: TextEditor, uri?: Uri, commit?: GitLogCommit, rangeOrLine?: Range | number): Promise<any> {
         if (!(uri instanceof Uri)) {
             if (!editor || !editor.document) return undefined;
             uri = editor.document.uri;
@@ -30,7 +30,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
             rangeOrLine = undefined;
         }
 
-        if (!commit || rangeOrLine instanceof Range) {
+        if (!commit || !(commit instanceof GitLogCommit) || rangeOrLine instanceof Range) {
             const gitUri = await GitUri.fromUri(uri, this.git);
 
             try {
@@ -49,26 +49,25 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                 commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
             }
             catch (ex) {
-                Logger.error('[GitLens.DiffWithPreviousCommand]', `getLogForFile(${gitUri.fsPath})`, ex);
+                Logger.error('[GitLens.DiffWithNextCommand]', `getLogForFile(${gitUri.fsPath})`, ex);
                 return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
             }
         }
 
-        if (!commit.previousSha) {
-            return window.showInformationMessage(`Commit ${commit.sha} (${commit.author}, ${moment(commit.date).fromNow()}) has no previous commit`);
+        if (!commit.nextSha) {
+            return commands.executeCommand(Commands.DiffWithWorking, uri);
         }
 
         try {
             const [rhs, lhs] = await Promise.all([
-                this.git.getVersionedFile(commit.uri.fsPath, commit.repoPath, commit.sha),
-                this.git.getVersionedFile(commit.previousUri.fsPath, commit.repoPath, commit.previousSha)
+                this.git.getVersionedFile(commit.nextUri.fsPath, commit.repoPath, commit.nextSha),
+                this.git.getVersionedFile(commit.uri.fsPath, commit.repoPath, commit.sha)
             ]);
-            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.previousUri.fsPath)} (${commit.previousSha}) ↔ ${path.basename(commit.uri.fsPath)} (${commit.sha})`);
-            // TODO: Figure out how to focus the left pane
+            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.uri.fsPath)} (${commit.sha}) ↔ ${path.basename(commit.nextUri.fsPath)} (${commit.nextSha})`);
             return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' });
         }
         catch (ex) {
-            Logger.error('[GitLens.DiffWithPreviousCommand]', 'getVersionedFile', ex);
+            Logger.error('[GitLens.DiffWithNextCommand]', 'getVersionedFile', ex);
             return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
         }
     }

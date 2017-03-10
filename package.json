@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "2.11.1",
+    "version": "2.11.2",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -357,6 +357,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.diffWithNext",
+                "title": "Compare with Next Commit",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.diffWithPrevious",
                 "title": "Compare with Previous Commit",
                 "category": "GitLens"
@@ -463,6 +468,10 @@
                 },
                 {
                     "command": "gitlens.diffDirectory",
+                    "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.diffWithNext",
                     "when": "gitlens:enabled"
                 },
                 {
@@ -696,15 +705,21 @@
                 "when": "editorTextFocus && gitlens:enabled"
             },
             {
+                "command": "gitlens.diffWithNext",
+                "key": "alt+.",
+                "mac": "alt+.",
+                "when": "editorTextFocus && gitlens:enabled"
+            },
+            {
                 "command": "gitlens.diffLineWithPrevious",
-                "key": "alt+p",
-                "mac": "alt+p",
+                "key": "shift+alt+,",
+                "mac": "shift+alt+,",
                 "when": "editorTextFocus && gitlens:enabled"
             },
             {
                 "command": "gitlens.diffWithPrevious",
-                "key": "shift+alt+p",
-                "mac": "shift+alt+p",
+                "key": "alt+,",
+                "mac": "alt+,",
                 "when": "editorTextFocus && gitlens:enabled"
             },
             {

@@ -1,6 +1,7 @@
 
 'use strict';
 import { commands, Disposable, TextEditor, window } from 'vscode';
+import { BuiltInCommands } from './constants';
 
 export class ActiveEditorTracker extends Disposable {
 
@@ -28,11 +29,11 @@ export class ActiveEditorTracker extends Disposable {
     }
 
     async close(): Promise<{}> {
-        return commands.executeCommand('workbench.action.closeActiveEditor');
+        return commands.executeCommand(BuiltInCommands.CloseActiveEditor);
     }
 
     async next(): Promise<{}> {
-        return commands.executeCommand('workbench.action.nextEditor');
+        return commands.executeCommand(BuiltInCommands.NextEditor);
     }
 
     async wait(timeout: number = 500): Promise<TextEditor> {

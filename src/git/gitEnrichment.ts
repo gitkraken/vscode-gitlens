@@ -108,6 +108,8 @@ export type GitLogType = 'file' | 'repo';
 export class GitLogCommit extends GitCommit {
 
     fileStatuses: { status: GitFileStatus, fileName: string }[];
+    nextSha?: string;
+    nextFileName?: string;
     status: GitFileStatus;
 
     constructor(
@@ -134,6 +136,10 @@ export class GitLogCommit extends GitCommit {
         else {
             this.fileStatuses = [{ status: status, fileName: fileName }];
         }
+    }
+
+    get nextUri(): Uri {
+        return this.nextFileName ? Uri.file(path.join(this.repoPath, this.nextFileName)) : this.uri;
     }
 }
 

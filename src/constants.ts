@@ -2,14 +2,16 @@
 
 export const RepoPath = 'repoPath';
 
-export type BuiltInCommands = 'cursorMove' | 'editor.action.showReferences' | 'editor.action.toggleRenderWhitespace' | 'editorScroll' | 'revealLine' | 'setContext' | 'vscode.diff' | 'vscode.executeDocumentSymbolProvider' | 'vscode.executeCodeLensProvider' | 'vscode.open';
+export type BuiltInCommands = 'cursorMove' | 'editor.action.showReferences' | 'editor.action.toggleRenderWhitespace' | 'editorScroll' | 'revealLine' | 'setContext' | 'vscode.diff' | 'vscode.executeDocumentSymbolProvider' | 'vscode.executeCodeLensProvider' | 'vscode.open' | 'workbench.action.closeActiveEditor' | 'workbench.action.nextEditor';
 export const BuiltInCommands = {
+    CloseActiveEditor: 'workbench.action.closeActiveEditor' as BuiltInCommands,
     CursorMove: 'cursorMove' as BuiltInCommands,
     Diff: 'vscode.diff' as BuiltInCommands,
     EditorScroll: 'editorScroll' as BuiltInCommands,
     ExecuteDocumentSymbolProvider: 'vscode.executeDocumentSymbolProvider' as BuiltInCommands,
     ExecuteCodeLensProvider: 'vscode.executeCodeLensProvider' as BuiltInCommands,
     Open: 'vscode.open' as BuiltInCommands,
+    NextEditor: 'workbench.action.nextEditor' as BuiltInCommands,
     RevealLine: 'revealLine' as BuiltInCommands,
     SetContext: 'setContext' as BuiltInCommands,
     ShowReferences: 'editor.action.showReferences' as BuiltInCommands,

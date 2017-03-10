@@ -1,5 +1,14 @@
 ## Release Notes
 
+### 2.11.2
+- Adds `gitlens.diffWithNext` command to open a diff with the next commit
+- Adds `alt+.` shortcut for the `gitlens.diffWithNext` command
+- Changes `shift+alt+p` shortcut to `alt+,` for the `gitlens.diffWithPrevious` command
+- Changes `alt+p` shortcut to `shift+alt+,` for the `gitlens.diffLineWithPrevious` command
+- Removes `gitlens.toggleCodeLens` from Command Palette when not available
+- Removes `gitlens.toggleCodeLens` shortcut key when not available
+- Fixes (#45)[https://github.com/eamodio/vscode-gitlens/issues/45] - Keyboard Shortcut collision with Project Manager
+
 ### 2.11.1
 - Adds blame and active line annotation support to git diff split view (right side)
 - Adds command (compare, copy sha/message, etc) support to git diff split view (right side)
