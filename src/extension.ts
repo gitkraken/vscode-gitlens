@@ -1,9 +1,10 @@
 'use strict';
-import { commands, ExtensionContext, languages, window, workspace } from 'vscode';
+import { ExtensionContext, languages, window, workspace } from 'vscode';
 import { BlameabilityTracker } from './blameabilityTracker';
 import { BlameActiveLineController } from './blameActiveLineController';
 import { BlameAnnotationController } from './blameAnnotationController';
 import { configureCssCharacters } from './blameAnnotationFormatter';
+import { CommandContext, setCommandContext } from './commands';
 import { CloseUnchangedFilesCommand, OpenChangedFilesCommand } from './commands';
 import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './commands';
 import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithPreviousCommand, DiffWithWorkingCommand} from './commands';
@@ -13,7 +14,7 @@ import { ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand, ShowQ
 import { ToggleCodeLensCommand } from './commands';
 import { Keyboard } from './commands';
 import { IAdvancedConfig, IBlameConfig } from './configuration';
-import { BuiltInCommands, WorkspaceState } from './constants';
+import { WorkspaceState } from './constants';
 import { GitContentProvider } from './gitContentProvider';
 import { Git, GitProvider } from './gitProvider';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
@@ -47,7 +48,7 @@ export async function activate(context: ExtensionContext) {
         if (ex.message.includes('Unable to find git')) {
             await window.showErrorMessage(`GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'gitlens.advanced.git' is pointed to its installed location.`);
         }
-        commands.executeCommand(BuiltInCommands.SetContext, 'gitlens:enabled', false);
+        setCommandContext(CommandContext.Enabled, false);
         return;
     }
 
@@ -59,11 +60,11 @@ export async function activate(context: ExtensionContext) {
     }
 
     let gitEnabled = workspace.getConfiguration('git').get<boolean>('enabled');
-    commands.executeCommand(BuiltInCommands.SetContext, 'gitlens:enabled', gitEnabled);
+    setCommandContext(CommandContext.Enabled, gitEnabled);
     context.subscriptions.push(workspace.onDidChangeConfiguration(() => {
         if (gitEnabled !== workspace.getConfiguration('git').get<boolean>('enabled')) {
             gitEnabled = !gitEnabled;
-            commands.executeCommand(BuiltInCommands.SetContext, 'gitlens:enabled', gitEnabled);
+            setCommandContext(CommandContext.Enabled, gitEnabled);
         }
     }, this));
 

@@ -1,6 +1,7 @@
 'use strict';
 import { Iterables, Objects } from './system';
 import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, languages, Location, Position, Range, TextDocument, TextEditor, Uri, workspace } from 'vscode';
+import { CommandContext, setCommandContext } from './commands';
 import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes, WorkspaceState } from './constants';
 import Git, { GitBlameParserEnricher, GitBlameFormat, GitCommit, GitFileStatusItem, GitLogParserEnricher, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog } from './git/git';
@@ -143,6 +144,8 @@ export class GitProvider extends Disposable {
                 this._codeLensProviderDisposable = undefined;
                 this._codeLensProvider = undefined;
             }
+
+            setCommandContext(CommandContext.CanToggleCodeLens, config.codeLens.visibility === CodeLensVisibility.OnDemand && (config.codeLens.recentChange.enabled || config.codeLens.authors.enabled));
         }
 
         if (advancedChanged) {

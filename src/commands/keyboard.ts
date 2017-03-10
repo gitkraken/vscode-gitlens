@@ -1,6 +1,6 @@
 'use strict';
 import { commands, Disposable, ExtensionContext, QuickPickItem } from 'vscode';
-import { BuiltInCommands } from '../constants';
+import { CommandContext, setCommandContext } from '../commands';
 import { CommandQuickPickItem, OpenFileCommandQuickPickItem } from '../quickPicks/quickPicks';
 //import { Logger } from '../logger';
 
@@ -53,7 +53,7 @@ export class Keyboard extends Disposable {
     }
 
     async enterScope(...keyCommands: [Keys, QuickPickItem][]) {
-        await commands.executeCommand(BuiltInCommands.SetContext, 'gitlens:key', ++scopeCount);
+        await setCommandContext(CommandContext.Key, ++scopeCount);
         if (keyCommands && Array.isArray(keyCommands) && keyCommands.length) {
             for (const [key, command] of keyCommands) {
                 await this.setKeyCommand(key as Keys, command);
@@ -62,7 +62,7 @@ export class Keyboard extends Disposable {
     }
 
     async exitScope(clear: boolean = true) {
-        await commands.executeCommand(BuiltInCommands.SetContext, 'gitlens:key', --scopeCount);
+        await setCommandContext(CommandContext.Key, --scopeCount);
         if (clear && !scopeCount) {
             for (const key of keys) {
                 await this.clearKeyCommand(key);

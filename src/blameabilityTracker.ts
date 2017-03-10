@@ -1,7 +1,7 @@
 'use strict';
-import { commands, Disposable, Event, EventEmitter, TextDocument, TextDocumentChangeEvent, TextEditor, window, workspace } from 'vscode';
+import { Disposable, Event, EventEmitter, TextDocument, TextDocumentChangeEvent, TextEditor, window, workspace } from 'vscode';
+import { CommandContext, setCommandContext } from './commands';
 import { TextDocumentComparer } from './comparers';
-import { BuiltInCommands } from './constants';
 import { GitProvider } from './gitProvider';
 
 export interface BlameabilityChangeEvent {
@@ -91,7 +91,7 @@ export class BlameabilityTracker extends Disposable {
     private updateBlameability(blameable: boolean, force: boolean = false) {
         if (!force && this._isBlameable === blameable) return;
 
-        commands.executeCommand(BuiltInCommands.SetContext, 'gitlens:isBlameable', blameable);
+        setCommandContext(CommandContext.IsBlameable, blameable);
         this._onDidChange.fire({
             blameable: blameable,
             editor: this._editor

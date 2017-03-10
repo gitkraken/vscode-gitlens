@@ -491,7 +491,7 @@
                 },
                 {
                     "command": "gitlens.toggleCodeLens",
-                    "when": "gitlens:enabled"
+                    "when": "gitlens:enabled && gitlens:canToggleCodeLens"
                 },
                 {
                     "command": "gitlens.showBlameHistory",
@@ -669,7 +669,7 @@
                 "command": "gitlens.toggleCodeLens",
                 "key": "alt+shift+b",
                 "mac": "alt+shift+b",
-                "when": "editorTextFocus && gitlens:enabled"
+                "when": "editorTextFocus && gitlens:enabled && gitlens:canToggleCodeLens"
             },
             {
                 "command": "gitlens.showQuickFileHistory",
@@ -746,11 +746,11 @@
     "devDependencies": {
         "@types/copy-paste": "^1.1.30",
         "@types/mocha": "^2.2.39",
-        "@types/node": "^7.0.7",
+        "@types/node": "^7.0.8",
         "@types/tmp": "^0.0.32",
         "mocha": "^3.2.0",
         "tslint": "^4.5.1",
         "typescript": "^2.2.1",
-        "vscode": "^1.0.5"
+        "vscode": "^1.1.0"
     }
 }
