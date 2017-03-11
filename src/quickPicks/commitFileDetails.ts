@@ -2,8 +2,8 @@
 import { Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard } from '../commands';
-import { GitCommit, GitLogCommit, GitProvider, GitUri } from '../gitProvider';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem } from './quickPicks';
+import { GitCommit, GitLogCommit, GitProvider, GitUri, IGitLog } from '../gitProvider';
+import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, KeyNoopCommandQuickPickItem, OpenFileCommandQuickPickItem } from './quickPicks';
 import * as moment from 'moment';
 import * as path from 'path';
 
@@ -31,7 +31,7 @@ export class OpenCommitWorkingTreeFileCommandQuickPickItem extends OpenFileComma
 
 export class CommitFileDetailsQuickPick {
 
-    static async show(git: GitProvider, commit: GitCommit | GitLogCommit, workingFileName: string, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, options: { showFileHistory?: boolean } = {}): Promise<CommandQuickPickItem | undefined> {
+    static async show(git: GitProvider, commit: GitLogCommit, workingFileName: string, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, options: { showFileHistory?: boolean } = {}, fileLog?: IGitLog): Promise<CommandQuickPickItem | undefined> {
         const items: CommandQuickPickItem[] = [];
 
         const workingName = (workingFileName && path.basename(workingFileName)) || path.basename(commit.fileName);
@@ -81,7 +81,7 @@ export class CommitFileDetailsQuickPick {
             items.push(new CommandQuickPickItem({
                 label: `$(history) Show File History`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 of ${path.basename(commit.fileName)}`
-            }, Commands.ShowQuickFileHistory, [commit.uri, undefined, currentCommand]));
+            }, Commands.ShowQuickFileHistory, [commit.uri, undefined, currentCommand, fileLog]));
         }
 
         items.push(new CommandQuickPickItem({
@@ -93,7 +93,30 @@ export class CommitFileDetailsQuickPick {
             items.splice(0, 0, goBackCommand);
         }
 
-        await Keyboard.instance.enterScope(['left', goBackCommand]);
+        const previousCommand = commit.previousSha
+            ? new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [commit.previousUri, commit.previousSha, undefined, goBackCommand, options, fileLog])
+            : new KeyNoopCommandQuickPickItem();
+
+        let nextCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>);
+        if (fileLog) {
+            nextCommand = commit.nextSha
+                ? new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [commit.nextUri, commit.nextSha, undefined, goBackCommand, options, fileLog])
+                : new KeyNoopCommandQuickPickItem();
+        }
+        else {
+            nextCommand = async () => {
+                const log = await git.getLogForFile(uri.fsPath, undefined, commit.repoPath, undefined, git.config.advanced.maxQuickHistory);
+                const c = log && log.commits.get(commit.sha);
+                if (!c) return new KeyNoopCommandQuickPickItem();
+                return new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [c.nextUri, c.nextSha, undefined, goBackCommand, options, log]);
+            };
+        }
+
+        await Keyboard.instance.enterScope(
+            ['left', goBackCommand],
+            [',', previousCommand],
+            ['.', nextCommand]
+        );
 
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,

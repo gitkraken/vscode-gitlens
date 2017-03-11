@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
-import { GitProvider, GitUri } from '../gitProvider';
+import { GitProvider, GitUri, IGitLog } from '../gitProvider';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, FileHistoryQuickPick } from '../quickPicks';
 import * as path from 'path';
@@ -12,7 +12,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
         super(Commands.ShowQuickFileHistory);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, maxCount?: number, goBackCommand?: CommandQuickPickItem) {
+    async execute(editor: TextEditor, uri?: Uri, maxCount?: number, goBackCommand?: CommandQuickPickItem, log?: IGitLog) {
         if (!(uri instanceof Uri)) {
             uri = editor && editor.document && editor.document.uri;
         }
@@ -28,10 +28,12 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
         }
 
         try {
-            const log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, undefined, maxCount);
-            if (!log) return window.showWarningMessage(`Unable to show file history. File is probably not under source control`);
+            if (!log) {
+                log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, undefined, maxCount);
+                if (!log) return window.showWarningMessage(`Unable to show file history. File is probably not under source control`);
+            }
 
-            let pick = await FileHistoryQuickPick.show(log, uri, gitUri.sha, maxCount, this.git.config.advanced.maxQuickHistory, goBackCommand);
+            const pick = await FileHistoryQuickPick.show(log, uri, gitUri.sha, maxCount, this.git.config.advanced.maxQuickHistory, goBackCommand);
             if (!pick) return undefined;
 
             if (pick instanceof CommandQuickPickItem) {
@@ -42,8 +44,9 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
                 new CommandQuickPickItem({
                     label: `go back \u21A9`,
                     description: `\u00a0 \u2014 \u00a0\u00a0 to history of \u00a0$(file-text) ${path.basename(pick.commit.fileName)}`
-                }, Commands.ShowQuickFileHistory, [uri, maxCount, goBackCommand]),
-                { showFileHistory: false });
+                }, Commands.ShowQuickFileHistory, [uri, maxCount, goBackCommand, log]),
+                { showFileHistory: false },
+                log);
         }
         catch (ex) {
             Logger.error('[GitLens.ShowQuickFileHistoryCommand]', 'getLogLocations', ex);

@@ -22,6 +22,24 @@ export class CommandQuickPickItem implements QuickPickItem {
     }
 }
 
+export class KeyCommandQuickPickItem extends CommandQuickPickItem {
+
+    constructor(protected command: Commands, protected args?: any[]) {
+        super({ label: undefined, description: undefined }, command, args);
+    }
+}
+
+export class KeyNoopCommandQuickPickItem extends CommandQuickPickItem {
+
+    constructor() {
+        super({ label: undefined, description: undefined }, undefined, undefined);
+    }
+
+    execute(): Thenable<{}> {
+        return Promise.resolve(undefined);
+    }
+}
+
 export class OpenFileCommandQuickPickItem extends CommandQuickPickItem {
 
     constructor(public uri: Uri, item: QuickPickItem) {

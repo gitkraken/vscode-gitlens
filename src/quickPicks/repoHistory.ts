@@ -9,7 +9,7 @@ import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './quickPicks';
 export class RepoHistoryQuickPick {
 
     static async show(log: IGitLog, uri: Uri, maxCount: number, defaultMaxCount: number, goBackCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
-        const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c, ` \u2014 ${c.fileName}`))) as (CommitQuickPickItem | CommandQuickPickItem)[];
+        const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c, ` \u2014 ${c.fileNames}`))) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
         if (maxCount !== 0 && items.length >= defaultMaxCount) {
             items.splice(0, 0, new CommandQuickPickItem({

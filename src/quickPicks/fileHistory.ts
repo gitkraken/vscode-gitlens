@@ -33,7 +33,7 @@ export class FileHistoryQuickPick {
                     new CommandQuickPickItem({
                         label: `go back \u21A9`,
                         description: `\u00a0 \u2014 \u00a0\u00a0 to history of \u00a0$(file-text) ${path.basename(uri.fsPath)}`
-                    }, Commands.ShowQuickFileHistory, [uri, maxCount])
+                    }, Commands.ShowQuickFileHistory, [uri, maxCount, undefined, log])
                 ]));
         }
 

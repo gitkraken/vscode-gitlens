@@ -4,13 +4,21 @@ import { CommandContext, setCommandContext } from '../commands';
 import { CommandQuickPickItem, OpenFileCommandQuickPickItem } from '../quickPicks/quickPicks';
 import { Logger } from '../logger';
 
-export declare type Keys = 'left' | 'right';
+export declare type Keys = 'left' | 'right' | ',' | '.';
 export const keys: Keys[] = [
     'left',
-    'right'
+    'right',
+    ',',
+    '.'
 ];
 
 let scopeCount = 0;
+let counters = {
+    left: 0,
+    right: 0,
+    ',': 0,
+    '.': 0
+};
 
 let _instance: Keyboard;
 
@@ -41,7 +49,10 @@ export class Keyboard extends Disposable {
     }
 
     async execute(key: Keys): Promise<{}> {
-        const command = this.context.globalState.get(`gitlens:key:${key}`) as CommandQuickPickItem;
+        let command = this.context.globalState.get(`gitlens:key:${key}`) as CommandQuickPickItem | (() => Promise<CommandQuickPickItem>);
+        if (typeof command === 'function') {
+            command = await command();
+        }
         if (!command || !(command instanceof CommandQuickPickItem)) return undefined;
 
         Logger.log('Keyboard.execute', key);
@@ -54,11 +65,13 @@ export class Keyboard extends Disposable {
         return await command.execute();
     }
 
-    async enterScope(...keyCommands: [Keys, QuickPickItem][]) {
+    async enterScope(...keyCommands: [Keys, QuickPickItem | (() => Promise<QuickPickItem>)][]) {
         Logger.log('Keyboard.enterScope', scopeCount);
-        await setCommandContext(CommandContext.Key, ++scopeCount);
+        scopeCount++;
+        // await setCommandContext(CommandContext.Key, ++scopeCount);
         if (keyCommands && Array.isArray(keyCommands) && keyCommands.length) {
             for (const [key, command] of keyCommands) {
+                await setCommandContext(`${CommandContext.Key}:${key}`, ++counters[key]);
                 await this.setKeyCommand(key as Keys, command);
             }
         }
@@ -66,9 +79,15 @@ export class Keyboard extends Disposable {
 
     async exitScope(clear: boolean = true) {
         Logger.log('Keyboard.exitScope', scopeCount);
-        await setCommandContext(CommandContext.Key, --scopeCount);
+        if (scopeCount) {
+            scopeCount--;
+            // await setCommandContext(CommandContext.Key, --scopeCount);
+        }
         if (clear && !scopeCount) {
             for (const key of keys) {
+                if (counters[key]) {
+                    await setCommandContext(`${CommandContext.Key}:${key}`, --counters[key]);
+                }
                 await this.clearKeyCommand(key);
             }
         }
@@ -76,11 +95,15 @@ export class Keyboard extends Disposable {
 
     async clearKeyCommand(key: Keys) {
         Logger.log('Keyboard.clearKeyCommand', key);
+        if (counters[key]) {
+            await setCommandContext(`${CommandContext.Key}:${key}`, --counters[key]);
+        }
         await this.context.globalState.update(`gitlens:key:${key}`, undefined);
     }
 
-    async setKeyCommand(key: Keys, command: QuickPickItem) {
+    async setKeyCommand(key: Keys, command: QuickPickItem | (() => Promise<QuickPickItem>)) {
         Logger.log('Keyboard.setKeyCommand', key);
+        await setCommandContext(`${CommandContext.Key}:${key}`, ++counters[key]);
         await this.context.globalState.update(`gitlens:key:${key}`, command);
     }
 }

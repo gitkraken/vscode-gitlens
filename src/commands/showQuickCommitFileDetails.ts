@@ -1,8 +1,7 @@
 'use strict';
-import { Iterables } from '../system';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
-import { GitCommit, GitLogCommit, GitProvider, GitUri } from '../gitProvider';
+import { GitCommit, GitLogCommit, GitProvider, GitUri, IGitLog } from '../gitProvider';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitFileDetailsQuickPick } from '../quickPicks';
 import * as path from 'path';
@@ -13,18 +12,16 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCommand {
         super(Commands.ShowQuickCommitFileDetails);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, sha?: string, commit?: GitCommit | GitLogCommit, goBackCommand?: CommandQuickPickItem, options: { showFileHistory?: boolean } = { showFileHistory: true }) {
+    async execute(editor: TextEditor, uri?: Uri, sha?: string, commit?: GitCommit | GitLogCommit, goBackCommand?: CommandQuickPickItem, options: { showFileHistory?: boolean } = { showFileHistory: true }, fileLog?: IGitLog) {
         if (!(uri instanceof Uri)) {
             if (!editor || !editor.document) return undefined;
             uri = editor.document.uri;
         }
 
-        const gitUri = await GitUri.fromUri(uri, this.git);
-
-        let repoPath = gitUri.repoPath;
-
         if (!sha) {
             if (!editor) return undefined;
+
+            const gitUri = await GitUri.fromUri(uri, this.git);
 
             const blameline = editor.selection.active.line - gitUri.offset;
             if (blameline < 0) return undefined;
@@ -34,7 +31,6 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCommand {
                 if (!blame) return window.showWarningMessage(`Unable to show commit file details. File is probably not under source control`);
 
                 sha = blame.commit.isUncommitted ? blame.commit.previousSha : blame.commit.sha;
-                repoPath = blame.commit.repoPath;
 
                 commit = blame.commit;
             }
@@ -45,11 +41,21 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCommand {
         }
 
         try {
-            if (!commit || ((commit instanceof GitLogCommit) && commit.type !== 'file')) {
-                let log = await this.git.getLogForFile(uri.fsPath, sha, undefined, undefined, 2);
-                if (!log) return window.showWarningMessage(`Unable to show commit file details`);
+            if (!commit || !(commit instanceof GitLogCommit) || commit.type !== 'file') {
+                if (fileLog) {
+                    commit = fileLog.commits.get(sha);
+                    // If we can't find the commit, kill the fileLog
+                    if (!commit) {
+                        fileLog = undefined;
+                    }
+                }
 
-                commit = Iterables.find(log.commits.values(), c => c.sha === sha);
+                if (!fileLog) {
+                    const log = await this.git.getLogForFile(uri.fsPath, sha, undefined, undefined, 2);
+                    if (!log) return window.showWarningMessage(`Unable to show commit file details`);
+
+                    commit = log.commits.get(sha);
+                }
             }
 
             // Attempt to the most recent commit -- so that we can find the real working filename if there was a rename
@@ -67,13 +73,13 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCommand {
                 }, Commands.ShowQuickCommitDetails, [new GitUri(commit.uri, commit), sha, commit]);
             }
 
-            const pick = await CommitFileDetailsQuickPick.show(this.git, commit, workingFileName, uri, goBackCommand,
+            const pick = await CommitFileDetailsQuickPick.show(this.git, commit as GitLogCommit, workingFileName, uri, goBackCommand,
                 // Create a command to get back to where we are right now
                 new CommandQuickPickItem({
                     label: `go back \u21A9`,
                     description: `\u00a0 \u2014 \u00a0\u00a0 to details of \u00a0$(file-text) ${path.basename(commit.fileName)} in \u00a0$(git-commit) ${shortSha}`
                 }, Commands.ShowQuickCommitFileDetails, [new GitUri(commit.uri, commit), sha, commit, goBackCommand, options]),
-                { showFileHistory: options.showFileHistory });
+                { showFileHistory: options.showFileHistory }, fileLog);
 
             if (!pick) return undefined;
 

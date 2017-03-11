@@ -35,6 +35,6 @@ export const CommandContext = {
 };
 
 
-export function setCommandContext(key: CommandContext, value: any) {
+export function setCommandContext(key: CommandContext | string, value: any) {
     return commands.executeCommand(BuiltInCommands.SetContext, key, value);
 }

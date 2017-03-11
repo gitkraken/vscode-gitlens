@@ -1,18 +1,17 @@
 'use strict';
-import { Iterables } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
-import { GitCommit, GitLogCommit, GitProvider, GitUri } from '../gitProvider';
+import { GitCommit, GitLogCommit, GitProvider, GitUri, IGitLog } from '../gitProvider';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitDetailsQuickPick, CommitWithFileStatusQuickPickItem } from '../quickPicks';
 
 export class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitProvider) {
+    constructor(private git: GitProvider, private repoPath: string) {
         super(Commands.ShowQuickCommitDetails);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, sha?: string, commit?: GitCommit | GitLogCommit, goBackCommand?: CommandQuickPickItem) {
+    async execute(editor: TextEditor, uri?: Uri, sha?: string, commit?: GitCommit | GitLogCommit, goBackCommand?: CommandQuickPickItem, repoLog?: IGitLog) {
         if (!(uri instanceof Uri)) {
             if (!editor || !editor.document) return undefined;
             uri = editor.document.uri;
@@ -45,21 +44,31 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
 
         try {
             if (!commit || !(commit instanceof GitLogCommit) || commit.type !== 'repo') {
-                let log = await this.git.getLogForRepo(repoPath, sha, 2);
-                if (!log) return window.showWarningMessage(`Unable to show commit details`);
+                if (repoLog) {
+                    commit = repoLog.commits.get(sha);
+                    // If we can't find the commit, kill the repoLog
+                    if (!commit) {
+                        repoLog = undefined;
+                    }
+                }
 
-                commit = Iterables.first(log.commits.values());
+                if (!repoLog) {
+                    const log = await this.git.getLogForRepo(repoPath || this.repoPath, sha, 2);
+                    if (!log) return window.showWarningMessage(`Unable to show commit details`);
+
+                    commit = log.commits.get(sha);
+                }
             }
 
             if (!goBackCommand) {
-                // Create a command to get back to the commit details
+                // Create a command to get back to the repository history
                 goBackCommand = new CommandQuickPickItem({
                     label: `go back \u21A9`,
                     description: `\u00a0 \u2014 \u00a0\u00a0 to repository history`
                 }, Commands.ShowQuickRepoHistory, [new GitUri(commit.uri, commit)]);
             }
 
-            const pick = await CommitDetailsQuickPick.show(commit as GitLogCommit, uri, goBackCommand);
+            const pick = await CommitDetailsQuickPick.show(this.git, commit as GitLogCommit, uri, goBackCommand, repoLog);
             if (!pick) return undefined;
 
             if (!(pick instanceof CommitWithFileStatusQuickPickItem)) {
@@ -71,7 +80,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
                 new CommandQuickPickItem({
                     label: `go back \u21A9`,
                     description: `\u00a0 \u2014 \u00a0\u00a0 to details of \u00a0$(git-commit) ${pick.shortSha}`
-                }, Commands.ShowQuickCommitDetails, [new GitUri(commit.uri, commit), sha, commit, goBackCommand]));
+                }, Commands.ShowQuickCommitDetails, [new GitUri(commit.uri, commit), sha, commit, goBackCommand, repoLog]));
         }
         catch (ex) {
             Logger.error('[GitLens.ShowQuickCommitDetailsCommand]', ex);

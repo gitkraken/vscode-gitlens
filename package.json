@@ -342,16 +342,6 @@
         },
         "commands": [
             {
-                "command": "gitlens.key.left",
-                "title": "Left KeyPress",
-                "category": "GitLens:KeyPress"
-            },
-            {
-                "command": "gitlens.key.right",
-                "title": "Right KeyPress",
-                "category": "GitLens:KeyPress"
-            },
-            {
                 "command": "gitlens.diffDirectory",
                 "title": "Directory Compare",
                 "category": "GitLens"
@@ -458,14 +448,6 @@
         ],
         "menus": {
             "commandPalette": [
-                {
-                    "command": "gitlens.key.left",
-                    "when": "false"
-                },
-                {
-                    "command": "gitlens.key.right",
-                    "when": "false"
-                },
                 {
                     "command": "gitlens.diffDirectory",
                     "when": "gitlens:enabled"
@@ -661,12 +643,22 @@
             {
                 "command": "gitlens.key.left",
                 "key": "alt+left",
-                "when": "gitlens:key"
+                "when": "gitlens:key:left"
             },
             {
                 "command": "gitlens.key.right",
                 "key": "alt+right",
-                "when": "gitlens:key"
+                "when": "gitlens:key:right"
+            },
+            {
+                "command": "gitlens.key.,",
+                "key": "alt+,",
+                "when": "gitlens:key:,"
+            },
+            {
+                "command": "gitlens.key..",
+                "key": "alt+.",
+                "when": "gitlens:key:."
             },
             {
                 "command": "gitlens.toggleBlame",

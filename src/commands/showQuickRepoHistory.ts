@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
-import { GitProvider, GitUri } from '../gitProvider';
+import { GitProvider, GitUri, IGitLog } from '../gitProvider';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepoHistoryQuickPick } from '../quickPicks';
 
@@ -11,7 +11,7 @@ export class ShowQuickRepoHistoryCommand extends ActiveEditorCommand {
         super(Commands.ShowQuickRepoHistory);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, maxCount?: number, goBackCommand?: CommandQuickPickItem) {
+    async execute(editor: TextEditor, uri?: Uri, maxCount?: number, goBackCommand?: CommandQuickPickItem, log?: IGitLog) {
         if (!(uri instanceof Uri)) {
             uri = editor && editor.document && editor.document.uri;
         }
@@ -21,11 +21,13 @@ export class ShowQuickRepoHistoryCommand extends ActiveEditorCommand {
         }
 
         try {
-            const repoPath = await this.git.getRepoPathFromUri(uri, this.repoPath);
-            if (!repoPath) return window.showWarningMessage(`Unable to show repository history`);
+            if (!log) {
+                const repoPath = await this.git.getRepoPathFromUri(uri, this.repoPath);
+                if (!repoPath) return window.showWarningMessage(`Unable to show repository history`);
 
-            const log = await this.git.getLogForRepo(repoPath, undefined, maxCount);
-            if (!log) return window.showWarningMessage(`Unable to show repository history`);
+                log = await this.git.getLogForRepo(repoPath, undefined, maxCount);
+                if (!log) return window.showWarningMessage(`Unable to show repository history`);
+            }
 
             const pick = await RepoHistoryQuickPick.show(log, uri, maxCount, this.git.config.advanced.maxQuickHistory, goBackCommand);
             if (!pick) return undefined;
@@ -38,7 +40,8 @@ export class ShowQuickRepoHistoryCommand extends ActiveEditorCommand {
                 new CommandQuickPickItem({
                     label: `go back \u21A9`,
                     description: `\u00a0 \u2014 \u00a0\u00a0 to repository history`
-                }, Commands.ShowQuickRepoHistory, [uri, maxCount, goBackCommand]));
+                }, Commands.ShowQuickRepoHistory, [uri, maxCount, goBackCommand, log]),
+                log);
         }
         catch (ex) {
             Logger.error('[GitLens.ShowQuickRepoHistoryCommand]', ex);
