@@ -1,7 +1,7 @@
 'use strict';
 import { Iterables } from './system';
 import { DecorationInstanceRenderOptions, DecorationOptions, Disposable, ExtensionContext, Range, TextDocument, TextEditor, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
-import { BlameAnnotationFormat, BlameAnnotationFormatter, cssIndent, defaultShaLength, defaultAuthorLength } from './blameAnnotationFormatter';
+import { BlameAnnotationFormat, BlameAnnotationFormatter, cssIndent, defaultAuthorLength } from './blameAnnotationFormatter';
 import { BlameDecorations } from './blameAnnotationController';
 import { TextDocumentComparer } from './comparers';
 import { BlameAnnotationStyle, IBlameConfig } from './configuration';
@@ -167,7 +167,7 @@ export class BlameAnnotationProvider extends Disposable {
             if (!isEmptyOrWhitespace) {
                 switch (++count) {
                     case 0:
-                        gutter = commit.sha.substring(0, defaultShaLength);
+                        gutter = commit.shortSha;
                         break;
                     case 1:
                         gutter = `${cssIndent} ${BlameAnnotationFormatter.getAuthor(this._config, commit, defaultAuthorLength, true)}`;

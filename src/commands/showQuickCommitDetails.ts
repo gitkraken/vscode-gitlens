@@ -70,7 +70,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
                 // Create a command to get back to where we are right now
                 new CommandQuickPickItem({
                     label: `go back \u21A9`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 to details of \u00a0$(git-commit) ${pick.sha}`
+                    description: `\u00a0 \u2014 \u00a0\u00a0 to details of \u00a0$(git-commit) ${pick.shortSha}`
                 }, Commands.ShowQuickCommitDetails, [new GitUri(commit.uri, commit), sha, commit, goBackCommand]));
         }
         catch (ex) {

@@ -59,7 +59,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
                 this.git.getVersionedFile(gitUri.fsPath, gitUri.repoPath, gitUri.sha),
                 this.git.getVersionedFile(commit.uri.fsPath, commit.repoPath, commit.sha)
             ]);
-            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.uri.fsPath)} (${commit.sha}) ↔ ${path.basename(gitUri.fsPath)} (${gitUri.sha})`);
+            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.uri.fsPath)} (${commit.shortSha}) ↔ ${path.basename(gitUri.fsPath)} (${gitUri.shortSha})`);
             // TODO: Figure out how to focus the left pane
             return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' });
         }

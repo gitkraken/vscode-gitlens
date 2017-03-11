@@ -3,7 +3,6 @@ import { IBlameConfig } from './configuration';
 import { GitCommit, IGitCommitLine } from './gitProvider';
 import * as moment from 'moment';
 
-export const defaultShaLength = 8;
 export const defaultAbsoluteDateLength = 10;
 export const defaultRelativeDateLength = 13;
 export const defaultAuthorLength = 16;
@@ -34,7 +33,7 @@ export enum BlameAnnotationFormat {
 export class BlameAnnotationFormatter {
 
     static getAnnotation(config: IBlameConfig, commit: GitCommit, format: BlameAnnotationFormat) {
-        const sha = commit.sha.substring(0, defaultShaLength);
+        const sha = commit.shortSha;
         let message = this.getMessage(config, commit, format === BlameAnnotationFormat.Unconstrained ? 0 : defaultMessageLength);
 
         if (format === BlameAnnotationFormat.Unconstrained) {
@@ -70,7 +69,7 @@ export class BlameAnnotationFormatter {
             return `\`${'0'.repeat(8)}\` &nbsp; __Uncommitted changes__`;
         }
 
-        return `\`${commit.sha}\` &nbsp; __${commit.author}__, ${moment(commit.date).fromNow()} _(${moment(commit.date).format(config.annotation.dateFormat || 'MMMM Do, YYYY h:MMa')})_ \n\n${message}`;
+        return `\`${commit.shortSha}\` &nbsp; __${commit.author}__, ${moment(commit.date).fromNow()} _(${moment(commit.date).format(config.annotation.dateFormat || 'MMMM Do, YYYY h:MMa')})_ \n\n${message}`;
     }
 
     static getAuthorAndDate(config: IBlameConfig, commit: GitCommit, format: string, force: boolean = false) {

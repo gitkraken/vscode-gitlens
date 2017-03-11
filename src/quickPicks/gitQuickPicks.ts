@@ -13,7 +13,7 @@ export class CommitQuickPickItem implements QuickPickItem {
 
     constructor(public commit: GitCommit, descriptionSuffix: string = '') {
         this.label = `${commit.author}, ${moment(commit.date).fromNow()}`;
-        this.description = `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.sha}${descriptionSuffix}`;
+        this.description = `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.shortSha}${descriptionSuffix}`;
         this.detail = commit.message;
     }
 }
@@ -23,6 +23,7 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
     fileName: string;
     gitUri: GitUri;
     sha: string;
+    shortSha: string;
     status: GitFileStatus;
 
     constructor(commit: GitCommit, fileName: string, status: GitFileStatus) {
@@ -41,6 +42,7 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
         this.fileName = fileName;
         this.gitUri = new GitUri(Uri.file(path.resolve(commit.repoPath, fileName)));
         this.sha = commit.sha;
+        this.shortSha = commit.shortSha;
         this.status = status;
     }
 }

@@ -42,7 +42,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
         try {
             const compare = await this.git.getVersionedFile(commit.uri.fsPath, commit.repoPath, commit.sha);
-            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(compare), gitUri.fileUri(), `${path.basename(commit.uri.fsPath)} (${commit.sha}) ↔ ${path.basename(gitUri.fsPath)}`);
+            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(compare), gitUri.fileUri(), `${path.basename(commit.uri.fsPath)} (${commit.shortSha}) ↔ ${path.basename(gitUri.fsPath)}`);
             return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' });
         }
         catch (ex) {

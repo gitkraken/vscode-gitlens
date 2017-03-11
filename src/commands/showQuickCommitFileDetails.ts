@@ -57,11 +57,13 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCommand {
             // TODO: Leave this at undefined until findMostRecentCommitForFile actually works
             const workingFileName = !workingCommit ? commit.fileName : undefined;
 
+            const shortSha = sha.substring(0, 8);
+
             if (!goBackCommand) {
                 // Create a command to get back to the commit details
                 goBackCommand = new CommandQuickPickItem({
                     label: `go back \u21A9`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 to details of \u00a0$(git-commit) ${sha}`
+                    description: `\u00a0 \u2014 \u00a0\u00a0 to details of \u00a0$(git-commit) ${shortSha}`
                 }, Commands.ShowQuickCommitDetails, [new GitUri(commit.uri, commit), sha, commit]);
             }
 
@@ -69,7 +71,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCommand {
                 // Create a command to get back to where we are right now
                 new CommandQuickPickItem({
                     label: `go back \u21A9`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 to details of \u00a0$(file-text) ${path.basename(commit.fileName)} in \u00a0$(git-commit) ${sha}`
+                    description: `\u00a0 \u2014 \u00a0\u00a0 to details of \u00a0$(file-text) ${path.basename(commit.fileName)} in \u00a0$(git-commit) ${shortSha}`
                 }, Commands.ShowQuickCommitFileDetails, [new GitUri(commit.uri, commit), sha, commit, goBackCommand, options]),
                 { showFileHistory: options.showFileHistory });
 

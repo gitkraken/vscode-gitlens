@@ -54,7 +54,7 @@ export class GitRevisionCodeLensProvider implements CodeLensProvider {
 
     _resolveDiffWithWorkingTreeCodeLens(lens: GitDiffWithWorkingCodeLens, token: CancellationToken): Thenable<CodeLens> {
         lens.command = {
-            title: `Compare ${lens.commit.sha} with Working Tree`,
+            title: `Compare ${lens.commit.shortSha} with Working Tree`,
             command: Commands.DiffWithWorking,
             arguments: [
                 Uri.file(lens.fileName),
@@ -67,7 +67,7 @@ export class GitRevisionCodeLensProvider implements CodeLensProvider {
 
     _resolveGitDiffWithPreviousCodeLens(lens: GitDiffWithPreviousCodeLens, token: CancellationToken): Thenable<CodeLens> {
         lens.command = {
-            title: `Compare ${lens.commit.sha} with Previous ${lens.commit.previousSha}`,
+            title: `Compare ${lens.commit.shortSha} with Previous ${lens.commit.previousShortSha}`,
             command: Commands.DiffWithPrevious,
             arguments: [
                 Uri.file(lens.fileName),

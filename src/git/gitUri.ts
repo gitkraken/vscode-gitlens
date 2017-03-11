@@ -49,6 +49,10 @@ export class GitUri extends Uri {
         }
     }
 
+    get shortSha() {
+        return this.sha && this.sha.substring(0, 8);
+    }
+
     fileUri() {
         return Uri.file(this.sha ? this.path : this.fsPath);
     }

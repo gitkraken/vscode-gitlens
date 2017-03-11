@@ -80,11 +80,19 @@ export class GitCommit implements IGitCommit {
         this.previousFileName = previousFileName;
     }
 
+    get shortSha() {
+        return this.sha.substring(0, 8);
+    }
+
     get isUncommitted(): boolean {
         if (this._isUncommitted === undefined) {
             this._isUncommitted = Git.isUncommitted(this.sha);
         }
         return this._isUncommitted;
+    }
+
+    get previousShortSha() {
+        return this.previousSha && this.previousSha.substring(0, 8);
     }
 
     get previousUri(): Uri {
@@ -136,6 +144,10 @@ export class GitLogCommit extends GitCommit {
         else {
             this.fileStatuses = [{ status: status, fileName: fileName }];
         }
+    }
+
+    get nextShortSha() {
+        return this.nextSha && this.nextSha.substring(0, 8);
     }
 
     get nextUri(): Uri {

@@ -55,7 +55,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
         }
 
         if (!commit.previousSha) {
-            return window.showInformationMessage(`Commit ${commit.sha} (${commit.author}, ${moment(commit.date).fromNow()}) has no previous commit`);
+            return window.showInformationMessage(`Commit ${commit.shortSha} (${commit.author}, ${moment(commit.date).fromNow()}) has no previous commit`);
         }
 
         try {
@@ -63,7 +63,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                 this.git.getVersionedFile(commit.uri.fsPath, commit.repoPath, commit.sha),
                 this.git.getVersionedFile(commit.previousUri.fsPath, commit.repoPath, commit.previousSha)
             ]);
-            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.previousUri.fsPath)} (${commit.previousSha}) ↔ ${path.basename(commit.uri.fsPath)} (${commit.sha})`);
+            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.previousUri.fsPath)} (${commit.previousShortSha}) ↔ ${path.basename(commit.uri.fsPath)} (${commit.shortSha})`);
             // TODO: Figure out how to focus the left pane
             return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' });
         }

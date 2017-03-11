@@ -21,6 +21,8 @@ interface ILogEntry {
     summary?: string;
 }
 
+const shaRegex = /^[a-f0-9]{40}$/;
+
 export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
 
     private _parseEntries(data: string, isRepoPath: boolean): ILogEntry[] {
@@ -40,9 +42,9 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
             }
 
             if (!entry) {
-                if (!/^[a-f0-9]{40}$/.test(lineParts[0])) continue;
+                if (!shaRegex.test(lineParts[0])) continue;
                 entry = {
-                    sha: lineParts[0].substring(0, 8)
+                    sha: lineParts[0]
                 };
 
                 continue;

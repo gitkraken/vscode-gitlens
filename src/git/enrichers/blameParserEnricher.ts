@@ -5,6 +5,7 @@ import * as path from 'path';
 
 interface IBlameEntry {
     sha: string;
+
     line: number;
     originalLine: number;
     lineCount: number;
@@ -53,7 +54,7 @@ export class GitBlameParserEnricher implements IGitEnricher<IGitBlame> {
 
             if (!entry) {
                 entry = {
-                    sha: lineParts[0].substring(0, 8),
+                    sha: lineParts[0],
                     originalLine: parseInt(lineParts[1], 10) - 1,
                     line: parseInt(lineParts[2], 10) - 1,
                     lineCount: parseInt(lineParts[3], 10)
@@ -102,7 +103,7 @@ export class GitBlameParserEnricher implements IGitEnricher<IGitBlame> {
                     break;
 
                 case 'previous':
-                    entry.previousSha = lineParts[1].substring(0, 8);
+                    entry.previousSha = lineParts[1];
                     entry.previousFileName = lineParts.slice(2).join(' ');
                     break;
 

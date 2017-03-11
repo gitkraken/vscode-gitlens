@@ -63,7 +63,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
                 this.git.getVersionedFile(commit.nextUri.fsPath, commit.repoPath, commit.nextSha),
                 this.git.getVersionedFile(commit.uri.fsPath, commit.repoPath, commit.sha)
             ]);
-            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.uri.fsPath)} (${commit.sha}) ↔ ${path.basename(commit.nextUri.fsPath)} (${commit.nextSha})`);
+            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.uri.fsPath)} (${commit.shortSha}) ↔ ${path.basename(commit.nextUri.fsPath)} (${commit.nextShortSha})`);
             return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' });
         }
         catch (ex) {

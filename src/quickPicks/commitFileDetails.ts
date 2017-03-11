@@ -13,7 +13,7 @@ export class OpenCommitFileCommandQuickPickItem extends OpenFileCommandQuickPick
         const uri = GitProvider.toGitContentUri(commit);
         super(uri, item || {
             label: `$(file-symlink-file) Open File`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 ${path.basename(commit.fileName)} in \u00a0$(git-commit) ${commit.sha}`
+            description: `\u00a0 \u2014 \u00a0\u00a0 ${path.basename(commit.fileName)} in \u00a0$(git-commit) ${commit.shortSha}`
         });
     }
 }
@@ -48,25 +48,25 @@ export class CommitFileDetailsQuickPick {
         if (!options.showFileHistory) {
             items.push(new CommandQuickPickItem({
                 label: `$(git-commit) Show Commit Details`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.sha}`
+                description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.shortSha}`
             }, Commands.ShowQuickCommitDetails, [new GitUri(commit.uri, commit), commit.sha, commit, currentCommand]));
         }
 
         if (commit.previousSha) {
             items.push(new CommandQuickPickItem({
                 label: `$(git-compare) Compare with Previous Commit`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.previousSha} \u00a0 $(git-compare) \u00a0 $(git-commit) ${commit.sha}`
+                description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.previousShortSha} \u00a0 $(git-compare) \u00a0 $(git-commit) ${commit.shortSha}`
             }, Commands.DiffWithPrevious, [commit.uri, commit]));
         }
 
         items.push(new CommandQuickPickItem({
             label: `$(git-compare) Compare with Working Tree`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.sha} \u00a0 $(git-compare) \u00a0 $(file-text) ${workingName}`
+            description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.shortSha} \u00a0 $(git-compare) \u00a0 $(file-text) ${workingName}`
         }, Commands.DiffWithWorking, [uri, commit]));
 
         items.push(new CommandQuickPickItem({
             label: `$(clippy) Copy Commit Sha to Clipboard`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.sha}`
+            description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.shortSha}`
         }, Commands.CopyShaToClipboard, [uri, commit.sha]));
 
         items.push(new CommandQuickPickItem({
@@ -86,7 +86,7 @@ export class CommitFileDetailsQuickPick {
 
         items.push(new CommandQuickPickItem({
             label: `$(history) Show ${workingFileName && options.showFileHistory ? 'Previous ' : ''}File History`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 of ${path.basename(commit.fileName)} \u00a0\u2022\u00a0 starting from \u00a0$(git-commit) ${commit.sha}`
+            description: `\u00a0 \u2014 \u00a0\u00a0 of ${path.basename(commit.fileName)} \u00a0\u2022\u00a0 starting from \u00a0$(git-commit) ${commit.shortSha}`
         }, Commands.ShowQuickFileHistory, [new GitUri(commit.uri, commit), undefined, currentCommand]));
 
         if (goBackCommand) {
@@ -97,7 +97,7 @@ export class CommitFileDetailsQuickPick {
 
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
-            placeHolder: `${commit.getFormattedPath()} \u2022 ${isUncommitted ? 'Uncommitted \u21E8 ' : '' }${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`,
+            placeHolder: `${commit.getFormattedPath()} \u2022 ${isUncommitted ? 'Uncommitted \u21E8 ' : '' }${commit.shortSha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
                 Keyboard.instance.setKeyCommand('right', item);

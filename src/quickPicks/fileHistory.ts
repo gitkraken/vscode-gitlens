@@ -48,7 +48,7 @@ export class FileHistoryQuickPick {
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: `${commit.getFormattedPath()}${sha ? ` \u00a0\u2022\u00a0 ${sha}` : ''}`,
+            placeHolder: `${commit.getFormattedPath()}${sha ? ` \u00a0\u2022\u00a0 ${sha.substring(0, 8)}` : ''}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
                 Keyboard.instance.setKeyCommand('right', item);

@@ -14,8 +14,8 @@ export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPi
         const uris = commit.fileStatuses.map(_ => GitProvider.toGitContentUri(commit.sha, _.fileName, repoPath, commit.originalFileName));
         super(uris, item || {
             label: `$(file-symlink-file) Open Changed Files`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 in \u00a0$(git-commit) ${commit.sha}`
-            //detail: `Opens all of the changed files in $(git-commit) ${commit.sha}`
+            description: `\u00a0 \u2014 \u00a0\u00a0 in \u00a0$(git-commit) ${commit.shortSha}`
+            //detail: `Opens all of the changed files in $(git-commit) ${commit.shortSha}`
         });
     }
 }
@@ -42,7 +42,7 @@ export class CommitDetailsQuickPick {
 
         items.splice(index++, 0, new CommandQuickPickItem({
             label: `$(clippy) Copy Commit Sha to Clipboard`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.sha}`
+            description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.shortSha}`
         }, Commands.CopyShaToClipboard, [uri, commit.sha]));
 
         items.splice(index++, 0, new CommandQuickPickItem({
@@ -52,12 +52,12 @@ export class CommitDetailsQuickPick {
 
         items.splice(index++, 0, new CommandQuickPickItem({
             label: `$(git-compare) Directory Compare with Previous Commit`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.previousSha || `${commit.sha}^`} \u00a0 $(git-compare) \u00a0 $(git-commit) ${commit.sha}`
+            description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.previousShortSha || `${commit.shortSha}^`} \u00a0 $(git-compare) \u00a0 $(git-commit) ${commit.shortSha}`
         }, Commands.DiffDirectory, [commit.uri, commit.previousSha || `${commit.sha}^`, commit.sha]));
 
         items.splice(index++, 0, new CommandQuickPickItem({
             label: `$(git-compare) Directory Compare with Working Tree`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.sha} \u00a0 $(git-compare) \u00a0 $(file-directory) Working Tree`
+            description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.shortSha} \u00a0 $(git-compare) \u00a0 $(file-directory) Working Tree`
         }, Commands.DiffDirectory, [uri, commit.sha]));
 
         items.splice(index++, 0, new CommandQuickPickItem({
@@ -77,7 +77,7 @@ export class CommitDetailsQuickPick {
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: `${commit.sha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`,
+            placeHolder: `${commit.shortSha} \u2022 ${commit.author}, ${moment(commit.date).fromNow()} \u2022 ${commit.message}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
                 Keyboard.instance.setKeyCommand('right', item);

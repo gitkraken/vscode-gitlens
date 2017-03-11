@@ -262,7 +262,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         const recentCommit = Iterables.first(blame.commits.values());
         title = `${recentCommit.author}, ${moment(recentCommit.date).fromNow()}`;
         if (this._config.advanced.debug && this._config.advanced.output.level === OutputLevel.Verbose) {
-            title += ` [Commit (${recentCommit.sha}), Symbol (${SymbolKind[lens.symbolKind]}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1})]`;
+            title += ` [Commit (${recentCommit.shortSha}), Symbol (${SymbolKind[lens.symbolKind]}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1})]`;
         }
 
         switch (this._config.codeLens.recentChange.command) {

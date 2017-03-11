@@ -115,9 +115,10 @@ export default class Git {
     static async getVersionedFile(fileName: string, repoPath: string, sha: string) {
         const data = await Git.getVersionedFileText(fileName, repoPath, sha);
 
+        const shortSha = sha.substring(0, 8);
         const ext = path.extname(fileName);
         return new Promise<string>((resolve, reject) => {
-            tmp.file({ prefix: `${path.basename(fileName, ext)}-${sha}__`, postfix: ext },
+            tmp.file({ prefix: `${path.basename(fileName, ext)}-${shortSha}__`, postfix: ext },
                 (err, destination, fd, cleanupCallback) => {
                     if (err) {
                         reject(err);
