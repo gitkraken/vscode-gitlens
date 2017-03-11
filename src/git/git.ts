@@ -154,11 +154,13 @@ export default class Git {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
         const params = [...DefaultLogParams, `--follow`];
-        if (maxCount) {
+        if (maxCount && !reverse) {
             params.push(`-n${maxCount}`);
         }
         if (sha) {
             if (reverse) {
+                params.push(`--reverse`);
+                params.push(`--ancestry-path`);
                 params.push(`${sha}..HEAD`);
             }
             else {
@@ -192,7 +194,7 @@ export default class Git {
             params.push(`-n${maxCount}`);
         }
         if (sha) {
-            params.push(`${sha}^!`);
+            params.push(sha);
         }
         return gitCommand(repoPath, ...params);
     }

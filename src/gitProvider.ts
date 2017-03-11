@@ -506,7 +506,7 @@ export class GitProvider extends Disposable {
     }
 
     getLogForFile(fileName: string, sha?: string, repoPath?: string, range?: Range, maxCount?: number, reverse: boolean = false): Promise<IGitLog | undefined> {
-        Logger.log(`getLogForFile('${fileName}', ${sha}, '${repoPath}', ${range && `[${range.start.line}, ${range.end.line}]`}, ${maxCount})`);
+        Logger.log(`getLogForFile('${fileName}', ${sha}, '${repoPath}', ${range && `[${range.start.line}, ${range.end.line}]`}, ${maxCount}, ${reverse})`);
         fileName = Git.normalizePath(fileName);
 
         const useCaching = this.UseGitCaching && !sha && !range && !maxCount;
