@@ -1,5 +1,6 @@
 'use strict';
-import Git, { GitFileStatus, GitLogCommit, GitLogType, IGitAuthor, IGitEnricher, IGitLog } from './../git';
+import { Git, GitFileStatus, GitLogCommit, GitLogType, IGitAuthor, IGitEnricher, IGitLog } from './../git';
+// import { Logger } from '../../logger';
 import * as moment from 'moment';
 import * as path from 'path';
 
@@ -151,7 +152,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
         return entries;
     }
 
-    enrich(data: string, type: GitLogType, fileNameOrRepoPath: string, isRepoPath: boolean = false): IGitLog {
+    enrich(data: string, type: GitLogType, fileNameOrRepoPath: string, maxCount: number | undefined, isRepoPath: boolean = false): IGitLog {
         const entries = this._parseEntries(data, isRepoPath);
         if (!entries) return undefined;
 
@@ -199,6 +200,9 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
 
                 commits.set(entry.sha, commit);
             }
+            // else {
+            //     Logger.log(`merge commit? ${entry.sha}`);
+            // }
 
             if (recentCommit) {
                 recentCommit.previousSha = commit.sha;
@@ -230,7 +234,9 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
             repoPath: repoPath,
             authors: sortedAuthors,
             // commits: sortedCommits,
-            commits: commits
+            commits: commits,
+            maxCount: maxCount,
+            truncated: maxCount && entries.length >= maxCount
         } as IGitLog;
     }
 }

@@ -1,5 +1,5 @@
 'use strict';
-import Git, { GitBlameFormat, GitCommit, IGitAuthor, IGitBlame, IGitCommitLine, IGitEnricher } from './../git';
+import { Git, GitBlameFormat, GitCommit, IGitAuthor, IGitBlame, IGitCommitLine, IGitEnricher } from './../git';
 import * as moment from 'moment';
 import * as path from 'path';
 

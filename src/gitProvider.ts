@@ -4,7 +4,7 @@ import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, l
 import { CommandContext, setCommandContext } from './commands';
 import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes, WorkspaceState } from './constants';
-import Git, { GitBlameParserEnricher, GitBlameFormat, GitCommit, GitFileStatusItem, GitLogParserEnricher, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog } from './git/git';
+import { Git, GitBlameParserEnricher, GitBlameFormat, GitCommit, GitFileStatusItem, GitLogParserEnricher, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog } from './git/git';
 import { IGitUriData, GitUri } from './git/gitUri';
 import GitCodeLensProvider from './gitCodeLensProvider';
 import { Logger } from './logger';
@@ -498,7 +498,7 @@ export class GitProvider extends Disposable {
 
         try {
             const data = await Git.logRepo(repoPath, sha, maxCount);
-            return new GitLogParserEnricher().enrich(data, 'repo', repoPath, true);
+            return new GitLogParserEnricher().enrich(data, 'repo', repoPath, maxCount, true);
         }
         catch (ex) {
             return undefined;
@@ -532,7 +532,7 @@ export class GitProvider extends Disposable {
             return (range
                 ? Git.logRange(fileName, range.start.line + 1, range.end.line + 1, sha, repoPath, maxCount)
                 : Git.log(fileName, sha, repoPath, maxCount, reverse))
-                .then(data => new GitLogParserEnricher().enrich(data, 'file', repoPath || fileName, !!repoPath))
+                .then(data => new GitLogParserEnricher().enrich(data, 'file', repoPath || fileName, maxCount, !!repoPath))
                 .catch(ex => {
                     // Trap and cache expected log errors
                     if (useCaching) {

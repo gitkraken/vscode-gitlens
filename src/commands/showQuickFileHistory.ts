@@ -3,7 +3,7 @@ import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
 import { GitProvider, GitUri, IGitLog } from '../gitProvider';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, FileHistoryQuickPick } from '../quickPicks';
+import { CommandQuickPickItem, FileHistoryQuickPick, showQuickPickProgress } from '../quickPicks';
 import * as path from 'path';
 
 export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
@@ -27,13 +27,16 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
             maxCount = this.git.config.advanced.maxQuickHistory;
         }
 
+        const progressCancellation = showQuickPickProgress(`Loading file history \u2014 ${maxCount ? ` limited to ${maxCount} commits` : ` this may take a while`}\u2026`);
         try {
             if (!log) {
                 log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, undefined, maxCount);
                 if (!log) return window.showWarningMessage(`Unable to show file history. File is probably not under source control`);
             }
 
-            const pick = await FileHistoryQuickPick.show(log, uri, gitUri.sha, maxCount, this.git.config.advanced.maxQuickHistory, goBackCommand);
+            if (progressCancellation.token.isCancellationRequested) return undefined;
+
+            const pick = await FileHistoryQuickPick.show(log, uri, gitUri.sha, progressCancellation, goBackCommand);
             if (!pick) return undefined;
 
             if (pick instanceof CommandQuickPickItem) {
@@ -51,6 +54,9 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
         catch (ex) {
             Logger.error('[GitLens.ShowQuickFileHistoryCommand]', 'getLogLocations', ex);
             return window.showErrorMessage(`Unable to show file history. See output channel for more details`);
+        }
+        finally {
+            progressCancellation.dispose();
         }
     }
 }

@@ -40,7 +40,7 @@ export const GitBlameFormat = {
     porcelain: '--porcelain' as GitBlameFormat
 };
 
-export default class Git {
+export class Git {
 
     static normalizePath(fileName: string, repoPath?: string) {
         return fileName.replace(/\\/g, '/');

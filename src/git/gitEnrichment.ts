@@ -1,6 +1,6 @@
 'use strict';
 import { Uri } from 'vscode';
-import Git from './git';
+import { Git } from './git';
 import * as path from 'path';
 
 export interface IGitEnricher<T> {
@@ -171,6 +171,9 @@ export interface IGitLog {
     repoPath: string;
     authors: Map<string, IGitAuthor>;
     commits: Map<string, GitLogCommit>;
+
+    maxCount: number | undefined;
+    truncated: boolean;
 }
 
 export declare type GitFileStatus = '?' | 'A' | 'C' | 'D' | 'M' | 'R' | 'U';

@@ -1,10 +1,36 @@
 'use strict';
-import { commands, QuickPickItem, TextEditor, Uri, workspace } from 'vscode';
+import { CancellationTokenSource, commands, QuickPickItem, QuickPickOptions, TextEditor, Uri, window, workspace } from 'vscode';
 import { Commands, openEditor } from '../commands';
 import { IAdvancedConfig } from '../configuration';
+import { Logger } from '../logger';
 
 export function getQuickPickIgnoreFocusOut() {
     return !workspace.getConfiguration('gitlens').get<IAdvancedConfig>('advanced').quickPick.closeOnFocusOut;
+}
+
+export function showQuickPickProgress(message: string): CancellationTokenSource {
+    const cancellation = new CancellationTokenSource();
+    _showQuickPickProgress(message, cancellation);
+    return cancellation;
+}
+
+async function _showQuickPickProgress(message: string, cancellation: CancellationTokenSource) {
+    Logger.log(`showQuickPickProgress`, `show`, message);
+    await window.showQuickPick(_getInfiniteCancellablePromise(cancellation), {
+        placeHolder: message,
+        ignoreFocusOut: getQuickPickIgnoreFocusOut()
+    } as QuickPickOptions, cancellation.token);
+    Logger.log(`showQuickPickProgress`, `cancel`, message);
+    cancellation.cancel();
+}
+
+function _getInfiniteCancellablePromise(cancellation: CancellationTokenSource) {
+    return new Promise((resolve, reject) => {
+        const disposable = cancellation.token.onCancellationRequested(() => {
+            disposable.dispose();
+            reject();
+        });
+    });
 }
 
 export class CommandQuickPickItem implements QuickPickItem {

@@ -1,23 +1,29 @@
 'use strict';
 import { Iterables } from '../system';
-import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
+import { CancellationTokenSource, QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard } from '../commands';
-import { IGitLog } from '../gitProvider';
+import { GitUri, IGitLog } from '../gitProvider';
 import { CommitQuickPickItem } from './gitQuickPicks';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './quickPicks';
 import * as path from 'path';
 
 export class FileHistoryQuickPick {
 
-    static async show(log: IGitLog, uri: Uri, sha: string, maxCount: number, defaultMaxCount: number, goBackCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(log: IGitLog, uri: Uri, sha: string, progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
-        if (maxCount !== 0 && items.length >= defaultMaxCount) {
+        if (log.truncated) {
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `$(sync) Show All Commits`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 Currently only showing the first ${defaultMaxCount} commits`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 Currently only showing the first ${log.maxCount} commits`,
                 detail: `This may take a while`
             }, Commands.ShowQuickFileHistory, [uri, 0, goBackCommand]));
+
+            const last = Iterables.last(log.commits.values());
+            items.push(new CommandQuickPickItem({
+                label: `$(ellipsis) Show More Commits`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 Shows the next ${log.maxCount} commits`
+            }, Commands.ShowQuickFileHistory, [new GitUri(uri, last), log.maxCount, goBackCommand]));
         }
 
         // Only show the full repo option if we are the root
@@ -30,10 +36,11 @@ export class FileHistoryQuickPick {
                 [
                     undefined,
                     undefined,
+                    undefined,
                     new CommandQuickPickItem({
                         label: `go back \u21A9`,
                         description: `\u00a0 \u2014 \u00a0\u00a0 to history of \u00a0$(file-text) ${path.basename(uri.fsPath)}`
-                    }, Commands.ShowQuickFileHistory, [uri, maxCount, undefined, log])
+                    }, Commands.ShowQuickFileHistory, [uri, log.maxCount, undefined, log])
                 ]));
         }
 
@@ -41,9 +48,13 @@ export class FileHistoryQuickPick {
             items.splice(0, 0, goBackCommand);
         }
 
+        if (progressCancellation.token.isCancellationRequested) return undefined;
+
         await Keyboard.instance.enterScope(['left', goBackCommand]);
 
         const commit = Iterables.first(log.commits.values());
+
+        progressCancellation.cancel();
 
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
