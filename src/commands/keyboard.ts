@@ -2,10 +2,10 @@
 import { commands, Disposable, ExtensionContext, QuickPickItem } from 'vscode';
 import { CommandContext, setCommandContext } from '../commands';
 import { CommandQuickPickItem, OpenFileCommandQuickPickItem } from '../quickPicks/quickPicks';
-//import { Logger } from '../logger';
+import { Logger } from '../logger';
 
-declare type Keys = 'left' | 'right';
-const keys: Keys[] = [
+export declare type Keys = 'left' | 'right';
+export const keys: Keys[] = [
     'left',
     'right'
 ];
@@ -40,19 +40,22 @@ export class Keyboard extends Disposable {
         this._disposable && this._disposable.dispose();
     }
 
-    execute(key: Keys): any {
+    async execute(key: Keys): Promise<{}> {
         const command = this.context.globalState.get(`gitlens:key:${key}`) as CommandQuickPickItem;
         if (!command || !(command instanceof CommandQuickPickItem)) return undefined;
 
+        Logger.log('Keyboard.execute', key);
+
         if (command instanceof OpenFileCommandQuickPickItem) {
             // Have to open this pinned right now, because vscode doesn't have a way to open a unpinned, but unfocused editor
-            return command.execute(true);
+            return await command.execute(true);
         }
 
-        return command.execute();
+        return await command.execute();
     }
 
     async enterScope(...keyCommands: [Keys, QuickPickItem][]) {
+        Logger.log('Keyboard.enterScope', scopeCount);
         await setCommandContext(CommandContext.Key, ++scopeCount);
         if (keyCommands && Array.isArray(keyCommands) && keyCommands.length) {
             for (const [key, command] of keyCommands) {
@@ -62,6 +65,7 @@ export class Keyboard extends Disposable {
     }
 
     async exitScope(clear: boolean = true) {
+        Logger.log('Keyboard.exitScope', scopeCount);
         await setCommandContext(CommandContext.Key, --scopeCount);
         if (clear && !scopeCount) {
             for (const key of keys) {
@@ -71,10 +75,12 @@ export class Keyboard extends Disposable {
     }
 
     async clearKeyCommand(key: Keys) {
+        Logger.log('Keyboard.clearKeyCommand', key);
         await this.context.globalState.update(`gitlens:key:${key}`, undefined);
     }
 
     async setKeyCommand(key: Keys, command: QuickPickItem) {
+        Logger.log('Keyboard.setKeyCommand', key);
         await this.context.globalState.update(`gitlens:key:${key}`, command);
     }
 }
