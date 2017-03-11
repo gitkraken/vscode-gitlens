@@ -6,7 +6,7 @@ import { Logger } from '../logger';
 
 export class DiffDirectoryCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitProvider, public repoPath: string) {
+    constructor(private git: GitProvider, private repoPath: string) {
         super(Commands.DiffDirectory);
     }
 

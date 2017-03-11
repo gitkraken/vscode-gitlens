@@ -7,7 +7,7 @@ import { CommandQuickPickItem, RepoStatusQuickPick } from '../quickPicks';
 
 export class ShowQuickRepoStatusCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitProvider, public repoPath: string) {
+    constructor(private git: GitProvider, private repoPath: string) {
         super(Commands.ShowQuickRepoStatus);
     }
 

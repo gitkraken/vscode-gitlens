@@ -8,7 +8,7 @@ import { copy } from 'copy-paste';
 
 export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitProvider, public repoPath: string) {
+    constructor(private git: GitProvider, private repoPath: string) {
         super(Commands.CopyShaToClipboard);
     }
 
