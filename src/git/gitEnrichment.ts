@@ -115,6 +115,7 @@ export type GitLogType = 'file' | 'repo';
 
 export class GitLogCommit extends GitCommit {
 
+    fileNames: string;
     fileStatuses: { status: GitFileStatus, fileName: string }[];
     nextSha?: string;
     nextFileName?: string;
@@ -138,8 +139,11 @@ export class GitLogCommit extends GitCommit {
         super(repoPath, sha, fileName, author, date, message, lines, originalFileName, previousSha, previousFileName);
         this.status = status;
 
+        this.fileNames = this.fileName;
+
         if (fileStatuses) {
             this.fileStatuses = fileStatuses.filter(_ => !!_.fileName);
+            this.fileName = this.fileStatuses[0].fileName;
         }
         else {
             this.fileStatuses = [{ status: status, fileName: fileName }];
