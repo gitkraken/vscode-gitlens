@@ -202,7 +202,8 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
 
             if (recentCommit) {
                 recentCommit.previousSha = commit.sha;
-                commit.nextSha = recentCommit.sha;
+                // If the commit sha's match (merge commit), just forward it along
+                commit.nextSha = commit.sha !== recentCommit.sha ? recentCommit.sha : recentCommit.nextSha;
                 // Only add a filename if this is a file log
                 if (type === 'file') {
                     recentCommit.previousFileName = commit.originalFileName || commit.fileName;
