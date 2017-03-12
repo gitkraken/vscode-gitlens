@@ -153,7 +153,7 @@ export class Git {
     static log(fileName: string, sha?: string, repoPath?: string, maxCount?: number, reverse: boolean = false) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
-        const params = [...DefaultLogParams, `--follow`];
+        const params = [...DefaultLogParams, `--follow`, `--no-merges`];
         if (maxCount && !reverse) {
             params.push(`-n${maxCount}`);
         }
@@ -175,7 +175,7 @@ export class Git {
     static logRange(fileName: string, start: number, end: number, sha?: string, repoPath?: string, maxCount?: number) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
-        const params = [...DefaultLogParams];
+        const params = [...DefaultLogParams, `--no-merges`];
         if (maxCount) {
             params.push(`-n${maxCount}`);
         }
