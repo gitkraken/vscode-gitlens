@@ -2,7 +2,7 @@
 import { commands } from 'vscode';
 import { BuiltInCommands } from './constants';
 
-export { Keyboard, Keys } from './commands/keyboard';
+export { Keyboard, KeyboardScope, KeyMapping, KeyNoopCommand, Keys } from './commands/keyboard';
 
 export { ActiveEditorCommand, Command, Commands, EditorCommand, openEditor } from './commands/commands';
 export { CloseUnchangedFilesCommand } from './commands/closeUnchangedFiles';

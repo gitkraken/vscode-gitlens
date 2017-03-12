@@ -1,26 +1,32 @@
 'use strict';
 import { CancellationTokenSource, commands, QuickPickItem, QuickPickOptions, TextEditor, Uri, window, workspace } from 'vscode';
-import { Commands, openEditor } from '../commands';
+import { Commands, Keyboard, KeyboardScope, KeyMapping, openEditor } from '../commands';
 import { IAdvancedConfig } from '../configuration';
-import { Logger } from '../logger';
+// import { Logger } from '../logger';
 
 export function getQuickPickIgnoreFocusOut() {
     return !workspace.getConfiguration('gitlens').get<IAdvancedConfig>('advanced').quickPick.closeOnFocusOut;
 }
 
-export function showQuickPickProgress(message: string): CancellationTokenSource {
+export function showQuickPickProgress(message: string, mapping?: KeyMapping): CancellationTokenSource {
     const cancellation = new CancellationTokenSource();
-    _showQuickPickProgress(message, cancellation);
+    _showQuickPickProgress(message, cancellation, mapping);
     return cancellation;
 }
 
-async function _showQuickPickProgress(message: string, cancellation: CancellationTokenSource) {
-    Logger.log(`showQuickPickProgress`, `show`, message);
+async function _showQuickPickProgress(message: string, cancellation: CancellationTokenSource, mapping?: KeyMapping) {
+    // Logger.log(`showQuickPickProgress`, `show`, message);
+
+    const scope: KeyboardScope = mapping && await Keyboard.instance.beginScope(mapping);
+
     await window.showQuickPick(_getInfiniteCancellablePromise(cancellation), {
         placeHolder: message,
         ignoreFocusOut: getQuickPickIgnoreFocusOut()
     } as QuickPickOptions, cancellation.token);
-    Logger.log(`showQuickPickProgress`, `cancel`, message);
+
+    // Logger.log(`showQuickPickProgress`, `cancel`, message);
+
+    scope && scope.dispose();
     cancellation.cancel();
 }
 
@@ -28,7 +34,7 @@ function _getInfiniteCancellablePromise(cancellation: CancellationTokenSource) {
     return new Promise((resolve, reject) => {
         const disposable = cancellation.token.onCancellationRequested(() => {
             disposable.dispose();
-            reject();
+            resolve([]);
         });
     });
 }
@@ -52,17 +58,6 @@ export class KeyCommandQuickPickItem extends CommandQuickPickItem {
 
     constructor(protected command: Commands, protected args?: any[]) {
         super({ label: undefined, description: undefined }, command, args);
-    }
-}
-
-export class KeyNoopCommandQuickPickItem extends CommandQuickPickItem {
-
-    constructor() {
-        super({ label: undefined, description: undefined }, undefined, undefined);
-    }
-
-    execute(): Thenable<{}> {
-        return Promise.resolve(undefined);
     }
 }
 

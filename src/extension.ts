@@ -86,7 +86,7 @@ export async function activate(context: ExtensionContext) {
     const activeLineController = new BlameActiveLineController(context, git, blameabilityTracker, annotationController);
     context.subscriptions.push(activeLineController);
 
-    context.subscriptions.push(new Keyboard(context));
+    context.subscriptions.push(new Keyboard());
 
     context.subscriptions.push(new CloseUnchangedFilesCommand(git, repoPath));
     context.subscriptions.push(new OpenChangedFilesCommand(git, repoPath));

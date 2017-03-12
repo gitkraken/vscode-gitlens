@@ -90,18 +90,18 @@ export class RepoStatusQuickPick {
             items.splice(0, 0, goBackCommand);
         }
 
-        await Keyboard.instance.enterScope(['left', goBackCommand]);
+        const scope = await Keyboard.instance.beginScope({ left: goBackCommand });
 
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             placeHolder: statuses.length ? 'Repository has changes' : 'Repository has no changes',
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
-                Keyboard.instance.setKeyCommand('right', item);
+                scope.setKeyCommand('right', item);
             }
         } as QuickPickOptions);
 
-        await Keyboard.instance.exitScope();
+        await scope.dispose();
 
         return pick;
     }

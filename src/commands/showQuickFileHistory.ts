@@ -1,9 +1,9 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands } from './commands';
+import { ActiveEditorCommand, Commands } from '../commands';
 import { GitProvider, GitUri, IGitLog } from '../gitProvider';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, FileHistoryQuickPick, showQuickPickProgress } from '../quickPicks';
+import { CommandQuickPickItem, FileHistoryQuickPick } from '../quickPicks';
 import * as path from 'path';
 
 export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
@@ -12,14 +12,12 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
         super(Commands.ShowQuickFileHistory);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, maxCount?: number, goBackCommand?: CommandQuickPickItem, log?: IGitLog) {
+    async execute(editor: TextEditor, uri?: Uri, maxCount?: number, goBackCommand?: CommandQuickPickItem, log?: IGitLog, nextPageCommand?: CommandQuickPickItem) {
         if (!(uri instanceof Uri)) {
             uri = editor && editor.document && editor.document.uri;
         }
 
-        if (!uri) {
-            return commands.executeCommand(Commands.ShowQuickRepoHistory);
-        }
+        if (!uri) return commands.executeCommand(Commands.ShowQuickRepoHistory);
 
         const gitUri = await GitUri.fromUri(uri, this.git);
 
@@ -27,7 +25,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
             maxCount = this.git.config.advanced.maxQuickHistory;
         }
 
-        const progressCancellation = showQuickPickProgress(`Loading file history \u2014 ${maxCount ? ` limited to ${maxCount} commits` : ` this may take a while`}\u2026`);
+        const progressCancellation = FileHistoryQuickPick.showProgress(maxCount);
         try {
             if (!log) {
                 log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, undefined, maxCount);
@@ -36,7 +34,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
-            const pick = await FileHistoryQuickPick.show(log, uri, gitUri.sha, progressCancellation, goBackCommand);
+            const pick = await FileHistoryQuickPick.show(log, gitUri, progressCancellation, goBackCommand, nextPageCommand);
             if (!pick) return undefined;
 
             if (pick instanceof CommandQuickPickItem) {
