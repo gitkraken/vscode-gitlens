@@ -25,26 +25,20 @@ export class GitUri extends Uri {
         this.offset = 0;
         if (uri.scheme === DocumentSchemes.GitLensGit) {
             const data = GitProvider.fromGitContentUri(uri);
-            base._fsPath = data.originalFileName || data.fileName;
+            base._fsPath = path.resolve(data.repoPath, data.originalFileName || data.fileName);
 
             this.offset = (data.decoration && data.decoration.split('\n').length) || 0;
             if (!Git.isUncommitted(data.sha)) {
                 this.sha = data.sha;
                 this.repoPath = data.repoPath;
             }
-            else {
-                base._fsPath = path.join(data.repoPath, base._fsPath);
-            }
         }
         else if (commit) {
-            base._fsPath = commit.originalFileName || commit.fileName;
+            base._fsPath = path.resolve(commit.repoPath, commit.originalFileName || commit.fileName);
 
             if (!Git.isUncommitted(commit.sha)) {
                 this.sha = commit.sha;
                 this.repoPath = commit.repoPath;
-            }
-            else {
-                base._fsPath = path.join(commit.repoPath, base._fsPath);
             }
         }
     }

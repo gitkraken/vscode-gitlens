@@ -96,11 +96,11 @@ export class GitCommit implements IGitCommit {
     }
 
     get previousUri(): Uri {
-        return this.previousFileName ? Uri.file(path.join(this.repoPath, this.previousFileName)) : this.uri;
+        return this.previousFileName ? Uri.file(path.resolve(this.repoPath, this.previousFileName)) : this.uri;
     }
 
     get uri(): Uri {
-        return Uri.file(path.join(this.repoPath, this.originalFileName || this.fileName));
+        return Uri.file(path.resolve(this.repoPath, this.originalFileName || this.fileName));
     }
 
     getFormattedPath(separator: string = ' \u00a0\u2022\u00a0 '): string {
@@ -155,7 +155,7 @@ export class GitLogCommit extends GitCommit {
     }
 
     get nextUri(): Uri {
-        return this.nextFileName ? Uri.file(path.join(this.repoPath, this.nextFileName)) : this.uri;
+        return this.nextFileName ? Uri.file(path.resolve(this.repoPath, this.nextFileName)) : this.uri;
     }
 }
 
