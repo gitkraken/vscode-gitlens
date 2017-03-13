@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "2.11.2",
+    "version": "2.12.0",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -752,7 +752,7 @@
     },
     "devDependencies": {
         "@types/copy-paste": "^1.1.30",
-        "@types/mocha": "^2.2.39",
+        "@types/mocha": "^2.2.40",
         "@types/node": "^7.0.8",
         "@types/tmp": "^0.0.32",
         "mocha": "^3.2.0",

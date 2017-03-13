@@ -1,5 +1,16 @@
 ## Release Notes
 
+### 2.12.0
+- Adds progress indicator for the `gitlens.showQuickFileHistory` & `gitlens.showQuickRepoHistory` quick picks
+- Adds paging support to the `gitlens.showQuickFileHistory` & `gitlens.showQuickRepoHistory` quick picks
+  - Adds `Show Previous Commits` command
+  - Adds `Show Next Commits` command
+- Adds keyboard page navigation via `alt+,` (previous) & `alt+.` (next) on the `gitlens.showQuickFileHistory` & `gitlens.showQuickRepoHistory` quick picks
+- Adds keyboard commit navigation via `alt+,` (previous) & `alt+.` (next) on the `gitlens.showQuickCommitDetails` & `gitlens.showQuickCommitFileDetails` quick picks
+- Changes behavior of `gitlens.showQuickFileHistory` & `gitlens.showFileHistory` to no longer show merge commits
+- Changes `gitlens.copyShaToClipboard` to copy the full sha, rather than short sha
+- Changes internal tracking to use full sha (rather than short sha)
+
 ### 2.11.2
 - Adds `gitlens.diffWithNext` command to open a diff with the next commit
 - Adds `alt+.` shortcut for the `gitlens.diffWithNext` command
