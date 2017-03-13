@@ -15,19 +15,25 @@ export function showQuickPickProgress(message: string, mapping?: KeyMapping): Ca
 }
 
 async function _showQuickPickProgress(message: string, cancellation: CancellationTokenSource, mapping?: KeyMapping) {
-    // Logger.log(`showQuickPickProgress`, `show`, message);
+        // Logger.log(`showQuickPickProgress`, `show`, message);
 
-    const scope: KeyboardScope = mapping && await Keyboard.instance.beginScope(mapping);
+        const scope: KeyboardScope = mapping && await Keyboard.instance.beginScope(mapping);
 
-    await window.showQuickPick(_getInfiniteCancellablePromise(cancellation), {
-        placeHolder: message,
-        ignoreFocusOut: getQuickPickIgnoreFocusOut()
-    } as QuickPickOptions, cancellation.token);
+        try {
+            await window.showQuickPick(_getInfiniteCancellablePromise(cancellation), {
+                placeHolder: message,
+                ignoreFocusOut: getQuickPickIgnoreFocusOut()
+            } as QuickPickOptions, cancellation.token);
+        }
+        catch (ex) {
+            // Not sure why this throws
+        }
+        finally {
+            // Logger.log(`showQuickPickProgress`, `cancel`, message);
 
-    // Logger.log(`showQuickPickProgress`, `cancel`, message);
-
-    scope && scope.dispose();
-    cancellation.cancel();
+            cancellation.cancel();
+            scope && scope.dispose();
+        }
 }
 
 function _getInfiniteCancellablePromise(cancellation: CancellationTokenSource) {

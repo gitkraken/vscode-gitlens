@@ -1,4 +1,5 @@
 'use strict';
+import { Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard, KeyNoopCommand } from '../commands';
 import { GitLogCommit, GitProvider, IGitLog } from '../gitProvider';
@@ -72,16 +73,49 @@ export class CommitDetailsQuickPick {
             items.splice(0, 0, goBackCommand);
         }
 
-        const previousCommand = commit.previousSha && new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [commit.previousUri, commit.previousSha, undefined, goBackCommand, repoLog]);
-
+        let previousCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>);
         let nextCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>);
-        if (repoLog) {
+        // If we have the full history, we are good
+        if (repoLog && !repoLog.truncated) {
+            previousCommand = commit.previousSha && new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [commit.previousUri, commit.previousSha, undefined, goBackCommand, repoLog]);
             nextCommand = commit.nextSha && new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [commit.nextUri, commit.nextSha, undefined, goBackCommand, repoLog]);
         }
         else {
+            previousCommand = async () => {
+                let log = repoLog;
+                let c = log && log.commits.get(commit.sha);
+
+                // If we can't find the commit or the previous commit isn't available (since it isn't trustworthy)
+                if (!c || !c.previousSha) {
+                    log = await git.getLogForRepo(commit.repoPath, commit.sha, git.config.advanced.maxQuickHistory);
+                    c = log && log.commits.get(commit.sha);
+
+                    if (c) {
+                        // Copy over next info, since it is trustworthy at this point
+                        c.nextSha = commit.nextSha;
+                    }
+                }
+                if (!c) return KeyNoopCommand;
+                return new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [c.previousUri, c.previousSha, undefined, goBackCommand, log]);
+            };
+
             nextCommand = async () => {
-                const log = await git.getLogForRepo(commit.repoPath, undefined, git.config.advanced.maxQuickHistory);
-                const c = log && log.commits.get(commit.sha);
+                let log = repoLog;
+                let c = log && log.commits.get(commit.sha);
+
+                // If we can't find the commit or the next commit isn't available (since it isn't trustworthy)
+                if (!c || !c.nextSha) {
+                    log = undefined;
+                    c = undefined;
+
+                    // Try to find the next commit
+                    const nextLog = await git.getLogForRepo(commit.repoPath, commit.sha, 1, true);
+                    const next = nextLog && Iterables.first(nextLog.commits.values());
+                    if (next && next.sha !== commit.sha) {
+                        c = commit;
+                        c.nextSha = next.sha;
+                    }
+                }
                 if (!c) return KeyNoopCommand;
                 return new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [c.nextUri, c.nextSha, undefined, goBackCommand, log]);
             };

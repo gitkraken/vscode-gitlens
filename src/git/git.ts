@@ -188,13 +188,20 @@ export class Git {
         return gitCommand(root, ...params);
     }
 
-    static logRepo(repoPath: string, sha?: string, maxCount?: number) {
+    static logRepo(repoPath: string, sha?: string, maxCount?: number, reverse: boolean = false) {
         const params = [...DefaultLogParams];
-        if (maxCount) {
+        if (maxCount && !reverse) {
             params.push(`-n${maxCount}`);
         }
         if (sha) {
-            params.push(sha);
+            if (reverse) {
+                params.push(`--reverse`);
+                params.push(`--ancestry-path`);
+                params.push(`${sha}..HEAD`);
+            }
+            else {
+                params.push(sha);
+            }
         }
         return gitCommand(repoPath, ...params);
     }

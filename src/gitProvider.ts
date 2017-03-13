@@ -489,7 +489,7 @@ export class GitProvider extends Disposable {
         return locations;
     }
 
-    async getLogForRepo(repoPath: string, sha?: string, maxCount?: number): Promise<IGitLog | undefined> {
+    async getLogForRepo(repoPath: string, sha?: string, maxCount?: number, reverse: boolean = false): Promise<IGitLog | undefined> {
         Logger.log(`getLogForRepo('${repoPath}', ${maxCount})`);
 
         if (maxCount == null) {
@@ -497,8 +497,8 @@ export class GitProvider extends Disposable {
         }
 
         try {
-            const data = await Git.logRepo(repoPath, sha, maxCount);
-            return new GitLogParserEnricher().enrich(data, 'repo', repoPath, maxCount, true);
+            const data = await Git.logRepo(repoPath, sha, maxCount, reverse);
+            return new GitLogParserEnricher().enrich(data, 'repo', repoPath, maxCount, true, reverse);
         }
         catch (ex) {
             return undefined;
@@ -532,7 +532,7 @@ export class GitProvider extends Disposable {
             return (range
                 ? Git.logRange(fileName, range.start.line + 1, range.end.line + 1, sha, repoPath, maxCount)
                 : Git.log(fileName, sha, repoPath, maxCount, reverse))
-                .then(data => new GitLogParserEnricher().enrich(data, 'file', repoPath || fileName, maxCount, !!repoPath))
+                .then(data => new GitLogParserEnricher().enrich(data, 'file', repoPath || fileName, maxCount, !!repoPath, reverse))
                 .catch(ex => {
                     // Trap and cache expected log errors
                     if (useCaching) {

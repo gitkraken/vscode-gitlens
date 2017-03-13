@@ -152,7 +152,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
         return entries;
     }
 
-    enrich(data: string, type: GitLogType, fileNameOrRepoPath: string, maxCount: number | undefined, isRepoPath: boolean = false): IGitLog {
+    enrich(data: string, type: GitLogType, fileNameOrRepoPath: string, maxCount: number | undefined, isRepoPath: boolean, reverse: boolean): IGitLog {
         const entries = this._parseEntries(data, isRepoPath);
         if (!entries) return undefined;
 
@@ -168,6 +168,9 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
         }
 
         for (let i = 0, len = entries.length; i < len; i++) {
+            // Since log --reverse doesn't properly honor a max count -- enforce it here
+            if (reverse && i >= maxCount) break;
+
             const entry = entries[i];
 
             if (i === 0 || isRepoPath) {
