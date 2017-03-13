@@ -89,7 +89,7 @@ export class BlameAnnotationFormatter {
     static getAuthor(config: IBlameConfig, commit: GitCommit, truncateTo: number = 0, force: boolean = false) {
         if (!force && !config.annotation.author) return '';
 
-        const author = commit.isUncommitted ? 'Uncommited' : commit.author;
+        const author = commit.isUncommitted ? 'Uncommitted' : commit.author;
         if (!truncateTo) return author;
 
         if (author.length > truncateTo) {
@@ -120,7 +120,7 @@ export class BlameAnnotationFormatter {
     static getMessage(config: IBlameConfig, commit: GitCommit, truncateTo: number = 0, force: boolean = false) {
         if (!force && !config.annotation.message) return '';
 
-        let message = commit.isUncommitted ? 'Uncommited change' : commit.message;
+        let message = commit.isUncommitted ? 'Uncommitted change' : commit.message;
         if (truncateTo && message.length > truncateTo) {
             return `${message.substring(0, truncateTo - cssEllipse.length)}${cssEllipse}`;
         }
