@@ -16,22 +16,21 @@ export class ShowQuickRepoHistoryCommand extends ActiveEditorCommand {
             uri = editor && editor.document && editor.document.uri;
         }
 
-        const gitUri = await GitUri.fromUri(uri, this.git);
-        Logger.log(`ShowQuickRepoHistoryCommand.execute`, gitUri.shortSha);
+        const gitUri = uri && await GitUri.fromUri(uri, this.git);
 
         if (maxCount == null) {
             maxCount = this.git.config.advanced.maxQuickHistory;
         }
 
-        const progressCancellation = RepoHistoryQuickPick.showProgress(maxCount);
+        const progressCancellation = RepoHistoryQuickPick.showProgress();
         try {
             if (!log) {
-                const repoPath = gitUri.repoPath || await this.git.getRepoPathFromUri(uri, this.repoPath);
+                const repoPath = (gitUri && gitUri.repoPath) || await this.git.getRepoPathFromUri(uri, this.repoPath);
                 if (!repoPath) return window.showWarningMessage(`Unable to show repository history`);
 
                 if (progressCancellation.token.isCancellationRequested) return undefined;
 
-                log = await this.git.getLogForRepo(repoPath, gitUri.sha, maxCount);
+                log = await this.git.getLogForRepo(repoPath, (gitUri && gitUri.sha), maxCount);
                 if (!log) return window.showWarningMessage(`Unable to show repository history`);
             }
 

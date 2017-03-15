@@ -58,9 +58,10 @@ export class GitProvider extends Disposable {
         return this._onDidBlameFailEmitter.event;
     }
 
+    public repoPath: string;
+
     private _gitCache: Map<string, GitCacheEntry> | undefined;
     private _cacheDisposable: Disposable | undefined;
-    private _repoPath: string;
     private _uriCache: Map<string, UriCacheEntry> | undefined;
 
     config: IConfig;
@@ -76,7 +77,7 @@ export class GitProvider extends Disposable {
     constructor(private context: ExtensionContext) {
         super(() => this.dispose());
 
-        this._repoPath = context.workspaceState.get(WorkspaceState.RepoPath) as string;
+        this.repoPath = context.workspaceState.get(WorkspaceState.RepoPath) as string;
 
         this._onConfigurationChanged();
 
@@ -185,7 +186,7 @@ export class GitProvider extends Disposable {
                     return;
                 }
 
-                const gitignorePath = path.join(this._repoPath, '.gitignore');
+                const gitignorePath = path.join(this.repoPath, '.gitignore');
                 fs.exists(gitignorePath, e => {
                     if (e) {
                         fs.readFile(gitignorePath, 'utf8', (err, data) => {

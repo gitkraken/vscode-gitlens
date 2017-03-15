@@ -25,7 +25,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
             maxCount = this.git.config.advanced.maxQuickHistory;
         }
 
-        const progressCancellation = FileHistoryQuickPick.showProgress(maxCount);
+        const progressCancellation = FileHistoryQuickPick.showProgress(gitUri);
         try {
             if (!log) {
                 log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, undefined, maxCount);

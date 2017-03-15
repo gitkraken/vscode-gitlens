@@ -9,8 +9,8 @@ import * as path from 'path';
 
 export class FileHistoryQuickPick {
 
-    static showProgress(maxCount?: number) {
-        return showQuickPickProgress(`Loading file history \u2014 ${maxCount ? ` limited to ${maxCount} commits` : ` this may take a while`}\u2026`,
+    static showProgress(uri: GitUri) {
+        return showQuickPickProgress(`${uri.getFormattedPath()}${uri.sha ? ` \u00a0\u2022\u00a0 ${uri.sha.substring(0, 8)}` : ''}`,
             {
                 left: KeyNoopCommand,
                 ',': KeyNoopCommand,

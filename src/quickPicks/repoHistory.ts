@@ -8,8 +8,8 @@ import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress
 
 export class RepoHistoryQuickPick {
 
-    static showProgress(maxCount?: number) {
-        return showQuickPickProgress(`Loading repository history \u2014 ${maxCount ? ` limited to ${maxCount} commits` : ` this may take a while`}\u2026`,
+    static showProgress() {
+        return showQuickPickProgress('Repository history \u2014 search by commit message, filename, or sha',
             {
                 left: KeyNoopCommand,
                 ',': KeyNoopCommand,
@@ -22,11 +22,11 @@ export class RepoHistoryQuickPick {
 
         let previousPageCommand: CommandQuickPickItem;
 
-        if (log.truncated || uri.sha) {
+        if (log.truncated || (uri && uri.sha)) {
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `$(sync) Show All Commits`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 this may take a while`
-            }, Commands.ShowQuickRepoHistory, [Uri.file(uri.fsPath), 0, goBackCommand]));
+            }, Commands.ShowQuickRepoHistory, [uri && Uri.file(uri.fsPath), 0, goBackCommand]));
 
             if (nextPageCommand) {
                 items.splice(0, 0, nextPageCommand);
@@ -43,7 +43,7 @@ export class RepoHistoryQuickPick {
                 previousPageCommand = new CommandQuickPickItem({
                     label: `$(arrow-left) Show Previous Commits`,
                     description: `\u00a0 \u2014 \u00a0\u00a0 shows ${log.maxCount} older commits`
-                }, Commands.ShowQuickRepoHistory, [new GitUri(uri, last), log.maxCount, goBackCommand, undefined, npc]);
+                }, Commands.ShowQuickRepoHistory, [new GitUri(uri ? uri : last.uri, last), log.maxCount, goBackCommand, undefined, npc]);
 
                 items.splice(0, 0, previousPageCommand);
             }
@@ -66,7 +66,7 @@ export class RepoHistoryQuickPick {
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: 'Search by commit message, filename, or sha',
+            placeHolder: 'Repository history \u2014 search by commit message, filename, or sha',
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
             // onDidSelectItem: (item: QuickPickItem) => {
             //     scope.setKeyCommand('right', item);

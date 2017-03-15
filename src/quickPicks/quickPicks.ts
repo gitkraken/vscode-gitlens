@@ -1,5 +1,5 @@
 'use strict';
-import { CancellationTokenSource, commands, QuickPickItem, QuickPickOptions, TextEditor, Uri, window, workspace } from 'vscode';
+import { CancellationTokenSource, commands, Disposable, QuickPickItem, QuickPickOptions, TextEditor, Uri, window, workspace } from 'vscode';
 import { Commands, Keyboard, KeyboardScope, KeyMapping, openEditor } from '../commands';
 import { IAdvancedConfig } from '../configuration';
 // import { Logger } from '../logger';
@@ -8,9 +8,21 @@ export function getQuickPickIgnoreFocusOut() {
     return !workspace.getConfiguration('gitlens').get<IAdvancedConfig>('advanced').quickPick.closeOnFocusOut;
 }
 
-export function showQuickPickProgress(message: string, mapping?: KeyMapping): CancellationTokenSource {
+export function showQuickPickProgress(message: string, mapping?: KeyMapping, delay: boolean = false): CancellationTokenSource {
     const cancellation = new CancellationTokenSource();
-    _showQuickPickProgress(message, cancellation, mapping);
+
+    if (delay) {
+        let disposable: Disposable;
+        const timer = setTimeout(() => {
+            disposable && disposable.dispose();
+            _showQuickPickProgress(message, cancellation, mapping);
+        }, 250);
+        disposable = cancellation.token.onCancellationRequested(() => clearTimeout(timer));
+    }
+    else {
+        _showQuickPickProgress(message, cancellation, mapping);
+    }
+
     return cancellation;
 }
 

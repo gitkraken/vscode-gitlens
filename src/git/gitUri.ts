@@ -11,7 +11,9 @@ export class GitUri extends Uri {
     repoPath?: string | undefined;
     sha?: string | undefined;
 
-    constructor(uri?: Uri, commit?: IGitCommitInfo) {
+    constructor(uri?: Uri, commit?: IGitCommitInfo);
+    constructor(uri?: Uri, repoPath?: string);
+    constructor(uri?: Uri, commitOrRepoPath?: IGitCommitInfo | string) {
         super();
         if (!uri) return;
 
@@ -33,12 +35,18 @@ export class GitUri extends Uri {
                 this.repoPath = data.repoPath;
             }
         }
-        else if (commit) {
-            base._fsPath = path.resolve(commit.repoPath, commit.originalFileName || commit.fileName);
+        else if (commitOrRepoPath) {
+            if (typeof commitOrRepoPath === 'string') {
+                this.repoPath = commitOrRepoPath;
+            }
+            else {
+                const commit = commitOrRepoPath;
+                base._fsPath = path.resolve(commit.repoPath, commit.originalFileName || commit.fileName);
 
-            if (!Git.isUncommitted(commit.sha)) {
-                this.sha = commit.sha;
-                this.repoPath = commit.repoPath;
+                if (!Git.isUncommitted(commit.sha)) {
+                    this.sha = commit.sha;
+                    this.repoPath = commit.repoPath;
+                }
             }
         }
     }
@@ -49,6 +57,16 @@ export class GitUri extends Uri {
 
     fileUri() {
         return Uri.file(this.sha ? this.path : this.fsPath);
+    }
+
+    getFormattedPath(separator: string = ' \u00a0\u2022\u00a0 '): string {
+        let directory = path.dirname(this.fsPath);
+        if (this.repoPath) {
+            directory = path.relative(this.repoPath, directory);
+        }
+        return (!directory || directory === '.')
+            ? path.basename(this.fsPath)
+            : `${path.basename(this.fsPath)}${separator}${directory}`;
     }
 
     static async fromUri(uri: Uri, git: GitProvider) {
@@ -64,7 +82,7 @@ export class GitUri extends Uri {
             if (commit) return new GitUri(uri, commit);
         }
 
-        return new GitUri(uri);
+        return new GitUri(uri, git && git.repoPath);
     }
 }
 
