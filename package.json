@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "2.12.1",
+    "version": "2.12.2",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -153,11 +153,19 @@
                     "type": "array",
                     "default": [
                         {
+                            "language": "css",
+                            "location": "document"
+                        },
+                        {
+                            "language": "html",
+                            "location": "document"
+                        },
+                        {
                             "language": "json",
                             "location": "document"
                         },
                         {
-                            "language": "css",
+                            "language": "less",
                             "location": "document"
                         },
                         {
@@ -165,7 +173,7 @@
                             "location": "document"
                         },
                         {
-                            "language": "less",
+                            "language": "vue",
                             "location": "document"
                         }
                     ],

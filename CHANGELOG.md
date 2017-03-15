@@ -1,5 +1,8 @@
 ## Release Notes
 
+### 2.12.2
+- Fixes [#50](https://github.com/eamodio/vscode-gitlens/issues/50) - excludes container-level CodeLens from `html` and `vue` language files
+
 ### 2.12.1
 - Adds `gitlens.advanced.codeLens.debug` setting to control whether or not to show debug information in CodeLens
 - Fixes issue where `gitlens.showQuickRepoHistory` command fails to open when there is no active editor
