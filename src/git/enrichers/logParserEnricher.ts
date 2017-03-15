@@ -13,6 +13,8 @@ interface ILogEntry {
     committer?: string;
     committerDate?: string;
 
+    parentSha?: string;
+
     fileName?: string;
     originalFileName?: string;
     fileStatuses?: { status: GitFileStatus, fileName: string, originalFileName: string }[];
@@ -69,6 +71,10 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
                 // case 'committer-date':
                 //     entry.committerDate = lineParts.slice(1).join(' ').trim();
                 //     break;
+
+                case 'parent':
+                    entry.parentSha = lineParts.slice(1).join(' ').trim();
+                    break;
 
                 case 'summary':
                     entry.summary = lineParts.slice(1).join(' ').trim();
@@ -209,8 +215,10 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
 
             if (recentCommit) {
                 recentCommit.previousSha = commit.sha;
+
                 // If the commit sha's match (merge commit), just forward it along
                 commit.nextSha = commit.sha !== recentCommit.sha ? recentCommit.sha : recentCommit.nextSha;
+
                 // Only add a filename if this is a file log
                 if (type === 'file') {
                     recentCommit.previousFileName = commit.originalFileName || commit.fileName;
