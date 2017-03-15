@@ -303,6 +303,11 @@
                     "default": false,
                     "description": "Specifies debug mode"
                 },
+                "gitlens.advanced.codeLens.debug": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Specifies whether or not to show debug information in CodeLens"
+                },
                 "gitlens.advanced.git": {
                     "type": "string",
                     "default": null,

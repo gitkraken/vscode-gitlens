@@ -103,6 +103,9 @@ export interface IAdvancedConfig {
             maxLines: number;
         }
     };
+    codeLens: {
+        debug: boolean;
+    };
     debug: boolean;
     git: string;
     gitignore: {
