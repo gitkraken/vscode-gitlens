@@ -5,7 +5,6 @@ import { ActiveEditorCommand, Commands } from './commands';
 import { BuiltInCommands } from '../constants';
 import { GitLogCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-// import * as moment from 'moment';
 import * as path from 'path';
 
 export class DiffWithNextCommand extends ActiveEditorCommand {
