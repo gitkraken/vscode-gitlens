@@ -11,10 +11,8 @@ export * from './enrichers/blameParserEnricher';
 export * from './enrichers/logParserEnricher';
 
 let git: IGit;
-const UncommittedRegex = /^[0]+$/;
-const ShaRegex = /\b[0-9a-f]{40}\b/;
 
-const DefaultLogParams = [`log`, `--name-status`, `--full-history`, `-m`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nparent %P%nsummary %B%nfilename ?`];
+const DefaultLogParams = [`log`, `--name-status`, `--full-history`, `-M`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nparent %P%nsummary %B%nfilename ?`];
 
 async function gitCommand(cwd: string, ...args: any[]) {
     try {
@@ -43,25 +41,14 @@ export const GitBlameFormat = {
 
 export class Git {
 
-    static normalizePath(fileName: string, repoPath?: string) {
-        return fileName.replace(/\\/g, '/');
+    static ShaRegex = /^[0-9a-f]{40}( -)?$/;
+    static UncommittedRegex = /^[0]+$/;
+
+    static gitInfo(): IGit {
+        return git;
     }
 
-    static splitPath(fileName: string, repoPath?: string): [string, string] {
-        if (repoPath) {
-            return [
-                fileName.replace(repoPath.endsWith('/') ? repoPath : `${repoPath}/`, ''),
-                repoPath
-            ];
-        }
-
-        return [
-            path.basename(fileName).replace(/\\/g, '/'),
-            path.dirname(fileName).replace(/\\/g, '/')
-        ];
-    }
-
-    static async repoPath(cwd: string, gitPath?: string) {
+    static async getRepoPath(cwd: string, gitPath?: string) {
         git = await findGitPath(gitPath);
         Logger.log(`Git found: ${git.version} @ ${git.path === 'git' ? 'PATH' : git.path}`);
 
@@ -70,51 +57,8 @@ export class Git {
         return data;
     }
 
-    static blame(format: GitBlameFormat, fileName: string, sha?: string, repoPath?: string) {
-        const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
-
-        const params = [`blame`, `--root`, format];
-        if (sha) {
-            params.push(sha);
-        }
-
-        return gitCommand(root, ...params, `--`, file);
-    }
-
-    static blameLines(format: GitBlameFormat, fileName: string, startLine: number, endLine: number, sha?: string, repoPath?: string) {
-        const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
-
-        const params = [`blame`, `--root`, format, `-L ${startLine},${endLine}`];
-        if (sha) {
-            params.push(sha);
-        }
-
-        return gitCommand(root, ...params, `--`, file);
-    }
-
-    static diffDir(repoPath: string, sha1: string, sha2?: string) {
-        const params = [`difftool`, `--dir-diff`, sha1];
-        if (sha2) {
-            params.push(sha2);
-        }
-
-        return gitCommand(repoPath, ...params);
-    }
-
-    static diffStatus(repoPath: string, sha1?: string, sha2?: string) {
-        const params = [`diff`, `--name-status`, `-M`];
-        if (sha1) {
-            params.push(sha1);
-        }
-        if (sha2) {
-            params.push(sha2);
-        }
-
-        return gitCommand(repoPath, ...params);
-    }
-
     static async getVersionedFile(fileName: string, repoPath: string, branchOrSha: string) {
-        const data = await Git.getVersionedFileText(fileName, repoPath, branchOrSha);
+        const data = await Git.show(repoPath, fileName, branchOrSha);
 
         const suffix = Git.isSha(branchOrSha) ? branchOrSha.substring(0, 8) : branchOrSha;
         const ext = path.extname(fileName);
@@ -139,7 +83,72 @@ export class Git {
         });
     }
 
-    static getVersionedFileText(fileName: string, repoPath: string, branchOrSha: string) {
+    static isSha(sha: string) {
+        return Git.ShaRegex.test(sha);
+    }
+
+    static isUncommitted(sha: string) {
+        return Git.UncommittedRegex.test(sha);
+    }
+
+    static normalizePath(fileName: string, repoPath?: string) {
+        return fileName.replace(/\\/g, '/');
+    }
+
+    static splitPath(fileName: string, repoPath?: string): [string, string] {
+        if (repoPath) {
+            return [
+                fileName.replace(repoPath.endsWith('/') ? repoPath : `${repoPath}/`, ''),
+                repoPath
+            ];
+        }
+
+        return [
+            path.basename(fileName).replace(/\\/g, '/'),
+            path.dirname(fileName).replace(/\\/g, '/')
+        ];
+    }
+
+    // Git commands
+
+    static blame(repoPath: string, fileName: string, format: GitBlameFormat, sha?: string, startLine?: number, endLine?: number) {
+        const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
+
+        const params = [`blame`, `--root`, format];
+
+        if (startLine != null && endLine != null) {
+            params.push(`-L ${startLine},${endLine}`);
+        }
+
+        if (sha) {
+            params.push(sha);
+        }
+
+        return gitCommand(root, ...params, `--`, file);
+    }
+
+    static diff_nameStatus(repoPath: string, sha1?: string, sha2?: string) {
+        const params = [`diff`, `--name-status`, `-M`];
+        if (sha1) {
+            params.push(sha1);
+        }
+        if (sha2) {
+            params.push(sha2);
+        }
+
+        return gitCommand(repoPath, ...params);
+    }
+
+    static difftool_dirDiff(repoPath: string, sha1: string, sha2?: string) {
+        const params = [`difftool`, `--dir-diff`, sha1];
+        if (sha2) {
+            params.push(sha2);
+        }
+
+        return gitCommand(repoPath, ...params);
+    }
+
+    static show(repoPath: string, fileName: string, branchOrSha: string) {
         const [file, root] = Git.splitPath(Git.normalizePath(fileName), repoPath);
         branchOrSha = branchOrSha.replace('^', '');
 
@@ -147,49 +156,7 @@ export class Git {
         return gitCommand(root, 'show', `${branchOrSha}:./${file}`);
     }
 
-    static gitInfo(): IGit {
-        return git;
-    }
-
-    static log(fileName: string, sha?: string, repoPath?: string, maxCount?: number, reverse: boolean = false) {
-        const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
-
-        const params = [...DefaultLogParams, `--follow`, `--no-merges`];
-        if (maxCount && !reverse) {
-            params.push(`-n${maxCount}`);
-        }
-        if (sha) {
-            if (reverse) {
-                params.push(`--reverse`);
-                params.push(`--ancestry-path`);
-                params.push(`${sha}..HEAD`);
-            }
-            else {
-                params.push(sha);
-            }
-            params.push(`--`);
-        }
-
-        return gitCommand(root, ...params, file);
-    }
-
-    static logRange(fileName: string, start: number, end: number, sha?: string, repoPath?: string, maxCount?: number) {
-        const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
-
-        const params = [...DefaultLogParams, `--no-merges`];
-        if (maxCount) {
-            params.push(`-n${maxCount}`);
-        }
-        if (sha) {
-            params.push(`--follow`);
-            params.push(sha);
-        }
-        params.push(`-L ${start},${end}:${file}`);
-
-        return gitCommand(root, ...params);
-    }
-
-    static logRepo(repoPath: string, sha?: string, maxCount?: number, reverse: boolean = false) {
+    static log(repoPath: string, sha?: string, maxCount?: number, reverse: boolean = false) {
         const params = [...DefaultLogParams];
         if (maxCount && !reverse) {
             params.push(`-n${maxCount}`);
@@ -207,23 +174,43 @@ export class Git {
         return gitCommand(repoPath, ...params);
     }
 
-    static statusFile(fileName: string, repoPath: string): Promise<string> {
+    static log_file(repoPath: string, fileName: string, sha?: string, maxCount?: number, reverse: boolean = false, startLine?: number, endLine?: number) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
-        const params = ['status', file, '--short'];
+        const params = [...DefaultLogParams, `--no-merges`, `--follow`];
+        if (maxCount && !reverse) {
+            params.push(`-n${maxCount}`);
+        }
+        if (sha) {
+            if (reverse) {
+                params.push(`--reverse`);
+                params.push(`--ancestry-path`);
+                params.push(`${sha}..HEAD`);
+            }
+            else {
+                params.push(sha);
+            }
+        }
+
+        if (startLine != null && endLine != null) {
+            params.push(`-L ${startLine},${endLine}:${file}`);
+        }
+
+        params.push(`--`);
+        params.push(file);
+
         return gitCommand(root, ...params);
     }
 
-    static statusRepo(repoPath: string): Promise<string> {
+    static status(repoPath: string): Promise<string> {
         const params = ['status', '--short'];
         return gitCommand(repoPath, ...params);
     }
 
-    static isSha(sha: string) {
-        return ShaRegex.test(sha);
-    }
+    static status_file(repoPath: string, fileName: string): Promise<string> {
+        const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
-    static isUncommitted(sha: string) {
-        return UncommittedRegex.test(sha);
+        const params = ['status', file, '--short'];
+        return gitCommand(root, ...params);
     }
 }

@@ -41,7 +41,7 @@ export async function activate(context: ExtensionContext) {
 
     let repoPath: string;
     try {
-        repoPath = await Git.repoPath(rootPath, gitPath);
+        repoPath = await Git.getRepoPath(rootPath, gitPath);
     }
     catch (ex) {
         Logger.error(ex);

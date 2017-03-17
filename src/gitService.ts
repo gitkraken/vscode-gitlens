@@ -294,7 +294,7 @@ export class GitService extends Disposable {
     }
 
     getRepoPath(cwd: string): Promise<string> {
-        return Git.repoPath(cwd);
+        return Git.getRepoPath(cwd);
     }
 
     async getRepoPathFromUri(uri?: Uri, fallbackRepoPath?: string): Promise<string | undefined> {
@@ -338,7 +338,7 @@ export class GitService extends Disposable {
                 return GitService.EmptyPromise as Promise<IGitBlame>;
             }
 
-            return Git.blame(GitService.BlameFormat, fileName, sha, repoPath)
+            return Git.blame(repoPath, fileName, GitService.BlameFormat, sha)
                 .then(data => new GitBlameParserEnricher(GitService.BlameFormat).enrich(data, fileName))
                 .catch(ex => {
                     // Trap and cache expected blame errors
@@ -393,7 +393,7 @@ export class GitService extends Disposable {
         fileName = Git.normalizePath(fileName);
 
         try {
-            const data = await Git.blameLines(GitService.BlameFormat, fileName, line + 1, line + 1, sha, repoPath);
+            const data = await Git.blame(repoPath, fileName, GitService.BlameFormat, sha, line + 1, line + 1);
             const blame = new GitBlameParserEnricher(GitService.BlameFormat).enrich(data, fileName);
             if (!blame) return undefined;
 
@@ -498,7 +498,7 @@ export class GitService extends Disposable {
         }
 
         try {
-            const data = await Git.logRepo(repoPath, sha, maxCount, reverse);
+            const data = await Git.log(repoPath, sha, maxCount, reverse);
             return new GitLogParserEnricher().enrich(data, 'repo', repoPath, maxCount, true, reverse);
         }
         catch (ex) {
@@ -530,9 +530,7 @@ export class GitService extends Disposable {
                 return GitService.EmptyPromise as Promise<IGitLog>;
             }
 
-            return (range
-                ? Git.logRange(fileName, range.start.line + 1, range.end.line + 1, sha, repoPath, maxCount)
-                : Git.log(fileName, sha, repoPath, maxCount, reverse))
+            return Git.log_file(repoPath, fileName, sha, maxCount, reverse, range && range.start.line + 1, range && range.end.line + 1)
                 .then(data => new GitLogParserEnricher().enrich(data, 'file', repoPath || fileName, maxCount, !!repoPath, reverse))
                 .catch(ex => {
                     // Trap and cache expected log errors
@@ -592,13 +590,13 @@ export class GitService extends Disposable {
 
     async getStatusForFile(fileName: string, repoPath: string): Promise<GitFileStatusItem> {
         Logger.log(`getStatusForFile('${fileName}', '${repoPath}')`);
-        const status = await Git.statusFile(fileName, repoPath);
+        const status = await Git.status_file(repoPath, fileName);
         return status && status.trim().length && new GitFileStatusItem(repoPath, status);
     }
 
     async getStatusesForRepo(repoPath: string): Promise<GitFileStatusItem[]> {
         Logger.log(`getStatusForRepo('${repoPath}')`);
-        const statuses = (await Git.statusRepo(repoPath)).split('\n').filter(_ => !!_);
+        const statuses = (await Git.status(repoPath)).split('\n').filter(_ => !!_);
         return statuses.map(_ => new GitFileStatusItem(repoPath, _));
     }
 
@@ -622,7 +620,7 @@ export class GitService extends Disposable {
 
     getVersionedFileText(fileName: string, repoPath: string, sha: string) {
         Logger.log(`getVersionedFileText('${fileName}', '${repoPath}', ${sha})`);
-        return Git.getVersionedFileText(fileName, repoPath, sha);
+        return Git.show(repoPath, fileName, sha);
     }
 
     isEditorBlameable(editor: TextEditor): boolean {
@@ -634,7 +632,7 @@ export class GitService extends Disposable {
 
     openDirectoryDiff(repoPath: string, sha1: string, sha2?: string) {
         Logger.log(`openDirectoryDiff('${repoPath}', ${sha1}, ${sha2})`);
-        return Git.diffDir(repoPath, sha1, sha2);
+        return Git.difftool_dirDiff(repoPath, sha1, sha2);
     }
 
     toggleCodeLens(editor: TextEditor) {
