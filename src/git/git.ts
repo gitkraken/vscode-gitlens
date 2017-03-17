@@ -12,6 +12,7 @@ export * from './enrichers/logParserEnricher';
 
 let git: IGit;
 const UncommittedRegex = /^[0]+$/;
+const ShaRegex = /\b[0-9a-f]{40}\b/;
 
 const DefaultLogParams = [`log`, `--name-status`, `--full-history`, `-m`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nparent %P%nsummary %B%nfilename ?`];
 
@@ -112,20 +113,20 @@ export class Git {
         return gitCommand(repoPath, ...params);
     }
 
-    static async getVersionedFile(fileName: string, repoPath: string, sha: string) {
-        const data = await Git.getVersionedFileText(fileName, repoPath, sha);
+    static async getVersionedFile(fileName: string, repoPath: string, branchOrSha: string) {
+        const data = await Git.getVersionedFileText(fileName, repoPath, branchOrSha);
 
-        const shortSha = sha.substring(0, 8);
+        const suffix = Git.isSha(branchOrSha) ? branchOrSha.substring(0, 8) : branchOrSha;
         const ext = path.extname(fileName);
         return new Promise<string>((resolve, reject) => {
-            tmp.file({ prefix: `${path.basename(fileName, ext)}-${shortSha}__`, postfix: ext },
+            tmp.file({ prefix: `${path.basename(fileName, ext)}-${suffix}__`, postfix: ext },
                 (err, destination, fd, cleanupCallback) => {
                     if (err) {
                         reject(err);
                         return;
                     }
 
-                    Logger.log(`getVersionedFile(${fileName}, ${repoPath}, ${sha}); destination=${destination}`);
+                    Logger.log(`getVersionedFile(${fileName}, ${repoPath}, ${branchOrSha}); destination=${destination}`);
                     fs.appendFile(destination, data, err => {
                         if (err) {
                             reject(err);
@@ -138,12 +139,12 @@ export class Git {
         });
     }
 
-    static getVersionedFileText(fileName: string, repoPath: string, sha: string) {
+    static getVersionedFileText(fileName: string, repoPath: string, branchOrSha: string) {
         const [file, root] = Git.splitPath(Git.normalizePath(fileName), repoPath);
-        sha = sha.replace('^', '');
+        branchOrSha = branchOrSha.replace('^', '');
 
-        if (Git.isUncommitted(sha)) return Promise.reject(new Error(`sha=${sha} is uncommitted`));
-        return gitCommand(root, 'show', `${sha}:./${file}`);
+        if (Git.isUncommitted(branchOrSha)) return Promise.reject(new Error(`sha=${branchOrSha} is uncommitted`));
+        return gitCommand(root, 'show', `${branchOrSha}:./${file}`);
     }
 
     static gitInfo(): IGit {
@@ -216,6 +217,10 @@ export class Git {
     static statusRepo(repoPath: string): Promise<string> {
         const params = ['status', '--short'];
         return gitCommand(repoPath, ...params);
+    }
+
+    static isSha(sha: string) {
+        return ShaRegex.test(sha);
     }
 
     static isUncommitted(sha: string) {
