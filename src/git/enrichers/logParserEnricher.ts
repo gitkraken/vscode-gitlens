@@ -24,8 +24,6 @@ interface ILogEntry {
     summary?: string;
 }
 
-const shaRegex = /^[a-f0-9]{40}$/;
-
 export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
 
     private _parseEntries(data: string, isRepoPath: boolean): ILogEntry[] {
@@ -45,7 +43,8 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
             }
 
             if (!entry) {
-                if (!shaRegex.test(lineParts[0])) continue;
+                if (!Git.ShaRegex.test(lineParts[0])) continue;
+
                 entry = {
                     sha: lineParts[0]
                 };
@@ -87,11 +86,26 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
                 case 'filename':
                     if (isRepoPath) {
                         position++;
+
+                        let diff = false;
                         while (++position < lines.length) {
                             lineParts = lines[position].split(' ');
-                            if (/^[a-f0-9]{40}$/.test(lineParts[0])) {
+
+                            if (Git.ShaRegex.test(lineParts[0])) {
                                 position--;
                                 break;
+                            }
+
+                            if (diff) continue;
+
+                            if (lineParts[0] === 'diff') {
+                                diff = true;
+                                entry.fileName = lineParts[2].substring(2);
+                                const originalFileName = lineParts[3].substring(2);
+                                if (entry.fileName !== originalFileName) {
+                                    entry.originalFileName = originalFileName;
+                                }
+                                continue;
                             }
 
                             if (entry.fileStatuses == null) {
@@ -118,7 +132,10 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
 
                             entry.fileStatuses.push(status);
                         }
-                        entry.fileName = entry.fileStatuses.filter(_ => !!_.fileName).map(_ => _.fileName).join(', ');
+
+                        if (entry.fileStatuses) {
+                            entry.fileName = entry.fileStatuses.filter(_ => !!_.fileName).map(_ => _.fileName).join(', ');
+                        }
                     }
                     else {
                         position += 2;

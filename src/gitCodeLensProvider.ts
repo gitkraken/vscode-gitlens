@@ -384,7 +384,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         lens.command = {
             title: title,
             command: CodeLensCommand.ShowQuickFileHistory,
-            arguments: [Uri.file(lens.uri.fsPath)]
+            arguments: [Uri.file(lens.uri.fsPath), lens.isFullRange ? undefined : lens.blameRange]
         };
         return lens;
     }

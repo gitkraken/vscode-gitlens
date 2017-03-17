@@ -81,13 +81,13 @@ export class CommitFileDetailsQuickPick {
             items.push(new CommandQuickPickItem({
                 label: `$(history) Show File History`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 of ${path.basename(commit.fileName)}`
-            }, Commands.ShowQuickFileHistory, [commit.uri, undefined, currentCommand, fileLog]));
+            }, Commands.ShowQuickFileHistory, [commit.uri, undefined, undefined, currentCommand, fileLog]));
         }
 
         items.push(new CommandQuickPickItem({
             label: `$(history) Show ${workingFileName && options.showFileHistory ? 'Previous ' : ''}File History`,
             description: `\u00a0 \u2014 \u00a0\u00a0 of ${path.basename(commit.fileName)} \u00a0\u2022\u00a0 starting from \u00a0$(git-commit) ${commit.shortSha}`
-        }, Commands.ShowQuickFileHistory, [new GitUri(commit.uri, commit), undefined, currentCommand]));
+        }, Commands.ShowQuickFileHistory, [new GitUri(commit.uri, commit), undefined, undefined, currentCommand]));
 
         if (goBackCommand) {
             items.splice(0, 0, goBackCommand);

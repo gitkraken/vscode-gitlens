@@ -1,5 +1,5 @@
 'use strict';
-import { commands, TextEditor, Uri, window } from 'vscode';
+import { commands, Range, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from '../commands';
 import { GitService, GitUri, IGitLog } from '../gitService';
 import { Logger } from '../logger';
@@ -12,7 +12,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
         super(Commands.ShowQuickFileHistory);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, maxCount?: number, goBackCommand?: CommandQuickPickItem, log?: IGitLog, nextPageCommand?: CommandQuickPickItem) {
+    async execute(editor: TextEditor, uri?: Uri, range?: Range, maxCount?: number, goBackCommand?: CommandQuickPickItem, log?: IGitLog, nextPageCommand?: CommandQuickPickItem) {
         if (!(uri instanceof Uri)) {
             uri = editor && editor.document && editor.document.uri;
         }
@@ -28,7 +28,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
         const progressCancellation = FileHistoryQuickPick.showProgress(gitUri);
         try {
             if (!log) {
-                log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, undefined, maxCount);
+                log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, range, maxCount);
                 if (!log) return window.showWarningMessage(`Unable to show file history. File is probably not under source control`);
             }
 
@@ -45,7 +45,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
                 new CommandQuickPickItem({
                     label: `go back \u21A9`,
                     description: `\u00a0 \u2014 \u00a0\u00a0 to history of \u00a0$(file-text) ${path.basename(pick.commit.fileName)}`
-                }, Commands.ShowQuickFileHistory, [uri, maxCount, goBackCommand, log]),
+                }, Commands.ShowQuickFileHistory, [uri, undefined, maxCount, goBackCommand, log]),
                 { showFileHistory: false },
                 log);
         }
