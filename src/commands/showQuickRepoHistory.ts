@@ -1,13 +1,13 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from '../commands';
-import { GitProvider, GitUri, IGitLog } from '../gitProvider';
+import { GitService, GitUri, IGitLog } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepoHistoryQuickPick } from '../quickPicks';
 
 export class ShowQuickRepoHistoryCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitProvider, private repoPath: string) {
+    constructor(private git: GitService, private repoPath: string) {
         super(Commands.ShowQuickRepoHistory);
     }
 

@@ -2,7 +2,7 @@
 import { Iterables } from '../system';
 import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard, KeyNoopCommand } from '../commands';
-import { GitUri, IGitLog } from '../gitProvider';
+import { GitUri, IGitLog } from '../gitService';
 import { CommitQuickPickItem } from './gitQuickPicks';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './quickPicks';
 

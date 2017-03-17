@@ -2,7 +2,7 @@
 import { Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard, KeyNoopCommand } from '../commands';
-import { GitCommit, GitLogCommit, GitProvider, GitUri, IGitLog } from '../gitProvider';
+import { GitCommit, GitLogCommit, GitService, GitUri, IGitLog } from '../gitService';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem } from './quickPicks';
 import * as moment from 'moment';
 import * as path from 'path';
@@ -10,7 +10,7 @@ import * as path from 'path';
 export class OpenCommitFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 
     constructor(commit: GitCommit, item?: QuickPickItem) {
-        const uri = GitProvider.toGitContentUri(commit);
+        const uri = GitService.toGitContentUri(commit);
         super(uri, item || {
             label: `$(file-symlink-file) Open File`,
             description: `\u00a0 \u2014 \u00a0\u00a0 ${path.basename(commit.fileName)} in \u00a0$(git-commit) ${commit.shortSha}`
@@ -31,7 +31,7 @@ export class OpenCommitWorkingTreeFileCommandQuickPickItem extends OpenFileComma
 
 export class CommitFileDetailsQuickPick {
 
-    static async show(git: GitProvider, commit: GitLogCommit, workingFileName: string, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, options: { showFileHistory?: boolean } = {}, fileLog?: IGitLog): Promise<CommandQuickPickItem | undefined> {
+    static async show(git: GitService, commit: GitLogCommit, workingFileName: string, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, options: { showFileHistory?: boolean } = {}, fileLog?: IGitLog): Promise<CommandQuickPickItem | undefined> {
         const items: CommandQuickPickItem[] = [];
 
         const workingName = (workingFileName && path.basename(workingFileName)) || path.basename(commit.fileName);

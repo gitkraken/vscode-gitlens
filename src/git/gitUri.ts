@@ -2,7 +2,7 @@
 import { Iterables } from '../system';
 import { Uri } from 'vscode';
 import { DocumentSchemes } from '../constants';
-import { Git, GitProvider } from '../gitProvider';
+import { Git, GitService } from '../gitService';
 import * as path from 'path';
 
 export class GitUri extends Uri {
@@ -26,7 +26,7 @@ export class GitUri extends Uri {
 
         this.offset = 0;
         if (uri.scheme === DocumentSchemes.GitLensGit) {
-            const data = GitProvider.fromGitContentUri(uri);
+            const data = GitService.fromGitContentUri(uri);
             base._fsPath = path.resolve(data.repoPath, data.originalFileName || data.fileName);
 
             this.offset = (data.decoration && data.decoration.split('\n').length) || 0;
@@ -69,7 +69,7 @@ export class GitUri extends Uri {
             : `${path.basename(this.fsPath)}${separator}${directory}`;
     }
 
-    static async fromUri(uri: Uri, git: GitProvider) {
+    static async fromUri(uri: Uri, git: GitService) {
         if (uri instanceof GitUri) return uri;
 
         const gitUri = git.getGitUriForFile(uri.fsPath);

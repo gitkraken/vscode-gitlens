@@ -3,13 +3,13 @@ import { Iterables } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
 import { BuiltInCommands } from '../constants';
-import { GitCommit, GitProvider, GitUri } from '../gitProvider';
+import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import * as path from 'path';
 
 export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitProvider) {
+    constructor(private git: GitService) {
         super(Commands.DiffWithWorking);
     }
 
@@ -23,7 +23,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
         line = line || (editor && editor.selection.active.line) || 0;
 
-        if (!commit || GitProvider.isUncommitted(commit.sha)) {
+        if (!commit || GitService.isUncommitted(commit.sha)) {
             const gitUri = await GitUri.fromUri(uri, this.git);
 
             try {

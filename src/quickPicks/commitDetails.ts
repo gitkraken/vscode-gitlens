@@ -2,7 +2,7 @@
 import { Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard, KeyNoopCommand } from '../commands';
-import { GitLogCommit, GitProvider, IGitLog } from '../gitProvider';
+import { GitLogCommit, GitService, IGitLog } from '../gitService';
 import { CommitWithFileStatusQuickPickItem } from './gitQuickPicks';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFilesCommandQuickPickItem } from './quickPicks';
 import * as moment from 'moment';
@@ -12,7 +12,7 @@ export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPi
 
     constructor(commit: GitLogCommit, item?: QuickPickItem) {
         const repoPath = commit.repoPath;
-        const uris = commit.fileStatuses.map(_ => GitProvider.toGitContentUri(commit.sha, _.fileName, repoPath, commit.originalFileName));
+        const uris = commit.fileStatuses.map(_ => GitService.toGitContentUri(commit.sha, _.fileName, repoPath, commit.originalFileName));
         super(uris, item || {
             label: `$(file-symlink-file) Open Changed Files`,
             description: `\u00a0 \u2014 \u00a0\u00a0 in \u00a0$(git-commit) ${commit.shortSha}`
@@ -36,7 +36,7 @@ export class OpenCommitWorkingTreeFilesCommandQuickPickItem extends OpenFilesCom
 
 export class CommitDetailsQuickPick {
 
-    static async show(git: GitProvider, commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, repoLog?: IGitLog): Promise<CommitWithFileStatusQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(git: GitService, commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, repoLog?: IGitLog): Promise<CommitWithFileStatusQuickPickItem | CommandQuickPickItem | undefined> {
         const items: (CommitWithFileStatusQuickPickItem | CommandQuickPickItem)[] = commit.fileStatuses.map(fs => new CommitWithFileStatusQuickPickItem(commit, fs.fileName, fs.status));
 
         let index = 0;

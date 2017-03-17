@@ -46,7 +46,7 @@ enum RemoveCacheReason {
     DocumentSaved
 }
 
-export class GitProvider extends Disposable {
+export class GitService extends Disposable {
 
     private _onDidChangeGitCacheEmitter = new EventEmitter<void>();
     get onDidChangeGitCache(): Event<void> {
@@ -335,11 +335,11 @@ export class GitProvider extends Disposable {
                 if (cacheKey) {
                     this._onDidBlameFailEmitter.fire(cacheKey);
                 }
-                return GitProvider.EmptyPromise as Promise<IGitBlame>;
+                return GitService.EmptyPromise as Promise<IGitBlame>;
             }
 
-            return Git.blame(GitProvider.BlameFormat, fileName, sha, repoPath)
-                .then(data => new GitBlameParserEnricher(GitProvider.BlameFormat).enrich(data, fileName))
+            return Git.blame(GitService.BlameFormat, fileName, sha, repoPath)
+                .then(data => new GitBlameParserEnricher(GitService.BlameFormat).enrich(data, fileName))
                 .catch(ex => {
                     // Trap and cache expected blame errors
                     if (useCaching) {
@@ -348,13 +348,13 @@ export class GitProvider extends Disposable {
 
                         entry.blame = {
                             //date: new Date(),
-                            item: GitProvider.EmptyPromise,
+                            item: GitService.EmptyPromise,
                             errorMessage: msg
                         } as ICachedBlame;
 
                         this._onDidBlameFailEmitter.fire(cacheKey);
                         this._gitCache.set(cacheKey, entry);
-                        return GitProvider.EmptyPromise as Promise<IGitBlame>;
+                        return GitService.EmptyPromise as Promise<IGitBlame>;
                     }
                     return undefined;
                 });
@@ -393,8 +393,8 @@ export class GitProvider extends Disposable {
         fileName = Git.normalizePath(fileName);
 
         try {
-            const data = await Git.blameLines(GitProvider.BlameFormat, fileName, line + 1, line + 1, sha, repoPath);
-            const blame = new GitBlameParserEnricher(GitProvider.BlameFormat).enrich(data, fileName);
+            const data = await Git.blameLines(GitService.BlameFormat, fileName, line + 1, line + 1, sha, repoPath);
+            const blame = new GitBlameParserEnricher(GitService.BlameFormat).enrich(data, fileName);
             if (!blame) return undefined;
 
             const commit = Iterables.first(blame.commits.values());
@@ -480,7 +480,7 @@ export class GitProvider extends Disposable {
             if (c.isUncommitted) return;
 
             const decoration = `\u2937 ${c.author}, ${moment(c.date).format('MMMM Do, YYYY h:MMa')}`;
-            const uri = GitProvider.toReferenceGitContentUri(c, i + 1, commitCount, c.originalFileName, decoration);
+            const uri = GitService.toReferenceGitContentUri(c, i + 1, commitCount, c.originalFileName, decoration);
             locations.push(new Location(uri, new Position(0, 0)));
             if (c.sha === selectedSha) {
                 locations.push(new Location(uri, new Position(line + 1, 0)));
@@ -527,7 +527,7 @@ export class GitProvider extends Disposable {
         const promise = this._gitignore.then(ignore => {
             if (ignore && !ignore.filter([fileName]).length) {
                 Logger.log(`Skipping log; '${fileName}' is gitignored`);
-                return GitProvider.EmptyPromise as Promise<IGitLog>;
+                return GitService.EmptyPromise as Promise<IGitLog>;
             }
 
             return (range
@@ -542,12 +542,12 @@ export class GitProvider extends Disposable {
 
                         entry.log = {
                             //date: new Date(),
-                            item: GitProvider.EmptyPromise,
+                            item: GitService.EmptyPromise,
                             errorMessage: msg
                         } as ICachedLog;
 
                         this._gitCache.set(cacheKey, entry);
-                        return GitProvider.EmptyPromise as Promise<IGitLog>;
+                        return GitService.EmptyPromise as Promise<IGitLog>;
                     }
                     return undefined;
                 });
@@ -580,7 +580,7 @@ export class GitProvider extends Disposable {
             if (c.isUncommitted) return;
 
             const decoration = `\u2937 ${c.author}, ${moment(c.date).format('MMMM Do, YYYY h:MMa')}`;
-            const uri = GitProvider.toReferenceGitContentUri(c, i + 1, commitCount, c.originalFileName, decoration);
+            const uri = GitService.toReferenceGitContentUri(c, i + 1, commitCount, c.originalFileName, decoration);
             locations.push(new Location(uri, new Position(0, 0)));
             if (c.sha === selectedSha) {
                 locations.push(new Location(uri, new Position(line + 1, 0)));
@@ -658,7 +658,7 @@ export class GitProvider extends Disposable {
 
     static fromGitContentUri(uri: Uri): IGitUriData {
         if (uri.scheme !== DocumentSchemes.GitLensGit) throw new Error(`fromGitUri(uri=${uri}) invalid scheme`);
-        return GitProvider._fromGitContentUri<IGitUriData>(uri);
+        return GitService._fromGitContentUri<IGitUriData>(uri);
     }
 
     private static _fromGitContentUri<T extends IGitUriData>(uri: Uri): T {
@@ -670,7 +670,7 @@ export class GitProvider extends Disposable {
     static toGitContentUri(shaOrcommit: string | GitCommit, fileName?: string, repoPath?: string, originalFileName?: string): Uri {
         let data: IGitUriData;
         if (typeof shaOrcommit === 'string') {
-            data = GitProvider._toGitUriData({
+            data = GitService._toGitUriData({
                 sha: shaOrcommit,
                 fileName: fileName,
                 repoPath: repoPath,
@@ -678,7 +678,7 @@ export class GitProvider extends Disposable {
             });
         }
         else {
-            data = GitProvider._toGitUriData(shaOrcommit, undefined, shaOrcommit.originalFileName);
+            data = GitService._toGitUriData(shaOrcommit, undefined, shaOrcommit.originalFileName);
             fileName = shaOrcommit.fileName;
         }
 
@@ -687,7 +687,7 @@ export class GitProvider extends Disposable {
     }
 
     static toReferenceGitContentUri(commit: GitCommit, index: number, commitCount: number, originalFileName?: string, decoration?: string): Uri {
-        return GitProvider._toReferenceGitContentUri(commit, DocumentSchemes.GitLensGit, commitCount, GitProvider._toGitUriData(commit, index, originalFileName, decoration));
+        return GitService._toReferenceGitContentUri(commit, DocumentSchemes.GitLensGit, commitCount, GitService._toGitUriData(commit, index, originalFileName, decoration));
     }
 
     private static _toReferenceGitContentUri(commit: GitCommit, scheme: DocumentSchemes, commitCount: number, data: IGitUriData) {

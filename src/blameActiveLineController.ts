@@ -7,7 +7,7 @@ import { BlameAnnotationFormat, BlameAnnotationFormatter } from './blameAnnotati
 import { TextEditorComparer } from './comparers';
 import { IBlameConfig, IConfig, StatusBarCommand } from './configuration';
 import { DocumentSchemes } from './constants';
-import { GitCommit, GitProvider, GitUri, IGitBlame, IGitCommitLine } from './gitProvider';
+import { GitCommit, GitService, GitUri, IGitBlame, IGitCommitLine } from './gitService';
 import * as moment from 'moment';
 
 const activeLineDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
@@ -30,7 +30,7 @@ export class BlameActiveLineController extends Disposable {
     private _uri: GitUri;
     private _useCaching: boolean;
 
-    constructor(context: ExtensionContext, private git: GitProvider, private blameabilityTracker: BlameabilityTracker, private annotationController: BlameAnnotationController) {
+    constructor(context: ExtensionContext, private git: GitService, private blameabilityTracker: BlameabilityTracker, private annotationController: BlameAnnotationController) {
         super(() => this.dispose());
 
         this._updateBlameDebounced = Functions.debounce(this._updateBlame, 50);

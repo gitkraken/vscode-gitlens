@@ -3,18 +3,18 @@ import { Iterables } from './system';
 import { CancellationToken, CodeLens, CodeLensProvider, DocumentSelector, ExtensionContext, Range, TextDocument, Uri } from 'vscode';
 import { Commands } from './commands';
 import { DocumentSchemes } from './constants';
-import { GitCommit, GitProvider, GitUri } from './gitProvider';
+import { GitCommit, GitService, GitUri } from './gitService';
 
 export class GitDiffWithWorkingCodeLens extends CodeLens {
 
-    constructor(git: GitProvider, public fileName: string, public commit: GitCommit, range: Range) {
+    constructor(git: GitService, public fileName: string, public commit: GitCommit, range: Range) {
         super(range);
     }
 }
 
 export class GitDiffWithPreviousCodeLens extends CodeLens {
 
-    constructor(git: GitProvider, public fileName: string, public commit: GitCommit, range: Range) {
+    constructor(git: GitService, public fileName: string, public commit: GitCommit, range: Range) {
         super(range);
     }
 }
@@ -23,10 +23,10 @@ export class GitRevisionCodeLensProvider implements CodeLensProvider {
 
     static selector: DocumentSelector = { scheme: DocumentSchemes.GitLensGit };
 
-    constructor(context: ExtensionContext, private git: GitProvider) { }
+    constructor(context: ExtensionContext, private git: GitService) { }
 
     async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
-        const data = GitProvider.fromGitContentUri(document.uri);
+        const data = GitService.fromGitContentUri(document.uri);
         const gitUri = new GitUri(Uri.file(data.fileName), data);
 
         const lenses: CodeLens[] = [];

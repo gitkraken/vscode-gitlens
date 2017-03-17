@@ -3,14 +3,14 @@ import { Iterables } from '../system';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
 import { BuiltInCommands } from '../constants';
-import { GitCommit, GitProvider, GitUri } from '../gitProvider';
+import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import * as moment from 'moment';
 import * as path from 'path';
 
 export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitProvider) {
+    constructor(private git: GitService) {
         super(Commands.DiffWithPrevious);
     }
 

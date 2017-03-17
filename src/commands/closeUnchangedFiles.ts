@@ -3,13 +3,13 @@ import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorTracker } from '../activeEditorTracker';
 import { ActiveEditorCommand, Commands } from './commands';
 import { TextEditorComparer, UriComparer } from '../comparers';
-import { GitProvider } from '../gitProvider';
+import { GitService } from '../gitService';
 import { Logger } from '../logger';
 import * as path from 'path';
 
 export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitProvider, private repoPath: string) {
+    constructor(private git: GitService, private repoPath: string) {
         super(Commands.CloseUnchangedFiles);
     }
 

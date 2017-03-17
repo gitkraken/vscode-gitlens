@@ -1,6 +1,6 @@
 'use strict';
 import { IBlameConfig } from './configuration';
-import { GitCommit, IGitCommitLine } from './gitProvider';
+import { GitCommit, IGitCommitLine } from './gitService';
 import * as moment from 'moment';
 
 export const defaultAbsoluteDateLength = 10;

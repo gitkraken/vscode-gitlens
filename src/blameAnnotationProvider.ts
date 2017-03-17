@@ -5,7 +5,7 @@ import { BlameAnnotationFormat, BlameAnnotationFormatter, cssIndent, defaultAuth
 import { BlameDecorations } from './blameAnnotationController';
 import { TextDocumentComparer } from './comparers';
 import { BlameAnnotationStyle, IBlameConfig } from './configuration';
-import { GitProvider, GitUri, IGitBlame } from './gitProvider';
+import { GitService, GitUri, IGitBlame } from './gitService';
 import { WhitespaceController } from './whitespaceController';
 
 export class BlameAnnotationProvider extends Disposable {
@@ -16,7 +16,7 @@ export class BlameAnnotationProvider extends Disposable {
     private _config: IBlameConfig;
     private _disposable: Disposable;
 
-    constructor(context: ExtensionContext, private git: GitProvider, private whitespaceController: WhitespaceController | undefined, public editor: TextEditor, private uri: GitUri) {
+    constructor(context: ExtensionContext, private git: GitService, private whitespaceController: WhitespaceController | undefined, public editor: TextEditor, private uri: GitUri) {
         super(() => this.dispose());
 
         this.document = this.editor.document;

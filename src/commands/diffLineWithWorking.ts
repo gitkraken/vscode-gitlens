@@ -1,12 +1,12 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
-import { GitCommit, GitProvider, GitUri } from '../gitProvider';
+import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 
 export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitProvider) {
+    constructor(private git: GitService) {
         super(Commands.DiffLineWithWorking);
     }
 
@@ -21,7 +21,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
         const gitUri = await GitUri.fromUri(uri, this.git);
         line = line || (editor && editor.selection.active.line) || gitUri.offset;
 
-        if (!commit || GitProvider.isUncommitted(commit.sha)) {
+        if (!commit || GitService.isUncommitted(commit.sha)) {
             if (editor && editor.document && editor.document.isDirty) return undefined;
 
             const blameline = line - gitUri.offset;

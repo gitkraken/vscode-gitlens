@@ -2,13 +2,13 @@
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
 import { BuiltInCommands } from '../constants';
-import { GitCommit, GitProvider, GitUri } from '../gitProvider';
+import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import * as path from 'path';
 
 export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitProvider) {
+    constructor(private git: GitService) {
         super(Commands.DiffLineWithPrevious);
     }
 
@@ -23,7 +23,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
         const gitUri = await GitUri.fromUri(uri, this.git);
         line = line || (editor && editor.selection.active.line) || gitUri.offset;
 
-        if (!commit || GitProvider.isUncommitted(commit.sha)) {
+        if (!commit || GitService.isUncommitted(commit.sha)) {
             if (editor && editor.document && editor.document.isDirty) return undefined;
 
             const blameline = line - gitUri.offset;

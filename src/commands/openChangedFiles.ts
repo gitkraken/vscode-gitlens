@@ -1,13 +1,13 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, openEditor } from './commands';
-import { GitProvider } from '../gitProvider';
+import { GitService } from '../gitService';
 import { Logger } from '../logger';
 import * as path from 'path';
 
 export class OpenChangedFilesCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitProvider, private repoPath: string) {
+    constructor(private git: GitService, private repoPath: string) {
         super(Commands.OpenChangedFiles);
     }
 

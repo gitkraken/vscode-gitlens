@@ -1,12 +1,12 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
-import { GitProvider } from '../gitProvider';
+import { GitService } from '../gitService';
 import { Logger } from '../logger';
 
 export class DiffDirectoryCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitProvider, private repoPath: string) {
+    constructor(private git: GitService, private repoPath: string) {
         super(Commands.DiffDirectory);
     }
 

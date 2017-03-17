@@ -16,7 +16,7 @@ import { Keyboard } from './commands';
 import { IAdvancedConfig, IBlameConfig } from './configuration';
 import { WorkspaceState } from './constants';
 import { GitContentProvider } from './gitContentProvider';
-import { Git, GitProvider } from './gitProvider';
+import { Git, GitService } from './gitService';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { Logger } from './logger';
 
@@ -70,7 +70,7 @@ export async function activate(context: ExtensionContext) {
 
     context.workspaceState.update(WorkspaceState.RepoPath, repoPath);
 
-    const git = new GitProvider(context);
+    const git = new GitService(context);
     context.subscriptions.push(git);
 
     const blameabilityTracker = new BlameabilityTracker(git);

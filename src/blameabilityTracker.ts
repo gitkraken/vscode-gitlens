@@ -2,7 +2,7 @@
 import { Disposable, Event, EventEmitter, TextDocument, TextDocumentChangeEvent, TextEditor, window, workspace } from 'vscode';
 import { CommandContext, setCommandContext } from './commands';
 import { TextDocumentComparer } from './comparers';
-import { GitProvider } from './gitProvider';
+import { GitService } from './gitService';
 
 export interface BlameabilityChangeEvent {
     blameable: boolean;
@@ -21,7 +21,7 @@ export class BlameabilityTracker extends Disposable {
     private _editor: TextEditor;
     private _isBlameable: boolean;
 
-    constructor(private git: GitProvider) {
+    constructor(private git: GitService) {
         super(() => this.dispose());
 
         const subscriptions: Disposable[] = [];

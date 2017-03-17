@@ -4,7 +4,7 @@ import { CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelect
 import { Commands } from './commands';
 import { BuiltInCommands, DocumentSchemes } from './constants';
 import { CodeLensCommand, CodeLensLocation, IConfig, ICodeLensLanguageLocation } from './configuration';
-import { GitCommit, GitProvider, GitUri, IGitBlame, IGitBlameLines } from './gitProvider';
+import { GitCommit, GitService, GitUri, IGitBlame, IGitBlameLines } from './gitService';
 import { Logger } from './logger';
 import * as moment from 'moment';
 
@@ -42,7 +42,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
     private _config: IConfig;
     private _documentIsDirty: boolean;
 
-    constructor(context: ExtensionContext, private git: GitProvider) {
+    constructor(context: ExtensionContext, private git: GitService) {
         this._config = workspace.getConfiguration('').get<IConfig>('gitlens');
     }
 

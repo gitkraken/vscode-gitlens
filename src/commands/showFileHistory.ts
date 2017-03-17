@@ -2,12 +2,12 @@
 import { commands, Position, Range, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { Commands, EditorCommand } from './commands';
 import { BuiltInCommands } from '../constants';
-import { GitProvider, GitUri } from '../gitProvider';
+import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 
 export class ShowFileHistoryCommand extends EditorCommand {
 
-    constructor(private git: GitProvider) {
+    constructor(private git: GitService) {
         super(Commands.ShowFileHistory);
     }
 

@@ -5,7 +5,7 @@ import { BlameabilityChangeEvent, BlameabilityTracker } from './blameabilityTrac
 import { BlameAnnotationProvider } from './blameAnnotationProvider';
 import { TextDocumentComparer, TextEditorComparer } from './comparers';
 import { IBlameConfig } from './configuration';
-import { GitProvider, GitUri } from './gitProvider';
+import { GitService, GitUri } from './gitService';
 import { Logger } from './logger';
 import { WhitespaceController } from './whitespaceController';
 
@@ -34,7 +34,7 @@ export class BlameAnnotationController extends Disposable {
     private _disposable: Disposable;
     private _whitespaceController: WhitespaceController | undefined;
 
-    constructor(private context: ExtensionContext, private git: GitProvider, private blameabilityTracker: BlameabilityTracker) {
+    constructor(private context: ExtensionContext, private git: GitService, private blameabilityTracker: BlameabilityTracker) {
         super(() => this.dispose());
 
         this._onConfigurationChanged();

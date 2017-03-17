@@ -2,7 +2,7 @@
 import { Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard } from '../commands';
-import { getGitStatusIcon, GitFileStatusItem } from '../gitProvider';
+import { getGitStatusIcon, GitFileStatusItem } from '../gitService';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem } from './quickPicks';
 import * as path from 'path';
 

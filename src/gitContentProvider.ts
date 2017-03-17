@@ -1,7 +1,7 @@
 'use strict';
 import { ExtensionContext, TextDocumentContentProvider, Uri, window } from 'vscode';
 import { DocumentSchemes } from './constants';
-import { GitProvider } from './gitProvider';
+import { GitService } from './gitService';
 import { Logger } from './logger';
 import * as path from 'path';
 
@@ -9,10 +9,10 @@ export class GitContentProvider implements TextDocumentContentProvider {
 
     static scheme = DocumentSchemes.GitLensGit;
 
-    constructor(context: ExtensionContext, private git: GitProvider) { }
+    constructor(context: ExtensionContext, private git: GitService) { }
 
     async provideTextDocumentContent(uri: Uri): Promise<string> {
-        const data = GitProvider.fromGitContentUri(uri);
+        const data = GitService.fromGitContentUri(uri);
         const fileName = data.originalFileName || data.fileName;
         try {
             let text = await this.git.getVersionedFileText(fileName, data.repoPath, data.sha) as string;
