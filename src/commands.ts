@@ -11,6 +11,7 @@ export { CopyShaToClipboardCommand } from './commands/copyShaToClipboard';
 export { DiffDirectoryCommand } from './commands/diffDirectory';
 export { DiffLineWithPreviousCommand } from './commands/diffLineWithPrevious';
 export { DiffLineWithWorkingCommand } from './commands/diffLineWithWorking';
+export { DiffWithBranchCommand } from './commands/diffWithBranch';
 export { DiffWithNextCommand } from './commands/diffWithNext';
 export { DiffWithPreviousCommand } from './commands/diffWithPrevious';
 export { DiffWithWorkingCommand } from './commands/diffWithWorking';

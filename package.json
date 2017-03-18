@@ -360,6 +360,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.diffWithBranch",
+                "title": "Compare with...",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.diffWithNext",
                 "title": "Compare with Next Commit",
                 "category": "GitLens"
@@ -463,6 +468,10 @@
             "commandPalette": [
                 {
                     "command": "gitlens.diffDirectory",
+                    "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.diffWithBranch",
                     "when": "gitlens:enabled"
                 },
                 {

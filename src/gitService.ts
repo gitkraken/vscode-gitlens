@@ -4,7 +4,7 @@ import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, l
 import { CommandContext, setCommandContext } from './commands';
 import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes, WorkspaceState } from './constants';
-import { Git, GitBlameParserEnricher, GitBlameFormat, GitCommit, GitFileStatusItem, GitLogParserEnricher, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog } from './git/git';
+import { Git, GitBlameParserEnricher, GitBlameFormat, GitBranch, GitCommit, GitFileStatusItem, GitLogParserEnricher, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog } from './git/git';
 import { IGitUriData, GitUri } from './git/gitUri';
 import GitCodeLensProvider from './gitCodeLensProvider';
 import { Logger } from './logger';
@@ -489,6 +489,14 @@ export class GitService extends Disposable {
         });
 
         return locations;
+    }
+
+    async getBranches(repoPath: string): Promise<GitBranch[]> {
+        Logger.log(`getBranches('${repoPath}')`);
+
+        const data = await Git.branch(repoPath);
+        const branches = data.split('\n').filter(_ => !!_).map(_ => new GitBranch(_));
+        return branches;
     }
 
     async getLogForRepo(repoPath: string, sha?: string, maxCount?: number, reverse: boolean = false): Promise<IGitLog | undefined> {

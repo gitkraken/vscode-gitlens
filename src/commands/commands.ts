@@ -2,12 +2,13 @@
 import { commands, Disposable, TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
 import { BuiltInCommands } from '../constants';
 
-export type Commands = 'gitlens.closeUnchangedFiles' | 'gitlens.copyMessageToClipboard' | 'gitlens.copyShaToClipboard' | 'gitlens.diffDirectory' | 'gitlens.diffWithNext' | 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' | 'gitlens.openChangedFiles' | 'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory' | 'gitlens.showQuickRepoStatus' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
+export type Commands = 'gitlens.closeUnchangedFiles' | 'gitlens.copyMessageToClipboard' | 'gitlens.copyShaToClipboard' | 'gitlens.diffDirectory' | 'gitlens.diffWithBranch' | 'gitlens.diffWithNext' | 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' | 'gitlens.openChangedFiles' | 'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory' | 'gitlens.showQuickRepoStatus' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
 export const Commands = {
     CloseUnchangedFiles: 'gitlens.closeUnchangedFiles' as Commands,
     CopyMessageToClipboard: 'gitlens.copyMessageToClipboard' as Commands,
     CopyShaToClipboard: 'gitlens.copyShaToClipboard' as Commands,
     DiffDirectory: 'gitlens.diffDirectory' as Commands,
+    DiffWithBranch: 'gitlens.diffWithBranch' as Commands,
     DiffWithNext: 'gitlens.diffWithNext' as Commands,
     DiffWithPrevious: 'gitlens.diffWithPrevious' as Commands,
     DiffLineWithPrevious: 'gitlens.diffLineWithPrevious' as Commands,

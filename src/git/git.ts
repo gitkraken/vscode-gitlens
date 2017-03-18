@@ -57,7 +57,7 @@ export class Git {
         return data;
     }
 
-    static async getVersionedFile(fileName: string, repoPath: string, branchOrSha: string) {
+    static async getVersionedFile(repoPath: string, fileName: string, branchOrSha: string) {
         const data = await Git.show(repoPath, fileName, branchOrSha);
 
         const suffix = Git.isSha(branchOrSha) ? branchOrSha.substring(0, 8) : branchOrSha;
@@ -70,7 +70,7 @@ export class Git {
                         return;
                     }
 
-                    Logger.log(`getVersionedFile(${fileName}, ${repoPath}, ${branchOrSha}); destination=${destination}`);
+                    Logger.log(`getVersionedFile('${repoPath}', '${fileName}', ${branchOrSha}); destination=${destination}`);
                     fs.appendFile(destination, data, err => {
                         if (err) {
                             reject(err);
@@ -125,6 +125,12 @@ export class Git {
         }
 
         return gitCommand(root, ...params, `--`, file);
+    }
+
+    static branch(repoPath: string) {
+        const params = [`branch`, `-a`];
+
+        return gitCommand(repoPath, ...params);
     }
 
     static diff_nameStatus(repoPath: string, sha1?: string, sha2?: string) {

@@ -7,7 +7,7 @@ import { configureCssCharacters } from './blameAnnotationFormatter';
 import { CommandContext, setCommandContext } from './commands';
 import { CloseUnchangedFilesCommand, OpenChangedFilesCommand } from './commands';
 import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './commands';
-import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithNextCommand, DiffWithPreviousCommand, DiffWithWorkingCommand} from './commands';
+import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithBranchCommand, DiffWithNextCommand, DiffWithPreviousCommand, DiffWithWorkingCommand} from './commands';
 import { ShowBlameCommand, ToggleBlameCommand } from './commands';
 import { ShowBlameHistoryCommand, ShowFileHistoryCommand } from './commands';
 import { ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand, ShowQuickFileHistoryCommand, ShowQuickRepoHistoryCommand, ShowQuickRepoStatusCommand} from './commands';
@@ -95,6 +95,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new DiffDirectoryCommand(git, repoPath));
     context.subscriptions.push(new DiffLineWithPreviousCommand(git));
     context.subscriptions.push(new DiffLineWithWorkingCommand(git));
+    context.subscriptions.push(new DiffWithBranchCommand(git));
     context.subscriptions.push(new DiffWithNextCommand(git));
     context.subscriptions.push(new DiffWithPreviousCommand(git));
     context.subscriptions.push(new DiffWithWorkingCommand(git));

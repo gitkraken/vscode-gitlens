@@ -1,4 +1,5 @@
 'use strict';
+export { BranchQuickPickItem, BranchesQuickPick } from './quickPicks/branches';
 export { CommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, showQuickPickProgress } from './quickPicks/quickPicks';
 export { CommitQuickPickItem, CommitWithFileStatusQuickPickItem } from './quickPicks/gitQuickPicks';
 export { OpenCommitFilesCommandQuickPickItem, OpenCommitWorkingTreeFilesCommandQuickPickItem, CommitDetailsQuickPick } from './quickPicks/commitDetails';
