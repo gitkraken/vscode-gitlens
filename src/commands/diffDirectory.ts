@@ -1,8 +1,10 @@
 'use strict';
+import { Iterables } from '../system';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
+import { CommandQuickPickItem, BranchesQuickPick } from '../quickPicks';
 
 export class DiffDirectoryCommand extends ActiveEditorCommand {
 
@@ -20,8 +22,18 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
             if (!repoPath) return window.showWarningMessage(`Unable to open directory diff`);
 
             if (!shaOrBranch1) {
-                //window.showQuickPick()
-                return undefined;
+                const branches = await this.git.getBranches(repoPath);
+                const current = Iterables.find(branches, _ => _.current);
+
+                const pick = await BranchesQuickPick.show(branches, `Compare ${current.name} to \u2026`);
+                if (!pick) return undefined;
+
+                if (pick instanceof CommandQuickPickItem) {
+                    return pick.execute();
+                }
+
+                shaOrBranch1 = pick.branch.name;
+                if (!shaOrBranch1) return undefined;
             }
 
             this.git.openDirectoryDiff(repoPath, shaOrBranch1, shaOrBranch2);

@@ -24,7 +24,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
         const gitUri = await GitUri.fromUri(uri, this.git);
 
         const branches = await this.git.getBranches(gitUri.repoPath);
-        const pick = await BranchesQuickPick.show(branches, gitUri, goBackCommand);
+        const pick = await BranchesQuickPick.show(branches, `Compare ${path.basename(gitUri.fsPath)} to \u2026`, goBackCommand);
         if (!pick) return undefined;
 
         if (pick instanceof CommandQuickPickItem) {

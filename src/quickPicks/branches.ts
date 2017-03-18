@@ -1,8 +1,7 @@
 'use strict';
 import { QuickPickItem, QuickPickOptions, window } from 'vscode';
-import { GitBranch, GitUri } from '../gitService';
+import { GitBranch } from '../gitService';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './quickPicks';
-import * as path from 'path';
 
 export class BranchQuickPickItem implements QuickPickItem {
 
@@ -18,7 +17,7 @@ export class BranchQuickPickItem implements QuickPickItem {
 
 export class BranchesQuickPick {
 
-    static async show(branches: GitBranch[], uri: GitUri, goBackCommand?: CommandQuickPickItem): Promise<BranchQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(branches: GitBranch[], placeHolder: string, goBackCommand?: CommandQuickPickItem): Promise<BranchQuickPickItem | CommandQuickPickItem | undefined> {
 
         const items = branches.map(_ => new BranchQuickPickItem(_)) as (BranchQuickPickItem | CommandQuickPickItem)[];
 
@@ -30,7 +29,7 @@ export class BranchesQuickPick {
 
         const pick = await window.showQuickPick(items,
             {
-                placeHolder: `Compare ${path.basename(uri.fsPath)} to \u2026`,
+                placeHolder: placeHolder,
                 ignoreFocusOut: getQuickPickIgnoreFocusOut()
             } as QuickPickOptions);
         if (!pick) return undefined;
