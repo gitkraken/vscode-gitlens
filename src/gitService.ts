@@ -78,6 +78,7 @@ export class GitService extends Disposable {
         super(() => this.dispose());
 
         this.repoPath = context.workspaceState.get(WorkspaceState.RepoPath) as string;
+        this._uriCache = new Map();
 
         this._onConfigurationChanged();
 
@@ -105,18 +106,6 @@ export class GitService extends Disposable {
         this._gitCache = undefined;
         this._uriCache && this._uriCache.clear();
         this._uriCache = undefined;
-    }
-
-    public getBlameability(fileName: string): boolean {
-        if (!this.UseGitCaching) return true;
-
-        const cacheKey = this.getCacheEntryKey(Git.normalizePath(fileName));
-        const entry = this._gitCache.get(cacheKey);
-        return !(entry && entry.hasErrors);
-    }
-
-    public get UseUriCaching() {
-        return !!this._uriCache;
     }
 
     public get UseGitCaching() {
@@ -152,7 +141,6 @@ export class GitService extends Disposable {
         if (advancedChanged) {
             if (config.advanced.caching.enabled) {
                 this._gitCache = new Map();
-                this._uriCache = new Map();
 
                 this._cacheDisposable && this._cacheDisposable.dispose();
 
@@ -175,9 +163,6 @@ export class GitService extends Disposable {
 
                 this._gitCache && this._gitCache.clear();
                 this._gitCache = undefined;
-
-                this._uriCache && this._uriCache.clear();
-                this._uriCache = undefined;
             }
 
             this._gitignore = new Promise<ignore.Ignore | undefined>((resolve, reject) => {
@@ -204,10 +189,6 @@ export class GitService extends Disposable {
         }
 
         this.config = config;
-    }
-
-    getCacheEntryKey(fileName: string) {
-        return fileName.toLowerCase();
     }
 
     private _onGitChanged() {
@@ -243,24 +224,6 @@ export class GitService extends Disposable {
         }
     }
 
-    hasGitUriForFile(editor: TextEditor): boolean;
-    hasGitUriForFile(fileName: string): boolean;
-    hasGitUriForFile(fileNameOrEditor: string | TextEditor): boolean {
-        if (!this.UseUriCaching) return false;
-
-        let fileName: string;
-        if (typeof fileNameOrEditor === 'string') {
-            fileName = fileNameOrEditor;
-        }
-        else {
-            if (!fileNameOrEditor || !fileNameOrEditor.document || !fileNameOrEditor.document.uri) return false;
-            fileName = fileNameOrEditor.document.uri.fsPath;
-        }
-
-        const cacheKey = this.getCacheEntryKey(fileName);
-        return this._uriCache.has(cacheKey);
-    }
-
     async findMostRecentCommitForFile(fileName: string, sha?: string): Promise<GitCommit> {
         const exists = await new Promise<boolean>((resolve, reject) => fs.exists(fileName, e => resolve(e)));
         if (exists) return null;
@@ -285,30 +248,12 @@ export class GitService extends Disposable {
         // return commit;
     }
 
-    getGitUriForFile(fileName: string) {
-        if (!this.UseUriCaching) return undefined;
+    public getBlameability(fileName: string): boolean {
+        if (!this.UseGitCaching) return true;
 
-        const cacheKey = this.getCacheEntryKey(fileName);
-        const entry = this._uriCache.get(cacheKey);
-        return entry && entry.uri;
-    }
-
-    getRepoPath(cwd: string): Promise<string> {
-        return Git.getRepoPath(cwd);
-    }
-
-    async getRepoPathFromUri(uri?: Uri, fallbackRepoPath?: string): Promise<string | undefined> {
-        if (!(uri instanceof Uri)) return fallbackRepoPath;
-
-        const gitUri = await GitUri.fromUri(uri, this);
-        if (gitUri.repoPath) return gitUri.repoPath;
-
-        return (await this.getRepoPathFromFile(gitUri.fsPath)) || fallbackRepoPath;
-    }
-
-    async getRepoPathFromFile(fileName: string): Promise<string | undefined> {
-        const log = await this.getLogForFile(undefined, fileName, undefined, undefined, 1);
-        return log && log.repoPath;
+        const cacheKey = this.getCacheEntryKey(Git.normalizePath(fileName));
+        const entry = this._gitCache.get(cacheKey);
+        return !(entry && entry.hasErrors);
     }
 
     getBlameForFile(uri: GitUri): Promise<IGitBlame | undefined> {
@@ -499,6 +444,16 @@ export class GitService extends Disposable {
         return branches;
     }
 
+    getCacheEntryKey(fileName: string) {
+        return fileName.toLowerCase();
+    }
+
+    getGitUriForFile(fileName: string) {
+        const cacheKey = this.getCacheEntryKey(fileName);
+        const entry = this._uriCache.get(cacheKey);
+        return entry && entry.uri;
+    }
+
     async getLogForRepo(repoPath: string, sha?: string, maxCount?: number, reverse: boolean = false): Promise<IGitLog | undefined> {
         Logger.log(`getLogForRepo('${repoPath}', ${maxCount})`);
 
@@ -597,6 +552,24 @@ export class GitService extends Disposable {
         return locations;
     }
 
+    getRepoPath(cwd: string): Promise<string> {
+        return Git.getRepoPath(cwd);
+    }
+
+    async getRepoPathFromFile(fileName: string): Promise<string | undefined> {
+        const log = await this.getLogForFile(undefined, fileName, undefined, undefined, 1);
+        return log && log.repoPath;
+    }
+
+    async getRepoPathFromUri(uri?: Uri, fallbackRepoPath?: string): Promise<string | undefined> {
+        if (!(uri instanceof Uri)) return fallbackRepoPath;
+
+        const gitUri = await GitUri.fromUri(uri, this);
+        if (gitUri.repoPath) return gitUri.repoPath;
+
+        return (await this.getRepoPathFromFile(gitUri.fsPath)) || fallbackRepoPath;
+    }
+
     async getStatusForFile(repoPath: string, fileName: string): Promise<GitFileStatusItem> {
         Logger.log(`getStatusForFile('${repoPath}', '${fileName}')`);
 
@@ -622,11 +595,9 @@ export class GitService extends Disposable {
         Logger.log(`getVersionedFile('${repoPath}', '${fileName}', ${sha})`);
 
         const file = await Git.getVersionedFile(repoPath, fileName, sha);
-        if (this.UseUriCaching) {
-            const cacheKey = this.getCacheEntryKey(file);
-            const entry = new UriCacheEntry(new GitUri(Uri.file(fileName), { sha, repoPath, fileName }));
-            this._uriCache.set(cacheKey, entry);
-        }
+        const cacheKey = this.getCacheEntryKey(file);
+        const entry = new UriCacheEntry(new GitUri(Uri.file(fileName), { sha, repoPath, fileName }));
+        this._uriCache.set(cacheKey, entry);
         return file;
     }
 
@@ -634,6 +605,22 @@ export class GitService extends Disposable {
         Logger.log(`getVersionedFileText('${repoPath}', '${fileName}', ${sha})`);
 
         return Git.show(repoPath, fileName, sha);
+    }
+
+    hasGitUriForFile(editor: TextEditor): boolean;
+    hasGitUriForFile(fileName: string): boolean;
+    hasGitUriForFile(fileNameOrEditor: string | TextEditor): boolean {
+        let fileName: string;
+        if (typeof fileNameOrEditor === 'string') {
+            fileName = fileNameOrEditor;
+        }
+        else {
+            if (!fileNameOrEditor || !fileNameOrEditor.document || !fileNameOrEditor.document.uri) return false;
+            fileName = fileNameOrEditor.document.uri.fsPath;
+        }
+
+        const cacheKey = this.getCacheEntryKey(fileName);
+        return this._uriCache.has(cacheKey);
     }
 
     isEditorBlameable(editor: TextEditor): boolean {
@@ -664,10 +651,6 @@ export class GitService extends Disposable {
         this._codeLensProviderDisposable = languages.registerCodeLensProvider(GitCodeLensProvider.selector, new GitCodeLensProvider(this.context, this));
     }
 
-    static isUncommitted(sha: string) {
-        return Git.isUncommitted(sha);
-    }
-
     static fromGitContentUri(uri: Uri): IGitUriData {
         if (uri.scheme !== DocumentSchemes.GitLensGit) throw new Error(`fromGitUri(uri=${uri}) invalid scheme`);
         return GitService._fromGitContentUri<IGitUriData>(uri);
@@ -675,6 +658,10 @@ export class GitService extends Disposable {
 
     private static _fromGitContentUri<T extends IGitUriData>(uri: Uri): T {
         return JSON.parse(uri.query) as T;
+    }
+
+    static isUncommitted(sha: string) {
+        return Git.isUncommitted(sha);
     }
 
     static toGitContentUri(sha: string, fileName: string, repoPath: string, originalFileName: string): Uri;
