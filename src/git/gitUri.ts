@@ -77,7 +77,7 @@ export class GitUri extends Uri {
 
         // If this is a git uri, assume it is showing the most recent commit
         if (uri.scheme === 'git' && uri.query === '~') {
-            const log = await git.getLogForFile(uri.fsPath, undefined, undefined, undefined, 1);
+            const log = await git.getLogForFile(undefined, uri.fsPath, undefined, undefined, 1);
             const commit = log && Iterables.first(log.commits.values());
             if (commit) return new GitUri(uri, commit);
         }

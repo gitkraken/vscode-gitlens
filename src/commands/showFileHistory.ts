@@ -25,7 +25,7 @@ export class ShowFileHistoryCommand extends EditorCommand {
         const gitUri = await GitUri.fromUri(uri, this.git);
 
         try {
-            const locations = await this.git.getLogLocations(gitUri.fsPath, gitUri.sha, gitUri.repoPath, sha, line);
+            const locations = await this.git.getLogLocations(gitUri, sha, line);
             if (!locations) return window.showWarningMessage(`Unable to show file history. File is probably not under source control`);
 
             return commands.executeCommand(BuiltInCommands.ShowReferences, uri, position, locations);

@@ -39,7 +39,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                     if (blameline < 0) return undefined;
 
                     try {
-                        const blame = await this.git.getBlameForLine(gitUri.fsPath, blameline, gitUri.sha, gitUri.repoPath);
+                        const blame = await this.git.getBlameForLine(gitUri, blameline);
                         if (!blame) return undefined;
 
                         if (blame.commit.isUncommitted) return undefined;
@@ -56,7 +56,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 }
 
                 // Get the full commit message -- since blame only returns the summary
-                const log = await this.git.getLogForFile(gitUri.fsPath, sha, gitUri.repoPath, undefined, 1);
+                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, sha, undefined, 1);
                 if (!log) return undefined;
 
                 const commit = log.commits.get(sha);

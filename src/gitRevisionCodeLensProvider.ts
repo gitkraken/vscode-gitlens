@@ -31,7 +31,7 @@ export class GitRevisionCodeLensProvider implements CodeLensProvider {
 
         const lenses: CodeLens[] = [];
 
-        const log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, undefined, 2);
+        const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha, undefined, 2);
         if (!log) return lenses;
 
         const commit = (gitUri.sha && log.commits.get(gitUri.sha)) || Iterables.first(log.commits.values());

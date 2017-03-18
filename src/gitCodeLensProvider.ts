@@ -71,7 +71,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
 
         const gitUri = await GitUri.fromUri(document.uri, this.git);
 
-        const blamePromise = this.git.getBlameForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath);
+        const blamePromise = this.git.getBlameForFile(gitUri);
         let blame: IGitBlame;
         if (languageLocations.location === CodeLensLocation.Document) {
             blame = await blamePromise;
@@ -97,12 +97,12 @@ export default class GitCodeLensProvider implements CodeLensProvider {
                 const blameRange = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
                 let blameForRangeFn: () => IGitBlameLines;
                 if (this._documentIsDirty || this._config.codeLens.recentChange.enabled) {
-                    blameForRangeFn = Functions.once(() => this.git.getBlameForRangeSync(blame, gitUri.fsPath, blameRange, gitUri.sha, gitUri.repoPath));
+                    blameForRangeFn = Functions.once(() => this.git.getBlameForRangeSync(blame, gitUri, blameRange));
                     lenses.push(new GitRecentChangeCodeLens(blameForRangeFn, gitUri, SymbolKind.File, blameRange, true, new Range(0, 0, 0, blameRange.start.character)));
                 }
                 if (this._config.codeLens.authors.enabled) {
                     if (!blameForRangeFn) {
-                        blameForRangeFn = Functions.once(() => this.git.getBlameForRangeSync(blame, gitUri.fsPath, blameRange, gitUri.sha, gitUri.repoPath));
+                        blameForRangeFn = Functions.once(() => this.git.getBlameForRangeSync(blame, gitUri, blameRange));
                     }
                     if (!this._documentIsDirty) {
                         lenses.push(new GitAuthorsCodeLens(blameForRangeFn, gitUri, SymbolKind.File, blameRange, true, new Range(0, 1, 0, blameRange.start.character)));
@@ -193,7 +193,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
 
         let blameForRangeFn: () => IGitBlameLines;
         if (this._documentIsDirty || this._config.codeLens.recentChange.enabled) {
-            blameForRangeFn = Functions.once(() => this.git.getBlameForRangeSync(blame, gitUri.fsPath, blameRange, gitUri.sha, gitUri.repoPath));
+            blameForRangeFn = Functions.once(() => this.git.getBlameForRangeSync(blame, gitUri, blameRange));
             lenses.push(new GitRecentChangeCodeLens(blameForRangeFn, gitUri, symbol.kind, blameRange, false, line.range.with(new Position(line.range.start.line, startChar))));
             startChar++;
         }
@@ -221,7 +221,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
 
             if (multiline) {
                 if (!blameForRangeFn) {
-                    blameForRangeFn = Functions.once(() => this.git.getBlameForRangeSync(blame, gitUri.fsPath, blameRange, gitUri.sha, gitUri.repoPath));
+                    blameForRangeFn = Functions.once(() => this.git.getBlameForRangeSync(blame, gitUri, blameRange));
                 }
                 if (!this._documentIsDirty) {
                     lenses.push(new GitAuthorsCodeLens(blameForRangeFn, gitUri, symbol.kind, blameRange, false, line.range.with(new Position(line.range.start.line, startChar))));

@@ -138,7 +138,7 @@ export class BlameActiveLineController extends Disposable {
         const maxLines = this._config.advanced.caching.statusBar.maxLines;
         this._useCaching = this._config.advanced.caching.enabled && (maxLines <= 0 || editor.document.lineCount <= maxLines);
         if (this._useCaching) {
-            this._blame = this.git.getBlameForFile(this._uri.fsPath, this._uri.sha, this._uri.repoPath);
+            this._blame = this.git.getBlameForFile(this._uri);
         }
         else {
             this._blame = undefined;
@@ -199,7 +199,7 @@ export class BlameActiveLineController extends Disposable {
                 commit = sha && blame.commits.get(sha);
             }
             else {
-                const blameLine = await this.git.getBlameForLine(this._uri.fsPath, line, this._uri.sha, this._uri.repoPath);
+                const blameLine = await this.git.getBlameForLine(this._uri, line);
                 commitLine = blameLine && blameLine.line;
                 commit = blameLine && blameLine.commit;
             }
@@ -298,7 +298,7 @@ export class BlameActiveLineController extends Disposable {
             // Get the full commit message -- since blame only returns the summary
             let logCommit: GitCommit;
             if (!commit.isUncommitted) {
-                const log = await this.git.getLogForFile(this._uri.fsPath, commit.sha, this._uri.repoPath, undefined, 1);
+                const log = await this.git.getLogForFile(this._uri.repoPath, this._uri.fsPath, commit.sha, undefined, 1);
                 logCommit = log && log.commits.get(commit.sha);
             }
 

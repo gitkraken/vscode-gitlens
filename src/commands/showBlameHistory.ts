@@ -26,7 +26,7 @@ export class ShowBlameHistoryCommand extends EditorCommand {
         const gitUri = await GitUri.fromUri(uri, this.git);
 
         try {
-            const locations = await this.git.getBlameLocations(gitUri.fsPath, range, gitUri.sha, gitUri.repoPath, sha, line);
+            const locations = await this.git.getBlameLocations(gitUri, range, sha, line);
             if (!locations) return window.showWarningMessage(`Unable to show blame history. File is probably not under source control`);
 
             return commands.executeCommand(BuiltInCommands.ShowReferences, uri, position, locations);

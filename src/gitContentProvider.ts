@@ -15,7 +15,7 @@ export class GitContentProvider implements TextDocumentContentProvider {
         const data = GitService.fromGitContentUri(uri);
         const fileName = data.originalFileName || data.fileName;
         try {
-            let text = await this.git.getVersionedFileText(fileName, data.repoPath, data.sha) as string;
+            let text = await this.git.getVersionedFileText(data.repoPath, fileName, data.sha) as string;
             if (data.decoration) {
                 text = `${data.decoration}\n${text}`;
             }

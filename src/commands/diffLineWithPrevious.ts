@@ -30,7 +30,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
             if (blameline < 0) return undefined;
 
             try {
-                const blame = await this.git.getBlameForLine(gitUri.fsPath, blameline, gitUri.sha, gitUri.repoPath);
+                const blame = await this.git.getBlameForLine(gitUri, blameline);
                 if (!blame) return window.showWarningMessage(`Unable to open diff. File is probably not under source control`);
 
                 commit = blame.commit;
@@ -56,8 +56,8 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 
         try {
             const [rhs, lhs] = await Promise.all([
-                this.git.getVersionedFile(gitUri.fsPath, gitUri.repoPath, gitUri.sha),
-                this.git.getVersionedFile(commit.uri.fsPath, commit.repoPath, commit.sha)
+                this.git.getVersionedFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha),
+                this.git.getVersionedFile(commit.repoPath, commit.uri.fsPath, commit.sha)
             ]);
             await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.uri.fsPath)} (${commit.shortSha}) ↔ ${path.basename(gitUri.fsPath)} (${gitUri.shortSha})`);
             // TODO: Figure out how to focus the left pane

@@ -39,7 +39,7 @@ export class CommitFileDetailsQuickPick {
         const isUncommitted = commit.isUncommitted;
         if (isUncommitted) {
             // Since we can't trust the previous sha on an uncommitted commit, find the last commit for this file
-            const log = await git.getLogForFile(commit.uri.fsPath, undefined, undefined, undefined, 2);
+            const log = await git.getLogForFile(undefined, commit.uri.fsPath, undefined, undefined, 2);
             if (!log) return undefined;
 
             commit = Iterables.first(log.commits.values());
@@ -107,7 +107,7 @@ export class CommitFileDetailsQuickPick {
 
                 // If we can't find the commit or the previous commit isn't available (since it isn't trustworthy)
                 if (!c || !c.previousSha) {
-                    log = await git.getLogForFile(uri.fsPath, commit.sha, commit.repoPath, undefined, git.config.advanced.maxQuickHistory);
+                    log = await git.getLogForFile(commit.repoPath, uri.fsPath, commit.sha, undefined, git.config.advanced.maxQuickHistory);
                     c = log && log.commits.get(commit.sha);
 
                     if (c) {
@@ -130,7 +130,7 @@ export class CommitFileDetailsQuickPick {
                     c = undefined;
 
                     // Try to find the next commit
-                    const nextLog = await git.getLogForFile(uri.fsPath, commit.sha, commit.repoPath, undefined, 1, true);
+                    const nextLog = await git.getLogForFile(commit.repoPath, uri.fsPath, commit.sha, undefined, 1, true);
                     const next = nextLog && Iterables.first(nextLog.commits.values());
                     if (next && next.sha !== commit.sha) {
                         c = commit;

@@ -27,13 +27,13 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
             const gitUri = await GitUri.fromUri(uri, this.git);
 
             try {
-                const log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, undefined, gitUri.sha ? undefined : 1);
+                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha, undefined, gitUri.sha ? undefined : 1);
                 if (!log) return window.showWarningMessage(`Unable to open diff. File is probably not under source control`);
 
                 commit = (gitUri.sha && log.commits.get(gitUri.sha)) || Iterables.first(log.commits.values());
             }
             catch (ex) {
-                Logger.error('[GitLens.DiffWithWorkingCommand]', `getLogForFile(${gitUri.fsPath})`, ex);
+                Logger.error('[GitLens.DiffWithWorkingCommand]', `getLogForFile(${gitUri.repoPath}, ${gitUri.fsPath})`, ex);
                 return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
             }
         }
@@ -41,7 +41,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
         const gitUri = await GitUri.fromUri(uri, this.git);
 
         try {
-            const compare = await this.git.getVersionedFile(commit.uri.fsPath, commit.repoPath, commit.sha);
+            const compare = await this.git.getVersionedFile(commit.repoPath, commit.uri.fsPath, commit.sha);
             await commands.executeCommand(BuiltInCommands.Diff, Uri.file(compare), gitUri.fileUri(), `${path.basename(commit.uri.fsPath)} (${commit.shortSha}) ↔ ${path.basename(gitUri.fsPath)}`);
             return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' });
         }

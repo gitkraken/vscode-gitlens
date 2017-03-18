@@ -28,7 +28,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
         const progressCancellation = FileHistoryQuickPick.showProgress(gitUri);
         try {
             if (!log) {
-                log = await this.git.getLogForFile(gitUri.fsPath, gitUri.sha, gitUri.repoPath, range, maxCount);
+                log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha, range, maxCount);
                 if (!log) return window.showWarningMessage(`Unable to show file history. File is probably not under source control`);
             }
 
@@ -50,7 +50,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
                 log);
         }
         catch (ex) {
-            Logger.error('[GitLens.ShowQuickFileHistoryCommand]', 'getLogLocations', ex);
+            Logger.error('[GitLens.ShowQuickFileHistoryCommand]', 'data.repoPath, ', ex);
             return window.showErrorMessage(`Unable to show file history. See output channel for more details`);
         }
         finally {

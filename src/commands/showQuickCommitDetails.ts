@@ -28,7 +28,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
             if (blameline < 0) return undefined;
 
             try {
-                const blame = await this.git.getBlameForLine(gitUri.fsPath, blameline, gitUri.sha, gitUri.repoPath);
+                const blame = await this.git.getBlameForLine(gitUri, blameline);
                 if (!blame) return window.showWarningMessage(`Unable to show commit details. File is probably not under source control`);
 
                 sha = blame.commit.isUncommitted ? blame.commit.previousSha : blame.commit.sha;

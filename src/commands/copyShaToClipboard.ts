@@ -38,7 +38,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
                 if (blameline < 0) return undefined;
 
                 try {
-                    const blame = await this.git.getBlameForLine(gitUri.fsPath, blameline, gitUri.sha, gitUri.repoPath);
+                    const blame = await this.git.getBlameForLine(gitUri, blameline);
                     if (!blame) return undefined;
 
                     sha = blame.commit.sha;

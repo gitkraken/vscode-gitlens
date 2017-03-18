@@ -36,20 +36,20 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
             try {
                 if (!gitUri.sha) {
                     // If the file is uncommitted, treat it as a DiffWithWorking
-                    if (await this.git.isFileUncommitted(gitUri.fsPath, gitUri.repoPath)) {
+                    if (await this.git.isFileUncommitted(gitUri)) {
                         return commands.executeCommand(Commands.DiffWithWorking, uri);
                     }
                 }
 
                 const sha = (commit && commit.sha) || gitUri.sha;
 
-                const log = await this.git.getLogForFile(gitUri.fsPath, undefined, gitUri.repoPath, rangeOrLine as Range, sha ? undefined : 2);
+                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, rangeOrLine as Range, sha ? undefined : 2);
                 if (!log) return window.showWarningMessage(`Unable to open diff. File is probably not under source control`);
 
                 commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
             }
             catch (ex) {
-                Logger.error('[GitLens.DiffWithPreviousCommand]', `getLogForFile(${gitUri.fsPath})`, ex);
+                Logger.error('[GitLens.DiffWithPreviousCommand]', `getLogForFile(${gitUri.repoPath}, ${gitUri.fsPath})`, ex);
                 return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
             }
         }
@@ -60,8 +60,8 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
         try {
             const [rhs, lhs] = await Promise.all([
-                this.git.getVersionedFile(commit.uri.fsPath, commit.repoPath, commit.sha),
-                this.git.getVersionedFile(commit.previousUri.fsPath, commit.repoPath, commit.previousSha)
+                this.git.getVersionedFile(commit.repoPath, commit.uri.fsPath, commit.sha),
+                this.git.getVersionedFile(commit.repoPath, commit.previousUri.fsPath, commit.previousSha)
             ]);
             await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.previousUri.fsPath)} (${commit.previousShortSha}) ↔ ${path.basename(commit.uri.fsPath)} (${commit.shortSha})`);
             // TODO: Figure out how to focus the left pane
