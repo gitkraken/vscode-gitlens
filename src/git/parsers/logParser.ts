@@ -1,5 +1,6 @@
 'use strict';
-import { Git, GitFileStatus, GitLogCommit, GitLogType, IGitAuthor, IGitEnricher, IGitLog } from './../git';
+import { Range } from 'vscode';
+import { Git, GitStatusFileStatus, GitLogCommit, GitLogType, IGitAuthor, IGitLog } from './../git';
 // import { Logger } from '../../logger';
 import * as moment from 'moment';
 import * as path from 'path';
@@ -17,16 +18,16 @@ interface ILogEntry {
 
     fileName?: string;
     originalFileName?: string;
-    fileStatuses?: { status: GitFileStatus, fileName: string, originalFileName: string }[];
+    fileStatuses?: { status: GitStatusFileStatus, fileName: string, originalFileName: string }[];
 
-    status?: GitFileStatus;
+    status?: GitStatusFileStatus;
 
     summary?: string;
 }
 
-export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
+export class GitLogParser {
 
-    private _parseEntries(data: string, isRepoPath: boolean): ILogEntry[] {
+    private static _parseEntries(data: string, isRepoPath: boolean): ILogEntry[] {
         if (!data) return undefined;
 
         const lines = data.split('\n');
@@ -43,7 +44,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
             }
 
             if (!entry) {
-                if (!Git.ShaRegex.test(lineParts[0])) continue;
+                if (!Git.shaRegex.test(lineParts[0])) continue;
 
                 entry = {
                     sha: lineParts[0]
@@ -91,7 +92,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
                         while (++position < lines.length) {
                             lineParts = lines[position].split(' ');
 
-                            if (Git.ShaRegex.test(lineParts[0])) {
+                            if (Git.shaRegex.test(lineParts[0])) {
                                 position--;
                                 break;
                             }
@@ -113,7 +114,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
                             }
 
                             const status = {
-                                status: lineParts[0][0] as GitFileStatus,
+                                status: lineParts[0][0] as GitStatusFileStatus,
                                 fileName: lineParts[0].substring(1),
                                 originalFileName: undefined as string
                             };
@@ -141,11 +142,11 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
                         position += 2;
                         lineParts = lines[position].split(' ');
                         if (lineParts.length === 1) {
-                            entry.status = lineParts[0][0] as GitFileStatus;
+                            entry.status = lineParts[0][0] as GitStatusFileStatus;
                             entry.fileName = lineParts[0].substring(1);
                         }
                         else {
-                            entry.status = lineParts[3][0] as GitFileStatus;
+                            entry.status = lineParts[3][0] as GitStatusFileStatus;
                             entry.fileName = lineParts[0].substring(1);
                             position += 4;
                         }
@@ -175,7 +176,7 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
         return entries;
     }
 
-    enrich(data: string, type: GitLogType, fileNameOrRepoPath: string, maxCount: number | undefined, isRepoPath: boolean, reverse: boolean): IGitLog {
+    static parse(data: string, type: GitLogType, fileNameOrRepoPath: string, maxCount: number | undefined, isRepoPath: boolean, reverse: boolean, range: Range): IGitLog {
         const entries = this._parseEntries(data, isRepoPath);
         if (!entries) return undefined;
 
@@ -264,7 +265,8 @@ export class GitLogParserEnricher implements IGitEnricher<IGitLog> {
             // commits: sortedCommits,
             commits: commits,
             maxCount: maxCount,
-            truncated: maxCount && entries.length >= maxCount
+            range: range,
+            truncated: !!(maxCount && entries.length >= maxCount)
         } as IGitLog;
     }
 }

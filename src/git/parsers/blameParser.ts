@@ -1,5 +1,5 @@
 'use strict';
-import { Git, GitBlameFormat, GitCommit, IGitAuthor, IGitBlame, IGitCommitLine, IGitEnricher } from './../git';
+import { Git, GitCommit, IGitAuthor, IGitBlame, IGitCommitLine } from './../git';
 import * as moment from 'moment';
 import * as path from 'path';
 
@@ -28,15 +28,9 @@ interface IBlameEntry {
     summary?: string;
 }
 
-export class GitBlameParserEnricher implements IGitEnricher<IGitBlame> {
+export class GitBlameParser {
 
-    constructor(public format: GitBlameFormat) {
-        if (format !== GitBlameFormat.incremental) {
-            throw new Error(`Invalid blame format=${format}`);
-        }
-    }
-
-    private _parseEntries(data: string): IBlameEntry[] {
+    private static _parseEntries(data: string): IBlameEntry[] {
         if (!data) return undefined;
 
         const lines = data.split('\n');
@@ -122,7 +116,7 @@ export class GitBlameParserEnricher implements IGitEnricher<IGitBlame> {
         return entries;
     }
 
-    enrich(data: string, fileName: string): IGitBlame {
+    static parse(data: string, fileName: string): IGitBlame {
         const entries = this._parseEntries(data);
         if (!entries) return undefined;
 

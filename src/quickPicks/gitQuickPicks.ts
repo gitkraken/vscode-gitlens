@@ -1,6 +1,6 @@
 'use strict';
 import { QuickPickItem, Uri } from 'vscode';
-import { getGitStatusIcon, GitCommit, GitFileStatus, GitService, GitUri } from '../gitService';
+import { getGitStatusIcon, GitCommit, GitStatusFileStatus, GitService, GitUri } from '../gitService';
 import { OpenFileCommandQuickPickItem } from './quickPicks';
 import * as moment from 'moment';
 import * as path from 'path';
@@ -24,9 +24,9 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
     gitUri: GitUri;
     sha: string;
     shortSha: string;
-    status: GitFileStatus;
+    status: GitStatusFileStatus;
 
-    constructor(commit: GitCommit, fileName: string, status: GitFileStatus) {
+    constructor(commit: GitCommit, fileName: string, status: GitStatusFileStatus) {
         const icon = getGitStatusIcon(status);
 
         let directory = path.dirname(fileName);

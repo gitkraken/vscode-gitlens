@@ -21,10 +21,10 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
                 const repoPath = await this.git.getRepoPathFromUri(uri, this.repoPath);
                 if (!repoPath) return window.showWarningMessage(`Unable to open changed files`);
 
-                const statuses = await this.git.getStatusesForRepo(repoPath);
-                if (!statuses) return window.showWarningMessage(`Unable to open changed files`);
+                const status = await this.git.getStatusForRepo(repoPath);
+                if (!status) return window.showWarningMessage(`Unable to open changed files`);
 
-                uris = statuses.filter(_ => _.status !== 'D').map(_ => Uri.file(path.resolve(repoPath, _.fileName)));
+                uris = status.files.filter(_ => _.status !== 'D').map(_ => Uri.file(path.resolve(repoPath, _.fileName)));
             }
 
             for (const uri of uris) {

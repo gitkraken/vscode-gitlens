@@ -87,9 +87,9 @@ export class GitUri extends Uri {
 }
 
 export interface IGitCommitInfo {
-    sha: string;
-    repoPath: string;
     fileName: string;
+    repoPath: string;
+    sha?: string;
     originalFileName?: string;
 }
 

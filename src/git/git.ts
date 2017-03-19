@@ -6,13 +6,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as tmp from 'tmp';
 
-export * from './gitEnrichment';
-export * from './enrichers/blameParserEnricher';
-export * from './enrichers/logParserEnricher';
+export * from './models/models';
+export * from './parsers/blameParser';
+export * from './parsers/logParser';
+export * from './parsers/statusParser';
 
 let git: IGit;
 
-const DefaultLogParams = [`log`, `--name-status`, `--full-history`, `-M`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nparent %P%nsummary %B%nfilename ?`];
+const defaultLogParams = [`log`, `--name-status`, `--full-history`, `-M`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nparent %P%nsummary %B%nfilename ?`];
 
 async function gitCommand(cwd: string, ...args: any[]) {
     try {
@@ -32,17 +33,10 @@ async function gitCommand(cwd: string, ...args: any[]) {
     }
 }
 
-export type GitBlameFormat = '--incremental' | '--line-porcelain' | '--porcelain';
-export const GitBlameFormat = {
-    incremental: '--incremental' as GitBlameFormat,
-    linePorcelain: '--line-porcelain' as GitBlameFormat,
-    porcelain: '--porcelain' as GitBlameFormat
-};
-
 export class Git {
 
-    static ShaRegex = /^[0-9a-f]{40}( -)?$/;
-    static UncommittedRegex = /^[0]+$/;
+    static shaRegex = /^[0-9a-f]{40}( -)?$/;
+    static uncommittedRegex = /^[0]+$/;
 
     static gitInfo(): IGit {
         return git;
@@ -84,11 +78,11 @@ export class Git {
     }
 
     static isSha(sha: string) {
-        return Git.ShaRegex.test(sha);
+        return Git.shaRegex.test(sha);
     }
 
     static isUncommitted(sha: string) {
-        return Git.UncommittedRegex.test(sha);
+        return Git.uncommittedRegex.test(sha);
     }
 
     static normalizePath(fileName: string, repoPath?: string) {
@@ -111,10 +105,10 @@ export class Git {
 
     // Git commands
 
-    static blame(repoPath: string, fileName: string, format: GitBlameFormat, sha?: string, startLine?: number, endLine?: number) {
+    static blame(repoPath: string, fileName: string, sha?: string, startLine?: number, endLine?: number) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
-        const params = [`blame`, `--root`, format];
+        const params = [`blame`, `--root`, `--incremental`];
 
         if (startLine != null && endLine != null) {
             params.push(`-L ${startLine},${endLine}`);
@@ -127,8 +121,11 @@ export class Git {
         return gitCommand(root, ...params, `--`, file);
     }
 
-    static branch(repoPath: string) {
-        const params = [`branch`, `-a`];
+    static branch(repoPath: string, all: boolean) {
+        const params = [`branch`];
+        if (all) {
+            params.push(`-a`);
+        }
 
         return gitCommand(repoPath, ...params);
     }
@@ -163,7 +160,7 @@ export class Git {
     }
 
     static log(repoPath: string, sha?: string, maxCount?: number, reverse: boolean = false) {
-        const params = [...DefaultLogParams];
+        const params = [...defaultLogParams];
         if (maxCount && !reverse) {
             params.push(`-n${maxCount}`);
         }
@@ -183,7 +180,7 @@ export class Git {
     static log_file(repoPath: string, fileName: string, sha?: string, maxCount?: number, reverse: boolean = false, startLine?: number, endLine?: number) {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
-        const params = [...DefaultLogParams, `--no-merges`, `--follow`];
+        const params = [...defaultLogParams, `--no-merges`, `--follow`];
         if (maxCount && !reverse) {
             params.push(`-n${maxCount}`);
         }
@@ -209,14 +206,14 @@ export class Git {
     }
 
     static status(repoPath: string): Promise<string> {
-        const params = ['status', '--short'];
+        const params = ['status', '--porcelain=v2', '--branch'];
         return gitCommand(repoPath, ...params);
     }
 
     static status_file(repoPath: string, fileName: string): Promise<string> {
         const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
 
-        const params = ['status', file, '--short'];
+        const params = ['status', '--porcelain=v2', file];
         return gitCommand(root, ...params);
     }
 }

@@ -20,10 +20,10 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCommand {
             const repoPath = await this.git.getRepoPathFromUri(uri, this.repoPath);
             if (!repoPath) return window.showWarningMessage(`Unable to show repository status`);
 
-            const statuses = await this.git.getStatusesForRepo(repoPath);
-            if (!statuses) return window.showWarningMessage(`Unable to show repository status`);
+            const status = await this.git.getStatusForRepo(repoPath);
+            if (!status) return window.showWarningMessage(`Unable to show repository status`);
 
-            const pick = await RepoStatusQuickPick.show(statuses, goBackCommand);
+            const pick = await RepoStatusQuickPick.show(status, goBackCommand);
             if (!pick) return undefined;
 
             if (pick instanceof CommandQuickPickItem) {
