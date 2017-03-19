@@ -46,13 +46,13 @@ export class ShowQuickRepoHistoryCommand extends ActiveEditorCommand {
             return commands.executeCommand(Commands.ShowQuickCommitDetails, new GitUri(pick.commit.uri, pick.commit), pick.commit.sha, pick.commit,
                 new CommandQuickPickItem({
                     label: `go back \u21A9`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 to repository history`
+                    description: `\u00a0 \u2014 \u00a0\u00a0 to branch history`
                 }, Commands.ShowQuickRepoHistory, [uri, maxCount, goBackCommand, log]),
                 log);
         }
         catch (ex) {
             Logger.error('[GitLens.ShowQuickRepoHistoryCommand]', ex);
-            return window.showErrorMessage(`Unable to show repository history. See output channel for more details`);
+            return window.showErrorMessage(`Unable to show history. See output channel for more details`);
         }
         finally {
             progressCancellation.dispose();

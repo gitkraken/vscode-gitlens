@@ -18,7 +18,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
         }
 
         try {
-            // If we don't have an editor then get the message of the last commit to the repository
+            // If we don't have an editor then get the message of the last commit to the branch
             if (!uri) {
                 const log = await this.git.getLogForRepo(this.repoPath, undefined, 1);
                 if (!log) return undefined;

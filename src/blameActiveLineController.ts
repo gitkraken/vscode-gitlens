@@ -273,7 +273,7 @@ export class BlameActiveLineController extends Disposable {
                     this._statusBarItem.tooltip = 'Show File History';
                     break;
                 case StatusBarCommand.ShowQuickFileHistory:
-                    this._statusBarItem.tooltip = 'Show Repository History';
+                    this._statusBarItem.tooltip = 'Show Branch History';
                     break;
             }
 

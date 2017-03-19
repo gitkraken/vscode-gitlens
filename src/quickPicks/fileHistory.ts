@@ -57,8 +57,8 @@ export class FileHistoryQuickPick {
         // Only show the full repo option if we are the root
         if (!goBackCommand) {
             items.splice(index, 0, new CommandQuickPickItem({
-                label: `$(repo) Show Repository History`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 shows the repository commit history`
+                label: `$(history) Show Branch History`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 shows the current branch history`
             }, Commands.ShowQuickRepoHistory,
                 [
                     undefined,

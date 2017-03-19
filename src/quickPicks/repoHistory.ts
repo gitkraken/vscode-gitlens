@@ -66,7 +66,7 @@ export class RepoHistoryQuickPick {
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: 'Repository history \u2014 search by commit message, filename, or sha',
+            placeHolder: `Branch history \u2014 search by commit message, filename, or sha`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
             // onDidSelectItem: (item: QuickPickItem) => {
             //     scope.setKeyCommand('right', item);

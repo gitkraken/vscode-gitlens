@@ -61,10 +61,10 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
             }
 
             if (!goBackCommand) {
-                // Create a command to get back to the repository history
+                // Create a command to get back to the branch history
                 goBackCommand = new CommandQuickPickItem({
                     label: `go back \u21A9`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 to repository history`
+                    description: `\u00a0 \u2014 \u00a0\u00a0 to branch history`
                 }, Commands.ShowQuickRepoHistory, [new GitUri(commit.uri, commit)]);
             }
 
