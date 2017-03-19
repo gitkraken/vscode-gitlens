@@ -2,7 +2,7 @@
 import { Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard } from '../commands';
-import { GitStatusFile, IGitStatus } from '../gitService';
+import { GitStatusFile, GitUri, IGitStatus } from '../gitService';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem } from './quickPicks';
 import * as path from 'path';
 
@@ -107,6 +107,38 @@ export class RepoStatusQuickPick {
             items.splice(0, 0, new OpenStatusFilesCommandQuickPickItem(files.filter(_ => _.status !== 'D')));
         }
 
+        if (status.upstream && status.state.ahead) {
+            items.splice(0, 0, new CommandQuickPickItem({
+                label: '$(git-commit) Show Commits Ahead',
+                description: `\u00a0 \u2014 \u00a0\u00a0 shows commits in \u00a0$(git-branch) ${status.branch} but not \u00a0$(git-branch) ${status.upstream}`
+            }, Commands.ShowQuickRepoHistory, [
+                    new GitUri(Uri.file(status.repoPath), { fileName: '', repoPath: status.repoPath, sha: `${status.upstream}..${status.branch}` }),
+                    status.branch,
+                    0,
+                    new CommandQuickPickItem({
+                        label: `go back \u21A9`,
+                        description: `\u00a0 \u2014 \u00a0\u00a0 to \u00a0$(git-branch) ${status.branch} status`
+                    }, Commands.ShowQuickRepoStatus)
+                ])
+            );
+        }
+
+        if (status.upstream && status.state.behind) {
+            items.splice(0, 0, new CommandQuickPickItem({
+                label: '$(git-commit) Show Commits Behind',
+                description: `\u00a0 \u2014 \u00a0\u00a0 shows commits in \u00a0$(git-branch) ${status.upstream} but not \u00a0$(git-branch) ${status.branch} (since \u00a0$(git-commit) ${status.sha.substring(0, 8)})`
+            }, Commands.ShowQuickRepoHistory, [
+                    new GitUri(Uri.file(status.repoPath), { fileName: '', repoPath: status.repoPath, sha: `${status.sha}..${status.upstream}` }),
+                    status.upstream,
+                    0,
+                    new CommandQuickPickItem({
+                        label: `go back \u21A9`,
+                        description: `\u00a0 \u2014 \u00a0\u00a0 to \u00a0$(git-branch) ${status.branch} status`
+                    }, Commands.ShowQuickRepoStatus)
+                ])
+            );
+        }
+
         if (goBackCommand) {
             items.splice(0, 0, goBackCommand);
         }
@@ -116,15 +148,13 @@ export class RepoStatusQuickPick {
         let syncStatus = '';
         if (status.upstream) {
             syncStatus = status.state.ahead || status.state.behind
-                ? `..${status.upstream} ${status.state.behind}\u2193 ${status.state.ahead}\u2191`
-                : `..${status.upstream} \u27F3`;
-        }
-        else {
+                ? ` ${status.state.behind}\u2193 ${status.state.ahead}\u2191 `
+                : ` \u27F3 `;
         }
 
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
-            placeHolder: `${status.branch}${syncStatus}`,
+            placeHolder: `${syncStatus} ${status.branch}${status.upstream ? ` \u00a0\u2194\u00a0 ${status.upstream}` : ''}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
                 scope.setKeyCommand('right', item);
