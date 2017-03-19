@@ -2,7 +2,7 @@
 import { Iterables } from '../system';
 import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard, KeyNoopCommand } from '../commands';
-import { GitUri, IGitLog } from '../gitService';
+import { GitService, GitUri, IGitLog } from '../gitService';
 import { CommitQuickPickItem } from './gitQuickPicks';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './quickPicks';
 import * as path from 'path';
@@ -10,7 +10,7 @@ import * as path from 'path';
 export class FileHistoryQuickPick {
 
     static showProgress(uri: GitUri) {
-        return showQuickPickProgress(`${uri.getFormattedPath()}${uri.sha ? ` \u00a0\u2022\u00a0 ${uri.sha.substring(0, 8)}` : ''}`,
+        return showQuickPickProgress(`${uri.getFormattedPath()}${uri.sha ? ` \u00a0\u2022\u00a0 ${uri.shortSha}` : ''}`,
             {
                 left: KeyNoopCommand,
                 ',': KeyNoopCommand,
@@ -18,18 +18,38 @@ export class FileHistoryQuickPick {
             });
     }
 
-    static async show(log: IGitLog, uri: GitUri, progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(git: GitService, log: IGitLog, uri: GitUri, progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
         let previousPageCommand: CommandQuickPickItem;
 
         let index = 0;
         if (log.truncated || uri.sha) {
-            index++;
-            items.splice(0, 0, new CommandQuickPickItem({
-                label: `$(sync) Show All Commits`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 this may take a while`
-            }, Commands.ShowQuickFileHistory, [Uri.file(uri.fsPath), undefined, 0, goBackCommand]));
+            if (log.truncated) {
+                index++;
+                items.splice(0, 0, new CommandQuickPickItem({
+                    label: `$(sync) Show All Commits`,
+                    description: `\u00a0 \u2014 \u00a0\u00a0 this may take a while`
+                }, Commands.ShowQuickFileHistory, [Uri.file(uri.fsPath), undefined, 0, goBackCommand]));
+            }
+            else {
+                const workingFileName = await git.findWorkingFileName(log.repoPath, path.relative(log.repoPath, uri.fsPath));
+                if (workingFileName) {
+                    index++;
+                    items.splice(0, 0, new CommandQuickPickItem({
+                        label: `$(history) Show File History`,
+                        description: `\u00a0 \u2014 \u00a0\u00a0 of ${path.basename(workingFileName)}`
+                    }, Commands.ShowQuickFileHistory, [
+                        Uri.file(path.resolve(log.repoPath, workingFileName)),
+                        undefined,
+                        undefined,
+                        new CommandQuickPickItem({
+                            label: `go back \u21A9`,
+                            description: `\u00a0 \u2014 \u00a0\u00a0 to history of \u00a0$(file-text) ${path.basename(uri.fsPath)}${uri.sha ? ` from \u00a0$(git-commit) ${uri.shortSha}` : ''}`
+                        }, Commands.ShowQuickFileHistory, [uri, log.range, log.maxCount, goBackCommand, log])
+                    ]));
+                }
+            }
 
             if (nextPageCommand) {
                 index++;
@@ -63,10 +83,11 @@ export class FileHistoryQuickPick {
                 [
                     undefined,
                     undefined,
+                    undefined,
                     new CommandQuickPickItem({
                         label: `go back \u21A9`,
-                        description: `\u00a0 \u2014 \u00a0\u00a0 to history of \u00a0$(file-text) ${path.basename(uri.fsPath)}`
-                    }, Commands.ShowQuickFileHistory, [uri, undefined, log.maxCount, undefined, log])
+                        description: `\u00a0 \u2014 \u00a0\u00a0 to history of \u00a0$(file-text) ${path.basename(uri.fsPath)}${uri.sha ? ` from \u00a0$(git-commit) ${uri.shortSha}` : ''}`
+                    }, Commands.ShowQuickFileHistory, [uri, log.range, log.maxCount, undefined, log])
                 ]));
         }
 
@@ -89,7 +110,7 @@ export class FileHistoryQuickPick {
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: `${commit.getFormattedPath()}${uri.sha ? ` \u00a0\u2022\u00a0 ${uri.sha.substring(0, 8)}` : ''}`,
+            placeHolder: `${commit.getFormattedPath()}${uri.sha ? ` \u00a0\u2022\u00a0 ${uri.shortSha}` : ''}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
             // onDidSelectItem: (item: QuickPickItem) => {
             //     scope.setKeyCommand('right', item);

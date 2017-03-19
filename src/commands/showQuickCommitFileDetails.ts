@@ -12,11 +12,13 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCommand {
         super(Commands.ShowQuickCommitFileDetails);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, sha?: string, commit?: GitCommit | GitLogCommit, goBackCommand?: CommandQuickPickItem, options: { showFileHistory?: boolean } = { showFileHistory: true }, fileLog?: IGitLog) {
+    async execute(editor: TextEditor, uri?: Uri, sha?: string, commit?: GitCommit | GitLogCommit, goBackCommand?: CommandQuickPickItem, fileLog?: IGitLog) {
         if (!(uri instanceof Uri)) {
             if (!editor || !editor.document) return undefined;
             uri = editor.document.uri;
         }
+
+        let workingFileName = commit && commit.workingFileName;
 
         if (!sha) {
             if (!editor) return undefined;
@@ -33,6 +35,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCommand {
                 sha = blame.commit.isUncommitted ? blame.commit.previousSha : blame.commit.sha;
 
                 commit = blame.commit;
+                workingFileName = path.relative(commit.repoPath, gitUri.fsPath);
             }
             catch (ex) {
                 Logger.error('[GitLens.ShowQuickCommitFileDetailsCommand]', `getBlameForLine(${blameline})`, ex);
@@ -51,7 +54,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCommand {
                 }
 
                 if (!fileLog) {
-                    const log = await this.git.getLogForFile(undefined, uri.fsPath, sha, undefined, 2);
+                    const log = await this.git.getLogForFile(undefined, commit ? commit.uri.fsPath : uri.fsPath, sha, undefined, 2);
                     if (!log) return window.showWarningMessage(`Unable to show commit file details`);
 
                     commit = log.commits.get(sha);
@@ -59,9 +62,8 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCommand {
             }
 
             // Attempt to the most recent commit -- so that we can find the real working filename if there was a rename
-            const workingCommit = await this.git.findMostRecentCommitForFile(commit.uri.fsPath, commit.sha);
-            // TODO: Leave this at undefined until findMostRecentCommitForFile actually works
-            const workingFileName = !workingCommit ? commit.fileName : undefined;
+            commit.workingFileName = workingFileName;
+            commit.workingFileName = await this.git.findWorkingFileName(commit);
 
             const shortSha = sha.substring(0, 8);
 
@@ -73,13 +75,13 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCommand {
                 }, Commands.ShowQuickCommitDetails, [new GitUri(commit.uri, commit), sha, commit]);
             }
 
-            const pick = await CommitFileDetailsQuickPick.show(this.git, commit as GitLogCommit, workingFileName, uri, goBackCommand,
+            const pick = await CommitFileDetailsQuickPick.show(this.git, commit as GitLogCommit, uri, goBackCommand,
                 // Create a command to get back to where we are right now
                 new CommandQuickPickItem({
                     label: `go back \u21A9`,
                     description: `\u00a0 \u2014 \u00a0\u00a0 to details of \u00a0$(file-text) ${path.basename(commit.fileName)} in \u00a0$(git-commit) ${shortSha}`
-                }, Commands.ShowQuickCommitFileDetails, [new GitUri(commit.uri, commit), sha, commit, goBackCommand, options]),
-                { showFileHistory: options.showFileHistory }, fileLog);
+                }, Commands.ShowQuickCommitFileDetails, [new GitUri(commit.uri, commit), sha, commit, goBackCommand]),
+                fileLog);
 
             if (!pick) return undefined;
 

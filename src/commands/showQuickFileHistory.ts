@@ -34,7 +34,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
-            const pick = await FileHistoryQuickPick.show(log, gitUri, progressCancellation, goBackCommand, nextPageCommand);
+            const pick = await FileHistoryQuickPick.show(this.git, log, gitUri, progressCancellation, goBackCommand, nextPageCommand);
             if (!pick) return undefined;
 
             if (pick instanceof CommandQuickPickItem) {
@@ -44,9 +44,8 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCommand {
             return commands.executeCommand(Commands.ShowQuickCommitFileDetails, new GitUri(pick.commit.uri, pick.commit), pick.commit.sha, pick.commit,
                 new CommandQuickPickItem({
                     label: `go back \u21A9`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 to history of \u00a0$(file-text) ${path.basename(pick.commit.fileName)}`
-                }, Commands.ShowQuickFileHistory, [uri, undefined, maxCount, goBackCommand, log]),
-                { showFileHistory: false },
+                    description: `\u00a0 \u2014 \u00a0\u00a0 to history of \u00a0$(file-text) ${path.basename(pick.commit.fileName)}${gitUri.sha ? ` from \u00a0$(git-commit) ${gitUri.shortSha}` : ''}`
+                }, Commands.ShowQuickFileHistory, [uri, range, maxCount, goBackCommand, log]),
                 log);
         }
         catch (ex) {

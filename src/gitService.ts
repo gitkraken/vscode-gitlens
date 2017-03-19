@@ -225,28 +225,44 @@ export class GitService extends Disposable {
         }
     }
 
-    async findMostRecentCommitForFile(fileName: string, sha?: string): Promise<GitCommit> {
-        const exists = await new Promise<boolean>((resolve, reject) => fs.exists(fileName, e => resolve(e)));
-        if (exists) return null;
+    async findWorkingFileName(commit: GitCommit): Promise<string>;
+    async findWorkingFileName(repoPath: string, fileName: string): Promise<string>
+    async findWorkingFileName(commitOrRepoPath: GitCommit | string, fileName?: string): Promise<string> {
+        let repoPath: string;
+        if (typeof commitOrRepoPath === 'string') {
+            repoPath = commitOrRepoPath;
+            [fileName] = Git.splitPath(fileName, repoPath);
+        }
+        else {
+            const c = commitOrRepoPath;
+            repoPath = c.repoPath;
+            if (c.workingFileName && await this._fileExists(repoPath, c.workingFileName)) return c.workingFileName;
+            fileName = c.fileName;
+        }
 
-        return undefined;
+        while (true) {
+            if (await this._fileExists(repoPath, fileName)) return fileName;
 
-        // TODO: Get this to work -- for some reason a reverse log won't return the renamed file
-        // Not sure how else to figure this out
+            // Get the most recent commit for this file name
+            let log = await this.getLogForFile(repoPath, fileName, undefined, undefined, 1);
+            if (!log) return undefined;
 
-        // let log: IGitLog;
-        // let commit: GitCommit;
-        // while (true) {
-        //     // Go backward from the current commit to head to find the latest filename
-        //     log = await this.getLogForFile(undefined, fileName, sha, undefined, undefined, true);
-        //     if (!log) break;
+            let c = Iterables.first(log.commits.values());
 
-        //     commit = Iterables.first(log.commits.values());
-        //     sha = commit.sha;
-        //     fileName = commit.fileName;
-        // }
+            // Get the full commit (so we can see if there are any matching renames in the file statuses)
+            log = await this.getLogForRepo(repoPath, c.sha, 1);
+            if (!log) return undefined;
 
-        // return commit;
+            c = Iterables.first(log.commits.values());
+            const status = c.fileStatuses.find(_ => _.originalFileName === fileName);
+            if (!status) return undefined;
+
+            fileName = status.fileName;
+        }
+    }
+
+    private async _fileExists(repoPath: string, fileName: string): Promise<boolean> {
+        return await new Promise<boolean>((resolve, reject) => fs.exists(path.resolve(repoPath, fileName), e => resolve(e)));
     }
 
     public getBlameability(fileName: string): boolean {
@@ -439,6 +455,14 @@ export class GitService extends Disposable {
         });
 
         return locations;
+    }
+
+    async getBranch(repoPath: string): Promise<GitBranch> {
+        Logger.log(`getBranch('${repoPath}')`);
+
+        const data = await Git.branch(repoPath, false);
+        const branches = data.split('\n').filter(_ => !!_).map(_ => new GitBranch(_));
+        return branches.find(_ => _.current);
     }
 
     async getBranches(repoPath: string): Promise<GitBranch[]> {

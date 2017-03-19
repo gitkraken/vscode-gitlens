@@ -11,7 +11,7 @@ export class ShowQuickRepoHistoryCommand extends ActiveEditorCommand {
         super(Commands.ShowQuickRepoHistory);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, maxCount?: number, goBackCommand?: CommandQuickPickItem, log?: IGitLog, nextPageCommand?: CommandQuickPickItem) {
+    async execute(editor: TextEditor, uri?: Uri, branch?: string, maxCount?: number, goBackCommand?: CommandQuickPickItem, log?: IGitLog, nextPageCommand?: CommandQuickPickItem) {
         if (!(uri instanceof Uri)) {
             uri = editor && editor.document && editor.document.uri;
         }
@@ -22,21 +22,23 @@ export class ShowQuickRepoHistoryCommand extends ActiveEditorCommand {
             maxCount = this.git.config.advanced.maxQuickHistory;
         }
 
-        const progressCancellation = RepoHistoryQuickPick.showProgress();
+        branch = branch || (await this.git.getBranch(this.git.repoPath)).name;
+
+        const progressCancellation = RepoHistoryQuickPick.showProgress(branch);
         try {
+            const repoPath = (gitUri && gitUri.repoPath) || await this.git.getRepoPathFromUri(uri, this.repoPath);
+            if (!repoPath) return window.showWarningMessage(`Unable to show history`);
+
+            if (progressCancellation.token.isCancellationRequested) return undefined;
+
             if (!log) {
-                const repoPath = (gitUri && gitUri.repoPath) || await this.git.getRepoPathFromUri(uri, this.repoPath);
-                if (!repoPath) return window.showWarningMessage(`Unable to show repository history`);
-
-                if (progressCancellation.token.isCancellationRequested) return undefined;
-
-                log = await this.git.getLogForRepo(repoPath, (gitUri && gitUri.sha), maxCount);
-                if (!log) return window.showWarningMessage(`Unable to show repository history`);
+                log = await this.git.getLogForRepo(repoPath, (gitUri && gitUri.sha) || branch, maxCount);
+                if (!log) return window.showWarningMessage(`Unable to show history`);
             }
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
-            const pick = await RepoHistoryQuickPick.show(log, gitUri, progressCancellation, goBackCommand, nextPageCommand);
+            const pick = await RepoHistoryQuickPick.show(log, gitUri, branch, progressCancellation, goBackCommand, nextPageCommand);
             if (!pick) return undefined;
 
             if (pick instanceof CommandQuickPickItem) {
@@ -46,8 +48,8 @@ export class ShowQuickRepoHistoryCommand extends ActiveEditorCommand {
             return commands.executeCommand(Commands.ShowQuickCommitDetails, new GitUri(pick.commit.uri, pick.commit), pick.commit.sha, pick.commit,
                 new CommandQuickPickItem({
                     label: `go back \u21A9`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 to branch history`
-                }, Commands.ShowQuickRepoHistory, [uri, maxCount, goBackCommand, log]),
+                    description: `\u00a0 \u2014 \u00a0\u00a0 to \u00a0$(git-branch) ${branch} history`
+                }, Commands.ShowQuickRepoHistory, [uri, branch, maxCount, goBackCommand, log]),
                 log);
         }
         catch (ex) {

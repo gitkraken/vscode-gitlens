@@ -4,6 +4,7 @@ import { ActiveEditorCommand, Commands } from './commands';
 import { GitCommit, GitLogCommit, GitService, GitUri, IGitLog } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitDetailsQuickPick, CommitWithFileStatusQuickPickItem } from '../quickPicks';
+import * as path from 'path';
 
 export class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
 
@@ -20,6 +21,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
         const gitUri = await GitUri.fromUri(uri, this.git);
 
         let repoPath = gitUri.repoPath;
+        let workingFileName = path.relative(repoPath, gitUri.fsPath);
 
         if (!sha) {
             if (!editor) return undefined;
@@ -33,6 +35,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
 
                 sha = blame.commit.isUncommitted ? blame.commit.previousSha : blame.commit.sha;
                 repoPath = blame.commit.repoPath;
+                workingFileName = blame.commit.fileName;
 
                 commit = blame.commit;
             }
@@ -58,6 +61,10 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCommand {
 
                     commit = log.commits.get(sha);
                 }
+            }
+
+            if (!commit.workingFileName) {
+                commit.workingFileName = workingFileName;
             }
 
             if (!goBackCommand) {
