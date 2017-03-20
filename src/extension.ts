@@ -10,7 +10,7 @@ import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './comm
 import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithBranchCommand, DiffWithNextCommand, DiffWithPreviousCommand, DiffWithWorkingCommand} from './commands';
 import { ShowBlameCommand, ToggleBlameCommand } from './commands';
 import { ShowBlameHistoryCommand, ShowFileHistoryCommand } from './commands';
-import { ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand, ShowQuickFileHistoryCommand, ShowQuickRepoHistoryCommand, ShowQuickRepoStatusCommand} from './commands';
+import { ShowLastQuickPickCommand, ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand, ShowQuickFileHistoryCommand, ShowQuickRepoHistoryCommand, ShowQuickRepoStatusCommand} from './commands';
 import { ToggleCodeLensCommand } from './commands';
 import { Keyboard } from './commands';
 import { IAdvancedConfig, IBlameConfig } from './configuration';
@@ -103,6 +103,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new ToggleBlameCommand(annotationController));
     context.subscriptions.push(new ShowBlameHistoryCommand(git));
     context.subscriptions.push(new ShowFileHistoryCommand(git));
+    context.subscriptions.push(new ShowLastQuickPickCommand());
     context.subscriptions.push(new ShowQuickCommitDetailsCommand(git, repoPath));
     context.subscriptions.push(new ShowQuickCommitFileDetailsCommand(git));
     context.subscriptions.push(new ShowQuickFileHistoryCommand(git));

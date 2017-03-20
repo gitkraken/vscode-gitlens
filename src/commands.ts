@@ -2,30 +2,31 @@
 import { commands } from 'vscode';
 import { BuiltInCommands } from './constants';
 
-export { Keyboard, KeyboardScope, KeyMapping, KeyNoopCommand, Keys } from './commands/keyboard';
+export * from './commands/keyboard';
 
-export { ActiveEditorCommand, Command, Commands, EditorCommand, openEditor } from './commands/commands';
-export { CloseUnchangedFilesCommand } from './commands/closeUnchangedFiles';
-export { CopyMessageToClipboardCommand } from './commands/copyMessageToClipboard';
-export { CopyShaToClipboardCommand } from './commands/copyShaToClipboard';
-export { DiffDirectoryCommand } from './commands/diffDirectory';
-export { DiffLineWithPreviousCommand } from './commands/diffLineWithPrevious';
-export { DiffLineWithWorkingCommand } from './commands/diffLineWithWorking';
-export { DiffWithBranchCommand } from './commands/diffWithBranch';
-export { DiffWithNextCommand } from './commands/diffWithNext';
-export { DiffWithPreviousCommand } from './commands/diffWithPrevious';
-export { DiffWithWorkingCommand } from './commands/diffWithWorking';
-export { OpenChangedFilesCommand } from './commands/openChangedFiles';
-export { ShowBlameCommand } from './commands/showBlame';
-export { ShowBlameHistoryCommand } from './commands/showBlameHistory';
-export { ShowFileHistoryCommand } from './commands/showFileHistory';
-export { ShowQuickCommitDetailsCommand } from './commands/showQuickCommitDetails';
-export { ShowQuickCommitFileDetailsCommand } from './commands/showQuickCommitFileDetails';
-export { ShowQuickFileHistoryCommand } from './commands/showQuickFileHistory';
-export { ShowQuickRepoHistoryCommand } from './commands/showQuickRepoHistory';
-export { ShowQuickRepoStatusCommand } from './commands/showQuickRepoStatus';
-export { ToggleBlameCommand } from './commands/toggleBlame';
-export { ToggleCodeLensCommand } from './commands/toggleCodeLens';
+export * from './commands/commands';
+export * from './commands/closeUnchangedFiles';
+export * from './commands/copyMessageToClipboard';
+export * from './commands/copyShaToClipboard';
+export * from './commands/diffDirectory';
+export * from './commands/diffLineWithPrevious';
+export * from './commands/diffLineWithWorking';
+export * from './commands/diffWithBranch';
+export * from './commands/diffWithNext';
+export * from './commands/diffWithPrevious';
+export * from './commands/diffWithWorking';
+export * from './commands/openChangedFiles';
+export * from './commands/showBlame';
+export * from './commands/showBlameHistory';
+export * from './commands/showFileHistory';
+export * from './commands/showLastQuickPick';
+export * from './commands/showQuickCommitDetails';
+export * from './commands/showQuickCommitFileDetails';
+export * from './commands/showQuickFileHistory';
+export * from './commands/showQuickRepoHistory';
+export * from './commands/showQuickRepoStatus';
+export * from './commands/toggleBlame';
+export * from './commands/toggleCodeLens';
 
 export type CommandContext = 'gitlens:canToggleCodeLens' | 'gitlens:enabled' | 'gitlens:isBlameable' | 'gitlens:key';
 export const CommandContext = {

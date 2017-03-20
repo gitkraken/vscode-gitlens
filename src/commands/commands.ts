@@ -2,7 +2,7 @@
 import { commands, Disposable, TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
 import { BuiltInCommands } from '../constants';
 
-export type Commands = 'gitlens.closeUnchangedFiles' | 'gitlens.copyMessageToClipboard' | 'gitlens.copyShaToClipboard' | 'gitlens.diffDirectory' | 'gitlens.diffWithBranch' | 'gitlens.diffWithNext' | 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' | 'gitlens.openChangedFiles' | 'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory' | 'gitlens.showQuickRepoStatus' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
+export type Commands = 'gitlens.closeUnchangedFiles' | 'gitlens.copyMessageToClipboard' | 'gitlens.copyShaToClipboard' | 'gitlens.diffDirectory' | 'gitlens.diffWithBranch' | 'gitlens.diffWithNext' | 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' | 'gitlens.openChangedFiles' | 'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.showLastQuickPick' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory' | 'gitlens.showQuickRepoStatus' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
 export const Commands = {
     CloseUnchangedFiles: 'gitlens.closeUnchangedFiles' as Commands,
     CopyMessageToClipboard: 'gitlens.copyMessageToClipboard' as Commands,
@@ -18,6 +18,7 @@ export const Commands = {
     ShowBlame: 'gitlens.showBlame' as Commands,
     ShowBlameHistory: 'gitlens.showBlameHistory' as Commands,
     ShowFileHistory: 'gitlens.showFileHistory' as Commands,
+    ShowLastQuickPick: 'gitlens.showLastQuickPick' as Commands,
     ShowQuickCommitDetails: 'gitlens.showQuickCommitDetails' as Commands,
     ShowQuickCommitFileDetails: 'gitlens.showQuickCommitFileDetails' as Commands,
     ShowQuickFileHistory: 'gitlens.showQuickFileHistory' as Commands,
@@ -44,6 +45,7 @@ export abstract class Command extends Disposable {
 }
 
 export abstract class EditorCommand extends Disposable {
+
     private _disposable: Disposable;
 
     constructor(command: Commands) {
@@ -59,6 +61,7 @@ export abstract class EditorCommand extends Disposable {
 }
 
 export abstract class ActiveEditorCommand extends Disposable {
+
     private _disposable: Disposable;
 
     constructor(command: Commands) {
@@ -71,6 +74,28 @@ export abstract class ActiveEditorCommand extends Disposable {
     }
 
     _execute(...args: any[]): any {
+        return this.execute(window.activeTextEditor, ...args);
+    }
+
+    abstract execute(editor: TextEditor, ...args: any[]): any;
+}
+
+let lastCommand: { command: string, args: any[] } = undefined;
+export function getLastCommand() {
+    return lastCommand;
+}
+
+export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
+
+    constructor(private command: Commands) {
+        super(command);
+    }
+
+    _execute(...args: any[]): any {
+        lastCommand = {
+            command: this.command,
+            args: args
+        };
         return this.execute(window.activeTextEditor, ...args);
     }
 

@@ -419,6 +419,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.showLastQuickPick",
+                "title": "Show Last Opened Quick Pick",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.showQuickCommitDetails",
                 "title": "Show Commit Details",
                 "category": "GitLens"
@@ -512,6 +517,10 @@
                 },
                 {
                     "command": "gitlens.showFileHistory",
+                    "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.showLastQuickPick",
                     "when": "gitlens:enabled"
                 },
                 {
@@ -693,6 +702,12 @@
                 "key": "alt+shift+b",
                 "mac": "alt+shift+b",
                 "when": "editorTextFocus && gitlens:enabled && gitlens:canToggleCodeLens"
+            },
+            {
+                "command": "gitlens.showLastQuickPick",
+                "key": "alt+-",
+                "mac": "alt+-",
+                "when": "gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickFileHistory",
