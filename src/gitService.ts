@@ -276,7 +276,7 @@ export class GitService extends Disposable {
     async getBlameForFile(uri: GitUri): Promise<IGitBlame | undefined> {
         Logger.log(`getBlameForFile('${uri.repoPath}', '${uri.fsPath}', ${uri.sha})`);
 
-        const fileName = Git.normalizePath(uri.fsPath, uri.repoPath);
+        const fileName = Git.normalizePath(uri.fsPath);
 
         let entry: GitCacheEntry | undefined;
         if (this.UseGitCaching && !uri.sha) {
@@ -356,7 +356,7 @@ export class GitService extends Disposable {
             } as IGitBlameLine;
         }
 
-        const fileName = Git.normalizePath(uri.fsPath, uri.repoPath);
+        const fileName = Git.normalizePath(uri.fsPath);
 
         try {
             const data = await Git.blame(uri.repoPath, fileName, uri.sha, line + 1, line + 1);

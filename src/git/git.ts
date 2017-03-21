@@ -91,22 +91,26 @@ export class Git {
 
     static splitPath(fileName: string, repoPath?: string): [string, string] {
         if (repoPath) {
-            return [
-                fileName.replace(repoPath.endsWith('/') ? repoPath : `${repoPath}/`, ''),
-                repoPath
-            ];
+            const normalizedRepoPath = (repoPath.endsWith('/') ? repoPath : `${repoPath}/`).toLowerCase();
+            if (fileName.toLowerCase().startsWith(normalizedRepoPath)) {
+                fileName = fileName.substring(normalizedRepoPath.length);
+            }
+        }
+        else {
+            repoPath = path.dirname(fileName);
+            fileName = path.basename(fileName);
         }
 
         return [
-            path.basename(fileName).replace(/\\/g, '/'),
-            path.dirname(fileName).replace(/\\/g, '/')
+            this.normalizePath(fileName),
+            this.normalizePath(repoPath)
         ];
     }
 
     // Git commands
 
     static blame(repoPath: string, fileName: string, sha?: string, startLine?: number, endLine?: number) {
-        const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
+        const [file, root]: [string, string] = Git.splitPath(fileName, repoPath);
 
         const params = [`blame`, `--root`, `--incremental`];
 
@@ -152,7 +156,7 @@ export class Git {
     }
 
     static show(repoPath: string, fileName: string, branchOrSha: string) {
-        const [file, root] = Git.splitPath(Git.normalizePath(fileName), repoPath);
+        const [file, root] = Git.splitPath(fileName, repoPath);
         branchOrSha = branchOrSha.replace('^', '');
 
         if (Git.isUncommitted(branchOrSha)) return Promise.reject(new Error(`sha=${branchOrSha} is uncommitted`));
@@ -178,7 +182,7 @@ export class Git {
     }
 
     static log_file(repoPath: string, fileName: string, sha?: string, maxCount?: number, reverse: boolean = false, startLine?: number, endLine?: number) {
-        const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
+        const [file, root]: [string, string] = Git.splitPath(fileName, repoPath);
 
         const params = [...defaultLogParams, `--no-merges`, `--follow`];
         if (maxCount && !reverse) {
@@ -211,7 +215,7 @@ export class Git {
     }
 
     static status_file(repoPath: string, fileName: string): Promise<string> {
-        const [file, root]: [string, string] = Git.splitPath(Git.normalizePath(fileName), repoPath);
+        const [file, root]: [string, string] = Git.splitPath(fileName, repoPath);
 
         const params = ['status', '--porcelain=v2', file];
         return gitCommand(root, ...params);
