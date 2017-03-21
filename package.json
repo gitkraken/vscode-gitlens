@@ -654,7 +654,6 @@
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
-                    "alt": "gitlens.showFileHistory",
                     "when": "gitlens:enabled",
                     "group": "2_gitlens@2"
                 },
