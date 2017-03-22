@@ -87,10 +87,10 @@ export class Git {
     }
 
     static normalizePath(fileName: string, repoPath?: string) {
-        return fileName.replace(/\\/g, '/');
+        return fileName && fileName.replace(/\\/g, '/');
     }
 
-    static splitPath(fileName: string, repoPath?: string): [string, string] {
+    static splitPath(fileName: string, repoPath: string | undefined, extract: boolean = true): [string, string] {
         if (repoPath) {
             fileName = this.normalizePath(fileName);
             repoPath = this.normalizePath(repoPath);
@@ -101,8 +101,8 @@ export class Git {
             }
         }
         else {
-            repoPath = this.normalizePath(path.dirname(fileName));
-            fileName = this.normalizePath(path.basename(fileName));
+            repoPath = this.normalizePath(extract ? path.dirname(fileName) : repoPath);
+            fileName = this.normalizePath(extract ? path.basename(fileName) : fileName);
         }
 
         return [ fileName, repoPath ];
@@ -111,7 +111,7 @@ export class Git {
     // Git commands
 
     static blame(repoPath: string, fileName: string, sha?: string, startLine?: number, endLine?: number) {
-        const [file, root]: [string, string] = Git.splitPath(fileName, repoPath);
+        const [file, root] = Git.splitPath(fileName, repoPath);
 
         const params = [`blame`, `--root`, `--incremental`];
 

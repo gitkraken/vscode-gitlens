@@ -304,7 +304,7 @@ export class GitService extends Disposable {
     }
 
     private async _getBlameForFile(uri: GitUri, fileName: string, entry: GitCacheEntry | undefined): Promise<IGitBlame> {
-        const [file, root] = Git.splitPath(fileName, uri.repoPath);
+        const [file, root] = Git.splitPath(fileName, uri.repoPath, false);
 
         const ignore = await this._gitignore;
         if (ignore && !ignore.filter([file]).length) {
@@ -317,7 +317,7 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.blame(root, file, uri.sha);
-            return GitBlameParser.parse(data, file);
+            return GitBlameParser.parse(data, root, file);
         }
         catch (ex) {
             // Trap and cache expected blame errors
@@ -360,7 +360,7 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.blame(uri.repoPath, fileName, uri.sha, line + 1, line + 1);
-            const blame = GitBlameParser.parse(data, fileName);
+            const blame = GitBlameParser.parse(data, uri.repoPath, fileName);
             if (!blame) return undefined;
 
             const commit = Iterables.first(blame.commits.values());
@@ -530,7 +530,7 @@ export class GitService extends Disposable {
     }
 
     private async _getLogForFile(repoPath: string, fileName: string, sha: string, range: Range, maxCount: number, reverse: boolean, entry: GitCacheEntry | undefined): Promise<IGitLog> {
-        const [file, root] = Git.splitPath(fileName, repoPath);
+        const [file, root] = Git.splitPath(fileName, repoPath, false);
 
         const ignore = await this._gitignore;
         if (ignore && !ignore.filter([file]).length) {

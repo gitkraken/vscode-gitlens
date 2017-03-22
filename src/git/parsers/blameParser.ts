@@ -116,7 +116,7 @@ export class GitBlameParser {
         return entries;
     }
 
-    static parse(data: string, fileName: string): IGitBlame {
+    static parse(data: string, repoPath: string, fileName: string): IGitBlame {
         const entries = this._parseEntries(data);
         if (!entries) return undefined;
 
@@ -124,16 +124,15 @@ export class GitBlameParser {
         const commits: Map<string, GitCommit> = new Map();
         const lines: Array<IGitCommitLine> = [];
 
-        let repoPath: string;
-        let relativeFileName: string;
+        let relativeFileName = repoPath && fileName;
 
         for (let i = 0, len = entries.length; i < len; i++) {
             const entry = entries[i];
 
-            if (i === 0) {
+            if (i === 0 && !repoPath) {
                 // Try to get the repoPath from the most recent commit
                 repoPath = Git.normalizePath(fileName.replace(`/${entry.fileName}`, ''));
-                relativeFileName = path.relative(repoPath, fileName).replace(/\\/g, '/');
+                relativeFileName = Git.normalizePath(path.relative(repoPath, fileName));
             }
 
             let commit = commits.get(entry.sha);

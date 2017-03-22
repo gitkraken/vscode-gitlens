@@ -20,10 +20,10 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
 
         let workingFileName = commit && commit.workingFileName;
 
+        const gitUri = await GitUri.fromUri(uri, this.git);
+
         if (!sha) {
             if (!editor) return undefined;
-
-            const gitUri = await GitUri.fromUri(uri, this.git);
 
             const blameline = editor.selection.active.line - gitUri.offset;
             if (blameline < 0) return undefined;
@@ -54,7 +54,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                 }
 
                 if (!fileLog) {
-                    const log = await this.git.getLogForFile(undefined, commit ? commit.uri.fsPath : uri.fsPath, sha, undefined, 2);
+                    const log = await this.git.getLogForFile(commit ? commit.repoPath : gitUri.repoPath, commit ? commit.uri.fsPath : gitUri.fsPath, sha, undefined, 2);
                     if (!log) return window.showWarningMessage(`Unable to show commit file details`);
 
                     commit = log.commits.get(sha);
