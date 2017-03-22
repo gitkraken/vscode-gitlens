@@ -54,7 +54,7 @@ export class GitCommit implements IGitCommit {
         previousSha?: string,
         previousFileName?: string
     ) {
-        this.fileName = this.fileName.replace(/, ?$/, '');
+        this.fileName = this.fileName && this.fileName.replace(/, ?$/, '');
 
         this.lines = lines || [];
         this.originalFileName = originalFileName;
