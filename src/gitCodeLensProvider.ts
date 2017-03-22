@@ -273,7 +273,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             case CodeLensCommand.ShowQuickCommitDetails: return this._applyShowQuickCommitDetailsCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
             case CodeLensCommand.ShowQuickCommitFileDetails: return this._applyShowQuickCommitFileDetailsCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
             case CodeLensCommand.ShowQuickFileHistory: return this._applyShowQuickFileHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
-            case CodeLensCommand.ShowQuickRepoHistory: return this._applyShowQuickRepoHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
+            case CodeLensCommand.ShowQuickCurrentBranchHistory: return this._applyShowQuickBranchHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
             default: return lens;
         }
     }
@@ -294,7 +294,7 @@ export default class GitCodeLensProvider implements CodeLensProvider {
             case CodeLensCommand.ShowQuickCommitDetails: return this._applyShowQuickCommitDetailsCommand<GitAuthorsCodeLens>(title, lens, blame);
             case CodeLensCommand.ShowQuickCommitFileDetails: return this._applyShowQuickCommitFileDetailsCommand<GitAuthorsCodeLens>(title, lens, blame);
             case CodeLensCommand.ShowQuickFileHistory: return this._applyShowQuickFileHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
-            case CodeLensCommand.ShowQuickRepoHistory: return this._applyShowQuickRepoHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
+            case CodeLensCommand.ShowQuickCurrentBranchHistory: return this._applyShowQuickBranchHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
             default: return lens;
         }
     }
@@ -389,10 +389,10 @@ export default class GitCodeLensProvider implements CodeLensProvider {
         return lens;
     }
 
-    _applyShowQuickRepoHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: IGitBlameLines, commit?: GitCommit): T {
+    _applyShowQuickBranchHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: IGitBlameLines, commit?: GitCommit): T {
         lens.command = {
             title: title,
-            command: CodeLensCommand.ShowQuickRepoHistory,
+            command: CodeLensCommand.ShowQuickCurrentBranchHistory,
             arguments: [Uri.file(lens.uri.fsPath)]
         };
         return lens;

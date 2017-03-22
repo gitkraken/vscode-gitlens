@@ -17,7 +17,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
             uri = editor && editor.document && editor.document.uri;
         }
 
-        if (!uri) return commands.executeCommand(Commands.ShowQuickRepoHistory);
+        if (!uri) return commands.executeCommand(Commands.ShowQuickCurrentBranchHistory);
 
         const gitUri = await GitUri.fromUri(uri, this.git);
 

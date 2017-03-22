@@ -3,12 +3,12 @@ import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands } from '../commands';
 import { GitService, GitUri, IGitLog } from '../gitService';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, RepoHistoryQuickPick } from '../quickPicks';
+import { BranchesQuickPick, BranchHistoryQuickPick, CommandQuickPickItem } from '../quickPicks';
 
-export class ShowQuickRepoHistoryCommand extends ActiveEditorCachedCommand {
+export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 
     constructor(private git: GitService, private repoPath: string) {
-        super(Commands.ShowQuickRepoHistory);
+        super(Commands.ShowQuickBranchHistory);
     }
 
     async execute(editor: TextEditor, uri?: Uri, branch?: string, maxCount?: number, goBackCommand?: CommandQuickPickItem, log?: IGitLog, nextPageCommand?: CommandQuickPickItem) {
@@ -22,23 +22,35 @@ export class ShowQuickRepoHistoryCommand extends ActiveEditorCachedCommand {
             maxCount = this.git.config.advanced.maxQuickHistory;
         }
 
-        branch = branch || (await this.git.getBranch(this.git.repoPath)).name;
-
-        const progressCancellation = RepoHistoryQuickPick.showProgress(branch);
+        let progressCancellation = branch && BranchHistoryQuickPick.showProgress(branch);
         try {
             const repoPath = (gitUri && gitUri.repoPath) || await this.git.getRepoPathFromUri(uri, this.repoPath);
-            if (!repoPath) return window.showWarningMessage(`Unable to show history`);
+            if (!repoPath) return window.showWarningMessage(`Unable to show branch history`);
 
-            if (progressCancellation.token.isCancellationRequested) return undefined;
+            if (!branch) {
+                const branches = await this.git.getBranches(repoPath);
+
+                const pick = await BranchesQuickPick.show(branches, `pick a branch to show history`);
+                if (!pick) return undefined;
+
+                if (pick instanceof CommandQuickPickItem) {
+                    return pick.execute();
+                }
+
+                branch = pick.branch.name;
+                if (!branch) return undefined;
+
+                progressCancellation = BranchHistoryQuickPick.showProgress(branch);
+            }
 
             if (!log) {
                 log = await this.git.getLogForRepo(repoPath, (gitUri && gitUri.sha) || branch, maxCount);
-                if (!log) return window.showWarningMessage(`Unable to show history`);
+                if (!log) return window.showWarningMessage(`Unable to show branch history`);
             }
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
-            const pick = await RepoHistoryQuickPick.show(log, gitUri, branch, progressCancellation, goBackCommand, nextPageCommand);
+            const pick = await BranchHistoryQuickPick.show(log, gitUri, branch, progressCancellation, goBackCommand, nextPageCommand);
             if (!pick) return undefined;
 
             if (pick instanceof CommandQuickPickItem) {
@@ -49,15 +61,15 @@ export class ShowQuickRepoHistoryCommand extends ActiveEditorCachedCommand {
                 new CommandQuickPickItem({
                     label: `go back \u21A9`,
                     description: `\u00a0 \u2014 \u00a0\u00a0 to \u00a0$(git-branch) ${branch} history`
-                }, Commands.ShowQuickRepoHistory, [uri, branch, maxCount, goBackCommand, log]),
+                }, Commands.ShowQuickBranchHistory, [uri, branch, maxCount, goBackCommand, log]),
                 log);
         }
         catch (ex) {
-            Logger.error('[GitLens.ShowQuickRepoHistoryCommand]', ex);
-            return window.showErrorMessage(`Unable to show history. See output channel for more details`);
+            Logger.error('[GitLens.ShowQuickBranchHistoryCommand]', ex);
+            return window.showErrorMessage(`Unable to show branch history. See output channel for more details`);
         }
         finally {
-            progressCancellation.dispose();
+            progressCancellation && progressCancellation.dispose();
         }
     }
 }

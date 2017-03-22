@@ -6,7 +6,7 @@ import { GitUri, IGitLog } from '../gitService';
 import { CommitQuickPickItem } from './gitQuickPicks';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './quickPicks';
 
-export class RepoHistoryQuickPick {
+export class BranchHistoryQuickPick {
 
     static showProgress(branch: string) {
         return showQuickPickProgress(`${branch} history \u2014 search by commit message, filename, or sha`,
@@ -27,7 +27,7 @@ export class RepoHistoryQuickPick {
                 items.splice(0, 0, new CommandQuickPickItem({
                     label: `$(sync) Show All Commits`,
                     description: `\u00a0 \u2014 \u00a0\u00a0 this may take a while`
-                }, Commands.ShowQuickRepoHistory, [
+                }, Commands.ShowQuickBranchHistory, [
                         new GitUri(Uri.file(log.repoPath), { fileName: '', repoPath: log.repoPath }),
                         branch,
                         0,
@@ -38,14 +38,14 @@ export class RepoHistoryQuickPick {
                 items.splice(0, 0, new CommandQuickPickItem({
                     label: `$(history) Show Branch History`,
                     description: `\u00a0 \u2014 \u00a0\u00a0 shows \u00a0$(git-branch) ${branch} history`
-                }, Commands.ShowQuickRepoHistory, [
+                }, Commands.ShowQuickBranchHistory, [
                         new GitUri(Uri.file(log.repoPath), { fileName: '', repoPath: log.repoPath }),
                         branch,
                         undefined,
                         new CommandQuickPickItem({
                             label: `go back \u21A9`,
                             description: `\u00a0 \u2014 \u00a0\u00a0 to \u00a0$(git-branch) ${branch} history`
-                        }, Commands.ShowQuickRepoHistory, [uri, branch, log.maxCount, goBackCommand, log])
+                        }, Commands.ShowQuickBranchHistory, [uri, branch, log.maxCount, goBackCommand, log])
                     ]));
             }
 
@@ -57,14 +57,14 @@ export class RepoHistoryQuickPick {
                 const npc = new CommandQuickPickItem({
                     label: `$(arrow-right) Show Next Commits`,
                     description: `\u00a0 \u2014 \u00a0\u00a0 shows ${log.maxCount} newer commits`
-                }, Commands.ShowQuickRepoHistory, [uri, branch, log.maxCount, goBackCommand, undefined, nextPageCommand]);
+                }, Commands.ShowQuickBranchHistory, [uri, branch, log.maxCount, goBackCommand, undefined, nextPageCommand]);
 
                 const last = Iterables.last(log.commits.values());
 
                 previousPageCommand = new CommandQuickPickItem({
                     label: `$(arrow-left) Show Previous Commits`,
                     description: `\u00a0 \u2014 \u00a0\u00a0 shows ${log.maxCount} older commits`
-                }, Commands.ShowQuickRepoHistory, [new GitUri(uri ? uri : last.uri, last), branch, log.maxCount, goBackCommand, undefined, npc]);
+                }, Commands.ShowQuickBranchHistory, [new GitUri(uri ? uri : last.uri, last), branch, log.maxCount, goBackCommand, undefined, npc]);
 
                 items.splice(0, 0, previousPageCommand);
             }

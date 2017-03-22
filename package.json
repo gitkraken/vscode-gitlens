@@ -439,8 +439,13 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.showQuickBranchHistory",
+                "title": "Show Branch History",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.showQuickRepoHistory",
-                "title": "Show Repository History",
+                "title": "Show Current Branch History",
                 "category": "GitLens"
             },
             {
@@ -533,6 +538,10 @@
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
+                    "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.showQuickBranchHistory",
                     "when": "gitlens:enabled"
                 },
                 {

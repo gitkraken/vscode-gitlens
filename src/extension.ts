@@ -10,7 +10,7 @@ import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './comm
 import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithBranchCommand, DiffWithNextCommand, DiffWithPreviousCommand, DiffWithWorkingCommand} from './commands';
 import { ShowBlameCommand, ToggleBlameCommand } from './commands';
 import { ShowBlameHistoryCommand, ShowFileHistoryCommand } from './commands';
-import { ShowLastQuickPickCommand, ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand, ShowQuickFileHistoryCommand, ShowQuickRepoHistoryCommand, ShowQuickRepoStatusCommand} from './commands';
+import { ShowLastQuickPickCommand, ShowQuickBranchHistoryCommand, ShowQuickCurrentBranchHistoryCommand, ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand, ShowQuickFileHistoryCommand, ShowQuickRepoStatusCommand} from './commands';
 import { ToggleCodeLensCommand } from './commands';
 import { Keyboard } from './commands';
 import { IAdvancedConfig, IBlameConfig } from './configuration';
@@ -104,10 +104,11 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new ShowBlameHistoryCommand(git));
     context.subscriptions.push(new ShowFileHistoryCommand(git));
     context.subscriptions.push(new ShowLastQuickPickCommand());
+    context.subscriptions.push(new ShowQuickBranchHistoryCommand(git, repoPath));
+    context.subscriptions.push(new ShowQuickCurrentBranchHistoryCommand(git));
     context.subscriptions.push(new ShowQuickCommitDetailsCommand(git, repoPath));
     context.subscriptions.push(new ShowQuickCommitFileDetailsCommand(git));
     context.subscriptions.push(new ShowQuickFileHistoryCommand(git));
-    context.subscriptions.push(new ShowQuickRepoHistoryCommand(git, repoPath));
     context.subscriptions.push(new ShowQuickRepoStatusCommand(git, repoPath));
     context.subscriptions.push(new ToggleCodeLensCommand(git));
 }

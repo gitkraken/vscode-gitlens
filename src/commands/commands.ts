@@ -2,7 +2,7 @@
 import { commands, Disposable, TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
 import { BuiltInCommands } from '../constants';
 
-export type Commands = 'gitlens.closeUnchangedFiles' | 'gitlens.copyMessageToClipboard' | 'gitlens.copyShaToClipboard' | 'gitlens.diffDirectory' | 'gitlens.diffWithBranch' | 'gitlens.diffWithNext' | 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' | 'gitlens.openChangedFiles' | 'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.showLastQuickPick' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory' | 'gitlens.showQuickRepoStatus' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
+export type Commands = 'gitlens.closeUnchangedFiles' | 'gitlens.copyMessageToClipboard' | 'gitlens.copyShaToClipboard' | 'gitlens.diffDirectory' | 'gitlens.diffWithBranch' | 'gitlens.diffWithNext' | 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' | 'gitlens.openChangedFiles' | 'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.showLastQuickPick' | 'gitlens.showQuickBranchHistory' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory' | 'gitlens.showQuickRepoStatus' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
 export const Commands = {
     CloseUnchangedFiles: 'gitlens.closeUnchangedFiles' as Commands,
     CopyMessageToClipboard: 'gitlens.copyMessageToClipboard' as Commands,
@@ -22,7 +22,8 @@ export const Commands = {
     ShowQuickCommitDetails: 'gitlens.showQuickCommitDetails' as Commands,
     ShowQuickCommitFileDetails: 'gitlens.showQuickCommitFileDetails' as Commands,
     ShowQuickFileHistory: 'gitlens.showQuickFileHistory' as Commands,
-    ShowQuickRepoHistory: 'gitlens.showQuickRepoHistory' as Commands,
+    ShowQuickBranchHistory: 'gitlens.showQuickBranchHistory' as Commands,
+    ShowQuickCurrentBranchHistory: 'gitlens.showQuickRepoHistory' as Commands,
     ShowQuickRepoStatus: 'gitlens.showQuickRepoStatus' as Commands,
     ToggleBlame: 'gitlens.toggleBlame' as Commands,
     ToggleCodeLens: 'gitlens.toggleCodeLens' as Commands

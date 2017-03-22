@@ -37,7 +37,7 @@ export const CodeLensCommand = {
     ShowQuickCommitDetails: Commands.ShowQuickCommitDetails as CodeLensCommand,
     ShowQuickCommitFileDetails: Commands.ShowQuickCommitFileDetails as CodeLensCommand,
     ShowQuickFileHistory: Commands.ShowQuickFileHistory as CodeLensCommand,
-    ShowQuickRepoHistory: Commands.ShowQuickRepoHistory as CodeLensCommand
+    ShowQuickCurrentBranchHistory: Commands.ShowQuickCurrentBranchHistory as CodeLensCommand
 };
 
 export type CodeLensLocation = 'all' | 'document+containers' | 'document' | 'custom' | 'none';
@@ -86,7 +86,7 @@ export const StatusBarCommand = {
     ShowQuickCommitDetails: Commands.ShowQuickCommitDetails as StatusBarCommand,
     ShowQuickCommitFileDetails: Commands.ShowQuickCommitFileDetails as StatusBarCommand,
     ShowQuickFileHistory: Commands.ShowQuickFileHistory as StatusBarCommand,
-    ShowQuickRepoHistory: Commands.ShowQuickRepoHistory as StatusBarCommand
+    ShowQuickCurrentBranchHistory: Commands.ShowQuickCurrentBranchHistory as StatusBarCommand
 };
 
 export interface IStatusBarConfig {

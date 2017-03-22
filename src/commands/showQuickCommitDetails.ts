@@ -72,7 +72,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
                 goBackCommand = new CommandQuickPickItem({
                     label: `go back \u21A9`,
                     description: `\u00a0 \u2014 \u00a0\u00a0 to branch history`
-                }, Commands.ShowQuickRepoHistory, [new GitUri(commit.uri, commit)]);
+                }, Commands.ShowQuickCurrentBranchHistory, [new GitUri(commit.uri, commit)]);
             }
 
             const pick = await CommitDetailsQuickPick.show(this.git, commit as GitLogCommit, uri, goBackCommand, repoLog);

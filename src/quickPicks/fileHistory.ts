@@ -79,10 +79,8 @@ export class FileHistoryQuickPick {
             items.splice(index, 0, new CommandQuickPickItem({
                 label: `$(history) Show Branch History`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 shows the current branch history`
-            }, Commands.ShowQuickRepoHistory,
+            }, Commands.ShowQuickCurrentBranchHistory,
                 [
-                    undefined,
-                    undefined,
                     undefined,
                     new CommandQuickPickItem({
                         label: `go back \u21A9`,

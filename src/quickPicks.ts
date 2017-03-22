@@ -1,9 +1,9 @@
 'use strict';
-export { BranchQuickPickItem, BranchesQuickPick } from './quickPicks/branches';
-export { CommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, showQuickPickProgress } from './quickPicks/quickPicks';
-export { CommitQuickPickItem, CommitWithFileStatusQuickPickItem } from './quickPicks/gitQuickPicks';
-export { OpenCommitFilesCommandQuickPickItem, OpenCommitWorkingTreeFilesCommandQuickPickItem, CommitDetailsQuickPick } from './quickPicks/commitDetails';
-export { OpenCommitFileCommandQuickPickItem, OpenCommitWorkingTreeFileCommandQuickPickItem, CommitFileDetailsQuickPick } from './quickPicks/commitFileDetails';
-export { FileHistoryQuickPick } from './quickPicks/fileHistory';
-export { RepoHistoryQuickPick } from './quickPicks/repoHistory';
-export { OpenStatusFileCommandQuickPickItem, OpenStatusFilesCommandQuickPickItem, RepoStatusQuickPick } from './quickPicks/repoStatus';
+export * from './quickPicks/branches';
+export * from './quickPicks/quickPicks';
+export * from './quickPicks/gitQuickPicks';
+export * from './quickPicks/commitDetails';
+export * from './quickPicks/commitFileDetails';
+export * from './quickPicks/branchHistory';
+export * from './quickPicks/fileHistory';
+export * from './quickPicks/repoStatus';
