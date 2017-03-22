@@ -1,5 +1,27 @@
 ## Release Notes
 
+### 2.13.0
+- Adds `Show Branch History` command (`gitlens.showQuickBranchHistory`) to show the history of the selected branch
+- Adds `Show Last Opened Quick Pick` command (`gitlens.showLastQuickPick`) to re-open the previously opened quick pick - helps to get back to previous context
+- Adds `alt+-` shortcut for the `Show Last Opened Quick Pick` command (`gitlens.showLastQuickPick`)
+- Adds upstream status information (if available) to the repository status pick pick
+- Adds file status rollup information to the repository status pick pick
+- Adds file status rollup information to the commit details quick pick
+- Adds `Compare with...` (`gitlens.diffWithBranch`) command to compare working file to another branch (via branch quick pick)
+- Adds branch quick pick to `Directory Compare` (`gitlens.diffDirectory`) command
+- Adds support for `gitlens.showQuickFileHistory` command execution via CodeLens to limit results to the CodeLens block
+- Adds current branch to branch quick pick placeholder
+- Adds `Show Branch History` command to the branch history quick pick when showing only limited commits (e.g. starting at a specified commit)
+- Adds `Show File History` command to the file history quick pick when showing only limited commits (e.g. starting at a specified commit)
+- Changes `Show Repository History` command to `Show Current Branch History`
+- Changes `Repository History` terminology to `Branch History`
+- Fixes issue with `gitlens.diffWithPrevious` command execution via CodeLens when the CodeLens was not at the document/file level
+- Fixes issue where full shas were displayed on the file/blame history explorers
+- Fixes [#30](https://github.com/eamodio/vscode-gitlens/issues/30) - Diff with Working Tree fails from repo/commit quickpick list if file was renamed (and the commit was before the rename)
+- Fixes various other quick pick command issues when a file was renamed
+- Fixes various issues when caching is disabled
+- Fixes issues with parsing commits history
+
 ### 2.12.2
 - Fixes [#50](https://github.com/eamodio/vscode-gitlens/issues/50) - excludes container-level CodeLens from `html` and `vue` language files
 
@@ -38,7 +60,7 @@
 - Adds `gitlens.showQuickCommitFileDetails` command to the status bar
 - Adds `gitlens.closeUnchangedFiles` command to close any editors that don't have uncommitted changes
 - Adds `gitlens.openChangedFiles` command to open all files that have uncommitted changes
-- Adds `gitlens.diffDirectory` command to open the configured git difftool to compare directory versions
+- Adds `Directory Compare` (`gitlens.diffDirectory`) command to open the configured git difftool to compare directory versions
 - Adds `Directory Compare with Previous Commit` command on the `gitlens.showQuickCommitDetails` quick pick
 - Adds `Directory Compare with Working Tree` command on the `gitlens.showQuickCommitDetails` quick pick
 - Adds a `Changed Files` grouping on the `gitlens.showQuickCommitDetails` quick pick
