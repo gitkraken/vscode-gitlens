@@ -108,7 +108,7 @@ export class RepoStatusQuickPick {
         }
         else {
             items.push(new CommandQuickPickItem({
-                label: `No working changes`,
+                label: `No changes in the working tree`,
                 description: null
             }, Commands.ShowQuickRepoStatus, [goBackCommand]));
         }
