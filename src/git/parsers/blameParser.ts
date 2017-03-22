@@ -132,7 +132,7 @@ export class GitBlameParser {
 
             if (i === 0) {
                 // Try to get the repoPath from the most recent commit
-                repoPath = fileName.replace(`/${entry.fileName}`, '');
+                repoPath = Git.normalizePath(fileName.replace(`/${entry.fileName}`, ''));
                 relativeFileName = path.relative(repoPath, fileName).replace(/\\/g, '/');
             }
 

@@ -86,7 +86,7 @@ export class GitCommit implements IGitCommit {
     }
 
     getFormattedPath(separator: string = ' \u00a0\u2022\u00a0 '): string {
-        const directory = path.dirname(this.fileName);
+        const directory = Git.normalizePath(path.dirname(this.fileName));
         return (!directory || directory === '.')
             ? path.basename(this.fileName)
             : `${path.basename(this.fileName)}${separator}${directory}`;

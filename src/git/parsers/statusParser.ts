@@ -1,5 +1,5 @@
 'use strict';
-import { GitStatusFileStatus, GitStatusFile, IGitStatus } from './../git';
+import { Git, GitStatusFileStatus, GitStatusFile, IGitStatus } from './../git';
 
 interface IFileStatusEntry {
     staged: boolean;
@@ -17,7 +17,7 @@ export class GitStatusParser {
         if (!lines.length) return undefined;
 
         const status = {
-            repoPath: repoPath,
+            repoPath: Git.normalizePath(repoPath),
             state: {
                 ahead: 0,
                 behind: 0

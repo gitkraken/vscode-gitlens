@@ -64,6 +64,8 @@ export class GitUri extends Uri {
         if (this.repoPath) {
             directory = path.relative(this.repoPath, directory);
         }
+        directory = Git.normalizePath(directory);
+
         return (!directory || directory === '.')
             ? path.basename(this.fsPath)
             : `${path.basename(this.fsPath)}${separator}${directory}`;

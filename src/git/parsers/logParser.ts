@@ -188,7 +188,7 @@ export class GitLogParser {
         let recentCommit: GitLogCommit;
 
         if (isRepoPath) {
-            repoPath = fileNameOrRepoPath;
+            repoPath = Git.normalizePath(fileNameOrRepoPath);
         }
 
         for (let i = 0, len = entries.length; i < len; i++) {
@@ -203,7 +203,7 @@ export class GitLogParser {
                 }
                 else {
                     // Try to get the repoPath from the most recent commit
-                    repoPath = fileNameOrRepoPath.replace(fileNameOrRepoPath.startsWith('/') ? `/${entry.fileName}` : entry.fileName, '');
+                    repoPath = Git.normalizePath(fileNameOrRepoPath.replace(fileNameOrRepoPath.startsWith('/') ? `/${entry.fileName}` : entry.fileName, ''));
                     relativeFileName = path.relative(repoPath, fileNameOrRepoPath).replace(/\\/g, '/');
                 }
             }

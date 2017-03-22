@@ -2,7 +2,7 @@
 import { Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard } from '../commands';
-import { GitStatusFile, GitUri, IGitStatus } from '../gitService';
+import { Git, GitStatusFile, GitUri, IGitStatus } from '../gitService';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem } from './quickPicks';
 import * as path from 'path';
 
@@ -12,7 +12,7 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
         const uri = Uri.file(path.resolve(status.repoPath, status.fileName));
         const icon = status.getIcon();
 
-        let directory = path.dirname(status.fileName);
+        let directory = Git.normalizePath(path.dirname(status.fileName));
         if (!directory || directory === '.') {
             directory = undefined;
         }
