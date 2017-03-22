@@ -13,7 +13,8 @@ export * from './parsers/statusParser';
 
 let git: IGit;
 
-const defaultLogParams = [`log`, `--name-status`, `--full-history`, `-M`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nparent %P%nsummary %B%nfilename ?`];
+//`--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nparent %P%nsummary %B%nfilename ?`
+const defaultLogParams = [`log`, `--name-status`, `--full-history`, `-M`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%nsummary %B%nfilename ?`];
 
 async function gitCommand(cwd: string, ...args: any[]) {
     try {

@@ -11,10 +11,10 @@ interface ILogEntry {
     author?: string;
     authorDate?: string;
 
-    committer?: string;
-    committerDate?: string;
+    // committer?: string;
+    // committerDate?: string;
 
-    parentSha?: string;
+    // parentSha?: string;
 
     fileName?: string;
     originalFileName?: string;
@@ -72,9 +72,9 @@ export class GitLogParser {
                 //     entry.committerDate = lineParts.slice(1).join(' ').trim();
                 //     break;
 
-                case 'parent':
-                    entry.parentSha = lineParts.slice(1).join(' ').trim();
-                    break;
+                // case 'parent':
+                //     entry.parentSha = lineParts.slice(1).join(' ').trim();
+                //     break;
 
                 case 'summary':
                     entry.summary = lineParts.slice(1).join(' ').trim();
