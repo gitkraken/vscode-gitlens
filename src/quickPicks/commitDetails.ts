@@ -61,9 +61,14 @@ export class CommitDetailsQuickPick {
             description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.shortSha} \u00a0 $(git-compare) \u00a0 $(file-directory) Working Tree`
         }, Commands.DiffDirectory, [uri, commit.sha]));
 
+
+        const added = commit.fileStatuses.filter(_ => _.status === 'A' || _.status === '?').length;
+        const deleted = commit.fileStatuses.filter(_ => _.status === 'D').length;
+        const changed = commit.fileStatuses.filter(_ => _.status !== 'A' && _.status !== '?' && _.status !== 'D').length;
+
         items.splice(index++, 0, new CommandQuickPickItem({
             label: `Changed Files`,
-            description: null
+            description: `+${added} ~${changed} -${deleted}`
         }, Commands.ShowQuickCommitDetails, [uri, commit.sha, commit, goBackCommand, repoLog]));
 
         items.push(new OpenCommitFilesCommandQuickPickItem(commit));
