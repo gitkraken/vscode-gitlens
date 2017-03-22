@@ -27,7 +27,7 @@ interface ILogEntry {
 
 export class GitLogParser {
 
-    private static _parseEntries(data: string, isRepoPath: boolean): ILogEntry[] {
+    private static _parseEntries(data: string, isRepoPath: boolean, maxCount: number | undefined, reverse: boolean): ILogEntry[] {
         if (!data) return undefined;
 
         const lines = data.split('\n');
@@ -38,6 +38,9 @@ export class GitLogParser {
         let entry: ILogEntry;
         let position = -1;
         while (++position < lines.length) {
+            // Since log --reverse doesn't properly honor a max count -- enforce it here
+            if (reverse && maxCount && (entries.length >= maxCount)) break;
+
             let lineParts = lines[position].split(' ');
             if (lineParts.length < 2) {
                 continue;
@@ -181,7 +184,7 @@ export class GitLogParser {
     }
 
     static parse(data: string, type: GitLogType, fileNameOrRepoPath: string, maxCount: number | undefined, isRepoPath: boolean, reverse: boolean, range: Range): IGitLog {
-        const entries = this._parseEntries(data, isRepoPath);
+        const entries = this._parseEntries(data, isRepoPath, maxCount, reverse);
         if (!entries) return undefined;
 
         const authors: Map<string, IGitAuthor> = new Map();
@@ -197,7 +200,7 @@ export class GitLogParser {
 
         for (let i = 0, len = entries.length; i < len; i++) {
             // Since log --reverse doesn't properly honor a max count -- enforce it here
-            if (reverse && i >= maxCount) break;
+            if (reverse && maxCount && (i >= maxCount)) break;
 
             const entry = entries[i];
 
