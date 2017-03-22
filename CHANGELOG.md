@@ -1,6 +1,7 @@
 ## Release Notes
 
 ### 2.13.0
+- Adds an update notification (for feature releases) -- please file an issue if this it too much
 - Adds `Show Branch History` command (`gitlens.showQuickBranchHistory`) to show the history of the selected branch
 - Adds `Show Last Opened Quick Pick` command (`gitlens.showLastQuickPick`) to re-open the previously opened quick pick - helps to get back to previous context
 - Adds `alt+-` shortcut for the `Show Last Opened Quick Pick` command (`gitlens.showLastQuickPick`)
@@ -13,6 +14,7 @@
 - Adds current branch to branch quick pick placeholder
 - Adds `Show Branch History` command to the branch history quick pick when showing only limited commits (e.g. starting at a specified commit)
 - Adds `Show File History` command to the file history quick pick when showing only limited commits (e.g. starting at a specified commit)
+- Adds `Don't Show Again` option to the unsupported git version notification
 - Changes `Show Repository History` command to `Show Current Branch History`
 - Changes `Repository History` terminology to `Branch History`
 - Fixes issue with `gitlens.diffWithPrevious` command execution via CodeLens when the CodeLens was not at the document/file level

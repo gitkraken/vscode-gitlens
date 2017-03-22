@@ -1,5 +1,5 @@
 'use strict';
-import { ExtensionContext, languages, window, workspace } from 'vscode';
+import { commands, ExtensionContext, extensions, languages, Uri, window, workspace } from 'vscode';
 import { BlameabilityTracker } from './blameabilityTracker';
 import { BlameActiveLineController } from './blameActiveLineController';
 import { BlameAnnotationController } from './blameAnnotationController';
@@ -14,7 +14,7 @@ import { ShowLastQuickPickCommand, ShowQuickBranchHistoryCommand, ShowQuickCurre
 import { ToggleCodeLensCommand } from './commands';
 import { Keyboard } from './commands';
 import { IAdvancedConfig, IBlameConfig } from './configuration';
-import { WorkspaceState } from './constants';
+import { BuiltInCommands, WorkspaceState } from './constants';
 import { GitContentProvider } from './gitContentProvider';
 import { Git, GitService } from './gitService';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
@@ -24,15 +24,18 @@ import { Logger } from './logger';
 export async function activate(context: ExtensionContext) {
     Logger.configure(context);
 
+    const gitlens = extensions.getExtension('eamodio.gitlens');
+    const gitlensVersion = gitlens.packageJSON.version;
+
     // Workspace not using a folder. No access to git repo.
     if (!workspace.rootPath) {
-        Logger.warn('GitLens inactive: no rootPath');
+        Logger.warn(`GitLens(v${gitlensVersion}) inactive: no rootPath`);
 
         return;
     }
 
     const rootPath = workspace.rootPath.replace(/\\/g, '/');
-    Logger.log(`GitLens active: ${rootPath}`);
+    Logger.log(`GitLens(v${gitlensVersion}) active: ${rootPath}`);
 
     const config = workspace.getConfiguration('gitlens');
     const gitPath = config.get<IAdvancedConfig>('advanced').git;
@@ -52,12 +55,11 @@ export async function activate(context: ExtensionContext) {
         return;
     }
 
-    const version = Git.gitInfo().version;
-    const [major, minor] = version.split('.');
-    // If git is less than v2.2.0
-    if (parseInt(major, 10) < 2 || parseInt(minor, 10) < 2) {
-        await window.showErrorMessage(`GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git.`);
-    }
+    const gitVersion = Git.gitInfo().version;
+    Logger.log(`Git version: ${gitVersion}`);
+
+    notifyOnUnsupportedGitVersion(context, gitVersion);
+    notifyOnNewGitLensVersion(context, gitlensVersion);
 
     let gitEnabled = workspace.getConfiguration('git').get<boolean>('enabled');
     setCommandContext(CommandContext.Enabled, gitEnabled);
@@ -115,3 +117,33 @@ export async function activate(context: ExtensionContext) {
 
 // this method is called when your extension is deactivated
 export function deactivate() { }
+
+async function notifyOnNewGitLensVersion(context: ExtensionContext, version: string) {
+    const previousVersion = context.globalState.get<string>(WorkspaceState.GitLensVersion);
+
+    await context.globalState.update(WorkspaceState.GitLensVersion, version);
+
+    if (previousVersion) {
+        const [major, minor] = version.split('.');
+        const [prevMajor, prevMinor] = previousVersion.split('.');
+        if (major === prevMajor && minor === prevMinor) return;
+    }
+
+    const result = await window.showInformationMessage(`GitLens has been updated to v${version}`, 'View Release Notes');
+    if (result === 'View Release Notes') {
+        commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://marketplace.visualstudio.com/items/eamodio.gitlens/changelog'));
+    }
+}
+
+async function notifyOnUnsupportedGitVersion(context: ExtensionContext, version: string) {
+    if (context.globalState.get(WorkspaceState.SuppressGitVersionWarning, false)) return;
+
+    const [major, minor] = version.split('.');
+    // If git is less than v2.2.0
+    if (parseInt(major, 10) < 2 || parseInt(minor, 10) < 2) {
+        const result = await window.showErrorMessage(`GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git.`, `Don't Show Again`);
+        if (result === `Don't Show Again`) {
+            context.globalState.update(WorkspaceState.SuppressGitVersionWarning, true);
+        }
+    }
+}

@@ -2,7 +2,7 @@
 
 export const RepoPath = 'repoPath';
 
-export type BuiltInCommands = 'cursorMove' | 'editor.action.showReferences' | 'editor.action.toggleRenderWhitespace' | 'editorScroll' | 'revealLine' | 'setContext' | 'vscode.diff' | 'vscode.executeDocumentSymbolProvider' | 'vscode.executeCodeLensProvider' | 'vscode.open' | 'workbench.action.closeActiveEditor' | 'workbench.action.nextEditor';
+export type BuiltInCommands = 'cursorMove' | 'editor.action.showReferences' | 'editor.action.toggleRenderWhitespace' | 'editorScroll' | 'revealLine' | 'setContext' | 'vscode.diff' | 'vscode.executeDocumentSymbolProvider' | 'vscode.executeCodeLensProvider' | 'vscode.open' | 'vscode.previewHtml' | 'workbench.action.closeActiveEditor' | 'workbench.action.nextEditor';
 export const BuiltInCommands = {
     CloseActiveEditor: 'workbench.action.closeActiveEditor' as BuiltInCommands,
     CursorMove: 'cursorMove' as BuiltInCommands,
@@ -12,6 +12,7 @@ export const BuiltInCommands = {
     ExecuteCodeLensProvider: 'vscode.executeCodeLensProvider' as BuiltInCommands,
     Open: 'vscode.open' as BuiltInCommands,
     NextEditor: 'workbench.action.nextEditor' as BuiltInCommands,
+    PreviewHtml: 'vscode.previewHtml' as BuiltInCommands,
     RevealLine: 'revealLine' as BuiltInCommands,
     SetContext: 'setContext' as BuiltInCommands,
     ShowReferences: 'editor.action.showReferences' as BuiltInCommands,
@@ -27,5 +28,7 @@ export const DocumentSchemes = {
 
 export type WorkspaceState = 'repoPath';
 export const WorkspaceState = {
-    RepoPath: 'repoPath' as WorkspaceState
+    GitLensVersion: 'gitlensVersion' as WorkspaceState,
+    RepoPath: 'repoPath' as WorkspaceState,
+    SuppressGitVersionWarning: 'suppressGitVersionWarning' as WorkspaceState
 };
