@@ -30,7 +30,7 @@ export class GitAuthorsCodeLens extends CodeLens {
     }
 }
 
-export default class GitCodeLensProvider implements CodeLensProvider {
+export class GitCodeLensProvider implements CodeLensProvider {
 
     private _onDidChangeCodeLensesEmitter = new EventEmitter<void>();
     public get onDidChangeCodeLenses(): Event<void> {

@@ -6,7 +6,7 @@ import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes, WorkspaceState } from './constants';
 import { Git, GitBlameParser, GitBranch, GitCommit, GitStatusFile, GitLogParser, GitStatusParser, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog, IGitStatus } from './git/git';
 import { IGitUriData, GitUri } from './git/gitUri';
-import GitCodeLensProvider from './gitCodeLensProvider';
+import { GitCodeLensProvider } from './gitCodeLensProvider';
 import { Logger } from './logger';
 import * as fs from 'fs';
 import * as ignore from 'ignore';
