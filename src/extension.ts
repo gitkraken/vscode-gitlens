@@ -62,21 +62,12 @@ export async function activate(context: ExtensionContext) {
     notifyOnUnsupportedGitVersion(context, gitVersion);
     notifyOnNewGitLensVersion(context, gitlensVersion);
 
-    let gitEnabled = workspace.getConfiguration('git').get<boolean>('enabled');
-    setCommandContext(CommandContext.Enabled, gitEnabled);
-    context.subscriptions.push(workspace.onDidChangeConfiguration(() => {
-        if (gitEnabled !== workspace.getConfiguration('git').get<boolean>('enabled')) {
-            gitEnabled = !gitEnabled;
-            setCommandContext(CommandContext.Enabled, gitEnabled);
-        }
-    }, this));
-
     context.workspaceState.update(WorkspaceState.RepoPath, repoPath);
 
     const git = new GitService(context);
     context.subscriptions.push(git);
 
-    setRemoteCommandsContext(context, git);
+    setCommandsContext(context, git);
 
     const blameabilityTracker = new BlameabilityTracker(git);
     context.subscriptions.push(blameabilityTracker);
@@ -154,11 +145,30 @@ async function notifyOnUnsupportedGitVersion(context: ExtensionContext, version:
     }
 }
 
-async function setRemoteCommandsContext(context: ExtensionContext, git: GitService): Promise<void> {
-    let hasRemotes = false;
-    if (git.config.insiders) {
-        const remotes = await git.getRemotes(git.repoPath);
-        hasRemotes = remotes.length !== 0;
+let savedGitEnabled: boolean;
+let savedInsiders: boolean;
+
+async function setCommandsContext(context: ExtensionContext, git: GitService): Promise<void> {
+    onCommandsContextConfigurationChanged(git);
+    context.subscriptions.push(workspace.onDidChangeConfiguration(() => onCommandsContextConfigurationChanged(git), this));
+}
+
+async function onCommandsContextConfigurationChanged(git: GitService) {
+    const gitEnabled = workspace.getConfiguration('git').get<boolean>('enabled');
+    if (gitEnabled !== savedGitEnabled) {
+        savedGitEnabled = gitEnabled;
+        setCommandContext(CommandContext.Enabled, gitEnabled);
     }
-    setCommandContext(CommandContext.HasRemotes, hasRemotes);
+
+    const insiders = workspace.getConfiguration('gitlens').get<boolean>('insiders');
+    if (insiders !== savedInsiders) {
+        savedInsiders = insiders;
+
+        let hasRemotes = false;
+        if (insiders) {
+            const remotes = await git.getRemotes(git.repoPath);
+            hasRemotes = remotes.length !== 0;
+        }
+        setCommandContext(CommandContext.HasRemotes, hasRemotes);
+    }
 }
