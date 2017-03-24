@@ -1,7 +1,7 @@
 'use strict';
-import { HostingProvider } from './hostingProvider';
+import { RemoteProvider } from './provider';
 
-export class GitHubService extends HostingProvider {
+export class GitHubService extends RemoteProvider {
 
     constructor(public domain: string, public path: string) {
         super(domain, path);

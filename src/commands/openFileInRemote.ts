@@ -5,10 +5,10 @@ import { ActiveEditorCommand, Commands } from './commands';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 
-export class OpenFileInHostingProviderCommand extends ActiveEditorCommand {
+export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 
     constructor(private git: GitService, private repoPath: string) {
-        super(Commands.OpenFileInHostingProvider);
+        super(Commands.OpenFileInRemote);
     }
 
     async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri) {
@@ -21,11 +21,11 @@ export class OpenFileInHostingProviderCommand extends ActiveEditorCommand {
 
         try {
             const remotes = Arrays.uniqueBy(await this.git.getRemotes(this.repoPath), _ => _.url, _ => !!_.provider);
-            return commands.executeCommand(Commands.OpenInHostingProvider, uri, remotes, 'file', [gitUri.getRelativePath(), gitUri.sha]);
+            return commands.executeCommand(Commands.OpenInRemote, uri, remotes, 'file', [gitUri.getRelativePath(), gitUri.sha]);
         }
         catch (ex) {
-            Logger.error('[GitLens.OpenFileInHostingProviderCommand]', ex);
-            return window.showErrorMessage(`Unable to open file in hosting provider. See output channel for more details`);
+            Logger.error('[GitLens.OpenFileInRemoteCommand]', ex);
+            return window.showErrorMessage(`Unable to open file in remote provider. See output channel for more details`);
         }
     }
 }

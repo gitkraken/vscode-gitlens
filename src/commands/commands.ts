@@ -4,7 +4,7 @@ import { BuiltInCommands } from '../constants';
 
 export type Commands = 'gitlens.closeUnchangedFiles' | 'gitlens.copyMessageToClipboard' | 'gitlens.copyShaToClipboard' |
     'gitlens.diffDirectory' | 'gitlens.diffWithBranch' | 'gitlens.diffWithNext' | 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' |
-    'gitlens.openChangedFiles' | 'gitlens.openCommitInHostingProvider' | 'gitlens.openFileInHostingProvider' | 'gitlens.openInHostingProvider' |
+    'gitlens.openChangedFiles' | 'gitlens.openCommitInRemote' | 'gitlens.openFileInRemote' | 'gitlens.openInRemote' |
     'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' |
     'gitlens.showLastQuickPick' | 'gitlens.showQuickBranchHistory' |
     'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' |
@@ -23,9 +23,9 @@ export const Commands = {
     DiffWithWorking: 'gitlens.diffWithWorking' as Commands,
     DiffLineWithWorking: 'gitlens.diffLineWithWorking' as Commands,
     OpenChangedFiles: 'gitlens.openChangedFiles' as Commands,
-    OpenCommitInHostingProvider: 'gitlens.openCommitInHostingProvider' as Commands,
-    OpenFileInHostingProvider: 'gitlens.openFileInHostingProvider' as Commands,
-    OpenInHostingProvider: 'gitlens.openInHostingProvider' as Commands,
+    OpenCommitInRemote: 'gitlens.openCommitInRemote' as Commands,
+    OpenFileInRemote: 'gitlens.openFileInRemote' as Commands,
+    OpenInRemote: 'gitlens.openInRemote' as Commands,
     ShowBlame: 'gitlens.showBlame' as Commands,
     ShowBlameHistory: 'gitlens.showBlameHistory' as Commands,
     ShowFileHistory: 'gitlens.showFileHistory' as Commands,

@@ -1,17 +1,17 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
-import { GitRemote, HostingProviderOpenType } from '../gitService';
+import { GitRemote, RemoteProviderOpenType } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, OpenRemoteCommandQuickPickItem, RemotesQuickPick } from '../quickPicks';
 
-export class OpenInHostingProviderCommand extends ActiveEditorCommand {
+export class OpenInRemoteCommand extends ActiveEditorCommand {
 
     constructor() {
-        super(Commands.OpenInHostingProvider);
+        super(Commands.OpenInRemote);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, remotes?: GitRemote[], type?: HostingProviderOpenType, args?: string[], name?: string, goBackCommand?: CommandQuickPickItem) {
+    async execute(editor: TextEditor, uri?: Uri, remotes?: GitRemote[], type?: RemoteProviderOpenType, args?: string[], name?: string, goBackCommand?: CommandQuickPickItem) {
         if (!(uri instanceof Uri)) {
             uri = editor && editor.document && editor.document.uri;
         }
@@ -46,8 +46,8 @@ export class OpenInHostingProviderCommand extends ActiveEditorCommand {
 
         }
         catch (ex) {
-            Logger.error('[GitLens.OpenInHostingProviderCommand]', ex);
-            return window.showErrorMessage(`Unable to open in hosting provider. See output channel for more details`);
+            Logger.error('[GitLens.OpenInRemoteCommand]', ex);
+            return window.showErrorMessage(`Unable to open in remote provider. See output channel for more details`);
         }
     }
 }

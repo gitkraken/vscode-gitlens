@@ -1,5 +1,5 @@
 'use strict';
-import { HostingProvider, HostingProviderFactory } from '../hosting/factory';
+import { RemoteProvider, RemoteProviderFactory } from '../remotes/factory';
 
 export type GitRemoteType = 'fetch' | 'push';
 
@@ -9,7 +9,7 @@ export class GitRemote {
     url: string;
     type: GitRemoteType;
 
-    provider?: HostingProvider;
+    provider?: RemoteProvider;
 
     constructor(remote: string) {
         remote = remote.trim();
@@ -22,6 +22,6 @@ export class GitRemote {
 
         this.type = typeInfo.substring(1, typeInfo.length - 1) as GitRemoteType;
 
-        this.provider = HostingProviderFactory.getHostingProvider(this.url);
+        this.provider = RemoteProviderFactory.getRemoteProvider(this.url);
     }
 }

@@ -1,7 +1,7 @@
 ## Release Notes
 
 ### 2.13.0
-- Adds experimental support for `Open in GitHub` to the relevant quick picks -- need to enable it via `"gitlens.experimental.openInHostingProvider": true`
+- Adds experimental support for `Open in GitHub` to the relevant quick picks -- need to enable it via `"gitlens.experimental.openInRemote": true`
 - Adds an update notification for feature releases
 - Adds `Show Branch History` command (`gitlens.showQuickBranchHistory`) to show the history of the selected branch
 - Adds `Show Last Opened Quick Pick` command (`gitlens.showLastQuickPick`) to re-open the previously opened quick pick - helps to get back to previous context

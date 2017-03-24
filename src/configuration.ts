@@ -124,7 +124,7 @@ export interface IAdvancedConfig {
 }
 
 export interface IExperimentalConfig {
-    openInHostingProvider: boolean;
+    openInRemote: boolean;
 }
 
 export interface IConfig {

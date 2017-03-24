@@ -2,9 +2,9 @@
 import { commands, Uri } from 'vscode';
 import { BuiltInCommands } from '../../constants';
 
-export type HostingProviderOpenType = 'branch' | 'commit' | 'file';
+export type RemoteProviderOpenType = 'branch' | 'commit' | 'file';
 
-export abstract class HostingProvider {
+export abstract class RemoteProvider {
 
     constructor(public domain: string, public path: string) { }
 
@@ -25,8 +25,8 @@ export abstract class HostingProvider {
     open(type: 'branch', branch: string): Promise<{}>;
     open(type: 'commit', sha: string): Promise<{}>;
     open(type: 'file', fileName: string, sha?: string): Promise<{}>;
-    open(type: HostingProviderOpenType, ...args: string[]): Promise<{}>;
-    open(type: HostingProviderOpenType, branchOrShaOrFileName: string, sha?: string): Promise<{}> {
+    open(type: RemoteProviderOpenType, ...args: string[]): Promise<{}>;
+    open(type: RemoteProviderOpenType, branchOrShaOrFileName: string, sha?: string): Promise<{}> {
         switch (type) {
             case 'branch': return this.openBranch(branchOrShaOrFileName);
             case 'commit': return this.openCommit(branchOrShaOrFileName);

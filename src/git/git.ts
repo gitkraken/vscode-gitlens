@@ -10,7 +10,7 @@ export * from './models/models';
 export * from './parsers/blameParser';
 export * from './parsers/logParser';
 export * from './parsers/statusParser';
-export * from './hosting/hostingProvider';
+export * from './remotes/provider';
 
 let git: IGit;
 

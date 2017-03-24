@@ -1,17 +1,17 @@
 'use strict';
 import { QuickPickOptions, window } from 'vscode';
 import { Commands } from '../commands';
-import { GitRemote, HostingProviderOpenType } from '../gitService';
+import { GitRemote, RemoteProviderOpenType } from '../gitService';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './quickPicks';
 import * as path from 'path';
 
 export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 
-    private type: HostingProviderOpenType;
+    private type: RemoteProviderOpenType;
     private remote: GitRemote;
 
-    constructor(remote: GitRemote, type: HostingProviderOpenType, ...args: string[]);
-    constructor(remote: GitRemote, type: HostingProviderOpenType, branchOrShaOrFileName: string, fileSha?: string, name?: string) {
+    constructor(remote: GitRemote, type: RemoteProviderOpenType, ...args: string[]);
+    constructor(remote: GitRemote, type: RemoteProviderOpenType, branchOrShaOrFileName: string, fileSha?: string, name?: string) {
         if (!name) {
             name = `${type[0].toUpperCase()}${type.substring(1)}`;
         }
@@ -36,7 +36,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
     constructor(remotes: GitRemote[], type: 'branch', branch: string, goBackCommand?: CommandQuickPickItem);
     constructor(remotes: GitRemote[], type: 'commit', sha: string, goBackCommand?: CommandQuickPickItem);
     constructor(remotes: GitRemote[], type: 'file', fileName: string, sha?: string, name?: string, goBackCommand?: CommandQuickPickItem);
-    constructor(remotes: GitRemote[], type: HostingProviderOpenType, branchOrShaOrFileName: string, shaOrGoBackCommand?: string | CommandQuickPickItem, name?: string, goBackCommand?: CommandQuickPickItem) {
+    constructor(remotes: GitRemote[], type: RemoteProviderOpenType, branchOrShaOrFileName: string, shaOrGoBackCommand?: string | CommandQuickPickItem, name?: string, goBackCommand?: CommandQuickPickItem) {
         let fileSha: string;
         if (typeof shaOrGoBackCommand === 'string') {
             fileSha = shaOrGoBackCommand;
@@ -76,25 +76,25 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
             super({
                 label: `$(link-external) Open ${name} in ${remote.provider.name}`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 $(repo) ${remote.provider.path} \u00a0\u2022\u00a0 ${description}`
-            }, Commands.OpenInHostingProvider, [undefined, remotes, type, [branchOrShaOrFileName, fileSha], name, goBackCommand]);
+            }, Commands.OpenInRemote, [undefined, remotes, type, [branchOrShaOrFileName, fileSha], name, goBackCommand]);
 
             return;
         }
 
         const provider = remotes.every(_ => _.provider.name === remote.provider.name)
             ? remote.provider.name
-            : 'Hosting Provider';
+            : 'Remote';
 
         super({
             label: `$(link-external) Open ${name} in ${provider}\u2026`,
             description: `\u00a0 \u2014 \u00a0\u00a0 ${description}`
-        }, Commands.OpenInHostingProvider, [undefined, remotes, type, [branchOrShaOrFileName, fileSha], name, goBackCommand]);
+        }, Commands.OpenInRemote, [undefined, remotes, type, [branchOrShaOrFileName, fileSha], name, goBackCommand]);
     }
 }
 
 export class RemotesQuickPick {
 
-    static async show(remotes: GitRemote[], placeHolder: string, type: HostingProviderOpenType, args: string[], name: string, goBackCommand?: CommandQuickPickItem): Promise<OpenRemoteCommandQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(remotes: GitRemote[], placeHolder: string, type: RemoteProviderOpenType, args: string[], name: string, goBackCommand?: CommandQuickPickItem): Promise<OpenRemoteCommandQuickPickItem | CommandQuickPickItem | undefined> {
 
         const items = remotes.map(_ => new OpenRemoteCommandQuickPickItem(_, type, ...args, name)) as (OpenRemoteCommandQuickPickItem | CommandQuickPickItem)[];
 

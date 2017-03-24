@@ -351,10 +351,10 @@
                     "default": false,
                     "description": "Specifies whether or not to toggle whitespace off then showing blame annotations (*may* be required by certain fonts/themes)"
                 },
-                "gitlens.experimental.openInHostingProvider": {
+                "gitlens.experimental.openInRemote": {
                     "type": "boolean",
                     "default": false,
-                    "description": "(experimental) Specifies whether or not to show Open X in Hosting Provider commands in relevant quick picks"
+                    "description": "(experimental) Specifies whether or not to show Open X in Remote commands in relevant quick picks"
                 }
             }
         },
@@ -479,13 +479,13 @@
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.openCommitInHostingProvider",
-                "title": "Open Line Commit in Hosting Provider",
+                "command": "gitlens.openCommitInRemote",
+                "title": "Open Line Commit in Remote",
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.openFileInHostingProvider",
-                "title": "Open File in Hosting Provider",
+                "command": "gitlens.openFileInRemote",
+                "title": "Open File in Remote",
                 "category": "GitLens"
             }
         ],
@@ -584,19 +584,24 @@
                     "when": "gitlens:enabled"
                 },
                 {
-                    "command": "gitlens.openCommitInHostingProvider",
-                    "when": "editorTextFocus && gitlens:enabled && gitlens:isBlameable && config.gitlens.experimental.openInHostingProvider"
+                    "command": "gitlens.openCommitInRemote",
+                    "when": "editorTextFocus && gitlens:enabled && gitlens:isBlameable && config.gitlens.experimental.openInRemote"
                 },
                 {
-                    "command": "gitlens.openFileInHostingProvider",
-                    "when": "editorTextFocus && gitlens:enabled && config.gitlens.experimental.openInHostingProvider"
+                    "command": "gitlens.openFileInRemote",
+                    "when": "editorTextFocus && gitlens:enabled && config.gitlens.experimental.openInRemote"
                 }
             ],
             "explorer/context": [
                 {
                     "command": "gitlens.showQuickFileHistory",
                     "when": "gitlens:enabled",
-                    "group": "gitlens"
+                    "group": "gitlens@1"
+                },
+                {
+                    "command": "gitlens.openFileInRemote",
+                    "when": "gitlens:enabled && config.gitlens.experimental.openInRemote",
+                    "group": "gitlens@2"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
