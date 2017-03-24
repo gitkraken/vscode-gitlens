@@ -504,7 +504,7 @@ export class GitService extends Disposable {
         Logger.log(`getLogForFile('${repoPath}', '${fileName}', ${sha}, ${range && `[${range.start.line}, ${range.end.line}]`}, ${maxCount}, ${reverse})`);
 
         let entry: GitCacheEntry | undefined;
-        if (this.UseGitCaching && !sha && !range && !maxCount) {
+        if (this.UseGitCaching && !sha && !range && !maxCount && !reverse) {
             const cacheKey = this.getCacheEntryKey(fileName);
             entry = this._gitCache.get(cacheKey);
 
