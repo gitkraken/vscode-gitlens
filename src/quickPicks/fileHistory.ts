@@ -73,6 +73,8 @@ export class FileHistoryQuickPick {
             }
         }
 
+        const branch = await git.getBranch(uri.repoPath || git.repoPath);
+
         const currentCommand = new CommandQuickPickItem({
             label: `go back \u21A9`,
             description: `\u00a0 \u2014 \u00a0\u00a0 to history of \u00a0$(file-text) ${path.basename(uri.fsPath)}${uri.sha ? ` from \u00a0$(git-commit) ${uri.shortSha}` : ''}`
@@ -82,7 +84,7 @@ export class FileHistoryQuickPick {
         if (!goBackCommand) {
             items.splice(index++, 0, new CommandQuickPickItem({
                 label: `$(history) Show Branch History`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 shows the current branch history`
+                description: `\u00a0 \u2014 \u00a0\u00a0 shows  \u00a0$(git-branch) ${branch.name} history`
             }, Commands.ShowQuickCurrentBranchHistory,
                 [
                     undefined,
@@ -92,7 +94,7 @@ export class FileHistoryQuickPick {
 
         const remotes = Arrays.uniqueBy(await git.getRemotes(git.repoPath), _ => _.url, _ => !!_.provider);
         if (remotes.length) {
-            items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, 'file', uri.getRelativePath(), uri.sha, undefined, currentCommand));
+            items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, 'file', uri.getRelativePath(), branch.name, uri.sha, currentCommand));
         }
 
         if (goBackCommand) {

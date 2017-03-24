@@ -81,9 +81,10 @@ export class CommitFileDetailsQuickPick {
 
         const remotes = Arrays.uniqueBy(await git.getRemotes(git.repoPath), _ => _.url, _ => !!_.provider);
         if (remotes.length) {
-            items.push(new OpenRemotesCommandQuickPickItem(remotes, 'file', commit.fileName, commit.sha, undefined, currentCommand));
+            items.push(new OpenRemotesCommandQuickPickItem(remotes, 'file', commit.fileName, undefined, commit.sha, currentCommand));
             if (commit.workingFileName) {
-                items.push(new OpenRemotesCommandQuickPickItem(remotes, 'file', commit.workingFileName, undefined, 'Working File', currentCommand));
+                const branch = await git.getBranch(commit.repoPath || git.repoPath);
+                items.push(new OpenRemotesCommandQuickPickItem(remotes, 'working-file', commit.workingFileName, branch.name, undefined, currentCommand));
             }
         }
 

@@ -18,10 +18,11 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
         }
 
         const gitUri = await GitUri.fromUri(uri, this.git);
+        const branch = await this.git.getBranch(gitUri.repoPath || this.repoPath);
 
         try {
             const remotes = Arrays.uniqueBy(await this.git.getRemotes(this.repoPath), _ => _.url, _ => !!_.provider);
-            return commands.executeCommand(Commands.OpenInRemote, uri, remotes, 'file', [gitUri.getRelativePath(), gitUri.sha]);
+            return commands.executeCommand(Commands.OpenInRemote, uri, remotes, 'file', [gitUri.getRelativePath(), branch.name, gitUri.sha]);
         }
         catch (ex) {
             Logger.error('[GitLens.OpenFileInRemoteCommand]', ex);
