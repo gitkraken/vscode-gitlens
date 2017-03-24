@@ -123,14 +123,10 @@ export interface IAdvancedConfig {
     };
 }
 
-export interface IExperimentalConfig {
-    openInRemote: boolean;
-}
-
 export interface IConfig {
     blame: IBlameConfig;
     codeLens: ICodeLensesConfig;
-    experimental: IExperimentalConfig;
     statusBar: IStatusBarConfig;
     advanced: IAdvancedConfig;
+    insiders: boolean;
 }

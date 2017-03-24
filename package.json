@@ -351,10 +351,10 @@
                     "default": false,
                     "description": "Specifies whether or not to toggle whitespace off then showing blame annotations (*may* be required by certain fonts/themes)"
                 },
-                "gitlens.experimental.openInRemote": {
+                "gitlens.insiders": {
                     "type": "boolean",
                     "default": false,
-                    "description": "(experimental) Specifies whether or not to show Open X in Remote commands in relevant quick picks"
+                    "description": "Specifies whether or not to enable new experimental features (expect there to be issues)"
                 }
             }
         },
@@ -585,11 +585,11 @@
                 },
                 {
                     "command": "gitlens.openCommitInRemote",
-                    "when": "editorTextFocus && gitlens:enabled && gitlens:isBlameable && config.gitlens.experimental.openInRemote"
+                    "when": "editorTextFocus && gitlens:enabled && gitlens:isBlameable && config.gitlens.insiders"
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "editorTextFocus && gitlens:enabled && config.gitlens.experimental.openInRemote"
+                    "when": "editorTextFocus && gitlens:enabled && config.gitlens.insiders"
                 }
             ],
             "explorer/context": [
@@ -600,7 +600,7 @@
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && config.gitlens.experimental.openInRemote",
+                    "when": "gitlens:enabled && config.gitlens.insiders",
                     "group": "gitlens@2"
                 },
                 {

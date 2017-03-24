@@ -587,7 +587,7 @@ export class GitService extends Disposable {
     }
 
     async getRemotes(repoPath: string): Promise<GitRemote[]> {
-        if (!this.config.experimental || !this.config.experimental.openInRemote) return Promise.resolve([]);
+        if (!this.config.insiders) return Promise.resolve([]);
 
         Logger.log(`getRemotes('${repoPath}')`);
 
