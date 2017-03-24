@@ -585,11 +585,11 @@
                 },
                 {
                     "command": "gitlens.openCommitInRemote",
-                    "when": "editorTextFocus && gitlens:enabled && gitlens:isBlameable && config.gitlens.insiders"
+                    "when": "editorTextFocus && gitlens:enabled && gitlens:hasRemotes && gitlens:isBlameable"
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "editorTextFocus && gitlens:enabled && config.gitlens.insiders"
+                    "when": "editorTextFocus && gitlens:enabled && gitlens:hasRemotes"
                 }
             ],
             "explorer/context": [
@@ -600,7 +600,7 @@
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && config.gitlens.insiders",
+                    "when": "gitlens:enabled && gitlens:hasRemotes",
                     "group": "gitlens@2"
                 },
                 {

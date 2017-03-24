@@ -36,6 +36,7 @@ export type CommandContext = 'gitlens:canToggleCodeLens' | 'gitlens:enabled' | '
 export const CommandContext = {
     CanToggleCodeLens: 'gitlens:canToggleCodeLens' as CommandContext,
     Enabled: 'gitlens:enabled' as CommandContext,
+    HasRemotes: 'gitlens:hasRemotes' as CommandContext,
     IsBlameable: 'gitlens:isBlameable' as CommandContext,
     Key: 'gitlens:key' as CommandContext
 };

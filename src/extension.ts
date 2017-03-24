@@ -76,6 +76,8 @@ export async function activate(context: ExtensionContext) {
     const git = new GitService(context);
     context.subscriptions.push(git);
 
+    setRemoteCommandsContext(context, git);
+
     const blameabilityTracker = new BlameabilityTracker(git);
     context.subscriptions.push(blameabilityTracker);
 
@@ -150,4 +152,13 @@ async function notifyOnUnsupportedGitVersion(context: ExtensionContext, version:
             context.globalState.update(WorkspaceState.SuppressGitVersionWarning, true);
         }
     }
+}
+
+async function setRemoteCommandsContext(context: ExtensionContext, git: GitService): Promise<void> {
+    let hasRemotes = false;
+    if (git.config.insiders) {
+        const remotes = await git.getRemotes(git.repoPath);
+        hasRemotes = remotes.length !== 0;
+    }
+    setCommandContext(CommandContext.HasRemotes, hasRemotes);
 }
