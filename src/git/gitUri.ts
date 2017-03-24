@@ -1,5 +1,4 @@
 'use strict';
-import { Iterables } from '../system';
 import { Uri } from 'vscode';
 import { DocumentSchemes } from '../constants';
 import { Git, GitService } from '../gitService';
@@ -83,8 +82,7 @@ export class GitUri extends Uri {
 
         // If this is a git uri, assume it is showing the most recent commit
         if (uri.scheme === 'git' && uri.query === '~') {
-            const log = await git.getLogForFile(undefined, uri.fsPath, undefined, undefined, 1);
-            const commit = log && Iterables.first(log.commits.values());
+            const commit = await git.getLogCommit(undefined, uri.fsPath);
             if (commit) return new GitUri(uri, commit);
         }
 

@@ -1,5 +1,5 @@
 'use strict';
-import { Iterables } from './system';
+// import { Iterables } from './system';
 import { CancellationToken, CodeLens, CodeLensProvider, DocumentSelector, ExtensionContext, Range, TextDocument, Uri } from 'vscode';
 import { Commands } from './commands';
 import { DocumentSchemes } from './constants';
@@ -31,10 +31,7 @@ export class GitRevisionCodeLensProvider implements CodeLensProvider {
 
         const lenses: CodeLens[] = [];
 
-        const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha, undefined, 2);
-        if (!log) return lenses;
-
-        const commit = (gitUri.sha && log.commits.get(gitUri.sha)) || Iterables.first(log.commits.values());
+        const commit = await this.git.getLogCommit(gitUri.repoPath, gitUri.fsPath, gitUri.sha, { firstIfMissing: true, previous: true });
         if (!commit) return lenses;
 
         lenses.push(new GitDiffWithWorkingCodeLens(this.git, commit.uri.fsPath, commit, new Range(0, 0, 0, 1)));

@@ -4,7 +4,7 @@ import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, l
 import { CommandContext, setCommandContext } from './commands';
 import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes, WorkspaceState } from './constants';
-import { Git, GitBlameParser, GitBranch, GitCommit, GitLogParser, GitRemote, GitStatusFile, GitStatusParser, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog, IGitStatus } from './git/git';
+import { Git, GitBlameParser, GitBranch, GitCommit, GitLogCommit, GitLogParser, GitRemote, GitStatusFile, GitStatusParser, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog, IGitStatus } from './git/git';
 import { IGitUriData, GitUri } from './git/gitUri';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
 import { Logger } from './logger';
@@ -243,13 +243,11 @@ export class GitService extends Disposable {
             if (await this._fileExists(repoPath, fileName)) return fileName;
 
             // Get the most recent commit for this file name
-            let log = await this.getLogForFile(repoPath, fileName, undefined, undefined, 1);
-            if (!log) return undefined;
-
-            let c = Iterables.first(log.commits.values());
+            let c = await this.getLogCommit(repoPath, fileName);
+            if (!c) return undefined;
 
             // Get the full commit (so we can see if there are any matching renames in the file statuses)
-            log = await this.getLogForRepo(repoPath, c.sha, 1);
+            let log = await this.getLogForRepo(repoPath, c.sha, 1);
             if (!log) return undefined;
 
             c = Iterables.first(log.commits.values());
@@ -498,6 +496,28 @@ export class GitService extends Disposable {
         catch (ex) {
             return undefined;
         }
+    }
+
+    async getLogCommit(repoPath: string, fileName: string, options?: { firstIfMissing?: boolean, previous?: boolean }): Promise<GitLogCommit | undefined>;
+    async getLogCommit(repoPath: string, fileName: string, sha: string, options?: { firstIfMissing?: boolean, previous?: boolean }): Promise<GitLogCommit | undefined>;
+    async getLogCommit(repoPath: string, fileName: string, shaOrOptions?: string | { firstIfMissing?: boolean, previous?: boolean }, options?: { firstIfMissing?: boolean, previous?: boolean }): Promise<GitLogCommit | undefined> {
+        let sha: string;
+        if (typeof shaOrOptions === 'string') {
+            sha = shaOrOptions;
+        }
+        else if (!options) {
+            options = shaOrOptions;
+        }
+
+        options = options || {};
+
+        const log = await this.getLogForFile(repoPath, fileName, sha, undefined, options.previous ? 2 : 1);
+        if (!log) return undefined;
+
+        const commit = sha && log.commits.get(sha);
+        if (!commit && !options.firstIfMissing) return undefined;
+
+        return commit || Iterables.first(log.commits.values());
     }
 
     getLogForFile(repoPath: string, fileName: string, sha?: string, range?: Range, maxCount?: number, reverse: boolean = false): Promise<IGitLog | undefined> {

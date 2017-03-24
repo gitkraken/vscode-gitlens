@@ -39,10 +39,8 @@ export class CommitFileDetailsQuickPick {
         const isUncommitted = commit.isUncommitted;
         if (isUncommitted) {
             // Since we can't trust the previous sha on an uncommitted commit, find the last commit for this file
-            const log = await git.getLogForFile(undefined, commit.uri.fsPath, undefined, undefined, 2);
-            if (!log) return undefined;
-
-            commit = Iterables.first(log.commits.values());
+            commit = await git.getLogCommit(undefined, commit.uri.fsPath, { previous: true });
+            if (!commit) return undefined;
         }
 
         items.push(new CommandQuickPickItem({
@@ -141,7 +139,7 @@ export class CommitFileDetailsQuickPick {
                     c = undefined;
 
                     // Try to find the next commit
-                    const nextLog = await git.getLogForFile(commit.repoPath, uri.fsPath, commit.sha, undefined, 1, true);
+                    const nextLog = await git.getLogForFile(commit.repoPath, uri.fsPath, commit.sha, undefined, 1, true, true);
                     const next = nextLog && Iterables.first(nextLog.commits.values());
                     if (next && next.sha !== commit.sha) {
                         c = commit;

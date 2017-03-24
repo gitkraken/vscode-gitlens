@@ -1,5 +1,5 @@
 'use strict';
-import { Iterables } from '../system';
+// import { Iterables } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './commands';
 import { BuiltInCommands } from '../constants';
@@ -27,13 +27,11 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
             const gitUri = await GitUri.fromUri(uri, this.git);
 
             try {
-                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha, undefined, gitUri.sha ? undefined : 1);
-                if (!log) return window.showWarningMessage(`Unable to open diff. File is probably not under source control`);
-
-                commit = (gitUri.sha && log.commits.get(gitUri.sha)) || Iterables.first(log.commits.values());
+                commit = await this.git.getLogCommit(gitUri.repoPath, gitUri.fsPath, gitUri.sha, { firstIfMissing: true });
+                if (!commit) return window.showWarningMessage(`Unable to open diff. File is probably not under source control`);
             }
             catch (ex) {
-                Logger.error('[GitLens.DiffWithWorkingCommand]', `getLogForFile(${gitUri.repoPath}, ${gitUri.fsPath})`, ex);
+                Logger.error('[GitLens.DiffWithWorkingCommand]', `getLogCommit(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`, ex);
                 return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
             }
         }

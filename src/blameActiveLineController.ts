@@ -298,8 +298,7 @@ export class BlameActiveLineController extends Disposable {
             // Get the full commit message -- since blame only returns the summary
             let logCommit: GitCommit;
             if (!commit.isUncommitted) {
-                const log = await this.git.getLogForFile(this._uri.repoPath, this._uri.fsPath, commit.sha, undefined, 1);
-                logCommit = log && log.commits.get(commit.sha);
+                logCommit = await this.git.getLogCommit(this._uri.repoPath, this._uri.fsPath, commit.sha);
             }
 
             // I have no idea why I need this protection -- but it happens
