@@ -1,10 +1,9 @@
 'use strict';
-import { Iterables } from '../system';
+import { Arrays, Iterables } from '../system';
 import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard, KeyNoopCommand } from '../commands';
 import { GitService, GitUri, IGitLog } from '../gitService';
-import { CommitQuickPickItem } from './gitQuickPicks';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './quickPicks';
+import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, OpenRemotesCommandQuickPickItem, showQuickPickProgress } from '../quickPicks';
 import * as path from 'path';
 
 export class FileHistoryQuickPick {
@@ -74,19 +73,26 @@ export class FileHistoryQuickPick {
             }
         }
 
+        const currentCommand = new CommandQuickPickItem({
+            label: `go back \u21A9`,
+            description: `\u00a0 \u2014 \u00a0\u00a0 to history of \u00a0$(file-text) ${path.basename(uri.fsPath)}${uri.sha ? ` from \u00a0$(git-commit) ${uri.shortSha}` : ''}`
+        }, Commands.ShowQuickFileHistory, [uri, log.range, log.maxCount, undefined, log]);
+
         // Only show the full repo option if we are the root
         if (!goBackCommand) {
-            items.splice(index, 0, new CommandQuickPickItem({
+            items.splice(index++, 0, new CommandQuickPickItem({
                 label: `$(history) Show Branch History`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 shows the current branch history`
             }, Commands.ShowQuickCurrentBranchHistory,
                 [
                     undefined,
-                    new CommandQuickPickItem({
-                        label: `go back \u21A9`,
-                        description: `\u00a0 \u2014 \u00a0\u00a0 to history of \u00a0$(file-text) ${path.basename(uri.fsPath)}${uri.sha ? ` from \u00a0$(git-commit) ${uri.shortSha}` : ''}`
-                    }, Commands.ShowQuickFileHistory, [uri, log.range, log.maxCount, undefined, log])
+                    currentCommand
                 ]));
+        }
+
+        const remotes = Arrays.uniqueBy(await git.getRemotes(git.repoPath), _ => _.url, _ => !!_.provider);
+        if (remotes.length) {
+            items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, 'file', uri.getRelativePath(), uri.sha, undefined, currentCommand));
         }
 
         if (goBackCommand) {

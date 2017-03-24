@@ -4,4 +4,5 @@ export * from './branch';
 export * from './commit';
 export * from './log';
 export * from './logCommit';
+export * from './remote';
 export * from './status';

@@ -50,7 +50,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
-            const pick = await BranchHistoryQuickPick.show(log, gitUri, branch, progressCancellation, goBackCommand, nextPageCommand);
+            const pick = await BranchHistoryQuickPick.show(this.git, log, gitUri, branch, progressCancellation, goBackCommand, nextPageCommand);
             if (!pick) return undefined;
 
             if (pick instanceof CommandQuickPickItem) {

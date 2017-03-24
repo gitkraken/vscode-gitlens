@@ -350,6 +350,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Specifies whether or not to toggle whitespace off then showing blame annotations (*may* be required by certain fonts/themes)"
+                },
+                "gitlens.experimental.openInHostingProvider": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "(experimental) Specifies whether or not to show Open X in Hosting Provider commands in quick picks"
                 }
             }
         },

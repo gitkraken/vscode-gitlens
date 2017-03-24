@@ -75,19 +75,20 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
                 }, Commands.ShowQuickCurrentBranchHistory, [new GitUri(commit.uri, commit)]);
             }
 
-            const pick = await CommitDetailsQuickPick.show(this.git, commit as GitLogCommit, uri, goBackCommand, repoLog);
+            // Create a command to get back to where we are right now
+            const currentCommand = new CommandQuickPickItem({
+                label: `go back \u21A9`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 to details of \u00a0$(git-commit) ${commit.shortSha}`
+            }, Commands.ShowQuickCommitDetails, [new GitUri(commit.uri, commit), sha, commit, goBackCommand, repoLog]);
+
+            const pick = await CommitDetailsQuickPick.show(this.git, commit as GitLogCommit, uri, goBackCommand, currentCommand, repoLog);
             if (!pick) return undefined;
 
             if (!(pick instanceof CommitWithFileStatusQuickPickItem)) {
                 return pick.execute();
             }
 
-            return commands.executeCommand(Commands.ShowQuickCommitFileDetails, pick.gitUri, pick.sha, undefined,
-                // Create a command to get back to where we are right now
-                new CommandQuickPickItem({
-                    label: `go back \u21A9`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 to details of \u00a0$(git-commit) ${pick.shortSha}`
-                }, Commands.ShowQuickCommitDetails, [new GitUri(commit.uri, commit), sha, commit, goBackCommand, repoLog]));
+            return commands.executeCommand(Commands.ShowQuickCommitFileDetails, pick.gitUri, pick.sha, undefined, currentCommand);
         }
         catch (ex) {
             Logger.error('[GitLens.ShowQuickCommitDetailsCommand]', ex);

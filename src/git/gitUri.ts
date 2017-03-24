@@ -71,6 +71,10 @@ export class GitUri extends Uri {
             : `${path.basename(this.fsPath)}${separator}${directory}`;
     }
 
+    getRelativePath(): string {
+        return Git.normalizePath(path.relative(this.repoPath, this.fsPath));
+    }
+
     static async fromUri(uri: Uri, git: GitService) {
         if (uri instanceof GitUri) return uri;
 

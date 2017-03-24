@@ -1,10 +1,9 @@
 'use strict';
-import { Iterables } from '../system';
+import { Arrays, Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard, KeyNoopCommand } from '../commands';
 import { GitLogCommit, GitService, IGitLog } from '../gitService';
-import { CommitWithFileStatusQuickPickItem } from './gitQuickPicks';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFilesCommandQuickPickItem } from './quickPicks';
+import { CommandQuickPickItem, CommitWithFileStatusQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFilesCommandQuickPickItem, OpenRemotesCommandQuickPickItem } from '../quickPicks';
 import * as moment from 'moment';
 import * as path from 'path';
 
@@ -36,7 +35,7 @@ export class OpenCommitWorkingTreeFilesCommandQuickPickItem extends OpenFilesCom
 
 export class CommitDetailsQuickPick {
 
-    static async show(git: GitService, commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, repoLog?: IGitLog): Promise<CommitWithFileStatusQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(git: GitService, commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, repoLog?: IGitLog): Promise<CommitWithFileStatusQuickPickItem | CommandQuickPickItem | undefined> {
         const items: (CommitWithFileStatusQuickPickItem | CommandQuickPickItem)[] = commit.fileStatuses.map(fs => new CommitWithFileStatusQuickPickItem(commit, fs.fileName, fs.status));
 
         let index = 0;
@@ -51,6 +50,11 @@ export class CommitDetailsQuickPick {
             description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.message}`
         }, Commands.CopyMessageToClipboard, [uri, commit.sha, commit.message]));
 
+        const remotes = Arrays.uniqueBy(await git.getRemotes(git.repoPath), _ => _.url, _ => !!_.provider);
+        if (remotes.length) {
+            items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, 'commit', commit.sha, currentCommand));
+        }
+
         items.splice(index++, 0, new CommandQuickPickItem({
             label: `$(git-compare) Directory Compare with Previous Commit`,
             description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.previousShortSha || `${commit.shortSha}^`} \u00a0 $(git-compare) \u00a0 $(git-commit) ${commit.shortSha}`
@@ -60,7 +64,6 @@ export class CommitDetailsQuickPick {
             label: `$(git-compare) Directory Compare with Working Tree`,
             description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.shortSha} \u00a0 $(git-compare) \u00a0 $(file-directory) Working Tree`
         }, Commands.DiffDirectory, [uri, commit.sha]));
-
 
         const added = commit.fileStatuses.filter(_ => _.status === 'A' || _.status === '?').length;
         const deleted = commit.fileStatuses.filter(_ => _.status === 'D').length;

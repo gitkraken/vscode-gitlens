@@ -123,9 +123,14 @@ export interface IAdvancedConfig {
     };
 }
 
+export interface IExperimentalConfig {
+    openInHostingProvider: boolean;
+}
+
 export interface IConfig {
     blame: IBlameConfig;
     codeLens: ICodeLensesConfig;
+    experimental: IExperimentalConfig;
     statusBar: IStatusBarConfig;
     advanced: IAdvancedConfig;
 }

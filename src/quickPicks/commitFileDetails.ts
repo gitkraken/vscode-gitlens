@@ -1,9 +1,9 @@
 'use strict';
-import { Iterables } from '../system';
+import { Arrays, Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard, KeyNoopCommand } from '../commands';
 import { GitCommit, GitLogCommit, GitService, GitUri, IGitLog } from '../gitService';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem } from './quickPicks';
+import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenRemotesCommandQuickPickItem } from '../quickPicks';
 import * as moment from 'moment';
 import * as path from 'path';
 
@@ -75,7 +75,17 @@ export class CommitFileDetailsQuickPick {
         }, Commands.CopyMessageToClipboard, [uri, commit.sha, commit.message]));
 
         items.push(new OpenCommitFileCommandQuickPickItem(commit));
-        items.push(new OpenCommitWorkingTreeFileCommandQuickPickItem(commit));
+        if (commit.workingFileName) {
+            items.push(new OpenCommitWorkingTreeFileCommandQuickPickItem(commit));
+        }
+
+        const remotes = Arrays.uniqueBy(await git.getRemotes(git.repoPath), _ => _.url, _ => !!_.provider);
+        if (remotes.length) {
+            items.push(new OpenRemotesCommandQuickPickItem(remotes, 'file', commit.fileName, commit.sha, undefined, currentCommand));
+            if (commit.workingFileName) {
+                items.push(new OpenRemotesCommandQuickPickItem(remotes, 'file', commit.workingFileName, undefined, 'Working File', currentCommand));
+            }
+        }
 
         if (commit.workingFileName) {
             items.push(new CommandQuickPickItem({

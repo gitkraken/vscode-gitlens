@@ -4,7 +4,7 @@ import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, l
 import { CommandContext, setCommandContext } from './commands';
 import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes, WorkspaceState } from './constants';
-import { Git, GitBlameParser, GitBranch, GitCommit, GitStatusFile, GitLogParser, GitStatusParser, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog, IGitStatus } from './git/git';
+import { Git, GitBlameParser, GitBranch, GitCommit, GitLogParser, GitRemote, GitStatusFile, GitStatusParser, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog, IGitStatus } from './git/git';
 import { IGitUriData, GitUri } from './git/gitUri';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
 import { Logger } from './logger';
@@ -63,6 +63,7 @@ export class GitService extends Disposable {
     public repoPath: string;
 
     private _gitCache: Map<string, GitCacheEntry> | undefined;
+    private _remotesCache: GitRemote[];
     private _cacheDisposable: Disposable | undefined;
     private _uriCache: Map<string, UriCacheEntry> | undefined;
 
@@ -585,6 +586,21 @@ export class GitService extends Disposable {
         return locations;
     }
 
+    async getRemotes(repoPath: string): Promise<GitRemote[]> {
+        if (!this.config.experimental || !this.config.experimental.openInHostingProvider) return Promise.resolve([]);
+
+        Logger.log(`getRemotes('${repoPath}')`);
+
+        if (this.UseGitCaching && this._remotesCache) return this._remotesCache;
+
+        const data = await Git.remote(repoPath);
+        const remotes = data.split('\n').filter(_ => !!_).map(_ => new GitRemote(_));
+        if (this.UseGitCaching) {
+            this._remotesCache = remotes;
+        }
+        return remotes;
+    }
+
     getRepoPath(cwd: string): Promise<string> {
         return Git.getRepoPath(cwd);
     }
@@ -616,13 +632,6 @@ export class GitService extends Disposable {
 
         const data = await Git.status(repoPath);
         return GitStatusParser.parse(data, repoPath);
-    }
-
-    async isFileUncommitted(uri: GitUri): Promise<boolean> {
-        Logger.log(`isFileUncommitted('${uri.repoPath}', '${uri.fsPath}')`);
-
-        const status = await this.getStatusForFile(uri.repoPath, uri.fsPath);
-        return !!status;
     }
 
     async getVersionedFile(repoPath: string, fileName: string, sha: string) {
@@ -662,6 +671,13 @@ export class GitService extends Disposable {
             editor.document.uri.scheme === DocumentSchemes.File ||
             editor.document.uri.scheme === DocumentSchemes.Git ||
             this.hasGitUriForFile(editor));
+    }
+
+    async isFileUncommitted(uri: GitUri): Promise<boolean> {
+        Logger.log(`isFileUncommitted('${uri.repoPath}', '${uri.fsPath}')`);
+
+        const status = await this.getStatusForFile(uri.repoPath, uri.fsPath);
+        return !!status;
     }
 
     openDirectoryDiff(repoPath: string, sha1: string, sha2?: string) {

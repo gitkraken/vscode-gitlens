@@ -1,10 +1,9 @@
 'use strict';
-import { Iterables } from '../system';
+import { Arrays, Iterables } from '../system';
 import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard, KeyNoopCommand } from '../commands';
-import { GitUri, IGitLog } from '../gitService';
-import { CommitQuickPickItem } from './gitQuickPicks';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './quickPicks';
+import { GitService, GitUri, IGitLog } from '../gitService';
+import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, OpenRemotesCommandQuickPickItem, showQuickPickProgress } from '../quickPicks';
 
 export class BranchHistoryQuickPick {
 
@@ -17,8 +16,18 @@ export class BranchHistoryQuickPick {
             });
     }
 
-    static async show(log: IGitLog, uri: GitUri, branch: string, progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(git: GitService, log: IGitLog, uri: GitUri, branch: string, progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c, ` \u2014 ${c.fileNames}`))) as (CommitQuickPickItem | CommandQuickPickItem)[];
+
+        const currentCommand = new CommandQuickPickItem({
+            label: `go back \u21A9`,
+            description: `\u00a0 \u2014 \u00a0\u00a0 to \u00a0$(git-branch) ${branch} history`
+        }, Commands.ShowQuickBranchHistory, [uri, branch, log.maxCount, goBackCommand, log]);
+
+        const remotes = Arrays.uniqueBy(await git.getRemotes(git.repoPath), _ => _.url, _ => !!_.provider);
+        if (remotes.length) {
+            items.splice(0, 0, new OpenRemotesCommandQuickPickItem(remotes, 'branch', branch, currentCommand));
+        }
 
         let previousPageCommand: CommandQuickPickItem;
 
@@ -42,10 +51,7 @@ export class BranchHistoryQuickPick {
                         new GitUri(Uri.file(log.repoPath), { fileName: '', repoPath: log.repoPath }),
                         branch,
                         undefined,
-                        new CommandQuickPickItem({
-                            label: `go back \u21A9`,
-                            description: `\u00a0 \u2014 \u00a0\u00a0 to \u00a0$(git-branch) ${branch} history`
-                        }, Commands.ShowQuickBranchHistory, [uri, branch, log.maxCount, goBackCommand, log])
+                        currentCommand
                     ]));
             }
 

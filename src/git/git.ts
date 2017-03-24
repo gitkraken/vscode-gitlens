@@ -10,6 +10,7 @@ export * from './models/models';
 export * from './parsers/blameParser';
 export * from './parsers/logParser';
 export * from './parsers/statusParser';
+export * from './hosting/hostingProvider';
 
 let git: IGit;
 
@@ -208,6 +209,16 @@ export class Git {
         params.push(file);
 
         return gitCommand(root, ...params);
+    }
+
+    static remote(repoPath: string): Promise<string> {
+        const params = ['remote', '-v'];
+        return gitCommand(repoPath, ...params);
+    }
+
+    static remote_url(repoPath: string, remote: string): Promise<string> {
+        const params = ['remote', 'get-url', remote];
+        return gitCommand(repoPath, ...params);
     }
 
     static status(repoPath: string): Promise<string> {
