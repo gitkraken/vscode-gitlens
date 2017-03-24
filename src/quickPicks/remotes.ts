@@ -1,5 +1,6 @@
 'use strict';
 import { QuickPickOptions, window } from 'vscode';
+import { Commands } from '../commands';
 import { GitRemote, HostingProviderOpenType } from '../gitService';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './quickPicks';
 import * as path from 'path';
@@ -31,12 +32,6 @@ export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 }
 
 export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
-
-    private goBackCommand: CommandQuickPickItem;
-    private name: string;
-    private placeHolder: string;
-    private remotes: GitRemote[];
-    private type: HostingProviderOpenType;
 
     constructor(remotes: GitRemote[], type: 'branch', branch: string, goBackCommand?: CommandQuickPickItem);
     constructor(remotes: GitRemote[], type: 'commit', sha: string, goBackCommand?: CommandQuickPickItem);
@@ -81,35 +76,19 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
             super({
                 label: `$(link-external) Open ${name} in ${remote.provider.name}`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 $(repo) ${remote.provider.path} \u00a0\u2022\u00a0 ${description}`
-            }, undefined, undefined);
-        }
-        else {
-            const provider = remotes.every(_ => _.provider.name === remote.provider.name)
-                ? remote.provider.name
-                : 'Hosting Provider';
+            }, Commands.OpenInHostingProvider, [undefined, remotes, type, [branchOrShaOrFileName, fileSha], name, goBackCommand]);
 
-            super({
-                label: `$(link-external) Open ${name} in ${provider}\u2026`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 ${description}`
-            }, undefined, undefined);
+            return;
         }
 
-        this.goBackCommand = goBackCommand;
-        this.name = name;
-        this.placeHolder = placeHolder;
-        this.remotes = remotes;
-        this.type = type;
-        this.args = [branchOrShaOrFileName, fileSha];
-    }
+        const provider = remotes.every(_ => _.provider.name === remote.provider.name)
+            ? remote.provider.name
+            : 'Hosting Provider';
 
-    async execute(): Promise<{}> {
-        if (this.remotes.length === 1) {
-            const command = new OpenRemoteCommandQuickPickItem(this.remotes[0], this.type, ...this.args);
-            return command.execute();
-        }
-
-        const pick = await RemotesQuickPick.show(this.remotes, this.placeHolder, this.type, this.args, this.name, this.goBackCommand);
-        return pick && pick.execute();
+        super({
+            label: `$(link-external) Open ${name} in ${provider}\u2026`,
+            description: `\u00a0 \u2014 \u00a0\u00a0 ${description}`
+        }, Commands.OpenInHostingProvider, [undefined, remotes, type, [branchOrShaOrFileName, fileSha], name, goBackCommand]);
     }
 }
 

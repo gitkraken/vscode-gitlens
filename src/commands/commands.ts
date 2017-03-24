@@ -2,7 +2,15 @@
 import { commands, Disposable, TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
 import { BuiltInCommands } from '../constants';
 
-export type Commands = 'gitlens.closeUnchangedFiles' | 'gitlens.copyMessageToClipboard' | 'gitlens.copyShaToClipboard' | 'gitlens.diffDirectory' | 'gitlens.diffWithBranch' | 'gitlens.diffWithNext' | 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' | 'gitlens.openChangedFiles' | 'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.showLastQuickPick' | 'gitlens.showQuickBranchHistory' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory' | 'gitlens.showQuickRepoStatus' | 'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
+export type Commands = 'gitlens.closeUnchangedFiles' | 'gitlens.copyMessageToClipboard' | 'gitlens.copyShaToClipboard' |
+    'gitlens.diffDirectory' | 'gitlens.diffWithBranch' | 'gitlens.diffWithNext' | 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' |
+    'gitlens.openChangedFiles' | 'gitlens.openCommitInHostingProvider' | 'gitlens.openFileInHostingProvider' | 'gitlens.openInHostingProvider' |
+    'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' |
+    'gitlens.showLastQuickPick' | 'gitlens.showQuickBranchHistory' |
+    'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' |
+    'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory' |
+    'gitlens.showQuickRepoStatus' |
+    'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
 export const Commands = {
     CloseUnchangedFiles: 'gitlens.closeUnchangedFiles' as Commands,
     CopyMessageToClipboard: 'gitlens.copyMessageToClipboard' as Commands,
@@ -15,6 +23,9 @@ export const Commands = {
     DiffWithWorking: 'gitlens.diffWithWorking' as Commands,
     DiffLineWithWorking: 'gitlens.diffLineWithWorking' as Commands,
     OpenChangedFiles: 'gitlens.openChangedFiles' as Commands,
+    OpenCommitInHostingProvider: 'gitlens.openCommitInHostingProvider' as Commands,
+    OpenFileInHostingProvider: 'gitlens.openFileInHostingProvider' as Commands,
+    OpenInHostingProvider: 'gitlens.openInHostingProvider' as Commands,
     ShowBlame: 'gitlens.showBlame' as Commands,
     ShowBlameHistory: 'gitlens.showBlameHistory' as Commands,
     ShowFileHistory: 'gitlens.showFileHistory' as Commands,

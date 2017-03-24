@@ -6,6 +6,7 @@ import { BlameAnnotationController } from './blameAnnotationController';
 import { configureCssCharacters } from './blameAnnotationFormatter';
 import { CommandContext, setCommandContext } from './commands';
 import { CloseUnchangedFilesCommand, OpenChangedFilesCommand } from './commands';
+import { OpenCommitInHostingProviderCommand, OpenFileInHostingProviderCommand, OpenInHostingProviderCommand } from './commands';
 import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './commands';
 import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithBranchCommand, DiffWithNextCommand, DiffWithPreviousCommand, DiffWithWorkingCommand} from './commands';
 import { ShowBlameCommand, ToggleBlameCommand } from './commands';
@@ -101,6 +102,9 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new DiffWithNextCommand(git));
     context.subscriptions.push(new DiffWithPreviousCommand(git));
     context.subscriptions.push(new DiffWithWorkingCommand(git));
+    context.subscriptions.push(new OpenCommitInHostingProviderCommand(git, repoPath));
+    context.subscriptions.push(new OpenFileInHostingProviderCommand(git, repoPath));
+    context.subscriptions.push(new OpenInHostingProviderCommand());
     context.subscriptions.push(new ShowBlameCommand(annotationController));
     context.subscriptions.push(new ToggleBlameCommand(annotationController));
     context.subscriptions.push(new ShowBlameHistoryCommand(git));

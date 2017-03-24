@@ -354,7 +354,7 @@
                 "gitlens.experimental.openInHostingProvider": {
                     "type": "boolean",
                     "default": false,
-                    "description": "(experimental) Specifies whether or not to show Open X in Hosting Provider commands in quick picks"
+                    "description": "(experimental) Specifies whether or not to show Open X in Hosting Provider commands in relevant quick picks"
                 }
             }
         },
@@ -477,6 +477,16 @@
                 "command": "gitlens.openChangedFiles",
                 "title": "Open Changed Files",
                 "category": "GitLens"
+            },
+            {
+                "command": "gitlens.openCommitInHostingProvider",
+                "title": "Open Line Commit in Hosting Provider",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.openFileInHostingProvider",
+                "title": "Open File in Hosting Provider",
+                "category": "GitLens"
             }
         ],
         "menus": {
@@ -572,6 +582,14 @@
                 {
                     "command": "gitlens.openChangedFiles",
                     "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.openCommitInHostingProvider",
+                    "when": "editorTextFocus && gitlens:enabled && gitlens:isBlameable && config.gitlens.experimental.openInHostingProvider"
+                },
+                {
+                    "command": "gitlens.openFileInHostingProvider",
+                    "when": "editorTextFocus && gitlens:enabled && config.gitlens.experimental.openInHostingProvider"
                 }
             ],
             "explorer/context": [
