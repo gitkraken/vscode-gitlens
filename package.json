@@ -497,47 +497,47 @@
                 },
                 {
                     "command": "gitlens.diffWithBranch",
-                    "when": "gitlens:enabled"
+                    "when": "editorTextFocus && gitlens:enabled"
                 },
                 {
                     "command": "gitlens.diffWithNext",
-                    "when": "gitlens:enabled"
+                    "when": "editorTextFocus && gitlens:enabled"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
-                    "when": "gitlens:enabled"
+                    "when": "editorTextFocus && gitlens:enabled"
                 },
                 {
                     "command": "gitlens.diffLineWithPrevious",
-                    "when": "gitlens:enabled && gitlens:isBlameable"
+                    "when": "editorTextFocus && gitlens:enabled && gitlens:isBlameable"
                 },
                 {
                     "command": "gitlens.diffWithWorking",
-                    "when": "gitlens:enabled"
+                    "when": "editorTextFocus && gitlens:enabled"
                 },
                 {
                     "command": "gitlens.diffLineWithWorking",
-                    "when": "gitlens:enabled && gitlens:isBlameable"
+                    "when": "editorTextFocus && gitlens:enabled && gitlens:isBlameable"
                 },
                 {
                     "command": "gitlens.showBlame",
-                    "when": "gitlens:enabled && gitlens:isBlameable"
+                    "when": "editorTextFocus && gitlens:enabled && gitlens:isBlameable"
                 },
                 {
                     "command": "gitlens.toggleBlame",
-                    "when": "gitlens:enabled && gitlens:isBlameable"
+                    "when": "editorTextFocus && gitlens:enabled && gitlens:isBlameable"
                 },
                 {
                     "command": "gitlens.toggleCodeLens",
-                    "when": "gitlens:enabled && gitlens:canToggleCodeLens"
+                    "when": "editorTextFocus && gitlens:enabled && gitlens:canToggleCodeLens"
                 },
                 {
                     "command": "gitlens.showBlameHistory",
-                    "when": "gitlens:enabled && gitlens:isBlameable"
+                    "when": "editorTextFocus && gitlens:enabled && gitlens:isBlameable"
                 },
                 {
                     "command": "gitlens.showFileHistory",
-                    "when": "gitlens:enabled"
+                    "when": "editorTextFocus && gitlens:enabled"
                 },
                 {
                     "command": "gitlens.showLastQuickPick",
@@ -553,7 +553,7 @@
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
-                    "when": "gitlens:enabled"
+                    "when": "editorTextFocus && gitlens:enabled"
                 },
                 {
                     "command": "gitlens.showQuickBranchHistory",
@@ -569,11 +569,11 @@
                 },
                 {
                     "command": "gitlens.copyShaToClipboard",
-                    "when": "gitlens:enabled && gitlens:isBlameable"
+                    "when": "editorTextFocus && gitlens:enabled && gitlens:isBlameable"
                 },
                 {
                     "command": "gitlens.copyMessageToClipboard",
-                    "when": "gitlens:enabled && gitlens:isBlameable"
+                    "when": "editorTextFocus && gitlens:enabled && gitlens:isBlameable"
                 },
                 {
                     "command": "gitlens.closeUnchangedFiles",
