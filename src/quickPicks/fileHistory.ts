@@ -23,7 +23,7 @@ export class FileHistoryQuickPick {
         let previousPageCommand: CommandQuickPickItem;
 
         let index = 0;
-        if (log.truncated || uri.sha) {
+        if (log.truncated || log.sha) {
             if (log.truncated) {
                 index++;
                 items.splice(0, 0, new CommandQuickPickItem({

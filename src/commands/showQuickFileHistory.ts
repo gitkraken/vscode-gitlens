@@ -28,7 +28,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
         const progressCancellation = FileHistoryQuickPick.showProgress(gitUri);
         try {
             if (!log) {
-                log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha, range, maxCount);
+                log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha, maxCount, range);
                 if (!log) return window.showWarningMessage(`Unable to show file history. File is probably not under source control`);
             }
 

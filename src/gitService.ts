@@ -224,8 +224,54 @@ export class GitService extends Disposable {
         }
     }
 
+    private async _fileExists(repoPath: string, fileName: string): Promise<boolean> {
+        return await new Promise<boolean>((resolve, reject) => fs.exists(path.resolve(repoPath, fileName), e => resolve(e)));
+    }
+
+    async findNextCommit(repoPath: string, fileName: string, sha?: string): Promise<GitLogCommit> {
+        let log = await this.getLogForFile(repoPath, fileName, sha, 1, undefined, { follow: true, reverse: true });
+        let commit = log && Iterables.first(log.commits.values());
+        if (commit) return commit;
+
+        fileName = await this.findNextFileName(repoPath, fileName, sha);
+        if (fileName) {
+            log = await this.getLogForFile(repoPath, fileName, sha, 1, undefined, { follow: true, reverse: true });
+            commit = log && Iterables.first(log.commits.values());
+        }
+
+        return commit;
+    }
+
+    async findNextFileName(repoPath: string, fileName: string, sha?: string): Promise<string> {
+        [fileName, repoPath] = Git.splitPath(fileName, repoPath);
+
+        return (await this._fileExists(repoPath, fileName))
+            ? fileName
+            : await this._findNextFileName(repoPath, fileName, sha);
+    }
+
+    async _findNextFileName(repoPath: string, fileName: string, sha?: string): Promise<string> {
+        if (sha === undefined) {
+            // Get the most recent commit for this file name
+            const c = await this.getLogCommit(repoPath, fileName);
+            if (!c) return undefined;
+
+            sha = c.sha;
+        }
+
+        // Get the full commit (so we can see if there are any matching renames in the file statuses)
+        const log = await this.getLogForRepo(repoPath, sha, 1);
+        if (!log) return undefined;
+
+        const c = Iterables.first(log.commits.values());
+        const status = c.fileStatuses.find(_ => _.originalFileName === fileName);
+        if (!status) return undefined;
+
+        return status.fileName;
+    }
+
     async findWorkingFileName(commit: GitCommit): Promise<string>;
-    async findWorkingFileName(repoPath: string, fileName: string): Promise<string>
+    async findWorkingFileName(repoPath: string, fileName: string): Promise<string>;
     async findWorkingFileName(commitOrRepoPath: GitCommit | string, fileName?: string): Promise<string> {
         let repoPath: string;
         if (typeof commitOrRepoPath === 'string') {
@@ -242,24 +288,9 @@ export class GitService extends Disposable {
         while (true) {
             if (await this._fileExists(repoPath, fileName)) return fileName;
 
-            // Get the most recent commit for this file name
-            let c = await this.getLogCommit(repoPath, fileName);
-            if (!c) return undefined;
-
-            // Get the full commit (so we can see if there are any matching renames in the file statuses)
-            let log = await this.getLogForRepo(repoPath, c.sha, 1);
-            if (!log) return undefined;
-
-            c = Iterables.first(log.commits.values());
-            const status = c.fileStatuses.find(_ => _.originalFileName === fileName);
-            if (!status) return undefined;
-
-            fileName = status.fileName;
+            fileName = await this._findNextFileName(repoPath, fileName);
+            if (fileName === undefined) return undefined;
         }
-    }
-
-    private async _fileExists(repoPath: string, fileName: string): Promise<boolean> {
-        return await new Promise<boolean>((resolve, reject) => fs.exists(path.resolve(repoPath, fileName), e => resolve(e)));
     }
 
     public getBlameability(fileName: string): boolean {
@@ -482,22 +513,6 @@ export class GitService extends Disposable {
         return entry && entry.uri;
     }
 
-    async getLogForRepo(repoPath: string, sha?: string, maxCount?: number, reverse: boolean = false): Promise<IGitLog | undefined> {
-        Logger.log(`getLogForRepo('${repoPath}', ${sha}, ${maxCount})`);
-
-        if (maxCount == null) {
-            maxCount = this.config.advanced.maxQuickHistory || 0;
-        }
-
-        try {
-            const data = await Git.log(repoPath, sha, maxCount, reverse);
-            return GitLogParser.parse(data, 'repo', repoPath, maxCount, true, reverse, undefined);
-        }
-        catch (ex) {
-            return undefined;
-        }
-    }
-
     async getLogCommit(repoPath: string, fileName: string, options?: { firstIfMissing?: boolean, previous?: boolean }): Promise<GitLogCommit | undefined>;
     async getLogCommit(repoPath: string, fileName: string, sha: string, options?: { firstIfMissing?: boolean, previous?: boolean }): Promise<GitLogCommit | undefined>;
     async getLogCommit(repoPath: string, fileName: string, shaOrOptions?: string | { firstIfMissing?: boolean, previous?: boolean }, options?: { firstIfMissing?: boolean, previous?: boolean }): Promise<GitLogCommit | undefined> {
@@ -511,20 +526,36 @@ export class GitService extends Disposable {
 
         options = options || {};
 
-        const log = await this.getLogForFile(repoPath, fileName, sha, undefined, options.previous ? 2 : 1);
+        const log = await this.getLogForFile(repoPath, fileName, sha, options.previous ? 2 : 1);
         if (!log) return undefined;
 
         const commit = sha && log.commits.get(sha);
-        if (!commit && !options.firstIfMissing) return undefined;
+        if (!commit && sha && !options.firstIfMissing) return undefined;
 
         return commit || Iterables.first(log.commits.values());
     }
 
-    getLogForFile(repoPath: string, fileName: string, sha?: string, range?: Range, maxCount?: number, reverse: boolean = false): Promise<IGitLog | undefined> {
-        Logger.log(`getLogForFile('${repoPath}', '${fileName}', ${sha}, ${range && `[${range.start.line}, ${range.end.line}]`}, ${maxCount}, ${reverse})`);
+    async getLogForRepo(repoPath: string, sha?: string, maxCount?: number, reverse: boolean = false): Promise<IGitLog | undefined> {
+        Logger.log(`getLogForRepo('${repoPath}', ${sha}, ${maxCount})`);
+
+        if (maxCount == null) {
+            maxCount = this.config.advanced.maxQuickHistory || 0;
+        }
+
+        try {
+            const data = await Git.log(repoPath, sha, maxCount, reverse);
+            return GitLogParser.parse(data, 'repo', repoPath, sha, maxCount, true, reverse, undefined);
+        }
+        catch (ex) {
+            return undefined;
+        }
+    }
+
+    getLogForFile(repoPath: string, fileName: string, sha?: string, maxCount?: number, range?: Range, options: { follow?: boolean, reverse?: boolean } = {}): Promise<IGitLog | undefined> {
+        Logger.log(`getLogForFile('${repoPath}', '${fileName}', ${sha}, ${maxCount}, ${range && `[${range.start.line}, ${range.end.line}]`}, ${options})`);
 
         let entry: GitCacheEntry | undefined;
-        if (this.UseGitCaching && !sha && !range && !maxCount && !reverse) {
+        if (this.UseGitCaching && !sha && !range && !maxCount && !options.reverse) {
             const cacheKey = this.getCacheEntryKey(fileName);
             entry = this._gitCache.get(cacheKey);
 
@@ -534,7 +565,7 @@ export class GitService extends Disposable {
             }
         }
 
-        const promise = this._getLogForFile(repoPath, fileName, sha, range, maxCount, reverse, entry);
+        const promise = this._getLogForFile(repoPath, fileName, sha, range, maxCount, options, entry);
 
         if (entry) {
             Logger.log(`Add log cache for '${entry.key}'`);
@@ -550,7 +581,7 @@ export class GitService extends Disposable {
         return promise;
     }
 
-    private async _getLogForFile(repoPath: string, fileName: string, sha: string, range: Range, maxCount: number, reverse: boolean, entry: GitCacheEntry | undefined): Promise<IGitLog> {
+    private async _getLogForFile(repoPath: string, fileName: string, sha: string, range: Range, maxCount: number, options: { follow?: boolean, reverse?: boolean } = {}, entry: GitCacheEntry | undefined): Promise<IGitLog> {
         const [file, root] = Git.splitPath(fileName, repoPath, false);
 
         const ignore = await this._gitignore;
@@ -560,8 +591,8 @@ export class GitService extends Disposable {
         }
 
         try {
-            const data = await Git.log_file(root, file, sha, maxCount, reverse, range && range.start.line + 1, range && range.end.line + 1);
-            return GitLogParser.parse(data, 'file', root || file, maxCount, !!root, reverse, range);
+            const data = await Git.log_file(root, file, sha, maxCount, options.reverse, range && range.start.line + 1, range && range.end.line + 1);
+            return GitLogParser.parse(data, 'file', root || file, sha, maxCount, !!root, options.reverse, range);
         }
         catch (ex) {
             // Trap and cache expected log errors
@@ -626,7 +657,7 @@ export class GitService extends Disposable {
     }
 
     async getRepoPathFromFile(fileName: string): Promise<string | undefined> {
-        const log = await this.getLogForFile(undefined, fileName, undefined, undefined, 1);
+        const log = await this.getLogForFile(undefined, fileName, undefined, 1);
         return log && log.repoPath;
     }
 

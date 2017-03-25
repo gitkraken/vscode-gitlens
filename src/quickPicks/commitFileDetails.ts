@@ -1,5 +1,5 @@
 'use strict';
-import { Arrays, Iterables } from '../system';
+import { Arrays } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard, KeyNoopCommand } from '../commands';
 import { GitCommit, GitLogCommit, GitService, GitUri, IGitLog } from '../gitService';
@@ -105,7 +105,7 @@ export class CommitFileDetailsQuickPick {
         let previousCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>);
         let nextCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>);
         // If we have the full history, we are good
-        if (fileLog && !fileLog.truncated) {
+        if (fileLog && !fileLog.truncated && !fileLog.sha) {
             previousCommand = commit.previousSha && new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [commit.previousUri, commit.previousSha, undefined, goBackCommand, fileLog]);
             nextCommand = commit.nextSha && new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [commit.nextUri, commit.nextSha, undefined, goBackCommand, fileLog]);
         }
@@ -116,7 +116,7 @@ export class CommitFileDetailsQuickPick {
 
                 // If we can't find the commit or the previous commit isn't available (since it isn't trustworthy)
                 if (!c || !c.previousSha) {
-                    log = await git.getLogForFile(commit.repoPath, uri.fsPath, commit.sha, undefined, git.config.advanced.maxQuickHistory);
+                    log = await git.getLogForFile(commit.repoPath, uri.fsPath, commit.sha, git.config.advanced.maxQuickHistory);
                     c = log && log.commits.get(commit.sha);
 
                     if (c) {
@@ -125,7 +125,7 @@ export class CommitFileDetailsQuickPick {
                         c.nextFileName = commit.nextFileName;
                     }
                 }
-                if (!c) return KeyNoopCommand;
+                if (!c || !c.previousSha) return KeyNoopCommand;
                 return new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [c.previousUri, c.previousSha, undefined, goBackCommand, log]);
             };
 
@@ -139,15 +139,14 @@ export class CommitFileDetailsQuickPick {
                     c = undefined;
 
                     // Try to find the next commit
-                    const nextLog = await git.getLogForFile(commit.repoPath, uri.fsPath, commit.sha, undefined, 1, true, true);
-                    const next = nextLog && Iterables.first(nextLog.commits.values());
+                    const next = await git.findNextCommit(commit.repoPath, uri.fsPath, commit.sha);
                     if (next && next.sha !== commit.sha) {
                         c = commit;
                         c.nextSha = next.sha;
                         c.nextFileName = next.originalFileName || next.fileName;
                     }
                 }
-                if (!c) return KeyNoopCommand;
+                if (!c || !c.nextSha) return KeyNoopCommand;
                 return new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [c.nextUri, c.nextSha, undefined, goBackCommand, log]);
             };
         }

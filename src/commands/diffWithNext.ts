@@ -42,7 +42,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 
                 const sha = (commit && commit.sha) || gitUri.sha;
 
-                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, rangeOrLine as Range, sha ? undefined : 2);
+                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, sha ? undefined : 2, rangeOrLine as Range);
                 if (!log) return window.showWarningMessage(`Unable to open diff. File is probably not under source control`);
 
                 commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());

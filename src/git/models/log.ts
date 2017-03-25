@@ -8,6 +8,7 @@ export interface IGitLog {
     authors: Map<string, IGitAuthor>;
     commits: Map<string, GitLogCommit>;
 
+    sha: string | undefined;
     maxCount: number | undefined;
     range: Range;
     truncated: boolean;

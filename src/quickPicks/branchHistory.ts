@@ -31,7 +31,7 @@ export class BranchHistoryQuickPick {
 
         let previousPageCommand: CommandQuickPickItem;
 
-        if ((log.truncated || (uri && uri.sha))) {
+        if (log.truncated || log.sha) {
             if (log.truncated) {
                 items.splice(0, 0, new CommandQuickPickItem({
                     label: `$(sync) Show All Commits`,

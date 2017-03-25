@@ -183,7 +183,7 @@ export class GitLogParser {
         return entries;
     }
 
-    static parse(data: string, type: GitLogType, fileNameOrRepoPath: string, maxCount: number | undefined, isRepoPath: boolean, reverse: boolean, range: Range): IGitLog {
+    static parse(data: string, type: GitLogType, fileNameOrRepoPath: string, sha: string | undefined, maxCount: number | undefined, isRepoPath: boolean, reverse: boolean, range: Range): IGitLog {
         const entries = this._parseEntries(data, isRepoPath, maxCount, reverse);
         if (!entries) return undefined;
 
@@ -271,6 +271,7 @@ export class GitLogParser {
             authors: sortedAuthors,
             // commits: sortedCommits,
             commits: commits,
+            sha: sha,
             maxCount: maxCount,
             range: range,
             truncated: !!(maxCount && entries.length >= maxCount)

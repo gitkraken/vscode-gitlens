@@ -84,7 +84,7 @@ export class CommitDetailsQuickPick {
         let previousCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>);
         let nextCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>);
         // If we have the full history, we are good
-        if (repoLog && !repoLog.truncated) {
+        if (repoLog && !repoLog.truncated && !repoLog.sha) {
             previousCommand = commit.previousSha && new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [commit.previousUri, commit.previousSha, undefined, goBackCommand, repoLog]);
             nextCommand = commit.nextSha && new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [commit.nextUri, commit.nextSha, undefined, goBackCommand, repoLog]);
         }
@@ -103,7 +103,7 @@ export class CommitDetailsQuickPick {
                         c.nextSha = commit.nextSha;
                     }
                 }
-                if (!c) return KeyNoopCommand;
+                if (!c || !c.previousSha) return KeyNoopCommand;
                 return new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [c.previousUri, c.previousSha, undefined, goBackCommand, log]);
             };
 
@@ -124,7 +124,7 @@ export class CommitDetailsQuickPick {
                         c.nextSha = next.sha;
                     }
                 }
-                if (!c) return KeyNoopCommand;
+                if (!c || !c.nextSha) return KeyNoopCommand;
                 return new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [c.nextUri, c.nextSha, undefined, goBackCommand, log]);
             };
         }
