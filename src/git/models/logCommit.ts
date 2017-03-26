@@ -12,6 +12,7 @@ export class GitLogCommit extends GitCommit {
     fileStatuses: { status: GitStatusFileStatus, fileName: string, originalFileName?: string }[];
     nextSha?: string;
     nextFileName?: string;
+    parentShas: string[];
     status: GitStatusFileStatus;
 
     constructor(
@@ -41,6 +42,10 @@ export class GitLogCommit extends GitCommit {
         else {
             this.fileStatuses = [{ status: status, fileName: fileName }];
         }
+    }
+
+    get isMerge() {
+        return this.parentShas && this.parentShas.length > 1;
     }
 
     get nextShortSha() {

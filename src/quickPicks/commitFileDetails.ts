@@ -1,5 +1,5 @@
 'use strict';
-import { Arrays } from '../system';
+import { Arrays, Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard, KeyNoopCommand } from '../commands';
 import { GitCommit, GitLogCommit, GitService, GitUri, IGitLog } from '../gitService';
@@ -118,6 +118,10 @@ export class CommitFileDetailsQuickPick {
                 if (!c || !c.previousSha) {
                     log = await git.getLogForFile(commit.repoPath, uri.fsPath, commit.sha, git.config.advanced.maxQuickHistory);
                     c = log && log.commits.get(commit.sha);
+                    // Since we exclude merge commits in file log, just grab the first returned commit
+                    if (!c && commit.isMerge) {
+                        c = Iterables.first(log.commits.values());
+                    }
 
                     if (c) {
                         // Copy over next info, since it is trustworthy at this point

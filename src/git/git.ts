@@ -14,8 +14,8 @@ export * from './remotes/provider';
 
 let git: IGit;
 
-//`--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nparent %P%nsummary %B%nfilename ?`
-const defaultLogParams = [`log`, `--name-status`, `--full-history`, `-M`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%nsummary %B%nfilename ?`];
+// `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nparents %P%nsummary %B%nfilename ?`
+const defaultLogParams = [`log`, `--name-status`, `--full-history`, `-M`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%nparents %P%nsummary %B%nfilename ?`];
 
 async function gitCommand(cwd: string, ...args: any[]) {
     try {
@@ -166,7 +166,7 @@ export class Git {
     }
 
     static log(repoPath: string, sha?: string, maxCount?: number, reverse: boolean = false) {
-        const params = [...defaultLogParams];
+        const params = [...defaultLogParams, `-m`];
         if (maxCount && !reverse) {
             params.push(`-n${maxCount}`);
         }
@@ -186,10 +186,19 @@ export class Git {
     static log_file(repoPath: string, fileName: string, sha?: string, maxCount?: number, reverse: boolean = false, startLine?: number, endLine?: number) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
-        const params = [...defaultLogParams, `--no-merges`, `--follow`];
+        const params = [...defaultLogParams, `--follow`];
         if (maxCount && !reverse) {
             params.push(`-n${maxCount}`);
         }
+
+        // If we are looking for a specific sha don't exclude merge commits
+        if (!sha || maxCount > 2) {
+            params.push(`--no-merges`);
+        }
+        else {
+            params.push(`-m`);
+        }
+
         if (sha) {
             if (reverse) {
                 params.push(`--reverse`);

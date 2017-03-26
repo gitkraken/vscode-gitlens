@@ -14,7 +14,7 @@ interface ILogEntry {
     // committer?: string;
     // committerDate?: string;
 
-    // parentSha?: string;
+    parentShas?: string[];
 
     fileName?: string;
     originalFileName?: string;
@@ -75,9 +75,9 @@ export class GitLogParser {
                 //     entry.committerDate = lineParts.slice(1).join(' ').trim();
                 //     break;
 
-                // case 'parent':
-                //     entry.parentSha = lineParts.slice(1).join(' ').trim();
-                //     break;
+                case 'parents':
+                    entry.parentShas = lineParts.slice(1);
+                    break;
 
                 case 'summary':
                     entry.summary = lineParts.slice(1).join(' ').trim();
@@ -227,6 +227,7 @@ export class GitLogParser {
                 }
 
                 commit = new GitLogCommit(type, repoPath, entry.sha, relativeFileName, entry.author, moment(entry.authorDate).toDate(), entry.summary, entry.status, entry.fileStatuses, undefined, entry.originalFileName);
+                commit.parentShas = entry.parentShas;
 
                 if (relativeFileName !== entry.fileName) {
                     commit.originalFileName = entry.fileName;

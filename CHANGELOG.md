@@ -24,6 +24,7 @@
 - Fixes various other quick pick command issues when a file was renamed
 - Fixes various issues when caching is disabled
 - Fixes issues with parsing commits history
+- Fixes various issues with merge commits
 
 ### 2.12.2
 - Fixes [#50](https://github.com/eamodio/vscode-gitlens/issues/50) - excludes container-level CodeLens from `html` and `vue` language files
