@@ -839,14 +839,14 @@
         "lodash.escaperegexp": "^4.1.2",
         "lodash.isequal": "^4.5.0",
         "lodash.once": "^4.1.1",
-        "moment": "^2.18.0",
+        "moment": "^2.18.1",
         "spawn-rx": "^2.0.10",
         "tmp": "^0.0.31"
     },
     "devDependencies": {
         "@types/copy-paste": "^1.1.30",
         "@types/mocha": "^2.2.40",
-        "@types/node": "^7.0.8",
+        "@types/node": "^7.0.11",
         "@types/tmp": "^0.0.32",
         "mocha": "^3.2.0",
         "tslint": "^4.5.1",
