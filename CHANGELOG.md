@@ -1,6 +1,6 @@
 ## Release Notes
 
-### 2.13.0
+### 3.0.0
 - Adds experimental support for `Open in GitHub` to the relevant quick picks -- need to enable it via `"gitlens.insiders": true`
 - Adds an update notification for feature releases
 - Adds `Show Branch History` command (`gitlens.showQuickBranchHistory`) to show the history of the selected branch
