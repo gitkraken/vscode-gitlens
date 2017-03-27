@@ -1,5 +1,8 @@
 ## Release Notes
 
+### 3.0.2
+- Changes required Git version to `2.11.0`
+
 ### 3.0.1
 - Adds basic telemetry -- honors the vscode telemetry configuration setting
 
