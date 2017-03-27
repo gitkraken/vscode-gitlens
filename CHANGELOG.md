@@ -1,5 +1,9 @@
 ## Release Notes
 
+### 3.0.4
+- Changes telemetry a bit to reduce noise
+- Fixes common telemetry error by switching to non-strict iso dates (since they are only available in later git versions)
+
 ### 3.0.3
 - Adds a fallback to work with Git version prior to `2.11.0` -- terribly sorry for the inconvenience :(
 - Fixes [#55](https://github.com/eamodio/vscode-gitlens/issues/55) - reverts Git requirement back to `2.2.0`
