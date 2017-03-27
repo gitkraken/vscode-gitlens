@@ -19,7 +19,7 @@ export class ShowBlameCommand extends EditorCommand {
             return this.annotationController.showBlameAnnotation(editor, editor.selection.active.line);
         }
         catch (ex) {
-            Logger.error('GitLens.ShowBlameCommand', ex);
+            Logger.error(ex, 'ShowBlameCommand');
             return window.showErrorMessage(`Unable to show blame annotations. See output channel for more details`);
         }
     }

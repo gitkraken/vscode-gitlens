@@ -49,7 +49,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
                 }
             }
             catch (ex) {
-                Logger.error('[GitLens.DiffWithPreviousLineCommand]', `getBlameForLine(${blameline})`, ex);
+                Logger.error(ex, 'DiffWithPreviousLineCommand', `getBlameForLine(${blameline})`);
                 return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
             }
         }
@@ -64,7 +64,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
             return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' });
         }
         catch (ex) {
-            Logger.error('[GitLens.DiffWithPreviousLineCommand]', 'getVersionedFile', ex);
+            Logger.error(ex, 'DiffWithPreviousLineCommand', 'getVersionedFile');
             return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
         }
     }

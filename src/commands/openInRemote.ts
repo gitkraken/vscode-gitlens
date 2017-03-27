@@ -47,7 +47,7 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
 
         }
         catch (ex) {
-            Logger.error('[GitLens.OpenInRemoteCommand]', ex);
+            Logger.error(ex, 'OpenInRemoteCommand');
             return window.showErrorMessage(`Unable to open in remote provider. See output channel for more details`);
         }
     }

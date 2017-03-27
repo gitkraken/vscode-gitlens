@@ -50,13 +50,13 @@ export class Logger {
         }
     }
 
-    static error(message?: any, ...params: any[]): void {
+    static error(ex: Error, classOrMethod?: string, ...params: any[]): void {
         if (debug) {
-            console.error(ConsolePrefix, message, ...params);
+            console.error(ConsolePrefix, ex, ...params);
         }
 
         if (level !== OutputLevel.Silent) {
-            output.appendLine([message, ...params].join(' '));
+            output.appendLine([ex, ...params].join(' '));
         }
     }
 

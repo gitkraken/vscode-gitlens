@@ -31,7 +31,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
                 if (!commit) return window.showWarningMessage(`Unable to open diff. File is probably not under source control`);
             }
             catch (ex) {
-                Logger.error('[GitLens.DiffWithWorkingCommand]', `getLogCommit(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`, ex);
+                Logger.error(ex, 'DiffWithWorkingCommand', `getLogCommit(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`);
                 return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
             }
         }
@@ -46,7 +46,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
             return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' });
         }
         catch (ex) {
-            Logger.error('[GitLens.DiffWithWorkingCommand]', 'getVersionedFile', ex);
+            Logger.error(ex, 'DiffWithWorkingCommand', 'getVersionedFile');
             return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
         }
     }

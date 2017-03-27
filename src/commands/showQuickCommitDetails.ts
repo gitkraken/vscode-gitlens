@@ -40,7 +40,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
                 commit = blame.commit;
             }
             catch (ex) {
-                Logger.error('[GitLens.ShowQuickCommitDetailsCommand]', `getBlameForLine(${blameline})`, ex);
+                Logger.error(ex, 'ShowQuickCommitDetailsCommand', `getBlameForLine(${blameline})`);
                 return window.showErrorMessage(`Unable to show commit details. See output channel for more details`);
             }
         }
@@ -91,7 +91,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
             return commands.executeCommand(Commands.ShowQuickCommitFileDetails, pick.gitUri, pick.sha, undefined, currentCommand);
         }
         catch (ex) {
-            Logger.error('[GitLens.ShowQuickCommitDetailsCommand]', ex);
+            Logger.error(ex, 'ShowQuickCommitDetailsCommand');
             return window.showErrorMessage(`Unable to show commit details. See output channel for more details`);
         }
     }

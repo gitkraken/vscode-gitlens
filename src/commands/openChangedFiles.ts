@@ -34,7 +34,7 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
             return undefined;
         }
         catch (ex) {
-            Logger.error('[GitLens.OpenChangedFilesCommand]', ex);
+            Logger.error(ex, 'OpenChangedFilesCommand');
             return window.showErrorMessage(`Unable to open changed files. See output channel for more details`);
         }
     }

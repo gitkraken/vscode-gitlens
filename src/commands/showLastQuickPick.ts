@@ -17,7 +17,7 @@ export class ShowLastQuickPickCommand extends Command {
             return commands.executeCommand(command.command, ...command.args);
         }
         catch (ex) {
-            Logger.error('[GitLens.ShowLastQuickPickCommand]', ex);
+            Logger.error(ex, 'ShowLastQuickPickCommand');
             return window.showErrorMessage(`Unable to show last quick pick. See output channel for more details`);
         }
     }

@@ -49,7 +49,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                 commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
             }
             catch (ex) {
-                Logger.error('[GitLens.DiffWithPreviousCommand]', `getLogForFile(${gitUri.repoPath}, ${gitUri.fsPath})`, ex);
+                Logger.error(ex, 'DiffWithPreviousCommand', `getLogForFile(${gitUri.repoPath}, ${gitUri.fsPath})`);
                 return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
             }
         }
@@ -68,7 +68,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
             return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' });
         }
         catch (ex) {
-            Logger.error('[GitLens.DiffWithPreviousCommand]', 'getVersionedFile', ex);
+            Logger.error(ex, 'DiffWithPreviousCommand', 'getVersionedFile');
             return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
         }
     }

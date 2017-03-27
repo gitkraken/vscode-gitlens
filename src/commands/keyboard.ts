@@ -134,7 +134,7 @@ export class Keyboard extends Disposable {
             return await command.execute();
         }
         catch (ex) {
-            Logger.error('Keyboard.execute', ex);
+            Logger.error(ex, 'Keyboard.execute');
             return undefined;
         }
     }

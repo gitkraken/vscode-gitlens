@@ -22,7 +22,7 @@ export class ShowQuickCurrentBranchHistoryCommand extends ActiveEditorCachedComm
             return commands.executeCommand(Commands.ShowQuickBranchHistory, uri, branch, undefined, goBackCommand);
         }
         catch (ex) {
-            Logger.error('[GitLens.ShowQuickCurrentBranchHistoryCommand]', ex);
+            Logger.error(ex, 'ShowQuickCurrentBranchHistoryCommand');
             return window.showErrorMessage(`Unable to show branch history. See output channel for more details`);
         }
     }

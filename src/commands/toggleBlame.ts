@@ -21,7 +21,7 @@ export class ToggleBlameCommand extends EditorCommand {
             return this.annotationController.toggleBlameAnnotation(editor, editor.selection.active.line);
         }
         catch (ex) {
-            Logger.error('GitLens.ToggleBlameCommand', ex);
+            Logger.error(ex, 'ToggleBlameCommand');
             return window.showErrorMessage(`Unable to show blame annotations. See output channel for more details`);
         }
     }

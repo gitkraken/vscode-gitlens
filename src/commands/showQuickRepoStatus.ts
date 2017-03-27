@@ -31,7 +31,7 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
             }
         }
         catch (ex) {
-            Logger.error('[GitLens.ShowQuickRepoStatusCommand]', ex);
+            Logger.error(ex, 'ShowQuickRepoStatusCommand');
             return window.showErrorMessage(`Unable to show repository status. See output channel for more details`);
         }
     }

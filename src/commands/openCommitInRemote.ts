@@ -39,7 +39,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
             return commands.executeCommand(Commands.OpenInRemote, uri, remotes, 'commit', [commit.sha]);
         }
         catch (ex) {
-            Logger.error('[GitLens.OpenCommitInRemoteCommand]', ex);
+            Logger.error(ex, 'OpenCommitInRemoteCommand');
             return window.showErrorMessage(`Unable to open commit in remote provider. See output channel for more details`);
         }
     }

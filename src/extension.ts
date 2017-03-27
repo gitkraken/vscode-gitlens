@@ -48,7 +48,7 @@ export async function activate(context: ExtensionContext) {
         repoPath = await Git.getRepoPath(rootPath, gitPath);
     }
     catch (ex) {
-        Logger.error(ex);
+        Logger.error(ex, 'Extension.activate');
         if (ex.message.includes('Unable to find git')) {
             await window.showErrorMessage(`GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'gitlens.advanced.git' is pointed to its installed location.`);
         }

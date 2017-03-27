@@ -63,7 +63,7 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
             return undefined;
         }
         catch (ex) {
-            Logger.error('[GitLens.CloseUnchangedFilesCommand]', ex);
+            Logger.error(ex, 'CloseUnchangedFilesCommand');
             return window.showErrorMessage(`Unable to close unchanged files. See output channel for more details`);
         }
     }

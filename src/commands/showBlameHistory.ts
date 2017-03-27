@@ -32,7 +32,7 @@ export class ShowBlameHistoryCommand extends EditorCommand {
             return commands.executeCommand(BuiltInCommands.ShowReferences, uri, position, locations);
         }
         catch (ex) {
-            Logger.error('[GitLens.ShowBlameHistoryCommand]', 'getBlameLocations', ex);
+            Logger.error(ex, 'ShowBlameHistoryCommand', 'getBlameLocations');
             return window.showErrorMessage(`Unable to show blame history. See output channel for more details`);
         }
     }

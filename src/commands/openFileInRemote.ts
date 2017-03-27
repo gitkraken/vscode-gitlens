@@ -25,7 +25,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
             return commands.executeCommand(Commands.OpenInRemote, uri, remotes, 'file', [gitUri.getRelativePath(), branch.name, gitUri.sha]);
         }
         catch (ex) {
-            Logger.error('[GitLens.OpenFileInRemoteCommand]', ex);
+            Logger.error(ex, 'OpenFileInRemoteCommand');
             return window.showErrorMessage(`Unable to open file in remote provider. See output channel for more details`);
         }
     }

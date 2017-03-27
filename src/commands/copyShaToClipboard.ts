@@ -44,7 +44,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
                     sha = blame.commit.sha;
                 }
                 catch (ex) {
-                    Logger.error('[GitLens.CopyShaToClipboardCommand]', `getBlameForLine(${blameline})`, ex);
+                    Logger.error(ex, 'CopyShaToClipboardCommand', `getBlameForLine(${blameline})`);
                     return window.showErrorMessage(`Unable to copy sha. See output channel for more details`);
                 }
             }
@@ -53,7 +53,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
             return undefined;
         }
         catch (ex) {
-            Logger.error('GitLens.CopyShaToClipboardCommand', ex);
+            Logger.error(ex, 'CopyShaToClipboardCommand');
             return window.showErrorMessage(`Unable to copy sha. See output channel for more details`);
         }
     }

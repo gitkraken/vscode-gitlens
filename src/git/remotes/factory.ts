@@ -25,7 +25,7 @@ export class RemoteProviderFactory {
             return creator(domain, path);
         }
         catch (ex) {
-            Logger.error(ex);
+            Logger.error(ex, 'RemoteProviderFactory');
             return undefined;
         }
     }

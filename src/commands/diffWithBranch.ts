@@ -40,7 +40,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
             return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' });
         }
         catch (ex) {
-            Logger.error('[GitLens.DiffWithBranchCommand]', 'getVersionedFile', ex);
+            Logger.error(ex, 'DiffWithBranchCommand', 'getVersionedFile');
             return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
         }
     }

@@ -50,7 +50,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                         }
                     }
                     catch (ex) {
-                        Logger.error('[GitLens.CopyMessageToClipboardCommand]', `getBlameForLine(${blameline})`, ex);
+                        Logger.error(ex, 'CopyMessageToClipboardCommand', `getBlameForLine(${blameline})`);
                         return window.showErrorMessage(`Unable to copy message. See output channel for more details`);
                     }
                 }
@@ -66,7 +66,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
             return undefined;
         }
         catch (ex) {
-            Logger.error('GitLens.CopyMessageToClipboardCommand', ex);
+            Logger.error(ex, 'CopyMessageToClipboardCommand');
             return window.showErrorMessage(`Unable to copy message. See output channel for more details`);
         }
     }

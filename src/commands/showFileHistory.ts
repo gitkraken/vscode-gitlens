@@ -31,7 +31,7 @@ export class ShowFileHistoryCommand extends EditorCommand {
             return commands.executeCommand(BuiltInCommands.ShowReferences, uri, position, locations);
         }
         catch (ex) {
-            Logger.error('[GitLens.ShowFileHistoryCommand]', 'getLogLocations', ex);
+            Logger.error(ex, 'ShowFileHistoryCommand', 'getLogLocations');
             return window.showErrorMessage(`Unable to show file history. See output channel for more details`);
         }
     }

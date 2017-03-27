@@ -39,7 +39,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
                 }
             }
             catch (ex) {
-                Logger.error('[GitLens.DiffLineWithWorkingCommand]', `getBlameForLine(${blameline})`, ex);
+                Logger.error(ex, 'DiffLineWithWorkingCommand', `getBlameForLine(${blameline})`);
                 return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
             }
         }

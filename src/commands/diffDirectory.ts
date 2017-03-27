@@ -40,7 +40,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
             return undefined;
         }
         catch (ex) {
-            Logger.error('GitLens.DiffDirectoryCommand', ex);
+            Logger.error(ex, 'DiffDirectoryCommand');
             return window.showErrorMessage(`Unable to open directory diff. See output channel for more details`);
         }
     }

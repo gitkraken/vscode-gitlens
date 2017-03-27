@@ -65,7 +65,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
                 log);
         }
         catch (ex) {
-            Logger.error('[GitLens.ShowQuickBranchHistoryCommand]', ex);
+            Logger.error(ex, 'ShowQuickBranchHistoryCommand');
             return window.showErrorMessage(`Unable to show branch history. See output channel for more details`);
         }
         finally {

@@ -38,7 +38,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                 workingFileName = path.relative(commit.repoPath, gitUri.fsPath);
             }
             catch (ex) {
-                Logger.error('[GitLens.ShowQuickCommitFileDetailsCommand]', `getBlameForLine(${blameline})`, ex);
+                Logger.error(ex, 'ShowQuickCommitFileDetailsCommand', `getBlameForLine(${blameline})`);
                 return window.showErrorMessage(`Unable to show commit file details. See output channel for more details`);
             }
         }
@@ -90,7 +90,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
             return undefined;
         }
         catch (ex) {
-            Logger.error('[GitLens.ShowQuickCommitFileDetailsCommand]', ex);
+            Logger.error(ex, 'ShowQuickCommitFileDetailsCommand');
             return window.showErrorMessage(`Unable to show commit file details. See output channel for more details`);
         }
     }

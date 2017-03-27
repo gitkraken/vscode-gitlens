@@ -49,7 +49,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                 log);
         }
         catch (ex) {
-            Logger.error('[GitLens.ShowQuickFileHistoryCommand]', 'data.repoPath, ', ex);
+            Logger.error(ex, 'ShowQuickFileHistoryCommand');
             return window.showErrorMessage(`Unable to show file history. See output channel for more details`);
         }
         finally {
