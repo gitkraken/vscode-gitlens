@@ -673,16 +673,20 @@ export class GitService extends Disposable {
     async getStatusForFile(repoPath: string, fileName: string): Promise<GitStatusFile> {
         Logger.log(`getStatusForFile('${repoPath}', '${fileName}')`);
 
-        const data = await Git.status_file(repoPath, fileName);
-        const status = GitStatusParser.parse(data, repoPath);
+        const porcelainVersion = Git.validateVersion(2, 11) ? 2 : 1;
+
+        const data = await Git.status_file(repoPath, fileName, porcelainVersion);
+        const status = GitStatusParser.parse(data, repoPath, porcelainVersion);
         return status && status.files.length && status.files[0];
     }
 
     async getStatusForRepo(repoPath: string): Promise<IGitStatus> {
         Logger.log(`getStatusForRepo('${repoPath}')`);
 
-        const data = await Git.status(repoPath);
-        return GitStatusParser.parse(data, repoPath);
+        const porcelainVersion = Git.validateVersion(2, 11) ? 2 : 1;
+
+        const data = await Git.status(repoPath, porcelainVersion);
+        return GitStatusParser.parse(data, repoPath, porcelainVersion);
     }
 
     async getVersionedFile(repoPath: string, fileName: string, sha: string) {

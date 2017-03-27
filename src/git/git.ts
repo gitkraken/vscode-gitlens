@@ -109,6 +109,11 @@ export class Git {
         return [ fileName, repoPath ];
     }
 
+    static validateVersion(major: number, minor: number): boolean {
+        const [gitMajor, gitMinor] = git.version.split('.');
+        return (parseInt(gitMajor, 10) >= major && parseInt(gitMinor, 10) >= minor);
+    }
+
     // Git commands
 
     static blame(repoPath: string, fileName: string, sha?: string, startLine?: number, endLine?: number) {
@@ -230,15 +235,17 @@ export class Git {
         return gitCommand(repoPath, ...params);
     }
 
-    static status(repoPath: string): Promise<string> {
-        const params = ['status', '--porcelain=v2', '--branch'];
+    static status(repoPath: string, porcelainVersion: number = 1): Promise<string> {
+        const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
+        const params = ['status', porcelain, '--branch'];
         return gitCommand(repoPath, ...params);
     }
 
-    static status_file(repoPath: string, fileName: string): Promise<string> {
+    static status_file(repoPath: string, fileName: string, porcelainVersion: number = 1): Promise<string> {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
-        const params = ['status', '--porcelain=v2', file];
+        const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
+        const params = ['status', porcelain, file];
         return gitCommand(root, ...params);
     }
 }
