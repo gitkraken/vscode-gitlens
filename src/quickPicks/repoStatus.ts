@@ -134,7 +134,7 @@ export class RepoStatusQuickPick {
                 label: `$(cloud-download)\u00a0 ${status.state.behind} Commit${status.state.behind > 1 ? 's' : ''} behind \u00a0$(git-branch) ${status.upstream}`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 shows commits in \u00a0$(git-branch) ${status.upstream} but not \u00a0$(git-branch) ${status.branch}${status.sha ? ` (since \u00a0$(git-commit) ${status.sha.substring(0, 8)})` : ''}`
             }, Commands.ShowQuickBranchHistory, [
-                    new GitUri(Uri.file(status.repoPath), { fileName: '', repoPath: status.repoPath, sha: `${status.sha ? status.sha : 'HEAD'}..${status.upstream}` }),
+                    new GitUri(Uri.file(status.repoPath), { fileName: '', repoPath: status.repoPath, sha: `${status.branch}..${status.upstream}` }),
                     status.upstream,
                     0,
                     new CommandQuickPickItem({
