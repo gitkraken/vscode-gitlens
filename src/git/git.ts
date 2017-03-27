@@ -15,7 +15,7 @@ export * from './remotes/provider';
 let git: IGit;
 
 // `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nparents %P%nsummary %B%nfilename ?`
-const defaultLogParams = [`log`, `--name-status`, `--full-history`, `-M`, `--date=iso8601-strict`, `--format=%H -%nauthor %an%nauthor-date %ai%nparents %P%nsummary %B%nfilename ?`];
+const defaultLogParams = [`log`, `--name-status`, `--full-history`, `-M`, `--date=iso8601`, `--format=%H -%nauthor %an%nauthor-date %ai%nparents %P%nsummary %B%nfilename ?`];
 
 async function gitCommand(cwd: string, ...args: any[]) {
     try {
