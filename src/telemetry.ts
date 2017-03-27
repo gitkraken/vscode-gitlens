@@ -41,13 +41,15 @@ export class TelemetryReporter extends Disposable {
             .setAutoCollectPerformance(false)
             .setAutoCollectRequests(false);
 
-        (appInsights as any).setAutoCollectDependencies(false)
+        (appInsights as any)
+            .setAutoCollectDependencies(false)
+            .setAutoDependencyCorrelation(false)
             .setOfflineMode(true);
 
         this._client = appInsights.start().client;
 
         this.setContext();
-        this._stripPII(appInsights.client);
+        this._stripPII(this._client);
 
         this._onConfigurationChanged();
 
@@ -67,12 +69,13 @@ export class TelemetryReporter extends Disposable {
             this._context = Object.create(null);
 
             // Add vscode properties
-            this._context.code_language = vscode.env.language;
-            this._context.code_version = vscode.version;
+            this._context['code.language'] = vscode.env.language;
+            this._context['code.version'] = vscode.version;
+            this._context[this._client.context.keys.sessionId] = vscode.env.sessionId;
 
             // Add os properties
-            this._context.os = os.platform();
-            this._context.os_version = os.release();
+            this._context['os.platform'] = os.platform();
+            this._context['os.version'] = os.release();
         }
 
         if (context) {

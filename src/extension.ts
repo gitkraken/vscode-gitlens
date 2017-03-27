@@ -63,9 +63,8 @@ export async function activate(context: ExtensionContext) {
     Logger.log(`Git version: ${gitVersion}`);
 
     const telemetryContext: { [id: string]: any } = Object.create(null);
-    telemetryContext.name = ExtensionId;
     telemetryContext.version = gitlensVersion;
-    telemetryContext.git_version = gitVersion;
+    telemetryContext['git.version'] = gitVersion;
     Telemetry.setContext(telemetryContext);
 
     notifyOnUnsupportedGitVersion(context, gitVersion);
