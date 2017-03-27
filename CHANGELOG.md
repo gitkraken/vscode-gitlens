@@ -1,5 +1,8 @@
 ## Release Notes
 
+### 3.0.1
+- Adds basic telemetry -- honors the vscode telemetry configuration setting
+
 ### 3.0.0
 - Adds experimental support for `Open in GitHub` to the relevant quick picks -- need to enable it via `"gitlens.insiders": true`
 - Adds an update notification for feature releases
