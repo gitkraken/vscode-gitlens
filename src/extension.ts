@@ -147,9 +147,9 @@ async function notifyOnUnsupportedGitVersion(context: ExtensionContext, version:
     if (context.globalState.get(WorkspaceState.SuppressGitVersionWarning, false)) return;
 
     const [major, minor] = version.split('.');
-    // If git is less than v2.2.0
-    if (parseInt(major, 10) < 2 || parseInt(minor, 10) < 2) {
-        const result = await window.showErrorMessage(`GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git.`, `Don't Show Again`);
+    // If git is less than v2.11.0
+    if (parseInt(major, 10) < 2 || parseInt(minor, 10) < 11) {
+        const result = await window.showErrorMessage(`GitLens requires a newer version of Git (>= 2.11.0) than is currently installed (${version}). Please install a more recent version of Git.`, `Don't Show Again`);
         if (result === `Don't Show Again`) {
             context.globalState.update(WorkspaceState.SuppressGitVersionWarning, true);
         }
