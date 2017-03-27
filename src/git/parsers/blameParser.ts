@@ -11,14 +11,14 @@ interface IBlameEntry {
     lineCount: number;
 
     author?: string;
-    authorEmail?: string;
+    // authorEmail?: string;
     authorDate?: string;
     authorTimeZone?: string;
 
-    committer?: string;
-    committerEmail?: string;
-    committerDate?: string;
-    committerTimeZone?: string;
+    // committer?: string;
+    // committerEmail?: string;
+    // committerDate?: string;
+    // committerTimeZone?: string;
 
     previousSha?: string;
     previousFileName?: string;
