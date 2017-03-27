@@ -32,3 +32,6 @@ export const WorkspaceState = {
     RepoPath: 'repoPath' as WorkspaceState,
     SuppressGitVersionWarning: 'suppressGitVersionWarning' as WorkspaceState
 };
+
+export const ExtensionId = 'eamodio.gitlens';
+export const ApplicationInsightsKey = 'a9c302f8-6483-4d01-b92c-c159c799c679';

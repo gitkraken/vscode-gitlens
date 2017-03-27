@@ -1,6 +1,7 @@
 'use strict';
 import { commands, Disposable, TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
 import { BuiltInCommands } from '../constants';
+import { Telemetry } from '../telemetry';
 
 export type Commands = 'gitlens.closeUnchangedFiles' | 'gitlens.copyMessageToClipboard' | 'gitlens.copyShaToClipboard' |
     'gitlens.diffDirectory' | 'gitlens.diffWithBranch' | 'gitlens.diffWithNext' | 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' |
@@ -54,6 +55,7 @@ export abstract class Command extends Disposable {
     }
 
     protected _execute(...args: any[]): any {
+        Telemetry.trackEvent(this.command);
         return this.execute(...args);
     }
 
@@ -74,6 +76,7 @@ export abstract class EditorCommand extends Disposable {
     }
 
     private _execute(editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any {
+        Telemetry.trackEvent(this.command);
         return this.execute(editor, edit, ...args);
     }
 

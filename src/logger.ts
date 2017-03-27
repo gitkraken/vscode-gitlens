@@ -1,6 +1,7 @@
 'use strict';
 import { ExtensionContext, OutputChannel, window, workspace } from 'vscode';
 import { IAdvancedConfig } from './configuration';
+import { Telemetry } from './telemetry';
 
 const ConfigurationName = 'gitlens';
 const OutputChannelName = 'GitLens';
@@ -58,6 +59,8 @@ export class Logger {
         if (level !== OutputLevel.Silent) {
             output.appendLine([ex, ...params].join(' '));
         }
+
+        Telemetry.trackException(ex);
     }
 
     static warn(message?: any, ...params: any[]): void {

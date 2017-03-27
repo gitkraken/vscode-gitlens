@@ -1,4 +1,5 @@
 'use strict';
+import { Objects } from './system';
 import { commands, ExtensionContext, extensions, languages, Uri, window, workspace } from 'vscode';
 import { BlameabilityTracker } from './blameabilityTracker';
 import { BlameActiveLineController } from './blameActiveLineController';
@@ -14,18 +15,20 @@ import { ShowBlameHistoryCommand, ShowFileHistoryCommand } from './commands';
 import { ShowLastQuickPickCommand, ShowQuickBranchHistoryCommand, ShowQuickCurrentBranchHistoryCommand, ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand, ShowQuickFileHistoryCommand, ShowQuickRepoStatusCommand} from './commands';
 import { ToggleCodeLensCommand } from './commands';
 import { Keyboard } from './commands';
-import { IAdvancedConfig, IBlameConfig } from './configuration';
-import { BuiltInCommands, WorkspaceState } from './constants';
+import { IConfig } from './configuration';
+import { ApplicationInsightsKey, BuiltInCommands, ExtensionId, WorkspaceState } from './constants';
 import { GitContentProvider } from './gitContentProvider';
 import { Git, GitService } from './gitService';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { Logger } from './logger';
+import { Telemetry } from './telemetry';
 
 // this method is called when your extension is activated
 export async function activate(context: ExtensionContext) {
     Logger.configure(context);
+    Telemetry.configure(ApplicationInsightsKey);
 
-    const gitlens = extensions.getExtension('eamodio.gitlens');
+    const gitlens = extensions.getExtension(ExtensionId);
     const gitlensVersion = gitlens.packageJSON.version;
 
     // Workspace not using a folder. No access to git repo.
@@ -38,10 +41,10 @@ export async function activate(context: ExtensionContext) {
     const rootPath = workspace.rootPath.replace(/\\/g, '/');
     Logger.log(`GitLens(v${gitlensVersion}) active: ${rootPath}`);
 
-    const config = workspace.getConfiguration('gitlens');
-    const gitPath = config.get<IAdvancedConfig>('advanced').git;
+    const config = workspace.getConfiguration('').get<IConfig>('gitlens');
+    const gitPath = config.advanced.git;
 
-    configureCssCharacters(config.get<IBlameConfig>('blame'));
+    configureCssCharacters(config.blame);
 
     let repoPath: string;
     try {
@@ -58,6 +61,12 @@ export async function activate(context: ExtensionContext) {
 
     const gitVersion = Git.gitInfo().version;
     Logger.log(`Git version: ${gitVersion}`);
+
+    const telemetryContext: { [id: string]: any } = Object.create(null);
+    telemetryContext.name = ExtensionId;
+    telemetryContext.version = gitlensVersion;
+    telemetryContext.git_version = gitVersion;
+    Telemetry.setContext(telemetryContext);
 
     notifyOnUnsupportedGitVersion(context, gitVersion);
     notifyOnNewGitLensVersion(context, gitlensVersion);
@@ -110,6 +119,8 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new ShowQuickFileHistoryCommand(git));
     context.subscriptions.push(new ShowQuickRepoStatusCommand(git, repoPath));
     context.subscriptions.push(new ToggleCodeLensCommand(git));
+
+    Telemetry.trackEvent('initialized', Objects.flatten(config, 'config', true));
 }
 
 // this method is called when your extension is deactivated
