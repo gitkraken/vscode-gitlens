@@ -44,13 +44,17 @@ export abstract class Command extends Disposable {
 
     private _disposable: Disposable;
 
-    constructor(command: Commands) {
+    constructor(protected command: Commands) {
         super(() => this.dispose());
-        this._disposable = commands.registerCommand(command, this.execute, this);
+        this._disposable = commands.registerCommand(command, this._execute, this);
     }
 
     dispose() {
         this._disposable && this._disposable.dispose();
+    }
+
+    protected _execute(...args: any[]): any {
+        return this.execute(...args);
     }
 
     abstract execute(...args: any[]): any;
@@ -60,33 +64,30 @@ export abstract class EditorCommand extends Disposable {
 
     private _disposable: Disposable;
 
-    constructor(command: Commands) {
+    constructor(public readonly command: Commands) {
         super(() => this.dispose());
-        this._disposable = commands.registerTextEditorCommand(command, this.execute, this);
+        this._disposable = commands.registerTextEditorCommand(command, this._execute, this);
     }
 
     dispose() {
         this._disposable && this._disposable.dispose();
+    }
+
+    private _execute(editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any {
+        return this.execute(editor, edit, ...args);
     }
 
     abstract execute(editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any;
 }
 
-export abstract class ActiveEditorCommand extends Disposable {
+export abstract class ActiveEditorCommand extends Command {
 
-    private _disposable: Disposable;
-
-    constructor(command: Commands) {
-        super(() => this.dispose());
-        this._disposable = commands.registerCommand(command, this._execute, this);
+    constructor(public readonly command: Commands) {
+        super(command);
     }
 
-    dispose() {
-        this._disposable && this._disposable.dispose();
-    }
-
-    _execute(...args: any[]): any {
-        return this.execute(window.activeTextEditor, ...args);
+    protected _execute(...args: any[]): any {
+        return super._execute(window.activeTextEditor, ...args);
     }
 
     abstract execute(editor: TextEditor, ...args: any[]): any;
@@ -99,16 +100,16 @@ export function getLastCommand() {
 
 export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
 
-    constructor(private command: Commands) {
+    constructor(public readonly command: Commands) {
         super(command);
     }
 
-    _execute(...args: any[]): any {
+    protected _execute(...args: any[]): any {
         lastCommand = {
             command: this.command,
             args: args
         };
-        return this.execute(window.activeTextEditor, ...args);
+        return super._execute(...args);
     }
 
     abstract execute(editor: TextEditor, ...args: any[]): any;
