@@ -82,7 +82,13 @@ export class GitLogParser {
                 case 'summary':
                     entry.summary = lineParts.slice(1).join(' ').trim();
                     while (++position < lines.length) {
-                        if (!lines[position]) break;
+                        const next = lines[position];
+                        if (!next) break;
+                        if (next === 'filename ?') {
+                            position--;
+                            break;
+                        }
+
                         entry.summary += `\n${lines[position]}`;
                     }
                     break;
