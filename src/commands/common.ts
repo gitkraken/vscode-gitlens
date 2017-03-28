@@ -10,7 +10,8 @@ export type Commands = 'gitlens.closeUnchangedFiles' | 'gitlens.copyMessageToCli
     'gitlens.showLastQuickPick' | 'gitlens.showQuickBranchHistory' |
     'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' |
     'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory' |
-    'gitlens.showQuickRepoStatus' |
+    'gitlens.showQuickRepoStatus' | 'gitlens.showQuickStashList' |
+    'gitlens.stashApply' | 'gitlens.stashDelete' | 'gitlens.stashSave' |
     'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
 export const Commands = {
     CloseUnchangedFiles: 'gitlens.closeUnchangedFiles' as Commands,
@@ -37,6 +38,9 @@ export const Commands = {
     ShowQuickBranchHistory: 'gitlens.showQuickBranchHistory' as Commands,
     ShowQuickCurrentBranchHistory: 'gitlens.showQuickRepoHistory' as Commands,
     ShowQuickRepoStatus: 'gitlens.showQuickRepoStatus' as Commands,
+    ShowQuickStashList: 'gitlens.showQuickStashList' as Commands,
+    StashApply: 'gitlens.stashApply' as Commands,
+    StashDelete: 'gitlens.stashDelete' as Commands,
     ToggleBlame: 'gitlens.toggleBlame' as Commands,
     ToggleCodeLens: 'gitlens.toggleCodeLens' as Commands
 };

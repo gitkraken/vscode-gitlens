@@ -9,6 +9,7 @@ import * as tmp from 'tmp';
 export * from './models/models';
 export * from './parsers/blameParser';
 export * from './parsers/logParser';
+export * from './parsers/stashParser';
 export * from './parsers/statusParser';
 export * from './remotes/provider';
 
@@ -16,6 +17,7 @@ let git: IGit;
 
 // `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nparents %P%nsummary %B%nfilename ?`
 const defaultLogParams = [`log`, `--name-status`, `--full-history`, `-M`, `--date=iso8601`, `--format=%H -%nauthor %an%nauthor-date %ai%nparents %P%nsummary %B%nfilename ?`];
+const defaultStashParams = [`stash`, `list`, `--name-status`, `--full-history`, `-M`, `--format=%H -%nauthor-date %ai%nreflog-selector %gd%nsummary %B%nfilename ?`];
 
 async function gitCommand(cwd: string, ...args: any[]) {
     try {
@@ -163,14 +165,6 @@ export class Git {
         return gitCommand(repoPath, ...params);
     }
 
-    static show(repoPath: string, fileName: string, branchOrSha: string) {
-        const [file, root] = Git.splitPath(fileName, repoPath);
-        branchOrSha = branchOrSha.replace('^', '');
-
-        if (Git.isUncommitted(branchOrSha)) return Promise.reject(new Error(`sha=${branchOrSha} is uncommitted`));
-        return gitCommand(root, 'show', `${branchOrSha}:./${file}`);
-    }
-
     static log(repoPath: string, sha?: string, maxCount?: number, reverse: boolean = false) {
         const params = [...defaultLogParams, `-m`];
         if (maxCount && !reverse) {
@@ -227,26 +221,44 @@ export class Git {
     }
 
     static remote(repoPath: string): Promise<string> {
-        const params = ['remote', '-v'];
-        return gitCommand(repoPath, ...params);
+        return gitCommand(repoPath, 'remote', '-v');
     }
 
     static remote_url(repoPath: string, remote: string): Promise<string> {
-        const params = ['remote', 'get-url', remote];
-        return gitCommand(repoPath, ...params);
+        return gitCommand(repoPath, 'remote', 'get-url', remote);
+    }
+
+    static show(repoPath: string, fileName: string, branchOrSha: string) {
+        const [file, root] = Git.splitPath(fileName, repoPath);
+        branchOrSha = branchOrSha.replace('^', '');
+
+        if (Git.isUncommitted(branchOrSha)) return Promise.reject(new Error(`sha=${branchOrSha} is uncommitted`));
+        return gitCommand(root, 'show', `${branchOrSha}:./${file}`);
+    }
+
+    static stash_apply(repoPath: string, stashName: string, deleteAfter: boolean) {
+        if (!stashName) return undefined;
+        return gitCommand(repoPath, 'stash', deleteAfter ? 'pop' : 'apply', stashName);
+    }
+
+    static stash_delete(repoPath: string, stashName: string) {
+        if (!stashName) return undefined;
+        return gitCommand(repoPath, 'stash', 'drop', stashName);
+    }
+
+    static stash_list(repoPath: string) {
+        return gitCommand(repoPath, ...defaultStashParams);
     }
 
     static status(repoPath: string, porcelainVersion: number = 1): Promise<string> {
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
-        const params = ['status', porcelain, '--branch'];
-        return gitCommand(repoPath, ...params);
+        return gitCommand(repoPath, 'status', porcelain, '--branch');
     }
 
     static status_file(repoPath: string, fileName: string, porcelainVersion: number = 1): Promise<string> {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
-        const params = ['status', porcelain, file];
-        return gitCommand(root, ...params);
+        return gitCommand(root, 'status', porcelain, file);
     }
 }

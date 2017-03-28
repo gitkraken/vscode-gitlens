@@ -459,6 +459,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.showQuickStashList",
+                "title": "Show Stashed Changes",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.copyShaToClipboard",
                 "title": "Copy Commit Sha to Clipboard",
                 "category": "GitLens"
@@ -486,6 +491,11 @@
             {
                 "command": "gitlens.openFileInRemote",
                 "title": "Open File in Remote",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.stashApply",
+                "title": "Apply Stashed Changes",
                 "category": "GitLens"
             }
         ],
@@ -568,6 +578,10 @@
                     "when": "gitlens:enabled"
                 },
                 {
+                    "command": "gitlens.showQuickStashList",
+                    "when": "gitlens:enabled"
+                },
+                {
                     "command": "gitlens.copyShaToClipboard",
                     "when": "editorTextFocus && gitlens:enabled && gitlens:isBlameable"
                 },
@@ -590,6 +604,10 @@
                 {
                     "command": "gitlens.openFileInRemote",
                     "when": "editorTextFocus && gitlens:enabled && gitlens:hasRemotes"
+                },
+                {
+                    "command": "gitlens.stashApply",
+                    "when": "gitlens:enabled && config.gitlens.insiders"
                 }
             ],
             "explorer/context": [

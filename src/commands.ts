@@ -27,5 +27,8 @@ export * from './commands/showQuickFileHistory';
 export * from './commands/showQuickBranchHistory';
 export * from './commands/showQuickCurrentBranchHistory';
 export * from './commands/showQuickRepoStatus';
+export * from './commands/showQuickStashList';
+export * from './commands/stashApply';
+export * from './commands/stashDelete';
 export * from './commands/toggleBlame';
 export * from './commands/toggleCodeLens';

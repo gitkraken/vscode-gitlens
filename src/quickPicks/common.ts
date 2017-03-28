@@ -117,7 +117,12 @@ export class CommitQuickPickItem implements QuickPickItem {
     detail: string;
 
     constructor(public commit: GitCommit, descriptionSuffix: string = '') {
-        this.label = `${commit.author}, ${moment(commit.date).fromNow()}`;
+        if (commit.author) {
+            this.label = `${commit.author}, ${moment(commit.date).fromNow()}`;
+        }
+        else {
+            this.label = `${moment(commit.date).fromNow()}`;
+        }
         this.description = `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.shortSha}${descriptionSuffix}`;
         this.detail = commit.message;
     }

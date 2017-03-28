@@ -4,7 +4,7 @@ import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, l
 import { CommandContext, setCommandContext } from './commands';
 import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes } from './constants';
-import { Git, GitBlameParser, GitBranch, GitCommit, GitLogCommit, GitLogParser, GitRemote, GitStatusFile, GitStatusParser, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog, IGitStatus } from './git/git';
+import { Git, GitBlameParser, GitBranch, GitCommit, GitLogCommit, GitLogParser, GitRemote, GitStashParser, GitStatusFile, GitStatusParser, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog, IGitStash, IGitStatus } from './git/git';
 import { IGitUriData, GitUri } from './git/gitUri';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
 import { Logger } from './logger';
@@ -667,6 +667,13 @@ export class GitService extends Disposable {
         return (await this.getRepoPathFromFile(gitUri.fsPath)) || fallbackRepoPath;
     }
 
+    async getStashList(repoPath: string): Promise<IGitStash> {
+        Logger.log(`getStash('${repoPath}')`);
+
+        const data = await Git.stash_list(repoPath);
+        return GitStashParser.parse(data, repoPath);
+    }
+
     async getStatusForFile(repoPath: string, fileName: string): Promise<GitStatusFile> {
         Logger.log(`getStatusForFile('${repoPath}', '${fileName}')`);
 
@@ -736,6 +743,18 @@ export class GitService extends Disposable {
         Logger.log(`openDirectoryDiff('${repoPath}', ${sha1}, ${sha2})`);
 
         return Git.difftool_dirDiff(repoPath, sha1, sha2);
+    }
+
+    stashApply(repoPath: string, stashName: string, deleteAfter: boolean = false) {
+        Logger.log(`stashApply('${repoPath}', ${stashName}, ${deleteAfter})`);
+
+        return Git.stash_apply(repoPath, stashName, deleteAfter);
+    }
+
+    stashDelete(repoPath: string, stashName: string) {
+        Logger.log(`stashDelete('${repoPath}', ${stashName}})`);
+
+        return Git.stash_delete(repoPath, stashName);
     }
 
     toggleCodeLens(editor: TextEditor) {

@@ -3,7 +3,7 @@ import { Arrays, Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard, KeyNoopCommand } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem } from './common';
-import { getGitStatusIcon, Git, GitCommit, GitLogCommit, GitService, GitStatusFileStatus, GitUri, IGitLog, IGitStatusFile } from '../gitService';
+import { getGitStatusIcon, Git, GitCommit, GitLogCommit, GitService, GitStashCommit, GitStatusFileStatus, GitUri, IGitLog, IGitStatusFile } from '../gitService';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as moment from 'moment';
 import * as path from 'path';
@@ -72,27 +72,44 @@ export class CommitDetailsQuickPick {
     static async show(git: GitService, commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, repoLog?: IGitLog): Promise<CommitWithFileStatusQuickPickItem | CommandQuickPickItem | undefined> {
         const items: (CommitWithFileStatusQuickPickItem | CommandQuickPickItem)[] = commit.fileStatuses.map(fs => new CommitWithFileStatusQuickPickItem(commit, fs));
 
+        const stash = commit.type === 'stash';
+        const type = stash ? 'Stash' : 'Commit';
+
         let index = 0;
 
+        if (stash && git.config.insiders) {
+            items.splice(index++, 0, new CommandQuickPickItem({
+                label: `$(repo-forked) Apply Stash`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.message}`
+            }, Commands.StashApply, [commit as GitStashCommit, true, false]));
+
+            items.splice(index++, 0, new CommandQuickPickItem({
+                label: `$(x) Delete Stash`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.message}`
+            }, Commands.StashDelete, [commit as GitStashCommit, true]));
+        }
+
         items.splice(index++, 0, new CommandQuickPickItem({
-            label: `$(clippy) Copy Commit Sha to Clipboard`,
+            label: `$(clippy) Copy ${type} Sha to Clipboard`,
             description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.shortSha}`
         }, Commands.CopyShaToClipboard, [uri, commit.sha]));
 
         items.splice(index++, 0, new CommandQuickPickItem({
-            label: `$(clippy) Copy Commit Message to Clipboard`,
+            label: `$(clippy) Copy ${type} Message to Clipboard`,
             description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.message}`
         }, Commands.CopyMessageToClipboard, [uri, commit.sha, commit.message]));
 
-        const remotes = Arrays.uniqueBy(await git.getRemotes(git.repoPath), _ => _.url, _ => !!_.provider);
-        if (remotes.length) {
-            items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, 'commit', commit.sha, currentCommand));
-        }
+        if (!stash) {
+            const remotes = Arrays.uniqueBy(await git.getRemotes(git.repoPath), _ => _.url, _ => !!_.provider);
+            if (remotes.length) {
+                items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, 'commit', commit.sha, currentCommand));
+            }
 
-        items.splice(index++, 0, new CommandQuickPickItem({
-            label: `$(git-compare) Directory Compare with Previous Commit`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.previousShortSha || `${commit.shortSha}^`} \u00a0 $(git-compare) \u00a0 $(git-commit) ${commit.shortSha}`
-        }, Commands.DiffDirectory, [commit.uri, commit.previousSha || `${commit.sha}^`, commit.sha]));
+            items.splice(index++, 0, new CommandQuickPickItem({
+                label: `$(git-compare) Directory Compare with Previous Commit`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.previousShortSha || `${commit.shortSha}^`} \u00a0 $(git-compare) \u00a0 $(git-commit) ${commit.shortSha}`
+            }, Commands.DiffDirectory, [commit.uri, commit.previousSha || `${commit.sha}^`, commit.sha]));
+        }
 
         items.splice(index++, 0, new CommandQuickPickItem({
             label: `$(git-compare) Directory Compare with Working Tree`,
@@ -117,50 +134,52 @@ export class CommitDetailsQuickPick {
 
         let previousCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>);
         let nextCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>);
-        // If we have the full history, we are good
-        if (repoLog && !repoLog.truncated && !repoLog.sha) {
-            previousCommand = commit.previousSha && new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [commit.previousUri, commit.previousSha, undefined, goBackCommand, repoLog]);
-            nextCommand = commit.nextSha && new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [commit.nextUri, commit.nextSha, undefined, goBackCommand, repoLog]);
-        }
-        else {
-            previousCommand = async () => {
-                let log = repoLog;
-                let c = log && log.commits.get(commit.sha);
+        if (!stash) {
+            // If we have the full history, we are good
+            if (repoLog && !repoLog.truncated && !repoLog.sha) {
+                previousCommand = commit.previousSha && new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [commit.previousUri, commit.previousSha, undefined, goBackCommand, repoLog]);
+                nextCommand = commit.nextSha && new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [commit.nextUri, commit.nextSha, undefined, goBackCommand, repoLog]);
+            }
+            else {
+                previousCommand = async () => {
+                    let log = repoLog;
+                    let c = log && log.commits.get(commit.sha);
 
-                // If we can't find the commit or the previous commit isn't available (since it isn't trustworthy)
-                if (!c || !c.previousSha) {
-                    log = await git.getLogForRepo(commit.repoPath, commit.sha, git.config.advanced.maxQuickHistory);
-                    c = log && log.commits.get(commit.sha);
+                    // If we can't find the commit or the previous commit isn't available (since it isn't trustworthy)
+                    if (!c || !c.previousSha) {
+                        log = await git.getLogForRepo(commit.repoPath, commit.sha, git.config.advanced.maxQuickHistory);
+                        c = log && log.commits.get(commit.sha);
 
-                    if (c) {
-                        // Copy over next info, since it is trustworthy at this point
-                        c.nextSha = commit.nextSha;
+                        if (c) {
+                            // Copy over next info, since it is trustworthy at this point
+                            c.nextSha = commit.nextSha;
+                        }
                     }
-                }
-                if (!c || !c.previousSha) return KeyNoopCommand;
-                return new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [c.previousUri, c.previousSha, undefined, goBackCommand, log]);
-            };
+                    if (!c || !c.previousSha) return KeyNoopCommand;
+                    return new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [c.previousUri, c.previousSha, undefined, goBackCommand, log]);
+                };
 
-            nextCommand = async () => {
-                let log = repoLog;
-                let c = log && log.commits.get(commit.sha);
+                nextCommand = async () => {
+                    let log = repoLog;
+                    let c = log && log.commits.get(commit.sha);
 
-                // If we can't find the commit or the next commit isn't available (since it isn't trustworthy)
-                if (!c || !c.nextSha) {
-                    log = undefined;
-                    c = undefined;
+                    // If we can't find the commit or the next commit isn't available (since it isn't trustworthy)
+                    if (!c || !c.nextSha) {
+                        log = undefined;
+                        c = undefined;
 
-                    // Try to find the next commit
-                    const nextLog = await git.getLogForRepo(commit.repoPath, commit.sha, 1, true);
-                    const next = nextLog && Iterables.first(nextLog.commits.values());
-                    if (next && next.sha !== commit.sha) {
-                        c = commit;
-                        c.nextSha = next.sha;
+                        // Try to find the next commit
+                        const nextLog = await git.getLogForRepo(commit.repoPath, commit.sha, 1, true);
+                        const next = nextLog && Iterables.first(nextLog.commits.values());
+                        if (next && next.sha !== commit.sha) {
+                            c = commit;
+                            c.nextSha = next.sha;
+                        }
                     }
-                }
-                if (!c || !c.nextSha) return KeyNoopCommand;
-                return new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [c.nextUri, c.nextSha, undefined, goBackCommand, log]);
-            };
+                    if (!c || !c.nextSha) return KeyNoopCommand;
+                    return new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [c.nextUri, c.nextSha, undefined, goBackCommand, log]);
+                };
+            }
         }
 
         const scope = await Keyboard.instance.beginScope({
@@ -172,7 +191,7 @@ export class CommitDetailsQuickPick {
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: `${commit.shortSha} \u00a0\u2022\u00a0 ${commit.author}, ${moment(commit.date).fromNow()} \u00a0\u2022\u00a0 ${commit.message}`,
+            placeHolder: `${commit.shortSha} \u00a0\u2022\u00a0 ${commit.author ? `${commit.author}, ` : ''}${moment(commit.date).fromNow()} \u00a0\u2022\u00a0 ${commit.message}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
                 scope.setKeyCommand('right', item);

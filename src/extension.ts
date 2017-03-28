@@ -12,7 +12,9 @@ import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './comm
 import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithBranchCommand, DiffWithNextCommand, DiffWithPreviousCommand, DiffWithWorkingCommand} from './commands';
 import { ShowBlameCommand, ToggleBlameCommand } from './commands';
 import { ShowBlameHistoryCommand, ShowFileHistoryCommand } from './commands';
-import { ShowLastQuickPickCommand, ShowQuickBranchHistoryCommand, ShowQuickCurrentBranchHistoryCommand, ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand, ShowQuickFileHistoryCommand, ShowQuickRepoStatusCommand} from './commands';
+import { ShowLastQuickPickCommand, ShowQuickBranchHistoryCommand, ShowQuickCurrentBranchHistoryCommand, ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand, ShowQuickFileHistoryCommand } from './commands';
+import { ShowQuickRepoStatusCommand, ShowQuickStashListCommand } from './commands';
+import { StashApplyCommand, StashDeleteCommand } from './commands';
 import { ToggleCodeLensCommand } from './commands';
 import { Keyboard } from './commands';
 import { IConfig } from './configuration';
@@ -115,6 +117,9 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new ShowQuickCommitFileDetailsCommand(git));
     context.subscriptions.push(new ShowQuickFileHistoryCommand(git));
     context.subscriptions.push(new ShowQuickRepoStatusCommand(git));
+    context.subscriptions.push(new ShowQuickStashListCommand(git));
+    context.subscriptions.push(new StashApplyCommand(git));
+    context.subscriptions.push(new StashDeleteCommand(git));
     context.subscriptions.push(new ToggleCodeLensCommand(git));
 
     Telemetry.trackEvent('initialized', Objects.flatten(config, 'config', true));

@@ -46,7 +46,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         }
 
         try {
-            if (!commit || !(commit instanceof GitLogCommit) || commit.type !== 'repo') {
+            if (!commit || (commit.type !== 'repo' && commit.type !== 'stash')) {
                 if (repoLog) {
                     commit = repoLog.commits.get(sha);
                     // If we can't find the commit, kill the repoLog
@@ -88,7 +88,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
                 return pick.execute();
             }
 
-            return commands.executeCommand(Commands.ShowQuickCommitFileDetails, pick.gitUri, pick.sha, undefined, currentCommand);
+            return commands.executeCommand(Commands.ShowQuickCommitFileDetails, pick.gitUri, pick.sha, commit, currentCommand);
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickCommitDetailsCommand');

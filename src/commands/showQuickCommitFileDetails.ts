@@ -44,7 +44,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
         }
 
         try {
-            if (!commit || !(commit instanceof GitLogCommit) || commit.type !== 'file') {
+            if (!commit || (commit.type !== 'file' && commit.type !== 'stash')) {
                 if (fileLog) {
                     commit = fileLog.commits.get(sha);
                     // If we can't find the commit, kill the fileLog

@@ -34,7 +34,7 @@ export interface IGitCommitLine {
     code?: string;
 }
 
-export type GitCommitType = 'blame' | 'file' | 'repo';
+export type GitCommitType = 'blame' | 'file' | 'repo' | 'stash';
 
 export class GitCommit implements IGitCommit {
 
