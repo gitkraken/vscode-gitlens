@@ -848,11 +848,11 @@
         "@types/applicationinsights": "^0.15.33",
         "@types/copy-paste": "^1.1.30",
         "@types/mocha": "^2.2.40",
-        "@types/node": "^7.0.11",
+        "@types/node": "^7.0.12",
         "@types/tmp": "^0.0.32",
         "mocha": "^3.2.0",
         "tslint": "^4.5.1",
-        "typescript": "^2.2.1",
+        "typescript": "^2.2.2",
         "vscode": "^1.1.0"
     }
 }
