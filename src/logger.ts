@@ -43,7 +43,7 @@ export class Logger {
 
     static log(message?: any, ...params: any[]): void {
         if (debug && level !== OutputLevel.Silent) {
-            console.log(ConsolePrefix, message, ...params);
+            console.log(ConsolePrefix, message, ...params, '\n');
         }
 
         if (level === OutputLevel.Verbose) {
@@ -53,7 +53,7 @@ export class Logger {
 
     static error(ex: Error, classOrMethod?: string, ...params: any[]): void {
         if (debug) {
-            console.error(ConsolePrefix, ex, ...params);
+            console.error(ConsolePrefix, ex, ...params, '\n');
         }
 
         if (level !== OutputLevel.Silent) {
@@ -65,7 +65,7 @@ export class Logger {
 
     static warn(message?: any, ...params: any[]): void {
         if (debug) {
-            console.warn(ConsolePrefix, message, ...params);
+            console.warn(ConsolePrefix, message, ...params, '\n');
         }
 
         if (level !== OutputLevel.Silent) {
