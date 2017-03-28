@@ -4,6 +4,16 @@ import { BuiltInCommands } from '../../constants';
 
 export type RemoteOpenType = 'branch' | 'commit' | 'file' | 'working-file';
 
+export function getNameFromRemoteOpenType(type: RemoteOpenType) {
+    switch (type) {
+        case 'branch': return 'Branch';
+        case 'commit': return 'Commit';
+        case 'file': return 'File';
+        case 'working-file': return 'Working File';
+        default: return '';
+    }
+}
+
 export abstract class RemoteProvider {
 
     constructor(public domain: string, public path: string) { }

@@ -1,10 +1,8 @@
 'use strict';
-import { commands } from 'vscode';
-import { BuiltInCommands } from './constants';
+export * from './commands/common';
 
 export * from './commands/keyboard';
 
-export * from './commands/commands';
 export * from './commands/closeUnchangedFiles';
 export * from './commands/copyMessageToClipboard';
 export * from './commands/copyShaToClipboard';
@@ -31,17 +29,3 @@ export * from './commands/showQuickCurrentBranchHistory';
 export * from './commands/showQuickRepoStatus';
 export * from './commands/toggleBlame';
 export * from './commands/toggleCodeLens';
-
-export type CommandContext = 'gitlens:canToggleCodeLens' | 'gitlens:enabled' | 'gitlens:isBlameable' | 'gitlens:key';
-export const CommandContext = {
-    CanToggleCodeLens: 'gitlens:canToggleCodeLens' as CommandContext,
-    Enabled: 'gitlens:enabled' as CommandContext,
-    HasRemotes: 'gitlens:hasRemotes' as CommandContext,
-    IsBlameable: 'gitlens:isBlameable' as CommandContext,
-    Key: 'gitlens:key' as CommandContext
-};
-
-
-export function setCommandContext(key: CommandContext | string, value: any) {
-    return commands.executeCommand(BuiltInCommands.SetContext, key, value);
-}

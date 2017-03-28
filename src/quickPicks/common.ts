@@ -2,7 +2,9 @@
 import { CancellationTokenSource, commands, Disposable, QuickPickItem, QuickPickOptions, TextEditor, Uri, window, workspace } from 'vscode';
 import { Commands, Keyboard, KeyboardScope, KeyMapping, openEditor } from '../commands';
 import { IAdvancedConfig } from '../configuration';
+import { GitCommit } from '../gitService';
 // import { Logger } from '../logger';
+import * as moment from 'moment';
 
 export function getQuickPickIgnoreFocusOut() {
     return !workspace.getConfiguration('gitlens').get<IAdvancedConfig>('advanced').quickPick.closeOnFocusOut;
@@ -105,5 +107,18 @@ export class OpenFilesCommandQuickPickItem extends CommandQuickPickItem {
             await openEditor(uri, true);
         }
         return undefined;
+    }
+}
+
+export class CommitQuickPickItem implements QuickPickItem {
+
+    label: string;
+    description: string;
+    detail: string;
+
+    constructor(public commit: GitCommit, descriptionSuffix: string = '') {
+        this.label = `${commit.author}, ${moment(commit.date).fromNow()}`;
+        this.description = `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.shortSha}${descriptionSuffix}`;
+        this.detail = commit.message;
     }
 }

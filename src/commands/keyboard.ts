@@ -1,7 +1,7 @@
 'use strict';
 import { commands, Disposable, QuickPickItem } from 'vscode';
-import { CommandContext, setCommandContext } from '../commands';
-import { CommandQuickPickItem, OpenFileCommandQuickPickItem } from '../quickPicks/quickPicks';
+import { CommandContext, setCommandContext } from './common';
+import { CommandQuickPickItem, OpenFileCommandQuickPickItem } from '../quickPicks';
 import { Logger } from '../logger';
 
 const keyNoopCommand = Object.create(null) as QuickPickItem;

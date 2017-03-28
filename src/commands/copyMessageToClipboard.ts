@@ -1,7 +1,7 @@
 'use strict';
 import { Iterables } from '../system';
 import { TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands } from './commands';
+import { ActiveEditorCommand, Commands } from './common';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { copy } from 'copy-paste';

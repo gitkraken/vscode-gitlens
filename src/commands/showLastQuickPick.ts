@@ -1,6 +1,6 @@
 'use strict';
 import { commands, window } from 'vscode';
-import { Command, Commands, getLastCommand } from './commands';
+import { Command, Commands, getLastCommand } from './common';
 import { Logger } from '../logger';
 
 export class ShowLastQuickPickCommand extends Command {

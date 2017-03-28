@@ -1,19 +1,9 @@
 'use strict';
 import { QuickPickOptions, window } from 'vscode';
 import { Commands } from '../commands';
-import { GitRemote, RemoteOpenType } from '../gitService';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './quickPicks';
+import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './common';
+import { getNameFromRemoteOpenType, GitRemote, RemoteOpenType } from '../gitService';
 import * as path from 'path';
-
-function getNameFromRemoteOpenType(type: RemoteOpenType) {
-    switch (type) {
-        case 'branch': return 'Branch';
-        case 'commit': return 'Commit';
-        case 'file': return 'File';
-        case 'working-file': return 'Working File';
-        default: return '';
-    }
-}
 
 export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 

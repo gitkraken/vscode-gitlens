@@ -2,8 +2,9 @@
 import { Arrays, Iterables } from '../system';
 import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard, KeyNoopCommand } from '../commands';
+import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './common';
 import { GitService, GitUri, IGitLog } from '../gitService';
-import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, OpenRemotesCommandQuickPickItem, showQuickPickProgress } from '../quickPicks';
+import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as path from 'path';
 
 export class FileHistoryQuickPick {

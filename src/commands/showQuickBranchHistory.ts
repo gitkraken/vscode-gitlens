@@ -1,6 +1,6 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCachedCommand, Commands } from '../commands';
+import { ActiveEditorCachedCommand, Commands } from './common';
 import { GitService, GitUri, IGitLog } from '../gitService';
 import { Logger } from '../logger';
 import { BranchesQuickPick, BranchHistoryQuickPick, CommandQuickPickItem } from '../quickPicks';

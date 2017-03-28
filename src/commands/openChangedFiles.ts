@@ -1,6 +1,6 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, openEditor } from './commands';
+import { ActiveEditorCommand, Commands, openEditor } from './common';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
 import * as path from 'path';

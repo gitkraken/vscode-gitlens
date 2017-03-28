@@ -1,7 +1,7 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorTracker } from '../activeEditorTracker';
-import { ActiveEditorCommand, Commands } from './commands';
+import { ActiveEditorCommand, Commands } from './common';
 import { TextEditorComparer, UriComparer } from '../comparers';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';

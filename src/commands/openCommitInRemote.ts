@@ -1,7 +1,7 @@
 'use strict';
 import { Arrays } from '../system';
 import { commands, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands } from './commands';
+import { ActiveEditorCommand, Commands } from './common';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 

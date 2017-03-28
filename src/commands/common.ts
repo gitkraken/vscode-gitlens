@@ -41,6 +41,20 @@ export const Commands = {
     ToggleCodeLens: 'gitlens.toggleCodeLens' as Commands
 };
 
+export type CommandContext = 'gitlens:canToggleCodeLens' | 'gitlens:enabled' | 'gitlens:isBlameable' | 'gitlens:key';
+export const CommandContext = {
+    CanToggleCodeLens: 'gitlens:canToggleCodeLens' as CommandContext,
+    Enabled: 'gitlens:enabled' as CommandContext,
+    HasRemotes: 'gitlens:hasRemotes' as CommandContext,
+    IsBlameable: 'gitlens:isBlameable' as CommandContext,
+    Key: 'gitlens:key' as CommandContext
+};
+
+
+export function setCommandContext(key: CommandContext | string, value: any) {
+    return commands.executeCommand(BuiltInCommands.SetContext, key, value);
+}
+
 export abstract class Command extends Disposable {
 
     private _disposable: Disposable;
