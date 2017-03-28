@@ -70,9 +70,7 @@ export async function activate(context: ExtensionContext) {
     notifyOnUnsupportedGitVersion(context, gitVersion);
     notifyOnNewGitLensVersion(context, gitlensVersion);
 
-    context.workspaceState.update(WorkspaceState.RepoPath, repoPath);
-
-    const git = new GitService(context);
+    const git = new GitService(context, repoPath);
     context.subscriptions.push(git);
 
     setCommandsContext(context, git);
@@ -92,31 +90,31 @@ export async function activate(context: ExtensionContext) {
 
     context.subscriptions.push(new Keyboard());
 
-    context.subscriptions.push(new CloseUnchangedFilesCommand(git, repoPath));
-    context.subscriptions.push(new OpenChangedFilesCommand(git, repoPath));
-    context.subscriptions.push(new CopyMessageToClipboardCommand(git, repoPath));
-    context.subscriptions.push(new CopyShaToClipboardCommand(git, repoPath));
-    context.subscriptions.push(new DiffDirectoryCommand(git, repoPath));
+    context.subscriptions.push(new CloseUnchangedFilesCommand(git));
+    context.subscriptions.push(new OpenChangedFilesCommand(git));
+    context.subscriptions.push(new CopyMessageToClipboardCommand(git));
+    context.subscriptions.push(new CopyShaToClipboardCommand(git));
+    context.subscriptions.push(new DiffDirectoryCommand(git));
     context.subscriptions.push(new DiffLineWithPreviousCommand(git));
     context.subscriptions.push(new DiffLineWithWorkingCommand(git));
     context.subscriptions.push(new DiffWithBranchCommand(git));
     context.subscriptions.push(new DiffWithNextCommand(git));
     context.subscriptions.push(new DiffWithPreviousCommand(git));
     context.subscriptions.push(new DiffWithWorkingCommand(git));
-    context.subscriptions.push(new OpenCommitInRemoteCommand(git, repoPath));
-    context.subscriptions.push(new OpenFileInRemoteCommand(git, repoPath));
+    context.subscriptions.push(new OpenCommitInRemoteCommand(git));
+    context.subscriptions.push(new OpenFileInRemoteCommand(git));
     context.subscriptions.push(new OpenInRemoteCommand());
     context.subscriptions.push(new ShowBlameCommand(annotationController));
     context.subscriptions.push(new ToggleBlameCommand(annotationController));
     context.subscriptions.push(new ShowBlameHistoryCommand(git));
     context.subscriptions.push(new ShowFileHistoryCommand(git));
     context.subscriptions.push(new ShowLastQuickPickCommand());
-    context.subscriptions.push(new ShowQuickBranchHistoryCommand(git, repoPath));
+    context.subscriptions.push(new ShowQuickBranchHistoryCommand(git));
     context.subscriptions.push(new ShowQuickCurrentBranchHistoryCommand(git));
-    context.subscriptions.push(new ShowQuickCommitDetailsCommand(git, repoPath));
+    context.subscriptions.push(new ShowQuickCommitDetailsCommand(git));
     context.subscriptions.push(new ShowQuickCommitFileDetailsCommand(git));
     context.subscriptions.push(new ShowQuickFileHistoryCommand(git));
-    context.subscriptions.push(new ShowQuickRepoStatusCommand(git, repoPath));
+    context.subscriptions.push(new ShowQuickRepoStatusCommand(git));
     context.subscriptions.push(new ToggleCodeLensCommand(git));
 
     Telemetry.trackEvent('initialized', Objects.flatten(config, 'config', true));

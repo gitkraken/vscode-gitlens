@@ -3,7 +3,7 @@ import { Iterables, Objects } from './system';
 import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, languages, Location, Position, Range, TextDocument, TextEditor, Uri, workspace } from 'vscode';
 import { CommandContext, setCommandContext } from './commands';
 import { CodeLensVisibility, IConfig } from './configuration';
-import { DocumentSchemes, WorkspaceState } from './constants';
+import { DocumentSchemes } from './constants';
 import { Git, GitBlameParser, GitBranch, GitCommit, GitLogCommit, GitLogParser, GitRemote, GitStatusFile, GitStatusParser, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog, IGitStatus } from './git/git';
 import { IGitUriData, GitUri } from './git/gitUri';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
@@ -60,8 +60,6 @@ export class GitService extends Disposable {
         return this._onDidBlameFailEmitter.event;
     }
 
-    public repoPath: string;
-
     private _gitCache: Map<string, GitCacheEntry> | undefined;
     private _remotesCache: GitRemote[];
     private _cacheDisposable: Disposable | undefined;
@@ -76,10 +74,9 @@ export class GitService extends Disposable {
 
     static EmptyPromise: Promise<IGitBlame | IGitLog> = Promise.resolve(undefined);
 
-    constructor(private context: ExtensionContext) {
+    constructor(private context: ExtensionContext, public repoPath: string) {
         super(() => this.dispose());
 
-        this.repoPath = context.workspaceState.get(WorkspaceState.RepoPath) as string;
         this._uriCache = new Map();
 
         this._onConfigurationChanged();

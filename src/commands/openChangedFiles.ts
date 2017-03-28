@@ -7,7 +7,7 @@ import * as path from 'path';
 
 export class OpenChangedFilesCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitService, private repoPath: string) {
+    constructor(private git: GitService) {
         super(Commands.OpenChangedFiles);
     }
 
@@ -18,7 +18,7 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
 
         try {
             if (!uris) {
-                const repoPath = await this.git.getRepoPathFromUri(uri, this.repoPath);
+                const repoPath = await this.git.getRepoPathFromUri(uri, this.git.repoPath);
                 if (!repoPath) return window.showWarningMessage(`Unable to open changed files`);
 
                 const status = await this.git.getStatusForRepo(repoPath);

@@ -9,7 +9,7 @@ import * as path from 'path';
 
 export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitService, private repoPath: string) {
+    constructor(private git: GitService) {
         super(Commands.CloseUnchangedFiles);
     }
 
@@ -20,7 +20,7 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
 
         try {
             if (!uris) {
-                const repoPath = await this.git.getRepoPathFromUri(uri, this.repoPath);
+                const repoPath = await this.git.getRepoPathFromUri(uri, this.git.repoPath);
                 if (!repoPath) return window.showWarningMessage(`Unable to close unchanged files`);
 
                 const status = await this.git.getStatusForRepo(repoPath);

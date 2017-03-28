@@ -29,7 +29,6 @@ export const DocumentSchemes = {
 export type WorkspaceState = 'repoPath';
 export const WorkspaceState = {
     GitLensVersion: 'gitlensVersion' as WorkspaceState,
-    RepoPath: 'repoPath' as WorkspaceState,
     SuppressGitVersionWarning: 'suppressGitVersionWarning' as WorkspaceState
 };
 

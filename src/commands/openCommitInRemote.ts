@@ -7,7 +7,7 @@ import { Logger } from '../logger';
 
 export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitService, private repoPath: string) {
+    constructor(private git: GitService) {
         super(Commands.OpenCommitInRemote);
     }
 
@@ -35,7 +35,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
                 commit = new GitCommit(commit.type, commit.repoPath, commit.previousSha, commit.previousFileName, commit.author, commit.date, commit.message);
             }
 
-            const remotes = Arrays.uniqueBy(await this.git.getRemotes(this.repoPath), _ => _.url, _ => !!_.provider);
+            const remotes = Arrays.uniqueBy(await this.git.getRemotes(this.git.repoPath), _ => _.url, _ => !!_.provider);
             return commands.executeCommand(Commands.OpenInRemote, uri, remotes, 'commit', [commit.sha]);
         }
         catch (ex) {

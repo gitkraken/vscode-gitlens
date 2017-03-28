@@ -8,7 +8,7 @@ import * as path from 'path';
 
 export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 
-    constructor(private git: GitService, private repoPath: string) {
+    constructor(private git: GitService) {
         super(Commands.ShowQuickCommitDetails);
     }
 
@@ -56,7 +56,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
                 }
 
                 if (!repoLog) {
-                    const log = await this.git.getLogForRepo(repoPath || this.repoPath, sha, 2);
+                    const log = await this.git.getLogForRepo(repoPath || this.git.repoPath, sha, 2);
                     if (!log) return window.showWarningMessage(`Unable to show commit details`);
 
                     commit = log.commits.get(sha);

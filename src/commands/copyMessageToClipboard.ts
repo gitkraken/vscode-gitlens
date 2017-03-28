@@ -8,7 +8,7 @@ import { copy } from 'copy-paste';
 
 export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitService, private repoPath: string) {
+    constructor(private git: GitService) {
         super(Commands.CopyMessageToClipboard);
     }
 
@@ -20,7 +20,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
         try {
             // If we don't have an editor then get the message of the last commit to the branch
             if (!uri) {
-                const log = await this.git.getLogForRepo(this.repoPath, undefined, 1);
+                const log = await this.git.getLogForRepo(this.git.repoPath, undefined, 1);
                 if (!log) return undefined;
 
                 message = Iterables.first(log.commits.values()).message;

@@ -7,7 +7,7 @@ import { CommandQuickPickItem, RepoStatusQuickPick } from '../quickPicks';
 
 export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
 
-    constructor(private git: GitService, private repoPath: string) {
+    constructor(private git: GitService) {
         super(Commands.ShowQuickRepoStatus);
     }
 
@@ -17,7 +17,7 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
         }
 
         try {
-            const repoPath = await this.git.getRepoPathFromUri(uri, this.repoPath);
+            const repoPath = await this.git.getRepoPathFromUri(uri, this.git.repoPath);
             if (!repoPath) return window.showWarningMessage(`Unable to show repository status`);
 
             const status = await this.git.getStatusForRepo(repoPath);

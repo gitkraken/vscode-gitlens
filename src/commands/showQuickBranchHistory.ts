@@ -7,7 +7,7 @@ import { BranchesQuickPick, BranchHistoryQuickPick, CommandQuickPickItem } from 
 
 export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 
-    constructor(private git: GitService, private repoPath: string) {
+    constructor(private git: GitService) {
         super(Commands.ShowQuickBranchHistory);
     }
 
@@ -24,7 +24,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 
         let progressCancellation = branch && BranchHistoryQuickPick.showProgress(branch);
         try {
-            const repoPath = (gitUri && gitUri.repoPath) || await this.git.getRepoPathFromUri(uri, this.repoPath);
+            const repoPath = (gitUri && gitUri.repoPath) || await this.git.getRepoPathFromUri(uri, this.git.repoPath);
             if (!repoPath) return window.showWarningMessage(`Unable to show branch history`);
 
             if (!branch) {

@@ -8,7 +8,7 @@ import { CommandQuickPickItem, BranchesQuickPick } from '../quickPicks';
 
 export class DiffDirectoryCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitService, private repoPath: string) {
+    constructor(private git: GitService) {
         super(Commands.DiffDirectory);
     }
 
@@ -18,7 +18,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
         }
 
         try {
-            const repoPath = await this.git.getRepoPathFromUri(uri, this.repoPath);
+            const repoPath = await this.git.getRepoPathFromUri(uri, this.git.repoPath);
             if (!repoPath) return window.showWarningMessage(`Unable to open directory diff`);
 
             if (!shaOrBranch1) {

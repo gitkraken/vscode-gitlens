@@ -7,7 +7,7 @@ import { Logger } from '../logger';
 
 export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitService, private repoPath: string) {
+    constructor(private git: GitService) {
         super(Commands.OpenFileInRemote);
     }
 
@@ -18,10 +18,10 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
         }
 
         const gitUri = await GitUri.fromUri(uri, this.git);
-        const branch = await this.git.getBranch(gitUri.repoPath || this.repoPath);
+        const branch = await this.git.getBranch(gitUri.repoPath || this.git.repoPath);
 
         try {
-            const remotes = Arrays.uniqueBy(await this.git.getRemotes(this.repoPath), _ => _.url, _ => !!_.provider);
+            const remotes = Arrays.uniqueBy(await this.git.getRemotes(this.git.repoPath), _ => _.url, _ => !!_.provider);
             const range = editor && new Range(editor.selection.start.with({ line: editor.selection.start.line + 1 }), editor.selection.end.with({ line: editor.selection.end.line + 1 }));
             return commands.executeCommand(Commands.OpenInRemote, uri, remotes, 'file', [gitUri.getRelativePath(), branch.name, gitUri.sha, range]);
         }
