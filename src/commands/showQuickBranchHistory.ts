@@ -30,7 +30,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
             if (!branch) {
                 const branches = await this.git.getBranches(repoPath);
 
-                const pick = await BranchesQuickPick.show(branches, `pick a branch to show history`);
+                const pick = await BranchesQuickPick.show(branches, `Show history for branch\u2026`);
                 if (!pick) return undefined;
 
                 if (pick instanceof CommandQuickPickItem) {
