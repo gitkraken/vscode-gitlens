@@ -17,9 +17,10 @@ export class ShowQuickCurrentBranchHistoryCommand extends ActiveEditorCachedComm
         }
 
         try {
-            const branch = (await this.git.getBranch(this.git.repoPath)).name;
+            const branch = await this.git.getBranch(this.git.repoPath);
+            if (!branch) return undefined;
 
-            return commands.executeCommand(Commands.ShowQuickBranchHistory, uri, branch, undefined, goBackCommand);
+            return commands.executeCommand(Commands.ShowQuickBranchHistory, uri, branch.name, undefined, goBackCommand);
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickCurrentBranchHistoryCommand');
