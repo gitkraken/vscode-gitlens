@@ -1,5 +1,11 @@
 ## Release Notes
 
+### 3.0.5
+- Adds additional experimental support for GitLab, Bitbucket, and Visual Studio Team Services to the `Open x in Remote` commands and quick picks -- need to enable it via `"gitlens.insiders": true`
+- Adds experimental line support to `Open File in Remote` command (`gitlens.openFileInRemote`)
+- Adds original file name for renamed files to the repository status and commit details quick pick
+- Fixes [#56](https://github.com/eamodio/vscode-gitlens/issues/56) - Handle file names with spaces
+
 ### 3.0.4
 - Changes telemetry a bit to reduce noise
 - Fixes common telemetry error by switching to non-strict iso dates (since they are only available in later git versions)
@@ -17,6 +23,8 @@
 
 ### 3.0.0
 - Adds experimental support for `Open in GitHub` to the relevant quick picks -- need to enable it via `"gitlens.insiders": true`
+- Adds experimental `Open Line Commit in Remote` command (`gitlens.openCommitInRemote`) to open the current commit in the remote service (currently only GitHub)
+- Adds experimental `Open File in Remote` command (`gitlens.openFileInRemote`) to open the current file in the remote service (currently only GitHub)
 - Adds an update notification for feature releases
 - Adds `Show Branch History` command (`gitlens.showQuickBranchHistory`) to show the history of the selected branch
 - Adds `Show Last Opened Quick Pick` command (`gitlens.showLastQuickPick`) to re-open the previously opened quick pick - helps to get back to previous context
