@@ -435,7 +435,7 @@ export class GitService extends Disposable {
         blame.commits.forEach(c => {
             if (!shas.has(c.sha)) return;
 
-            const commit: GitCommit = new GitCommit(c.repoPath, c.sha, c.fileName, c.author, c.date, c.message,
+            const commit: GitCommit = new GitCommit('blame', c.repoPath, c.sha, c.fileName, c.author, c.date, c.message,
                 c.lines.filter(l => l.line >= range.start.line && l.line <= range.end.line), c.originalFileName, c.previousSha, c.previousFileName);
             commits.set(c.sha, commit);
 

@@ -146,7 +146,7 @@ export class GitBlameParser {
                     authors.set(entry.author, author);
                 }
 
-                commit = new GitCommit(repoPath, entry.sha, relativeFileName, entry.author, moment(`${entry.authorDate} ${entry.authorTimeZone}`, 'X +-HHmm').toDate(), entry.summary);
+                commit = new GitCommit('blame', repoPath, entry.sha, relativeFileName, entry.author, moment(`${entry.authorDate} ${entry.authorTimeZone}`, 'X +-HHmm').toDate(), entry.summary);
 
                 if (relativeFileName !== entry.fileName) {
                     commit.originalFileName = entry.fileName;

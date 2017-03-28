@@ -9,6 +9,7 @@ export interface IGitAuthor {
 }
 
 export interface IGitCommit {
+    type: GitCommitType;
     repoPath: string;
     sha: string;
     fileName: string;
@@ -33,8 +34,11 @@ export interface IGitCommitLine {
     code?: string;
 }
 
+export type GitCommitType = 'blame' | 'file' | 'repo';
+
 export class GitCommit implements IGitCommit {
 
+    type: GitCommitType;
     lines: IGitCommitLine[];
     originalFileName?: string;
     previousSha?: string;
@@ -43,6 +47,7 @@ export class GitCommit implements IGitCommit {
     private _isUncommitted: boolean | undefined;
 
     constructor(
+        type: GitCommitType,
         public repoPath: string,
         public sha: string,
         public fileName: string,
@@ -54,6 +59,7 @@ export class GitCommit implements IGitCommit {
         previousSha?: string,
         previousFileName?: string
     ) {
+        this.type = type;
         this.fileName = this.fileName && this.fileName.replace(/, ?$/, '');
 
         this.lines = lines || [];

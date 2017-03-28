@@ -43,7 +43,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
                 // If the line is uncommitted, find the previous commit and treat it as a DiffWithWorking
                 if (commit.isUncommitted) {
                     uri = commit.uri;
-                    commit = new GitCommit(commit.repoPath, commit.previousSha, commit.previousFileName, commit.author, commit.date, commit.message);
+                    commit = new GitCommit(commit.type, commit.repoPath, commit.previousSha, commit.previousFileName, commit.author, commit.date, commit.message);
                     line = (blame.line.line + 1) + gitUri.offset;
                     return commands.executeCommand(Commands.DiffWithWorking, uri, commit, line);
                 }

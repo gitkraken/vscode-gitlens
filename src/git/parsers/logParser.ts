@@ -1,6 +1,6 @@
 'use strict';
 import { Range } from 'vscode';
-import { Git, GitStatusFileStatus, GitLogCommit, GitLogType, IGitAuthor, IGitLog, IGitStatusFile } from './../git';
+import { Git, GitStatusFileStatus, GitLogCommit, GitCommitType, IGitAuthor, IGitLog, IGitStatusFile } from './../git';
 // import { Logger } from '../../logger';
 import * as moment from 'moment';
 import * as path from 'path';
@@ -29,7 +29,7 @@ const diffRegex = /diff --git a\/(.*) b\/(.*)/;
 
 export class GitLogParser {
 
-    private static _parseEntries(data: string, type: GitLogType, maxCount: number | undefined, reverse: boolean): ILogEntry[] {
+    private static _parseEntries(data: string, type: GitCommitType, maxCount: number | undefined, reverse: boolean): ILogEntry[] {
         if (!data) return undefined;
 
         const lines = data.split('\n');
@@ -164,7 +164,7 @@ export class GitLogParser {
         return entries;
     }
 
-    static parse(data: string, type: GitLogType, repoPath: string | undefined, fileName: string | undefined, sha: string | undefined, maxCount: number | undefined, reverse: boolean, range: Range): IGitLog {
+    static parse(data: string, type: GitCommitType, repoPath: string | undefined, fileName: string | undefined, sha: string | undefined, maxCount: number | undefined, reverse: boolean, range: Range): IGitLog {
         const entries = this._parseEntries(data, type, maxCount, reverse);
         if (!entries) return undefined;
 

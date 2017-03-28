@@ -1,10 +1,8 @@
 'use strict';
 import { Uri } from 'vscode';
-import { GitCommit, IGitCommitLine } from './commit';
+import { GitCommit, GitCommitType, IGitCommitLine } from './commit';
 import { IGitStatusFile, GitStatusFileStatus } from './status';
 import * as path from 'path';
-
-export type GitLogType = 'file' | 'repo';
 
 export class GitLogCommit extends GitCommit {
 
@@ -15,7 +13,7 @@ export class GitLogCommit extends GitCommit {
     parentShas: string[];
 
     constructor(
-        public type: GitLogType,
+        type: GitCommitType,
         repoPath: string,
         sha: string,
         fileName: string,
@@ -29,7 +27,7 @@ export class GitLogCommit extends GitCommit {
         previousSha?: string,
         previousFileName?: string
     ) {
-        super(repoPath, sha, fileName, author, date, message, lines, originalFileName, previousSha, previousFileName);
+        super(type, repoPath, sha, fileName, author, date, message, lines, originalFileName, previousSha, previousFileName);
 
         this.fileNames = this.fileName;
 
