@@ -29,7 +29,7 @@ const diffRegex = /diff --git a\/(.*) b\/(.*)/;
 
 export class GitLogParser {
 
-    private static _parseEntries(data: string, isRepoPath: boolean, maxCount: number | undefined, reverse: boolean): ILogEntry[] {
+    private static _parseEntries(data: string, type: GitLogType, maxCount: number | undefined, reverse: boolean): ILogEntry[] {
         if (!data) return undefined;
 
         const lines = data.split('\n');
@@ -96,7 +96,7 @@ export class GitLogParser {
                     break;
 
                 case 'filename':
-                    if (isRepoPath) {
+                    if (type === 'repo') {
                         const nextLine = lines[position + 1];
                         // If the next line isn't blank, make sure it isn't starting a new commit
                         if (nextLine && Git.shaRegex.test(nextLine)) continue;
@@ -164,19 +164,18 @@ export class GitLogParser {
         return entries;
     }
 
-    static parse(data: string, type: GitLogType, fileNameOrRepoPath: string, sha: string | undefined, maxCount: number | undefined, isRepoPath: boolean, reverse: boolean, range: Range): IGitLog {
-        const entries = this._parseEntries(data, isRepoPath, maxCount, reverse);
+    static parse(data: string, type: GitLogType, repoPath: string | undefined, fileName: string | undefined, sha: string | undefined, maxCount: number | undefined, reverse: boolean, range: Range): IGitLog {
+        const entries = this._parseEntries(data, type, maxCount, reverse);
         if (!entries) return undefined;
 
         const authors: Map<string, IGitAuthor> = new Map();
         const commits: Map<string, GitLogCommit> = new Map();
 
-        let repoPath: string;
         let relativeFileName: string;
         let recentCommit: GitLogCommit;
 
-        if (isRepoPath) {
-            repoPath = Git.normalizePath(fileNameOrRepoPath);
+        if (repoPath !== undefined) {
+            repoPath = Git.normalizePath(repoPath);
         }
 
         for (let i = 0, len = entries.length; i < len; i++) {
@@ -185,15 +184,13 @@ export class GitLogParser {
 
             const entry = entries[i];
 
-            if (i === 0 || isRepoPath) {
-                if (isRepoPath) {
-                    relativeFileName = entry.fileName;
-                }
-                else {
-                    // Try to get the repoPath from the most recent commit
-                    repoPath = Git.normalizePath(fileNameOrRepoPath.replace(fileNameOrRepoPath.startsWith('/') ? `/${entry.fileName}` : entry.fileName, ''));
-                    relativeFileName = path.relative(repoPath, fileNameOrRepoPath).replace(/\\/g, '/');
-                }
+            if (i === 0 && type === 'file' && !repoPath) {
+                // Try to get the repoPath from the most recent commit
+                repoPath = Git.normalizePath(fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName, ''));
+                relativeFileName = Git.normalizePath(path.relative(repoPath, fileName));
+            }
+            else {
+                relativeFileName = entry.fileName;
             }
 
             let commit = commits.get(entry.sha);

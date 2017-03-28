@@ -13,7 +13,6 @@ export class GitLogCommit extends GitCommit {
     nextSha?: string;
     nextFileName?: string;
     parentShas: string[];
-    status: GitStatusFileStatus;
 
     constructor(
         public type: GitLogType,
@@ -31,7 +30,6 @@ export class GitLogCommit extends GitCommit {
         previousFileName?: string
     ) {
         super(repoPath, sha, fileName, author, date, message, lines, originalFileName, previousSha, previousFileName);
-        this.status = status;
 
         this.fileNames = this.fileName;
 
@@ -40,7 +38,7 @@ export class GitLogCommit extends GitCommit {
             this.fileName = this.fileStatuses[0].fileName;
         }
         else {
-            this.fileStatuses = [{ status: status, fileName: fileName }];
+            this.fileStatuses = [{ status: status, fileName: fileName, originalFileName: originalFileName }];
         }
     }
 

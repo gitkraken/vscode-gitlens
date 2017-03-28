@@ -544,7 +544,7 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.log(repoPath, sha, maxCount, reverse);
-            return GitLogParser.parse(data, 'repo', repoPath, sha, maxCount, true, reverse, undefined);
+            return GitLogParser.parse(data, 'repo', repoPath, undefined, sha, maxCount, reverse, undefined);
         }
         catch (ex) {
             return undefined;
@@ -592,7 +592,7 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.log_file(root, file, sha, maxCount, reverse, range && range.start.line + 1, range && range.end.line + 1);
-            return GitLogParser.parse(data, 'file', root || file, sha, maxCount, !!root, reverse, range);
+            return GitLogParser.parse(data, 'file', root, file, sha, maxCount, reverse, range);
         }
         catch (ex) {
             // Trap and cache expected log errors
