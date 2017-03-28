@@ -17,9 +17,13 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
             directory = undefined;
         }
 
+        let description = (status.status === 'R' && status.originalFileName)
+            ? `${directory || ''} \u00a0\u2190\u00a0 ${status.originalFileName}`
+            : directory;
+
         super(uri, item || {
             label: `${status.staged ? '$(check)' : '\u00a0\u00a0\u00a0'}\u00a0\u00a0${icon}\u00a0\u00a0\u00a0${path.basename(status.fileName)}`,
-            description: directory
+            description: description
         });
     }
 }

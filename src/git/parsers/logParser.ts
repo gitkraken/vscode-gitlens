@@ -1,6 +1,6 @@
 'use strict';
 import { Range } from 'vscode';
-import { Git, GitStatusFileStatus, GitLogCommit, GitLogType, IGitAuthor, IGitLog } from './../git';
+import { Git, GitStatusFileStatus, GitLogCommit, GitLogType, IGitAuthor, IGitLog, IGitLogFileStatusEntry } from './../git';
 // import { Logger } from '../../logger';
 import * as moment from 'moment';
 import * as path from 'path';
@@ -18,7 +18,7 @@ interface ILogEntry {
 
     fileName?: string;
     originalFileName?: string;
-    fileStatuses?: { status: GitStatusFileStatus, fileName: string, originalFileName: string }[];
+    fileStatuses?: IGitLogFileStatusEntry[];
 
     status?: GitStatusFileStatus;
 
@@ -134,7 +134,7 @@ export class GitLogParser {
                                 status: line[0] as GitStatusFileStatus,
                                 fileName: line.substring(1),
                                 originalFileName: undefined as string
-                            };
+                            } as IGitLogFileStatusEntry;
                             this._parseFileName(status);
 
                             entry.fileStatuses.push(status);

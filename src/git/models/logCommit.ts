@@ -6,10 +6,16 @@ import * as path from 'path';
 
 export type GitLogType = 'file' | 'repo';
 
+export interface IGitLogFileStatusEntry {
+    status: GitStatusFileStatus;
+    fileName: string;
+    originalFileName?: string;
+}
+
 export class GitLogCommit extends GitCommit {
 
     fileNames: string;
-    fileStatuses: { status: GitStatusFileStatus, fileName: string, originalFileName?: string }[];
+    fileStatuses: IGitLogFileStatusEntry[];
     nextSha?: string;
     nextFileName?: string;
     parentShas: string[];
@@ -24,7 +30,7 @@ export class GitLogCommit extends GitCommit {
         date: Date,
         message: string,
         status?: GitStatusFileStatus,
-        fileStatuses?: { status: GitStatusFileStatus, fileName: string, originalFileName?: string }[],
+        fileStatuses?: IGitLogFileStatusEntry[],
         lines?: IGitCommitLine[],
         originalFileName?: string,
         previousSha?: string,

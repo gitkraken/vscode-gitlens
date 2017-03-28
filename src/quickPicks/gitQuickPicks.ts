@@ -1,6 +1,6 @@
 'use strict';
 import { QuickPickItem, Uri } from 'vscode';
-import { getGitStatusIcon, Git, GitCommit, GitStatusFileStatus, GitService, GitUri } from '../gitService';
+import { getGitStatusIcon, Git, GitCommit, GitStatusFileStatus, GitService, GitUri, IGitLogFileStatusEntry } from '../gitService';
 import { OpenFileCommandQuickPickItem } from './quickPicks';
 import * as moment from 'moment';
 import * as path from 'path';
@@ -26,23 +26,27 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
     shortSha: string;
     status: GitStatusFileStatus;
 
-    constructor(commit: GitCommit, fileName: string, status: GitStatusFileStatus) {
-        const icon = getGitStatusIcon(status);
+    constructor(commit: GitCommit, status: IGitLogFileStatusEntry) {
+        const icon = getGitStatusIcon(status.status);
 
-        let directory = Git.normalizePath(path.dirname(fileName));
+        let directory = Git.normalizePath(path.dirname(status.fileName));
         if (!directory || directory === '.') {
             directory = undefined;
         }
 
-        super(GitService.toGitContentUri(commit.sha, fileName, commit.repoPath, commit.originalFileName), {
-            label: `\u00a0\u00a0\u00a0\u00a0${icon}\u00a0\u00a0 ${path.basename(fileName)}`,
-            description: directory
+        let description = (status.status === 'R' && status.originalFileName)
+            ? `${directory || ''} \u00a0\u2190\u00a0 ${status.originalFileName}`
+            : directory;
+
+        super(GitService.toGitContentUri(commit.sha, status.fileName, commit.repoPath, commit.originalFileName), {
+            label: `\u00a0\u00a0\u00a0\u00a0${icon}\u00a0\u00a0 ${path.basename(status.fileName)}`,
+            description: description
         });
 
-        this.fileName = fileName;
-        this.gitUri = new GitUri(Uri.file(path.resolve(commit.repoPath, fileName)));
+        this.fileName = status.fileName;
+        this.gitUri = new GitUri(Uri.file(path.resolve(commit.repoPath, status.fileName)));
         this.sha = commit.sha;
         this.shortSha = commit.shortSha;
-        this.status = status;
+        this.status = status.status;
     }
 }
