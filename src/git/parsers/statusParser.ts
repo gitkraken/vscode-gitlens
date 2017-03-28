@@ -67,7 +67,7 @@ export class GitStatusParser {
                 else {
                     entry = this._parseFileEntry(rawStatus, fileName);
                 }
-                status.files.push(new GitStatusFile(repoPath, entry.status, entry.staged, entry.fileName, entry.originalFileName));
+                status.files.push(new GitStatusFile(repoPath, entry.status, entry.fileName, entry.staged, entry.originalFileName));
             }
         }
     }
@@ -115,7 +115,7 @@ export class GitStatusParser {
                 }
 
                 if (entry) {
-                    status.files.push(new GitStatusFile(repoPath, entry.status, entry.staged, entry.fileName, entry.originalFileName));
+                    status.files.push(new GitStatusFile(repoPath, entry.status, entry.fileName, entry.staged, entry.originalFileName));
                 }
             }
         }

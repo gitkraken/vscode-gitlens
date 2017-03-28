@@ -9,7 +9,6 @@ import * as path from 'path';
 export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 
     constructor(status: GitStatusFile, item?: QuickPickItem) {
-        const uri = Uri.file(path.resolve(status.repoPath, status.fileName));
         const icon = status.getIcon();
 
         let directory = Git.normalizePath(path.dirname(status.fileName));
@@ -21,7 +20,7 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
             ? `${directory || ''} \u00a0\u2190\u00a0 ${status.originalFileName}`
             : directory;
 
-        super(uri, item || {
+        super(status.Uri, item || {
             label: `${status.staged ? '$(check)' : '\u00a0\u00a0\u00a0'}\u00a0\u00a0${icon}\u00a0\u00a0\u00a0${path.basename(status.fileName)}`,
             description: description
         });
@@ -31,8 +30,7 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
 export class OpenStatusFilesCommandQuickPickItem extends CommandQuickPickItem {
 
     constructor(statuses: GitStatusFile[], item?: QuickPickItem) {
-        const repoPath = statuses.length && statuses[0].repoPath;
-        const uris = statuses.map(_ => Uri.file(path.resolve(repoPath, _.fileName)));
+        const uris = statuses.map(_ => _.Uri);
 
         super(item || {
             label: `$(file-symlink-file) Open Changed Files`,

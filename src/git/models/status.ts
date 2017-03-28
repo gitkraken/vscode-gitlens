@@ -1,4 +1,6 @@
 'use strict';
+import { Uri } from 'vscode';
+import * as path from 'path';
 
 export interface IGitStatus {
 
@@ -16,16 +18,26 @@ export interface IGitStatus {
 
 export declare type GitStatusFileStatus = '!' | '?' | 'A' | 'C' | 'D' | 'M' | 'R' | 'U';
 
-export class GitStatusFile {
+export interface IGitStatusFile {
+    status: GitStatusFileStatus;
+    fileName: string;
+    originalFileName?: string;
+}
+
+export class GitStatusFile implements IGitStatusFile {
 
     originalFileName?: string;
 
-    constructor(public repoPath: string, public status: GitStatusFileStatus, public staged: boolean, public fileName: string, originalFileName?: string) {
+    constructor(public repoPath: string, public status: GitStatusFileStatus, public fileName: string, public staged: boolean, originalFileName?: string) {
         this.originalFileName = originalFileName;
     }
 
     getIcon() {
         return getGitStatusIcon(this.status);
+    }
+
+    get Uri(): Uri {
+        return Uri.file(path.resolve(this.repoPath, this.fileName));
     }
 }
 
