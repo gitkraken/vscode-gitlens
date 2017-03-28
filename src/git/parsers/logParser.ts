@@ -25,6 +25,8 @@ interface ILogEntry {
     summary?: string;
 }
 
+const diffRegex = /diff --git a\/(.*) b\/(.*)/;
+
 export class GitLogParser {
 
     private static _parseEntries(data: string, isRepoPath: boolean, maxCount: number | undefined, reverse: boolean): ILogEntry[] {
@@ -103,7 +105,8 @@ export class GitLogParser {
 
                         let diff = false;
                         while (++position < lines.length) {
-                            lineParts = lines[position].split(' ');
+                            const line = lines[position];
+                            lineParts = line.split(' ');
 
                             if (Git.shaRegex.test(lineParts[0])) {
                                 position--;
@@ -114,8 +117,9 @@ export class GitLogParser {
 
                             if (lineParts[0] === 'diff') {
                                 diff = true;
-                                entry.fileName = lineParts[2].substring(2);
-                                const originalFileName = lineParts[3].substring(2);
+                                const matches = diffRegex.exec(line);
+                                entry.fileName = matches[1];
+                                const originalFileName = matches[2];
                                 if (entry.fileName !== originalFileName) {
                                     entry.originalFileName = originalFileName;
                                 }
@@ -127,22 +131,11 @@ export class GitLogParser {
                             }
 
                             const status = {
-                                status: lineParts[0][0] as GitStatusFileStatus,
-                                fileName: lineParts[0].substring(1),
+                                status: line[0] as GitStatusFileStatus,
+                                fileName: line.substring(1),
                                 originalFileName: undefined as string
                             };
-
-                            const index = status.fileName.indexOf('\t') + 1;
-                            if (index) {
-                                const next = status.fileName.indexOf('\t', index) + 1;
-                                if (next) {
-                                    status.originalFileName = status.fileName.substring(index, next - 1);
-                                    status.fileName = status.fileName.substring(next);
-                                }
-                                else {
-                                    status.fileName = status.fileName.substring(index);
-                                }
-                            }
+                            this._parseFileName(status);
 
                             entry.fileStatuses.push(status);
                         }
@@ -153,28 +146,10 @@ export class GitLogParser {
                     }
                     else {
                         position += 2;
-                        lineParts = lines[position].split(' ');
-                        if (lineParts.length === 1) {
-                            entry.status = lineParts[0][0] as GitStatusFileStatus;
-                            entry.fileName = lineParts[0].substring(1);
-                        }
-                        else {
-                            entry.status = lineParts[3][0] as GitStatusFileStatus;
-                            entry.fileName = lineParts[0].substring(1);
-                            position += 4;
-                        }
-
-                        const index = entry.fileName.indexOf('\t') + 1;
-                        if (index) {
-                            const next = entry.fileName.indexOf('\t', index) + 1;
-                            if (next) {
-                                entry.originalFileName = entry.fileName.substring(index, next - 1);
-                                entry.fileName = entry.fileName.substring(next);
-                            }
-                            else {
-                                entry.fileName = entry.fileName.substring(index);
-                            }
-                        }
+                        const line = lines[position];
+                        entry.status = line[0] as GitStatusFileStatus;
+                        entry.fileName = line.substring(1);
+                        this._parseFileName(entry);
                     }
 
                     entries.push(entry);
@@ -283,5 +258,19 @@ export class GitLogParser {
             range: range,
             truncated: !!(maxCount && entries.length >= maxCount)
         } as IGitLog;
+    }
+
+    private static _parseFileName(entry: { fileName?: string, originalFileName?: string }) {
+        const index = entry.fileName.indexOf('\t') + 1;
+        if (index) {
+            const next = entry.fileName.indexOf('\t', index) + 1;
+            if (next) {
+                entry.originalFileName = entry.fileName.substring(index, next - 1);
+                entry.fileName = entry.fileName.substring(next);
+            }
+            else {
+                entry.fileName = entry.fileName.substring(index);
+            }
+        }
     }
 }

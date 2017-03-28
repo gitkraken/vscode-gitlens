@@ -57,7 +57,16 @@ export class GitStatusParser {
                 }
             }
             else {
-                const entry = this._parseFileEntry(line.substring(0, 2), line.substring(3));
+                let entry: IFileStatusEntry;
+                const rawStatus = line.substring(0, 2);
+                let fileName = line.substring(3);
+                if (rawStatus[0] === 'R') {
+                    const [file1, file2] = fileName.replace(/\"/g, '').split('->');
+                    entry = this._parseFileEntry(rawStatus, file2.trim(), file1.trim());
+                }
+                else {
+                    entry = this._parseFileEntry(rawStatus, fileName);
+                }
                 status.files.push(new GitStatusFile(repoPath, entry.status, entry.staged, entry.fileName, entry.originalFileName));
             }
         }
@@ -91,17 +100,17 @@ export class GitStatusParser {
                 let entry: IFileStatusEntry;
                 switch (lineParts[0][0]) {
                     case '1': // normal
-                        entry = this._parseFileEntry(lineParts[1], lineParts[8]);
+                        entry = this._parseFileEntry(lineParts[1], lineParts.slice(8).join(' '));
                         break;
                     case '2': // rename
-                        const file = lineParts[9].split('\t');
+                        const file = lineParts.slice(9).join(' ').split('\t');
                         entry = this._parseFileEntry(lineParts[1], file[0], file[1]);
                         break;
                     case 'u': // unmerged
-                        entry = this._parseFileEntry(lineParts[1], lineParts[10]);
+                        entry = this._parseFileEntry(lineParts[1], lineParts.slice(10).join(' '));
                         break;
                     case '?': // untracked
-                        entry = this._parseFileEntry(' ?', lineParts[1]);
+                        entry = this._parseFileEntry(' ?', lineParts.slice(1).join(' '));
                         break;
                 }
 
