@@ -1,4 +1,5 @@
 'use strict';
+import { Range } from 'vscode';
 import { RemoteProvider } from './provider';
 
 export class BitbucketService extends RemoteProvider {
@@ -19,9 +20,19 @@ export class BitbucketService extends RemoteProvider {
         return `${this.baseUrl}/commits/${sha}`;
     }
 
-    protected getUrlForFile(fileName: string, branch?: string, sha?: string): string {
-        if (sha) return `${this.baseUrl}/src/${sha}/${fileName}`;
-        if (branch) return `${this.baseUrl}/src/${branch}/${fileName}`;
-        return `${this.baseUrl}?path=${fileName}`;
+    protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
+        let line: string = '';
+        if (range) {
+            if (range.start.line === range.end.line) {
+                line = `#${fileName}-${range.start.line}`;
+            }
+            else {
+                line = `#${fileName}-${range.start.line}:${range.end.line}`;
+            }
+        }
+
+        if (sha) return `${this.baseUrl}/src/${sha}/${fileName}${line}`;
+        if (branch) return `${this.baseUrl}/src/${branch}/${fileName}${line}`;
+        return `${this.baseUrl}?path=${fileName}${line}`;
     }
 }

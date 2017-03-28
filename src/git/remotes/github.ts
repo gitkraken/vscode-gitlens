@@ -1,4 +1,5 @@
 'use strict';
+import { Range } from 'vscode';
 import { RemoteProvider } from './provider';
 
 export class GitHubService extends RemoteProvider {
@@ -19,9 +20,19 @@ export class GitHubService extends RemoteProvider {
         return `${this.baseUrl}/commit/${sha}`;
     }
 
-    protected getUrlForFile(fileName: string, branch?: string, sha?: string): string {
-        if (sha) return `${this.baseUrl}/blob/${sha}/${fileName}`;
-        if (branch) return `${this.baseUrl}/blob/${branch}/${fileName}`;
-        return `${this.baseUrl}?path=${fileName}`;
+    protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
+        let line: string = '';
+        if (range) {
+            if (range.start.line === range.end.line) {
+                line = `#L${range.start.line}`;
+            }
+            else {
+                line = `#L${range.start.line}-L${range.end.line}`;
+            }
+        }
+
+        if (sha) return `${this.baseUrl}/blob/${sha}/${fileName}${line}`;
+        if (branch) return `${this.baseUrl}/blob/${branch}/${fileName}${line}`;
+        return `${this.baseUrl}?path=${fileName}${line}`;
     }
 }
