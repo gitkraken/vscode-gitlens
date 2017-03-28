@@ -1,8 +1,16 @@
 ## Release Notes
 
+### 3.1.0
+- Adds `Show Stashed Changes` command (`gitlens.showQuickStashList`) to open a quick pick of all the stashed changes
+- Adds insiders `Stash Changes` option to stashed changes quick pick -- enabled via `"gitlens.insiders": true`
+- Adds insiders `Stash Unstaged Changes` option to stashed changes quick pick
+- Adds insiders `Apply Stashed Changes` command (`gitlens.stashApply`) to apply the selected stashed changes to the working tree
+- Adds insiders `Stash Changes` command (`gitlens.stashSave`) to stash any working tree changes
+- Fixes incorrect counts in upstream status
+
 ### 3.0.5
-- Adds additional experimental support for GitLab, Bitbucket, and Visual Studio Team Services to the `Open x in Remote` commands and quick picks -- need to enable it via `"gitlens.insiders": true`
-- Adds experimental line support to `Open File in Remote` command (`gitlens.openFileInRemote`)
+- Adds additional insiders support for GitLab, Bitbucket, and Visual Studio Team Services to the `Open x in Remote` commands and quick picks -- enabled via `"gitlens.insiders": true`
+- Adds insiders line support to `Open File in Remote` command (`gitlens.openFileInRemote`)
 - Adds original file name for renamed files to the repository status and commit details quick pick
 - Fixes [#56](https://github.com/eamodio/vscode-gitlens/issues/56) - Handle file names with spaces
 
@@ -22,9 +30,9 @@
 - Adds basic telemetry -- honors the vscode telemetry configuration setting
 
 ### 3.0.0
-- Adds experimental support for `Open in GitHub` to the relevant quick picks -- need to enable it via `"gitlens.insiders": true`
-- Adds experimental `Open Line Commit in Remote` command (`gitlens.openCommitInRemote`) to open the current commit in the remote service (currently only GitHub)
-- Adds experimental `Open File in Remote` command (`gitlens.openFileInRemote`) to open the current file in the remote service (currently only GitHub)
+- Adds insiders support for `Open in GitHub` to the relevant quick picks -- enabled via `"gitlens.insiders": true`
+- Adds insiders `Open Line Commit in Remote` command (`gitlens.openCommitInRemote`) to open the current commit in the remote service (currently only GitHub)
+- Adds insiders `Open File in Remote` command (`gitlens.openFileInRemote`) to open the current file in the remote service (currently only GitHub)
 - Adds an update notification for feature releases
 - Adds `Show Branch History` command (`gitlens.showQuickBranchHistory`) to show the history of the selected branch
 - Adds `Show Last Opened Quick Pick` command (`gitlens.showLastQuickPick`) to re-open the previously opened quick pick - helps to get back to previous context

@@ -25,6 +25,10 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 - Provides a Git **blame history explorer** (peek style ui) to visualize the blame history of a file or block
 - Provides many configuration settings to allow the **customization** of almost all features
 
+> NOTE: GitLens only works with opened folders (not single files).
+
+> Add `"gitlens.insiders": true` to your settings to join the insiders channel and get access to upcoming features.
+
 ## Feature Previews
 #### Featuring CodeLens and commands, toggling inline blame annotations, and showing quick pick ui and commands
 ![GitLens preview 1](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/gitlens-preview1.gif)
@@ -57,6 +61,7 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 |`gitlens.statusBar.command`|"Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickFileHistory` - shows a repository history quick pick
 |`gitlens.statusBar.date`|Specifies whether and how the commit date will be shown in the blame status bar. `off` - no date. `relative` - relative date (e.g. 1 day ago). `absolute` - date format specified by `gitlens.statusBar.dateFormat`
 |`gitlens.statusBar.dateFormat`|Specifies the date format of how absolute dates will be shown in the blame status bar. See https://momentjs.com/docs/#/displaying/format/ for valid formats
+|`gitlens.insiders`|Opts into the insiders channel -- provides access to upcoming features
 
 ## Known Issues
 
