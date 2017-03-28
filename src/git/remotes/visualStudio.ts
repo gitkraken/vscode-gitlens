@@ -1,18 +1,18 @@
 'use strict';
 import { RemoteProvider } from './provider';
 
-export class GitHubService extends RemoteProvider {
+export class VisualStudioService extends RemoteProvider {
 
     constructor(public domain: string, public path: string) {
         super(domain, path);
     }
 
     get name() {
-        return 'GitHub';
+        return 'Visual Studio Team Services';
     }
 
     protected getUrlForBranch(branch: string): string {
-        return `${this.baseUrl}/commits/${branch}`;
+        return `${this.baseUrl}/?version=GB${branch}&_a=history`;
     }
 
     protected getUrlForCommit(sha: string): string {
@@ -20,8 +20,8 @@ export class GitHubService extends RemoteProvider {
     }
 
     protected getUrlForFile(fileName: string, branch?: string, sha?: string): string {
-        if (sha) return `${this.baseUrl}/blob/${sha}/${fileName}`;
-        if (branch) return `${this.baseUrl}/blob/${branch}/${fileName}`;
-        return `${this.baseUrl}?path=${fileName}`;
+        if (sha) return `${this.baseUrl}/commit/${sha}/?_a=contents&path=%2F${fileName}`;
+        if (branch) return `${this.baseUrl}/?path=%2F${fileName}&version=GB${branch}&_a=contents`;
+        return `${this.baseUrl}?path=%2F${fileName}`;
     }
 }
