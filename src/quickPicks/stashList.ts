@@ -8,7 +8,7 @@ import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut }
 export class StashListQuickPick {
 
     static async show(stash: IGitStash, placeHolder?: string, goBackCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
-        const items = ((stash && Array.from(Iterables.map(stash.commits.values(), c => new CommitQuickPickItem(c, ` \u2014 ${c.fileNames}`)))) || []) as (CommitQuickPickItem | CommandQuickPickItem)[];
+        const items = ((stash && Array.from(Iterables.map(stash.commits.values(), c => new CommitQuickPickItem(c)))) || []) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
         if (goBackCommand) {
             items.splice(0, 0, goBackCommand);

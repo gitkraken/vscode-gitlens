@@ -18,7 +18,7 @@ export class BranchHistoryQuickPick {
     }
 
     static async show(git: GitService, log: IGitLog, uri: GitUri, branch: string, progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
-        const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c, ` \u2014 ${c.fileNames}`))) as (CommitQuickPickItem | CommandQuickPickItem)[];
+        const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
         const currentCommand = new CommandQuickPickItem({
             label: `go back \u21A9`,

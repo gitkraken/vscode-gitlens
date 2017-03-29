@@ -2,7 +2,7 @@
 import { CancellationTokenSource, commands, Disposable, QuickPickItem, QuickPickOptions, TextEditor, Uri, window, workspace } from 'vscode';
 import { Commands, Keyboard, KeyboardScope, KeyMapping, openEditor } from '../commands';
 import { IAdvancedConfig } from '../configuration';
-import { GitCommit } from '../gitService';
+import { GitCommit, GitLogCommit, GitStashCommit } from '../gitService';
 // import { Logger } from '../logger';
 import * as moment from 'moment';
 
@@ -116,14 +116,16 @@ export class CommitQuickPickItem implements QuickPickItem {
     description: string;
     detail: string;
 
-    constructor(public commit: GitCommit, descriptionSuffix: string = '') {
-        if (commit.author) {
-            this.label = `${commit.author}, ${moment(commit.date).fromNow()}`;
+    constructor(public commit: GitCommit) {
+        if (commit instanceof GitStashCommit) {
+            this.label = `${commit.stashName}, ${moment(commit.date).fromNow()}`;
+            this.description = `\u00a0\u00a0\u2014\u00a0\u00a0 ${commit.fileNames}`; //\u00a0\u00a0 $(git-commit) ${commit.shortSha}
         }
         else {
-            this.label = `${moment(commit.date).fromNow()}`;
+            this.label = `${commit.author}, ${moment(commit.date).fromNow()}`;
+            const suffix = commit.type === 'branch' ? ` \u2014 ${(commit as GitLogCommit).fileNames}` : '';
+            this.description = `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.shortSha}${suffix}`;
         }
-        this.description = `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.shortSha}${descriptionSuffix}`;
         this.detail = commit.message;
     }
 }
