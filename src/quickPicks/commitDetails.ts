@@ -28,7 +28,7 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
             ? `${directory || ''} \u00a0\u2190\u00a0 ${status.originalFileName}`
             : directory;
 
-        super(GitService.toGitContentUri(commit.sha, status.fileName, commit.repoPath, commit.originalFileName), {
+        super(GitService.toGitContentUri(commit.sha, commit.shortSha, status.fileName, commit.repoPath, commit.originalFileName), {
             label: `\u00a0\u00a0\u00a0\u00a0${icon}\u00a0\u00a0 ${path.basename(status.fileName)}`,
             description: description
         });
@@ -45,7 +45,7 @@ export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPi
 
     constructor(commit: GitLogCommit, item?: QuickPickItem) {
         const repoPath = commit.repoPath;
-        const uris = commit.fileStatuses.map(_ => GitService.toGitContentUri(commit.sha, _.fileName, repoPath, commit.originalFileName));
+        const uris = commit.fileStatuses.map(_ => GitService.toGitContentUri(commit.sha, commit.shortSha, _.fileName, repoPath, commit.originalFileName));
         super(uris, item || {
             label: `$(file-symlink-file) Open Changed Files`,
             description: `\u00a0 \u2014 \u00a0\u00a0 in \u00a0$(git-commit) ${commit.shortSha}`

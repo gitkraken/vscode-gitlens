@@ -785,9 +785,9 @@ export class GitService extends Disposable {
         return Git.isUncommitted(sha);
     }
 
-    static toGitContentUri(sha: string, fileName: string, repoPath: string, originalFileName: string): Uri;
+    static toGitContentUri(sha: string, shortSha: string, fileName: string, repoPath: string, originalFileName: string): Uri;
     static toGitContentUri(commit: GitCommit): Uri;
-    static toGitContentUri(shaOrcommit: string | GitCommit, fileName?: string, repoPath?: string, originalFileName?: string): Uri {
+    static toGitContentUri(shaOrcommit: string | GitCommit, shortSha?: string, fileName?: string, repoPath?: string, originalFileName?: string): Uri {
         let data: IGitUriData;
         if (typeof shaOrcommit === 'string') {
             data = GitService._toGitUriData({
@@ -800,10 +800,11 @@ export class GitService extends Disposable {
         else {
             data = GitService._toGitUriData(shaOrcommit, undefined, shaOrcommit.originalFileName);
             fileName = shaOrcommit.fileName;
+            shortSha = shaOrcommit.shortSha;
         }
 
         const extension = path.extname(fileName);
-        return Uri.parse(`${DocumentSchemes.GitLensGit}:${path.basename(fileName, extension)}:${data.sha}${extension}?${JSON.stringify(data)}`);
+        return Uri.parse(`${DocumentSchemes.GitLensGit}:${path.basename(fileName, extension)}:${shortSha}${extension}?${JSON.stringify(data)}`);
     }
 
     static toReferenceGitContentUri(commit: GitCommit, index: number, commitCount: number, originalFileName?: string, decoration?: string): Uri {
