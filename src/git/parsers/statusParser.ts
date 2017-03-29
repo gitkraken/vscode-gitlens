@@ -90,8 +90,8 @@ export class GitStatusParser {
                         status.upstream = lineParts[2];
                         break;
                     case 'branch.ab':
-                        status.state.ahead = +lineParts[2][1];
-                        status.state.behind = +lineParts[3][1];
+                        status.state.ahead = +lineParts[2].substring(1);
+                        status.state.behind = +lineParts[3].substring(1);
                         break;
                 }
             }
