@@ -541,7 +541,7 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.log(repoPath, sha, maxCount, reverse);
-            return GitLogParser.parse(data, 'repo', repoPath, undefined, sha, maxCount, reverse, undefined);
+            return GitLogParser.parse(data, 'branch', repoPath, undefined, sha, maxCount, reverse, undefined);
         }
         catch (ex) {
             return undefined;

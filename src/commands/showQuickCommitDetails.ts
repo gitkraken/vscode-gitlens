@@ -46,7 +46,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         }
 
         try {
-            if (!commit || (commit.type !== 'repo' && commit.type !== 'stash')) {
+            if (!commit || (commit.type !== 'branch' && commit.type !== 'stash')) {
                 if (repoLog) {
                     commit = repoLog.commits.get(sha);
                     // If we can't find the commit, kill the repoLog

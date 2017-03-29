@@ -96,7 +96,7 @@ export class GitLogParser {
                     break;
 
                 case 'filename':
-                    if (type === 'repo') {
+                    if (type === 'branch') {
                         const nextLine = lines[position + 1];
                         // If the next line isn't blank, make sure it isn't starting a new commit
                         if (nextLine && Git.shaRegex.test(nextLine)) continue;
