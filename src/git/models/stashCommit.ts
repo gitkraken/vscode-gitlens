@@ -21,4 +21,8 @@ export class GitStashCommit extends GitLogCommit {
     ) {
         super('stash', repoPath, sha, fileName, undefined, date, message, status, fileStatuses, lines, originalFileName, previousSha, previousFileName);
     }
+
+    get shortSha() {
+        return this.stashName;
+    }
 }
