@@ -79,12 +79,12 @@ export class CommitDetailsQuickPick {
 
         if (stash && git.config.insiders) {
             items.splice(index++, 0, new CommandQuickPickItem({
-                label: `$(repo-forked) Apply Stash`,
+                label: `$(repo-forked) Apply Stashed Changes`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.message}`
             }, Commands.StashApply, [commit as GitStashCommit, true, false]));
 
             items.splice(index++, 0, new CommandQuickPickItem({
-                label: `$(x) Delete Stash`,
+                label: `$(x) Delete Stashed Changes`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.message}`
             }, Commands.StashDelete, [commit as GitStashCommit, true]));
         }

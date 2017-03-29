@@ -18,7 +18,7 @@ export class StashListQuickPick {
 
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
-            placeHolder: placeHolder || `stash list \u2014 search by message, filename, or sha`,
+            placeHolder: placeHolder || `stashed changes \u2014 search by message, filename, or sha`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
             // onDidSelectItem: (item: QuickPickItem) => {
             //     scope.setKeyCommand('right', item);

@@ -18,7 +18,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
 
         try {
             const repoPath = await this.git.getRepoPathFromUri(uri, this.git.repoPath);
-            if (!repoPath) return window.showWarningMessage(`Unable to show stash list`);
+            if (!repoPath) return window.showWarningMessage(`Unable to show stashed changes`);
 
             const stash = await this.git.getStashList(repoPath);
             const pick = await StashListQuickPick.show(stash, undefined, goBackCommand);
@@ -31,12 +31,12 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
             return commands.executeCommand(Commands.ShowQuickCommitDetails, new GitUri(pick.commit.uri, pick.commit), pick.commit.sha, pick.commit,
                 new CommandQuickPickItem({
                     label: `go back \u21A9`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 to the stash list`
+                    description: `\u00a0 \u2014 \u00a0\u00a0 to stashed changes`
                 }, Commands.ShowQuickStashList, [uri, goBackCommand]));
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickStashListCommand');
-            return window.showErrorMessage(`Unable to show stash list. See output channel for more details`);
+            return window.showErrorMessage(`Unable to show stashed changes. See output channel for more details`);
         }
     }
 }
