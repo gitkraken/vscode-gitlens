@@ -74,7 +74,7 @@ export class CommitFileDetailsQuickPick {
             }, Commands.CopyShaToClipboard, [uri, commit.sha]));
 
             items.push(new CommandQuickPickItem({
-                label: `$(clippy) Copy Commit Message to Clipboard`,
+                label: `$(clippy) Copy Message to Clipboard`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.message}`
             }, Commands.CopyMessageToClipboard, [uri, commit.sha, commit.message]));
         }
@@ -102,10 +102,12 @@ export class CommitFileDetailsQuickPick {
             }, Commands.ShowQuickFileHistory, [Uri.file(path.resolve(commit.repoPath, commit.workingFileName)), undefined, undefined, currentCommand, fileLog]));
         }
 
-        items.push(new CommandQuickPickItem({
-            label: `$(history) Show ${commit.workingFileName ? 'Previous ' : ''}File History`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 of ${path.basename(commit.fileName)} \u00a0\u2022\u00a0 from \u00a0$(git-commit) ${commit.shortSha}`
-        }, Commands.ShowQuickFileHistory, [new GitUri(commit.uri, commit), undefined, undefined, currentCommand]));
+        if (!stash) {
+            items.push(new CommandQuickPickItem({
+                label: `$(history) Show ${commit.workingFileName ? 'Previous ' : ''}File History`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 of ${path.basename(commit.fileName)} \u00a0\u2022\u00a0 from \u00a0$(git-commit) ${commit.shortSha}`
+            }, Commands.ShowQuickFileHistory, [new GitUri(commit.uri, commit), undefined, undefined, currentCommand]));
+        }
 
         if (goBackCommand) {
             items.splice(0, 0, goBackCommand);

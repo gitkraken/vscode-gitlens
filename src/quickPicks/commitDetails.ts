@@ -73,7 +73,6 @@ export class CommitDetailsQuickPick {
         const items: (CommitWithFileStatusQuickPickItem | CommandQuickPickItem)[] = commit.fileStatuses.map(fs => new CommitWithFileStatusQuickPickItem(commit, fs));
 
         const stash = commit.type === 'stash';
-        const type = stash ? 'Stash' : 'Commit';
 
         let index = 0;
 
@@ -89,13 +88,15 @@ export class CommitDetailsQuickPick {
             }, Commands.StashDelete, [commit as GitStashCommit, true]));
         }
 
-        items.splice(index++, 0, new CommandQuickPickItem({
-            label: `$(clippy) Copy ${type} Sha to Clipboard`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.shortSha}`
-        }, Commands.CopyShaToClipboard, [uri, commit.sha]));
+        if (!stash) {
+            items.splice(index++, 0, new CommandQuickPickItem({
+                label: `$(clippy) Copy Commit Sha to Clipboard`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.shortSha}`
+            }, Commands.CopyShaToClipboard, [uri, commit.sha]));
+        }
 
         items.splice(index++, 0, new CommandQuickPickItem({
-            label: `$(clippy) Copy ${type} Message to Clipboard`,
+            label: `$(clippy) Copy Message to Clipboard`,
             description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.message}`
         }, Commands.CopyMessageToClipboard, [uri, commit.sha, commit.message]));
 
