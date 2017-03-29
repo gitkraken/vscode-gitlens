@@ -30,5 +30,6 @@ export * from './commands/showQuickRepoStatus';
 export * from './commands/showQuickStashList';
 export * from './commands/stashApply';
 export * from './commands/stashDelete';
+export * from './commands/stashSave';
 export * from './commands/toggleBlame';
 export * from './commands/toggleCodeLens';

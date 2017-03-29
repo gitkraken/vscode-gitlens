@@ -18,7 +18,7 @@ export class StashApplyCommand extends Command {
             const stash = await this.git.getStashList(this.git.repoPath);
             if (!stash) return window.showInformationMessage(`There are no stashed changes`);
 
-            const pick = await StashListQuickPick.show(stash, 'Apply stashed changes to your working tree\u2026');
+            const pick = await StashListQuickPick.show(this.git, stash, 'apply');
             if (!pick || !(pick instanceof CommitQuickPickItem)) return undefined;
 
             stashItem = pick.commit as GitStashCommit;

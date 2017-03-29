@@ -78,7 +78,7 @@ export class CommitDetailsQuickPick {
 
         if (stash && git.config.insiders) {
             items.splice(index++, 0, new CommandQuickPickItem({
-                label: `$(repo-forked) Apply Stashed Changes`,
+                label: `$(git-pull-request) Apply Stashed Changes`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.message}`
             }, Commands.StashApply, [commit as GitStashCommit, true, false]));
 

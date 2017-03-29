@@ -41,6 +41,7 @@ export const Commands = {
     ShowQuickStashList: 'gitlens.showQuickStashList' as Commands,
     StashApply: 'gitlens.stashApply' as Commands,
     StashDelete: 'gitlens.stashDelete' as Commands,
+    StashSave: 'gitlens.stashSave' as Commands,
     ToggleBlame: 'gitlens.toggleBlame' as Commands,
     ToggleCodeLens: 'gitlens.toggleCodeLens' as Commands
 };

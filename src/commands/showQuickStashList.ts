@@ -21,7 +21,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
             if (!repoPath) return window.showWarningMessage(`Unable to show stashed changes`);
 
             const stash = await this.git.getStashList(repoPath);
-            const pick = await StashListQuickPick.show(stash, undefined, goBackCommand);
+            const pick = await StashListQuickPick.show(this.git, stash, 'list', goBackCommand);
             if (!pick) return undefined;
 
             if (pick instanceof CommandQuickPickItem) {

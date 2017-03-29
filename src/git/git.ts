@@ -250,6 +250,17 @@ export class Git {
         return gitCommand(repoPath, ...defaultStashParams);
     }
 
+    static stash_save(repoPath: string, message?: string, unstagedOnly: boolean = false) {
+        const params = [`stash`, `save`, `--include-untracked`];
+        if (unstagedOnly) {
+            params.push(`--keep-index`);
+        }
+        if (message) {
+            params.push(message);
+        }
+        return gitCommand(repoPath, ...params);
+    }
+
     static status(repoPath: string, porcelainVersion: number = 1): Promise<string> {
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
         return gitCommand(repoPath, 'status', porcelain, '--branch');

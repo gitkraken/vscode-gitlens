@@ -497,6 +497,11 @@
                 "command": "gitlens.stashApply",
                 "title": "Apply Stashed Changes",
                 "category": "GitLens"
+            },
+            {
+                "command": "gitlens.stashSave",
+                "title": "Stash Changes",
+                "category": "GitLens"
             }
         ],
         "menus": {
@@ -607,6 +612,10 @@
                 },
                 {
                     "command": "gitlens.stashApply",
+                    "when": "gitlens:enabled && config.gitlens.insiders"
+                },
+                {
+                    "command": "gitlens.stashSave",
                     "when": "gitlens:enabled && config.gitlens.insiders"
                 }
             ],

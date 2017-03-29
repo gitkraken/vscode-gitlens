@@ -757,6 +757,12 @@ export class GitService extends Disposable {
         return Git.stash_delete(repoPath, stashName);
     }
 
+    stashSave(repoPath: string, message?: string, unstagedOnly: boolean = false) {
+        Logger.log(`stashSave('${repoPath}', ${message}, ${unstagedOnly})`);
+
+        return Git.stash_save(repoPath, message, unstagedOnly);
+    }
+
     toggleCodeLens(editor: TextEditor) {
         if (this.config.codeLens.visibility !== CodeLensVisibility.OnDemand ||
             (!this.config.codeLens.recentChange.enabled && !this.config.codeLens.authors.enabled)) return;
