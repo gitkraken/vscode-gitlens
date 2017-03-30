@@ -34,7 +34,7 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
         });
 
         this.fileName = status.fileName;
-        this.gitUri = new GitUri(Uri.file(path.resolve(commit.repoPath, status.fileName)));
+        this.gitUri = GitUri.fromFileStatus(status, commit.repoPath);
         this.sha = commit.sha;
         this.shortSha = commit.shortSha;
         this.status = status.status;
@@ -58,7 +58,7 @@ export class OpenCommitWorkingTreeFilesCommandQuickPickItem extends OpenFilesCom
 
     constructor(commit: GitLogCommit, versioned: boolean = false, item?: QuickPickItem) {
         const repoPath = commit.repoPath;
-        const uris = commit.fileStatuses.map(_ => Uri.file(path.resolve(repoPath, _.fileName)));
+        const uris = commit.fileStatuses.map(_ => GitUri.fromFileStatus(_, repoPath));
         super(uris, item || {
             label: `$(file-symlink-file) Open Changed Working Files`,
             description: undefined

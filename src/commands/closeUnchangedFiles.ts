@@ -5,7 +5,6 @@ import { ActiveEditorCommand, Commands } from './common';
 import { TextEditorComparer, UriComparer } from '../comparers';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
-import * as path from 'path';
 
 export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
 
@@ -26,7 +25,7 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
                 const status = await this.git.getStatusForRepo(repoPath);
                 if (!status) return window.showWarningMessage(`Unable to close unchanged files`);
 
-                uris = status.files.map(_ => Uri.file(path.resolve(repoPath, _.fileName)));
+                uris = status.files.map(_ => _.Uri);
             }
 
             const editorTracker = new ActiveEditorTracker();

@@ -1,7 +1,7 @@
 'use strict';
 import { Uri } from 'vscode';
 import { DocumentSchemes } from '../constants';
-import { Git, GitService } from '../gitService';
+import { Git, GitCommit, GitService, IGitStatusFile } from '../gitService';
 import * as path from 'path';
 
 export class GitUri extends Uri {
@@ -12,6 +12,7 @@ export class GitUri extends Uri {
 
     constructor(uri?: Uri, commit?: IGitCommitInfo);
     constructor(uri?: Uri, repoPath?: string);
+    constructor(uri?: Uri, commitOrRepoPath?: IGitCommitInfo | string);
     constructor(uri?: Uri, commitOrRepoPath?: IGitCommitInfo | string) {
         super();
         if (!uri) return;
@@ -87,6 +88,14 @@ export class GitUri extends Uri {
         }
 
         return new GitUri(uri, git && git.repoPath);
+    }
+
+    static fromFileStatus(status: IGitStatusFile, repoPath: string, original?: boolean): GitUri;
+    static fromFileStatus(status: IGitStatusFile, commit: GitCommit, original?: boolean): GitUri;
+    static fromFileStatus(status: IGitStatusFile, repoPathOrCommit: string | GitCommit, original: boolean = false): GitUri {
+        const repoPath = repoPathOrCommit instanceof GitCommit ? repoPathOrCommit.repoPath : repoPathOrCommit;
+        const uri = Uri.file(path.resolve(repoPath, original ? status.originalFileName || status.fileName : status.fileName));
+        return new GitUri(uri, repoPathOrCommit);
     }
 }
 

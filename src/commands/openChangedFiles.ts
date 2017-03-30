@@ -3,7 +3,6 @@ import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, openEditor } from './common';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
-import * as path from 'path';
 
 export class OpenChangedFilesCommand extends ActiveEditorCommand {
 
@@ -24,7 +23,7 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
                 const status = await this.git.getStatusForRepo(repoPath);
                 if (!status) return window.showWarningMessage(`Unable to open changed files`);
 
-                uris = status.files.filter(_ => _.status !== 'D').map(_ => Uri.file(path.resolve(repoPath, _.fileName)));
+                uris = status.files.filter(_ => _.status !== 'D').map(_ => _.Uri);
             }
 
             for (const uri of uris) {
