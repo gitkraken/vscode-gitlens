@@ -47,13 +47,19 @@ export class Git {
         return git;
     }
 
-    static async getRepoPath(cwd: string, gitPath?: string) {
+    static async getGitPath(gitPath?: string) {
         git = await findGitPath(gitPath);
         Logger.log(`Git found: ${git.version} @ ${git.path === 'git' ? 'PATH' : git.path}`);
+        return git;
+    }
 
-        let data = await gitCommand(cwd, 'rev-parse', '--show-toplevel');
-        data = data.replace(/\r?\n|\r/g, '').replace(/\\/g, '/');
-        return data;
+    static async getRepoPath(cwd: string) {
+        if (!cwd) return '';
+
+        const data = await gitCommand(cwd, 'rev-parse', '--show-toplevel');
+        if (!data) return '';
+
+        return data.replace(/\r?\n|\r/g, '').replace(/\\/g, '/');
     }
 
     static async getVersionedFile(repoPath: string, fileName: string, branchOrSha: string) {

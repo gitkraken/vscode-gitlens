@@ -33,14 +33,7 @@ export async function activate(context: ExtensionContext) {
     const gitlens = extensions.getExtension(ExtensionId);
     const gitlensVersion = gitlens.packageJSON.version;
 
-    // Workspace not using a folder. No access to git repo.
-    if (!workspace.rootPath) {
-        Logger.warn(`GitLens(v${gitlensVersion}) inactive: no rootPath`);
-
-        return;
-    }
-
-    const rootPath = workspace.rootPath.replace(/\\/g, '/');
+    const rootPath = workspace.rootPath && workspace.rootPath.replace(/\\/g, '/');
     Logger.log(`GitLens(v${gitlensVersion}) active: ${rootPath}`);
 
     const config = workspace.getConfiguration('').get<IConfig>('gitlens');
@@ -48,9 +41,8 @@ export async function activate(context: ExtensionContext) {
 
     configureCssCharacters(config.blame);
 
-    let repoPath: string;
     try {
-        repoPath = await Git.getRepoPath(rootPath, gitPath);
+        await Git.getGitPath(gitPath);
     }
     catch (ex) {
         Logger.error(ex, 'Extension.activate');
@@ -60,6 +52,8 @@ export async function activate(context: ExtensionContext) {
         setCommandContext(CommandContext.Enabled, false);
         return;
     }
+
+    const repoPath = await Git.getRepoPath(rootPath);
 
     const gitVersion = Git.gitInfo().version;
     Logger.log(`Git version: ${gitVersion}`);

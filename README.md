@@ -25,8 +25,6 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 - Provides a Git **blame history explorer** (peek style ui) to visualize the blame history of a file or block
 - Provides many configuration settings to allow the **customization** of almost all features
 
-> NOTE: GitLens only works with opened folders (not single files).
-
 > Add `"gitlens.insiders": true` to your settings to join the insiders channel and get access to upcoming features.
 
 ## Feature Previews
