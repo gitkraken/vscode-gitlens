@@ -61,7 +61,7 @@ export class GitService extends Disposable {
     }
 
     private _gitCache: Map<string, GitCacheEntry> | undefined;
-    private _remotesCache: GitRemote[];
+    private _remotesCache: Map<string, GitRemote[]>;
     private _cacheDisposable: Disposable | undefined;
     private _uriCache: Map<string, UriCacheEntry> | undefined;
 
@@ -103,6 +103,8 @@ export class GitService extends Disposable {
 
         this._gitCache && this._gitCache.clear();
         this._gitCache = undefined;
+        this._remotesCache && this._remotesCache.clear();
+        this._remotesCache = undefined;
         this._uriCache && this._uriCache.clear();
         this._uriCache = undefined;
     }
@@ -140,6 +142,7 @@ export class GitService extends Disposable {
         if (advancedChanged) {
             if (config.advanced.caching.enabled) {
                 this._gitCache = new Map();
+                this._remotesCache = new Map();
 
                 this._cacheDisposable && this._cacheDisposable.dispose();
 
@@ -162,6 +165,9 @@ export class GitService extends Disposable {
 
                 this._gitCache && this._gitCache.clear();
                 this._gitCache = undefined;
+
+                this._remotesCache && this._remotesCache.clear();
+                this._remotesCache = undefined;
             }
 
             this._gitignore = new Promise<ignore.Ignore | undefined>((resolve, reject) => {
@@ -636,15 +642,19 @@ export class GitService extends Disposable {
 
     async getRemotes(repoPath: string): Promise<GitRemote[]> {
         if (!this.config.insiders) return Promise.resolve([]);
+        if (!repoPath) return Promise.resolve([]);
 
         Logger.log(`getRemotes('${repoPath}')`);
 
-        if (this.UseGitCaching && this._remotesCache) return this._remotesCache;
+        if (this.UseGitCaching) {
+            const remotes = this._remotesCache.get(repoPath);
+            if (remotes !== undefined) return remotes;
+        }
 
         const data = await Git.remote(repoPath);
         const remotes = data.split('\n').filter(_ => !!_).map(_ => new GitRemote(_));
         if (this.UseGitCaching) {
-            this._remotesCache = remotes;
+            this._remotesCache.set(repoPath, remotes);
         }
         return remotes;
     }
