@@ -150,6 +150,10 @@ export class Git {
         return gitCommand(repoPath, ...params);
     }
 
+    static config_get(key: string, repoPath?: string) {
+        return gitCommand(repoPath || '', `config`, `--get`, key);
+    }
+
     static diff_nameStatus(repoPath: string, sha1?: string, sha2?: string) {
         const params = [`diff`, `--name-status`, `-M`];
         if (sha1) {

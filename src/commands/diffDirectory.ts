@@ -1,7 +1,8 @@
 'use strict';
 import { Iterables } from '../system';
-import { TextEditor, Uri, window } from 'vscode';
+import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './common';
+import { BuiltInCommands } from '../constants';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, BranchesQuickPick } from '../quickPicks';
@@ -13,6 +14,13 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
     }
 
     async execute(editor: TextEditor, uri?: Uri, shaOrBranch1?: string, shaOrBranch2?: string): Promise<any> {
+        const diffTool = await this.git.getConfig('diff.tool');
+        if (!diffTool) {
+            const result = await window.showWarningMessage(`Unable to open directory compare because there is no Git diff tool configured`, 'View Git Docs');
+            if (!result) return undefined;
+            return commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://git-scm.com/docs/git-config#git-config-difftool'));
+        }
+
         if (!(uri instanceof Uri)) {
             uri = editor && editor.document && editor.document.uri;
         }

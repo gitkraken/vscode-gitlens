@@ -510,6 +510,12 @@ export class GitService extends Disposable {
         return Git.normalizePath(fileName).toLowerCase();
     }
 
+    async getConfig(key: string, repoPath?: string): Promise<string> {
+        Logger.log(`getConfig('${key}', '${repoPath}')`);
+
+        return await Git.config_get(key, repoPath);
+    }
+
     getGitUriForFile(fileName: string) {
         const cacheKey = this.getCacheEntryKey(fileName);
         const entry = this._uriCache.get(cacheKey);
