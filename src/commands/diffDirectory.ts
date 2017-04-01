@@ -18,7 +18,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
         }
 
         try {
-            const repoPath = await this.git.getRepoPathFromUri(uri, this.git.repoPath);
+            const repoPath = await this.git.getRepoPathFromUri(uri);
             if (!repoPath) return window.showWarningMessage(`Unable to open directory diff`);
 
             if (!shaOrBranch1) {

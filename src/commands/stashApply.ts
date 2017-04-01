@@ -13,6 +13,7 @@ export class StashApplyCommand extends Command {
 
     async execute(stashItem: { stashName: string, message: string }, confirm: boolean = true, deleteAfter: boolean = false) {
         if (!this.git.config.insiders) return undefined;
+        if (!this.git.repoPath) return undefined;
 
         if (!stashItem || !stashItem.stashName) {
             const stash = await this.git.getStashList(this.git.repoPath);

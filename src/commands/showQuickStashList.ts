@@ -17,7 +17,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
         }
 
         try {
-            const repoPath = await this.git.getRepoPathFromUri(uri, this.git.repoPath);
+            const repoPath = await this.git.getRepoPathFromUri(uri);
             if (!repoPath) return window.showWarningMessage(`Unable to show stashed changes`);
 
             const stash = await this.git.getStashList(repoPath);

@@ -17,7 +17,7 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
         }
 
         try {
-            const repoPath = await this.git.getRepoPathFromUri(uri, this.git.repoPath);
+            const repoPath = await this.git.getRepoPathFromUri(uri);
             if (!repoPath) return window.showWarningMessage(`Unable to show repository status`);
 
             const status = await this.git.getStatusForRepo(repoPath);

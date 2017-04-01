@@ -668,13 +668,10 @@ export class GitService extends Disposable {
         return log && log.repoPath;
     }
 
-    async getRepoPathFromUri(uri?: Uri, fallbackRepoPath?: string): Promise<string | undefined> {
-        if (!(uri instanceof Uri)) return fallbackRepoPath;
+    async getRepoPathFromUri(uri: Uri | undefined): Promise<string | undefined> {
+        if (!(uri instanceof Uri)) return this.repoPath;
 
-        const gitUri = await GitUri.fromUri(uri, this);
-        if (gitUri.repoPath) return gitUri.repoPath;
-
-        return (await this.getRepoPathFromFile(gitUri.fsPath)) || fallbackRepoPath;
+        return (await GitUri.fromUri(uri, this)).repoPath || this.repoPath;
     }
 
     async getStashList(repoPath: string): Promise<IGitStash> {

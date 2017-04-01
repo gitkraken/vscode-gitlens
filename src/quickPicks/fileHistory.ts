@@ -74,7 +74,7 @@ export class FileHistoryQuickPick {
             }
         }
 
-        const branch = await git.getBranch(uri.repoPath || git.repoPath);
+        const branch = await git.getBranch(uri.repoPath);
 
         const currentCommand = new CommandQuickPickItem({
             label: `go back \u21A9`,
@@ -93,7 +93,7 @@ export class FileHistoryQuickPick {
                 ]));
         }
 
-        const remotes = Arrays.uniqueBy(await git.getRemotes(git.repoPath), _ => _.url, _ => !!_.provider);
+        const remotes = Arrays.uniqueBy(await git.getRemotes(uri.repoPath), _ => _.url, _ => !!_.provider);
         if (remotes.length) {
             items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, 'file', uri.getRelativePath(), branch.name, uri.sha, currentCommand));
         }

@@ -101,7 +101,7 @@ export class CommitDetailsQuickPick {
         }, Commands.CopyMessageToClipboard, [uri, commit.sha, commit.message]));
 
         if (!stash) {
-            const remotes = Arrays.uniqueBy(await git.getRemotes(git.repoPath), _ => _.url, _ => !!_.provider);
+            const remotes = Arrays.uniqueBy(await git.getRemotes(commit.repoPath), _ => _.url, _ => !!_.provider);
             if (remotes.length) {
                 items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, 'commit', commit.sha, currentCommand));
             }

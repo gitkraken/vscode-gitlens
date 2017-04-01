@@ -17,7 +17,7 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
 
         try {
             if (!uris) {
-                const repoPath = await this.git.getRepoPathFromUri(uri, this.git.repoPath);
+                const repoPath = await this.git.getRepoPathFromUri(uri);
                 if (!repoPath) return window.showWarningMessage(`Unable to open changed files`);
 
                 const status = await this.git.getStatusForRepo(repoPath);

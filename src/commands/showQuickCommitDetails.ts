@@ -56,7 +56,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
                 }
 
                 if (!repoLog) {
-                    const log = await this.git.getLogForRepo(repoPath || this.git.repoPath, sha, 2);
+                    const log = await this.git.getLogForRepo(repoPath, sha, 2);
                     if (!log) return window.showWarningMessage(`Unable to show commit details`);
 
                     commit = log.commits.get(sha);

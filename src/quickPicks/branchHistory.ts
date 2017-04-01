@@ -17,7 +17,7 @@ export class BranchHistoryQuickPick {
             });
     }
 
-    static async show(git: GitService, log: IGitLog, uri: GitUri, branch: string, progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(git: GitService, log: IGitLog, uri: GitUri | undefined, branch: string, progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
         const currentCommand = new CommandQuickPickItem({
@@ -25,7 +25,7 @@ export class BranchHistoryQuickPick {
             description: `\u00a0 \u2014 \u00a0\u00a0 to \u00a0$(git-branch) ${branch} history`
         }, Commands.ShowQuickBranchHistory, [uri, branch, log.maxCount, goBackCommand, log]);
 
-        const remotes = Arrays.uniqueBy(await git.getRemotes(git.repoPath), _ => _.url, _ => !!_.provider);
+        const remotes = Arrays.uniqueBy(await git.getRemotes((uri && uri.repoPath) || git.repoPath), _ => _.url, _ => !!_.provider);
         if (remotes.length) {
             items.splice(0, 0, new OpenRemotesCommandQuickPickItem(remotes, 'branch', branch, currentCommand));
         }

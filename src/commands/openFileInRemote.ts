@@ -17,11 +17,15 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
             uri = editor.document.uri;
         }
 
+        if (!uri) return undefined;
+
         const gitUri = await GitUri.fromUri(uri, this.git);
-        const branch = await this.git.getBranch(gitUri.repoPath || this.git.repoPath);
+        if (!gitUri.repoPath) return undefined;
+
+        const branch = await this.git.getBranch(gitUri.repoPath);
 
         try {
-            const remotes = Arrays.uniqueBy(await this.git.getRemotes(this.git.repoPath), _ => _.url, _ => !!_.provider);
+            const remotes = Arrays.uniqueBy(await this.git.getRemotes(gitUri.repoPath), _ => _.url, _ => !!_.provider);
             const range = editor && new Range(editor.selection.start.with({ line: editor.selection.start.line + 1 }), editor.selection.end.with({ line: editor.selection.end.line + 1 }));
             return commands.executeCommand(Commands.OpenInRemote, uri, remotes, 'file', [gitUri.getRelativePath(), branch.name, gitUri.sha, range]);
         }

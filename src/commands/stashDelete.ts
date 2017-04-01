@@ -12,6 +12,7 @@ export class StashDeleteCommand extends Command {
 
     async execute(stashItem: { stashName: string, message: string }, confirm: boolean = true) {
         if (!this.git.config.insiders) return undefined;
+        if (!this.git.repoPath) return undefined;
         if (!stashItem || !stashItem.stashName) return undefined;
 
         try {

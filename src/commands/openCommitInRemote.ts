@@ -17,9 +17,11 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
             uri = editor.document.uri;
         }
 
-        if (editor && editor.document && editor.document.isDirty) return undefined;
+        if ((editor && editor.document && editor.document.isDirty) || uri) return undefined;
 
         const gitUri = await GitUri.fromUri(uri, this.git);
+        if (!gitUri.repoPath) return undefined;
+
         const line = (editor && editor.selection.active.line) || gitUri.offset;
 
         try {
@@ -35,7 +37,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
                 commit = new GitCommit(commit.type, commit.repoPath, commit.previousSha, commit.previousFileName, commit.author, commit.date, commit.message);
             }
 
-            const remotes = Arrays.uniqueBy(await this.git.getRemotes(this.git.repoPath), _ => _.url, _ => !!_.provider);
+            const remotes = Arrays.uniqueBy(await this.git.getRemotes(gitUri.repoPath), _ => _.url, _ => !!_.provider);
             return commands.executeCommand(Commands.OpenInRemote, uri, remotes, 'commit', [commit.sha]);
         }
         catch (ex) {

@@ -12,6 +12,7 @@ export class StashSaveCommand extends Command {
 
     async execute(message?: string, unstagedOnly: boolean = false) {
         if (!this.git.config.insiders) return undefined;
+        if (!this.git.repoPath) return undefined;
 
         try {
             if (message == null) {

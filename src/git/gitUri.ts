@@ -87,7 +87,7 @@ export class GitUri extends Uri {
             if (commit) return new GitUri(uri, commit);
         }
 
-        return new GitUri(uri, git && git.repoPath);
+        return new GitUri(uri, (await git.getRepoPathFromFile(uri.fsPath)) || git.repoPath);
     }
 
     static fromFileStatus(status: IGitStatusFile, repoPath: string, original?: boolean): GitUri;
