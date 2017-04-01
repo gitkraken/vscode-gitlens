@@ -43,13 +43,13 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
                 const sha = (commit && commit.sha) || gitUri.sha;
 
                 const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, sha ? undefined : 2, rangeOrLine as Range);
-                if (!log) return window.showWarningMessage(`Unable to open diff. File is probably not under source control`);
+                if (!log) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
 
                 commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
             }
             catch (ex) {
                 Logger.error(ex, 'DiffWithNextCommand', `getLogForFile(${gitUri.repoPath}, ${gitUri.fsPath})`);
-                return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
+                return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
             }
         }
 
@@ -67,7 +67,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'DiffWithNextCommand', 'getVersionedFile');
-            return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
+            return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
         }
     }
 }

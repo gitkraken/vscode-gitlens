@@ -41,7 +41,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'DiffWithBranchCommand', 'getVersionedFile');
-            return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
+            return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
         }
     }
 }

@@ -28,11 +28,11 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
             try {
                 commit = await this.git.getLogCommit(gitUri.repoPath, gitUri.fsPath, gitUri.sha, { firstIfMissing: true });
-                if (!commit) return window.showWarningMessage(`Unable to open diff. File is probably not under source control`);
+                if (!commit) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
             }
             catch (ex) {
                 Logger.error(ex, 'DiffWithWorkingCommand', `getLogCommit(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`);
-                return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
+                return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
             }
         }
 
@@ -47,7 +47,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'DiffWithWorkingCommand', 'getVersionedFile');
-            return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
+            return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
         }
     }
 }

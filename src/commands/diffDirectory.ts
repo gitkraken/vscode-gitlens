@@ -27,7 +27,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 
         try {
             const repoPath = await this.git.getRepoPathFromUri(uri);
-            if (!repoPath) return window.showWarningMessage(`Unable to open directory diff`);
+            if (!repoPath) return window.showWarningMessage(`Unable to open directory compare`);
 
             if (!shaOrBranch1) {
                 const branches = await this.git.getBranches(repoPath);
@@ -49,7 +49,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'DiffDirectoryCommand');
-            return window.showErrorMessage(`Unable to open directory diff. See output channel for more details`);
+            return window.showErrorMessage(`Unable to open directory compare. See output channel for more details`);
         }
     }
 }

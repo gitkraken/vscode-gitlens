@@ -31,7 +31,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 
             try {
                 const blame = await this.git.getBlameForLine(gitUri, blameline);
-                if (!blame) return window.showWarningMessage(`Unable to open diff. File is probably not under source control`);
+                if (!blame) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
 
                 commit = blame.commit;
 
@@ -50,7 +50,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
             }
             catch (ex) {
                 Logger.error(ex, 'DiffWithPreviousLineCommand', `getBlameForLine(${blameline})`);
-                return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
+                return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
             }
         }
 
@@ -65,7 +65,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'DiffWithPreviousLineCommand', 'getVersionedFile');
-            return window.showErrorMessage(`Unable to open diff. See output channel for more details`);
+            return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
         }
     }
 }
