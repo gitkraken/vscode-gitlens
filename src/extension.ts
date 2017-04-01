@@ -1,6 +1,6 @@
 'use strict';
 import { Objects } from './system';
-import { commands, ExtensionContext, extensions, languages, Uri, window, workspace } from 'vscode';
+import { commands, Disposable, ExtensionContext, extensions, languages, TextEditor, Uri, window, workspace } from 'vscode';
 import { BlameabilityTracker } from './blameabilityTracker';
 import { BlameActiveLineController } from './blameActiveLineController';
 import { BlameAnnotationController } from './blameAnnotationController';
@@ -160,6 +160,7 @@ async function notifyOnUnsupportedGitVersion(context: ExtensionContext, version:
 
 let savedGitEnabled: boolean;
 let savedInsiders: boolean;
+let insidersDisposable: Disposable;
 
 async function setCommandsContext(context: ExtensionContext, git: GitService): Promise<void> {
     onCommandsContextConfigurationChanged(git);
@@ -177,11 +178,32 @@ async function onCommandsContextConfigurationChanged(git: GitService) {
     if (insiders !== savedInsiders) {
         savedInsiders = insiders;
 
-        let hasRemotes = false;
+        insidersDisposable && insidersDisposable.dispose();
         if (insiders) {
-            const remotes = await git.getRemotes(git.repoPath);
-            hasRemotes = remotes.length !== 0;
+            insidersDisposable = window.onDidChangeActiveTextEditor(e => onActiveTextEditorChanged(e, git));
+            onActiveTextEditorChanged(window.activeTextEditor, git);
         }
+        else {
+            insidersDisposable = undefined;
+            setCommandContext(CommandContext.HasRemotes, false);
+        }
+    }
+}
+
+async function onActiveTextEditorChanged(editor: TextEditor, git: GitService) {
+    try {
+        let hasRemotes = false;
+        if (editor) {
+            const repoPath = await git.getRepoPathFromUri(editor.document.uri);
+            if (repoPath) {
+                const remotes = await git.getRemotes(repoPath);
+                hasRemotes = remotes.length !== 0;
+            }
+        }
+
         setCommandContext(CommandContext.HasRemotes, hasRemotes);
+    }
+    catch (ex) {
+        Logger.error(ex, 'Extension.onActiveTextEditorChanged');
     }
 }
