@@ -1,5 +1,11 @@
 ## Release Notes
 
+### 3.2.0
+- Adds support for single files opened in vscode -- you are no longer required to open a folder for GitLens to work
+- Fixes [#57](https://github.com/eamodio/vscode-gitlens/issues/57) - Warn on directory compare when there is no diff tool configured
+- Fixes [#58](https://github.com/eamodio/vscode-gitlens/issues/58) - Work with git sub-modules
+- Fixes issue with `Open * in Remote` commands with nested repositories and non-git workspace root folder
+
 ### 3.1.0
 - Adds `Show Stashed Changes` command (`gitlens.showQuickStashList`) to open a quick pick of all the stashed changes
 - Adds insiders `Stash Changes` option to stashed changes quick pick -- enabled via `"gitlens.insiders": true`
