@@ -1,5 +1,8 @@
 ## Release Notes
 
+### 3.2.1
+- Fixes [#57](https://github.com/eamodio/vscode-gitlens/issues/57) - No more blank message if `diff.tool` is missing
+
 ### 3.2.0
 - Adds support for single files opened in vscode -- you are no longer required to open a folder for GitLens to work
 - Fixes [#57](https://github.com/eamodio/vscode-gitlens/issues/57) - Warn on directory compare when there is no diff tool configured
