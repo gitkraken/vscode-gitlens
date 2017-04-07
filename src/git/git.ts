@@ -150,8 +150,13 @@ export class Git {
         return gitCommand(repoPath, ...params);
     }
 
-    static config_get(key: string, repoPath?: string) {
-        return gitCommand(repoPath || '', `config`, `--get`, key);
+    static async config_get(key: string, repoPath?: string) {
+        try {
+            return await gitCommand(repoPath || '', `config`, `--get`, key);
+        }
+        catch (ex) {
+            return '';
+        }
     }
 
     static diff_nameStatus(repoPath: string, sha1?: string, sha2?: string) {
