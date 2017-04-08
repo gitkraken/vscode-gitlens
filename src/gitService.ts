@@ -13,9 +13,9 @@ import * as ignore from 'ignore';
 import * as moment from 'moment';
 import * as path from 'path';
 
-export { getGitStatusIcon } from './git/git';
-export { Git, GitUri };
+export { GitUri };
 export * from './git/git';
+export * from './git/gitContextTracker';
 
 class UriCacheEntry {
 
@@ -296,12 +296,14 @@ export class GitService extends Disposable {
         }
     }
 
-    public getBlameability(fileName: string): boolean {
-        if (!this.UseGitCaching) return true;
+    public async getBlameability(uri: GitUri): Promise<boolean> {
+        if (!this.UseGitCaching) return await this.isTracked(uri);
 
-        const cacheKey = this.getCacheEntryKey(fileName);
+        const cacheKey = this.getCacheEntryKey(uri.fsPath);
         const entry = this._gitCache.get(cacheKey);
-        return !(entry && entry.hasErrors);
+        if (!entry) return await this.isTracked(uri);
+
+        return !entry.hasErrors;
     }
 
     async getBlameForFile(uri: GitUri): Promise<IGitBlame | undefined> {
@@ -750,6 +752,13 @@ export class GitService extends Disposable {
 
         const status = await this.getStatusForFile(uri.repoPath, uri.fsPath);
         return !!status;
+    }
+
+    async isTracked(uri: GitUri): Promise<boolean> {
+        Logger.log(`isFileUncommitted('${uri.repoPath}', '${uri.fsPath}')`);
+
+        const result = await Git.ls_files(uri.repoPath, uri.fsPath);
+        return !!result;
     }
 
     openDirectoryDiff(repoPath: string, sha1: string, sha2?: string) {

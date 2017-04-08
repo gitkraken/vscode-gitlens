@@ -1,11 +1,10 @@
 'use strict';
 import { Functions } from './system';
 import { DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, TextDocument, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
-import { BlameabilityChangeEvent, BlameabilityTracker } from './blameabilityTracker';
 import { BlameAnnotationProvider } from './blameAnnotationProvider';
 import { TextDocumentComparer, TextEditorComparer } from './comparers';
 import { IBlameConfig } from './configuration';
-import { GitService, GitUri } from './gitService';
+import { BlameabilityChangeEvent, GitService, GitUri, GitContextTracker } from './gitService';
 import { Logger } from './logger';
 import { WhitespaceController } from './whitespaceController';
 
@@ -34,7 +33,7 @@ export class BlameAnnotationController extends Disposable {
     private _disposable: Disposable;
     private _whitespaceController: WhitespaceController | undefined;
 
-    constructor(private context: ExtensionContext, private git: GitService, private blameabilityTracker: BlameabilityTracker) {
+    constructor(private context: ExtensionContext, private git: GitService, private gitContextTracker: GitContextTracker) {
         super(() => this.dispose());
 
         this._onConfigurationChanged();
@@ -177,7 +176,7 @@ export class BlameAnnotationController extends Disposable {
             subscriptions.push(window.onDidChangeVisibleTextEditors(Functions.debounce(this._onVisibleTextEditorsChanged, 100), this));
             subscriptions.push(window.onDidChangeTextEditorViewColumn(this._onTextEditorViewColumnChanged, this));
             subscriptions.push(workspace.onDidCloseTextDocument(this._onTextDocumentClosed, this));
-            subscriptions.push(this.blameabilityTracker.onDidChange(this._onBlameabilityChanged, this));
+            subscriptions.push(this.gitContextTracker.onDidBlameabilityChange(this._onBlameabilityChanged, this));
 
             this._blameAnnotationsDisposable = Disposable.from(...subscriptions);
         }

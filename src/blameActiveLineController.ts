@@ -1,13 +1,12 @@
 'use strict';
 import { Functions, Objects } from './system';
 import { DecorationOptions, DecorationInstanceRenderOptions, DecorationRenderOptions, Disposable, ExtensionContext, Range, StatusBarAlignment, StatusBarItem, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
-import { BlameabilityChangeEvent, BlameabilityTracker } from './blameabilityTracker';
 import { BlameAnnotationController } from './blameAnnotationController';
 import { BlameAnnotationFormat, BlameAnnotationFormatter } from './blameAnnotationFormatter';
 import { TextEditorComparer } from './comparers';
 import { IBlameConfig, IConfig, StatusBarCommand } from './configuration';
 import { DocumentSchemes } from './constants';
-import { GitCommit, GitService, GitUri, IGitBlame, IGitCommitLine } from './gitService';
+import { BlameabilityChangeEvent, GitCommit, GitContextTracker, GitService, GitUri, IGitBlame, IGitCommitLine } from './gitService';
 import * as moment from 'moment';
 
 const activeLineDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
@@ -30,7 +29,7 @@ export class BlameActiveLineController extends Disposable {
     private _uri: GitUri;
     private _useCaching: boolean;
 
-    constructor(context: ExtensionContext, private git: GitService, private blameabilityTracker: BlameabilityTracker, private annotationController: BlameAnnotationController) {
+    constructor(context: ExtensionContext, private git: GitService, private gitContextTracker: GitContextTracker, private annotationController: BlameAnnotationController) {
         super(() => this.dispose());
 
         this._updateBlameDebounced = Functions.debounce(this._updateBlame, 50);
@@ -95,7 +94,7 @@ export class BlameActiveLineController extends Disposable {
 
             subscriptions.push(window.onDidChangeActiveTextEditor(this._onActiveTextEditorChanged, this));
             subscriptions.push(window.onDidChangeTextEditorSelection(this._onTextEditorSelectionChanged, this));
-            subscriptions.push(this.blameabilityTracker.onDidChange(this._onBlameabilityChanged, this));
+            subscriptions.push(this.gitContextTracker.onDidBlameabilityChange(this._onBlameabilityChanged, this));
 
             this._activeEditorLineDisposable = Disposable.from(...subscriptions);
         }

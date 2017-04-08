@@ -1,7 +1,6 @@
 'use strict';
 import { Objects } from './system';
-import { commands, Disposable, ExtensionContext, extensions, languages, TextEditor, Uri, window, workspace } from 'vscode';
-import { BlameabilityTracker } from './blameabilityTracker';
+import { commands, ExtensionContext, extensions, languages, Uri, window, workspace } from 'vscode';
 import { BlameActiveLineController } from './blameActiveLineController';
 import { BlameAnnotationController } from './blameAnnotationController';
 import { configureCssCharacters } from './blameAnnotationFormatter';
@@ -20,7 +19,7 @@ import { Keyboard } from './commands';
 import { IConfig } from './configuration';
 import { ApplicationInsightsKey, BuiltInCommands, ExtensionId, WorkspaceState } from './constants';
 import { GitContentProvider } from './gitContentProvider';
-import { Git, GitService } from './gitService';
+import { Git, GitContextTracker, GitService } from './gitService';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { Logger } from './logger';
 import { Telemetry } from './telemetry';
@@ -69,19 +68,17 @@ export async function activate(context: ExtensionContext) {
     const git = new GitService(context, repoPath);
     context.subscriptions.push(git);
 
-    setCommandsContext(context, git);
-
-    const blameabilityTracker = new BlameabilityTracker(git);
-    context.subscriptions.push(blameabilityTracker);
+    const gitContextTracker = new GitContextTracker(git);
+    context.subscriptions.push(gitContextTracker);
 
     context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider(context, git)));
 
     context.subscriptions.push(languages.registerCodeLensProvider(GitRevisionCodeLensProvider.selector, new GitRevisionCodeLensProvider(context, git)));
 
-    const annotationController = new BlameAnnotationController(context, git, blameabilityTracker);
+    const annotationController = new BlameAnnotationController(context, git, gitContextTracker);
     context.subscriptions.push(annotationController);
 
-    const activeLineController = new BlameActiveLineController(context, git, blameabilityTracker, annotationController);
+    const activeLineController = new BlameActiveLineController(context, git, gitContextTracker, annotationController);
     context.subscriptions.push(activeLineController);
 
     context.subscriptions.push(new Keyboard());
@@ -154,55 +151,5 @@ async function notifyOnUnsupportedGitVersion(context: ExtensionContext, version:
         if (result === `Don't Show Again`) {
             context.globalState.update(WorkspaceState.SuppressGitVersionWarning, true);
         }
-    }
-}
-
-let savedGitEnabled: boolean;
-let savedInsiders: boolean;
-let insidersDisposable: Disposable;
-
-async function setCommandsContext(context: ExtensionContext, git: GitService): Promise<void> {
-    onCommandsContextConfigurationChanged(git);
-    context.subscriptions.push(workspace.onDidChangeConfiguration(() => onCommandsContextConfigurationChanged(git), this));
-}
-
-async function onCommandsContextConfigurationChanged(git: GitService) {
-    const gitEnabled = workspace.getConfiguration('git').get<boolean>('enabled');
-    if (gitEnabled !== savedGitEnabled) {
-        savedGitEnabled = gitEnabled;
-        setCommandContext(CommandContext.Enabled, gitEnabled);
-    }
-
-    const insiders = workspace.getConfiguration('gitlens').get<boolean>('insiders');
-    if (insiders !== savedInsiders) {
-        savedInsiders = insiders;
-
-        insidersDisposable && insidersDisposable.dispose();
-        if (insiders) {
-            insidersDisposable = window.onDidChangeActiveTextEditor(e => onActiveTextEditorChanged(e, git));
-            onActiveTextEditorChanged(window.activeTextEditor, git);
-        }
-        else {
-            insidersDisposable = undefined;
-            setCommandContext(CommandContext.HasRemotes, false);
-        }
-    }
-}
-
-async function onActiveTextEditorChanged(editor: TextEditor, git: GitService) {
-    try {
-        let hasRemotes = false;
-        if (editor) {
-            const repoPath = await git.getRepoPathFromUri(editor.document.uri);
-            if (repoPath) {
-                const remotes = await git.getRemotes(repoPath);
-                hasRemotes = remotes.length !== 0;
-            }
-        }
-
-        setCommandContext(CommandContext.HasRemotes, hasRemotes);
-    }
-    catch (ex) {
-        Logger.error(ex, 'Extension.onActiveTextEditorChanged');
     }
 }

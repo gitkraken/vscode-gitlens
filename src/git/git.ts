@@ -235,6 +235,15 @@ export class Git {
         return gitCommand(root, ...params);
     }
 
+    static async ls_files(repoPath: string, fileName: string): Promise<string> {
+        try {
+            return await gitCommand(repoPath, 'ls-files', fileName);
+        }
+        catch (ex) {
+            return '';
+        }
+    }
+
     static remote(repoPath: string): Promise<string> {
         return gitCommand(repoPath, 'remote', '-v');
     }
