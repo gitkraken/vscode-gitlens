@@ -26,10 +26,11 @@ export const DocumentSchemes = {
     GitLensGit: 'gitlens-git' as DocumentSchemes
 };
 
-export type WorkspaceState = 'repoPath';
+export type WorkspaceState = 'repoPath' | 'suppressGitVersionWarning' | 'suppressUpdateNotice';
 export const WorkspaceState = {
     GitLensVersion: 'gitlensVersion' as WorkspaceState,
-    SuppressGitVersionWarning: 'suppressGitVersionWarning' as WorkspaceState
+    SuppressGitVersionWarning: 'suppressGitVersionWarning' as WorkspaceState,
+    SuppressUpdateNotice: 'suppressUpdateNotice' as WorkspaceState
 };
 
 export const ExtensionId = 'eamodio.gitlens';

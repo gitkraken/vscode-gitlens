@@ -124,6 +124,8 @@ export async function activate(context: ExtensionContext) {
 export function deactivate() { }
 
 async function notifyOnNewGitLensVersion(context: ExtensionContext, version: string) {
+    if (context.globalState.get(WorkspaceState.SuppressUpdateNotice, false)) return;
+
     const previousVersion = context.globalState.get<string>(WorkspaceState.GitLensVersion);
 
     await context.globalState.update(WorkspaceState.GitLensVersion, version);
@@ -134,9 +136,12 @@ async function notifyOnNewGitLensVersion(context: ExtensionContext, version: str
         if (major === prevMajor && minor === prevMinor) return;
     }
 
-    const result = await window.showInformationMessage(`GitLens has been updated to v${version}`, 'View Release Notes');
+    const result = await window.showInformationMessage(`GitLens has been updated to v${version}`, 'View Release Notes', `Don't Show Again`);
     if (result === 'View Release Notes') {
         commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://marketplace.visualstudio.com/items/eamodio.gitlens/changelog'));
+    }
+    else if (result === `Don't Show Again`) {
+        context.globalState.update(WorkspaceState.SuppressUpdateNotice, true);
     }
 }
 
