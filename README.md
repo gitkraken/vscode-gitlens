@@ -7,20 +7,22 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 
 ## Features
 
-- Provides (optional) **CodeLens** on code blocks:
+- Provides **CodeLens** on code blocks (optional, on by default):
   - **Recent Change** - author and date of the most recent commit for that block
     - Clicking on the CodeLens opens a **commit details quick pick** ui (by default) with commands for comparing, navigating, and exploring commits
   - **Authors** - number of authors of a block and the most prominent author (if there are more than one)
     - Clicking on the CodeLens toggles Git blame annotations on/off (by default)
+- Provides Git blame information about the selected line to the right of the line with more details in a hover popup (optional, on by default)
 - Provides on-demand **inline blame annotations** with multiple styles (compact, expanded, and trailing)
-- Provides (optional) Git blame information about the selected line in the **status bar**
-  - Clicking on the status bar toggles Git blame annotations on/off (by default)
-- Provides (optional) Git blame information about the selected line to the right of the line
+- Provides Git blame information about the selected line in the **status bar** (optional, on by default)
+  - Clicking on the status bar opens a **commit details quick pick** ui (by default) with commands for comparing, navigating, and exploring commits
 - Provides ability to **compare diffs** with the working tree as well as with previous versions
+- Provides ability to open files, commits, and branches in remote services (BitBucket, GitHub, GitLab, Visual Studio Team Services)
 - Provides a Git **commit details quick pick** ui with detailed information about the commit, complete with commands for comparing, navigating, and exploring commits
 - Provides a Git **file history quick pick** ui for exploring the commit history of a file
-- Provides a Git **repository history quick pick** ui for exploring the commit history of a repository
+- Provides a Git **branch history quick pick** ui for exploring the commit history of a branch
 - Provides a Git **repository status quick pick** ui for exploring the status of a repository
+- Provides a Git **stashed changes quick pick** ui for exploring the history of your stashed changes
 - Provides a Git **file history explorer** (peek style ui) to visualize the history of a file
 - Provides a Git **blame history explorer** (peek style ui) to visualize the blame history of a file or block
 - Provides many configuration settings to allow the **customization** of almost all features

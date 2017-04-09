@@ -1,5 +1,14 @@
 ## Release Notes
 
+### 3.3.0
+- Adds `Search commits` command (`gitlens.showCommitSearch`) to allow commit searching by message, author, file pattern, or sha
+- Adds `alt+f` shortcut for the `Search commits` command (`gitlens.showCommitSearch`)
+- Adds `Show Commit Search` command to the branch history quick pick
+- Adds `Show Stashed Changes` command to the repository status quick pick
+- Adds a `Don't Show Again` option to the GitLen update notification
+- Changes `Open x in Remote` commands to be no longer hidden behind the `gitlens.insiders` setting
+- Fixes [#59](https://github.com/eamodio/vscode-gitlens/issues/59) - Context menu shows gitlens commands even if folder/file is not under git
+
 ### 3.2.1
 - Fixes [#57](https://github.com/eamodio/vscode-gitlens/issues/57) - No more blank message if `diff.tool` is missing
 
