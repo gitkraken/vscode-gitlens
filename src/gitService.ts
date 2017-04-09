@@ -48,6 +48,14 @@ enum RemoveCacheReason {
     DocumentSaved
 }
 
+export type GitRepoSearchBy = 'author' | 'files' | 'message' | 'sha';
+export const GitRepoSearchBy = {
+    Author: 'author' as GitRepoSearchBy,
+    Files: 'files' as GitRepoSearchBy,
+    Message: 'message' as GitRepoSearchBy,
+    Sha: 'sha' as GitRepoSearchBy
+};
+
 export class GitService extends Disposable {
 
     private _onDidChangeGitCacheEmitter = new EventEmitter<void>();
@@ -562,7 +570,7 @@ export class GitService extends Disposable {
         }
     }
 
-    async getLogForRepoSearch(repoPath: string, search: string, searchBy: 'author' | 'files' | 'message' | 'sha', maxCount?: number): Promise<IGitLog | undefined> {
+    async getLogForRepoSearch(repoPath: string, search: string, searchBy: GitRepoSearchBy, maxCount?: number): Promise<IGitLog | undefined> {
         Logger.log(`getLogForRepoSearch('${repoPath}', ${search}, ${searchBy}, ${maxCount})`);
 
         if (maxCount == null) {
@@ -571,16 +579,16 @@ export class GitService extends Disposable {
 
         let searchArgs: string[];
         switch (searchBy) {
-            case 'author':
-                searchArgs = [`'--author='${search}`];
+            case GitRepoSearchBy.Author:
+                searchArgs = [`--author=${search}`];
                 break;
-            case 'files':
+            case GitRepoSearchBy.Files:
                 searchArgs = [`--`, `${search}`];
                 break;
-            case 'message':
+            case GitRepoSearchBy.Message:
                 searchArgs = [`--grep=${search}`];
                 break;
-            case 'sha':
+            case GitRepoSearchBy.Sha:
                 searchArgs = [search];
                 maxCount = 1;
                 break;
