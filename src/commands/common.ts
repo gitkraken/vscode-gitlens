@@ -6,7 +6,7 @@ import { Telemetry } from '../telemetry';
 export type Commands = 'gitlens.closeUnchangedFiles' | 'gitlens.copyMessageToClipboard' | 'gitlens.copyShaToClipboard' |
     'gitlens.diffDirectory' | 'gitlens.diffWithBranch' | 'gitlens.diffWithNext' | 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' |
     'gitlens.openChangedFiles' | 'gitlens.openCommitInRemote' | 'gitlens.openFileInRemote' | 'gitlens.openInRemote' |
-    'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' |
+    'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showCommitSearch' | 'gitlens.showFileHistory' |
     'gitlens.showLastQuickPick' | 'gitlens.showQuickBranchHistory' |
     'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' |
     'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory' |
@@ -30,6 +30,7 @@ export const Commands = {
     OpenInRemote: 'gitlens.openInRemote' as Commands,
     ShowBlame: 'gitlens.showBlame' as Commands,
     ShowBlameHistory: 'gitlens.showBlameHistory' as Commands,
+    ShowCommitSearch: 'gitlens.showCommitSearch' as Commands,
     ShowFileHistory: 'gitlens.showFileHistory' as Commands,
     ShowLastQuickPick: 'gitlens.showLastQuickPick' as Commands,
     ShowQuickCommitDetails: 'gitlens.showQuickCommitDetails' as Commands,

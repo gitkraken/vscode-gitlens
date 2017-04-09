@@ -419,6 +419,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.showCommitSearch",
+                "title": "Search Commits",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.showFileHistory",
                 "title": "Open File History Explorer",
                 "category": "GitLens"
@@ -795,6 +800,12 @@
                 "command": "gitlens.showLastQuickPick",
                 "key": "alt+-",
                 "mac": "alt+-",
+                "when": "gitlens:enabled"
+            },
+            {
+                "command": "gitlens.showCommitSearch",
+                "key": "alt+f",
+                "mac": "alt+f",
                 "when": "gitlens:enabled"
             },
             {

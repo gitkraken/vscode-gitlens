@@ -562,6 +562,39 @@ export class GitService extends Disposable {
         }
     }
 
+    async getLogForRepoSearch(repoPath: string, search: string, searchBy: 'author' | 'files' | 'message' | 'sha', maxCount?: number): Promise<IGitLog | undefined> {
+        Logger.log(`getLogForRepoSearch('${repoPath}', ${search}, ${searchBy}, ${maxCount})`);
+
+        if (maxCount == null) {
+            maxCount = this.config.advanced.maxQuickHistory || 0;
+        }
+
+        let searchArgs: string[];
+        switch (searchBy) {
+            case 'author':
+                searchArgs = [`'--author='${search}`];
+                break;
+            case 'files':
+                searchArgs = [`--`, `${search}`];
+                break;
+            case 'message':
+                searchArgs = [`--grep=${search}`];
+                break;
+            case 'sha':
+                searchArgs = [search];
+                maxCount = 1;
+                break;
+        }
+
+        try {
+            const data = await Git.log_search(repoPath, searchArgs, maxCount);
+            return GitLogParser.parse(data, 'branch', repoPath, undefined, undefined, maxCount, false, undefined);
+        }
+        catch (ex) {
+            return undefined;
+        }
+    }
+
     getLogForFile(repoPath: string, fileName: string, sha?: string, maxCount?: number, range?: Range, reverse: boolean = false): Promise<IGitLog | undefined> {
         Logger.log(`getLogForFile('${repoPath}', '${fileName}', ${sha}, ${maxCount}, ${range && `[${range.start.line}, ${range.end.line}]`}, ${reverse})`);
 

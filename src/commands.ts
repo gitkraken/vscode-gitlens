@@ -23,6 +23,7 @@ export * from './commands/showFileHistory';
 export * from './commands/showLastQuickPick';
 export * from './commands/showQuickCommitDetails';
 export * from './commands/showQuickCommitFileDetails';
+export * from './commands/showCommitSearch';
 export * from './commands/showQuickFileHistory';
 export * from './commands/showQuickBranchHistory';
 export * from './commands/showQuickCurrentBranchHistory';

@@ -235,6 +235,15 @@ export class Git {
         return gitCommand(root, ...params);
     }
 
+    static log_search(repoPath: string, search?: string[], maxCount?: number) {
+        const params = [...defaultLogParams, `-m`, `-i`];
+        if (maxCount) {
+            params.push(`-n${maxCount}`);
+        }
+
+        return gitCommand(repoPath, ...params, ...search);
+    }
+
     static async ls_files(repoPath: string, fileName: string): Promise<string> {
         try {
             return await gitCommand(repoPath, 'ls-files', fileName);
