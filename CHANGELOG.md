@@ -1,5 +1,10 @@
 ## Release Notes
 
+### 3.3.1
+- Changes commit search prefixes -- no prefix for message search, `@` for author, `:` for file pattern, `#` for commit id
+- Changes `sha` terminology to `commit id` in the UI
+- Fixes issues with author searching
+
 ### 3.3.0
 - Adds `Search commits` command (`gitlens.showCommitSearch`) to allow commit searching by message, author, file pattern, or sha
 - Adds `alt+f` shortcut for the `Search commits` command (`gitlens.showCommitSearch`)
