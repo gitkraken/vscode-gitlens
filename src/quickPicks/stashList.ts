@@ -7,19 +7,19 @@ import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut }
 
 export class StashListQuickPick {
 
-    static async show(git: GitService, stash: IGitStash, mode: 'list' | 'apply', goBackCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(git: GitService, stash: IGitStash, mode: 'list' | 'apply', goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         const items = ((stash && Array.from(Iterables.map(stash.commits.values(), c => new CommitQuickPickItem(c)))) || []) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
         if (mode === 'list' && git.config.insiders) {
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `$(repo-push) Stash Unstaged Changes`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 stashes only unstaged changes`
-            }, Commands.StashSave, [undefined, true]));
+            }, Commands.StashSave, [undefined, true, currentCommand]));
 
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `$(repo-push) Stash Changes`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 stashes all changes`
-            }, Commands.StashSave));
+            }, Commands.StashSave, [undefined, undefined, currentCommand]));
         }
 
         if (goBackCommand) {

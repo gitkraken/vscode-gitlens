@@ -80,12 +80,12 @@ export class CommitDetailsQuickPick {
             items.splice(index++, 0, new CommandQuickPickItem({
                 label: `$(git-pull-request) Apply Stashed Changes`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.message}`
-            }, Commands.StashApply, [commit as GitStashCommit, true, false]));
+            }, Commands.StashApply, [commit as GitStashCommit, true, false, currentCommand]));
 
             items.splice(index++, 0, new CommandQuickPickItem({
                 label: `$(x) Delete Stashed Changes`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.message}`
-            }, Commands.StashDelete, [commit as GitStashCommit, true]));
+            }, Commands.StashDelete, [commit as GitStashCommit, true, currentCommand]));
         }
 
         if (!stash) {

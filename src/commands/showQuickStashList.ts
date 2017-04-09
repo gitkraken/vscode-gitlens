@@ -21,18 +21,21 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
             if (!repoPath) return window.showWarningMessage(`Unable to show stashed changes`);
 
             const stash = await this.git.getStashList(repoPath);
-            const pick = await StashListQuickPick.show(this.git, stash, 'list', goBackCommand);
+
+            // Create a command to get back to here
+            const currentCommand = new CommandQuickPickItem({
+                label: `go back \u21A9`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 to stashed changes`
+            }, Commands.ShowQuickStashList, [uri, goBackCommand]);
+
+            const pick = await StashListQuickPick.show(this.git, stash, 'list', goBackCommand, currentCommand);
             if (!pick) return undefined;
 
             if (pick instanceof CommandQuickPickItem) {
                 return pick.execute();
             }
 
-            return commands.executeCommand(Commands.ShowQuickCommitDetails, new GitUri(pick.commit.uri, pick.commit), pick.commit.sha, pick.commit,
-                new CommandQuickPickItem({
-                    label: `go back \u21A9`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 to stashed changes`
-                }, Commands.ShowQuickStashList, [uri, goBackCommand]));
+            return commands.executeCommand(Commands.ShowQuickCommitDetails, new GitUri(pick.commit.uri, pick.commit), pick.commit.sha, pick.commit, currentCommand);
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickStashListCommand');
