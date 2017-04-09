@@ -69,6 +69,11 @@ export class RepoStatusQuickPick {
 
         const items = Array.from(Iterables.map(files, s => new OpenStatusFileCommandQuickPickItem(s))) as (OpenStatusFileCommandQuickPickItem | OpenStatusFilesCommandQuickPickItem | CommandQuickPickItem)[];
 
+        const currentCommand = new CommandQuickPickItem({
+            label: `go back \u21A9`,
+            description: `\u00a0 \u2014 \u00a0\u00a0 to \u00a0$(git-branch) ${status.branch} status`
+        }, Commands.ShowQuickRepoStatus, [undefined, goBackCommand]);
+
         if (hasStaged) {
             let index = 0;
             const unstagedIndex = files.findIndex(_ => !_.staged);
@@ -76,7 +81,7 @@ export class RepoStatusQuickPick {
                 items.splice(unstagedIndex, 0, new CommandQuickPickItem({
                     label: `Unstaged Files`,
                     description: unstagedStatus
-                }, Commands.ShowQuickRepoStatus, [goBackCommand]));
+                }, Commands.ShowQuickRepoStatus, [undefined, goBackCommand]));
 
                 items.splice(unstagedIndex, 0, new OpenStatusFilesCommandQuickPickItem(files.filter(_ => _.status !== 'D' && _.staged), {
                     label: `\u00a0\u00a0\u00a0\u00a0 $(file-symlink-file) Open Staged Files`,
@@ -92,13 +97,13 @@ export class RepoStatusQuickPick {
             items.splice(index++, 0, new CommandQuickPickItem({
                 label: `Staged Files`,
                 description: stagedStatus
-            }, Commands.ShowQuickRepoStatus, [goBackCommand]));
+            }, Commands.ShowQuickRepoStatus, [undefined, goBackCommand]));
         }
         else if (files.some(_ => !_.staged)) {
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `Unstaged Files`,
                 description: unstagedStatus
-            }, Commands.ShowQuickRepoStatus, [goBackCommand]));
+            }, Commands.ShowQuickRepoStatus, [undefined, goBackCommand]));
         }
 
         if (files.length) {
@@ -112,7 +117,7 @@ export class RepoStatusQuickPick {
             items.push(new CommandQuickPickItem({
                 label: `No changes in the working tree`,
                 description: null
-            }, Commands.ShowQuickRepoStatus, [goBackCommand]));
+            }, Commands.ShowQuickRepoStatus, [undefined, goBackCommand]));
         }
 
         if (status.upstream && status.state.ahead) {
@@ -121,12 +126,7 @@ export class RepoStatusQuickPick {
                 description: `\u00a0 \u2014 \u00a0\u00a0 shows commits in \u00a0$(git-branch) ${status.branch} but not \u00a0$(git-branch) ${status.upstream}`
             }, Commands.ShowQuickBranchHistory, [
                     new GitUri(Uri.file(status.repoPath), { fileName: '', repoPath: status.repoPath, sha: `${status.upstream}..${status.branch}` }),
-                    status.branch,
-                    0,
-                    new CommandQuickPickItem({
-                        label: `go back \u21A9`,
-                        description: `\u00a0 \u2014 \u00a0\u00a0 to \u00a0$(git-branch) ${status.branch} status`
-                    }, Commands.ShowQuickRepoStatus)
+                    status.branch, 0, currentCommand
                 ])
             );
         }
@@ -137,12 +137,7 @@ export class RepoStatusQuickPick {
                 description: `\u00a0 \u2014 \u00a0\u00a0 shows commits in \u00a0$(git-branch) ${status.upstream} but not \u00a0$(git-branch) ${status.branch}${status.sha ? ` (since \u00a0$(git-commit) ${status.sha.substring(0, 8)})` : ''}`
             }, Commands.ShowQuickBranchHistory, [
                     new GitUri(Uri.file(status.repoPath), { fileName: '', repoPath: status.repoPath, sha: `${status.branch}..${status.upstream}` }),
-                    status.upstream,
-                    0,
-                    new CommandQuickPickItem({
-                        label: `go back \u21A9`,
-                        description: `\u00a0 \u2014 \u00a0\u00a0 to \u00a0$(git-branch) ${status.branch} status`
-                    }, Commands.ShowQuickRepoStatus)
+                    status.upstream, 0, currentCommand
                 ])
             );
         }
@@ -151,7 +146,7 @@ export class RepoStatusQuickPick {
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `$(git-branch) ${status.branch} is up-to-date with \u00a0$(git-branch) ${status.upstream}`,
                 description: null
-            }, Commands.ShowQuickRepoStatus, [goBackCommand]));
+            }, Commands.ShowQuickRepoStatus, [undefined, goBackCommand]));
         }
 
 
