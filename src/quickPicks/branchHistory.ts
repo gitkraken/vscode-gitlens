@@ -25,6 +25,11 @@ export class BranchHistoryQuickPick {
             description: `\u00a0 \u2014 \u00a0\u00a0 to \u00a0$(git-branch) ${branch} history`
         }, Commands.ShowQuickBranchHistory, [uri, branch, log.maxCount, goBackCommand, log]);
 
+        items.splice(0, 0, new CommandQuickPickItem({
+            label: `$(search) Show Commit Search`,
+            description: `\u00a0 \u2014 \u00a0\u00a0 search for commits by message, author, files, or sha`
+        }, Commands.ShowCommitSearch, [new GitUri(Uri.file(log.repoPath), { fileName: '', repoPath: log.repoPath }), undefined, undefined, currentCommand]));
+
         const remotes = Arrays.uniqueBy(await git.getRemotes((uri && uri.repoPath) || git.repoPath), _ => _.url, _ => !!_.provider);
         if (remotes.length) {
             items.splice(0, 0, new OpenRemotesCommandQuickPickItem(remotes, 'branch', branch, currentCommand));
