@@ -47,7 +47,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
                 }
                 catch (ex) {
                     Logger.error(ex, 'CopyShaToClipboardCommand', `getBlameForLine(${blameline})`);
-                    return window.showErrorMessage(`Unable to copy sha. See output channel for more details`);
+                    return window.showErrorMessage(`Unable to copy commit id. See output channel for more details`);
                 }
             }
 
@@ -56,7 +56,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'CopyShaToClipboardCommand');
-            return window.showErrorMessage(`Unable to copy sha. See output channel for more details`);
+            return window.showErrorMessage(`Unable to copy commit id. See output channel for more details`);
         }
     }
 }

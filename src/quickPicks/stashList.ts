@@ -32,7 +32,7 @@ export class StashListQuickPick {
             matchOnDescription: true,
             placeHolder: mode === 'apply'
                 ? `Apply stashed changes to your working tree\u2026`
-                : `stashed changes \u2014 search by message, filename, or sha`,
+                : `stashed changes \u2014 search by message, filename, or commit id`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
             // onDidSelectItem: (item: QuickPickItem) => {
             //     scope.setKeyCommand('right', item);

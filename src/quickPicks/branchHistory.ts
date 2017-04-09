@@ -9,7 +9,7 @@ import { OpenRemotesCommandQuickPickItem } from './remotes';
 export class BranchHistoryQuickPick {
 
     static showProgress(branch: string) {
-        return showQuickPickProgress(`${branch} history \u2014 search by commit message, filename, or sha`,
+        return showQuickPickProgress(`${branch} history \u2014 search by commit message, filename, or commit id`,
             {
                 left: KeyNoopCommand,
                 ',': KeyNoopCommand,
@@ -27,7 +27,7 @@ export class BranchHistoryQuickPick {
 
         items.splice(0, 0, new CommandQuickPickItem({
             label: `$(search) Show Commit Search`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 search for commits by message, author, files, or sha`
+            description: `\u00a0 \u2014 \u00a0\u00a0 search for commits by message, author, files, or commit id`
         }, Commands.ShowCommitSearch, [new GitUri(Uri.file(log.repoPath), { fileName: '', repoPath: log.repoPath }), undefined, undefined, currentCommand]));
 
         const remotes = Arrays.uniqueBy(await git.getRemotes((uri && uri.repoPath) || git.repoPath), _ => _.url, _ => !!_.provider);
@@ -99,7 +99,7 @@ export class BranchHistoryQuickPick {
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: `${branch} history \u2014 search by commit message, filename, or sha`,
+            placeHolder: `${branch} history \u2014 search by commit message, filename, or commit id`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
             // onDidSelectItem: (item: QuickPickItem) => {
             //     scope.setKeyCommand('right', item);

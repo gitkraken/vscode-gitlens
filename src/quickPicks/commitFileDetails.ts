@@ -69,7 +69,7 @@ export class CommitFileDetailsQuickPick {
 
         if (!stash) {
             items.push(new CommandQuickPickItem({
-                label: `$(clippy) Copy Commit Sha to Clipboard`,
+                label: `$(clippy) Copy Commit ID to Clipboard`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.shortSha}`
             }, Commands.CopyShaToClipboard, [uri, commit.sha]));
 

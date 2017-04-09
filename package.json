@@ -66,7 +66,7 @@
                 "gitlens.blame.annotation.sha": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether the commit sha will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles"
+                    "description": "Specifies whether the commit id (sha) will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles"
                 },
                 "gitlens.blame.annotation.author": {
                     "type": "boolean",
@@ -470,7 +470,7 @@
             },
             {
                 "command": "gitlens.copyShaToClipboard",
-                "title": "Copy Commit Sha to Clipboard",
+                "title": "Copy Commit ID to Clipboard",
                 "category": "GitLens"
             },
             {
