@@ -120,6 +120,11 @@ export class RepoStatusQuickPick {
             }, Commands.ShowQuickRepoStatus, [undefined, goBackCommand]));
         }
 
+        items.splice(0, 0, new CommandQuickPickItem({
+            label: `$(repo-push) Show Stashed Changes`,
+            description: `\u00a0 \u2014 \u00a0\u00a0 shows stashed changes in the repository`
+        }, Commands.ShowQuickStashList, [new GitUri(Uri.file(status.repoPath), { fileName: '', repoPath: status.repoPath }), currentCommand]));
+
         if (status.upstream && status.state.ahead) {
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `$(cloud-upload)\u00a0 ${status.state.ahead} Commit${status.state.ahead > 1 ? 's' : ''} ahead of \u00a0$(git-branch) ${status.upstream}`,
