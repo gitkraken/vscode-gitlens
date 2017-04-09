@@ -25,7 +25,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                 prompt: `Please enter a search string`,
                 placeHolder: `search by message, author (use a:<name>), files (use f:<pattern>), or sha (use s:<hash>)`
             } as InputBoxOptions);
-            if (!search) return undefined;
+            if (search === undefined) return goBackCommand && goBackCommand.execute();
 
             if (Git.isSha(search)) {
                 searchBy = 'sha';
@@ -71,15 +71,13 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                     break;
             }
 
-            if (!goBackCommand) {
-                // Create a command to get back to the branch history
-                goBackCommand = new CommandQuickPickItem({
-                    label: `go back \u21A9`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 to commit search`
-                }, Commands.ShowCommitSearch, [gitUri, originalSearch]);
-            }
+            // Create a command to get back to here
+            const currentCommand = new CommandQuickPickItem({
+                label: `go back \u21A9`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 to commit search`
+            }, Commands.ShowCommitSearch, [gitUri, originalSearch, undefined, goBackCommand]);
 
-            const pick = await CommitsQuickPick.show(this.git, log, placeHolder, goBackCommand);
+            const pick = await CommitsQuickPick.show(this.git, log, placeHolder, currentCommand);
             if (!pick) return undefined;
 
             if (pick instanceof CommandQuickPickItem) {
