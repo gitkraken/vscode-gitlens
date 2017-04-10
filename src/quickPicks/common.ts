@@ -118,14 +118,14 @@ export class CommitQuickPickItem implements QuickPickItem {
 
     constructor(public commit: GitCommit) {
         if (commit instanceof GitStashCommit) {
-            this.label = `${commit.stashName}, ${moment(commit.date).fromNow()}`;
-            this.description = `\u00a0\u00a0\u2014\u00a0\u00a0 ${commit.fileNames}`; //\u00a0\u00a0 $(git-commit) ${commit.shortSha}
+            this.label = `${commit.stashName}\u00a0\u2022\u00a0${commit.message}`;
+            this.description = null;
+            this.detail = `\u00a0 ${moment(commit.date).fromNow()}\u00a0\u00a0\u2022\u00a0 ${commit.getDiffStatus()}`;
         }
         else {
-            this.label = `${commit.author}, ${moment(commit.date).fromNow()}`;
-            const suffix = commit.type === 'branch' ? ` \u2014 ${(commit as GitLogCommit).fileNames}` : '';
-            this.description = `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.shortSha}${suffix}`;
+            this.label = commit.message;
+            this.description = `\u00a0$(git-commit)\u00a0 ${commit.shortSha}`;
+            this.detail = `\u00a0 ${commit.author}, ${moment(commit.date).fromNow()}${(commit.type === 'branch') ? `\u00a0\u00a0\u2022\u00a0 ${(commit as GitLogCommit).getDiffStatus()}` : ''}`;
         }
-        this.detail = commit.message;
     }
 }

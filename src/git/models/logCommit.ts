@@ -51,4 +51,11 @@ export class GitLogCommit extends GitCommit {
     get nextUri(): Uri {
         return this.nextFileName ? Uri.file(path.resolve(this.repoPath, this.nextFileName)) : this.uri;
     }
+
+    getDiffStatus(): string {
+        const added = this.fileStatuses.filter(_ => _.status === 'A' || _.status === '?').length;
+        const deleted = this.fileStatuses.filter(_ => _.status === 'D').length;
+        const changed = this.fileStatuses.filter(_ => _.status !== 'A' && _.status !== '?' && _.status !== 'D').length;
+        return `+${added} ~${changed} -${deleted}`;
+    }
 }
