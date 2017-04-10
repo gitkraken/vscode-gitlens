@@ -117,13 +117,19 @@ export class CommitQuickPickItem implements QuickPickItem {
     detail: string;
 
     constructor(public commit: GitCommit) {
+        let message = commit.message;
+        const index = message.indexOf('\n');
+        if (index !== -1) {
+            message = `${message.substring(0, index)}\u00a0$(ellipsis)`;
+        }
+
         if (commit instanceof GitStashCommit) {
-            this.label = `${commit.stashName}\u00a0\u2022\u00a0${commit.message}`;
+            this.label = `${commit.stashName}\u00a0\u2022\u00a0${message}`;
             this.description = null;
             this.detail = `\u00a0 ${moment(commit.date).fromNow()}\u00a0\u00a0\u2022\u00a0 ${commit.getDiffStatus()}`;
         }
         else {
-            this.label = commit.message;
+            this.label = message;
             this.description = `\u00a0$(git-commit)\u00a0 ${commit.shortSha}`;
             this.detail = `\u00a0 ${commit.author}, ${moment(commit.date).fromNow()}${(commit.type === 'branch') ? `\u00a0\u00a0\u2022\u00a0 ${(commit as GitLogCommit).getDiffStatus()}` : ''}`;
         }
