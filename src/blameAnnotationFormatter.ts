@@ -8,23 +8,6 @@ export const defaultRelativeDateLength = 13;
 export const defaultAuthorLength = 16;
 export const defaultMessageLength = 32;
 
-const defaultCssEllipse = '\u2026';
-const defaultCssIndent = '\u2759';
-const defaultCssPadding = '\u00a0';
-const defaultCssSeparator = '\u2022';
-
-export let cssEllipse = defaultCssEllipse;
-export let cssIndent = defaultCssIndent;
-export let cssPadding = defaultCssPadding;
-export let cssSeparator = defaultCssSeparator;
-
-export function configureCssCharacters(config: IBlameConfig) {
-    cssEllipse = config.annotation.characters.ellipse || defaultCssEllipse;
-    cssIndent = config.annotation.characters.indent || defaultCssIndent;
-    cssPadding = config.annotation.characters.padding || defaultCssSeparator;
-    cssSeparator = config.annotation.characters.separator || defaultCssSeparator;
-}
-
 export enum BlameAnnotationFormat {
     Constrained,
     Unconstrained
@@ -39,10 +22,10 @@ export class BlameAnnotationFormatter {
         if (format === BlameAnnotationFormat.Unconstrained) {
             const authorAndDate = this.getAuthorAndDate(config, commit, config.annotation.dateFormat || 'MMMM Do, YYYY h:MMa');
             if (config.annotation.sha) {
-                message = `${sha}${(authorAndDate ? `${cssPadding}${cssSeparator}${cssPadding}${authorAndDate}` : '')}${(message ? `${cssPadding}${cssSeparator}${cssPadding}${message}` : '')}`;
+                message = `${sha}${(authorAndDate ? `\u00a0\u2022\u00a0${authorAndDate}` : '')}${(message ? `\u00a0\u2022\u00a0${message}` : '')}`;
             }
             else if (config.annotation.author || config.annotation.date) {
-                message = `${authorAndDate}${(message ? `${cssPadding}${cssSeparator}${cssPadding}${message}` : '')}`;
+                message = `${authorAndDate}${(message ? `\u00a0\u2022\u00a0${message}` : '')}`;
             }
 
             return message;
@@ -51,13 +34,13 @@ export class BlameAnnotationFormatter {
         const author = this.getAuthor(config, commit, defaultAuthorLength);
         const date = this.getDate(config, commit, config.annotation.dateFormat || 'MM/DD/YYYY', true);
         if (config.annotation.sha) {
-            message = `${sha}${(author ? `${cssPadding}${cssSeparator}${cssPadding}${author}` : '')}${(date ? `${cssPadding}${cssSeparator}${cssPadding}${date}` : '')}${(message ? `${cssPadding}${cssSeparator}${cssPadding}${message}` : '')}`;
+            message = `${sha}${(author ? `\u00a0\u2022\u00a0${author}` : '')}${(date ? `\u00a0\u2022\u00a0${date}` : '')}${(message ? `\u00a0\u2022\u00a0${message}` : '')}`;
         }
         else if (config.annotation.author) {
-            message = `${author}${(date ? `${cssPadding}${cssSeparator}${cssPadding}${date}` : '')}${(message ? `${cssPadding}${cssSeparator}${cssPadding}${message}` : '')}`;
+            message = `${author}${(date ? `\u00a0\u2022\u00a0${date}` : '')}${(message ? `\u00a0\u2022\u00a0${message}` : '')}`;
         }
         else if (config.annotation.date) {
-            message = `${date}${(message ? `${cssPadding}${cssSeparator}${cssPadding}${message}` : '')}`;
+            message = `${date}${(message ? `\u00a0\u2022\u00a0${message}` : '')}`;
         }
 
         return message;
@@ -93,11 +76,11 @@ export class BlameAnnotationFormatter {
         if (!truncateTo) return author;
 
         if (author.length > truncateTo) {
-            return `${author.substring(0, truncateTo - cssEllipse.length)}${cssEllipse}`;
+            return `${author.substring(0, truncateTo - 1)}\u2026`;
         }
 
         if (force) return author; // Don't pad when just asking for the value
-        return author + cssPadding.repeat(truncateTo - author.length);
+        return author + '\u00a0'.repeat(truncateTo - author.length);
     }
 
     static getDate(config: IBlameConfig, commit: GitCommit, format: string, truncate: boolean = false, force: boolean = false) {
@@ -110,11 +93,11 @@ export class BlameAnnotationFormatter {
 
         const truncateTo = config.annotation.date === 'relative' ? defaultRelativeDateLength : defaultAbsoluteDateLength;
         if (date.length > truncateTo) {
-            return `${date.substring(0, truncateTo - cssEllipse.length)}${cssEllipse}`;
+            return `${date.substring(0, truncateTo - 1)}\u2026`;
         }
 
         if (force) return date; // Don't pad when just asking for the value
-        return date + cssPadding.repeat(truncateTo - date.length);
+        return date + '\u00a0'.repeat(truncateTo - date.length);
     }
 
     static getMessage(config: IBlameConfig, commit: GitCommit, truncateTo: number = 0, force: boolean = false) {
@@ -122,7 +105,7 @@ export class BlameAnnotationFormatter {
 
         let message = commit.isUncommitted ? 'Uncommitted change' : commit.message;
         if (truncateTo && message.length > truncateTo) {
-            return `${message.substring(0, truncateTo - cssEllipse.length)}${cssEllipse}`;
+            return `${message.substring(0, truncateTo - 1)}\u2026`;
         }
 
         return message;

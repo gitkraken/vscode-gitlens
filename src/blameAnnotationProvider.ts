@@ -1,7 +1,7 @@
 'use strict';
 import { Iterables } from './system';
 import { DecorationInstanceRenderOptions, DecorationOptions, Disposable, ExtensionContext, Range, TextDocument, TextEditor, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
-import { BlameAnnotationFormat, BlameAnnotationFormatter, cssIndent, defaultAuthorLength } from './blameAnnotationFormatter';
+import { BlameAnnotationFormat, BlameAnnotationFormatter, defaultAuthorLength } from './blameAnnotationFormatter';
 import { BlameDecorations } from './blameAnnotationController';
 import { TextDocumentComparer } from './comparers';
 import { BlameAnnotationStyle, IBlameConfig } from './configuration';
@@ -170,13 +170,13 @@ export class BlameAnnotationProvider extends Disposable {
                         gutter = commit.shortSha;
                         break;
                     case 1:
-                        gutter = `${cssIndent} ${BlameAnnotationFormatter.getAuthor(this._config, commit, defaultAuthorLength, true)}`;
+                        gutter = `\u2759 ${BlameAnnotationFormatter.getAuthor(this._config, commit, defaultAuthorLength, true)}`;
                         break;
                     case 2:
-                        gutter = `${cssIndent} ${BlameAnnotationFormatter.getDate(this._config, commit, this._config.annotation.dateFormat || 'MM/DD/YYYY', true, true)}`;
+                        gutter = `\u2759 ${BlameAnnotationFormatter.getDate(this._config, commit, this._config.annotation.dateFormat || 'MM/DD/YYYY', true, true)}`;
                         break;
                     default:
-                        gutter = `${cssIndent}`;
+                        gutter = `\u2759`;
                         break;
                 }
             }

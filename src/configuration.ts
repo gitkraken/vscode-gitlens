@@ -19,12 +19,6 @@ export interface IBlameConfig {
         dateFormat: string;
         message: boolean;
         activeLine: 'off' | 'inline' | 'hover' | 'both';
-        characters: {
-            ellipse: string;
-            indent: string;
-            padding: string;
-            separator: string;
-        }
     };
 }
 

@@ -3,7 +3,6 @@ import { Objects } from './system';
 import { commands, ExtensionContext, extensions, languages, Uri, window, workspace } from 'vscode';
 import { BlameActiveLineController } from './blameActiveLineController';
 import { BlameAnnotationController } from './blameAnnotationController';
-import { configureCssCharacters } from './blameAnnotationFormatter';
 import { CommandContext, setCommandContext } from './commands';
 import { CloseUnchangedFilesCommand, OpenChangedFilesCommand } from './commands';
 import { OpenCommitInRemoteCommand, OpenFileInRemoteCommand, OpenInRemoteCommand } from './commands';
@@ -39,8 +38,6 @@ export async function activate(context: ExtensionContext) {
 
     const config = workspace.getConfiguration('').get<IConfig>('gitlens');
     const gitPath = config.advanced.git;
-
-    configureCssCharacters(config.blame);
 
     try {
         await Git.getGitPath(gitPath);
