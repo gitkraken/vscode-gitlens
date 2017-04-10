@@ -1,5 +1,8 @@
 ## Release Notes
 
+### 3.3.3
+- Fixes issue with newlines in commit messages in the file/branch/stash history quick picks (truncates and adds an ellipse icon)
+
 ### 3.3.2
 - Closes [#63](https://github.com/eamodio/vscode-gitlens/issues/63) - Switch commit message and author in commit pick list. Also reduces clutter in the commit quick picks
 - Removes `gitlens.blame.annotation.characters.*` settings since they were added to deal with unicode bugs in a previous version of vscode
