@@ -1,5 +1,9 @@
 ## Release Notes
 
+### 3.3.2
+- Closes [#63](https://github.com/eamodio/vscode-gitlens/issues/63) - Switch commit message and author in commit pick list. Also reduces clutter in the commit quick picks
+- Removes `gitlens.blame.annotation.characters.*` settings since they were added to deal with unicode bugs in a previous version of vscode
+
 ### 3.3.1
 - Changes commit search prefixes -- no prefix for message search, `@` for author, `:` for file pattern, `#` for commit id
 - Changes `sha` terminology to `commit id` in the UI
