@@ -1,6 +1,8 @@
 [![](https://vsmarketplacebadge.apphb.com/version/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
 [![](https://vsmarketplacebadge.apphb.com/installs/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
 [![](https://vsmarketplacebadge.apphb.com/rating/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
+[![Chat at https://gitter.im/vscode-gitlens/Lobby](https://badges.gitter.im/vscode-gitlens/Lobby.svg)](https://gitter.im/vscode-gitlens/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 # GitLens
 
 Provides Git CodeLens information (most recent commit, # of authors), on-demand inline blame annotations, status bar blame information, file and blame history explorers, and commands to compare changes with the working tree or previous versions.
