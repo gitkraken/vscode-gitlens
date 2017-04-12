@@ -487,11 +487,6 @@
                 "command": "gitlens.stashSave",
                 "title": "Stash Changes",
                 "category": "GitLens"
-            },
-            {
-                "command": "gitlens.settings",
-                "title": "Settings",
-                "category": "GitLens"
             }
         ],
         "menus": {
