@@ -766,7 +766,7 @@
                 "command": "gitlens.toggleBlame",
                 "key": "alt+b",
                 "mac": "alt+b",
-                "when": "editorTextFocus && gitlens:isBlameable"
+                "when": "editorTextFocus && gitlens:isTracked"
             },
             {
                 "command": "gitlens.toggleCodeLens",
@@ -820,7 +820,7 @@
                 "command": "gitlens.diffLineWithPrevious",
                 "key": "shift+alt+,",
                 "mac": "shift+alt+,",
-                "when": "editorTextFocus && gitlens:isBlameable"
+                "when": "editorTextFocus && gitlens:isTracked"
             },
             {
                 "command": "gitlens.diffWithPrevious",
@@ -832,7 +832,7 @@
                 "command": "gitlens.diffLineWithWorking",
                 "key": "alt+w",
                 "mac": "alt+w",
-                "when": "editorTextFocus && gitlens:isBlameable"
+                "when": "editorTextFocus && gitlens:isTracked"
             },
             {
                 "command": "gitlens.diffWithWorking",
