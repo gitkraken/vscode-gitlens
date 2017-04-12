@@ -11,7 +11,7 @@
     },
     "license": "SEE LICENSE IN LICENSE",
     "displayName": "GitLens",
-    "description": "Supercharge the built-in Visual Studio Code's Git capabilities — Visualize code authorship at a glance via inline blame annotations and CodeLens, seamlessly navigate and explore the history of a file or branch, gain insights while debugging via powerful comparision commands, and so much more",
+    "description": "Supercharge the built-in Visual Studio Code's Git capabilities — Visualize code authorship at a glance via inline blame annotations and CodeLens, seamlessly navigate and explore the history of a file or branch, gain valuable insights via powerful comparision commands, and so much more",
     "badges": [
         {
             "url": "https://badges.gitter.im/vscode-gitlens/Lobby.svg",
