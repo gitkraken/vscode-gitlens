@@ -853,7 +853,7 @@
     "dependencies": {
         "applicationinsights": "^0.19.0",
         "copy-paste": "^1.3.0",
-        "ignore": "^3.2.6",
+        "ignore": "^3.2.7",
         "lodash.debounce": "^4.0.8",
         "lodash.escaperegexp": "^4.1.2",
         "lodash.isequal": "^4.5.0",
@@ -870,7 +870,7 @@
         "@types/tmp": "^0.0.32",
         "mocha": "^3.2.0",
         "tslint": "^4.5.1",
-        "typescript": "^2.2.2",
+        "typescript": "^2.3.0",
         "vscode": "^1.1.0"
     }
 }
