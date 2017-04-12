@@ -29,6 +29,8 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
             if (pick instanceof CommandQuickPickItem) {
                 return pick.execute();
             }
+
+            return undefined;
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickRepoStatusCommand');

@@ -1,5 +1,5 @@
 'use strict';
-import { CancellationTokenSource, commands, Disposable, QuickPickItem, QuickPickOptions, TextEditor, Uri, window, workspace } from 'vscode';
+import { CancellationTokenSource, commands, Disposable, QuickPickItem, QuickPickOptions, Uri, window, workspace } from 'vscode';
 import { Commands, Keyboard, KeyboardScope, KeyMapping, openEditor } from '../commands';
 import { IAdvancedConfig } from '../configuration';
 import { GitCommit, GitLogCommit, GitStashCommit } from '../gitService';
@@ -91,7 +91,7 @@ export class OpenFileCommandQuickPickItem extends CommandQuickPickItem {
         return this.open(pinned);
     }
 
-    async open(pinned: boolean = false): Promise<TextEditor | undefined> {
+    async open(pinned: boolean = false): Promise<{} | undefined> {
         return openEditor(this.uri, pinned);
     }
 }
