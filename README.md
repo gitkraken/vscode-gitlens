@@ -5,40 +5,168 @@
 
 # GitLens
 
-Provides Git CodeLens information (most recent commit, # of authors), on-demand inline blame annotations, status bar blame information, file and blame history explorers, and commands to compare changes with the working tree or previous versions.
+GitLens supercharges the built-in Visual Studio Code Git capabilities. It helps you to visualize code authorship at a glance via inline blame annotations and CodeLens, seamlessly navigate and explore the history of a file or branch, gain insights while debugging via powerful comparision commands, and so much more.
+
+GitLens provides an unobtrusive blame annotation at the end of the selected line, a status bar item showing the commit author and date of the selected line, CodeLens showing the most recent commit and # of authors of the file and/or code block, and many commands for exploring commits and histories, comparing and navigating revisions, stash access, repository status, and more. GitLens is also [highly customizable](#extension-settings) to meet your specific needs — find CodeLens intrusive or the selected line blame annotation distracting — no problem, it is easy to [turn them off or change how they behave](#extension-settings).
+
+## Previews
+#### Featuring CodeLens, whole file inline blame annotations, and navigation and exploration via quick pick menus
+![GitLens preview 1](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/gitlens-preview1.gif)
+
+#### Featuring selectedo line blame annotation and hovers, status bar commit details, quick pick menus, compare with previous, and more
+![GitLens preview 2](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/gitlens-preview2.gif)
 
 ## Features
 
-- Provides **CodeLens** on code blocks (optional, on by default):
-  - **Recent Change** - author and date of the most recent commit for that block
-    - Clicking on the CodeLens opens a **commit details quick pick** ui (by default) with commands for comparing, navigating, and exploring commits
-  - **Authors** - number of authors of a block and the most prominent author (if there are more than one)
-    - Clicking on the CodeLens toggles Git blame annotations on/off (by default)
-- Provides Git blame information about the selected line to the right of the line with more details in a hover popup (optional, on by default)
-- Provides on-demand **inline blame annotations** with multiple styles (compact, expanded, and trailing)
-- Provides Git blame information about the selected line in the **status bar** (optional, on by default)
-  - Clicking on the status bar opens a **commit details quick pick** ui (by default) with commands for comparing, navigating, and exploring commits
-- Provides ability to **compare diffs** with the working tree as well as with previous versions
-- Provides ability to open files, commits, and branches in remote services (BitBucket, GitHub, GitLab, Visual Studio Team Services)
-- Provides a Git **commit details quick pick** ui with detailed information about the commit, complete with commands for comparing, navigating, and exploring commits
-- Provides a Git **file history quick pick** ui for exploring the commit history of a file
-- Provides a Git **branch history quick pick** ui for exploring the commit history of a branch
-- Provides a Git **repository status quick pick** ui for exploring the status of a repository
-- Provides a Git **stashed changes quick pick** ui for exploring the history of your stashed changes
-- Provides a Git **file history explorer** (peek style ui) to visualize the history of a file
-- Provides a Git **blame history explorer** (peek style ui) to visualize the blame history of a file or block
-- Provides many configuration settings to allow the **customization** of almost all features
+#### Git Blame Annotations
 
-> Add `"gitlens.insiders": true` to your settings to join the insiders channel and get access to upcoming features.
+- Adds a **blame annotation** to the end of the selected line with more details in a hover popup ([optional](#extension-settings), on by default)
 
-## Feature Previews
-#### Featuring CodeLens and commands, toggling inline blame annotations, and showing quick pick ui and commands
-![GitLens preview 1](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/gitlens-preview1.gif)
+- Adds a `Toggle Blame Annotations` command (`gitlens.toggleBlame`) with a shortcut of `alt+b` to toggle **inline Git blame annotations** for a whole file with multiple styles — compact, expanded, and trailing
+  - Also adds a `Show Blame Annotations` command (`gitlens.showBlame`)
 
-#### Featuring active line blame annotation and hovers, status bar commit details and commands, quick pick ui and commands, compare with previous, etc
-![GitLens preview 2](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/gitlens-preview2.gif)
+- Adds **blame information** about the selected line to the **status bar** ([optional](#extension-settings), on by default)
+  - By default clicking on the status bar shows a **commit details quick pick menu** with commands for comparing, navigating and exploring commits, and more
+  - Provides **[customizable](#extension-settings)** click behavior of the status bar — choose between one of the following
+    - Toggle whole file blame annotations on and off
+    - Toggle CodeLens on and off — only available if [`"gitlens.codeLens.visibility": "ondemand"`](#extension-settings) is set
+    - Compare the file with the previous commit
+    - Show a quick pick menu with details and commands for the commit
+    - Show a quick pick menu with file details and commands for the commit
+    - Show a quick pick menu with the commit history of the file
+    - Show a quick pick menu with the commit history of the current branch
+
+#### Git CodeLens
+
+- Adds **CodeLens** to the top of the file and on code blocks ([optional](#extension-settings), on by default)
+  - **Recent Change** — author and date of the most recent commit for the file or code block
+    - By default, clicking on the CodeLens shows a **commit file details quick pick menu** with commands for comparing, navigating and exploring commits, and more
+  - **Authors** — number of authors of the file or code block and the most prominent author (if there is more than one)
+    - By default, clicking on the CodeLens toggles the inline Git blame annotations on and off for the whole file
+    - Will be hidden if the author of the most recent commit is also the only author of the file or block, to avoid duplicate information and reduce visual noise
+
+- Provides **[customizable](#extension-settings)** click behavior for each CodeLens — choose between one of the following
+  - Toggle whole file blame annotations on and off
+  - Compare the file with the previous commit
+  - Show a quick pick menu with details and commands for the commit
+  - Show a quick pick menu with file details and commands for the commit
+  - Show a quick pick menu with the commit history of the file
+  - Show a quick pick menu with the commit history of the current branch
+
+- Adds a `Toggle Git CodeLens` command (`gitlens.toggleCodeLens`) with a shortcut of `shift+alt+b` to toggle the CodeLens on and off — only available if [`"gitlens.codeLens.visibility": "ondemand"`](#extension-settings) is set
+
+#### Powerful Comparison Tools
+
+- Effortlessly navigate between comparisions via the `alt+,` and `alt+.` shortcut keys to go back and forth through a file's revisions
+
+- Provides easy access to the following comparison commands via the `Command Palette` as well as in context via the many provided quick pick menus
+
+- Adds a `Directory Compare` command (`gitlens.diffDirectory`) to open the configured Git difftool to compare directories between branches
+
+- Adds a `Compare File with...` command (`gitlens.diffWithBranch`) to compare the active file with the same file on the selected branch
+
+- Adds a `Compare File with Next Commit` command (`gitlens.diffWithNext`) with a shortcut of `alt+.` to compare the active file/diff with the next commit revision
+
+- Adds a `Compare File with Previous Commit` command (`gitlens.diffWithPrevious`) with a shortcut of `alt+,` to compare the active file/diff with the previous commit revision
+
+- Adds a `Compare Line with Previous Commit` command (`gitlens.diffLineWithPrevious`) with a shortcut of `shift+alt+,` to compare the active file/diff with the previous line commit revision
+
+- Adds a `Compare File with Working Tree` command (`gitlens.diffWithWorking`) with a shortcut of `shift+alt+w` to compare the most recent commit revision of the active file/diff with the working tree
+
+- Adds a `Compare Line with Working Tree` command (`gitlens.diffLineWithWorking`) with a shortcut of `alt+w` to compare the commit revision of the active line with the working tree
+
+#### Navigate and Explore
+
+- Adds a `Search Commits` command (`gitlens.showCommitSearch`) with a shortcut of `alt+f` to search for commits by message, author, file(s), or commit id
+
+- Adds commands to open files, commits, and branches in the supported **remote services**, currently **BitBucket, GitHub, GitLab, and Visual Studio Team Services** — only available if a Git upstream service is configured in the repository
+  - `Open Line Commit in Remote` command (`gitlens.openCommitInRemote`) — opens the commit revision of the active line in the supported remote service
+  - `Open File in Remote` command (`gitlens.openFileInRemote`) — opens the active file/revision in the supported remote service
+
+- Adds a `Show Current Branch History` command (`gitlens.showQuickRepoHistory`) with a shortcut of `shift+alt+h` to show a paged **branch history quick pick menu** of the current branch for exploring its commit history
+  - Provides entries to `Show Commit Search` and `Open Branch in <remote-service>` when available
+  - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
+  - Navigate pages via `alt+,` and `alt+.` to go backward and forward respectively
+  > ![Branch History Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/screenshot-branch-history.png)
+
+- Adds a `Show Branch History` command (`gitlens.showQuickBranchHistory`) to show a paged **branch history quick pick menu** of the selected branch for exploring its commit history
+  - Provides the same features as `Show Current Branch History` above
+
+- Adds a `Show File History` command (`gitlens.showQuickFileHistory`) to show a paged **file history quick pick menu** of the active file for exploring its commit history
+  - Provides entries to `Show Branch History` and `Open File in <remote-service>` when available
+  - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
+  - Navigate pages via `alt+,` and `alt+.` to go backward and forward respectively
+  > ![File History Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/screenshot-file-history.png)
+
+- Adds a `Show Commit Details` command (`gitlens.showQuickCommitDetails`) to show a **commit details quick pick menu** of the most recent commit of the active file
+  - Quickly see the set of files changed in the commit, complete with status indicators for adds, changes, renames, and deletes
+  - Provides entries to `Copy to Clipboard`, `Directory Compare`, `Open Changed Files`, `Open File in <remote-service>` when available, and more
+  - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
+  - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
+  - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the current revision of the while leaving the quick pick menu open
+    - NOTE: Once [vscode issue #10568](https://github.com/Microsoft/vscode/issues/10568) is resolved this will change to preview the comparison of the current revision with the previous one
+  > ![Commit Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/screenshot-commit-details.png)
+
+- Adds a `Show Line Commit Details` command (`gitlens.showQuickCommitFileDetails`) with a shortcut of `alt+c` to show a **file commit details quick pick menu** of the most recent commit of the active file
+  - Provides entries to `Show Commit Details`, `Show File History`, `Compare with...`, `Copy to Clipboard`, `Open File`, `Open File in <remote-service>` when available, and more
+  - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
+  - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
+  > ![Line Commit Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/screenshot-commit-file-details.png)
+
+- Adds a `Show Repository Status` command (`gitlens.showQuickRepoStatus`) with a shortcut of `alt+s` to show a **repository status quick pick** for visualizing the current repository status
+  - Quickly see upstream status (if an Git upstream is configured) — complete with ahead and behind information
+    - If you are ahead of the upstream, an entry will be shown with the number of commits ahead. Chosing it will show a limited **branch history quick pick** containing just the commits ahead of the upstream
+    - If you are behind the upstream, an entry will be shown with the number of commits behind. Chosing it will show a limited **branch history quick pick** containing just the commits behind the upstream
+  - Quickly see all working changes, both staged and unstaged, complete with status indicators for adds, changes, renames, and deletes
+  - Provides entries to `Show Stashed Changes`, `Open Changed Files`, and `Close Unchanged Files`
+  - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
+  - Use the `alt+right arrow` shortcut on a file entry in the `Staged Files` or `Unstaged Files` sections to preview the working file while leaving the quick pick menu open
+    - NOTE: Once [vscode issue #10568](https://github.com/Microsoft/vscode/issues/10568) is resolved this will change to preview the comparison of the working file with the previous revision
+  > ![Repository Status Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/screenshot-repo-status.png)
+
+- Adds a `Show Stashed Changes` command (`gitlens.showQuickStashList`) to show a **stashed changes quick pick** for exploring your repository stash history
+  - ([Insiders only](#insiders)) Provides entries to `Stash Changes`
+  - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
+  > ![Stashed Changes Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/screenshot-stash-list.png)
+  - Chosing a stash entry shows a **stash details quick pick** which is very similar to the **commit details quick pick** above
+    - Quickly see the set of files changed in the stash, complete with status indicators for adds, changes, renames, and deletes
+    - Provides entries to `Copy Message to Clipboard`, `Directory Compare`, and `Open Changed Files`
+    - ([Insiders only](#insiders)) Provides entries to `Apply Stashed Changes` and `Delete Stashed Changes` — both require a confirmation
+    - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
+    - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
+    - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the current revision of the while leaving the quick pick menu open
+      - NOTE: Once [vscode issue #10568](https://github.com/Microsoft/vscode/issues/10568) is resolved this will change to preview the comparison of the current revision with the previous one
+  > ![Stash Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/screenshot-stash-details.png)
+
+- Adds a `Show Last Opened Quick Pick` command (`gitlens.showLastQuickPick`) with a shortcut of `alt+-` to quickly get back to where you were when the last GitLens quick pick menu closed
+
+- Adds a `Open File History Explorer` command (`gitlens.showFileHistory`) to show a **file history explorer** (peek style) to visualize the history of a file
+  - Likely to be deprecated in a future release, add your voice to [#66](https://github.com/eamodio/vscode-gitlens/issues/66) if you feel it should not be removed
+
+- Adds a `Open Blame History Explorer` command (`gitlens.showBlameHistory`) to show a **blame history explorer** (peek style) to visualize the blame history of a file or code block
+  - Likely to be deprecated in a future release, add your voice to [#66](https://github.com/eamodio/vscode-gitlens/issues/66) if you feel it should not be removed
+
+#### And More
+
+- Adds a `Copy Commit ID to Clipboard` command (`gitlens.copyShaToClipboard`) to copy the commit id (sha) of the active line to the clipboard
+
+- Adds a `Copy Commit Message to Clipboard` command (`gitlens.copyMessageToClipboard`) to copy the commit message of the active line to the clipboard
+
+- Adds a `Open Changed Files` command (`gitlens.openChangedFiles`) to open any files with working tree changes
+
+- Adds a `Close Unchanged Files` command (`gitlens.closeUnchangedFiles`) to close any files without working tree changes
+
+- ([Insiders only](#insiders)) Adds a `Apply Stashed Changes` command (`gitlens.stashApply`) to chose a stash entry to apply to the working tree from a quick pick menu
+
+- ([Insiders only](#insiders)) Adds a `Stash Changes` command (`gitlens.stashSave`) to save any working tree changes to the stash — can optionally provide a stash message
+
+## Insiders
+
+Add [`"gitlens.insiders": true`](#extension-settings) to your settings to join the insiders channel and get early access to upcoming features. Be aware that because this provides early access expect there to be issues.
 
 ## Extension Settings
+
+GitLens is highly customizable and provides many configuration settings to allow the personalization of almost all features
 
 |Name | Description
 |-----|------------
@@ -55,12 +183,12 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 |`gitlens.codeLens.locationCustomSymbols`|Specifies the set of document symbols to render active document CodeLens on. Must be a member of `SymbolKind`
 |`gitlens.codeLens.languageLocations`|Specifies where CodeLens will be rendered in the active document for the specified languages
 |`gitlens.codeLens.recentChange.enabled`|Specifies whether the recent change CodeLens is shown
-|`gitlens.codeLens.recentChange.command`|"Specifies the command executed when the recent change CodeLens is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickFileHistory` - shows a repository history quick pick
+|`gitlens.codeLens.recentChange.command`|"Specifies the command executed when the recent change CodeLens is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick
 |`gitlens.codeLens.authors.enabled`|Specifies whether the authors CodeLens is shown
-|`gitlens.codeLens.authors.command`|Specifies the command executed when the authors CodeLens is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickFileHistory` - shows a repository history quick pick
+|`gitlens.codeLens.authors.command`|Specifies the command executed when the authors CodeLens is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick
 |`gitlens.menus.diff.enabled`|Specifies whether diff commands will be added to the context menus
 |`gitlens.statusBar.enabled`|Specifies whether blame information is shown in the status bar
-|`gitlens.statusBar.command`|"Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickFileHistory` - shows a repository history quick pick
+|`gitlens.statusBar.command`|"Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick
 |`gitlens.statusBar.date`|Specifies whether and how the commit date will be shown in the blame status bar. `off` - no date. `relative` - relative date (e.g. 1 day ago). `absolute` - date format specified by `gitlens.statusBar.dateFormat`
 |`gitlens.statusBar.dateFormat`|Specifies the date format of how absolute dates will be shown in the blame status bar. See https://momentjs.com/docs/#/displaying/format/ for valid formats
 |`gitlens.insiders`|Opts into the insiders channel -- provides access to upcoming features
@@ -68,4 +196,4 @@ Provides Git CodeLens information (most recent commit, # of authors), on-demand 
 ## Known Issues
 
 - If the `Copy to * clipboard` commands don't work on Linux -- `xclip` needs to be installed. You can install it via `sudo apt-get install xclip`
-- Visible whitespace causes issue ([vscode issue](https://github.com/Microsoft/vscode/issues/11485)) with `expanded` & `compact` blame annotations when using a non-monospace font -- use `gitlens.advanced.toggleWhitespace.enabled` if you are using a non-monospace font
+- Visible whitespace causes issues ([vscode issue](https://github.com/Microsoft/vscode/issues/11485)) with the `expanded` and `compact` blame annotation styles when using a non-monospace font -- set `"gitlens.advanced.toggleWhitespace.enabled": true` if you are using a non-monospace font

@@ -11,16 +11,19 @@
     },
     "license": "SEE LICENSE IN LICENSE",
     "displayName": "GitLens",
-    "description": "Provides Git CodeLens information (most recent commit, # of authors), on-demand inline blame annotations, status bar blame information, file & blame history explorers, and commands to compare changes",
+    "description": "Supercharge the built-in Visual Studio Code's Git capabilities — Visualize code authorship at a glance via inline blame annotations and CodeLens, seamlessly navigate and explore the history of a file or branch, gain insights while debugging via powerful comparision commands, and so much more",
+    "badges": [
+        {
+            "url": "https://badges.gitter.im/vscode-gitlens/Lobby.svg",
+            "href": "https://gitter.im/vscode-gitlens/Lobby",
+            "description": "Chat at https://gitter.im/vscode-gitlens/Lobby"
+        }
+    ],
     "categories": [
         "Other"
     ],
     "keywords": [
-        "git",
-        "blame",
-        "history",
-        "codelens",
-        "annotation"
+        "git"
     ],
     "galleryBanner": {
         "color": "#56098c",
