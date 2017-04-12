@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "3.3.3",
+    "version": "3.4.0",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -125,7 +125,7 @@
                         "ondemand",
                         "off"
                     ],
-                    "description": "Specifies when CodeLens will be triggered in the active document. `auto` - automatically. `ondemand` - only when requested. `off` - disables all active document CodeLens"
+                    "description": "Specifies when CodeLens will be shown in the active document. `auto` - always shown. `ondemand` - never shown, unless toggled via the `gitlens.toggleCodeLens` command. `off` - never shown"
                 },
                 "gitlens.codeLens.location": {
                     "type": "string",
@@ -272,7 +272,7 @@
                         "gitlens.showQuickFileHistory",
                         "gitlens.showQuickRepoHistory"
                     ],
-                    "description": "Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
+                    "description": "Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.toggleCodeLens` - toggles Git CodeLens. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
                 },
                 "gitlens.statusBar.date": {
                     "type": "string",

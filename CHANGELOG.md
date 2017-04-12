@@ -1,5 +1,17 @@
 ## Release Notes
 
+### 3.4.0
+- Completely overhauls the [GitLens documentation](https://github.com/eamodio/vscode-gitlens/blob/master/README.md) and messaging -- make sure to check it out to see all the powerful features GitLen provides!
+- Adds `gitlens.blame.annotation.activeLineDarkColor` & `gitlens.blame.annotation.activeLineLightColor` settings to control the colors of the active line blame annotation
+- Changes `Toggle Git CodeLens` command to work when `gitlens.codeLens.visibility` is set to `auto` (the default)
+- Renames `Compare with...` command to `Compare File with...`
+- Renames `Compare with Next Commit` command to `Compare File with Next Commit`
+- Renames `Compare with Previous Commit` command to `Compare File with Previous Commit`
+- Renames `Compare with Previous Commit` command to `Compare File with Previous Commit`
+- Renames `Compare with Working Tree` command to `Compare File with Working Tree`
+- Fixes issue with `Open Commit in Remote` not working
+- Fixes issue with many commands missing from the `Command Palette`
+
 ### 3.3.3
 - Fixes issue with newlines in commit messages in the file/branch/stash history quick picks (truncates and adds an ellipse icon)
 
