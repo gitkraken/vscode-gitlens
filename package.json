@@ -346,17 +346,17 @@
             },
             {
                 "command": "gitlens.diffWithBranch",
-                "title": "Compare with...",
+                "title": "Compare File with...",
                 "category": "GitLens"
             },
             {
                 "command": "gitlens.diffWithNext",
-                "title": "Compare with Next Commit",
+                "title": "Compare File with Next Commit",
                 "category": "GitLens"
             },
             {
                 "command": "gitlens.diffWithPrevious",
-                "title": "Compare with Previous Commit",
+                "title": "Compare File with Previous Commit",
                 "category": "GitLens"
             },
             {
@@ -366,7 +366,7 @@
             },
             {
                 "command": "gitlens.diffWithWorking",
-                "title": "Compare with Working Tree",
+                "title": "Compare File with Working Tree",
                 "category": "GitLens"
             },
             {
@@ -767,8 +767,8 @@
             },
             {
                 "command": "gitlens.toggleCodeLens",
-                "key": "alt+shift+b",
-                "mac": "alt+shift+b",
+                "key": "shift+alt+b",
+                "mac": "shift+alt+b",
                 "when": "editorTextFocus && gitlens:isTracked && gitlens:canToggleCodeLens"
             },
             {
