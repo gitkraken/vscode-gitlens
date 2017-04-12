@@ -497,47 +497,47 @@
                 },
                 {
                     "command": "gitlens.diffWithBranch",
-                    "when": "editorTextFocus && gitlens:isTracked"
+                    "when": "gitlens:isTracked"
                 },
                 {
                     "command": "gitlens.diffWithNext",
-                    "when": "editorTextFocus && gitlens:isTracked"
+                    "when": "gitlens:isTracked"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
-                    "when": "editorTextFocus && gitlens:isTracked"
+                    "when": "gitlens:isTracked"
                 },
                 {
                     "command": "gitlens.diffLineWithPrevious",
-                    "when": "editorTextFocus && gitlens:isBlameable"
+                    "when": "gitlens:isBlameable"
                 },
                 {
                     "command": "gitlens.diffWithWorking",
-                    "when": "editorTextFocus && gitlens:isTracked"
+                    "when": "gitlens:isTracked"
                 },
                 {
                     "command": "gitlens.diffLineWithWorking",
-                    "when": "editorTextFocus && gitlens:isBlameable"
+                    "when": "gitlens:isBlameable"
                 },
                 {
                     "command": "gitlens.showBlame",
-                    "when": "editorTextFocus && gitlens:isBlameable"
+                    "when": "gitlens:isBlameable"
                 },
                 {
                     "command": "gitlens.toggleBlame",
-                    "when": "editorTextFocus && gitlens:isBlameable"
+                    "when": "gitlens:isBlameable"
                 },
                 {
                     "command": "gitlens.toggleCodeLens",
-                    "when": "editorTextFocus && gitlens:isTracked && gitlens:canToggleCodeLens"
+                    "when": "gitlens:isTracked && gitlens:canToggleCodeLens"
                 },
                 {
                     "command": "gitlens.showBlameHistory",
-                    "when": "editorTextFocus && gitlens:isBlameable"
+                    "when": "gitlens:isBlameable"
                 },
                 {
                     "command": "gitlens.showFileHistory",
-                    "when": "editorTextFocus && gitlens:isTracked"
+                    "when": "gitlens:isTracked"
                 },
                 {
                     "command": "gitlens.showLastQuickPick",
@@ -553,7 +553,7 @@
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
-                    "when": "editorTextFocus && gitlens:isTracked"
+                    "when": "gitlens:isTracked"
                 },
                 {
                     "command": "gitlens.showQuickBranchHistory",
@@ -573,11 +573,11 @@
                 },
                 {
                     "command": "gitlens.copyShaToClipboard",
-                    "when": "editorTextFocus && gitlens:isBlameable"
+                    "when": "gitlens:isBlameable"
                 },
                 {
                     "command": "gitlens.copyMessageToClipboard",
-                    "when": "editorTextFocus && gitlens:isBlameable"
+                    "when": "gitlens:isBlameable"
                 },
                 {
                     "command": "gitlens.closeUnchangedFiles",
@@ -589,11 +589,11 @@
                 },
                 {
                     "command": "gitlens.openCommitInRemote",
-                    "when": "editorTextFocus && gitlens:isBlameable && gitlens:hasRemotes"
+                    "when": "gitlens:isBlameable && gitlens:hasRemotes"
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "editorTextFocus && gitlens:isTracked && gitlens:hasRemotes"
+                    "when": "gitlens:isTracked && gitlens:hasRemotes"
                 },
                 {
                     "command": "gitlens.stashApply",
