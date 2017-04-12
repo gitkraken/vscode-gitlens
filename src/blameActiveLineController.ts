@@ -83,6 +83,10 @@ export class BlameActiveLineController extends Disposable {
                 this._editor.setDecorations(activeLineDecoration, []);
             }
         }
+        if (!Objects.areEquivalent(config.blame.annotation.activeLineDarkColor, this._config && this._config.blame.annotation.activeLineDarkColor) ||
+            !Objects.areEquivalent(config.blame.annotation.activeLineLightColor, this._config && this._config.blame.annotation.activeLineLightColor)) {
+            changed = true;
+        }
 
         this._config = config;
 
@@ -322,8 +326,17 @@ export class BlameActiveLineController extends Disposable {
                         hoverMessage: hoverMessage,
                         renderOptions: {
                             after: {
-                                color: 'rgba(153, 153, 153, 0.35)',
                                 contentText: annotation
+                            },
+                            dark: {
+                                after: {
+                                    color: this._config.blame.annotation.activeLineDarkColor || 'rgba(153, 153, 153, 0.35)'
+                                }
+                            },
+                            light: {
+                                after: {
+                                    color: this._config.blame.annotation.activeLineLightColor || 'rgba(153, 153, 153, 0.35)'
+                                }
                             }
                         } as DecorationInstanceRenderOptions
                     } as DecorationOptions;

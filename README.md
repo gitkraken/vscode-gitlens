@@ -5,7 +5,7 @@
 
 # GitLens
 
-GitLens **supercharges** the built-in Visual Studio Code Git capabilities. It helps you to **visualize code authorship** at a glance via inline blame annotations and CodeLens, seamlessly **navigate and explore** the history of a file or branch, **gain valuable insights** via powerful comparision commands, and so much more.
+GitLens **supercharges** the built-in Visual Studio Code Git capabilities. It helps you to **visualize code authorship** at a glance via inline blame annotations and CodeLens, **seamlessly navigate and explore** the history of a file or branch, **gain valuable insights** via powerful comparision commands, and so much more.
 
 GitLens provides an unobtrusive blame annotation at the end of the selected line, a status bar item showing the commit author and date of the selected line, CodeLens showing the most recent commit and # of authors of the file and/or code block, and many commands for exploring commits and histories, comparing and navigating revisions, stash access, repository status, and more. GitLens is also [highly customizable](#extension-settings) to meet your specific needs — find CodeLens intrusive or the selected line blame annotation distracting — no problem, it is easy to [turn them off or change how they behave](#extension-settings).
 
@@ -194,6 +194,8 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.blame.annotation.dateFormat`|Specifies the date format of how absolute dates will be shown in the blame annotations. See https://momentjs.com/docs/#/displaying/format/ for valid formats
 |`gitlens.blame.annotation.message`|Specifies whether the commit message will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles
 |`gitlens.blame.annotation.activeLine`|Specifies whether and how to show blame annotations on the active line. `off` - no annotation. `inline` - adds a trailing annotation to the active line. `hover` - adds hover annotation to the active line. `both` - adds both `inline` and `hover` annotations
+|`gitlens.blame.annotation.activeLineDarkColor`|Specifies the color of the active line blame annotation to use with a dark theme. Must be a valid css color
+|`gitlens.blame.annotation.activeLineLightColor`|Specifies the color of the active line blame annotation to use with a light theme. Must be a valid css color
 |`gitlens.codeLens.visibility`|Specifies when CodeLens will be triggered in the active document. `auto` - automatically. `ondemand` - only when requested. `off` - disables all active document CodeLens
 |`gitlens.codeLens.location`|Specifies where CodeLens will be rendered in the active document. `all` - render at the top of the document, on container-like (classes, modules, etc), and on member-like (methods, functions, properties, etc) lines. `document+containers` - render at the top of the document and on container-like lines. `document` - only render at the top of the document. `custom` - rendering controlled by `gitlens.codeLens.locationCustomSymbols`
 |`gitlens.codeLens.locationCustomSymbols`|Specifies the set of document symbols to render active document CodeLens on. Must be a member of `SymbolKind`

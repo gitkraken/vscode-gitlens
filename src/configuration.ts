@@ -19,6 +19,8 @@ export interface IBlameConfig {
         dateFormat: string;
         message: boolean;
         activeLine: 'off' | 'inline' | 'hover' | 'both';
+        activeLineDarkColor: string;
+        activeLineLightColor: string;
     };
 }
 

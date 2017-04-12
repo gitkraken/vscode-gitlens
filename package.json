@@ -11,7 +11,7 @@
     },
     "license": "SEE LICENSE IN LICENSE",
     "displayName": "GitLens",
-    "description": "Supercharge the built-in Visual Studio Code's Git capabilities — Visualize code authorship at a glance via inline blame annotations and CodeLens, seamlessly navigate and explore the history of a file or branch, gain valuable insights via powerful comparision commands, and so much more",
+    "description": "Supercharge the built-in Visual Studio Code's Git capabilities \u2014 Visualize code authorship at a glance via inline blame annotations and CodeLens, seamlessly navigate and explore the history of a file or branch, gain valuable insights via powerful comparision commands, and so much more",
     "badges": [
         {
             "url": "https://badges.gitter.im/vscode-gitlens/Lobby.svg",
@@ -106,6 +106,16 @@
                         "both"
                     ],
                     "description": "Specifies whether and how to show blame annotations on the active line. `off` - no annotation. `inline` - adds a trailing annotation to the active line. `hover` - adds hover annotation to the active line. `both` - adds both `inline` and `hover` annotations"
+                },
+                "gitlens.blame.annotation.activeLineDarkColor": {
+                    "type": "string",
+                    "default": "rgba(153, 153, 153, 0.35)",
+                    "description": "Specifies the color of the active line blame annotation to use with a dark theme. Must be a valid css color"
+                },
+                "gitlens.blame.annotation.activeLineLightColor": {
+                    "type": "string",
+                    "default": "rgba(153, 153, 153, 0.35)",
+                    "description": "Specifies the color of the active line blame annotation to use with a light theme. Must be a valid css color"
                 },
                 "gitlens.codeLens.visibility": {
                     "type": "string",
