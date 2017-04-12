@@ -22,9 +22,9 @@ export const BlameDecorations = {
 
 export class BlameAnnotationController extends Disposable {
 
-    private _onDidToggleBlameAnnotationsEmitter = new EventEmitter<void>();
+    private _onDidToggleBlameAnnotations = new EventEmitter<void>();
     get onDidToggleBlameAnnotations(): Event<void> {
-        return this._onDidToggleBlameAnnotationsEmitter.event;
+        return this._onDidToggleBlameAnnotations.event;
     }
 
     private _annotationProviders: Map<number, BlameAnnotationProvider> = new Map();
@@ -148,7 +148,7 @@ export class BlameAnnotationController extends Disposable {
             this._blameAnnotationsDisposable = undefined;
         }
 
-        this._onDidToggleBlameAnnotationsEmitter.fire();
+        this._onDidToggleBlameAnnotations.fire();
     }
 
     async showBlameAnnotation(editor: TextEditor, shaOrLine?: string | number): Promise<boolean> {
@@ -183,7 +183,7 @@ export class BlameAnnotationController extends Disposable {
 
         this._annotationProviders.set(editor.viewColumn || -1, provider);
         if (await provider.provideBlameAnnotation(shaOrLine)) {
-            this._onDidToggleBlameAnnotationsEmitter.fire();
+            this._onDidToggleBlameAnnotations.fire();
             return true;
         }
         return false;

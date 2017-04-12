@@ -32,9 +32,9 @@ export class GitAuthorsCodeLens extends CodeLens {
 
 export class GitCodeLensProvider implements CodeLensProvider {
 
-    private _onDidChangeCodeLensesEmitter = new EventEmitter<void>();
+    private _onDidChangeCodeLenses = new EventEmitter<void>();
     public get onDidChangeCodeLenses(): Event<void> {
-        return this._onDidChangeCodeLensesEmitter.event;
+        return this._onDidChangeCodeLenses.event;
     }
 
     static selector: DocumentSelector = { scheme: DocumentSchemes.File };
@@ -50,7 +50,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         this._config = workspace.getConfiguration('').get<IConfig>('gitlens');
 
         Logger.log('Triggering a reset of the git CodeLens provider');
-        this._onDidChangeCodeLensesEmitter.fire();
+        this._onDidChangeCodeLenses.fire();
     }
 
     async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {

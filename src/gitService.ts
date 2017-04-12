@@ -58,14 +58,14 @@ export const GitRepoSearchBy = {
 
 export class GitService extends Disposable {
 
-    private _onDidChangeGitCacheEmitter = new EventEmitter<void>();
+    private _onDidChangeGitCache = new EventEmitter<void>();
     get onDidChangeGitCache(): Event<void> {
-        return this._onDidChangeGitCacheEmitter.event;
+        return this._onDidChangeGitCache.event;
     }
 
-    private _onDidBlameFailEmitter = new EventEmitter<string>();
+    private _onDidBlameFail = new EventEmitter<string>();
     get onDidBlameFail(): Event<string> {
-        return this._onDidBlameFailEmitter.event;
+        return this._onDidBlameFail.event;
     }
 
     private _gitCache: Map<string, GitCacheEntry> | undefined;
@@ -207,7 +207,7 @@ export class GitService extends Disposable {
     private _onGitChanged() {
         this._gitCache && this._gitCache.clear();
 
-        this._onDidChangeGitCacheEmitter.fire();
+        this._onDidChangeGitCache.fire();
         this._codeLensProvider && this._codeLensProvider.reset();
     }
 
@@ -227,7 +227,7 @@ export class GitService extends Disposable {
             Logger.log(`Clear cache entry for '${cacheKey}', reason=${RemoveCacheReason[reason]}`);
 
             if (reason === RemoveCacheReason.DocumentSaved) {
-                this._onDidChangeGitCacheEmitter.fire();
+                this._onDidChangeGitCache.fire();
 
                 // Refresh the codelenses with the updated blame
                 this._codeLensProvider && this._codeLensProvider.reset();
@@ -353,7 +353,7 @@ export class GitService extends Disposable {
         if (ignore && !ignore.filter([file]).length) {
             Logger.log(`Skipping blame; '${fileName}' is gitignored`);
             if (entry && entry.key) {
-                this._onDidBlameFailEmitter.fire(entry.key);
+                this._onDidBlameFail.fire(entry.key);
             }
             return await GitService.EmptyPromise as IGitBlame;
         }
@@ -374,7 +374,7 @@ export class GitService extends Disposable {
                     errorMessage: msg
                 } as ICachedBlame;
 
-                this._onDidBlameFailEmitter.fire(entry.key);
+                this._onDidBlameFail.fire(entry.key);
                 this._gitCache.set(entry.key, entry);
                 return await GitService.EmptyPromise as IGitBlame;
             }
