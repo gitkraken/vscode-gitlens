@@ -17,7 +17,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
             uri = editor.document.uri;
         }
 
-        if ((editor && editor.document && editor.document.isDirty) || uri) return undefined;
+        if ((editor && editor.document && editor.document.isDirty) || !uri) return undefined;
 
         const gitUri = await GitUri.fromUri(uri, this.git);
         if (!gitUri.repoPath) return undefined;
