@@ -62,13 +62,6 @@ export class BlameActiveLineController extends Disposable {
             changed = true;
             if (config.statusBar.enabled) {
                 this._statusBarItem = this._statusBarItem || window.createStatusBarItem(StatusBarAlignment.Right, 1000);
-                switch (config.statusBar.command) {
-                    case StatusBarCommand.ToggleCodeLens:
-                        if (config.codeLens.visibility !== 'ondemand') {
-                            config.statusBar.command = StatusBarCommand.BlameAnnotate;
-                        }
-                        break;
-                }
                 this._statusBarItem.command = config.statusBar.command;
             }
             else if (!config.statusBar.enabled && this._statusBarItem) {

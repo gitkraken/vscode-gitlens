@@ -144,7 +144,7 @@ export class GitService extends Disposable {
                 this._codeLensProvider = undefined;
             }
 
-            setCommandContext(CommandContext.CanToggleCodeLens, config.codeLens.visibility === CodeLensVisibility.OnDemand && (config.codeLens.recentChange.enabled || config.codeLens.authors.enabled));
+            setCommandContext(CommandContext.CanToggleCodeLens, config.codeLens.visibility !== CodeLensVisibility.Off && (config.codeLens.recentChange.enabled || config.codeLens.authors.enabled));
         }
 
         if (advancedChanged) {
@@ -827,11 +827,10 @@ export class GitService extends Disposable {
     }
 
     toggleCodeLens(editor: TextEditor) {
-        if (this.config.codeLens.visibility !== CodeLensVisibility.OnDemand ||
+        if (this.config.codeLens.visibility === CodeLensVisibility.Off ||
             (!this.config.codeLens.recentChange.enabled && !this.config.codeLens.authors.enabled)) return;
 
-        Logger.log(`toggleCodeLens(${editor})`);
-
+        Logger.log(`toggleCodeLens()`);
         if (this._codeLensProviderDisposable) {
             this._codeLensProviderDisposable.dispose();
             this._codeLensProviderDisposable = undefined;
