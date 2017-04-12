@@ -1,6 +1,6 @@
 ## Release Notes
 
-### 3.4.0
+### 3.4.1
 - Completely overhauls the [GitLens documentation](https://github.com/eamodio/vscode-gitlens/blob/master/README.md) and messaging -- make sure to check it out to see all the powerful features GitLen provides!
 - Adds `gitlens.blame.annotation.activeLineDarkColor` & `gitlens.blame.annotation.activeLineLightColor` settings to control the colors of the active line blame annotation
 - Changes `Toggle Git CodeLens` command to work when `gitlens.codeLens.visibility` is set to `auto` (the default)
