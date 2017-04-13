@@ -26,11 +26,8 @@
         "git",
         "code lens",
         "blame",
-        "log",
         "history",
-        "annotation",
-        "compare",
-        "diff"
+        "annotation"
     ],
     "galleryBanner": {
         "color": "#56098c",
