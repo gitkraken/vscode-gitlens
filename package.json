@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "3.4.2",
+    "version": "3.4.4",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -27,7 +27,11 @@
         "code lens",
         "blame",
         "history",
-        "annotation"
+        "annotation",
+        "log",
+        "inline blame",
+        "compare",
+        "diff"
     ],
     "galleryBanner": {
         "color": "#56098c",
