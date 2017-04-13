@@ -1,9 +1,9 @@
 ## Release Notes
 
-### 3.4.1
+### 3.4.2
 - Completely overhauls the [GitLens documentation](https://github.com/eamodio/vscode-gitlens/blob/master/README.md) and messaging -- make sure to check it out to see all the powerful features GitLen provides!
 - Adds `gitlens.blame.annotation.activeLineDarkColor` & `gitlens.blame.annotation.activeLineLightColor` settings to control the colors of the active line blame annotation
-- Changes `Toggle Git CodeLens` command to work when `gitlens.codeLens.visibility` is set to `auto` (the default)
+- Changes `Toggle Git Code Lens` command to work when `gitlens.codeLens.visibility` is set to `auto` (the default)
 - Renames `Compare with...` command to `Compare File with...`
 - Renames `Compare with Next Commit` command to `Compare File with Next Commit`
 - Renames `Compare with Previous Commit` command to `Compare File with Previous Commit`
@@ -84,14 +84,14 @@
 - Adds file status rollup information to the commit details quick pick
 - Adds `Compare with...` (`gitlens.diffWithBranch`) command to compare working file to another branch (via branch quick pick)
 - Adds branch quick pick to `Directory Compare` (`gitlens.diffDirectory`) command
-- Adds support for `gitlens.showQuickFileHistory` command execution via CodeLens to limit results to the CodeLens block
+- Adds support for `gitlens.showQuickFileHistory` command execution via code lens to limit results to the code lens block
 - Adds current branch to branch quick pick placeholder
 - Adds `Show Branch History` command to the branch history quick pick when showing only limited commits (e.g. starting at a specified commit)
 - Adds `Show File History` command to the file history quick pick when showing only limited commits (e.g. starting at a specified commit)
 - Adds `Don't Show Again` option to the unsupported git version notification
 - Changes `Show Repository History` command to `Show Current Branch History`
 - Changes `Repository History` terminology to `Branch History`
-- Fixes issue with `gitlens.diffWithPrevious` command execution via CodeLens when the CodeLens was not at the document/file level
+- Fixes issue with `gitlens.diffWithPrevious` command execution via code lens when the code lens was not at the document/file level
 - Fixes issue where full shas were displayed on the file/blame history explorers
 - Fixes [#30](https://github.com/eamodio/vscode-gitlens/issues/30) - Diff with Working Tree fails from repo/commit quickpick list if file was renamed (and the commit was before the rename)
 - Fixes various other quick pick command issues when a file was renamed
@@ -100,10 +100,10 @@
 - Fixes various issues with merge commits
 
 ### 2.12.2
-- Fixes [#50](https://github.com/eamodio/vscode-gitlens/issues/50) - excludes container-level CodeLens from `html` and `vue` language files
+- Fixes [#50](https://github.com/eamodio/vscode-gitlens/issues/50) - excludes container-level code lens from `html` and `vue` language files
 
 ### 2.12.1
-- Adds `gitlens.advanced.codeLens.debug` setting to control whether or not to show debug information in CodeLens
+- Adds `gitlens.advanced.codeLens.debug` setting to control whether or not to show debug information in code lens
 - Fixes issue where `gitlens.showQuickRepoHistory` command fails to open when there is no active editor
 
 ### 2.12.0
@@ -133,7 +133,7 @@
 
 ### 2.11.0
 - Adds `gitlens.showQuickCommitFileDetails` command to show a quick pick list of details for a file commit
-- Adds `gitlens.showQuickCommitFileDetails` command to CodeLens
+- Adds `gitlens.showQuickCommitFileDetails` command to code lens
 - Adds `gitlens.showQuickCommitFileDetails` command to the status bar
 - Adds `gitlens.closeUnchangedFiles` command to close any editors that don't have uncommitted changes
 - Adds `gitlens.openChangedFiles` command to open all files that have uncommitted changes
@@ -155,9 +155,9 @@
 - Fixes intermittent errors when opening multiple files via quick picks
 
 ### 2.10.1
-- Fixes [#43](https://github.com/eamodio/vscode-gitlens/issues/43) - File-level CodeLens isn't using the blame of the whole file as it should
+- Fixes [#43](https://github.com/eamodio/vscode-gitlens/issues/43) - File-level code lens isn't using the blame of the whole file as it should
 - Fixes issue with single quotes (') in annotations
-- Fixes output channel logging (also adds more debug information to CodeLens -- when enabled)
+- Fixes output channel logging (also adds more debug information to code lens -- when enabled)
 
 ### 2.10.0
 - Adds blame and active line annotation support to git diff split view
@@ -171,7 +171,7 @@
 ### 2.9.0
 - To accomodate the realization that blame information is invalid when a file has unsaved changes, the following behavior changes have been made
   - Status bar blame information will hide
-  - CodeLens change to a `Cannot determine...` message and become unclickable
+  - Code lens change to a `Cannot determine...` message and become unclickable
   - Many menu choices and commands will hide
 - Fixes [#38](https://github.com/eamodio/vscode-gitlens/issues/38) - Toggle Blame Annotation button shows even when it isn't valid
 - Fixes [#36](https://github.com/eamodio/vscode-gitlens/issues/36) - Blame information is invalid when a file has unsaved changes
@@ -199,7 +199,7 @@
 - Fixes some issue where some editors opened by the quickpick would not be opened in preview tabs
 - Fixes issue where copy to clipboard commands would fail if there was no active editor
 - Fixes issue where active line annotations would show for opened versioned files
-- Fixes issue where CodeLens compare commands on opened versioned files would fail
+- Fixes issue where code lens compare commands on opened versioned files would fail
 
 ### 2.7.1
 - Adds proper support for multi-line commit messages
@@ -258,7 +258,7 @@
   - Adds icons for some commands
 - Adds `gitlens.diffWithPrevious` command to the editor content menu
 - Adds `gitlens.diffWithWorking` command to the editor content menu
-- Adds `gitlens.showQuickRepoHistory` and `gitlens.showQuickCommitDetails` commands to CodeLens
+- Adds `gitlens.showQuickRepoHistory` and `gitlens.showQuickCommitDetails` commands to code lens
 - Adds `gitlens.showQuickRepoHistory` and `gitlens.showQuickCommitDetails` commands to the status bar
 - Changes the default command of `gitlens.codeLens.recentChange.command` to `gitlens.showQuickCommitDetails`
 - Changes the default command of `gitlens.statusBar.command` to `gitlens.showQuickCommitDetails`
@@ -271,7 +271,7 @@
 - Fixes issues with certain git commands not working on Windows
 - Fixes [#31](https://github.com/eamodio/vscode-gitlens/issues/31) - Disable gitlens if the project does not have `.git` folder
 - Fixes issue where quick pick lists could fail if there was no active editor
-- Fixes CodeLens not updating in response to configuration changes
+- Fixes code lens not updating in response to configuration changes
 
 ### 2.1.1
 - Fixes overzealous active line annotation updating on document changes
@@ -309,7 +309,7 @@
 - Changes the design of hover annotations -- much cleaner now
 - Disables automatic whitespace toggling by default as it is seemingly no longer needed as [vscode issue](https://github.com/Microsoft/vscode/issues/11485) seems fixed. It can be re-enabled with `gitlens.advanced.toggleWhitespace.enabled`
 - Fixes issue where the status bar blame would get stuck switching between editors
-- Fixes issue where CodeLens aren't updated properly after a file is saved
+- Fixes issue where code lens aren't updated properly after a file is saved
 - Re-adds context menu for `gitlens.diffLineWithPrevious` -- since [vscode issue](https://github.com/Microsoft/vscode/issues/15395)
 - Re-adds context menu for `gitlens.diffLineWithWorking` -- since [vscode issue](https://github.com/Microsoft/vscode/issues/15395)
 
@@ -369,15 +369,15 @@
 - Adds ability to show multiple blame annotation at the same time (one per vscode editor)
 - Adds new `gitlens.showFileHistory` command to open the history explorer
 - Adds new `gitlens.showFileHistory` option to the `gitlens.codeLens.recentChange.command`, `gitlens.codeLens.authors.command`, and `gitlens.statusBar.command` settings
-- Adds per-language CodeLens location customization using the `gitlens.codeLens.languageLocations` setting
+- Adds per-language code lens location customization using the `gitlens.codeLens.languageLocations` setting
 - Adds new `gitlens.diffLineWithPrevious` command for line sensitive diffs
 - Adds new `gitlens.diffLineWithWorking` command for line sensitive diffs
 - Adds `gitlens.diffWithPrevious` command to the explorer context menu
 - Adds output channel logging, controlled by the `gitlens.advanced.output.level` setting
-- Switches on-demand CodeLens to be a global toggle (rather than per file)
+- Switches on-demand code lens to be a global toggle (rather than per file)
 - Complete rewrite of the blame annotation provider to reduce overhead and provide better performance
-- Improves performance of the CodeLens support
-- Improves performance (significantly) when only showing CodeLens at the document level
+- Improves performance of the code lens support
+- Improves performance (significantly) when only showing code lens at the document level
 - Improves performance of status bar blame support
 - Changes `gitlens.diffWithPrevious` command to always be file sensitive diffs
 - Changes `gitlens.diffWithWorking` command to always be file sensitive diffs
@@ -413,14 +413,14 @@
 - Fixes [#7](https://github.com/eamodio/vscode-gitlens/issues/7) - missing lodash dependency
 
 ### 0.3.1
-- Adds new CodeLens visibility & location settings -- see **Extension Settings** above for details
-- Adds new command to toggle CodeLens on and off when `gitlens.codeLens.visibility` is set to `ondemand`
+- Adds new code lens visibility & location settings -- see **Extension Settings** above for details
+- Adds new command to toggle code lens on and off when `gitlens.codeLens.visibility` is set to `ondemand`
 
 ### 0.2.0
 - Fixes [#1](https://github.com/eamodio/vscode-gitlens/issues/1) - Support blame on files outside the workspace repository
 - Replaces blame regex parsing with a more robust parser
 - Fixes failures with Diff with Previous command
-- Fixes issues with blame explorer CodeLens when dealing with previous commits
+- Fixes issues with blame explorer code lens when dealing with previous commits
 - Fixes display issues with compact blame annotations (now skips blank lines)
 
 ### 0.1.3
@@ -441,7 +441,7 @@
 ### 0.0.5
 - Fixes issues where filename changes in history would cause diffs to fails
 - Fixes some issues with uncommitted blames
-- Removes CodeLens from fields and single-line properties to reduce visual noise
+- Removes code lens from fields and single-line properties to reduce visual noise
 - Automatically turns off blame only when required now
 
 ### 0.0.4
