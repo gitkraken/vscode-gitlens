@@ -127,7 +127,7 @@ export class GitService extends Disposable {
         const codeLensChanged = !Objects.areEquivalent(config.codeLens, this.config && this.config.codeLens);
         const advancedChanged = !Objects.areEquivalent(config.advanced, this.config && this.config.advanced);
 
-        if (codeLensChanged || advancedChanged) {
+        if (codeLensChanged) {
             Logger.log('CodeLens config changed; resetting CodeLens provider');
             if (config.codeLens.visibility === CodeLensVisibility.Auto && (config.codeLens.recentChange.enabled || config.codeLens.authors.enabled)) {
                 if (this._codeLensProvider) {
