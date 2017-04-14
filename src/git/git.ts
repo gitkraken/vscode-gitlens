@@ -27,7 +27,7 @@ async function gitCommand(cwd: string, ...args: any[]) {
     }
     catch (ex) {
         const msg = ex && ex.toString();
-        if (msg && (msg.includes('Not a git repository') || msg.includes('is outside repository') || msg.includes('no such path'))) {
+        if (msg && (msg.includes('Not a git repository') || msg.includes('is outside repository') || msg.includes('no such path') || msg.includes('does not have any commits'))) {
             Logger.warn('git', ...args, `  cwd='${cwd}'`, msg && `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
             return '';
         }
