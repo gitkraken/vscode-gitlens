@@ -1,7 +1,7 @@
 'use strict';
 import { commands, InputBoxOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands } from './common';
-import { Git, GitRepoSearchBy, GitService, GitUri } from '../gitService';
+import { GitRepoSearchBy, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitsQuickPick } from '../quickPicks';
 
@@ -39,7 +39,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                 searchBy = searchByMap.get(match[1]);
                 search = search.substring((search[1] === ' ') ? 2 : 1);
             }
-            else if (Git.isSha(search)) {
+            else if (GitService.isSha(search)) {
                 searchBy = GitRepoSearchBy.Sha;
             }
             else {

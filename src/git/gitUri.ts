@@ -1,7 +1,7 @@
 'use strict';
 import { Uri } from 'vscode';
 import { DocumentSchemes } from '../constants';
-import { Git, GitCommit, GitService, IGitStatusFile } from '../gitService';
+import { GitCommit, GitService, IGitStatusFile } from '../gitService';
 import * as path from 'path';
 
 export class GitUri extends Uri {
@@ -30,7 +30,7 @@ export class GitUri extends Uri {
             base._fsPath = path.resolve(data.repoPath, data.originalFileName || data.fileName);
 
             this.offset = (data.decoration && data.decoration.split('\n').length) || 0;
-            if (!Git.isUncommitted(data.sha)) {
+            if (!GitService.isUncommitted(data.sha)) {
                 this.sha = data.sha;
                 this.repoPath = data.repoPath;
             }
@@ -43,7 +43,7 @@ export class GitUri extends Uri {
                 const commit = commitOrRepoPath;
                 base._fsPath = path.resolve(commit.repoPath, commit.originalFileName || commit.fileName);
 
-                if (!Git.isUncommitted(commit.sha)) {
+                if (!GitService.isUncommitted(commit.sha)) {
                     this.sha = commit.sha;
                     this.repoPath = commit.repoPath;
                 }
@@ -64,7 +64,7 @@ export class GitUri extends Uri {
         if (this.repoPath) {
             directory = path.relative(this.repoPath, directory);
         }
-        directory = Git.normalizePath(directory);
+        directory = GitService.normalizePath(directory);
 
         return (!directory || directory === '.')
             ? path.basename(this.fsPath)
@@ -72,7 +72,7 @@ export class GitUri extends Uri {
     }
 
     getRelativePath(): string {
-        return Git.normalizePath(path.relative(this.repoPath, this.fsPath));
+        return GitService.normalizePath(path.relative(this.repoPath, this.fsPath));
     }
 
     static async fromUri(uri: Uri, git: GitService) {

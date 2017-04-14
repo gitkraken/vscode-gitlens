@@ -3,7 +3,7 @@ import { Arrays, Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard, KeyNoopCommand } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem } from './common';
-import { getGitStatusIcon, Git, GitCommit, GitLogCommit, GitService, GitStashCommit, GitStatusFileStatus, GitUri, IGitLog, IGitStatusFile } from '../gitService';
+import { getGitStatusIcon, GitCommit, GitLogCommit, GitService, GitStashCommit, GitStatusFileStatus, GitUri, IGitLog, IGitStatusFile } from '../gitService';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as moment from 'moment';
 import * as path from 'path';
@@ -19,7 +19,7 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
     constructor(commit: GitCommit, status: IGitStatusFile) {
         const icon = getGitStatusIcon(status.status);
 
-        let directory = Git.normalizePath(path.dirname(status.fileName));
+        let directory = GitService.normalizePath(path.dirname(status.fileName));
         if (!directory || directory === '.') {
             directory = undefined;
         }

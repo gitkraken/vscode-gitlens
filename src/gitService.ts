@@ -4,7 +4,7 @@ import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, l
 import { CommandContext, setCommandContext } from './commands';
 import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes } from './constants';
-import { Git, GitBlameParser, GitBranch, GitCommit, GitLogCommit, GitLogParser, GitRemote, GitStashParser, GitStatusFile, GitStatusParser, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog, IGitStash, IGitStatus } from './git/git';
+import { Git, GitBlameParser, GitBranch, GitCommit, GitLogCommit, GitLogParser, GitRemote, GitStashParser, GitStatusFile, GitStatusParser, IGit, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog, IGitStash, IGitStatus } from './git/git';
 import { IGitUriData, GitUri } from './git/gitUri';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
 import { Logger } from './logger';
@@ -14,7 +14,8 @@ import * as moment from 'moment';
 import * as path from 'path';
 
 export { GitUri };
-export * from './git/git';
+export * from './git/models/models';
+export { getNameFromRemoteOpenType, RemoteOpenType } from './git/remotes/provider';
 export * from './git/gitContextTracker';
 
 class UriCacheEntry {
@@ -840,6 +841,18 @@ export class GitService extends Disposable {
         this._codeLensProviderDisposable = languages.registerCodeLensProvider(GitCodeLensProvider.selector, new GitCodeLensProvider(this.context, this));
     }
 
+    static getGitPath(gitPath?: string): Promise<IGit> {
+        return Git.getGitPath(gitPath);
+    }
+
+    static getGitVersion(): string {
+        return Git.gitInfo().version;
+    }
+
+    static getRepoPath(cwd: string): Promise<string> {
+        return Git.getRepoPath(cwd);
+    }
+
     static fromGitContentUri(uri: Uri): IGitUriData {
         if (uri.scheme !== DocumentSchemes.GitLensGit) throw new Error(`fromGitUri(uri=${uri}) invalid scheme`);
         return GitService._fromGitContentUri<IGitUriData>(uri);
@@ -849,8 +862,16 @@ export class GitService extends Disposable {
         return JSON.parse(uri.query) as T;
     }
 
-    static isUncommitted(sha: string) {
+    static isSha(sha: string): boolean {
+        return Git.isSha(sha);
+    }
+
+    static isUncommitted(sha: string): boolean {
         return Git.isUncommitted(sha);
+    }
+
+    static normalizePath(fileName: string, repoPath?: string): string {
+        return Git.normalizePath(fileName, repoPath);
     }
 
     static toGitContentUri(sha: string, shortSha: string, fileName: string, repoPath: string, originalFileName: string): Uri;
@@ -903,5 +924,10 @@ export class GitService extends Disposable {
             data.decoration = decoration;
         }
         return data;
+    }
+
+    static validateGitVersion(major: number, minor: number): boolean {
+        const [gitMajor, gitMinor] = this.getGitVersion().split('.');
+        return (parseInt(gitMajor, 10) >= major && parseInt(gitMinor, 10) >= minor);
     }
 }

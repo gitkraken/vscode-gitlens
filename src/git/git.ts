@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as tmp from 'tmp';
 
+export { IGit };
 export * from './models/models';
 export * from './parsers/blameParser';
 export * from './parsers/logParser';
@@ -47,7 +48,7 @@ export class Git {
         return git;
     }
 
-    static async getGitPath(gitPath?: string) {
+    static async getGitPath(gitPath?: string): Promise<IGit> {
         git = await findGitPath(gitPath);
         Logger.log(`Git found: ${git.version} @ ${git.path === 'git' ? 'PATH' : git.path}`);
         return git;

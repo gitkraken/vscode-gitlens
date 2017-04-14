@@ -20,7 +20,7 @@ import { Keyboard } from './commands';
 import { IConfig } from './configuration';
 import { ApplicationInsightsKey, BuiltInCommands, ExtensionId, WorkspaceState } from './constants';
 import { GitContentProvider } from './gitContentProvider';
-import { Git, GitContextTracker, GitService } from './gitService';
+import { GitContextTracker, GitService } from './gitService';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { Logger } from './logger';
 import { Telemetry } from './telemetry';
@@ -40,7 +40,7 @@ export async function activate(context: ExtensionContext) {
     const gitPath = config.advanced.git;
 
     try {
-        await Git.getGitPath(gitPath);
+        await GitService.getGitPath(gitPath);
     }
     catch (ex) {
         Logger.error(ex, 'Extension.activate');
@@ -51,9 +51,9 @@ export async function activate(context: ExtensionContext) {
         return;
     }
 
-    const repoPath = await Git.getRepoPath(rootPath);
+    const repoPath = await GitService.getRepoPath(rootPath);
 
-    const gitVersion = Git.gitInfo().version;
+    const gitVersion = GitService.getGitVersion();
     Logger.log(`Git version: ${gitVersion}`);
 
     const telemetryContext: { [id: string]: any } = Object.create(null);
@@ -146,7 +146,7 @@ async function notifyOnUnsupportedGitVersion(context: ExtensionContext, version:
     if (context.globalState.get(WorkspaceState.SuppressGitVersionWarning, false)) return;
 
     // If git is less than v2.2.0
-    if (!Git.validateVersion(2, 2)) {
+    if (!GitService.validateGitVersion(2, 2)) {
         const result = await window.showErrorMessage(`GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git.`, `Don't Show Again`);
         if (result === `Don't Show Again`) {
             context.globalState.update(WorkspaceState.SuppressGitVersionWarning, true);
