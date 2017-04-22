@@ -1,6 +1,7 @@
 'use strict';
 import { commands, Disposable, QuickPickItem } from 'vscode';
 import { CommandContext, setCommandContext } from './common';
+import { ExtensionKey } from '../constants';
 import { CommandQuickPickItem, OpenFileCommandQuickPickItem } from '../quickPicks';
 import { Logger } from '../logger';
 
@@ -95,7 +96,7 @@ export class Keyboard extends Disposable {
         const subscriptions: Disposable[] = [];
 
         for (const key of keys) {
-            subscriptions.push(commands.registerCommand(`gitlens.key.${key}`, () => this.execute(key), this));
+            subscriptions.push(commands.registerCommand(`${ExtensionKey}.key.${key}`, () => this.execute(key), this));
         }
 
         this._disposable = Disposable.from(...subscriptions);

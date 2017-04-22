@@ -4,6 +4,7 @@ import { DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionCont
 import { BlameAnnotationProvider } from './blameAnnotationProvider';
 import { TextDocumentComparer, TextEditorComparer } from './comparers';
 import { IBlameConfig } from './configuration';
+import { ExtensionKey } from './constants';
 import { BlameabilityChangeEvent, GitService, GitUri, GitContextTracker } from './gitService';
 import { Logger } from './logger';
 import { WhitespaceController } from './whitespaceController';
@@ -57,7 +58,7 @@ export class BlameAnnotationController extends Disposable {
     }
 
     private _onConfigurationChanged() {
-        let toggleWhitespace = workspace.getConfiguration('gitlens.advanced.toggleWhitespace').get<boolean>('enabled');
+        let toggleWhitespace = workspace.getConfiguration(`${ExtensionKey}.advanced.toggleWhitespace`).get<boolean>('enabled');
         if (!toggleWhitespace) {
             // Until https://github.com/Microsoft/vscode/issues/11485 is fixed we need to toggle whitespace for non-monospace fonts and ligatures
             // TODO: detect monospace font
@@ -72,7 +73,7 @@ export class BlameAnnotationController extends Disposable {
             this._whitespaceController = undefined;
         }
 
-        const config = workspace.getConfiguration('gitlens').get<IBlameConfig>('blame');
+        const config = workspace.getConfiguration(ExtensionKey).get<IBlameConfig>('blame');
 
         if (config.annotation.highlight !== (this._config && this._config.annotation.highlight)) {
             BlameDecorations.highlight && BlameDecorations.highlight.dispose();

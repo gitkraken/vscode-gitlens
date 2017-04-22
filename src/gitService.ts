@@ -3,7 +3,7 @@ import { Iterables, Objects } from './system';
 import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, languages, Location, Position, Range, TextDocument, TextEditor, Uri, workspace } from 'vscode';
 import { CommandContext, setCommandContext } from './commands';
 import { CodeLensVisibility, IConfig } from './configuration';
-import { DocumentSchemes } from './constants';
+import { DocumentSchemes, ExtensionKey } from './constants';
 import { Git, GitBlameParser, GitBranch, GitCommit, GitLogCommit, GitLogParser, GitRemote, GitStashParser, GitStatusFile, GitStatusParser, IGit, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog, IGitStash, IGitStatus } from './git/git';
 import { IGitUriData, GitUri } from './git/gitUri';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
@@ -123,7 +123,7 @@ export class GitService extends Disposable {
     }
 
     private _onConfigurationChanged() {
-        const config = workspace.getConfiguration().get<IConfig>('gitlens');
+        const config = workspace.getConfiguration().get<IConfig>(ExtensionKey);
 
         const codeLensChanged = !Objects.areEquivalent(config.codeLens, this.config && this.config.codeLens);
         const advancedChanged = !Objects.areEquivalent(config.advanced, this.config && this.config.advanced);

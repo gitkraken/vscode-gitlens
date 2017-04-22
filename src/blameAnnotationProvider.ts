@@ -5,6 +5,7 @@ import { BlameAnnotationFormat, BlameAnnotationFormatter, defaultAuthorLength } 
 import { BlameDecorations } from './blameAnnotationController';
 import { TextDocumentComparer } from './comparers';
 import { BlameAnnotationStyle, IBlameConfig } from './configuration';
+import { ExtensionKey } from './constants';
 import { GitService, GitUri, IGitBlame } from './gitService';
 import { WhitespaceController } from './whitespaceController';
 
@@ -23,7 +24,7 @@ export class BlameAnnotationProvider extends Disposable {
 
         this._blame = this.git.getBlameForFile(this.uri);
 
-        this._config = workspace.getConfiguration('gitlens').get<IBlameConfig>('blame');
+        this._config = workspace.getConfiguration(ExtensionKey).get<IBlameConfig>('blame');
 
         const subscriptions: Disposable[] = [];
 

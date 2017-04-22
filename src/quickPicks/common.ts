@@ -2,12 +2,13 @@
 import { CancellationTokenSource, commands, Disposable, QuickPickItem, QuickPickOptions, Uri, window, workspace } from 'vscode';
 import { Commands, Keyboard, KeyboardScope, KeyMapping, openEditor } from '../commands';
 import { IAdvancedConfig } from '../configuration';
+import { ExtensionKey } from '../constants';
 import { GitCommit, GitLogCommit, GitStashCommit } from '../gitService';
 // import { Logger } from '../logger';
 import * as moment from 'moment';
 
 export function getQuickPickIgnoreFocusOut() {
-    return !workspace.getConfiguration('gitlens').get<IAdvancedConfig>('advanced').quickPick.closeOnFocusOut;
+    return !workspace.getConfiguration(ExtensionKey).get<IAdvancedConfig>('advanced').quickPick.closeOnFocusOut;
 }
 
 export function showQuickPickProgress(message: string, mapping?: KeyMapping, delay: boolean = false): CancellationTokenSource {

@@ -5,7 +5,7 @@ import { BlameAnnotationController } from './blameAnnotationController';
 import { BlameAnnotationFormat, BlameAnnotationFormatter } from './blameAnnotationFormatter';
 import { TextEditorComparer } from './comparers';
 import { IBlameConfig, IConfig, StatusBarCommand } from './configuration';
-import { DocumentSchemes } from './constants';
+import { DocumentSchemes, ExtensionKey } from './constants';
 import { BlameabilityChangeEvent, GitCommit, GitContextTracker, GitService, GitUri, IGitBlame, IGitCommitLine } from './gitService';
 import * as moment from 'moment';
 
@@ -54,7 +54,7 @@ export class BlameActiveLineController extends Disposable {
     }
 
     private _onConfigurationChanged() {
-        const config = workspace.getConfiguration('').get<IConfig>('gitlens');
+        const config = workspace.getConfiguration().get<IConfig>(ExtensionKey);
 
         let changed: boolean = false;
 

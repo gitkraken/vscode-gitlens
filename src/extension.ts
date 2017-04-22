@@ -18,7 +18,7 @@ import { StashApplyCommand, StashDeleteCommand, StashSaveCommand } from './comma
 import { ToggleCodeLensCommand } from './commands';
 import { Keyboard } from './commands';
 import { IConfig } from './configuration';
-import { ApplicationInsightsKey, BuiltInCommands, ExtensionId, WorkspaceState } from './constants';
+import { ApplicationInsightsKey, BuiltInCommands, ExtensionKey, QualifiedExtensionId, WorkspaceState } from './constants';
 import { GitContentProvider } from './gitContentProvider';
 import { GitContextTracker, GitService } from './gitService';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
@@ -30,13 +30,13 @@ export async function activate(context: ExtensionContext) {
     Logger.configure(context);
     Telemetry.configure(ApplicationInsightsKey);
 
-    const gitlens = extensions.getExtension(ExtensionId);
+    const gitlens = extensions.getExtension(QualifiedExtensionId);
     const gitlensVersion = gitlens.packageJSON.version;
 
     const rootPath = workspace.rootPath && workspace.rootPath.replace(/\\/g, '/');
     Logger.log(`GitLens(v${gitlensVersion}) active: ${rootPath}`);
 
-    const config = workspace.getConfiguration('').get<IConfig>('gitlens');
+    const config = workspace.getConfiguration().get<IConfig>(ExtensionKey);
     const gitPath = config.advanced.git;
 
     try {

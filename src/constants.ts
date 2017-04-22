@@ -1,6 +1,10 @@
 'use strict';
 
-export const RepoPath = 'repoPath';
+export const ExtensionId = 'gitlens';
+export const ExtensionKey = ExtensionId;
+export const QualifiedExtensionId = `eamodio.${ExtensionId}`;
+
+export const ApplicationInsightsKey = 'a9c302f8-6483-4d01-b92c-c159c799c679';
 
 export type BuiltInCommands = 'cursorMove' | 'editor.action.showReferences' | 'editor.action.toggleRenderWhitespace' | 'editorScroll' | 'revealLine' | 'setContext' | 'vscode.diff' | 'vscode.executeDocumentSymbolProvider' | 'vscode.executeCodeLensProvider' | 'vscode.open' | 'vscode.previewHtml' | 'workbench.action.closeActiveEditor' | 'workbench.action.nextEditor';
 export const BuiltInCommands = {
@@ -32,6 +36,3 @@ export const WorkspaceState = {
     SuppressGitVersionWarning: 'suppressGitVersionWarning' as WorkspaceState,
     SuppressUpdateNotice: 'suppressUpdateNotice' as WorkspaceState
 };
-
-export const ExtensionId = 'eamodio.gitlens';
-export const ApplicationInsightsKey = 'a9c302f8-6483-4d01-b92c-c159c799c679';

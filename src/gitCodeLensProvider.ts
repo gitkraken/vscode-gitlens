@@ -2,7 +2,7 @@
 import { Functions, Iterables, Strings } from './system';
 import { CancellationToken, CodeLens, CodeLensProvider, commands, DocumentSelector, Event, EventEmitter, ExtensionContext, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri, workspace } from 'vscode';
 import { Commands } from './commands';
-import { BuiltInCommands, DocumentSchemes } from './constants';
+import { BuiltInCommands, DocumentSchemes, ExtensionKey } from './constants';
 import { CodeLensCommand, CodeLensLocation, IConfig, ICodeLensLanguageLocation } from './configuration';
 import { GitCommit, GitService, GitUri, IGitBlame, IGitBlameLines } from './gitService';
 import { Logger } from './logger';
@@ -43,11 +43,11 @@ export class GitCodeLensProvider implements CodeLensProvider {
     private _documentIsDirty: boolean;
 
     constructor(context: ExtensionContext, private git: GitService) {
-        this._config = workspace.getConfiguration('').get<IConfig>('gitlens');
+        this._config = workspace.getConfiguration().get<IConfig>(ExtensionKey);
     }
 
     reset() {
-        this._config = workspace.getConfiguration('').get<IConfig>('gitlens');
+        this._config = workspace.getConfiguration().get<IConfig>(ExtensionKey);
 
         Logger.log('Triggering a reset of the git CodeLens provider');
         this._onDidChangeCodeLenses.fire();

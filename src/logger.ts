@@ -1,9 +1,9 @@
 'use strict';
 import { ExtensionContext, OutputChannel, window, workspace } from 'vscode';
 import { IAdvancedConfig } from './configuration';
+import { ExtensionKey } from './constants';
 import { Telemetry } from './telemetry';
 
-const ConfigurationName = 'gitlens';
 const OutputChannelName = 'GitLens';
 const ConsolePrefix = `[${OutputChannelName}]`;
 
@@ -19,7 +19,7 @@ let level: OutputLevel = OutputLevel.Silent;
 let output: OutputChannel;
 
 function onConfigurationChanged() {
-    const cfg = workspace.getConfiguration(ConfigurationName).get<IAdvancedConfig>('advanced');
+    const cfg = workspace.getConfiguration(ExtensionKey).get<IAdvancedConfig>('advanced');
 
     if (cfg.debug !== debug || cfg.output.level !== level) {
         debug = cfg.debug;
@@ -53,11 +53,11 @@ export class Logger {
 
     static error(ex: Error, classOrMethod?: string, ...params: any[]): void {
         if (debug) {
-            console.error(ConsolePrefix, ex, ...params, '\n');
+            console.error(ConsolePrefix, classOrMethod, ex, ...params, '\n');
         }
 
         if (level !== OutputLevel.Silent) {
-            output.appendLine([ex, ...params].join(' '));
+            output.appendLine([classOrMethod, ex, ...params].join(' '));
         }
 
         Telemetry.trackException(ex);
