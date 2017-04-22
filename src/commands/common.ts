@@ -1,6 +1,7 @@
 'use strict';
 import { commands, Disposable, TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
 import { BuiltInCommands } from '../constants';
+import { Logger } from '../logger';
 import { Telemetry } from '../telemetry';
 
 export type Commands = 'gitlens.closeUnchangedFiles' | 'gitlens.copyMessageToClipboard' | 'gitlens.copyShaToClipboard' |
@@ -148,6 +149,7 @@ export async function openEditor(uri: Uri, pinned: boolean = false) {
         return window.showTextDocument(document, (window.activeTextEditor && window.activeTextEditor.viewColumn) || 1, true);
     }
     catch (ex) {
+        Logger.error(ex, 'openEditor');
         return undefined;
     }
 }
