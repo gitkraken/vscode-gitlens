@@ -52,7 +52,7 @@ async function _showQuickPickProgress(message: string, cancellation: Cancellatio
 }
 
 function _getInfiniteCancellablePromise(cancellation: CancellationTokenSource) {
-    return new Promise((resolve, reject) => {
+    return new Promise<QuickPickItem[]>((resolve, reject) => {
         const disposable = cancellation.token.onCancellationRequested(() => {
             disposable.dispose();
             resolve([]);
