@@ -256,6 +256,11 @@
                     ],
                     "description": "Specifies the command executed when the authors code lens is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
                 },
+                "gitlens.codeLens.debug": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Specifies whether or not to show debug information in code lens"
+                },
                 "gitlens.menus.diff.enabled": {
                     "type": "boolean",
                     "default": true,
@@ -307,16 +312,6 @@
                     "default": 0,
                     "description": "Specifies whether status bar git blame output will be cached for larger documents"
                 },
-                "gitlens.advanced.debug": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Specifies debug mode"
-                },
-                "gitlens.advanced.codeLens.debug": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Specifies whether or not to show debug information in code lens"
-                },
                 "gitlens.advanced.git": {
                     "type": "string",
                     "default": null,
@@ -332,16 +327,6 @@
                     "default": 200,
                     "description": "Specifies the maximum number of QuickPick history entries to show"
                 },
-                "gitlens.advanced.output.level": {
-                    "type": "string",
-                    "default": "silent",
-                    "enum": [
-                        "silent",
-                        "errors",
-                        "verbose"
-                    ],
-                    "description": "Specifies how much (if any) output will be sent to the GitLens output channel"
-                },
                 "gitlens.advanced.quickPick.closeOnFocusOut": {
                     "type": "boolean",
                     "default": true,
@@ -351,6 +336,21 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Specifies whether or not to toggle whitespace off then showing blame annotations (*may* be required by certain fonts/themes)"
+                },
+                "gitlens.debug": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Specifies debug mode"
+                },
+                "gitlens.outputLevel": {
+                    "type": "string",
+                    "default": "silent",
+                    "enum": [
+                        "silent",
+                        "errors",
+                        "verbose"
+                    ],
+                    "description": "Specifies how much (if any) output will be sent to the GitLens output channel"
                 },
                 "gitlens.insiders": {
                     "type": "boolean",

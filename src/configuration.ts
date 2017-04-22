@@ -64,6 +64,7 @@ export interface ICodeLensLanguageLocation {
 }
 
 export interface ICodeLensesConfig {
+    debug: boolean;
     visibility: CodeLensVisibility;
     location: CodeLensLocation;
     locationCustomSymbols: string[];
@@ -99,18 +100,11 @@ export interface IAdvancedConfig {
             maxLines: number;
         }
     };
-    codeLens: {
-        debug: boolean;
-    };
-    debug: boolean;
     git: string;
     gitignore: {
         enabled: boolean;
     };
     maxQuickHistory: number;
-    output: {
-        level: OutputLevel;
-    };
     quickPick: {
         closeOnFocusOut: boolean;
     };
@@ -120,6 +114,8 @@ export interface IAdvancedConfig {
 }
 
 export interface IConfig {
+    debug: boolean;
+    outputLevel: OutputLevel;
     blame: IBlameConfig;
     codeLens: ICodeLensesConfig;
     statusBar: IStatusBarConfig;
