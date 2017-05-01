@@ -1,5 +1,15 @@
 ## Release Notes
 
+### 3.4.6
+- Adds better support for deleted files when choosing `Open File` via in quick pick menus - now opens the file revision from the previous commit
+- Adds better support for deleted files when choosing `Open File in Remote` via in quick pick menus - now opens the file revision from the previous commit
+- Improves performance by caching the git path to avoid lookups on every git command
+- Fixes incorrect file selection when showing commit details quick pick menu
+- Fixes timing error on startup
+- Renames `gitlens.advanced.codeLens.debug` setting to `gitlens.codeLens.debug`
+- Renames `gitlens.advanced.debug` setting to `gitlens.debug`
+- Renames `gitlens.output.level` setting to `gitlens.outputLevel`
+
 ### 3.4.5
 - Completely overhauls the [GitLens documentation](https://github.com/eamodio/vscode-gitlens/blob/master/README.md) and messaging -- make sure to check it out to see all the powerful features GitLen provides!
 - Adds `gitlens.blame.annotation.activeLineDarkColor` & `gitlens.blame.annotation.activeLineLightColor` settings to control the colors of the active line blame annotation
@@ -13,10 +23,10 @@
 - Fixes issue with many commands missing from the `Command Palette`
 
 ### 3.3.3
-- Fixes issue with newlines in commit messages in the file/branch/stash history quick picks (truncates and adds an ellipse icon)
+- Fixes issue with newlines in commit messages in the file/branch/stash history quick pick menus (truncates and adds an ellipse icon)
 
 ### 3.3.2
-- Closes [#63](https://github.com/eamodio/vscode-gitlens/issues/63) - Switch commit message and author in commit pick list. Also reduces clutter in the commit quick picks
+- Closes [#63](https://github.com/eamodio/vscode-gitlens/issues/63) - Switch commit message and author in commit pick list. Also reduces clutter in the commit quick pick menus
 - Removes `gitlens.blame.annotation.characters.*` settings since they were added to deal with unicode bugs in a previous version of vscode
 
 ### 3.3.1
@@ -27,8 +37,8 @@
 ### 3.3.0
 - Adds `Search commits` command (`gitlens.showCommitSearch`) to allow commit searching by message, author, file pattern, or sha
 - Adds `alt+f` shortcut for the `Search commits` command (`gitlens.showCommitSearch`)
-- Adds `Show Commit Search` command to the branch history quick pick
-- Adds `Show Stashed Changes` command to the repository status quick pick
+- Adds `Show Commit Search` command to the branch history quick pick menu
+- Adds `Show Stashed Changes` command to the repository status quick pick menu
 - Adds a `Don't Show Again` option to the GitLen update notification
 - Changes `Open x in Remote` commands to be no longer hidden behind the `gitlens.insiders` setting
 - Fixes [#59](https://github.com/eamodio/vscode-gitlens/issues/59) - Context menu shows gitlens commands even if folder/file is not under git
@@ -43,17 +53,17 @@
 - Fixes issue with `Open * in Remote` commands with nested repositories and non-git workspace root folder
 
 ### 3.1.0
-- Adds `Show Stashed Changes` command (`gitlens.showQuickStashList`) to open a quick pick of all the stashed changes
-- Adds insiders `Stash Changes` option to stashed changes quick pick -- enabled via `"gitlens.insiders": true`
-- Adds insiders `Stash Unstaged Changes` option to stashed changes quick pick
+- Adds `Show Stashed Changes` command (`gitlens.showQuickStashList`) to open a quick pick menu of all the stashed changes
+- Adds insiders `Stash Changes` option to stashed changes quick pick menu -- enabled via `"gitlens.insiders": true`
+- Adds insiders `Stash Unstaged Changes` option to stashed changes quick pick menu
 - Adds insiders `Apply Stashed Changes` command (`gitlens.stashApply`) to apply the selected stashed changes to the working tree
 - Adds insiders `Stash Changes` command (`gitlens.stashSave`) to stash any working tree changes
 - Fixes incorrect counts in upstream status
 
 ### 3.0.5
-- Adds additional insiders support for GitLab, Bitbucket, and Visual Studio Team Services to the `Open x in Remote` commands and quick picks -- enabled via `"gitlens.insiders": true`
+- Adds additional insiders support for GitLab, Bitbucket, and Visual Studio Team Services to the `Open x in Remote` commands and quick pick menus -- enabled via `"gitlens.insiders": true`
 - Adds insiders line support to `Open File in Remote` command (`gitlens.openFileInRemote`)
-- Adds original file name for renamed files to the repository status and commit details quick pick
+- Adds original file name for renamed files to the repository status and commit details quick pick menu
 - Fixes [#56](https://github.com/eamodio/vscode-gitlens/issues/56) - Handle file names with spaces
 
 ### 3.0.4
@@ -72,29 +82,29 @@
 - Adds basic telemetry -- honors the vscode telemetry configuration setting
 
 ### 3.0.0
-- Adds insiders support for `Open in GitHub` to the relevant quick picks -- enabled via `"gitlens.insiders": true`
+- Adds insiders support for `Open in GitHub` to the relevant quick pick menus -- enabled via `"gitlens.insiders": true`
 - Adds insiders `Open Line Commit in Remote` command (`gitlens.openCommitInRemote`) to open the current commit in the remote service (currently only GitHub)
 - Adds insiders `Open File in Remote` command (`gitlens.openFileInRemote`) to open the current file in the remote service (currently only GitHub)
 - Adds an update notification for feature releases
 - Adds `Show Branch History` command (`gitlens.showQuickBranchHistory`) to show the history of the selected branch
-- Adds `Show Last Opened Quick Pick` command (`gitlens.showLastQuickPick`) to re-open the previously opened quick pick - helps to get back to previous context
+- Adds `Show Last Opened Quick Pick` command (`gitlens.showLastQuickPick`) to re-open the previously opened quick pick menu - helps to get back to previous context
 - Adds `alt+-` shortcut for the `Show Last Opened Quick Pick` command (`gitlens.showLastQuickPick`)
 - Adds upstream status information (if available) to the repository status pick pick
 - Adds file status rollup information to the repository status pick pick
-- Adds file status rollup information to the commit details quick pick
-- Adds `Compare with...` (`gitlens.diffWithBranch`) command to compare working file to another branch (via branch quick pick)
-- Adds branch quick pick to `Directory Compare` (`gitlens.diffDirectory`) command
+- Adds file status rollup information to the commit details quick pick menu
+- Adds `Compare with...` (`gitlens.diffWithBranch`) command to compare working file to another branch (via branch quick pick menu)
+- Adds branch quick pick menu to `Directory Compare` (`gitlens.diffDirectory`) command
 - Adds support for `gitlens.showQuickFileHistory` command execution via code lens to limit results to the code lens block
-- Adds current branch to branch quick pick placeholder
-- Adds `Show Branch History` command to the branch history quick pick when showing only limited commits (e.g. starting at a specified commit)
-- Adds `Show File History` command to the file history quick pick when showing only limited commits (e.g. starting at a specified commit)
+- Adds current branch to branch quick pick menu placeholder
+- Adds `Show Branch History` command to the branch history quick pick menu when showing only limited commits (e.g. starting at a specified commit)
+- Adds `Show File History` command to the file history quick pick menu when showing only limited commits (e.g. starting at a specified commit)
 - Adds `Don't Show Again` option to the unsupported git version notification
 - Changes `Show Repository History` command to `Show Current Branch History`
 - Changes `Repository History` terminology to `Branch History`
 - Fixes issue with `gitlens.diffWithPrevious` command execution via code lens when the code lens was not at the document/file level
 - Fixes issue where full shas were displayed on the file/blame history explorers
 - Fixes [#30](https://github.com/eamodio/vscode-gitlens/issues/30) - Diff with Working Tree fails from repo/commit quickpick list if file was renamed (and the commit was before the rename)
-- Fixes various other quick pick command issues when a file was renamed
+- Fixes various other quick pick menu command issues when a file was renamed
 - Fixes various issues when caching is disabled
 - Fixes issues with parsing commits history
 - Fixes various issues with merge commits
@@ -107,12 +117,12 @@
 - Fixes issue where `gitlens.showQuickRepoHistory` command fails to open when there is no active editor
 
 ### 2.12.0
-- Adds progress indicator for the `gitlens.showQuickFileHistory` & `gitlens.showQuickRepoHistory` quick picks
-- Adds paging support to the `gitlens.showQuickFileHistory` & `gitlens.showQuickRepoHistory` quick picks
+- Adds progress indicator for the `gitlens.showQuickFileHistory` & `gitlens.showQuickRepoHistory` quick pick menus
+- Adds paging support to the `gitlens.showQuickFileHistory` & `gitlens.showQuickRepoHistory` quick pick menus
   - Adds `Show Previous Commits` command
   - Adds `Show Next Commits` command
-- Adds keyboard page navigation via `alt+,` (previous) & `alt+.` (next) on the `gitlens.showQuickFileHistory` & `gitlens.showQuickRepoHistory` quick picks
-- Adds keyboard commit navigation via `alt+,` (previous) & `alt+.` (next) on the `gitlens.showQuickCommitDetails` & `gitlens.showQuickCommitFileDetails` quick picks
+- Adds keyboard page navigation via `alt+,` (previous) & `alt+.` (next) on the `gitlens.showQuickFileHistory` & `gitlens.showQuickRepoHistory` quick pick menus
+- Adds keyboard commit navigation via `alt+,` (previous) & `alt+.` (next) on the `gitlens.showQuickCommitDetails` & `gitlens.showQuickCommitFileDetails` quick pick menus
 - Changes behavior of `gitlens.showQuickFileHistory` & `gitlens.showFileHistory` to no longer show merge commits
 - Changes `gitlens.copyShaToClipboard` to copy the full sha, rather than short sha
 - Changes internal tracking to use full sha (rather than short sha)
@@ -132,27 +142,27 @@
 - Fixes intermittent issues when toggling whitespace for blame annotations
 
 ### 2.11.0
-- Adds `gitlens.showQuickCommitFileDetails` command to show a quick pick list of details for a file commit
+- Adds `gitlens.showQuickCommitFileDetails` command to show a quick pick menu of details for a file commit
 - Adds `gitlens.showQuickCommitFileDetails` command to code lens
 - Adds `gitlens.showQuickCommitFileDetails` command to the status bar
 - Adds `gitlens.closeUnchangedFiles` command to close any editors that don't have uncommitted changes
 - Adds `gitlens.openChangedFiles` command to open all files that have uncommitted changes
 - Adds `Directory Compare` (`gitlens.diffDirectory`) command to open the configured git difftool to compare directory versions
-- Adds `Directory Compare with Previous Commit` command on the `gitlens.showQuickCommitDetails` quick pick
-- Adds `Directory Compare with Working Tree` command on the `gitlens.showQuickCommitDetails` quick pick
-- Adds a `Changed Files` grouping on the `gitlens.showQuickCommitDetails` quick pick
-- Adds a `Close Unchanged Files` command on the `gitlens.showQuickRepoStatus` quick pick
-- Adds a contextual description to the `go back` command in quick pick lists
-- Changes layout of the `gitlens.showQuickRepoStatus` quick pick for better clarity
-- Changes behavior of `gitlens.showQuickCommitDetails` to show commit a quick pick list of details for a commit
+- Adds `Directory Compare with Previous Commit` command on the `gitlens.showQuickCommitDetails` quick pick menu
+- Adds `Directory Compare with Working Tree` command on the `gitlens.showQuickCommitDetails` quick pick menu
+- Adds a `Changed Files` grouping on the `gitlens.showQuickCommitDetails` quick pick menu
+- Adds a `Close Unchanged Files` command on the `gitlens.showQuickRepoStatus` quick pick menu
+- Adds a contextual description to the `go back` command in quick pick menus
+- Changes layout of the `gitlens.showQuickRepoStatus` quick pick menu for better clarity
+- Changes behavior of `gitlens.showQuickCommitDetails` to show commit a quick pick menu of details for a commit
 - Changes default of `gitlens.codeLens.recentChange.command` to be `gitlens.showQuickCommitFileDetails` (though there is no visible behavior change)
-- Renames `Open Files` to `Open Changed Files` on the `gitlens.showQuickCommitDetails` quick pick
-- Renames `Open Working Files` to `Open Changed Working Files` on the `gitlens.showQuickCommitDetails` quick pick
-- Renames `Show Changed Files` to `Show Commit Details` on the `gitlens.showQuickCommitFileDetails` quick pick
-- Renames `Open Files` to `Open Changed Files` on the `gitlens.showQuickRepoStatus` quick pick
+- Renames `Open Files` to `Open Changed Files` on the `gitlens.showQuickCommitDetails` quick pick menu
+- Renames `Open Working Files` to `Open Changed Working Files` on the `gitlens.showQuickCommitDetails` quick pick menu
+- Renames `Show Changed Files` to `Show Commit Details` on the `gitlens.showQuickCommitFileDetails` quick pick menu
+- Renames `Open Files` to `Open Changed Files` on the `gitlens.showQuickRepoStatus` quick pick menu
 - Fixes [#44](https://github.com/eamodio/vscode-gitlens/issues/43) by adding a warning message about Git version requirements
 - Fixes intermittent errors when adding active line annotations
-- Fixes intermittent errors when opening multiple files via quick picks
+- Fixes intermittent errors when opening multiple files via quick pick menus
 
 ### 2.10.1
 - Fixes [#43](https://github.com/eamodio/vscode-gitlens/issues/43) - File-level code lens isn't using the blame of the whole file as it should
@@ -186,15 +196,15 @@
 - Fixes issue where `Compare with *` commands fail to open when there is no active editor
 
 ### 2.8.0
-- Adds new `Open File` command on the `gitlens.showQuickCommitDetails` quick pick list to open the commit version of the file
-- Adds new `Open File` command on the `gitlens.showQuickCommitDetails` quick pick list to open the commit version of the files
-- Adds `alt+left` keyboard shortcut in quick pick list to `go back`
-- Adds `alt+right` keyboard shortcut in quick pick list to execute the currently selected item while keeping the quick pick open (in most cases)
+- Adds new `Open File` command on the `gitlens.showQuickCommitDetails` quick pick menu to open the commit version of the file
+- Adds new `Open File` command on the `gitlens.showQuickCommitDetails` quick pick menu to open the commit version of the files
+- Adds `alt+left` keyboard shortcut in quick pick menus to `go back`
+- Adds `alt+right` keyboard shortcut in quick pick menus to execute the currently selected item while keeping the quick pick menu open (in most cases)
 - `alt+right` keyboard shortcut on commit details file name, will open the commit version of the file
-- Indents the file statuses on the `gitlens.showQuickCommitDetails` quick pick list
-- Renames `Open File` to `Open Working File` on the `gitlens.showQuickCommitDetails` quick pick list
-- Renames `Open File` and `Open Working Files` on the `gitlens.showQuickCommitDetails` quick pick list
-- Reorders some quick pick lists
+- Indents the file statuses on the `gitlens.showQuickCommitDetails` quick pick menu
+- Renames `Open File` to `Open Working File` on the `gitlens.showQuickCommitDetails` quick pick menu
+- Renames `Open File` and `Open Working Files` on the `gitlens.showQuickCommitDetails` quick pick menu
+- Reorders some quick pick menus
 - Fixes [#34](https://github.com/eamodio/vscode-gitlens/issues/34) - Open file should open the selected version of the file
 - Fixes some issue where some editors opened by the quickpick would not be opened in preview tabs
 - Fixes issue where copy to clipboard commands would fail if there was no active editor
@@ -206,17 +216,17 @@
 - Fixes [#33](https://github.com/eamodio/vscode-gitlens/issues/33) - Commit message styled as title in popup, when message starts with hash symbol
 
 ### 2.7.0
-- Adds file status icons (added, modified, deleted, etc) to the `gitlens.showQuickCommitDetails` quick pick list
-- Adds `Copy Commit Sha to Clipboard` command to commit files quick pick list
-- Adds `Copy Commit Message to Clipboard` command to commit files quick pick list
-- Changes `Show Commit History` to `Show File History` on the `gitlens.showQuickCommitDetails` quick pick list
-- Changes `Show Previous Commit History` to `Show Previous File History` on the `gitlens.showQuickCommitDetails` quick pick list
+- Adds file status icons (added, modified, deleted, etc) to the `gitlens.showQuickCommitDetails` quick pick menu
+- Adds `Copy Commit Sha to Clipboard` command to commit files quick pick menu
+- Adds `Copy Commit Message to Clipboard` command to commit files quick pick menu
+- Changes `Show Commit History` to `Show File History` on the `gitlens.showQuickCommitDetails` quick pick menu
+- Changes `Show Previous Commit History` to `Show Previous File History` on the `gitlens.showQuickCommitDetails` quick pick menu
 - Fixes issue with repository status when there are no changes
-- Fixes issue with `.` showing in the path of quick pick lists
+- Fixes issue with `.` showing in the path of quick pick menus
 - Fixes logging to clean up on extension deactivate
 
 ### 2.6.0
-- Adds `gitlens.showQuickRepoStatus` command to show a quick pick list of files changed including status icons (added, modified, deleted, etc)
+- Adds `gitlens.showQuickRepoStatus` command to show a quick pick menu of files changed including status icons (added, modified, deleted, etc)
 - Adds `alt+s` shortcut for the `gitlens.showQuickRepoStatus` command
 
 ### 2.5.6
@@ -232,29 +242,29 @@
 - Fixes [#27](https://github.com/eamodio/vscode-gitlens/issues/27) - Annotations are broken in vscode insider build
 
 ### 2.5.2
-- Adds `Open File` command to `gitlens.showQuickCommitDetails` quick pick list
-- Adds `Open Files` command to `gitlens.showQuickCommitDetails` quick pick list
+- Adds `Open File` command to `gitlens.showQuickCommitDetails` quick pick menu
+- Adds `Open Files` command to `gitlens.showQuickCommitDetails` quick pick menu
 - Changes `Not Committed Yet` author for uncommitted changes to `Uncommitted`
 - Improves performance of git-log operations in `gitlens.diffWithPrevious` and `gitlens.diffWithWorking` commands
-- Fixes showing `gitlens.showQuickCommitDetails` quick pick list for uncommitted changes -- now shows the previous commit details
+- Fixes showing `gitlens.showQuickCommitDetails` quick pick menu for uncommitted changes -- now shows the previous commit details
 
 ### 2.5.1
 - Adds `gitlens.copyMessageToClipboard` command to copy commit message to the clipboard
 - Adds `gitlens.copyMessageToClipboard` to the editor content menu
-- Adds `Copy Commit Message to Clipboard` command to `gitlens.showQuickCommitDetails` quick pick list
+- Adds `Copy Commit Message to Clipboard` command to `gitlens.showQuickCommitDetails` quick pick menu
 - Changes behavior of `gitlens.copyShaToClipboard` to copy the sha of the most recent commit to the repository if there is no active editor
 - Changes behavior of `gitlens.showQuickFileHistory` to execute `gitlens.showQuickRepoHistory` if there is no active editor
 - Fixes issue where shortcut keys weren't disabled if GitLens was disabled
 
 ### 2.5.0
-- Overhauls the `gitlens.showQuickRepoHistory`, `gitlens.showQuickFileHistory`, and `gitlens.showQuickCommitDetails` quick pick lists
-  - Adds `Show Repository History` command to `gitlens.showQuickFileHistory` quick pick list
-  - Adds `Show Previous Commits History` command to `gitlens.showQuickCommitDetails` quick pick list
-  - Adds `Show Commits History` command to `gitlens.showQuickCommitDetails` quick pick list
-  - Adds `Copy Commit Sha to Clipboard` command to `gitlens.showQuickCommitDetails` quick pick list
-  - Adds `Show Changed Files` command to `gitlens.showQuickCommitDetails` quick pick list
-  - Adds more robust `go back` navigation in quick pick lists
-  - Adds commit message to placeholder text of many quick pick lists
+- Overhauls the `gitlens.showQuickRepoHistory`, `gitlens.showQuickFileHistory`, and `gitlens.showQuickCommitDetails` quick pick menus
+  - Adds `Show Repository History` command to `gitlens.showQuickFileHistory` quick pick menu
+  - Adds `Show Previous Commits History` command to `gitlens.showQuickCommitDetails` quick pick menu
+  - Adds `Show Commits History` command to `gitlens.showQuickCommitDetails` quick pick menu
+  - Adds `Copy Commit Sha to Clipboard` command to `gitlens.showQuickCommitDetails` quick pick menu
+  - Adds `Show Changed Files` command to `gitlens.showQuickCommitDetails` quick pick menu
+  - Adds more robust `go back` navigation in quick pick menus
+  - Adds commit message to placeholder text of many quick pick menus
   - Adds icons for some commands
 - Adds `gitlens.diffWithPrevious` command to the editor content menu
 - Adds `gitlens.diffWithWorking` command to the editor content menu
@@ -270,7 +280,7 @@
 - Renames `gitlens.diffLineWithWorking` command from `Diff Commit (line) with Working Tree` to `Compare Line with Working Tree`
 - Fixes issues with certain git commands not working on Windows
 - Fixes [#31](https://github.com/eamodio/vscode-gitlens/issues/31) - Disable gitlens if the project does not have `.git` folder
-- Fixes issue where quick pick lists could fail if there was no active editor
+- Fixes issue where quick pick menus could fail if there was no active editor
 - Fixes code lens not updating in response to configuration changes
 
 ### 2.1.1
@@ -283,8 +293,8 @@
 - Adds `alt+w` shortcut for the `gitlens.diffLineWithWorking` command
 - Adds `shift+alt+w` shortcut for the `gitlens.diffWithWorking` command
 - Adds `gitlens.copyShaToClipboard` command to copy commit sha to the clipboard ([#28](https://github.com/eamodio/vscode-gitlens/issues/28))
-- Adds `gitlens.showQuickCommitDetails` command to show a quick pick list of details for a commit
-- Adds `go back` choice to `gitlens.showQuickCommitDetails`, `gitlens.showQuickFileHistory`, and `gitlens.showQuickRepoHistory` quick pick lists
+- Adds `gitlens.showQuickCommitDetails` command to show a quick pick menu of details for a commit
+- Adds `go back` choice to `gitlens.showQuickCommitDetails`, `gitlens.showQuickFileHistory`, and `gitlens.showQuickRepoHistory` quick pick menus
 - Adds `gitlens.blame.annotation.highlight` to specify whether and how to highlight blame annotations ([#24](https://github.com/eamodio/vscode-gitlens/issues/24))
 - Greatly improves performance of line navigation when either active line annotations or status bar blame is enabled
 - Fixes [#29](https://github.com/eamodio/vscode-gitlens/issues/29) - Commit info tooltip duplicated for current line when blame is enabled
