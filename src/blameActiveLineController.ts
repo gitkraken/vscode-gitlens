@@ -165,13 +165,17 @@ export class BlameActiveLineController extends Disposable {
         this._onActiveTextEditorChanged(window.activeTextEditor);
     }
 
-    private _onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent): void {
+    private async _onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent): Promise<void> {
         // Make sure this is for the editor we are tracking
         if (!this._blameable || !TextEditorComparer.equals(this._editor, e.textEditor)) return;
 
         const line = e.selections[0].active.line;
         if (line === this._currentLine) return;
         this._currentLine = line;
+
+        if (!this._uri && e.textEditor) {
+            this._uri = await GitUri.fromUri(e.textEditor.document.uri, this.git);
+        }
 
         this._updateBlameDebounced(line, e.textEditor);
     }
