@@ -54,7 +54,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                 }
 
                 if (!fileLog) {
-                    commit = await this.git.getLogCommit(commit ? commit.repoPath : gitUri.repoPath, commit ? commit.uri.fsPath : gitUri.fsPath, sha, { previous: true });
+                    commit = await this.git.getLogCommit(commit ? commit.repoPath : gitUri.repoPath, gitUri.fsPath, sha, { previous: true });
                     if (!commit) return window.showWarningMessage(`Unable to show commit file details`);
                 }
             }
