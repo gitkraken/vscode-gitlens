@@ -11,6 +11,7 @@ export class GitLogCommit extends GitCommit {
     nextSha?: string;
     nextFileName?: string;
     parentShas: string[];
+    status?: GitStatusFileStatus;
 
     constructor(
         type: GitCommitType,
@@ -33,10 +34,14 @@ export class GitLogCommit extends GitCommit {
 
         if (fileStatuses) {
             this.fileStatuses = fileStatuses.filter(_ => !!_.fileName);
-            this.fileName = this.fileStatuses[0].fileName;
+
+            const fileStatus = this.fileStatuses[0];
+            this.fileName = fileStatus.fileName;
+            this.status = fileStatus.status;
         }
         else {
             this.fileStatuses = [{ status: status, fileName: fileName, originalFileName: originalFileName }];
+            this.status = status;
         }
     }
 

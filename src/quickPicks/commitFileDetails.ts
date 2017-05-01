@@ -3,25 +3,34 @@ import { Arrays, Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard, KeyNoopCommand } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem } from './common';
-import { GitCommit, GitLogCommit, GitService, GitUri, IGitLog } from '../gitService';
+import { GitLogCommit, GitService, GitUri, IGitLog } from '../gitService';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as moment from 'moment';
 import * as path from 'path';
 
 export class OpenCommitFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 
-    constructor(commit: GitCommit, item?: QuickPickItem) {
-        const uri = GitService.toGitContentUri(commit);
+    constructor(commit: GitLogCommit, item?: QuickPickItem) {
+        let description: string;
+        let uri: Uri;
+        if (commit.status === 'D') {
+            uri = GitService.toGitContentUri(commit.previousSha, commit.previousShortSha, commit.previousFileName, commit.repoPath, undefined);
+            description = `\u00a0 \u2014 \u00a0\u00a0 ${path.basename(commit.fileName)} in \u00a0$(git-commit) ${commit.previousShortSha} (deleted in \u00a0$(git-commit) ${commit.shortSha})`;
+        }
+        else {
+            uri = GitService.toGitContentUri(commit);
+            description = `\u00a0 \u2014 \u00a0\u00a0 ${path.basename(commit.fileName)} in \u00a0$(git-commit) ${commit.shortSha}`;
+        }
         super(uri, item || {
             label: `$(file-symlink-file) Open File`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 ${path.basename(commit.fileName)} in \u00a0$(git-commit) ${commit.shortSha}`
+            description: description
         });
     }
 }
 
 export class OpenCommitWorkingTreeFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 
-    constructor(commit: GitCommit, item?: QuickPickItem) {
+    constructor(commit: GitLogCommit, item?: QuickPickItem) {
         const uri = Uri.file(path.resolve(commit.repoPath, commit.fileName));
         super(uri, item || {
             label: `$(file-symlink-file) Open Working File`,
@@ -80,16 +89,16 @@ export class CommitFileDetailsQuickPick {
         }
 
         items.push(new OpenCommitFileCommandQuickPickItem(commit));
-        if (commit.workingFileName) {
+        if (commit.workingFileName && commit.status !== 'D') {
             items.push(new OpenCommitWorkingTreeFileCommandQuickPickItem(commit));
         }
 
         const remotes = Arrays.uniqueBy(await git.getRemotes(commit.repoPath), _ => _.url, _ => !!_.provider);
         if (remotes.length) {
             if (!stash) {
-                items.push(new OpenRemotesCommandQuickPickItem(remotes, 'file', commit.fileName, undefined, commit.sha, currentCommand));
+                items.push(new OpenRemotesCommandQuickPickItem(remotes, 'file', commit.fileName, undefined, commit, currentCommand));
             }
-            if (commit.workingFileName) {
+            if (commit.workingFileName && commit.status !== 'D') {
                 const branch = await git.getBranch(commit.repoPath || git.repoPath);
                 items.push(new OpenRemotesCommandQuickPickItem(remotes, 'working-file', commit.workingFileName, branch.name, undefined, currentCommand));
             }

@@ -2,7 +2,7 @@
 import { QuickPickOptions, window } from 'vscode';
 import { Commands } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './common';
-import { getNameFromRemoteOpenType, GitRemote, RemoteOpenType } from '../gitService';
+import { getNameFromRemoteOpenType, GitLogCommit, GitRemote, RemoteOpenType } from '../gitService';
 import * as path from 'path';
 
 export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
@@ -30,8 +30,9 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
 
     constructor(remotes: GitRemote[], type: 'branch', branch: string, goBackCommand?: CommandQuickPickItem);
     constructor(remotes: GitRemote[], type: 'commit', sha: string, goBackCommand?: CommandQuickPickItem);
+    constructor(remotes: GitRemote[], type: 'file', fileName: string, branch?: string, commit?: GitLogCommit, goBackCommand?: CommandQuickPickItem);
     constructor(remotes: GitRemote[], type: 'file' | 'working-file', fileName: string, branch?: string, sha?: string, goBackCommand?: CommandQuickPickItem);
-    constructor(remotes: GitRemote[], type: RemoteOpenType, branchOrShaOrFileName: string, goBackCommandOrFileBranch?: CommandQuickPickItem | string, fileSha?: string, goBackCommand?: CommandQuickPickItem) {
+    constructor(remotes: GitRemote[], type: RemoteOpenType, branchOrShaOrFileName: string, goBackCommandOrFileBranch?: CommandQuickPickItem | string, fileShaOrCommit?: string | GitLogCommit, goBackCommand?: CommandQuickPickItem) {
         let fileBranch: string;
         if (typeof goBackCommandOrFileBranch === 'string') {
             fileBranch = goBackCommandOrFileBranch;
@@ -42,6 +43,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
 
         const name = getNameFromRemoteOpenType(type);
 
+        let fileSha: string;
         let description: string;
         let placeHolder: string;
         switch (type) {
@@ -58,11 +60,28 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
             case 'file':
             case 'working-file':
                 const fileName = path.basename(branchOrShaOrFileName);
-                const shortFileSha = (fileSha && fileSha.substring(0, 8)) || '';
-                const shaSuffix = shortFileSha ? ` \u00a0\u2022\u00a0 ${shortFileSha}` : '';
+                if (fileShaOrCommit instanceof GitLogCommit) {
+                    if (fileShaOrCommit.status === 'D') {
+                        fileSha = fileShaOrCommit.previousSha;
 
-                description = `$(file-text) ${fileName}${shortFileSha ? ` in \u00a0$(git-commit) ${shortFileSha}` : ''}`;
-                placeHolder = `open ${branchOrShaOrFileName}${shaSuffix} in\u2026`;
+                        description = `$(file-text) ${fileName} in \u00a0$(git-commit) ${fileShaOrCommit.previousShortSha} (deleted in \u00a0$(git-commit) ${fileShaOrCommit.shortSha})`;
+                        placeHolder = `open ${branchOrShaOrFileName} \u00a0\u2022\u00a0 ${fileShaOrCommit.previousShortSha} in\u2026`;
+                    }
+                    else {
+                        fileSha = fileShaOrCommit.sha;
+
+                        description = `$(file-text) ${fileName} in \u00a0$(git-commit) ${fileShaOrCommit.shortSha}`;
+                        placeHolder = `open ${branchOrShaOrFileName} \u00a0\u2022\u00a0 ${fileShaOrCommit.shortSha} in\u2026`;
+                    }
+                }
+                else {
+                    fileSha = fileShaOrCommit;
+                    const shortFileSha = (fileSha && fileSha.substring(0, 8)) || '';
+                    const shaSuffix = shortFileSha ? ` \u00a0\u2022\u00a0 ${shortFileSha}` : '';
+
+                    description = `$(file-text) ${fileName}${shortFileSha ? ` in \u00a0$(git-commit) ${shortFileSha}` : ''}`;
+                    placeHolder = `open ${branchOrShaOrFileName}${shaSuffix} in\u2026`;
+                }
                 break;
         }
 
