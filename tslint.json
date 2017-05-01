@@ -19,7 +19,6 @@
         "no-trailing-whitespace": true,
         "no-unsafe-finally": true,
         "no-unused-expression": false,
-        "no-unused-new": true,
         "no-var-keyword": true,
         "no-var-requires": false,
         "object-literal-key-quotes": [

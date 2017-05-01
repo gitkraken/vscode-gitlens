@@ -14,5 +14,5 @@ export namespace Functions {
 
     export function once<T extends Function>(fn: T): T {
         return _once(fn);
-    };
+    }
 }

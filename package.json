@@ -864,12 +864,13 @@
         "*"
     ],
     "scripts": {
-        "compile": "tsc -watch -p ./",
+        "compile": "npm run lint && tsc -p ./",
+        "watch": "tsc -watch -p ./",
         "lint": "tslint --project tslint.json",
-        "pack": "git clean -xdf && npm install && vsce package",
+        "pack": "git clean -xdf --exclude=node_modules/ && vsce package",
         "postinstall": "node ./node_modules/vscode/bin/install",
-        "pub": "git clean -xdf --exclude=node_modules/ && npm install && vsce publish",
-        "vscode:prepublish": "tsc -p ./"
+        "pub": "git clean -xdf && vsce publish",
+        "vscode:prepublish": "npm install && npm run compile"
     },
     "dependencies": {
         "applicationinsights": "0.19.0",

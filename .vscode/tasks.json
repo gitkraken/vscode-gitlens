@@ -9,36 +9,27 @@
 // A task runner that calls a custom npm script that compiles the extension.
 {
     "version": "2.0.0",
-    "command": "npm",
-    "args": ["run"],
-    "isShellCommand": true,
     "showOutput": "always",
-    "suppressTaskName": true,
-    // use the standard tsc in watch mode problem matcher to find compile problems in the output.
-    "tasks": [{
-        "taskName": "compile",
-        "args": ["compile", "--loglevel", "silent"],
-        "isBuildCommand": true,
-        "isBackground": true,
-        "problemMatcher": "$tsc-watch"
-    }, {
-        "taskName": "tslint",
-        "args": ["lint", "--loglevel", "silent"],
-        "isBackground": true,
-        "problemMatcher": {
-            "owner": "tslint",
-            "fileLocation": [
-                "relative",
-                "${workspaceRoot}"
-            ],
-            "severity": "warning",
-            "pattern": {
-                "regexp": "^(\\S.*)\\[(\\d+), (\\d+)\\]:\\s+(.*)$",
-                "file": 1,
-                "line": 2,
-                "column": 3,
-                "message": 4
-            }
+    "tasks": [
+        {
+            "taskName": "compile",
+            "command": "npm run compile",
+            "isBuildCommand": true,
+            "isShellCommand": true,
+            "problemMatcher": [ "$tsc", "$tslint5" ]
+        },
+        {
+            "taskName": "lint",
+            "command": "npm run lint",
+            "isShellCommand": true,
+            "problemMatcher": "$tslint5"
+        },
+        {
+            "taskName": "watch",
+            "command": "npm run watch",
+            "isBackground": true,
+            "isShellCommand": true,
+            "problemMatcher": "$tsc-watch"
         }
-    }]
+    ]
 }

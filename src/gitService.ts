@@ -382,7 +382,7 @@ export class GitService extends Disposable {
 
             return undefined;
         }
-    };
+    }
 
     async getBlameForLine(uri: GitUri, line: number): Promise<IGitBlameLine | undefined> {
         Logger.log(`getBlameForLine('${uri.repoPath}', '${uri.fsPath}', ${line}, ${uri.sha})`);
@@ -665,7 +665,7 @@ export class GitService extends Disposable {
 
             return undefined;
         }
-    };
+    }
 
     async getLogLocations(uri: GitUri, selectedSha?: string, line?: number): Promise<Location[] | undefined> {
         Logger.log(`getLogLocations('${uri.repoPath}', '${uri.fsPath}', ${uri.sha}, ${selectedSha}, ${line})`);
