@@ -1,5 +1,5 @@
 'use strict';
-import { spawnPromise } from 'spawn-rx';
+import { findActualExecutable, spawnPromise } from 'spawn-rx';
 import * as path from 'path';
 
 export interface IGit {
@@ -13,6 +13,11 @@ function parseVersion(raw: string): string {
 
 async function findSpecificGit(path: string): Promise<IGit> {
     const version = await spawnPromise(path, ['--version']);
+    // If needed, let's update our path to avoid the search on every command
+    if (!path || path === 'git') {
+        path = findActualExecutable(path, ['--version']).cmd;
+    }
+
     return {
         path,
         version: parseVersion(version.trim())
