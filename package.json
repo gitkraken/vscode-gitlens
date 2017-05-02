@@ -10,7 +10,7 @@
         "vscode": "^1.9.0"
     },
     "license": "SEE LICENSE IN LICENSE",
-    "displayName": "GitLens \u2014 git blame annotations, code lens, and more",
+    "displayName": "Git Lens \u2014 git blame annotations, code lens, and more",
     "description": "Supercharge Visual Studio Code's Git capabilities \u2014 Visualize code authorship at a glance via inline Git blame annotations and code lens, seamlessly navigate and explore the history of a file or branch, gain valuable insights via powerful comparision commands, and so much more",
     "badges": [
         {
