@@ -1,5 +1,8 @@
 ## Release Notes
 
+### 3.4.8
+- Changes display name in the marketplace to `Git Lens` because of the marketplace search ranking algorithm
+
 ### 3.4.6
 - Adds better support for deleted files when choosing `Open File` via in quick pick menus - now opens the file revision from the previous commit
 - Adds better support for deleted files when choosing `Open File in Remote` via in quick pick menus - now opens the file revision from the previous commit
