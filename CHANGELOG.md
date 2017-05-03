@@ -1,5 +1,10 @@
 ## Release Notes
 
+### 3.4.9
+- Adds better support for deleted files when choosing `Open Changed Files` via in quick pick menus - now opens the file revision from the previous commit
+- Adds better support for deleted files when using `alt+right arrow` shortcut on the commit details quick pick menu - now opens the file revision from the previous commit
+- Removes deleted files when choosing `Open Working Changed Files` via in quick pick menus
+
 ### 3.4.8
 - Changes display name in the marketplace to `Git Lens` because of the marketplace search ranking algorithm
 
