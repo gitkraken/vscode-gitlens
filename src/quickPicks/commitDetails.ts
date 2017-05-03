@@ -24,19 +24,30 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
             directory = undefined;
         }
 
-        let description = (status.status === 'R' && status.originalFileName)
+        const description = (status.status === 'R' && status.originalFileName)
             ? `${directory || ''} \u00a0\u2190\u00a0 ${status.originalFileName}`
             : directory;
 
-        super(GitService.toGitContentUri(commit.sha, commit.shortSha, status.fileName, commit.repoPath, commit.originalFileName), {
+        let sha;
+        let shortSha;
+        if (status.status === 'D') {
+            sha = commit.previousSha;
+            shortSha = commit.previousShortSha;
+        }
+        else {
+            sha = commit.sha;
+            shortSha = commit.shortSha;
+        }
+
+        super(GitService.toGitContentUri(sha, shortSha, status.fileName, commit.repoPath, status.originalFileName), {
             label: `\u00a0\u00a0\u00a0\u00a0${icon}\u00a0\u00a0 ${path.basename(status.fileName)}`,
             description: description
         });
 
         this.fileName = status.fileName;
         this.gitUri = GitUri.fromFileStatus(status, commit.repoPath);
-        this.sha = commit.sha;
-        this.shortSha = commit.shortSha;
+        this.sha = sha;
+        this.shortSha = shortSha;
         this.status = status.status;
     }
 }
@@ -44,8 +55,10 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
 export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPickItem {
 
     constructor(commit: GitLogCommit, item?: QuickPickItem) {
-        const repoPath = commit.repoPath;
-        const uris = commit.fileStatuses.map(_ => GitService.toGitContentUri(commit.sha, commit.shortSha, _.fileName, repoPath, commit.originalFileName));
+        const uris = commit.fileStatuses.map(s => (s.status === 'D')
+            ? GitService.toGitContentUri(commit.previousSha, commit.previousShortSha, s.fileName, commit.repoPath, s.originalFileName)
+            : GitService.toGitContentUri(commit.sha, commit.shortSha, s.fileName, commit.repoPath, s.originalFileName));
+
         super(uris, item || {
             label: `$(file-symlink-file) Open Changed Files`,
             description: `\u00a0 \u2014 \u00a0\u00a0 in \u00a0$(git-commit) ${commit.shortSha}`
@@ -58,7 +71,7 @@ export class OpenCommitWorkingTreeFilesCommandQuickPickItem extends OpenFilesCom
 
     constructor(commit: GitLogCommit, versioned: boolean = false, item?: QuickPickItem) {
         const repoPath = commit.repoPath;
-        const uris = commit.fileStatuses.map(_ => GitUri.fromFileStatus(_, repoPath));
+        const uris = commit.fileStatuses.filter(_ => _.status !== 'D').map(_ => GitUri.fromFileStatus(_, repoPath));
         super(uris, item || {
             label: `$(file-symlink-file) Open Changed Working Files`,
             description: undefined
