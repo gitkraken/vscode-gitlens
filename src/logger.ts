@@ -1,11 +1,10 @@
 'use strict';
 import { ExtensionContext, OutputChannel, window, workspace } from 'vscode';
 import { IConfig } from './configuration';
-import { ExtensionKey } from './constants';
+import { ExtensionKey, ExtensionOutputChannelName } from './constants';
 import { Telemetry } from './telemetry';
 
-const OutputChannelName = 'GitLens';
-const ConsolePrefix = `[${OutputChannelName}]`;
+const ConsolePrefix = `[${ExtensionOutputChannelName}]`;
 
 export type OutputLevel = 'silent' | 'errors' | 'verbose';
 export const OutputLevel = {
@@ -29,7 +28,7 @@ function onConfigurationChanged() {
             output && output.dispose();
         }
         else {
-            output = output || window.createOutputChannel(OutputChannelName);
+            output = output || window.createOutputChannel(ExtensionOutputChannelName);
         }
     }
 }
@@ -43,7 +42,7 @@ export class Logger {
 
     static log(message?: any, ...params: any[]): void {
         if (debug && level !== OutputLevel.Silent) {
-            console.log(ConsolePrefix, message, ...params, '\n');
+            console.log(ConsolePrefix, message, ...params);
         }
 
         if (level === OutputLevel.Verbose) {
@@ -53,7 +52,7 @@ export class Logger {
 
     static error(ex: Error, classOrMethod?: string, ...params: any[]): void {
         if (debug) {
-            console.error(ConsolePrefix, classOrMethod, ex, ...params, '\n');
+            console.error(ConsolePrefix, classOrMethod, ex, ...params);
         }
 
         if (level !== OutputLevel.Silent) {
@@ -65,7 +64,7 @@ export class Logger {
 
     static warn(message?: any, ...params: any[]): void {
         if (debug) {
-            console.warn(ConsolePrefix, message, ...params, '\n');
+            console.warn(ConsolePrefix, message, ...params);
         }
 
         if (level !== OutputLevel.Silent) {
