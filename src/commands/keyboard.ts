@@ -16,7 +16,7 @@ export const keys: Keys[] = [
     '.'
 ];
 
-export declare type KeyMapping = { [id: string]: (QuickPickItem | (() => Promise<QuickPickItem>)) };
+export declare type KeyMapping = { [id: string]: (QuickPickItem | (() => Promise<QuickPickItem>) | undefined) };
 let mappings: KeyMapping[] = [];
 
 let _instance: Keyboard;
@@ -113,7 +113,7 @@ export class Keyboard extends Disposable {
         return await new KeyboardScope(mapping ? Object.assign(Object.create(null), mapping) : Object.create(null)).begin();
     }
 
-    async execute(key: Keys): Promise<{}> {
+    async execute(key: Keys): Promise<{} | undefined> {
         if (!mappings.length) return undefined;
 
         try {

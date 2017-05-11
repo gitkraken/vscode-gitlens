@@ -12,8 +12,8 @@ export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 
     constructor(remote: GitRemote, type: RemoteOpenType, ...args: string[]) {
         super({
-            label: `$(link-external) Open ${getNameFromRemoteOpenType(type)} in ${remote.provider.name}`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 $(repo) ${remote.provider.path}`
+            label: `$(link-external) Open ${getNameFromRemoteOpenType(type)} in ${remote.provider!.name}`,
+            description: `\u00a0 \u2014 \u00a0\u00a0 $(repo) ${remote.provider!.path}`
         }, undefined, undefined);
 
         this.remote = remote;
@@ -22,7 +22,7 @@ export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
     }
 
     async execute(): Promise<{}> {
-        return this.remote.provider.open(this.type, ...this.args);
+        return this.remote.provider!.open(this.type, ...this.args!);
     }
 }
 
@@ -33,7 +33,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
     constructor(remotes: GitRemote[], type: 'file', fileName: string, branch?: string, commit?: GitLogCommit, goBackCommand?: CommandQuickPickItem);
     constructor(remotes: GitRemote[], type: 'file' | 'working-file', fileName: string, branch?: string, sha?: string, goBackCommand?: CommandQuickPickItem);
     constructor(remotes: GitRemote[], type: RemoteOpenType, branchOrShaOrFileName: string, goBackCommandOrFileBranch?: CommandQuickPickItem | string, fileShaOrCommit?: string | GitLogCommit, goBackCommand?: CommandQuickPickItem) {
-        let fileBranch: string;
+        let fileBranch: string | undefined = undefined;
         if (typeof goBackCommandOrFileBranch === 'string') {
             fileBranch = goBackCommandOrFileBranch;
         }
@@ -43,9 +43,9 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
 
         const name = getNameFromRemoteOpenType(type);
 
-        let fileSha: string;
-        let description: string;
-        let placeHolder: string;
+        let fileSha: string | undefined = undefined;
+        let description: string | undefined = undefined;
+        let placeHolder: string | undefined = undefined;
         switch (type) {
             case 'branch':
                 description = `$(git-branch) ${branchOrShaOrFileName}`;
@@ -88,15 +88,15 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
         const remote = remotes[0];
         if (remotes.length === 1) {
             super({
-                label: `$(link-external) Open ${name} in ${remote.provider.name}`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 $(repo) ${remote.provider.path} \u00a0\u2022\u00a0 ${description}`
+                label: `$(link-external) Open ${name} in ${remote.provider!.name}`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 $(repo) ${remote.provider!.path} \u00a0\u2022\u00a0 ${description}`
             }, Commands.OpenInRemote, [undefined, remotes, type, [branchOrShaOrFileName, fileBranch, fileSha], goBackCommand]);
 
             return;
         }
 
-        const provider = remotes.every(_ => _.provider.name === remote.provider.name)
-            ? remote.provider.name
+        const provider = remotes.every(_ => _.provider !== undefined && _.provider.name === remote.provider!.name)
+            ? remote.provider!.name
             : 'Remote';
 
         super({

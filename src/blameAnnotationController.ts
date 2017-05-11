@@ -18,7 +18,7 @@ export const BlameDecorations = {
             margin: '0 0 0 4em'
         }
     } as DecorationRenderOptions),
-    highlight: undefined as TextEditorDecorationType
+    highlight: undefined as TextEditorDecorationType | undefined
 };
 
 export class BlameAnnotationController extends Disposable {
@@ -29,7 +29,7 @@ export class BlameAnnotationController extends Disposable {
     }
 
     private _annotationProviders: Map<number, BlameAnnotationProvider> = new Map();
-    private _blameAnnotationsDisposable: Disposable;
+    private _blameAnnotationsDisposable: Disposable | undefined;
     private _config: IBlameConfig;
     private _disposable: Disposable;
     private _whitespaceController: WhitespaceController | undefined;
@@ -73,12 +73,12 @@ export class BlameAnnotationController extends Disposable {
             this._whitespaceController = undefined;
         }
 
-        const config = workspace.getConfiguration(ExtensionKey).get<IBlameConfig>('blame');
+        const cfg = workspace.getConfiguration(ExtensionKey).get<IBlameConfig>('blame')!;
 
-        if (config.annotation.highlight !== (this._config && this._config.annotation.highlight)) {
+        if (cfg.annotation.highlight !== (this._config && this._config.annotation.highlight)) {
             BlameDecorations.highlight && BlameDecorations.highlight.dispose();
 
-            switch (config.annotation.highlight) {
+            switch (cfg.annotation.highlight) {
                 case 'gutter':
                     BlameDecorations.highlight = window.createTextEditorDecorationType({
                         dark: {
@@ -133,7 +133,7 @@ export class BlameAnnotationController extends Disposable {
             }
         }
 
-        this._config = config;
+        this._config = cfg;
     }
 
     async clear(column: number) {

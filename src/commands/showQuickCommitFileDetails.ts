@@ -46,24 +46,26 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
         try {
             if (!commit || (commit.type !== 'file' && commit.type !== 'stash')) {
                 if (fileLog) {
-                    commit = fileLog.commits.get(sha);
+                    commit = fileLog.commits.get(sha!);
                     // If we can't find the commit, kill the fileLog
-                    if (!commit) {
+                    if (commit === undefined) {
                         fileLog = undefined;
                     }
                 }
 
-                if (!fileLog) {
+                if (fileLog === undefined) {
                     commit = await this.git.getLogCommit(commit ? commit.repoPath : gitUri.repoPath, gitUri.fsPath, sha, { previous: true });
-                    if (!commit) return window.showWarningMessage(`Unable to show commit file details`);
+                    if (commit === undefined) return window.showWarningMessage(`Unable to show commit file details`);
                 }
             }
+
+            if (commit === undefined) return window.showWarningMessage(`Unable to show commit file details`);
 
             // Attempt to the most recent commit -- so that we can find the real working filename if there was a rename
             commit.workingFileName = workingFileName;
             commit.workingFileName = await this.git.findWorkingFileName(commit);
 
-            const shortSha = sha.substring(0, 8);
+            const shortSha = sha!.substring(0, 8);
 
             if (!goBackCommand) {
                 // Create a command to get back to the commit details

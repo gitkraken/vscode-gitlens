@@ -13,20 +13,22 @@ const behindStatusV1Regex = /(?:behind ([0-9]+))/;
 
 export class GitStatusParser {
 
-    static parse(data: string, repoPath: string, porcelainVersion: number): IGitStatus {
+    static parse(data: string, repoPath: string, porcelainVersion: number): IGitStatus | undefined {
         if (!data) return undefined;
 
         const lines = data.split('\n').filter(_ => !!_);
         if (!lines.length) return undefined;
 
         const status = {
+            branch: '',
             repoPath: Git.normalizePath(repoPath),
+            sha: '',
             state: {
                 ahead: 0,
                 behind: 0
             },
             files: []
-        } as IGitStatus;
+        };
 
         if (porcelainVersion >= 2) {
             this._parseV2(lines, repoPath, status);
@@ -50,10 +52,10 @@ export class GitStatusParser {
                     const upstreamStatus = lineParts.slice(2).join(' ');
 
                     const aheadStatus = aheadStatusV1Regex.exec(upstreamStatus);
-                    status.state.ahead = +aheadStatus[1] || 0;
+                    status.state.ahead = aheadStatus == null ? 0 : +aheadStatus[1] || 0;
 
                     const behindStatus = behindStatusV1Regex.exec(upstreamStatus);
-                    status.state.behind = +behindStatus[1] || 0;
+                    status.state.behind = behindStatus == null ? 0 : +behindStatus[1] || 0;
                 }
             }
             else {
@@ -97,7 +99,7 @@ export class GitStatusParser {
             }
             else {
                 let lineParts = line.split(' ');
-                let entry: IFileStatusEntry;
+                let entry: IFileStatusEntry | undefined = undefined;
                 switch (lineParts[0][0]) {
                     case '1': // normal
                         entry = this._parseFileEntry(lineParts[1], lineParts.slice(8).join(' '));
@@ -114,7 +116,7 @@ export class GitStatusParser {
                         break;
                 }
 
-                if (entry) {
+                if (entry !== undefined) {
                     status.files.push(new GitStatusFile(repoPath, entry.status, entry.fileName, entry.staged, entry.originalFileName));
                 }
             }
@@ -130,6 +132,6 @@ export class GitStatusParser {
             fileName: fileName,
             originalFileName: originalFileName,
             staged: !!indexStatus
-        };
+        } as IFileStatusEntry;
     }
 }

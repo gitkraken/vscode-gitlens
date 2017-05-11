@@ -59,7 +59,6 @@ export const CommandContext = {
     Key: 'gitlens:key' as CommandContext
 };
 
-
 export function setCommandContext(key: CommandContext | string, value: any) {
     return commands.executeCommand(BuiltInCommands.SetContext, key, value);
 }
@@ -119,7 +118,7 @@ export abstract class ActiveEditorCommand extends Command {
     abstract execute(editor: TextEditor, ...args: any[]): any;
 }
 
-let lastCommand: { command: string, args: any[] } = undefined;
+let lastCommand: { command: string, args: any[] } | undefined = undefined;
 export function getLastCommand() {
     return lastCommand;
 }

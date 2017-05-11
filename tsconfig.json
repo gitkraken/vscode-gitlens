@@ -1,17 +1,17 @@
 {
     "compilerOptions": {
+        "forceConsistentCasingInFileNames": true,
         "lib": [ "es6" ],
         "module": "commonjs",
         "noFallthroughCasesInSwitch": true,
-        "noImplicitAny": true,
         "noImplicitReturns": true,
-        "noImplicitThis": false,
         "noUnusedLocals": true,
         "outDir": "out",
         "removeComments": true,
         "rootDir": ".",
+        "skipLibCheck": true,
         "sourceMap": true,
-        "strictNullChecks": false,
+        "strict": true,
         "target": "es6"
     },
     "exclude": [

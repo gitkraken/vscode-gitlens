@@ -19,6 +19,7 @@ let output: OutputChannel;
 
 function onConfigurationChanged() {
     const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey);
+    if (cfg === undefined) return;
 
     if (cfg.debug !== debug || cfg.outputLevel !== level) {
         debug = cfg.debug;

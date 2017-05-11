@@ -42,7 +42,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 
                 const sha = (commit && commit.sha) || gitUri.sha;
 
-                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, sha ? undefined : 2, rangeOrLine as Range);
+                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, sha ? undefined : 2, rangeOrLine!);
                 if (!log) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
 
                 commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
@@ -62,7 +62,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
                 this.git.getVersionedFile(commit.repoPath, commit.nextUri.fsPath, commit.nextSha),
                 this.git.getVersionedFile(commit.repoPath, commit.uri.fsPath, commit.sha)
             ]);
-            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.uri.fsPath)} (${commit.shortSha}) ↔ ${path.basename(commit.nextUri.fsPath)} (${commit.nextShortSha})`);
+            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.uri.fsPath)} (${commit.shortSha}) \u2194 ${path.basename(commit.nextUri.fsPath)} (${commit.nextShortSha})`);
             return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' });
         }
         catch (ex) {

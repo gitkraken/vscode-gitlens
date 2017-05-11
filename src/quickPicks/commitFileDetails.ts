@@ -3,7 +3,7 @@ import { Arrays, Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard, KeyNoopCommand } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem } from './common';
-import { GitLogCommit, GitService, GitUri, IGitLog } from '../gitService';
+import { GitBranch, GitLogCommit, GitService, GitUri, IGitLog } from '../gitService';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as moment from 'moment';
 import * as path from 'path';
@@ -14,7 +14,7 @@ export class OpenCommitFileCommandQuickPickItem extends OpenFileCommandQuickPick
         let description: string;
         let uri: Uri;
         if (commit.status === 'D') {
-            uri = GitService.toGitContentUri(commit.previousSha, commit.previousShortSha, commit.previousFileName, commit.repoPath, undefined);
+            uri = GitService.toGitContentUri(commit.previousSha!, commit.previousShortSha!, commit.previousFileName!, commit.repoPath, undefined);
             description = `\u00a0 \u2014 \u00a0\u00a0 ${path.basename(commit.fileName)} in \u00a0$(git-commit) ${commit.previousShortSha} (deleted in \u00a0$(git-commit) ${commit.shortSha})`;
         }
         else {
@@ -51,8 +51,10 @@ export class CommitFileDetailsQuickPick {
         const isUncommitted = commit.isUncommitted;
         if (isUncommitted) {
             // Since we can't trust the previous sha on an uncommitted commit, find the last commit for this file
-            commit = await git.getLogCommit(undefined, commit.uri.fsPath, { previous: true });
-            if (!commit) return undefined;
+            const c = await git.getLogCommit(undefined, commit.uri.fsPath, { previous: true });
+            if (c === undefined) return undefined;
+
+            commit = c;
         }
 
         if (!stash) {
@@ -99,7 +101,7 @@ export class CommitFileDetailsQuickPick {
                 items.push(new OpenRemotesCommandQuickPickItem(remotes, 'file', commit.fileName, undefined, commit, currentCommand));
             }
             if (commit.workingFileName && commit.status !== 'D') {
-                const branch = await git.getBranch(commit.repoPath || git.repoPath);
+                const branch = await git.getBranch(commit.repoPath || git.repoPath) as GitBranch;
                 items.push(new OpenRemotesCommandQuickPickItem(remotes, 'working-file', commit.workingFileName, branch.name, undefined, currentCommand));
             }
         }
@@ -122,13 +124,13 @@ export class CommitFileDetailsQuickPick {
             items.splice(0, 0, goBackCommand);
         }
 
-        let previousCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>);
-        let nextCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>);
+        let previousCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>) | undefined = undefined;
+        let nextCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>) | undefined = undefined;
         if (!stash) {
             // If we have the full history, we are good
             if (fileLog && !fileLog.truncated && !fileLog.sha) {
-                previousCommand = commit.previousSha && new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [commit.previousUri, commit.previousSha, undefined, goBackCommand, fileLog]);
-                nextCommand = commit.nextSha && new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [commit.nextUri, commit.nextSha, undefined, goBackCommand, fileLog]);
+                previousCommand = commit.previousSha === undefined ? undefined : new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [commit.previousUri, commit.previousSha, undefined, goBackCommand, fileLog]);
+                nextCommand = commit.nextSha === undefined ? undefined : new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [commit.nextUri, commit.nextSha, undefined, goBackCommand, fileLog]);
             }
             else {
                 previousCommand = async () => {
@@ -138,6 +140,8 @@ export class CommitFileDetailsQuickPick {
                     // If we can't find the commit or the previous commit isn't available (since it isn't trustworthy)
                     if (!c || !c.previousSha) {
                         log = await git.getLogForFile(commit.repoPath, uri.fsPath, commit.sha, git.config.advanced.maxQuickHistory);
+                        if (log === undefined) return KeyNoopCommand;
+
                         c = log && log.commits.get(commit.sha);
                         // Since we exclude merge commits in file log, just grab the first returned commit
                         if (!c && commit.isMerge) {

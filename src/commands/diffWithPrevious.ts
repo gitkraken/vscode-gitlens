@@ -43,7 +43,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
                 const sha = (commit && commit.sha) || gitUri.sha;
 
-                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, sha ? undefined : 2, rangeOrLine as Range);
+                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, sha ? undefined : 2, rangeOrLine!);
                 if (!log) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
 
                 commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
@@ -63,7 +63,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                 this.git.getVersionedFile(commit.repoPath, commit.uri.fsPath, commit.sha),
                 this.git.getVersionedFile(commit.repoPath, commit.previousUri.fsPath, commit.previousSha)
             ]);
-            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.previousUri.fsPath)} (${commit.previousShortSha}) ↔ ${path.basename(commit.uri.fsPath)} (${commit.shortSha})`);
+            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.previousUri.fsPath)} (${commit.previousShortSha}) \u2194 ${path.basename(commit.uri.fsPath)} (${commit.shortSha})`);
             // TODO: Figure out how to focus the left pane
             return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' });
         }

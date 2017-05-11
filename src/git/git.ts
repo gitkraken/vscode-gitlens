@@ -54,8 +54,8 @@ export class Git {
         return git;
     }
 
-    static async getRepoPath(cwd: string) {
-        if (!cwd) return '';
+    static async getRepoPath(cwd: string | undefined) {
+        if (cwd === undefined) return '';
 
         const data = await gitCommand(cwd, 'rev-parse', '--show-toplevel');
         if (!data) return '';
@@ -63,7 +63,7 @@ export class Git {
         return data.replace(/\r?\n|\r/g, '').replace(/\\/g, '/');
     }
 
-    static async getVersionedFile(repoPath: string, fileName: string, branchOrSha: string) {
+    static async getVersionedFile(repoPath: string | undefined, fileName: string, branchOrSha: string) {
         const data = await Git.show(repoPath, fileName, branchOrSha);
 
         const suffix = Git.isSha(branchOrSha) ? branchOrSha.substring(0, 8) : branchOrSha;
@@ -112,7 +112,7 @@ export class Git {
             }
         }
         else {
-            repoPath = this.normalizePath(extract ? path.dirname(fileName) : repoPath);
+            repoPath = this.normalizePath(extract ? path.dirname(fileName) : repoPath!);
             fileName = this.normalizePath(extract ? path.basename(fileName) : fileName);
         }
 
@@ -126,7 +126,7 @@ export class Git {
 
     // Git commands
 
-    static blame(repoPath: string, fileName: string, sha?: string, startLine?: number, endLine?: number) {
+    static blame(repoPath: string | undefined, fileName: string, sha?: string, startLine?: number, endLine?: number) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const params = [`blame`, `--root`, `--incremental`];
@@ -208,7 +208,7 @@ export class Git {
         }
 
         // If we are looking for a specific sha don't exclude merge commits
-        if (!sha || maxCount > 2) {
+        if (!sha || maxCount! > 2) {
             params.push(`--no-merges`);
         }
         else {
@@ -236,7 +236,7 @@ export class Git {
         return gitCommand(root, ...params);
     }
 
-    static log_search(repoPath: string, search?: string[], maxCount?: number) {
+    static log_search(repoPath: string, search: string[] = [], maxCount?: number) {
         const params = [...defaultLogParams, `-m`, `-i`];
         if (maxCount) {
             params.push(`-n${maxCount}`);
@@ -262,7 +262,7 @@ export class Git {
         return gitCommand(repoPath, 'remote', 'get-url', remote);
     }
 
-    static show(repoPath: string, fileName: string, branchOrSha: string) {
+    static show(repoPath: string | undefined, fileName: string, branchOrSha: string) {
         const [file, root] = Git.splitPath(fileName, repoPath);
         branchOrSha = branchOrSha.replace('^', '');
 

@@ -11,20 +11,21 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
         super(Commands.OpenInRemote);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, remotes?: GitRemote[], type?: RemoteOpenType, args?: string[], goBackCommand?: CommandQuickPickItem) {
+    async execute(editor: TextEditor, uri?: Uri, remotes?: GitRemote[], type?: RemoteOpenType, args: string[] = [], goBackCommand?: CommandQuickPickItem) {
         if (!(uri instanceof Uri)) {
             uri = editor && editor.document && editor.document.uri;
         }
 
         try {
-            if (!remotes) return undefined;
+            if (remotes === undefined) return undefined;
+            if (type === undefined) throw new Error(`Invalid type ${type}`);
 
             if (remotes.length === 1) {
                 const command = new OpenRemoteCommandQuickPickItem(remotes[0], type, ...args);
                 return command.execute();
             }
 
-            let placeHolder: string;
+            let placeHolder: string = '';
             switch (type) {
                 case 'branch':
                     placeHolder = `open ${args[0]} branch in\u2026`;

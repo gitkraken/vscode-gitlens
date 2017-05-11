@@ -11,13 +11,13 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
     constructor(status: GitStatusFile, item?: QuickPickItem) {
         const icon = status.getIcon();
 
-        let directory = GitService.normalizePath(path.dirname(status.fileName));
+        let directory: string | undefined = GitService.normalizePath(path.dirname(status.fileName));
         if (!directory || directory === '.') {
-            directory = undefined;
+            directory = '';
         }
 
         let description = (status.status === 'R' && status.originalFileName)
-            ? `${directory || ''} \u00a0\u2190\u00a0 ${status.originalFileName}`
+            ? `${directory} \u00a0\u2190\u00a0 ${status.originalFileName}`
             : directory;
 
         super(status.Uri, item || {
@@ -34,7 +34,7 @@ export class OpenStatusFilesCommandQuickPickItem extends CommandQuickPickItem {
 
         super(item || {
             label: `$(file-symlink-file) Open Changed Files`,
-            description: undefined
+            description: ''
             //detail: `Opens all of the changed files in the repository`
         }, Commands.OpenChangedFiles, [undefined, uris]);
     }
@@ -85,12 +85,12 @@ export class RepoStatusQuickPick {
 
                 items.splice(unstagedIndex, 0, new OpenStatusFilesCommandQuickPickItem(files.filter(_ => _.status !== 'D' && _.staged), {
                     label: `\u00a0\u00a0\u00a0\u00a0 $(file-symlink-file) Open Staged Files`,
-                    description: undefined
+                    description: ''
                 }));
 
                 items.push(new OpenStatusFilesCommandQuickPickItem(files.filter(_ => _.status !== 'D' && !_.staged), {
                     label: `\u00a0\u00a0\u00a0\u00a0 $(file-symlink-file) Open Unstaged Files`,
-                    description: undefined
+                    description: ''
                 }));
             }
 
@@ -110,13 +110,13 @@ export class RepoStatusQuickPick {
             items.push(new OpenStatusFilesCommandQuickPickItem(files.filter(_ => _.status !== 'D')));
             items.push(new CommandQuickPickItem({
                 label: '$(x) Close Unchanged Files',
-                description: null
+                description: ''
             }, Commands.CloseUnchangedFiles));
         }
         else {
             items.push(new CommandQuickPickItem({
                 label: `No changes in the working tree`,
-                description: null
+                description: ''
             }, Commands.ShowQuickRepoStatus, [undefined, goBackCommand]));
         }
 
@@ -150,7 +150,7 @@ export class RepoStatusQuickPick {
         if (status.upstream && !status.state.ahead && !status.state.behind) {
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `$(git-branch) ${status.branch} is up-to-date with \u00a0$(git-branch) ${status.upstream}`,
-                description: null
+                description: ''
             }, Commands.ShowQuickRepoStatus, [undefined, goBackCommand]));
         }
 

@@ -35,7 +35,7 @@ export class BranchHistoryQuickPick {
             description: `\u00a0 \u2014 \u00a0\u00a0 search for commits by message, author, files, or commit id`
         }, Commands.ShowCommitSearch, [new GitUri(Uri.file(log.repoPath), { fileName: '', repoPath: log.repoPath }), undefined, undefined, currentCommand]));
 
-        let previousPageCommand: CommandQuickPickItem;
+        let previousPageCommand: CommandQuickPickItem | undefined = undefined;
 
         if (log.truncated || log.sha) {
             if (log.truncated) {
@@ -72,13 +72,14 @@ export class BranchHistoryQuickPick {
                 }, Commands.ShowQuickBranchHistory, [uri, branch, log.maxCount, goBackCommand, undefined, nextPageCommand]);
 
                 const last = Iterables.last(log.commits.values());
+                if (last != null) {
+                    previousPageCommand = new CommandQuickPickItem({
+                        label: `$(arrow-left) Show Previous Commits`,
+                        description: `\u00a0 \u2014 \u00a0\u00a0 shows ${log.maxCount} older commits`
+                    }, Commands.ShowQuickBranchHistory, [new GitUri(uri ? uri : last.uri, last), branch, log.maxCount, goBackCommand, undefined, npc]);
 
-                previousPageCommand = new CommandQuickPickItem({
-                    label: `$(arrow-left) Show Previous Commits`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 shows ${log.maxCount} older commits`
-                }, Commands.ShowQuickBranchHistory, [new GitUri(uri ? uri : last.uri, last), branch, log.maxCount, goBackCommand, undefined, npc]);
-
-                items.splice(0, 0, previousPageCommand);
+                    items.splice(0, 0, previousPageCommand);
+                }
             }
         }
 

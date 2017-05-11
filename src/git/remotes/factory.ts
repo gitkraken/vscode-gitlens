@@ -19,9 +19,11 @@ const UrlRegex = /^(?:git:\/\/(.*?)\/|https:\/\/(.*?)\/|http:\/\/(.*?)\/|git@(.*
 
 export class RemoteProviderFactory {
 
-    static getRemoteProvider(url: string): RemoteProvider {
+    static getRemoteProvider(url: string): RemoteProvider | undefined {
         try {
             const match = UrlRegex.exec(url);
+            if (match == null) return undefined;
+
             const domain = match[1] || match[2] || match[3] || match[4] || match[5];
             const path = match[6].replace(/\.git/, '');
 

@@ -32,6 +32,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
             if (!shaOrBranch1) {
                 const branches = await this.git.getBranches(repoPath);
                 const current = Iterables.find(branches, _ => _.current);
+                if (current == null) return window.showWarningMessage(`Unable to open directory compare`);
 
                 const pick = await BranchesQuickPick.show(branches, `Compare ${current.name} to \u2026`);
                 if (!pick) return undefined;

@@ -25,6 +25,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
         }
 
         const gitUri = await GitUri.fromUri(uri, this.git);
+        if (gitUri.repoPath === undefined) return undefined;
 
         if (!search || searchBy == null) {
             search = await window.showInputBox({
@@ -48,10 +49,15 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
         }
 
         try {
-            const log = await this.git.getLogForRepoSearch(gitUri.repoPath, search, searchBy);
+            if (searchBy === undefined) {
+                searchBy = GitRepoSearchBy.Message;
+            }
 
-            let originalSearch: string;
-            let placeHolder: string;
+            const log = await this.git.getLogForRepoSearch(gitUri.repoPath, search, searchBy);
+            if (log === undefined) return undefined;
+
+            let originalSearch: string | undefined = undefined;
+            let placeHolder: string | undefined = undefined;
             switch (searchBy) {
                 case GitRepoSearchBy.Author:
                     originalSearch = `@${search}`;
@@ -77,7 +83,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                 description: `\u00a0 \u2014 \u00a0\u00a0 to commit search`
             }, Commands.ShowCommitSearch, [gitUri, originalSearch, undefined, goBackCommand]);
 
-            const pick = await CommitsQuickPick.show(this.git, log, placeHolder, currentCommand);
+            const pick = await CommitsQuickPick.show(this.git, log, placeHolder!, currentCommand);
             if (!pick) return undefined;
 
             if (pick instanceof CommandQuickPickItem) {

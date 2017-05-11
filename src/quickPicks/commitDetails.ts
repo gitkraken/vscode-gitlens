@@ -19,20 +19,20 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
     constructor(commit: GitCommit, status: IGitStatusFile) {
         const icon = getGitStatusIcon(status.status);
 
-        let directory = GitService.normalizePath(path.dirname(status.fileName));
+        let directory: string | undefined = GitService.normalizePath(path.dirname(status.fileName));
         if (!directory || directory === '.') {
-            directory = undefined;
+            directory = '';
         }
 
         const description = (status.status === 'R' && status.originalFileName)
-            ? `${directory || ''} \u00a0\u2190\u00a0 ${status.originalFileName}`
+            ? `${directory} \u00a0\u2190\u00a0 ${status.originalFileName}`
             : directory;
 
         let sha;
         let shortSha;
         if (status.status === 'D') {
-            sha = commit.previousSha;
-            shortSha = commit.previousShortSha;
+            sha = commit.previousSha!;
+            shortSha = commit.previousShortSha!;
         }
         else {
             sha = commit.sha;
@@ -56,7 +56,7 @@ export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPi
 
     constructor(commit: GitLogCommit, item?: QuickPickItem) {
         const uris = commit.fileStatuses.map(s => (s.status === 'D')
-            ? GitService.toGitContentUri(commit.previousSha, commit.previousShortSha, s.fileName, commit.repoPath, s.originalFileName)
+            ? GitService.toGitContentUri(commit.previousSha!, commit.previousShortSha!, s.fileName, commit.repoPath, s.originalFileName)
             : GitService.toGitContentUri(commit.sha, commit.shortSha, s.fileName, commit.repoPath, s.originalFileName));
 
         super(uris, item || {
@@ -74,7 +74,7 @@ export class OpenCommitWorkingTreeFilesCommandQuickPickItem extends OpenFilesCom
         const uris = commit.fileStatuses.filter(_ => _.status !== 'D').map(_ => GitUri.fromFileStatus(_, repoPath));
         super(uris, item || {
             label: `$(file-symlink-file) Open Changed Working Files`,
-            description: undefined
+            description: ''
             //detail: `Opens all of the changed file in the working tree`
         });
     }
@@ -142,13 +142,13 @@ export class CommitDetailsQuickPick {
             items.splice(0, 0, goBackCommand);
         }
 
-        let previousCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>);
-        let nextCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>);
+        let previousCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>) | undefined = undefined;
+        let nextCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>) | undefined = undefined;
         if (!stash) {
             // If we have the full history, we are good
             if (repoLog && !repoLog.truncated && !repoLog.sha) {
-                previousCommand = commit.previousSha && new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [commit.previousUri, commit.previousSha, undefined, goBackCommand, repoLog]);
-                nextCommand = commit.nextSha && new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [commit.nextUri, commit.nextSha, undefined, goBackCommand, repoLog]);
+                previousCommand = commit.previousSha === undefined ? undefined : new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [commit.previousUri, commit.previousSha, undefined, goBackCommand, repoLog]);
+                nextCommand = commit.nextSha === undefined ? undefined : new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [commit.nextUri, commit.nextSha, undefined, goBackCommand, repoLog]);
             }
             else {
                 previousCommand = async () => {

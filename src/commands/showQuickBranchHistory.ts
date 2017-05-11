@@ -22,12 +22,12 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
             maxCount = this.git.config.advanced.maxQuickHistory;
         }
 
-        let progressCancellation = branch && BranchHistoryQuickPick.showProgress(branch);
+        let progressCancellation = branch === undefined ? undefined : BranchHistoryQuickPick.showProgress(branch);
         try {
             const repoPath = (gitUri && gitUri.repoPath) || this.git.repoPath;
-            if (!repoPath) return window.showWarningMessage(`Unable to show branch history`);
+            if (repoPath === undefined) return window.showWarningMessage(`Unable to show branch history`);
 
-            if (!branch) {
+            if (branch === undefined) {
                 const branches = await this.git.getBranches(repoPath);
 
                 const pick = await BranchesQuickPick.show(branches, `Show history for branch\u2026`);
@@ -38,7 +38,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
                 }
 
                 branch = pick.branch.name;
-                if (!branch) return undefined;
+                if (branch === undefined) return undefined;
 
                 progressCancellation = BranchHistoryQuickPick.showProgress(branch);
             }
@@ -48,9 +48,9 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
                 if (!log) return window.showWarningMessage(`Unable to show branch history`);
             }
 
-            if (progressCancellation.token.isCancellationRequested) return undefined;
+            if (progressCancellation !== undefined && progressCancellation.token.isCancellationRequested) return undefined;
 
-            const pick = await BranchHistoryQuickPick.show(this.git, log, gitUri, branch, progressCancellation, goBackCommand, nextPageCommand);
+            const pick = await BranchHistoryQuickPick.show(this.git, log, gitUri, branch, progressCancellation!, goBackCommand, nextPageCommand);
             if (!pick) return undefined;
 
             if (pick instanceof CommandQuickPickItem) {

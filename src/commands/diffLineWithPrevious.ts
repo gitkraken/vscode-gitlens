@@ -43,7 +43,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
                 // If the line is uncommitted, find the previous commit and treat it as a DiffWithWorking
                 if (commit.isUncommitted) {
                     uri = commit.uri;
-                    commit = new GitCommit(commit.type, commit.repoPath, commit.previousSha, commit.previousFileName, commit.author, commit.date, commit.message);
+                    commit = new GitCommit(commit.type, commit.repoPath, commit.previousSha!, commit.previousFileName!, commit.author, commit.date, commit.message);
                     line = (blame.line.line + 1) + gitUri.offset;
                     return commands.executeCommand(Commands.DiffWithWorking, uri, commit, line);
                 }
@@ -56,10 +56,10 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 
         try {
             const [rhs, lhs] = await Promise.all([
-                this.git.getVersionedFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha),
+                this.git.getVersionedFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha!),
                 this.git.getVersionedFile(commit.repoPath, commit.uri.fsPath, commit.sha)
             ]);
-            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.uri.fsPath)} (${commit.shortSha}) ↔ ${path.basename(gitUri.fsPath)} (${gitUri.shortSha})`);
+            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.uri.fsPath)} (${commit.shortSha}) \u2194 ${path.basename(gitUri.fsPath)} (${gitUri.shortSha})`);
             // TODO: Figure out how to focus the left pane
             return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' });
         }

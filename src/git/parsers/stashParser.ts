@@ -6,15 +6,15 @@ import * as moment from 'moment';
 interface IStashEntry {
     sha: string;
     date?: string;
-    fileNames?: string;
+    fileNames: string;
     fileStatuses?: IGitStatusFile[];
-    summary?: string;
-    stashName?: string;
+    summary: string;
+    stashName: string;
 }
 
 export class GitStashParser {
 
-    private static _parseEntries(data: string): IStashEntry[] {
+    private static _parseEntries(data: string): IStashEntry[] | undefined {
         if (!data) return undefined;
 
         const lines = data.split('\n');
@@ -22,7 +22,7 @@ export class GitStashParser {
 
         const entries: IStashEntry[] = [];
 
-        let entry: IStashEntry;
+        let entry: IStashEntry | undefined = undefined;
         let position = -1;
         while (++position < lines.length) {
             let lineParts = lines[position].split(' ');
@@ -30,12 +30,12 @@ export class GitStashParser {
                 continue;
             }
 
-            if (!entry) {
+            if (entry === undefined) {
                 if (!Git.shaRegex.test(lineParts[0])) continue;
 
                 entry = {
                     sha: lineParts[0]
-                };
+                } as IStashEntry;
 
                 continue;
             }
@@ -86,7 +86,7 @@ export class GitStashParser {
                         const status = {
                             status: line[0] as GitStatusFileStatus,
                             fileName: line.substring(1),
-                            originalFileName: undefined as string
+                            originalFileName: undefined
                         } as IGitStatusFile;
                         this._parseFileName(status);
 
@@ -109,9 +109,9 @@ export class GitStashParser {
         return entries;
     }
 
-    static parse(data: string, repoPath: string): IGitStash {
+    static parse(data: string, repoPath: string): IGitStash | undefined {
         const entries = this._parseEntries(data);
-        if (!entries) return undefined;
+        if (entries === undefined) return undefined;
 
         const commits: Map<string, GitStashCommit> = new Map();
 
@@ -119,8 +119,8 @@ export class GitStashParser {
             const entry = entries[i];
 
             let commit = commits.get(entry.sha);
-            if (!commit) {
-                commit = new GitStashCommit(entry.stashName, repoPath, entry.sha, entry.fileNames, moment(entry.date).toDate(), entry.summary, undefined, entry.fileStatuses);
+            if (commit !== undefined) {
+                commit = new GitStashCommit(entry.stashName, repoPath, entry.sha, entry.fileNames, moment(entry.date).toDate(), entry.summary, undefined, entry.fileStatuses) as GitStashCommit;
                 commits.set(entry.sha, commit);
             }
         }
@@ -132,10 +132,12 @@ export class GitStashParser {
     }
 
     private static _parseFileName(entry: { fileName?: string, originalFileName?: string }) {
+        if (entry.fileName === undefined) return;
+
         const index = entry.fileName.indexOf('\t') + 1;
-        if (index) {
+        if (index > 0) {
             const next = entry.fileName.indexOf('\t', index) + 1;
-            if (next) {
+            if (next > 0) {
                 entry.originalFileName = entry.fileName.substring(index, next - 1);
                 entry.fileName = entry.fileName.substring(next);
             }

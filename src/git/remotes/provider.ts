@@ -26,10 +26,12 @@ export abstract class RemoteProvider {
 
     protected abstract getUrlForBranch(branch: string): string;
     protected abstract getUrlForCommit(sha: string): string;
-    protected abstract getUrlForFile(fileName: string, branch: string, sha?: string, range?: Range): string;
+    protected abstract getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string;
 
-    private async _openUrl(url: string): Promise<{}> {
-        return url && commands.executeCommand(BuiltInCommands.Open, Uri.parse(url));
+    private async _openUrl(url: string): Promise<{} | undefined> {
+        if (url === undefined) return undefined;
+
+        return commands.executeCommand(BuiltInCommands.Open, Uri.parse(url));
     }
 
     open(type: 'branch', branch: string): Promise<{}>;

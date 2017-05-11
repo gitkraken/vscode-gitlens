@@ -24,7 +24,7 @@ export class BlameAnnotationProvider extends Disposable {
 
         this._blame = this.git.getBlameForFile(this.uri);
 
-        this._config = workspace.getConfiguration(ExtensionKey).get<IBlameConfig>('blame');
+        this._config = workspace.getConfiguration(ExtensionKey).get<IBlameConfig>('blame')!;
 
         const subscriptions: Disposable[] = [];
 
@@ -39,8 +39,12 @@ export class BlameAnnotationProvider extends Disposable {
                 this.editor.setDecorations(BlameDecorations.annotation, []);
                 BlameDecorations.highlight && this.editor.setDecorations(BlameDecorations.highlight, []);
                 // I have no idea why the decorators sometimes don't get removed, but if they don't try again with a tiny delay
-                if (BlameDecorations.highlight) {
-                    setTimeout(() =>  this.editor.setDecorations(BlameDecorations.highlight, []), 1);
+                if (BlameDecorations.highlight !== undefined) {
+                    setTimeout(() => {
+                        if (BlameDecorations.highlight === undefined) return;
+
+                        this.editor.setDecorations(BlameDecorations.highlight, []);
+                    }, 1);
                 }
             }
             catch (ex) { }
@@ -64,7 +68,7 @@ export class BlameAnnotationProvider extends Disposable {
     }
 
     async provideBlameAnnotation(shaOrLine?: string | number): Promise<boolean> {
-        let whitespacePromise: Promise<void>;
+        let whitespacePromise: Promise<void> | undefined;
         // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- override whitespace (turn off)
         if (this._config.annotation.style !== BlameAnnotationStyle.Trailing) {
             whitespacePromise = this.whitespaceController && this.whitespaceController.override();
@@ -116,7 +120,7 @@ export class BlameAnnotationProvider extends Disposable {
 
         const offset = this.uri.offset;
 
-        let sha: string;
+        let sha: string | undefined = undefined;
         if (typeof shaOrLine === 'string') {
             sha = shaOrLine;
         }
@@ -149,7 +153,8 @@ export class BlameAnnotationProvider extends Disposable {
         let count = 0;
         let lastSha: string;
         return blame.lines.map(l => {
-            let commit = blame.commits.get(l.sha);
+            const commit = blame.commits.get(l.sha);
+            if (commit === undefined) throw new Error(`Cannot find sha ${l.sha}`);
 
             let color: string;
             if (commit.isUncommitted) {
@@ -248,7 +253,8 @@ export class BlameAnnotationProvider extends Disposable {
         }
 
         return blame.lines.map(l => {
-            let commit = blame.commits.get(l.sha);
+            const commit = blame.commits.get(l.sha);
+            if (commit === undefined) throw new Error(`Cannot find sha ${l.sha}`);
 
             let color: string;
             if (commit.isUncommitted) {

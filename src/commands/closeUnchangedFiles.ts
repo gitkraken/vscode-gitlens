@@ -33,11 +33,11 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
             let active = window.activeTextEditor;
             let editor = active;
             do {
-                if (editor) {
-                    if ((editor.document && editor.document.isDirty) ||
-                        uris.some(_ => UriComparer.equals(_, editor.document && editor.document.uri))) {
+                if (editor !== undefined) {
+                    if ((editor.document !== undefined && editor.document.isDirty) ||
+                        uris.some(_ => UriComparer.equals(_, editor!.document && editor!.document.uri))) {
                         // If we didn't start with a valid editor, set one once we find it
-                        if (!active) {
+                        if (active === undefined) {
                             active = editor;
                         }
                         editor = await editorTracker.awaitNext(500);
@@ -55,7 +55,7 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
                     }
                     editor = await editorTracker.awaitClose(500);
                 }
-            } while ((!active && !editor) || !TextEditorComparer.equals(active, editor, { useId: true, usePosition: true }));
+            } while ((active === undefined && editor === undefined) || !TextEditorComparer.equals(active, editor, { useId: true, usePosition: true }));
 
             editorTracker.dispose();
 

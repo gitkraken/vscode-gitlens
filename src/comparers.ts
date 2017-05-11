@@ -7,9 +7,9 @@ abstract class Comparer<T> {
 
 class UriComparer extends Comparer<Uri> {
 
-    equals(lhs: Uri, rhs: Uri) {
-        if (!lhs && !rhs) return true;
-        if ((lhs && !rhs) || (!lhs && rhs)) return false;
+    equals(lhs: Uri | undefined, rhs: Uri | undefined) {
+        if (lhs === undefined && rhs === undefined) return true;
+        if (lhs === undefined || rhs === undefined) return false;
 
         return lhs.scheme === rhs.scheme && lhs.fsPath === rhs.fsPath;
     }
@@ -17,9 +17,9 @@ class UriComparer extends Comparer<Uri> {
 
 class TextDocumentComparer extends Comparer<TextDocument> {
 
-    equals(lhs: TextDocument, rhs: TextDocument) {
-        if (!lhs && !rhs) return true;
-        if ((lhs && !rhs) || (!lhs && rhs)) return false;
+    equals(lhs: TextDocument | undefined, rhs: TextDocument | undefined) {
+        if (lhs === undefined && rhs === undefined) return true;
+        if (lhs === undefined || rhs === undefined) return false;
 
         return uriComparer.equals(lhs.uri, rhs.uri);
     }
@@ -27,9 +27,9 @@ class TextDocumentComparer extends Comparer<TextDocument> {
 
 class TextEditorComparer extends Comparer<TextEditor> {
 
-    equals(lhs: TextEditor, rhs: TextEditor, options: { useId: boolean, usePosition: boolean } = { useId: false, usePosition: false }) {
-        if (!lhs && !rhs) return true;
-        if ((lhs && !rhs) || (!lhs && rhs)) return false;
+    equals(lhs: TextEditor | undefined, rhs: TextEditor | undefined, options: { useId: boolean, usePosition: boolean } = { useId: false, usePosition: false }) {
+        if (lhs === undefined && rhs === undefined) return true;
+        if (lhs === undefined || rhs === undefined) return false;
 
         if (options.usePosition && (lhs.viewColumn !== rhs.viewColumn)) return false;
 

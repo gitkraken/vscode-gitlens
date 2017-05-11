@@ -54,38 +54,38 @@ export class BlameActiveLineController extends Disposable {
     }
 
     private _onConfigurationChanged() {
-        const config = workspace.getConfiguration().get<IConfig>(ExtensionKey);
+        const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
 
         let changed: boolean = false;
 
-        if (!Objects.areEquivalent(config.statusBar, this._config && this._config.statusBar)) {
+        if (!Objects.areEquivalent(cfg.statusBar, this._config && this._config.statusBar)) {
             changed = true;
-            if (config.statusBar.enabled) {
+            if (cfg.statusBar.enabled) {
                 this._statusBarItem = this._statusBarItem || window.createStatusBarItem(StatusBarAlignment.Right, 1000);
-                this._statusBarItem.command = config.statusBar.command;
+                this._statusBarItem.command = cfg.statusBar.command;
             }
-            else if (!config.statusBar.enabled && this._statusBarItem) {
+            else if (!cfg.statusBar.enabled && this._statusBarItem) {
                 this._statusBarItem.dispose();
                 this._statusBarItem = undefined;
             }
         }
 
-        if (!Objects.areEquivalent(config.blame.annotation.activeLine, this._config && this._config.blame.annotation.activeLine)) {
+        if (!Objects.areEquivalent(cfg.blame.annotation.activeLine, this._config && this._config.blame.annotation.activeLine)) {
             changed = true;
-            if (config.blame.annotation.activeLine !== 'off' && this._editor) {
+            if (cfg.blame.annotation.activeLine !== 'off' && this._editor) {
                 this._editor.setDecorations(activeLineDecoration, []);
             }
         }
-        if (!Objects.areEquivalent(config.blame.annotation.activeLineDarkColor, this._config && this._config.blame.annotation.activeLineDarkColor) ||
-            !Objects.areEquivalent(config.blame.annotation.activeLineLightColor, this._config && this._config.blame.annotation.activeLineLightColor)) {
+        if (!Objects.areEquivalent(cfg.blame.annotation.activeLineDarkColor, this._config && this._config.blame.annotation.activeLineDarkColor) ||
+            !Objects.areEquivalent(cfg.blame.annotation.activeLineLightColor, this._config && this._config.blame.annotation.activeLineLightColor)) {
             changed = true;
         }
 
-        this._config = config;
+        this._config = cfg;
 
         if (!changed) return;
 
-        let trackActiveLine = config.statusBar.enabled || config.blame.annotation.activeLine !== 'off';
+        let trackActiveLine = cfg.statusBar.enabled || cfg.blame.annotation.activeLine !== 'off';
         if (trackActiveLine && !this._activeEditorLineDisposable) {
             const subscriptions: Disposable[] = [];
 
@@ -103,8 +103,8 @@ export class BlameActiveLineController extends Disposable {
         this._onActiveTextEditorChanged(window.activeTextEditor);
     }
 
-    private isEditorBlameable(editor: TextEditor): boolean {
-        if (!editor || !editor.document) return false;
+    private isEditorBlameable(editor: TextEditor | undefined): boolean {
+        if (editor === undefined || editor.document === undefined) return false;
 
         const scheme = editor.document.uri.scheme;
         if (scheme !== DocumentSchemes.File && scheme !== DocumentSchemes.Git && scheme !== DocumentSchemes.GitLensGit) return false;
@@ -114,13 +114,13 @@ export class BlameActiveLineController extends Disposable {
         return this.git.isEditorBlameable(editor);
     }
 
-    private async _onActiveTextEditorChanged(editor: TextEditor) {
+    private async _onActiveTextEditorChanged(editor: TextEditor | undefined) {
         this._currentLine = -1;
 
         const previousEditor = this._editor;
         previousEditor && previousEditor.setDecorations(activeLineDecoration, []);
 
-        if (!this.isEditorBlameable(editor)) {
+        if (editor === undefined || !this.isEditorBlameable(editor)) {
             this.clear(editor);
 
             this._editor = undefined;
@@ -128,7 +128,7 @@ export class BlameActiveLineController extends Disposable {
             return;
         }
 
-        this._blameable = editor && editor.document && !editor.document.isDirty;
+        this._blameable = editor !== undefined && editor.document !== undefined && !editor.document.isDirty;
         this._editor = editor;
         this._uri = await GitUri.fromUri(editor.document.uri, this.git);
         const maxLines = this._config.advanced.caching.statusBar.maxLines;
@@ -183,29 +183,29 @@ export class BlameActiveLineController extends Disposable {
     private async _updateBlame(line: number, editor: TextEditor) {
         line = line - this._uri.offset;
 
-        let commit: GitCommit;
-        let commitLine: IGitCommitLine;
+        let commit: GitCommit | undefined = undefined;
+        let commitLine: IGitCommitLine | undefined = undefined;
         // Since blame information isn't valid when there are unsaved changes -- don't show any status
         if (this._blameable && line >= 0) {
             if (this._useCaching) {
                 const blame = this._blame && await this._blame;
-                if (!blame || !blame.lines.length) {
+                if (blame === undefined || !blame.lines.length) {
                     this.clear(editor);
                     return;
                 }
 
                 commitLine = blame.lines[line];
-                const sha = commitLine && commitLine.sha;
-                commit = sha && blame.commits.get(sha);
+                const sha = commitLine === undefined ? undefined : commitLine.sha;
+                commit = sha === undefined ? undefined : blame.commits.get(sha);
             }
             else {
                 const blameLine = await this.git.getBlameForLine(this._uri, line);
-                commitLine = blameLine && blameLine.line;
-                commit = blameLine && blameLine.commit;
+                commitLine = blameLine === undefined ? undefined : blameLine.line;
+                commit = blameLine === undefined ? undefined : blameLine.commit;
             }
         }
 
-        if (commit) {
+        if (commit !== undefined && commitLine !== undefined) {
             this.show(commit, commitLine, editor);
         }
         else {
@@ -213,7 +213,7 @@ export class BlameActiveLineController extends Disposable {
         }
     }
 
-    clear(editor: TextEditor, previousEditor?: TextEditor) {
+    clear(editor: TextEditor | undefined, previousEditor?: TextEditor) {
         editor && editor.setDecorations(activeLineDecoration, []);
         // I have no idea why the decorators sometimes don't get removed, but if they don't try again with a tiny delay
         if (editor) {
@@ -227,7 +227,7 @@ export class BlameActiveLineController extends Disposable {
         // I have no idea why I need this protection -- but it happens
         if (!editor.document) return;
 
-        if (this._config.statusBar.enabled) {
+        if (this._config.statusBar.enabled && this._statusBarItem !== undefined) {
             switch (this._config.statusBar.date) {
                 case 'off':
                     this._statusBarItem.text = `$(git-commit) ${commit.author}`;
@@ -284,7 +284,7 @@ export class BlameActiveLineController extends Disposable {
             const activeLine = this._config.blame.annotation.activeLine;
             const offset = this._uri.offset;
 
-            const config = {
+            const cfg = {
                 annotation: {
                     sha: true,
                     author: this._config.statusBar.enabled ? false : this._config.blame.annotation.author,
@@ -293,10 +293,10 @@ export class BlameActiveLineController extends Disposable {
                 }
             } as IBlameConfig;
 
-            const annotation = BlameAnnotationFormatter.getAnnotation(config, commit, BlameAnnotationFormat.Unconstrained);
+            const annotation = BlameAnnotationFormatter.getAnnotation(cfg, commit, BlameAnnotationFormat.Unconstrained);
 
             // Get the full commit message -- since blame only returns the summary
-            let logCommit: GitCommit;
+            let logCommit: GitCommit | undefined = undefined;
             if (!commit.isUncommitted) {
                 logCommit = await this.git.getLogCommit(this._uri.repoPath, this._uri.fsPath, commit.sha);
             }
@@ -304,17 +304,17 @@ export class BlameActiveLineController extends Disposable {
             // I have no idea why I need this protection -- but it happens
             if (!editor.document) return;
 
-            let hoverMessage: string | string[];
+            let hoverMessage: string | string[] | undefined = undefined;
             if (activeLine !== 'inline') {
                 // If the messages match (or we couldn't find the log), then this is a possible duplicate annotation
                 const possibleDuplicate = !logCommit || logCommit.message === commit.message;
                 // If we don't have a possible dupe or we aren't showing annotations get the hover message
                 if (!commit.isUncommitted && (!possibleDuplicate || !this.annotationController.isAnnotating(editor))) {
-                    hoverMessage = BlameAnnotationFormatter.getAnnotationHover(config, blameLine, logCommit || commit);
+                    hoverMessage = BlameAnnotationFormatter.getAnnotationHover(cfg, blameLine, logCommit || commit);
                 }
             }
 
-            let decorationOptions: DecorationOptions;
+            let decorationOptions: DecorationOptions | undefined = undefined;
             switch (activeLine) {
                 case 'both':
                 case 'inline':
@@ -347,7 +347,9 @@ export class BlameActiveLineController extends Disposable {
                     break;
             }
 
-            decorationOptions && editor.setDecorations(activeLineDecoration, [decorationOptions]);
+            if (decorationOptions !== undefined) {
+                editor.setDecorations(activeLineDecoration, [decorationOptions]);
+            }
         }
     }
 }

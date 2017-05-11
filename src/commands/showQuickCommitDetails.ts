@@ -21,7 +21,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         const gitUri = await GitUri.fromUri(uri, this.git);
 
         let repoPath = gitUri.repoPath;
-        let workingFileName = path.relative(repoPath, gitUri.fsPath);
+        let workingFileName = path.relative(repoPath || '', gitUri.fsPath);
 
         if (!sha) {
             if (!editor) return undefined;
@@ -48,20 +48,22 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         try {
             if (!commit || (commit.type !== 'branch' && commit.type !== 'stash')) {
                 if (repoLog) {
-                    commit = repoLog.commits.get(sha);
+                    commit = repoLog.commits.get(sha!);
                     // If we can't find the commit, kill the repoLog
-                    if (!commit) {
+                    if (commit === undefined) {
                         repoLog = undefined;
                     }
                 }
 
-                if (!repoLog) {
-                    const log = await this.git.getLogForRepo(repoPath, sha, 2);
-                    if (!log) return window.showWarningMessage(`Unable to show commit details`);
+                if (repoLog === undefined) {
+                    const log = await this.git.getLogForRepo(repoPath!, sha, 2);
+                    if (log === undefined) return window.showWarningMessage(`Unable to show commit details`);
 
-                    commit = log.commits.get(sha);
+                    commit = log.commits.get(sha!);
                 }
             }
+
+            if (commit === undefined) return window.showWarningMessage(`Unable to show commit details`);
 
             if (!commit.workingFileName) {
                 commit.workingFileName = workingFileName;
