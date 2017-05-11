@@ -91,6 +91,7 @@ export interface IStatusBarConfig {
     command: StatusBarCommand;
     date: 'off' | 'relative' | 'absolute';
     dateFormat: string;
+    alignment: 'left' | 'right';
 }
 
 export interface IAdvancedConfig {
