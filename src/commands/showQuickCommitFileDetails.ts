@@ -51,7 +51,11 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
         }
 
         try {
-            if (args.commit === undefined || (args.commit.type !== 'file' && args.commit.type !== 'stash')) {
+            if (args.commit === undefined || args.commit.type !== 'file') {
+                if (args.commit !== undefined) {
+                    workingFileName = undefined;
+                }
+
                 if (args.fileLog !== undefined) {
                     args.commit = args.fileLog.commits.get(args.sha!);
                     // If we can't find the commit, kill the fileLog
