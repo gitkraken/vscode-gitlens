@@ -170,9 +170,9 @@ export class CommitQuickPickItem implements QuickPickItem {
         }
 
         if (commit instanceof GitStashCommit) {
-            this.label = `${commit.stashName}\u00a0\u2022\u00a0${message}`;
+            this.label = message;
             this.description = '';
-            this.detail = `\u00a0 ${moment(commit.date).fromNow()}\u00a0\u00a0\u2022\u00a0 ${commit.getDiffStatus()}`;
+            this.detail = `\u00a0 ${commit.stashName}\u00a0\u00a0\u2022\u00a0 ${moment(commit.date).fromNow()}\u00a0\u00a0\u2022\u00a0 ${commit.getDiffStatus()}`;
         }
         else {
             this.label = message;

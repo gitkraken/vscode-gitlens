@@ -22,7 +22,7 @@ export class StashListQuickPick {
                 ]));
 
             items.splice(0, 0, new CommandQuickPickItem({
-                label: `$(repo-push) Stash Changes`,
+                label: `$(repo-force-push) Stash Changes`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 stashes all changes`
             }, Commands.StashSave, [
                     {
