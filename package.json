@@ -302,6 +302,15 @@
                     "default": null,
                     "description": "Specifies the date format of how absolute dates will be shown in the blame status bar. See https://momentjs.com/docs/#/displaying/format/ for valid formats"
                 },
+                "gitlens.statusBar.alignment": {
+                  "type": "string",
+                  "default": "right",
+                  "enum": [
+                    "left",
+                    "right"
+                  ],
+                  "description": "Specifies the blame alignment in the status bar"
+                },
                 "gitlens.advanced.caching.enabled": {
                     "type": "boolean",
                     "default": true,
