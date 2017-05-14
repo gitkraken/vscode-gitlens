@@ -7,7 +7,7 @@ import { Logger } from '../logger';
 
 export interface BlameabilityChangeEvent {
     blameable: boolean;
-    editor: TextEditor;
+    editor: TextEditor | undefined;
 }
 
 export class GitContextTracker extends Disposable {
@@ -18,8 +18,8 @@ export class GitContextTracker extends Disposable {
     }
 
     private _disposable: Disposable;
-    private _documentChangeDisposable: Disposable;
-    private _editor: TextEditor;
+    private _documentChangeDisposable: Disposable | undefined;
+    private _editor: TextEditor | undefined;
     private _gitEnabled: boolean;
     private _isBlameable: boolean;
 
@@ -47,7 +47,7 @@ export class GitContextTracker extends Disposable {
     }
 
     _onConfigurationChanged() {
-        const gitEnabled = workspace.getConfiguration('git').get<boolean>('enabled');
+        const gitEnabled = workspace.getConfiguration('git').get<boolean>('enabled', true);
         if (this._gitEnabled !== gitEnabled) {
             this._gitEnabled = gitEnabled;
             setCommandContext(CommandContext.Enabled, gitEnabled);
@@ -55,9 +55,9 @@ export class GitContextTracker extends Disposable {
         }
     }
 
-    private _onActiveTextEditorChanged(editor: TextEditor) {
+    private _onActiveTextEditorChanged(editor: TextEditor | undefined) {
         this._editor = editor;
-        this._updateContext(this._gitEnabled && editor);
+        this._updateContext(this._gitEnabled ? editor : undefined);
         this._subscribeToDocumentChanges();
     }
 
@@ -97,9 +97,9 @@ export class GitContextTracker extends Disposable {
         this._documentChangeDisposable = undefined;
     }
 
-    private async _updateContext(editor: TextEditor) {
+    private async _updateContext(editor: TextEditor | undefined) {
         try {
-            const gitUri = editor && await GitUri.fromUri(editor.document.uri, this.git);
+            const gitUri = editor === undefined ? undefined : await GitUri.fromUri(editor.document.uri, this.git);
 
             await Promise.all([
                 this._updateEditorContext(gitUri, editor),
@@ -131,12 +131,12 @@ export class GitContextTracker extends Disposable {
 
     private async _updateEditorContext(uri: GitUri | undefined, editor: TextEditor | undefined) {
         try {
-            const tracked = uri && await this.git.isTracked(uri);
+            const tracked = uri === undefined ? false : await this.git.isTracked(uri);
             setCommandContext(CommandContext.IsTracked, tracked);
 
-            let blameable = tracked && editor && editor.document && !editor.document.isDirty;
+            let blameable = tracked && (editor !== undefined && editor.document !== undefined && !editor.document.isDirty);
             if (blameable) {
-                blameable = await this.git.getBlameability(uri);
+                blameable =  uri === undefined ? false : await this.git.getBlameability(uri);
             }
 
             this._updateBlameability(blameable, true);

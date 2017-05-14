@@ -29,7 +29,7 @@ class RenderWhitespaceConfiguration {
         return this.value != null && this.value !== 'none';
     }
 
-    get value(): string {
+    get value(): string | undefined {
         return this.inspection.workspaceValue || this.inspection.globalValue || this.inspection.defaultValue;
     }
 
@@ -97,7 +97,7 @@ export class WhitespaceController extends Disposable {
     private _onConfigurationChanged() {
         if (this._disposed) return;
 
-        const inspection = workspace.getConfiguration('editor').inspect<string>('renderWhitespace');
+        const inspection = workspace.getConfiguration('editor').inspect<string>('renderWhitespace')!;
 
         if (!this._count) {
             this._configuration = new RenderWhitespaceConfiguration(inspection);
@@ -125,8 +125,8 @@ export class WhitespaceController extends Disposable {
 
     private async _overrideWhitespace() {
         Logger.log(`Override whitespace`);
-        const config = workspace.getConfiguration('editor');
-        return config.update('renderWhitespace', 'none', this._configuration.location === SettingLocation.global);
+        const cfg = workspace.getConfiguration('editor');
+        return cfg.update('renderWhitespace', 'none', this._configuration.location === SettingLocation.global);
     }
 
     async restore() {
@@ -142,8 +142,8 @@ export class WhitespaceController extends Disposable {
 
     private async _restoreWhitespace() {
         Logger.log(`Restore whitespace`);
-        const config = workspace.getConfiguration('editor');
-        return config.update('renderWhitespace',
+        const cfg = workspace.getConfiguration('editor');
+        return cfg.update('renderWhitespace',
             this._configuration.location === SettingLocation.default
                 ? undefined
                 : this._configuration.value,

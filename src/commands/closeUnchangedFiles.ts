@@ -1,10 +1,14 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorTracker } from '../activeEditorTracker';
-import { ActiveEditorCommand, Commands } from './common';
+import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { TextEditorComparer, UriComparer } from '../comparers';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
+
+export interface CloseUnchangedFilesCommandArgs {
+    uris?: Uri[];
+}
 
 export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
 
@@ -12,20 +16,18 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
         super(Commands.CloseUnchangedFiles);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, uris?: Uri[]) {
-        if (!(uri instanceof Uri)) {
-            uri = editor && editor.document && editor.document.uri;
-        }
+    async execute(editor: TextEditor, uri?: Uri, args: CloseUnchangedFilesCommandArgs = {}) {
+        uri = getCommandUri(uri, editor);
 
         try {
-            if (!uris) {
+            if (args.uris === undefined) {
                 const repoPath = await this.git.getRepoPathFromUri(uri);
-                if (!repoPath) return window.showWarningMessage(`Unable to close unchanged files`);
+                if (repoPath === undefined) return window.showWarningMessage(`Unable to close unchanged files`);
 
                 const status = await this.git.getStatusForRepo(repoPath);
-                if (!status) return window.showWarningMessage(`Unable to close unchanged files`);
+                if (status === undefined) return window.showWarningMessage(`Unable to close unchanged files`);
 
-                uris = status.files.map(_ => _.Uri);
+                args.uris = status.files.map(_ => _.Uri);
             }
 
             const editorTracker = new ActiveEditorTracker();
@@ -33,11 +35,11 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
             let active = window.activeTextEditor;
             let editor = active;
             do {
-                if (editor) {
-                    if ((editor.document && editor.document.isDirty) ||
-                        uris.some(_ => UriComparer.equals(_, editor.document && editor.document.uri))) {
+                if (editor !== undefined) {
+                    if ((editor.document !== undefined && editor.document.isDirty) ||
+                        args.uris.some(_ => UriComparer.equals(_, editor!.document && editor!.document.uri))) {
                         // If we didn't start with a valid editor, set one once we find it
-                        if (!active) {
+                        if (active === undefined) {
                             active = editor;
                         }
                         editor = await editorTracker.awaitNext(500);
@@ -55,7 +57,7 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
                     }
                     editor = await editorTracker.awaitClose(500);
                 }
-            } while ((!active && !editor) || !TextEditorComparer.equals(active, editor, { useId: true, usePosition: true }));
+            } while ((active === undefined && editor === undefined) || !TextEditorComparer.equals(active, editor, { useId: true, usePosition: true }));
 
             editorTracker.dispose();
 

@@ -4,21 +4,21 @@ import { BlameAnnotationController } from '../blameAnnotationController';
 import { Commands, EditorCommand } from './common';
 import { Logger } from '../logger';
 
+export interface ToggleBlameCommandArgs {
+    sha?: string;
+}
+
 export class ToggleBlameCommand extends EditorCommand {
 
     constructor(private annotationController: BlameAnnotationController) {
         super(Commands.ToggleBlame);
     }
 
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, sha?: string): Promise<any> {
-        if (editor && editor.document && editor.document.isDirty) return undefined;
+    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, args: ToggleBlameCommandArgs = {}): Promise<any> {
+        if (editor !== undefined && editor.document !== undefined && editor.document.isDirty) return undefined;
 
         try {
-            if (sha) {
-                return this.annotationController.toggleBlameAnnotation(editor, sha);
-            }
-
-            return this.annotationController.toggleBlameAnnotation(editor, editor.selection.active.line);
+            return this.annotationController.toggleBlameAnnotation(editor, args.sha !== undefined ? args.sha : editor.selection.active.line);
         }
         catch (ex) {
             Logger.error(ex, 'ToggleBlameCommand');

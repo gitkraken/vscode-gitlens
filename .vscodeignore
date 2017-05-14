@@ -1,4 +1,5 @@
-images/*.gif
+!images/*.svg
+images/**
 .vscode/**
 .vscode-test/**
 out/test/**

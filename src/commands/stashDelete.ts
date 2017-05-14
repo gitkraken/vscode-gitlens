@@ -5,25 +5,37 @@ import { Command, Commands } from './common';
 import { Logger } from '../logger';
 import { CommandQuickPickItem } from '../quickPicks';
 
+export interface StashDeleteCommandArgs {
+    confirm?: boolean;
+    stashItem?: { stashName: string, message: string };
+
+    goBackCommand?: CommandQuickPickItem;
+}
+
 export class StashDeleteCommand extends Command {
 
     constructor(private git: GitService) {
         super(Commands.StashDelete);
     }
 
-    async execute(stashItem: { stashName: string, message: string }, confirm: boolean = true, goBackCommand?: CommandQuickPickItem) {
+    async execute(args: StashDeleteCommandArgs = { confirm: true }) {
         if (!this.git.config.insiders) return undefined;
         if (!this.git.repoPath) return undefined;
-        if (!stashItem || !stashItem.stashName) return undefined;
+
+        if (args.stashItem === undefined || args.stashItem.stashName === undefined) return undefined;
+
+        if (args.confirm === undefined) {
+            args.confirm = true;
+        }
 
         try {
-            if (confirm) {
-                const message = stashItem.message.length > 80 ? `${stashItem.message.substring(0, 80)}\u2026` : stashItem.message;
+            if (args.confirm) {
+                const message = args.stashItem.message.length > 80 ? `${args.stashItem.message.substring(0, 80)}\u2026` : args.stashItem.message;
                 const result = await window.showWarningMessage(`Delete stashed changes '${message}'?`, { title: 'Yes' } as MessageItem, { title: 'No', isCloseAffordance: true } as MessageItem);
-                if (!result || result.title !== 'Yes') return goBackCommand && goBackCommand.execute();
+                if (result === undefined || result.title !== 'Yes') return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
             }
 
-            return await this.git.stashDelete(this.git.repoPath, stashItem.stashName);
+            return await this.git.stashDelete(this.git.repoPath, args.stashItem.stashName);
         }
         catch (ex) {
             Logger.error(ex, 'StashDeleteCommand');

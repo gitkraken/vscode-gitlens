@@ -5,26 +5,37 @@ import { Command, Commands } from './common';
 import { Logger } from '../logger';
 import { CommandQuickPickItem } from '../quickPicks';
 
+export interface StashSaveCommandArgs {
+    message?: string;
+    unstagedOnly?: boolean;
+
+    goBackCommand?: CommandQuickPickItem;
+}
+
 export class StashSaveCommand extends Command {
 
     constructor(private git: GitService) {
         super(Commands.StashSave);
     }
 
-    async execute(message?: string, unstagedOnly: boolean = false, goBackCommand?: CommandQuickPickItem) {
+    async execute(args: StashSaveCommandArgs = { unstagedOnly : false }) {
         if (!this.git.config.insiders) return undefined;
         if (!this.git.repoPath) return undefined;
 
+        if (args.unstagedOnly === undefined) {
+            args.unstagedOnly = false;
+        }
+
         try {
-            if (message == null) {
-                message = await window.showInputBox({
+            if (args.message == null) {
+                args.message = await window.showInputBox({
                     prompt: `Please provide a stash message`,
                     placeHolder: `Stash message`
                 } as InputBoxOptions);
-                if (message === undefined) return goBackCommand && goBackCommand.execute();
+                if (args.message === undefined) return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
             }
 
-            return await this.git.stashSave(this.git.repoPath, message, unstagedOnly);
+            return await this.git.stashSave(this.git.repoPath, args.message, args.unstagedOnly);
         }
         catch (ex) {
             Logger.error(ex, 'StashSaveCommand');

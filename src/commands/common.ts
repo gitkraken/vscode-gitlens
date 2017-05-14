@@ -1,5 +1,5 @@
 'use strict';
-import { commands, Disposable, TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
+import { commands, Disposable, TextDocumentShowOptions, TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
 import { BuiltInCommands } from '../constants';
 import { Logger } from '../logger';
 import { Telemetry } from '../telemetry';
@@ -48,6 +48,12 @@ export const Commands = {
     ToggleCodeLens: 'gitlens.toggleCodeLens' as Commands
 };
 
+export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
+    if (uri instanceof Uri) return uri;
+    if (editor === undefined || editor.document === undefined) return undefined;
+    return editor.document.uri;
+}
+
 export type CommandContext = 'gitlens:canToggleCodeLens' | 'gitlens:enabled' | 'gitlens:hasRemotes' | 'gitlens:isBlameable' | 'gitlens:isRepository' | 'gitlens:isTracked' | 'gitlens:key';
 export const CommandContext = {
     CanToggleCodeLens: 'gitlens:canToggleCodeLens' as CommandContext,
@@ -58,7 +64,6 @@ export const CommandContext = {
     IsTracked: 'gitlens:isTracked' as CommandContext,
     Key: 'gitlens:key' as CommandContext
 };
-
 
 export function setCommandContext(key: CommandContext | string, value: any) {
     return commands.executeCommand(BuiltInCommands.SetContext, key, value);
@@ -119,7 +124,7 @@ export abstract class ActiveEditorCommand extends Command {
     abstract execute(editor: TextEditor, ...args: any[]): any;
 }
 
-let lastCommand: { command: string, args: any[] } = undefined;
+let lastCommand: { command: string, args: any[] } | undefined = undefined;
 export function getLastCommand() {
     return lastCommand;
 }
@@ -141,12 +146,16 @@ export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
     abstract execute(editor: TextEditor, ...args: any[]): any;
 }
 
-export async function openEditor(uri: Uri, pinned: boolean = false) {
+export async function openEditor(uri: Uri, options?: TextDocumentShowOptions): Promise<TextEditor | undefined> {
     try {
-        if (!pinned) return await commands.executeCommand(BuiltInCommands.Open, uri);
+        const defaults: TextDocumentShowOptions = {
+            preserveFocus: false,
+            preview: true,
+            viewColumn: (window.activeTextEditor && window.activeTextEditor.viewColumn) || 1
+        };
 
         const document = await workspace.openTextDocument(uri);
-        return window.showTextDocument(document, (window.activeTextEditor && window.activeTextEditor.viewColumn) || 1, true);
+        return window.showTextDocument(document, { ...defaults, ...(options || {}) });
     }
     catch (ex) {
         Logger.error(ex, 'openEditor');

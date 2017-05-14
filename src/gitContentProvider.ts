@@ -15,7 +15,7 @@ export class GitContentProvider implements TextDocumentContentProvider {
         const data = GitService.fromGitContentUri(uri);
         const fileName = data.originalFileName || data.fileName;
         try {
-            let text = await this.git.getVersionedFileText(data.repoPath, fileName, data.sha) as string;
+            let text = await this.git.getVersionedFileText(data.repoPath, fileName, data.sha);
             if (data.decoration) {
                 text = `${data.decoration}\n${text}`;
             }
@@ -24,7 +24,7 @@ export class GitContentProvider implements TextDocumentContentProvider {
         catch (ex) {
             Logger.error(ex, 'GitContentProvider', 'getVersionedFileText');
             await window.showErrorMessage(`Unable to show Git revision ${data.sha.substring(0, 8)} of '${path.relative(data.repoPath, fileName)}'`);
-            return undefined;
+            return '';
         }
     }
 }

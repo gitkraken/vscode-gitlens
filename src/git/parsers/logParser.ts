@@ -8,7 +8,7 @@ import * as path from 'path';
 interface ILogEntry {
     sha: string;
 
-    author?: string;
+    author: string;
     authorDate?: string;
 
     // committer?: string;
@@ -29,7 +29,7 @@ const diffRegex = /diff --git a\/(.*) b\/(.*)/;
 
 export class GitLogParser {
 
-    private static _parseEntries(data: string, type: GitCommitType, maxCount: number | undefined, reverse: boolean): ILogEntry[] {
+    private static _parseEntries(data: string, type: GitCommitType, maxCount: number | undefined, reverse: boolean): ILogEntry[] | undefined {
         if (!data) return undefined;
 
         const lines = data.split('\n');
@@ -37,7 +37,7 @@ export class GitLogParser {
 
         const entries: ILogEntry[] = [];
 
-        let entry: ILogEntry;
+        let entry: ILogEntry | undefined = undefined;
         let position = -1;
         while (++position < lines.length) {
             // Since log --reverse doesn't properly honor a max count -- enforce it here
@@ -48,12 +48,12 @@ export class GitLogParser {
                 continue;
             }
 
-            if (!entry) {
+            if (entry === undefined) {
                 if (!Git.shaRegex.test(lineParts[0])) continue;
 
                 entry = {
                     sha: lineParts[0]
-                };
+                } as ILogEntry;
 
                 continue;
             }
@@ -118,10 +118,12 @@ export class GitLogParser {
                             if (lineParts[0] === 'diff') {
                                 diff = true;
                                 const matches = diffRegex.exec(line);
-                                entry.fileName = matches[1];
-                                const originalFileName = matches[2];
-                                if (entry.fileName !== originalFileName) {
-                                    entry.originalFileName = originalFileName;
+                                if (matches != null) {
+                                    entry.fileName = matches[1];
+                                    const originalFileName = matches[2];
+                                    if (entry.fileName !== originalFileName) {
+                                        entry.originalFileName = originalFileName;
+                                    }
                                 }
                                 continue;
                             }
@@ -133,7 +135,7 @@ export class GitLogParser {
                             const status = {
                                 status: line[0] as GitStatusFileStatus,
                                 fileName: line.substring(1),
-                                originalFileName: undefined as string
+                                originalFileName: undefined
                             } as IGitStatusFile;
                             this._parseFileName(status);
 
@@ -164,7 +166,7 @@ export class GitLogParser {
         return entries;
     }
 
-    static parse(data: string, type: GitCommitType, repoPath: string | undefined, fileName: string | undefined, sha: string | undefined, maxCount: number | undefined, reverse: boolean, range: Range): IGitLog {
+    static parse(data: string, type: GitCommitType, repoPath: string | undefined, fileName: string | undefined, sha: string | undefined, maxCount: number | undefined, reverse: boolean, range: Range | undefined): IGitLog | undefined {
         const entries = this._parseEntries(data, type, maxCount, reverse);
         if (!entries) return undefined;
 
@@ -172,7 +174,7 @@ export class GitLogParser {
         const commits: Map<string, GitLogCommit> = new Map();
 
         let relativeFileName: string;
-        let recentCommit: GitLogCommit;
+        let recentCommit: GitLogCommit | undefined = undefined;
 
         if (repoPath !== undefined) {
             repoPath = Git.normalizePath(repoPath);
@@ -184,28 +186,30 @@ export class GitLogParser {
 
             const entry = entries[i];
 
-            if (i === 0 && type === 'file' && !repoPath) {
+            if (i === 0 && repoPath === undefined && type === 'file' && fileName !== undefined) {
                 // Try to get the repoPath from the most recent commit
-                repoPath = Git.normalizePath(fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName, ''));
+                repoPath = Git.normalizePath(fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName!, ''));
                 relativeFileName = Git.normalizePath(path.relative(repoPath, fileName));
             }
             else {
-                relativeFileName = entry.fileName;
+                relativeFileName = entry.fileName!;
             }
 
             let commit = commits.get(entry.sha);
-            if (!commit) {
-                let author = authors.get(entry.author);
-                if (!author) {
-                    author = {
-                        name: entry.author,
-                        lineCount: 0
-                    };
-                    authors.set(entry.author, author);
+            if (commit === undefined) {
+                if (entry.author !== undefined) {
+                    let author = authors.get(entry.author);
+                    if (author === undefined) {
+                        author = {
+                            name: entry.author,
+                            lineCount: 0
+                        };
+                        authors.set(entry.author, author);
+                    }
                 }
 
-                commit = new GitLogCommit(type, repoPath, entry.sha, relativeFileName, entry.author, moment(entry.authorDate).toDate(), entry.summary, entry.status, entry.fileStatuses, undefined, entry.originalFileName);
-                commit.parentShas = entry.parentShas;
+                commit = new GitLogCommit(type, repoPath!, entry.sha, relativeFileName, entry.author, moment(entry.authorDate).toDate(), entry.summary!, entry.status, entry.fileStatuses, undefined, entry.originalFileName);
+                commit.parentShas = entry.parentShas!;
 
                 if (relativeFileName !== entry.fileName) {
                     commit.originalFileName = entry.fileName;
@@ -217,7 +221,7 @@ export class GitLogParser {
             //     Logger.log(`merge commit? ${entry.sha}`);
             // }
 
-            if (recentCommit) {
+            if (recentCommit !== undefined) {
                 recentCommit.previousSha = commit.sha;
 
                 // If the commit sha's match (merge commit), just forward it along
@@ -232,7 +236,14 @@ export class GitLogParser {
             recentCommit = commit;
         }
 
-        commits.forEach(c => authors.get(c.author).lineCount += c.lines.length);
+        commits.forEach(c => {
+            if (c.author === undefined) return;
+
+            const author = authors.get(c.author);
+            if (author === undefined) return;
+
+            author.lineCount += c.lines.length;
+        });
 
         const sortedAuthors: Map<string, IGitAuthor> = new Map();
         // const values =
@@ -258,10 +269,12 @@ export class GitLogParser {
     }
 
     private static _parseFileName(entry: { fileName?: string, originalFileName?: string }) {
+        if (entry.fileName === undefined) return;
+
         const index = entry.fileName.indexOf('\t') + 1;
-        if (index) {
+        if (index > 0) {
             const next = entry.fileName.indexOf('\t', index) + 1;
-            if (next) {
+            if (next > 0) {
                 entry.originalFileName = entry.fileName.substring(index, next - 1);
                 entry.fileName = entry.fileName.substring(next);
             }

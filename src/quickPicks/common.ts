@@ -1,6 +1,6 @@
 'use strict';
-import { CancellationTokenSource, commands, Disposable, QuickPickItem, QuickPickOptions, Uri, window, workspace } from 'vscode';
-import { Commands, Keyboard, KeyboardScope, KeyMapping, openEditor } from '../commands';
+import { CancellationTokenSource, commands, Disposable, QuickPickItem, QuickPickOptions, TextDocumentShowOptions, TextEditor, Uri, window, workspace } from 'vscode';
+import { Commands, Keyboard, Keys, KeyboardScope, KeyMapping, openEditor } from '../commands';
 import { IAdvancedConfig } from '../configuration';
 import { ExtensionKey } from '../constants';
 import { GitCommit, GitLogCommit, GitStashCommit } from '../gitService';
@@ -8,7 +8,8 @@ import { GitCommit, GitLogCommit, GitStashCommit } from '../gitService';
 import * as moment from 'moment';
 
 export function getQuickPickIgnoreFocusOut() {
-    return !workspace.getConfiguration(ExtensionKey).get<IAdvancedConfig>('advanced').quickPick.closeOnFocusOut;
+    const cfg = workspace.getConfiguration(ExtensionKey).get<IAdvancedConfig>('advanced')!;
+    return !cfg.quickPick.closeOnFocusOut;
 }
 
 export function showQuickPickProgress(message: string, mapping?: KeyMapping, delay: boolean = false): CancellationTokenSource {
@@ -32,7 +33,7 @@ export function showQuickPickProgress(message: string, mapping?: KeyMapping, del
 async function _showQuickPickProgress(message: string, cancellation: CancellationTokenSource, mapping?: KeyMapping) {
         // Logger.log(`showQuickPickProgress`, `show`, message);
 
-        const scope: KeyboardScope = mapping && await Keyboard.instance.beginScope(mapping);
+        const scope: KeyboardScope | undefined = mapping && await Keyboard.instance.beginScope(mapping);
 
         try {
             await window.showQuickPick(_getInfiniteCancellablePromise(cancellation), {
@@ -60,25 +61,52 @@ function _getInfiniteCancellablePromise(cancellation: CancellationTokenSource) {
     });
 }
 
+export interface QuickPickItem extends QuickPickItem {
+    onDidSelect?(): void;
+    onDidPressKey?(key: Keys): Promise<{} | undefined>;
+}
+
 export class CommandQuickPickItem implements QuickPickItem {
 
     label: string;
     description: string;
-    detail: string;
+    detail?: string | undefined;
+    protected command: Commands | undefined;
+    protected args: any[] | undefined;
 
-    constructor(item: QuickPickItem, protected command: Commands, protected args?: any[]) {
+    constructor(item: QuickPickItem, args?: [Commands, any[]]);
+    constructor(item: QuickPickItem, command?: Commands, args?: any[]);
+    constructor(item: QuickPickItem, commandOrArgs?: Commands | [Commands, any[]], args?: any[]) {
+        if (commandOrArgs === undefined) {
+            this.command = undefined;
+            this.args = args;
+        }
+        else if (typeof commandOrArgs === 'string') {
+            this.command = commandOrArgs;
+            this.args = args;
+        }
+        else {
+            this.command = commandOrArgs[0];
+            this.args = commandOrArgs.slice(1);
+        }
         Object.assign(this, item);
     }
 
-    execute(): Thenable<{}> {
-        return commands.executeCommand(this.command, ...(this.args || []));
+    execute(): Promise<{} | undefined> {
+        if (this.command === undefined) return Promise.resolve(undefined);
+
+        return commands.executeCommand(this.command, ...(this.args || [])) as Promise<{} | undefined>;
+    }
+
+    onDidPressKey(key: Keys): Promise<{} | undefined> {
+        return this.execute();
     }
 }
 
 export class KeyCommandQuickPickItem extends CommandQuickPickItem {
 
-    constructor(protected command: Commands, protected args?: any[]) {
-        super({ label: undefined, description: undefined }, command, args);
+    constructor(command: Commands, args?: any[]) {
+        super({ label: '', description: '' } as QuickPickItem, command, args);
     }
 }
 
@@ -88,12 +116,22 @@ export class OpenFileCommandQuickPickItem extends CommandQuickPickItem {
         super(item, undefined, undefined);
     }
 
-    async execute(pinned: boolean = false): Promise<{}> {
-        return this.open(pinned);
+    async execute(options?: TextDocumentShowOptions): Promise<TextEditor | undefined> {
+        return openEditor(this.uri, options);
     }
 
-    async open(pinned: boolean = false): Promise<{} | undefined> {
-        return openEditor(this.uri, pinned);
+    onDidSelect(): Promise<{} | undefined> {
+        return this.execute({
+            preserveFocus: true,
+            preview: true
+        });
+    }
+
+    onDidPressKey(key: Keys): Promise<{} | undefined> {
+        return this.execute({
+            preserveFocus: true,
+            preview: false
+        });
     }
 }
 
@@ -103,11 +141,18 @@ export class OpenFilesCommandQuickPickItem extends CommandQuickPickItem {
         super(item, undefined, undefined);
     }
 
-    async execute(): Promise<{}> {
+    async execute(options: TextDocumentShowOptions = { preserveFocus: false, preview: false }): Promise<{} | undefined> {
         for (const uri of this.uris) {
-            await openEditor(uri, true);
+            await openEditor(uri, options);
         }
         return undefined;
+    }
+
+    async onDidPressKey(key: Keys): Promise<{} | undefined> {
+        return this.execute({
+            preserveFocus: true,
+            preview: false
+        });
     }
 }
 
@@ -126,7 +171,7 @@ export class CommitQuickPickItem implements QuickPickItem {
 
         if (commit instanceof GitStashCommit) {
             this.label = `${commit.stashName}\u00a0\u2022\u00a0${message}`;
-            this.description = null;
+            this.description = '';
             this.detail = `\u00a0 ${moment(commit.date).fromNow()}\u00a0\u00a0\u2022\u00a0 ${commit.getDiffStatus()}`;
         }
         else {

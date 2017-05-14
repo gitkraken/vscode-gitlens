@@ -11,7 +11,7 @@ export class BranchQuickPickItem implements QuickPickItem {
 
     constructor(public branch: GitBranch) {
         this.label = `${branch.current ? '$(check)\u00a0' : '\u00a0\u00a0\u00a0\u00a0'} ${branch.name}`;
-        this.description = branch.remote ? '\u00a0\u00a0 remote branch' : null;
+        this.description = branch.remote ? '\u00a0\u00a0 remote branch' : '';
     }
 }
 

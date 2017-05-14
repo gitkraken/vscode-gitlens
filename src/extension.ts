@@ -30,14 +30,14 @@ export async function activate(context: ExtensionContext) {
     Logger.configure(context);
     Telemetry.configure(ApplicationInsightsKey);
 
-    const gitlens = extensions.getExtension(QualifiedExtensionId);
+    const gitlens = extensions.getExtension(QualifiedExtensionId)!;
     const gitlensVersion = gitlens.packageJSON.version;
 
     const rootPath = workspace.rootPath && workspace.rootPath.replace(/\\/g, '/');
     Logger.log(`GitLens(v${gitlensVersion}) active: ${rootPath}`);
 
-    const config = workspace.getConfiguration().get<IConfig>(ExtensionKey);
-    const gitPath = config.advanced.git;
+    const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
+    const gitPath = cfg.advanced.git;
 
     try {
         await GitService.getGitPath(gitPath);
@@ -114,7 +114,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new StashSaveCommand(git));
     context.subscriptions.push(new ToggleCodeLensCommand(git));
 
-    Telemetry.trackEvent('initialized', Objects.flatten(config, 'config', true));
+    Telemetry.trackEvent('initialized', Objects.flatten(cfg, 'config', true));
 }
 
 // this method is called when your extension is deactivated

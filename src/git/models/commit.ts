@@ -13,7 +13,7 @@ export interface IGitCommit {
     repoPath: string;
     sha: string;
     fileName: string;
-    author: string;
+    author?: string;
     date: Date;
     message: string;
     lines: IGitCommitLine[];

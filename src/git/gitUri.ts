@@ -43,7 +43,7 @@ export class GitUri extends Uri {
                 const commit = commitOrRepoPath;
                 base._fsPath = path.resolve(commit.repoPath, commit.originalFileName || commit.fileName);
 
-                if (!GitService.isUncommitted(commit.sha)) {
+                if (commit.sha !== undefined && !GitService.isUncommitted(commit.sha)) {
                     this.sha = commit.sha;
                     this.repoPath = commit.repoPath;
                 }
@@ -72,7 +72,7 @@ export class GitUri extends Uri {
     }
 
     getRelativePath(): string {
-        return GitService.normalizePath(path.relative(this.repoPath, this.fsPath));
+        return GitService.normalizePath(path.relative(this.repoPath || '', this.fsPath));
     }
 
     static async fromUri(uri: Uri, git: GitService) {

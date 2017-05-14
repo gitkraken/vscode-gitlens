@@ -10,7 +10,7 @@ interface IBlameEntry {
     originalLine: number;
     lineCount: number;
 
-    author?: string;
+    author: string;
     // authorEmail?: string;
     authorDate?: string;
     authorTimeZone?: string;
@@ -30,7 +30,7 @@ interface IBlameEntry {
 
 export class GitBlameParser {
 
-    private static _parseEntries(data: string): IBlameEntry[] {
+    private static _parseEntries(data: string): IBlameEntry[] | undefined {
         if (!data) return undefined;
 
         const lines = data.split('\n');
@@ -38,7 +38,7 @@ export class GitBlameParser {
 
         const entries: IBlameEntry[] = [];
 
-        let entry: IBlameEntry;
+        let entry: IBlameEntry | undefined = undefined;
         let position = -1;
         while (++position < lines.length) {
             let lineParts = lines[position].split(' ');
@@ -46,13 +46,13 @@ export class GitBlameParser {
                 continue;
             }
 
-            if (!entry) {
+            if (entry === undefined) {
                 entry = {
                     sha: lineParts[0],
                     originalLine: parseInt(lineParts[1], 10) - 1,
                     line: parseInt(lineParts[2], 10) - 1,
                     lineCount: parseInt(lineParts[3], 10)
-                };
+                } as IBlameEntry;
 
                 continue;
             }
@@ -116,7 +116,7 @@ export class GitBlameParser {
         return entries;
     }
 
-    static parse(data: string, repoPath: string, fileName: string): IGitBlame {
+    static parse(data: string, repoPath: string | undefined, fileName: string): IGitBlame | undefined {
         const entries = this._parseEntries(data);
         if (!entries) return undefined;
 
@@ -129,24 +129,26 @@ export class GitBlameParser {
         for (let i = 0, len = entries.length; i < len; i++) {
             const entry = entries[i];
 
-            if (i === 0 && !repoPath) {
+            if (i === 0 && repoPath === undefined) {
                 // Try to get the repoPath from the most recent commit
-                repoPath = Git.normalizePath(fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName, ''));
+                repoPath = Git.normalizePath(fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName!, ''));
                 relativeFileName = Git.normalizePath(path.relative(repoPath, fileName));
             }
 
             let commit = commits.get(entry.sha);
-            if (!commit) {
-                let author = authors.get(entry.author);
-                if (!author) {
-                    author = {
-                        name: entry.author,
-                        lineCount: 0
-                    };
-                    authors.set(entry.author, author);
+            if (commit === undefined) {
+                if (entry.author !== undefined) {
+                    let author = authors.get(entry.author);
+                    if (author === undefined) {
+                        author = {
+                            name: entry.author,
+                            lineCount: 0
+                        };
+                        authors.set(entry.author, author);
+                    }
                 }
 
-                commit = new GitCommit('blame', repoPath, entry.sha, relativeFileName, entry.author, moment(`${entry.authorDate} ${entry.authorTimeZone}`, 'X +-HHmm').toDate(), entry.summary);
+                commit = new GitCommit('blame', repoPath!, entry.sha, relativeFileName!, entry.author, moment(`${entry.authorDate} ${entry.authorTimeZone}`, 'X +-HHmm').toDate(), entry.summary!);
 
                 if (relativeFileName !== entry.fileName) {
                     commit.originalFileName = entry.fileName;
@@ -176,7 +178,14 @@ export class GitBlameParser {
             }
         }
 
-        commits.forEach(c => authors.get(c.author).lineCount += c.lines.length);
+        commits.forEach(c => {
+            if (c.author === undefined) return;
+
+            const author = authors.get(c.author);
+            if (author === undefined) return;
+
+            author.lineCount += c.lines.length;
+        });
 
         const sortedAuthors: Map<string, IGitAuthor> = new Map();
         // const values =

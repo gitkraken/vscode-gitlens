@@ -29,7 +29,7 @@ export namespace Iterables {
         }
     }
 
-    export function find<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): T {
+    export function find<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): T | null {
         for (const item of source) {
             if (predicate(item)) return item;
         }
@@ -76,8 +76,8 @@ export namespace Iterables {
         return value;
     }
 
-    export function last<T>(source: Iterable<T>): T {
-        let item: T;
+    export function last<T>(source: Iterable<T>): T | null {
+        let item: T | null = null;
         for (item of source) { /* noop */ }
         return item;
     }

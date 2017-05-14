@@ -58,7 +58,7 @@ export interface ICodeLensConfig {
 }
 
 export interface ICodeLensLanguageLocation {
-    language: string;
+    language: string | undefined;
     location: CodeLensLocation;
     customSymbols?: string[];
 }
