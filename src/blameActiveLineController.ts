@@ -61,11 +61,13 @@ export class BlameActiveLineController extends Disposable {
         if (!Objects.areEquivalent(cfg.statusBar, this._config && this._config.statusBar)) {
             changed = true;
             if (cfg.statusBar.enabled) {
-                // Coerce invalid configuration to the default right alignment
-                const useDefaultAlignment = cfg.statusBar.alignment === 'right' || cfg.statusBar.alignment !== 'left';
-                const alignment = useDefaultAlignment ? StatusBarAlignment.Right : StatusBarAlignment.Left;
+                const alignment = cfg.statusBar.alignment !== 'left' ? StatusBarAlignment.Right : StatusBarAlignment.Left;
+                if (this._statusBarItem !== undefined && this._statusBarItem.alignment !== alignment) {
+                    this._statusBarItem.dispose();
+                    this._statusBarItem = undefined;
+                }
 
-                this._statusBarItem = this._statusBarItem || window.createStatusBarItem(alignment, 1000);
+                this._statusBarItem = this._statusBarItem || window.createStatusBarItem(alignment, alignment === StatusBarAlignment.Right ? 1000 : 0);
                 this._statusBarItem.command = cfg.statusBar.command;
             }
             else if (!cfg.statusBar.enabled && this._statusBarItem) {

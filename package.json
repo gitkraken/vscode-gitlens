@@ -309,7 +309,7 @@
                     "left",
                     "right"
                   ],
-                  "description": "Specifies the blame alignment in the status bar"
+                  "description": "Specifies the blame alignment in the status bar. `left` - align to the left,  `right` - align to the right"
                 },
                 "gitlens.advanced.caching.enabled": {
                     "type": "boolean",
