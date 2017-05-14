@@ -5,6 +5,7 @@ import { GitRepoSearchBy, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitsQuickPick } from '../quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
+import { paste } from 'copy-paste';
 
 const searchByRegex = /^([@:#])/;
 const searchByMap = new Map<string, GitRepoSearchBy>([
@@ -34,6 +35,11 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
         if (gitUri.repoPath === undefined) return undefined;
 
         if (!args.search || args.searchBy == null) {
+            if (!args.search) {
+                args.search = await new Promise<string>((resolve, reject) => {
+                    paste((err: Error, content: string) => resolve(err ? '' : content));
+                });
+            }
             args.search = await window.showInputBox({
                 value: args.search,
                 prompt: `Please enter a search string`,
