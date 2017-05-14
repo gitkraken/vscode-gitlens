@@ -1,7 +1,7 @@
 'use strict';
 import { Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
-import { Commands, Keyboard } from '../commands';
+import { Commands, Keyboard, OpenChangedFilesCommandArgs, ShowQuickBranchHistoryCommandArgs, ShowQuickRepoStatusCommandArgs, ShowQuickStashListCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem } from './common';
 import { GitService, GitStatusFile, GitUri, IGitStatus } from '../gitService';
 import * as path from 'path';
@@ -36,7 +36,12 @@ export class OpenStatusFilesCommandQuickPickItem extends CommandQuickPickItem {
             label: `$(file-symlink-file) Open Changed Files`,
             description: ''
             //detail: `Opens all of the changed files in the repository`
-        }, Commands.OpenChangedFiles, [undefined, uris]);
+        }, Commands.OpenChangedFiles, [
+                undefined,
+                {
+                    uris
+                } as OpenChangedFilesCommandArgs
+            ]);
     }
 }
 
@@ -72,7 +77,12 @@ export class RepoStatusQuickPick {
         const currentCommand = new CommandQuickPickItem({
             label: `go back \u21A9`,
             description: `\u00a0 \u2014 \u00a0\u00a0 to \u00a0$(git-branch) ${status.branch} status`
-        }, Commands.ShowQuickRepoStatus, [undefined, goBackCommand]);
+        }, Commands.ShowQuickRepoStatus, [
+                undefined,
+                {
+                    goBackCommand
+                } as ShowQuickRepoStatusCommandArgs
+            ]);
 
         if (hasStaged) {
             let index = 0;
@@ -81,7 +91,12 @@ export class RepoStatusQuickPick {
                 items.splice(unstagedIndex, 0, new CommandQuickPickItem({
                     label: `Unstaged Files`,
                     description: unstagedStatus
-                }, Commands.ShowQuickRepoStatus, [undefined, goBackCommand]));
+                }, Commands.ShowQuickRepoStatus, [
+                        undefined,
+                        {
+                            goBackCommand
+                        } as ShowQuickRepoStatusCommandArgs
+                    ]));
 
                 items.splice(unstagedIndex, 0, new OpenStatusFilesCommandQuickPickItem(files.filter(_ => _.status !== 'D' && _.staged), {
                     label: `\u00a0\u00a0\u00a0\u00a0 $(file-symlink-file) Open Staged Files`,
@@ -97,13 +112,23 @@ export class RepoStatusQuickPick {
             items.splice(index++, 0, new CommandQuickPickItem({
                 label: `Staged Files`,
                 description: stagedStatus
-            }, Commands.ShowQuickRepoStatus, [undefined, goBackCommand]));
+            }, Commands.ShowQuickRepoStatus, [
+                    undefined,
+                    {
+                        goBackCommand
+                    } as ShowQuickRepoStatusCommandArgs
+                ]));
         }
         else if (files.some(_ => !_.staged)) {
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `Unstaged Files`,
                 description: unstagedStatus
-            }, Commands.ShowQuickRepoStatus, [undefined, goBackCommand]));
+            }, Commands.ShowQuickRepoStatus, [
+                    undefined,
+                    {
+                        goBackCommand
+                    } as ShowQuickRepoStatusCommandArgs
+                ]));
         }
 
         if (files.length) {
@@ -117,13 +142,23 @@ export class RepoStatusQuickPick {
             items.push(new CommandQuickPickItem({
                 label: `No changes in the working tree`,
                 description: ''
-            }, Commands.ShowQuickRepoStatus, [undefined, goBackCommand]));
+            }, Commands.ShowQuickRepoStatus, [
+                    undefined,
+                    {
+                        goBackCommand
+                    } as ShowQuickRepoStatusCommandArgs
+                ]));
         }
 
         items.splice(0, 0, new CommandQuickPickItem({
             label: `$(repo-push) Show Stashed Changes`,
             description: `\u00a0 \u2014 \u00a0\u00a0 shows stashed changes in the repository`
-        }, Commands.ShowQuickStashList, [new GitUri(Uri.file(status.repoPath), { fileName: '', repoPath: status.repoPath }), currentCommand]));
+        }, Commands.ShowQuickStashList, [
+                new GitUri(Uri.file(status.repoPath), { fileName: '', repoPath: status.repoPath }),
+                {
+                    goBackCommand: currentCommand
+                } as ShowQuickStashListCommandArgs
+            ]));
 
         if (status.upstream && status.state.ahead) {
             items.splice(0, 0, new CommandQuickPickItem({
@@ -131,9 +166,12 @@ export class RepoStatusQuickPick {
                 description: `\u00a0 \u2014 \u00a0\u00a0 shows commits in \u00a0$(git-branch) ${status.branch} but not \u00a0$(git-branch) ${status.upstream}`
             }, Commands.ShowQuickBranchHistory, [
                     new GitUri(Uri.file(status.repoPath), { fileName: '', repoPath: status.repoPath, sha: `${status.upstream}..${status.branch}` }),
-                    status.branch, 0, currentCommand
-                ])
-            );
+                    {
+                        branch: status.branch,
+                        maxCount: 0,
+                        goBackCommand: currentCommand
+                    } as ShowQuickBranchHistoryCommandArgs
+                ]));
         }
 
         if (status.upstream && status.state.behind) {
@@ -142,16 +180,24 @@ export class RepoStatusQuickPick {
                 description: `\u00a0 \u2014 \u00a0\u00a0 shows commits in \u00a0$(git-branch) ${status.upstream} but not \u00a0$(git-branch) ${status.branch}${status.sha ? ` (since \u00a0$(git-commit) ${status.sha.substring(0, 8)})` : ''}`
             }, Commands.ShowQuickBranchHistory, [
                     new GitUri(Uri.file(status.repoPath), { fileName: '', repoPath: status.repoPath, sha: `${status.branch}..${status.upstream}` }),
-                    status.upstream, 0, currentCommand
-                ])
-            );
+                    {
+                        branch: status.upstream,
+                        maxCount: 0,
+                        goBackCommand: currentCommand
+                    } as ShowQuickBranchHistoryCommandArgs
+                ]));
         }
 
         if (status.upstream && !status.state.ahead && !status.state.behind) {
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `$(git-branch) ${status.branch} is up-to-date with \u00a0$(git-branch) ${status.upstream}`,
                 description: ''
-            }, Commands.ShowQuickRepoStatus, [undefined, goBackCommand]));
+            }, Commands.ShowQuickRepoStatus, [
+                    undefined,
+                    {
+                        goBackCommand
+                    } as ShowQuickRepoStatusCommandArgs
+                ]));
         }
 
 

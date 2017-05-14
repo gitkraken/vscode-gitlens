@@ -1,9 +1,10 @@
 'use strict';
 import { Arrays } from '../system';
 import { commands, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands } from './common';
+import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
+import { OpenInRemoteCommandArgs } from './openInRemote';
 
 export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
 
@@ -12,24 +13,21 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
     }
 
     async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri) {
-        if (!(uri instanceof Uri)) {
-            if (!editor || !editor.document) return undefined;
-            uri = editor.document.uri;
-        }
-
-        if ((editor && editor.document && editor.document.isDirty) || !uri) return undefined;
+        uri = getCommandUri(uri, editor);
+        if (uri === undefined) return undefined;
+        if (editor !== undefined && editor.document !== undefined && editor.document.isDirty) return undefined;
 
         const gitUri = await GitUri.fromUri(uri, this.git);
         if (!gitUri.repoPath) return undefined;
 
-        const line = (editor && editor.selection.active.line) || gitUri.offset;
+        const line = editor === undefined ? gitUri.offset : editor.selection.active.line;
 
         try {
             const blameline = line - gitUri.offset;
             if (blameline < 0) return undefined;
 
             const blame = await this.git.getBlameForLine(gitUri, blameline);
-            if (!blame) return window.showWarningMessage(`Unable to open commit in remote provider. File is probably not under source control`);
+            if (blame === undefined) return window.showWarningMessage(`Unable to open commit in remote provider. File is probably not under source control`);
 
             let commit = blame.commit;
             // If the line is uncommitted, find the previous commit
@@ -38,7 +36,13 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
             }
 
             const remotes = Arrays.uniqueBy(await this.git.getRemotes(gitUri.repoPath), _ => _.url, _ => !!_.provider);
-            return commands.executeCommand(Commands.OpenInRemote, uri, remotes, 'commit', [commit.sha]);
+            return commands.executeCommand(Commands.OpenInRemote, uri, {
+                resource: {
+                    type: 'commit',
+                    sha: commit.sha
+                },
+                remotes
+            } as OpenInRemoteCommandArgs);
         }
         catch (ex) {
             Logger.error(ex, 'OpenCommitInRemoteCommand');

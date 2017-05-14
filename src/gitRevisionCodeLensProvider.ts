@@ -1,7 +1,7 @@
 'use strict';
 // import { Iterables } from './system';
 import { CancellationToken, CodeLens, CodeLensProvider, DocumentSelector, ExtensionContext, Range, TextDocument, Uri } from 'vscode';
-import { Commands } from './commands';
+import { Commands, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs } from './commands';
 import { DocumentSchemes } from './constants';
 import { GitCommit, GitService, GitUri } from './gitService';
 
@@ -55,8 +55,10 @@ export class GitRevisionCodeLensProvider implements CodeLensProvider {
             command: Commands.DiffWithWorking,
             arguments: [
                 Uri.file(lens.fileName),
-                lens.commit,
-                lens.range.start.line
+                {
+                    commit: lens.commit,
+                    line: lens.range.start.line
+                } as DiffWithWorkingCommandArgs
             ]
         };
         return Promise.resolve(lens);
@@ -68,8 +70,10 @@ export class GitRevisionCodeLensProvider implements CodeLensProvider {
             command: Commands.DiffWithPrevious,
             arguments: [
                 Uri.file(lens.fileName),
-                lens.commit,
-                lens.range.start.line
+                {
+                    commit: lens.commit,
+                    line: lens.range.start.line
+                } as DiffWithPreviousCommandArgs
             ]
         };
         return Promise.resolve(lens);

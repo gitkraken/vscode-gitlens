@@ -1,8 +1,15 @@
 'use strict';
-import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands } from './common';
+import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { DiffWithWorkingCommandArgs } from './diffWithWorking';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
+
+export interface DiffLineWithWorkingCommandArgs {
+    commit?: GitCommit;
+    line?: number;
+    showOptions?: TextDocumentShowOptions;
+}
 
 export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 
@@ -10,32 +17,28 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
         super(Commands.DiffLineWithWorking);
     }
 
-    async execute(editor: TextEditor): Promise<any>;
-    async execute(editor: TextEditor, uri: Uri): Promise<any>;
-    async execute(editor: TextEditor, uri?: Uri, commit?: GitCommit, line?: number): Promise<any> {
-        if (!(uri instanceof Uri)) {
-            if (!editor || !editor.document) return undefined;
-            uri = editor.document.uri;
-        }
+    async execute(editor: TextEditor, uri?: Uri, args: DiffLineWithWorkingCommandArgs = {}): Promise<any> {
+        uri = getCommandUri(uri, editor);
+        if (uri === undefined) return undefined;
 
         const gitUri = await GitUri.fromUri(uri, this.git);
-        line = line || (editor && editor.selection.active.line) || gitUri.offset;
+        args.line = args.line || (editor === undefined ? gitUri.offset : editor.selection.active.line);
 
-        if (!commit || GitService.isUncommitted(commit.sha)) {
-            if (editor && editor.document && editor.document.isDirty) return undefined;
+        if (args.commit === undefined || GitService.isUncommitted(args.commit.sha)) {
+            if (editor !== undefined && editor.document !== undefined && editor.document.isDirty) return undefined;
 
-            const blameline = line - gitUri.offset;
+            const blameline = args.line - gitUri.offset;
             if (blameline < 0) return undefined;
 
             try {
                 const blame = await this.git.getBlameForLine(gitUri, blameline);
-                if (!blame) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
+                if (blame === undefined) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
 
-                commit = blame.commit;
+                args.commit = blame.commit;
                 // If the line is uncommitted, find the previous commit
-                if (commit.isUncommitted) {
-                    commit = new GitCommit(commit.type, commit.repoPath, commit.previousSha!, commit.previousFileName!, commit.author, commit.date, commit.message);
-                    line = blame.line.line + 1 + gitUri.offset;
+                if (args.commit.isUncommitted) {
+                    args.commit = new GitCommit(args.commit.type, args.commit.repoPath, args.commit.previousSha!, args.commit.previousFileName!, args.commit.author, args.commit.date, args.commit.message);
+                    args.line = blame.line.line + 1 + gitUri.offset;
                 }
             }
             catch (ex) {
@@ -44,6 +47,6 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
             }
         }
 
-        return commands.executeCommand(Commands.DiffWithWorking, uri, commit, line);
+        return commands.executeCommand(Commands.DiffWithWorking, uri, args as DiffWithWorkingCommandArgs);
     }
 }

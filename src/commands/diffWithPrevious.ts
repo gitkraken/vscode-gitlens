@@ -1,12 +1,19 @@
 'use strict';
 import { Iterables } from '../system';
-import { commands, Range, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands } from './common';
+import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { BuiltInCommands } from '../constants';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import * as moment from 'moment';
 import * as path from 'path';
+
+export interface DiffWithPreviousCommandArgs {
+    commit?: GitCommit;
+    line?: number;
+    range?: Range;
+    showOptions?: TextDocumentShowOptions;
+}
 
 export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
@@ -14,39 +21,27 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
         super(Commands.DiffWithPrevious);
     }
 
-    async execute(editor: TextEditor): Promise<any>;
-    async execute(editor: TextEditor, uri: Uri): Promise<any>;
-    async execute(editor: TextEditor, uri: Uri, commit: GitCommit, range?: Range): Promise<any>;
-    async execute(editor: TextEditor, uri: Uri, commit: GitCommit, line?: number): Promise<any>;
-    async execute(editor: TextEditor, uri?: Uri, commit?: GitCommit, rangeOrLine?: Range | number): Promise<any> {
-        if (!(uri instanceof Uri)) {
-            if (!editor || !editor.document) return undefined;
-            uri = editor.document.uri;
-        }
+    async execute(editor: TextEditor, uri?: Uri, args: DiffWithPreviousCommandArgs = {}): Promise<any> {
+        uri = getCommandUri(uri, editor);
+        if (uri === undefined) return undefined;
 
-        let line = (editor && editor.selection.active.line) || 0;
-        if (typeof rangeOrLine === 'number') {
-            line = rangeOrLine || line;
-            rangeOrLine = undefined;
-        }
+        args.line = args.line || (editor === undefined ? 0 : editor.selection.active.line);
 
-        if (!commit || rangeOrLine instanceof Range) {
+        if (args.commit === undefined || args.range !== undefined) {
             const gitUri = await GitUri.fromUri(uri, this.git);
 
             try {
-                if (!gitUri.sha) {
-                    // If the file is uncommitted, treat it as a DiffWithWorking
-                    if (await this.git.isFileUncommitted(gitUri)) {
-                        return commands.executeCommand(Commands.DiffWithWorking, uri);
-                    }
+                // If the sha is missing or the file is uncommitted, treat it as a DiffWithWorking
+                if (gitUri.sha === undefined && await this.git.isFileUncommitted(gitUri)) {
+                    return commands.executeCommand(Commands.DiffWithWorking, uri);
                 }
 
-                const sha = (commit && commit.sha) || gitUri.sha;
+                const sha = args.commit === undefined ? gitUri.sha : args.commit.sha;
 
-                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, sha ? undefined : 2, rangeOrLine!);
-                if (!log) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
+                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, sha ? undefined : 2, args.range!);
+                if (log === undefined) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
 
-                commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
+                args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
             }
             catch (ex) {
                 Logger.error(ex, 'DiffWithPreviousCommand', `getLogForFile(${gitUri.repoPath}, ${gitUri.fsPath})`);
@@ -54,18 +49,22 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
             }
         }
 
-        if (!commit.previousSha) {
-            return window.showInformationMessage(`Commit ${commit.shortSha} (${commit.author}, ${moment(commit.date).fromNow()}) has no previous commit`);
-        }
+        if (args.commit.previousSha === undefined) return window.showInformationMessage(`Commit ${args.commit.shortSha} (${args.commit.author}, ${moment(args.commit.date).fromNow()}) has no previous commit`);
 
         try {
             const [rhs, lhs] = await Promise.all([
-                this.git.getVersionedFile(commit.repoPath, commit.uri.fsPath, commit.sha),
-                this.git.getVersionedFile(commit.repoPath, commit.previousUri.fsPath, commit.previousSha)
+                this.git.getVersionedFile(args.commit.repoPath, args.commit.uri.fsPath, args.commit.sha),
+                this.git.getVersionedFile(args.commit.repoPath, args.commit.previousUri.fsPath, args.commit.previousSha)
             ]);
-            await commands.executeCommand(BuiltInCommands.Diff, Uri.file(lhs), Uri.file(rhs), `${path.basename(commit.previousUri.fsPath)} (${commit.previousShortSha}) \u2194 ${path.basename(commit.uri.fsPath)} (${commit.shortSha})`);
+
+            await commands.executeCommand(BuiltInCommands.Diff,
+                Uri.file(lhs),
+                Uri.file(rhs),
+                `${path.basename(args.commit.previousUri.fsPath)} (${args.commit.previousShortSha}) \u2194 ${path.basename(args.commit.uri.fsPath)} (${args.commit.shortSha})`,
+                args.showOptions);
+
             // TODO: Figure out how to focus the left pane
-            return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: line, at: 'center' });
+            return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: args.line, at: 'center' });
         }
         catch (ex) {
             Logger.error(ex, 'DiffWithPreviousCommand', 'getVersionedFile');

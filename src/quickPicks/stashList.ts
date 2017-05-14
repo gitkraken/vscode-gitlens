@@ -1,7 +1,7 @@
 'use strict';
 import { Iterables } from '../system';
 import { QuickPickOptions, window } from 'vscode';
-import { Commands, Keyboard } from '../commands';
+import { Commands, Keyboard, StashSaveCommandArgs } from '../commands';
 import { GitService, IGitStash } from '../gitService';
 import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut } from '../quickPicks';
 
@@ -14,12 +14,22 @@ export class StashListQuickPick {
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `$(repo-push) Stash Unstaged Changes`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 stashes only unstaged changes`
-            }, Commands.StashSave, [undefined, true, currentCommand]));
+            }, Commands.StashSave, [
+                    {
+                        unstagedOnly: true,
+                        goBackCommand: currentCommand
+                    } as StashSaveCommandArgs
+                ]));
 
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `$(repo-push) Stash Changes`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 stashes all changes`
-            }, Commands.StashSave, [undefined, undefined, currentCommand]));
+            }, Commands.StashSave, [
+                    {
+                        unstagedOnly: false,
+                        goBackCommand: currentCommand
+                    } as StashSaveCommandArgs
+                ]));
         }
 
         if (goBackCommand) {

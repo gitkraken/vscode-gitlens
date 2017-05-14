@@ -1,8 +1,8 @@
 'use strict';
-import { commands, Disposable, QuickPickItem } from 'vscode';
+import { commands, Disposable } from 'vscode';
 import { CommandContext, setCommandContext } from './common';
 import { ExtensionKey } from '../constants';
-import { CommandQuickPickItem, OpenFileCommandQuickPickItem } from '../quickPicks';
+import { QuickPickItem } from '../quickPicks';
 import { Logger } from '../logger';
 
 const keyNoopCommand = Object.create(null) as QuickPickItem;
@@ -119,20 +119,15 @@ export class Keyboard extends Disposable {
         try {
             const mapping = mappings[mappings.length - 1];
 
-            let command = mapping[key] as CommandQuickPickItem | (() => Promise<CommandQuickPickItem>);
+            let command = mapping[key] as QuickPickItem | (() => Promise<QuickPickItem>);
             if (typeof command === 'function') {
                 command = await command();
             }
-            if (!command || !(command instanceof CommandQuickPickItem)) return undefined;
+            if (!command || typeof command.onDidPressKey !== 'function') return undefined;
 
             Logger.log('Keyboard.execute', key);
 
-            if (command instanceof OpenFileCommandQuickPickItem) {
-                // Have to open this pinned right now, because vscode doesn't have a way to open a unpinned, but unfocused editor
-                return await command.execute(true);
-            }
-
-            return await command.execute();
+            return await command.onDidPressKey(key);
         }
         catch (ex) {
             Logger.error(ex, 'Keyboard.execute');

@@ -1,10 +1,19 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCachedCommand, Commands } from './common';
+import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { GitCommit, GitLogCommit, GitService, GitUri, IGitLog } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitFileDetailsQuickPick } from '../quickPicks';
+import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 import * as path from 'path';
+
+export interface ShowQuickCommitFileDetailsCommandArgs {
+    sha?: string;
+    commit?: GitCommit | GitLogCommit;
+    fileLog?: IGitLog;
+
+    goBackCommand?: CommandQuickPickItem;
+}
 
 export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand {
 
@@ -12,30 +21,28 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
         super(Commands.ShowQuickCommitFileDetails);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, sha?: string, commit?: GitCommit | GitLogCommit, goBackCommand?: CommandQuickPickItem, fileLog?: IGitLog) {
-        if (!(uri instanceof Uri)) {
-            if (!editor || !editor.document) return undefined;
-            uri = editor.document.uri;
-        }
+    async execute(editor: TextEditor, uri?: Uri, args: ShowQuickCommitFileDetailsCommandArgs = {}) {
+        uri = getCommandUri(uri, editor);
+        if (uri === undefined) return undefined;
 
-        let workingFileName = commit && commit.workingFileName;
+        let workingFileName = args.commit && args.commit.workingFileName;
 
         const gitUri = await GitUri.fromUri(uri, this.git);
 
-        if (!sha) {
-            if (!editor) return undefined;
+        if (args.sha === undefined) {
+            if (editor === undefined) return undefined;
 
             const blameline = editor.selection.active.line - gitUri.offset;
             if (blameline < 0) return undefined;
 
             try {
                 const blame = await this.git.getBlameForLine(gitUri, blameline);
-                if (!blame) return window.showWarningMessage(`Unable to show commit file details. File is probably not under source control`);
+                if (blame === undefined) return window.showWarningMessage(`Unable to show commit file details. File is probably not under source control`);
 
-                sha = blame.commit.isUncommitted ? blame.commit.previousSha : blame.commit.sha;
+                args.sha = blame.commit.isUncommitted ? blame.commit.previousSha : blame.commit.sha;
 
-                commit = blame.commit;
-                workingFileName = path.relative(commit.repoPath, gitUri.fsPath);
+                args.commit = blame.commit;
+                workingFileName = path.relative(args.commit.repoPath, gitUri.fsPath);
             }
             catch (ex) {
                 Logger.error(ex, 'ShowQuickCommitFileDetailsCommand', `getBlameForLine(${blameline})`);
@@ -44,50 +51,56 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
         }
 
         try {
-            if (!commit || (commit.type !== 'file' && commit.type !== 'stash')) {
-                if (fileLog) {
-                    commit = fileLog.commits.get(sha!);
+            if (args.commit === undefined || (args.commit.type !== 'file' && args.commit.type !== 'stash')) {
+                if (args.fileLog !== undefined) {
+                    args.commit = args.fileLog.commits.get(args.sha!);
                     // If we can't find the commit, kill the fileLog
-                    if (commit === undefined) {
-                        fileLog = undefined;
+                    if (args.commit === undefined) {
+                        args.fileLog = undefined;
                     }
                 }
 
-                if (fileLog === undefined) {
-                    commit = await this.git.getLogCommit(commit ? commit.repoPath : gitUri.repoPath, gitUri.fsPath, sha, { previous: true });
-                    if (commit === undefined) return window.showWarningMessage(`Unable to show commit file details`);
+                if (args.fileLog === undefined) {
+                    args.commit = await this.git.getLogCommit(args.commit ? args.commit.repoPath : gitUri.repoPath, gitUri.fsPath, args.sha, { previous: true });
+                    if (args.commit === undefined) return window.showWarningMessage(`Unable to show commit file details`);
                 }
             }
 
-            if (commit === undefined) return window.showWarningMessage(`Unable to show commit file details`);
+            if (args.commit === undefined) return window.showWarningMessage(`Unable to show commit file details`);
 
             // Attempt to the most recent commit -- so that we can find the real working filename if there was a rename
-            commit.workingFileName = workingFileName;
-            commit.workingFileName = await this.git.findWorkingFileName(commit);
+            args.commit.workingFileName = workingFileName;
+            args.commit.workingFileName = await this.git.findWorkingFileName(args.commit);
 
-            const shortSha = sha!.substring(0, 8);
+            const shortSha = args.sha!.substring(0, 8);
 
-            if (!goBackCommand) {
+            if (args.goBackCommand === undefined) {
                 // Create a command to get back to the commit details
-                goBackCommand = new CommandQuickPickItem({
+                args.goBackCommand = new CommandQuickPickItem({
                     label: `go back \u21A9`,
                     description: `\u00a0 \u2014 \u00a0\u00a0 to details of \u00a0$(git-commit) ${shortSha}`
-                }, Commands.ShowQuickCommitDetails, [new GitUri(commit.uri, commit), sha, commit]);
+                }, Commands.ShowQuickCommitDetails, [
+                        new GitUri(args.commit.uri, args.commit),
+                        {
+                            commit: args.commit,
+                            sha: args.sha
+                        } as ShowQuickCommitDetailsCommandArgs
+                    ]);
             }
 
-            const pick = await CommitFileDetailsQuickPick.show(this.git, commit as GitLogCommit, uri, goBackCommand,
-                // Create a command to get back to where we are right now
-                new CommandQuickPickItem({
-                    label: `go back \u21A9`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 to details of \u00a0$(file-text) ${path.basename(commit.fileName)} in \u00a0$(git-commit) ${shortSha}`
-                }, Commands.ShowQuickCommitFileDetails, [new GitUri(commit.uri, commit), sha, commit, goBackCommand]),
-                fileLog);
+            // Create a command to get back to where we are right now
+            const currentCommand = new CommandQuickPickItem({
+                label: `go back \u21A9`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 to details of \u00a0$(file-text) ${path.basename(args.commit.fileName)} in \u00a0$(git-commit) ${shortSha}`
+            }, Commands.ShowQuickCommitFileDetails, [
+                    new GitUri(args.commit.uri, args.commit),
+                    args
+                ]);
 
-            if (!pick) return undefined;
+            const pick = await CommitFileDetailsQuickPick.show(this.git, args.commit as GitLogCommit, uri, args.goBackCommand, currentCommand, args.fileLog);
+            if (pick === undefined) return undefined;
 
-            if (pick instanceof CommandQuickPickItem) {
-                return pick.execute();
-            }
+            if (pick instanceof CommandQuickPickItem) return pick.execute();
 
             return undefined;
         }

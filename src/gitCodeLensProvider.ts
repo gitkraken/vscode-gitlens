@@ -1,7 +1,7 @@
 'use strict';
 import { Functions, Iterables, Strings } from './system';
 import { CancellationToken, CodeLens, CodeLensProvider, Command, commands, DocumentSelector, Event, EventEmitter, ExtensionContext, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri, workspace } from 'vscode';
-import { Commands } from './commands';
+import { Commands, DiffWithPreviousCommandArgs, ShowBlameHistoryCommandArgs, ShowFileHistoryCommandArgs, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from './commands';
 import { BuiltInCommands, DocumentSchemes, ExtensionKey } from './constants';
 import { CodeLensCommand, CodeLensLocation, IConfig, ICodeLensLanguageLocation } from './configuration';
 import { GitCommit, GitService, GitUri, IGitBlame, IGitBlameLines } from './gitService';
@@ -321,7 +321,15 @@ export class GitCodeLensProvider implements CodeLensProvider {
         lens.command = {
             title: title,
             command: Commands.ShowBlameHistory,
-            arguments: [Uri.file(lens.uri.fsPath), lens.blameRange, position, commit && commit.sha, line]
+            arguments: [
+                Uri.file(lens.uri.fsPath),
+                {
+                    line,
+                    position,
+                    range: lens.blameRange,
+                    sha: commit && commit.sha
+                } as ShowBlameHistoryCommandArgs
+            ]
         };
         return lens;
     }
@@ -339,7 +347,14 @@ export class GitCodeLensProvider implements CodeLensProvider {
         lens.command = {
             title: title,
             command: Commands.ShowFileHistory,
-            arguments: [Uri.file(lens.uri.fsPath), position, commit && commit.sha, line]
+            arguments: [
+                Uri.file(lens.uri.fsPath),
+                {
+                    line,
+                    position,
+                    sha: commit && commit.sha
+                } as ShowFileHistoryCommandArgs
+            ]
         };
         return lens;
     }
@@ -355,8 +370,10 @@ export class GitCodeLensProvider implements CodeLensProvider {
             command: Commands.DiffWithPrevious,
             arguments: [
                 Uri.file(lens.uri.fsPath),
-                commit,
-                lens.isFullRange ? undefined : lens.blameRange
+                {
+                    commit: commit,
+                    range: lens.isFullRange ? undefined : lens.blameRange
+                } as DiffWithPreviousCommandArgs
             ]
         };
         return lens;
@@ -366,7 +383,12 @@ export class GitCodeLensProvider implements CodeLensProvider {
         lens.command = {
             title: title,
             command: CodeLensCommand.ShowQuickCommitDetails,
-            arguments: [Uri.file(lens.uri.fsPath), commit === undefined ? undefined : commit.sha, commit]
+            arguments: [
+                Uri.file(lens.uri.fsPath),
+                {
+                    commit,
+                    sha: commit === undefined ? undefined : commit.sha
+                } as ShowQuickCommitDetailsCommandArgs]
         };
         return lens;
     }
@@ -375,7 +397,12 @@ export class GitCodeLensProvider implements CodeLensProvider {
         lens.command = {
             title: title,
             command: CodeLensCommand.ShowQuickCommitFileDetails,
-            arguments: [Uri.file(lens.uri.fsPath), commit === undefined ? undefined : commit.sha, commit]
+            arguments: [
+                Uri.file(lens.uri.fsPath),
+                {
+                    commit,
+                    sha: commit === undefined ? undefined : commit.sha
+                } as ShowQuickCommitFileDetailsCommandArgs]
         };
         return lens;
     }
@@ -384,7 +411,12 @@ export class GitCodeLensProvider implements CodeLensProvider {
         lens.command = {
             title: title,
             command: CodeLensCommand.ShowQuickFileHistory,
-            arguments: [Uri.file(lens.uri.fsPath), lens.isFullRange ? undefined : lens.blameRange]
+            arguments: [
+                Uri.file(lens.uri.fsPath),
+                {
+                    range: lens.isFullRange ? undefined : lens.blameRange
+                } as ShowQuickFileHistoryCommandArgs
+            ]
         };
         return lens;
     }

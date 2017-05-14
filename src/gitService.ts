@@ -15,7 +15,7 @@ import * as path from 'path';
 
 export { GitUri };
 export * from './git/models/models';
-export { getNameFromRemoteOpenType, RemoteOpenType, RemoteProvider } from './git/remotes/provider';
+export { getNameFromRemoteResource, RemoteResource, RemoteProvider } from './git/remotes/provider';
 export * from './git/gitContextTracker';
 
 class UriCacheEntry {
@@ -715,13 +715,18 @@ export class GitService extends Disposable {
 
     async getRepoPathFromFile(fileName: string): Promise<string | undefined> {
         const log = await this.getLogForFile(undefined, fileName, undefined, 1);
-        return log && log.repoPath;
+        if (log === undefined) return undefined;
+
+        return log.repoPath;
     }
 
     async getRepoPathFromUri(uri: Uri | undefined): Promise<string | undefined> {
         if (!(uri instanceof Uri)) return this.repoPath;
 
-        return (await GitUri.fromUri(uri, this)).repoPath || this.repoPath;
+        const repoPath = (await GitUri.fromUri(uri, this)).repoPath;
+        if (!repoPath) return this.repoPath;
+
+        return repoPath;
     }
 
     async getStashList(repoPath: string): Promise<IGitStash | undefined> {
@@ -851,8 +856,11 @@ export class GitService extends Disposable {
         return Git.gitInfo().version;
     }
 
-    static getRepoPath(cwd: string | undefined): Promise<string> {
-        return Git.getRepoPath(cwd);
+    static async getRepoPath(cwd: string | undefined): Promise<string> {
+        const repoPath = await Git.getRepoPath(cwd);
+        if (!repoPath) return '';
+
+        return repoPath;
     }
 
     static fromGitContentUri(uri: Uri): IGitUriData {

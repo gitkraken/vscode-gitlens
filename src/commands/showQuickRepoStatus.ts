@@ -1,9 +1,13 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCachedCommand, Commands } from './common';
+import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepoStatusQuickPick } from '../quickPicks';
+
+export interface ShowQuickRepoStatusCommandArgs {
+    goBackCommand?: CommandQuickPickItem;
+}
 
 export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
 
@@ -11,24 +15,20 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
         super(Commands.ShowQuickRepoStatus);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, goBackCommand?: CommandQuickPickItem) {
-        if (!(uri instanceof Uri)) {
-            uri = editor && editor.document && editor.document.uri;
-        }
+    async execute(editor: TextEditor, uri?: Uri, args: ShowQuickRepoStatusCommandArgs = {}) {
+        uri = getCommandUri(uri, editor);
 
         try {
             const repoPath = await this.git.getRepoPathFromUri(uri);
             if (!repoPath) return window.showWarningMessage(`Unable to show repository status`);
 
             const status = await this.git.getStatusForRepo(repoPath);
-            if (!status) return window.showWarningMessage(`Unable to show repository status`);
+            if (status === undefined) return window.showWarningMessage(`Unable to show repository status`);
 
-            const pick = await RepoStatusQuickPick.show(status, goBackCommand);
-            if (!pick) return undefined;
+            const pick = await RepoStatusQuickPick.show(status, args.goBackCommand);
+            if (pick === undefined) return undefined;
 
-            if (pick instanceof CommandQuickPickItem) {
-                return pick.execute();
-            }
+            if (pick instanceof CommandQuickPickItem) return pick.execute();
 
             return undefined;
         }

@@ -1,11 +1,16 @@
 'use strict';
 import { commands, Range, Uri } from 'vscode';
 import { BuiltInCommands } from '../../constants';
+import { GitLogCommit } from '../../gitService';
 
-export type RemoteOpenType = 'branch' | 'commit' | 'file' | 'working-file';
+export type RemoteResourceType = 'branch' | 'commit' | 'file' | 'working-file';
+export type RemoteResource = { type: 'branch', branch: string } |
+    { type: 'commit', sha: string } |
+    { type: 'file', branch?: string, commit?: GitLogCommit, fileName: string, range?: Range, sha?: string } |
+    { type: 'working-file', branch?: string, fileName: string, range?: Range };
 
-export function getNameFromRemoteOpenType(type: RemoteOpenType) {
-    switch (type) {
+export function getNameFromRemoteResource(resource: RemoteResource) {
+    switch (resource.type) {
         case 'branch': return 'Branch';
         case 'commit': return 'Commit';
         case 'file': return 'File';
@@ -34,19 +39,16 @@ export abstract class RemoteProvider {
         return commands.executeCommand(BuiltInCommands.Open, Uri.parse(url));
     }
 
-    open(type: 'branch', branch: string): Promise<{}>;
-    open(type: 'commit', sha: string): Promise<{}>;
-    open(type: 'file', fileName: string, branch?: string, sha?: string, range?: Range): Promise<{}>;
-    open(type: RemoteOpenType, ...args: any[]): Promise<{}>;
-    open(type: RemoteOpenType, branchOrShaOrFileName: string, fileBranch?: string, fileSha?: string, fileRange?: Range): Promise<{}> {
-        switch (type) {
+    open(resource: RemoteResource): Promise<{}> {
+        switch (resource.type) {
             case 'branch':
-                return this.openBranch(branchOrShaOrFileName);
+                return this.openBranch(resource.branch);
             case 'commit':
-                return this.openCommit(branchOrShaOrFileName);
+                return this.openCommit(resource.sha);
             case 'file':
+                return this.openFile(resource.fileName, resource.branch, resource.sha, resource.range);
             case 'working-file':
-                return this.openFile(branchOrShaOrFileName, fileBranch, fileSha, fileRange);
+                return this.openFile(resource.fileName, resource.branch, undefined, resource.range);
         }
     }
 

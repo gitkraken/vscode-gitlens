@@ -1,11 +1,16 @@
 'use strict';
 import { Iterables } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands } from './common';
+import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { BuiltInCommands } from '../constants';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, BranchesQuickPick } from '../quickPicks';
+
+export interface DiffDirectoryCommandCommandArgs {
+    shaOrBranch1?: string;
+    shaOrBranch2?: string;
+}
 
 export class DiffDirectoryCommand extends ActiveEditorCommand {
 
@@ -13,39 +18,36 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
         super(Commands.DiffDirectory);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, shaOrBranch1?: string, shaOrBranch2?: string): Promise<any> {
+    async execute(editor: TextEditor, uri?: Uri, args: DiffDirectoryCommandCommandArgs = {}): Promise<any> {
         const diffTool = await this.git.getConfig('diff.tool');
         if (!diffTool) {
             const result = await window.showWarningMessage(`Unable to open directory compare because there is no Git diff tool configured`, 'View Git Docs');
             if (!result) return undefined;
+
             return commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://git-scm.com/docs/git-config#git-config-difftool'));
         }
 
-        if (!(uri instanceof Uri)) {
-            uri = editor && editor.document && editor.document.uri;
-        }
+        uri = getCommandUri(uri, editor);
 
         try {
             const repoPath = await this.git.getRepoPathFromUri(uri);
             if (!repoPath) return window.showWarningMessage(`Unable to open directory compare`);
 
-            if (!shaOrBranch1) {
+            if (!args.shaOrBranch1) {
                 const branches = await this.git.getBranches(repoPath);
                 const current = Iterables.find(branches, _ => _.current);
                 if (current == null) return window.showWarningMessage(`Unable to open directory compare`);
 
                 const pick = await BranchesQuickPick.show(branches, `Compare ${current.name} to \u2026`);
-                if (!pick) return undefined;
+                if (pick === undefined) return undefined;
 
-                if (pick instanceof CommandQuickPickItem) {
-                    return pick.execute();
-                }
+                if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-                shaOrBranch1 = pick.branch.name;
-                if (!shaOrBranch1) return undefined;
+                args.shaOrBranch1 = pick.branch.name;
+                if (args.shaOrBranch1 === undefined) return undefined;
             }
 
-            this.git.openDirectoryDiff(repoPath, shaOrBranch1, shaOrBranch2);
+            this.git.openDirectoryDiff(repoPath, args.shaOrBranch1, args.shaOrBranch2);
             return undefined;
         }
         catch (ex) {

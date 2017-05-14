@@ -1,8 +1,12 @@
 'use strict';
-import { TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, openEditor } from './common';
+import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
+
+export interface OpenChangedFilesCommandArgs {
+    uris?: Uri[];
+}
 
 export class OpenChangedFilesCommand extends ActiveEditorCommand {
 
@@ -10,24 +14,22 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
         super(Commands.OpenChangedFiles);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, uris?: Uri[]) {
-        if (!(uri instanceof Uri)) {
-            uri = editor && editor.document && editor.document.uri;
-        }
+    async execute(editor: TextEditor, uri?: Uri, args: OpenChangedFilesCommandArgs = {}) {
+        uri = getCommandUri(uri, editor);
 
         try {
-            if (!uris) {
+            if (args.uris === undefined) {
                 const repoPath = await this.git.getRepoPathFromUri(uri);
-                if (!repoPath) return window.showWarningMessage(`Unable to open changed files`);
+                if (repoPath === undefined) return window.showWarningMessage(`Unable to open changed files`);
 
                 const status = await this.git.getStatusForRepo(repoPath);
-                if (!status) return window.showWarningMessage(`Unable to open changed files`);
+                if (status === undefined) return window.showWarningMessage(`Unable to open changed files`);
 
-                uris = status.files.filter(_ => _.status !== 'D').map(_ => _.Uri);
+                args.uris = status.files.filter(_ => _.status !== 'D').map(_ => _.Uri);
             }
 
-            for (const uri of uris) {
-                await openEditor(uri, true);
+            for (const uri of args.uris) {
+                await openEditor(uri, { preserveFocus: true, preview: false } as TextDocumentShowOptions);
             }
 
             return undefined;

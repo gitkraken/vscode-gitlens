@@ -1,10 +1,14 @@
 'use strict';
 import { Iterables } from '../system';
 import { TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands } from './common';
+import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { copy } from 'copy-paste';
+
+export interface CopyShaToClipboardCommandArgs {
+    sha?: string;
+}
 
 export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 
@@ -12,28 +16,26 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
         super(Commands.CopyShaToClipboard);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, sha?: string): Promise<any> {
-        if (!(uri instanceof Uri)) {
-            uri = editor && editor.document && editor.document.uri;
-        }
+    async execute(editor: TextEditor, uri?: Uri, args: CopyShaToClipboardCommandArgs = {}): Promise<any> {
+        uri = getCommandUri(uri, editor);
 
         try {
             // If we don't have an editor then get the sha of the last commit to the branch
-            if (!uri) {
+            if (uri === undefined) {
                 if (!this.git.repoPath) return undefined;
 
                 const log = await this.git.getLogForRepo(this.git.repoPath, undefined, 1);
                 if (!log) return undefined;
 
-                sha = Iterables.first(log.commits.values()).sha;
-                copy(sha);
+                args.sha = Iterables.first(log.commits.values()).sha;
+                copy(args.sha);
                 return undefined;
             }
 
             const gitUri = await GitUri.fromUri(uri, this.git);
 
-            if (!sha) {
-                if (editor && editor.document && editor.document.isDirty) return undefined;
+            if (args.sha === undefined) {
+                if (editor !== undefined && editor.document !== undefined && editor.document.isDirty) return undefined;
 
                 const line = (editor && editor.selection.active.line) || gitUri.offset;
                 const blameline = line - gitUri.offset;
@@ -43,7 +45,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
                     const blame = await this.git.getBlameForLine(gitUri, blameline);
                     if (!blame) return undefined;
 
-                    sha = blame.commit.sha;
+                    args.sha = blame.commit.sha;
                 }
                 catch (ex) {
                     Logger.error(ex, 'CopyShaToClipboardCommand', `getBlameForLine(${blameline})`);
@@ -51,7 +53,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
                 }
             }
 
-            copy(sha);
+            copy(args.sha);
             return undefined;
         }
         catch (ex) {

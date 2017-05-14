@@ -1,9 +1,19 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCachedCommand, Commands } from './common';
+import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { GitService, GitUri, IGitLog } from '../gitService';
 import { Logger } from '../logger';
 import { BranchesQuickPick, BranchHistoryQuickPick, CommandQuickPickItem } from '../quickPicks';
+import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
+
+export interface ShowQuickBranchHistoryCommandArgs {
+    branch?: string;
+    log?: IGitLog;
+    maxCount?: number;
+
+    goBackCommand?: CommandQuickPickItem;
+    nextPageCommand?: CommandQuickPickItem;
+}
 
 export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 
@@ -11,58 +21,63 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
         super(Commands.ShowQuickBranchHistory);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, branch?: string, maxCount?: number, goBackCommand?: CommandQuickPickItem, log?: IGitLog, nextPageCommand?: CommandQuickPickItem) {
-        if (!(uri instanceof Uri)) {
-            uri = editor && editor.document && editor.document.uri;
-        }
+    async execute(editor: TextEditor, uri?: Uri, args: ShowQuickBranchHistoryCommandArgs = {}) {
+        uri = getCommandUri(uri, editor);
 
         const gitUri = uri && await GitUri.fromUri(uri, this.git);
 
-        if (maxCount == null) {
-            maxCount = this.git.config.advanced.maxQuickHistory;
+        if (args.maxCount == null) {
+            args.maxCount = this.git.config.advanced.maxQuickHistory;
         }
 
-        let progressCancellation = branch === undefined ? undefined : BranchHistoryQuickPick.showProgress(branch);
+        let progressCancellation = args.branch === undefined ? undefined : BranchHistoryQuickPick.showProgress(args.branch);
         try {
             const repoPath = (gitUri && gitUri.repoPath) || this.git.repoPath;
             if (repoPath === undefined) return window.showWarningMessage(`Unable to show branch history`);
 
-            if (branch === undefined) {
+            if (args.branch === undefined) {
                 const branches = await this.git.getBranches(repoPath);
 
                 const pick = await BranchesQuickPick.show(branches, `Show history for branch\u2026`);
-                if (!pick) return undefined;
+                if (pick === undefined) return undefined;
 
-                if (pick instanceof CommandQuickPickItem) {
-                    return pick.execute();
-                }
+                if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-                branch = pick.branch.name;
-                if (branch === undefined) return undefined;
+                args.branch = pick.branch.name;
+                if (args.branch === undefined) return undefined;
 
-                progressCancellation = BranchHistoryQuickPick.showProgress(branch);
+                progressCancellation = BranchHistoryQuickPick.showProgress(args.branch);
             }
 
-            if (!log) {
-                log = await this.git.getLogForRepo(repoPath, (gitUri && gitUri.sha) || branch, maxCount);
-                if (!log) return window.showWarningMessage(`Unable to show branch history`);
+            if (args.log === undefined) {
+                args.log = await this.git.getLogForRepo(repoPath, (gitUri && gitUri.sha) || args.branch, args.maxCount);
+                if (args.log === undefined) return window.showWarningMessage(`Unable to show branch history`);
             }
 
             if (progressCancellation !== undefined && progressCancellation.token.isCancellationRequested) return undefined;
 
-            const pick = await BranchHistoryQuickPick.show(this.git, log, gitUri, branch, progressCancellation!, goBackCommand, nextPageCommand);
-            if (!pick) return undefined;
+            const pick = await BranchHistoryQuickPick.show(this.git, args.log, gitUri, args.branch, progressCancellation!, args.goBackCommand, args.nextPageCommand);
+            if (pick === undefined) return undefined;
 
-            if (pick instanceof CommandQuickPickItem) {
-                return pick.execute();
-            }
+            if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-            return commands.executeCommand(Commands.ShowQuickCommitDetails, new GitUri(pick.commit.uri, pick.commit), pick.commit.sha, pick.commit,
-                new CommandQuickPickItem({
-                    label: `go back \u21A9`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 to \u00a0$(git-branch) ${branch} history`
-                }, Commands.ShowQuickBranchHistory, [uri, branch, maxCount, goBackCommand, log]),
-                log);
+            // Create a command to get back to here
+            const currentCommand = new CommandQuickPickItem({
+                label: `go back \u21A9`,
+                description: `\u00a0 \u2014 \u00a0\u00a0 to \u00a0$(git-branch) ${args.branch} history`
+            }, Commands.ShowQuickBranchHistory, [
+                    uri,
+                    args
+                ]);
+
+            return commands.executeCommand(Commands.ShowQuickCommitDetails,
+                new GitUri(pick.commit.uri, pick.commit),
+                {
+                    sha: pick.commit.sha,
+                    commit: pick.commit,
+                    repoLog: args.log,
+                    goBackCommand: currentCommand
+                } as ShowQuickCommitDetailsCommandArgs);
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickBranchHistoryCommand');

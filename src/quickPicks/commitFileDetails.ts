@@ -1,9 +1,9 @@
 'use strict';
 import { Arrays, Iterables } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
-import { Commands, Keyboard, KeyNoopCommand } from '../commands';
+import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, Keyboard, KeyNoopCommand, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem } from './common';
-import { GitBranch, GitLogCommit, GitService, GitUri, IGitLog } from '../gitService';
+import { GitBranch, GitLogCommit, GitService, GitUri, IGitLog, RemoteResource } from '../gitService';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as moment from 'moment';
 import * as path from 'path';
@@ -61,13 +61,25 @@ export class CommitFileDetailsQuickPick {
             items.push(new CommandQuickPickItem({
                 label: `$(git-commit) Show Commit Details`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.shortSha}`
-            }, Commands.ShowQuickCommitDetails, [new GitUri(commit.uri, commit), commit.sha, commit, currentCommand]));
+            }, Commands.ShowQuickCommitDetails, [
+                    new GitUri(commit.uri, commit),
+                    {
+                        commit,
+                        sha: commit.sha,
+                        goBackCommand: currentCommand
+                    } as ShowQuickCommitDetailsCommandArgs
+                ]));
 
             if (commit.previousSha) {
                 items.push(new CommandQuickPickItem({
                     label: `$(git-compare) Compare with Previous Commit`,
                     description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.previousShortSha} \u00a0 $(git-compare) \u00a0 $(git-commit) ${commit.shortSha}`
-                }, Commands.DiffWithPrevious, [commit.uri, commit]));
+                }, Commands.DiffWithPrevious, [
+                        commit.uri,
+                        {
+                            commit
+                        } as DiffWithPreviousCommandArgs
+                    ]));
             }
         }
 
@@ -75,19 +87,35 @@ export class CommitFileDetailsQuickPick {
             items.push(new CommandQuickPickItem({
                 label: `$(git-compare) Compare with Working Tree`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.shortSha} \u00a0 $(git-compare) \u00a0 $(file-text) ${workingName}`
-            }, Commands.DiffWithWorking, [Uri.file(path.resolve(commit.repoPath, commit.workingFileName)), commit]));
+            }, Commands.DiffWithWorking, [
+                    Uri.file(path.resolve(commit.repoPath, commit.workingFileName)),
+                    {
+                        commit
+                    } as DiffWithWorkingCommandArgs
+                ]));
         }
 
         if (!stash) {
             items.push(new CommandQuickPickItem({
                 label: `$(clippy) Copy Commit ID to Clipboard`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.shortSha}`
-            }, Commands.CopyShaToClipboard, [uri, commit.sha]));
+            }, Commands.CopyShaToClipboard, [
+                    uri,
+                    {
+                        sha: commit.sha
+                    } as CopyShaToClipboardCommandArgs
+                ]));
 
             items.push(new CommandQuickPickItem({
                 label: `$(clippy) Copy Message to Clipboard`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.message}`
-            }, Commands.CopyMessageToClipboard, [uri, commit.sha, commit.message]));
+            }, Commands.CopyMessageToClipboard, [
+                    uri,
+                    {
+                        message: commit.message,
+                        sha: commit.sha
+                    } as CopyMessageToClipboardCommandArgs
+                ]));
         }
 
         items.push(new OpenCommitFileCommandQuickPickItem(commit));
@@ -98,11 +126,19 @@ export class CommitFileDetailsQuickPick {
         const remotes = Arrays.uniqueBy(await git.getRemotes(commit.repoPath), _ => _.url, _ => !!_.provider);
         if (remotes.length) {
             if (!stash) {
-                items.push(new OpenRemotesCommandQuickPickItem(remotes, 'file', commit.fileName, undefined, commit, currentCommand));
+                items.push(new OpenRemotesCommandQuickPickItem(remotes, {
+                    type: 'file',
+                    fileName: commit.fileName,
+                    commit
+                } as RemoteResource, currentCommand));
             }
             if (commit.workingFileName && commit.status !== 'D') {
                 const branch = await git.getBranch(commit.repoPath || git.repoPath) as GitBranch;
-                items.push(new OpenRemotesCommandQuickPickItem(remotes, 'working-file', commit.workingFileName, branch.name, undefined, currentCommand));
+                items.push(new OpenRemotesCommandQuickPickItem(remotes, {
+                    type: 'working-file',
+                    fileName: commit.workingFileName,
+                    branch: branch.name
+                } as RemoteResource, currentCommand));
             }
         }
 
@@ -110,14 +146,25 @@ export class CommitFileDetailsQuickPick {
             items.push(new CommandQuickPickItem({
                 label: `$(history) Show File History`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 of ${path.basename(commit.fileName)}`
-            }, Commands.ShowQuickFileHistory, [Uri.file(path.resolve(commit.repoPath, commit.workingFileName)), undefined, undefined, currentCommand, fileLog]));
+            }, Commands.ShowQuickFileHistory, [
+                    Uri.file(path.resolve(commit.repoPath, commit.workingFileName)),
+                    {
+                        fileLog,
+                        goBackCommand: currentCommand
+                    } as ShowQuickFileHistoryCommandArgs
+                ]));
         }
 
         if (!stash) {
             items.push(new CommandQuickPickItem({
                 label: `$(history) Show ${commit.workingFileName ? 'Previous ' : ''}File History`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 of ${path.basename(commit.fileName)} \u00a0\u2022\u00a0 from \u00a0$(git-commit) ${commit.shortSha}`
-            }, Commands.ShowQuickFileHistory, [new GitUri(commit.uri, commit), undefined, undefined, currentCommand]));
+            }, Commands.ShowQuickFileHistory, [
+                    new GitUri(commit.uri, commit),
+                    {
+                        goBackCommand: currentCommand
+                    } as ShowQuickFileHistoryCommandArgs
+                ]));
         }
 
         if (goBackCommand) {
@@ -128,9 +175,28 @@ export class CommitFileDetailsQuickPick {
         let nextCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>) | undefined = undefined;
         if (!stash) {
             // If we have the full history, we are good
-            if (fileLog && !fileLog.truncated && !fileLog.sha) {
-                previousCommand = commit.previousSha === undefined ? undefined : new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [commit.previousUri, commit.previousSha, undefined, goBackCommand, fileLog]);
-                nextCommand = commit.nextSha === undefined ? undefined : new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [commit.nextUri, commit.nextSha, undefined, goBackCommand, fileLog]);
+            if (fileLog !== undefined && !fileLog.truncated && fileLog.sha === undefined) {
+                previousCommand = commit.previousSha === undefined
+                    ? undefined
+                    : new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [
+                        commit.previousUri,
+                        {
+                            fileLog,
+                            sha: commit.previousSha,
+                            goBackCommand
+                        } as ShowQuickCommitFileDetailsCommandArgs
+                    ]);
+
+                nextCommand = commit.nextSha === undefined
+                    ? undefined
+                    : new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [
+                        commit.nextUri,
+                        {
+                            fileLog,
+                            sha: commit.nextSha,
+                            goBackCommand
+                        } as ShowQuickCommitFileDetailsCommandArgs
+                    ]);
             }
             else {
                 previousCommand = async () => {
@@ -138,13 +204,13 @@ export class CommitFileDetailsQuickPick {
                     let c = log && log.commits.get(commit.sha);
 
                     // If we can't find the commit or the previous commit isn't available (since it isn't trustworthy)
-                    if (!c || !c.previousSha) {
+                    if (c === undefined || c.previousSha === undefined) {
                         log = await git.getLogForFile(commit.repoPath, uri.fsPath, commit.sha, git.config.advanced.maxQuickHistory);
                         if (log === undefined) return KeyNoopCommand;
 
                         c = log && log.commits.get(commit.sha);
                         // Since we exclude merge commits in file log, just grab the first returned commit
-                        if (!c && commit.isMerge) {
+                        if (c === undefined && commit.isMerge) {
                             c = Iterables.first(log.commits.values());
                         }
 
@@ -154,8 +220,17 @@ export class CommitFileDetailsQuickPick {
                             c.nextFileName = commit.nextFileName;
                         }
                     }
-                    if (!c || !c.previousSha) return KeyNoopCommand;
-                    return new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [c.previousUri, c.previousSha, undefined, goBackCommand, log]);
+
+                    if (c === undefined || c.previousSha === undefined) return KeyNoopCommand;
+
+                    return new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [
+                        c.previousUri,
+                        {
+                            fileLog: log,
+                            sha: c.previousSha,
+                            goBackCommand
+                        } as ShowQuickCommitFileDetailsCommandArgs
+                    ]);
                 };
 
                 nextCommand = async () => {
@@ -163,20 +238,29 @@ export class CommitFileDetailsQuickPick {
                     let c = log && log.commits.get(commit.sha);
 
                     // If we can't find the commit or the next commit isn't available (since it isn't trustworthy)
-                    if (!c || !c.nextSha) {
+                    if (c === undefined || c.nextSha === undefined) {
                         log = undefined;
                         c = undefined;
 
                         // Try to find the next commit
                         const next = await git.findNextCommit(commit.repoPath, uri.fsPath, commit.sha);
-                        if (next && next.sha !== commit.sha) {
+                        if (next !== undefined && next.sha !== commit.sha) {
                             c = commit;
                             c.nextSha = next.sha;
                             c.nextFileName = next.originalFileName || next.fileName;
                         }
                     }
-                    if (!c || !c.nextSha) return KeyNoopCommand;
-                    return new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [c.nextUri, c.nextSha, undefined, goBackCommand, log]);
+
+                    if (c === undefined || c.nextSha === undefined) return KeyNoopCommand;
+
+                    return new KeyCommandQuickPickItem(Commands.ShowQuickCommitFileDetails, [
+                        c.nextUri,
+                        {
+                            fileLog: log,
+                            sha: c.nextSha,
+                            goBackCommand
+                        } as ShowQuickCommitFileDetailsCommandArgs
+                    ]);
                 };
             }
         }

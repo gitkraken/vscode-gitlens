@@ -1,9 +1,10 @@
 'use strict';
 import { Arrays } from '../system';
 import { commands, Range, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands } from './common';
+import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
+import { OpenInRemoteCommandArgs } from './openInRemote';
 
 export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 
@@ -12,12 +13,8 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
     }
 
     async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri) {
-        if (!(uri instanceof Uri)) {
-            if (!editor || !editor.document) return undefined;
-            uri = editor.document.uri;
-        }
-
-        if (!uri) return undefined;
+        uri = getCommandUri(uri, editor);
+        if (uri === undefined) return undefined;
 
         const gitUri = await GitUri.fromUri(uri, this.git);
         if (!gitUri.repoPath) return undefined;
@@ -26,8 +23,18 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 
         try {
             const remotes = Arrays.uniqueBy(await this.git.getRemotes(gitUri.repoPath), _ => _.url, _ => !!_.provider);
-            const range = editor && new Range(editor.selection.start.with({ line: editor.selection.start.line + 1 }), editor.selection.end.with({ line: editor.selection.end.line + 1 }));
-            return commands.executeCommand(Commands.OpenInRemote, uri, remotes, 'file', [gitUri.getRelativePath(), branch === undefined ? 'Current' : branch.name, gitUri.sha, range]);
+            const range = editor === undefined ? undefined : new Range(editor.selection.start.with({ line: editor.selection.start.line + 1 }), editor.selection.end.with({ line: editor.selection.end.line + 1 }));
+
+            return commands.executeCommand(Commands.OpenInRemote, uri, {
+                resource: {
+                    type: 'file',
+                    branch: branch === undefined ? 'Current' : branch.name,
+                    fileName: gitUri.getRelativePath(),
+                    range: range,
+                    sha: gitUri.sha
+                },
+                remotes
+            } as OpenInRemoteCommandArgs);
         }
         catch (ex) {
             Logger.error(ex, 'OpenFileInRemoteCommand');

@@ -1,87 +1,65 @@
 'use strict';
 import { QuickPickOptions, window } from 'vscode';
-import { Commands } from '../commands';
+import { Commands, OpenInRemoteCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './common';
-import { getNameFromRemoteOpenType, GitLogCommit, GitRemote, RemoteOpenType } from '../gitService';
+import { getNameFromRemoteResource, GitLogCommit, GitRemote, RemoteResource } from '../gitService';
 import * as path from 'path';
 
 export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 
     private remote: GitRemote;
-    private type: RemoteOpenType;
+    private resource: RemoteResource;
 
-    constructor(remote: GitRemote, type: RemoteOpenType, ...args: string[]) {
+    constructor(remote: GitRemote, resource: RemoteResource) {
         super({
-            label: `$(link-external) Open ${getNameFromRemoteOpenType(type)} in ${remote.provider!.name}`,
+            label: `$(link-external) Open ${getNameFromRemoteResource(resource)} in ${remote.provider!.name}`,
             description: `\u00a0 \u2014 \u00a0\u00a0 $(repo) ${remote.provider!.path}`
         }, undefined, undefined);
 
         this.remote = remote;
-        this.type = type;
-        this.args = args;
+        this.resource = resource;
     }
 
     async execute(): Promise<{}> {
-        return this.remote.provider!.open(this.type, ...this.args!);
+        return this.remote.provider!.open(this.resource);
     }
 }
 
 export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
 
-    constructor(remotes: GitRemote[], type: 'branch', branch: string, goBackCommand?: CommandQuickPickItem);
-    constructor(remotes: GitRemote[], type: 'commit', sha: string, goBackCommand?: CommandQuickPickItem);
-    constructor(remotes: GitRemote[], type: 'file', fileName: string, branch?: string, commit?: GitLogCommit, goBackCommand?: CommandQuickPickItem);
-    constructor(remotes: GitRemote[], type: 'file' | 'working-file', fileName: string, branch?: string, sha?: string, goBackCommand?: CommandQuickPickItem);
-    constructor(remotes: GitRemote[], type: RemoteOpenType, branchOrShaOrFileName: string, goBackCommandOrFileBranch?: CommandQuickPickItem | string, fileShaOrCommit?: string | GitLogCommit, goBackCommand?: CommandQuickPickItem) {
-        let fileBranch: string | undefined = undefined;
-        if (typeof goBackCommandOrFileBranch === 'string') {
-            fileBranch = goBackCommandOrFileBranch;
-        }
-        else if (!goBackCommand) {
-            goBackCommand = goBackCommandOrFileBranch;
-        }
+    constructor(remotes: GitRemote[], resource: RemoteResource, goBackCommand?: CommandQuickPickItem) {
+        const name = getNameFromRemoteResource(resource);
 
-        const name = getNameFromRemoteOpenType(type);
-
-        let fileSha: string | undefined = undefined;
-        let description: string | undefined = undefined;
-        let placeHolder: string | undefined = undefined;
-        switch (type) {
+        let description: string = '';
+        switch (resource.type) {
             case 'branch':
-                description = `$(git-branch) ${branchOrShaOrFileName}`;
-                placeHolder = `open ${branchOrShaOrFileName} ${name.toLowerCase()} in\u2026`;
+                description = `$(git-branch) ${resource.branch}`;
                 break;
+
             case 'commit':
-                const shortSha = branchOrShaOrFileName.substring(0, 8);
-
+                const shortSha = resource.sha.substring(0, 8);
                 description = `$(git-commit) ${shortSha}`;
-                placeHolder = `open ${name.toLowerCase()} ${shortSha} in\u2026`;
                 break;
-            case 'file':
-            case 'working-file':
-                const fileName = path.basename(branchOrShaOrFileName);
-                if (fileShaOrCommit instanceof GitLogCommit) {
-                    if (fileShaOrCommit.status === 'D') {
-                        fileSha = fileShaOrCommit.previousSha;
 
-                        description = `$(file-text) ${fileName} in \u00a0$(git-commit) ${fileShaOrCommit.previousShortSha} (deleted in \u00a0$(git-commit) ${fileShaOrCommit.shortSha})`;
-                        placeHolder = `open ${branchOrShaOrFileName} \u00a0\u2022\u00a0 ${fileShaOrCommit.previousShortSha} in\u2026`;
+            case 'file':
+                if (resource.commit !== undefined && resource.commit instanceof GitLogCommit) {
+                    if (resource.commit.status === 'D') {
+                        resource.sha = resource.commit.previousSha;
+                        description = `$(file-text) ${path.basename(resource.fileName)} in \u00a0$(git-commit) ${resource.commit.previousShortSha} (deleted in \u00a0$(git-commit) ${resource.commit.shortSha})`;
                     }
                     else {
-                        fileSha = fileShaOrCommit.sha;
-
-                        description = `$(file-text) ${fileName} in \u00a0$(git-commit) ${fileShaOrCommit.shortSha}`;
-                        placeHolder = `open ${branchOrShaOrFileName} \u00a0\u2022\u00a0 ${fileShaOrCommit.shortSha} in\u2026`;
+                        resource.sha = resource.commit.sha;
+                        description = `$(file-text) ${path.basename(resource.fileName)} in \u00a0$(git-commit) ${resource.commit.shortSha}`;
                     }
                 }
                 else {
-                    fileSha = fileShaOrCommit;
-                    const shortFileSha = (fileSha && fileSha.substring(0, 8)) || '';
-                    const shaSuffix = shortFileSha ? ` \u00a0\u2022\u00a0 ${shortFileSha}` : '';
-
-                    description = `$(file-text) ${fileName}${shortFileSha ? ` in \u00a0$(git-commit) ${shortFileSha}` : ''}`;
-                    placeHolder = `open ${branchOrShaOrFileName}${shaSuffix} in\u2026`;
+                    const shortFileSha = resource.sha === undefined ? '' : resource.sha.substring(0, 8);
+                    description = `$(file-text) ${path.basename(resource.fileName)}${shortFileSha ? ` in \u00a0$(git-commit) ${shortFileSha}` : ''}`;
                 }
+                break;
+
+            case 'working-file':
+                description = `$(file-text) ${path.basename(resource.fileName)}`;
                 break;
         }
 
@@ -90,7 +68,14 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
             super({
                 label: `$(link-external) Open ${name} in ${remote.provider!.name}`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 $(repo) ${remote.provider!.path} \u00a0\u2022\u00a0 ${description}`
-            }, Commands.OpenInRemote, [undefined, remotes, type, [branchOrShaOrFileName, fileBranch, fileSha], goBackCommand]);
+            }, Commands.OpenInRemote, [
+                    undefined,
+                    {
+                        remotes,
+                        resource,
+                        goBackCommand
+                    } as OpenInRemoteCommandArgs
+                ]);
 
             return;
         }
@@ -102,15 +87,21 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
         super({
             label: `$(link-external) Open ${name} in ${provider}\u2026`,
             description: `\u00a0 \u2014 \u00a0\u00a0 ${description}`
-        }, Commands.OpenInRemote, [undefined, remotes, type, [branchOrShaOrFileName, fileBranch, fileSha], goBackCommand]);
+        }, Commands.OpenInRemote, [
+                undefined,
+                {
+                    remotes,
+                    resource,
+                    goBackCommand
+                } as OpenInRemoteCommandArgs
+            ]);
     }
 }
 
 export class RemotesQuickPick {
 
-    static async show(remotes: GitRemote[], placeHolder: string, type: RemoteOpenType, args: string[], goBackCommand?: CommandQuickPickItem): Promise<OpenRemoteCommandQuickPickItem | CommandQuickPickItem | undefined> {
-
-        const items = remotes.map(_ => new OpenRemoteCommandQuickPickItem(_, type, ...args)) as (OpenRemoteCommandQuickPickItem | CommandQuickPickItem)[];
+    static async show(remotes: GitRemote[], placeHolder: string, resource: RemoteResource, goBackCommand?: CommandQuickPickItem): Promise<OpenRemoteCommandQuickPickItem | CommandQuickPickItem | undefined> {
+        const items = remotes.map(_ => new OpenRemoteCommandQuickPickItem(_, resource)) as (OpenRemoteCommandQuickPickItem | CommandQuickPickItem)[];
 
         if (goBackCommand) {
             items.splice(0, 0, goBackCommand);
@@ -118,12 +109,11 @@ export class RemotesQuickPick {
 
         // const scope = await Keyboard.instance.beginScope({ left: goBackCommand });
 
-        const pick = await window.showQuickPick(items,
-            {
-                placeHolder: placeHolder,
-                ignoreFocusOut: getQuickPickIgnoreFocusOut()
-            } as QuickPickOptions);
-        if (!pick) return undefined;
+        const pick = await window.showQuickPick(items, {
+            placeHolder: placeHolder,
+            ignoreFocusOut: getQuickPickIgnoreFocusOut()
+        } as QuickPickOptions);
+        if (pick === undefined) return undefined;
 
         // await scope.dispose();
 
