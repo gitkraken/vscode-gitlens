@@ -53,15 +53,46 @@
             "type": "object",
             "title": "GitLens configuration",
             "properties": {
-                "gitlens.blame.annotation.style": {
+                "gitlens.debug": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Specifies debug mode"
+                },
+                "gitlens.insiders": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Specifies whether or not to enable new experimental features (expect there to be issues)"
+                },
+                "gitlens.outputLevel": {
                     "type": "string",
-                    "default": "expanded",
+                    "default": "silent",
                     "enum": [
-                        "compact",
-                        "expanded",
-                        "trailing"
+                        "silent",
+                        "errors",
+                        "verbose"
                     ],
-                    "description": "Specifies the style of the blame annotations. `compact` - groups annotations to limit the repetition and also adds author and date when possible. `expanded` - shows an annotation before every line. `trailing` - shows an annotation after every line"
+                    "description": "Specifies how much (if any) output will be sent to the GitLens output channel"
+                },
+                "gitlens.blame.annotation.activeLine": {
+                    "type": "string",
+                    "default": "both",
+                    "enum": [
+                        "off",
+                        "inline",
+                        "hover",
+                        "both"
+                    ],
+                    "description": "Specifies whether and how to show blame annotations on the active line. `off` - no annotation. `inline` - adds a trailing annotation to the active line. `hover` - adds hover annotation to the active line. `both` - adds both `inline` and `hover` annotations"
+                },
+                "gitlens.blame.annotation.activeLineDarkColor": {
+                    "type": "string",
+                    "default": "rgba(153, 153, 153, 0.35)",
+                    "description": "Specifies the color of the active line blame annotation to use with a dark theme. Must be a valid css color"
+                },
+                "gitlens.blame.annotation.activeLineLightColor": {
+                    "type": "string",
+                    "default": "rgba(153, 153, 153, 0.35)",
+                    "description": "Specifies the color of the active line blame annotation to use with a light theme. Must be a valid css color"
                 },
                 "gitlens.blame.annotation.highlight": {
                     "type": "string",
@@ -74,10 +105,15 @@
                     ],
                     "description": "Specifies whether and how to highlight blame annotations. `none` - no highlight. `gutter` - adds a gutter icon. `line` - adds a full-line highlight. `both` - adds both `gutter` and `line` highlights"
                 },
-                "gitlens.blame.annotation.sha": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Specifies whether the commit id (sha) will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles"
+                "gitlens.blame.annotation.style": {
+                    "type": "string",
+                    "default": "expanded",
+                    "enum": [
+                        "compact",
+                        "expanded",
+                        "trailing"
+                    ],
+                    "description": "Specifies the style of the blame annotations. `compact` - groups annotations to limit the repetition and also adds author and date when possible. `expanded` - shows an annotation before every line. `trailing` - shows an annotation after every line"
                 },
                 "gitlens.blame.annotation.author": {
                     "type": "boolean",
@@ -104,26 +140,10 @@
                     "default": false,
                     "description": "Specifies whether the commit message will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles"
                 },
-                "gitlens.blame.annotation.activeLine": {
-                    "type": "string",
-                    "default": "both",
-                    "enum": [
-                        "off",
-                        "inline",
-                        "hover",
-                        "both"
-                    ],
-                    "description": "Specifies whether and how to show blame annotations on the active line. `off` - no annotation. `inline` - adds a trailing annotation to the active line. `hover` - adds hover annotation to the active line. `both` - adds both `inline` and `hover` annotations"
-                },
-                "gitlens.blame.annotation.activeLineDarkColor": {
-                    "type": "string",
-                    "default": "rgba(153, 153, 153, 0.35)",
-                    "description": "Specifies the color of the active line blame annotation to use with a dark theme. Must be a valid css color"
-                },
-                "gitlens.blame.annotation.activeLineLightColor": {
-                    "type": "string",
-                    "default": "rgba(153, 153, 153, 0.35)",
-                    "description": "Specifies the color of the active line blame annotation to use with a light theme. Must be a valid css color"
+                "gitlens.blame.annotation.sha": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether the commit id (sha) will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles"
                 },
                 "gitlens.codeLens.visibility": {
                     "type": "string",
@@ -134,6 +154,46 @@
                         "off"
                     ],
                     "description": "Specifies when code lens will be shown in the active document. `auto` - always shown. `ondemand` - never shown, unless toggled via the `gitlens.toggleCodeLens` command. `off` - never shown"
+                },
+                "gitlens.codeLens.authors.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether the authors code lens is shown"
+                },
+                "gitlens.codeLens.authors.command": {
+                    "type": "string",
+                    "default": "gitlens.toggleBlame",
+                    "enum": [
+                        "gitlens.toggleBlame",
+                        "gitlens.showBlameHistory",
+                        "gitlens.showFileHistory",
+                        "gitlens.diffWithPrevious",
+                        "gitlens.showQuickCommitDetails",
+                        "gitlens.showQuickCommitFileDetails",
+                        "gitlens.showQuickFileHistory",
+                        "gitlens.showQuickRepoHistory"
+                    ],
+                    "description": "Specifies the command executed when the authors code lens is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
+                },
+                "gitlens.codeLens.recentChange.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether the recent change code lens is shown"
+                },
+                "gitlens.codeLens.recentChange.command": {
+                    "type": "string",
+                    "default": "gitlens.showQuickCommitFileDetails",
+                    "enum": [
+                        "gitlens.toggleBlame",
+                        "gitlens.showBlameHistory",
+                        "gitlens.showFileHistory",
+                        "gitlens.diffWithPrevious",
+                        "gitlens.showQuickCommitDetails",
+                        "gitlens.showQuickCommitFileDetails",
+                        "gitlens.showQuickFileHistory",
+                        "gitlens.showQuickRepoHistory"
+                    ],
+                    "description": "Specifies the command executed when the recent change code lens is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
                 },
                 "gitlens.codeLens.location": {
                     "type": "string",
@@ -216,46 +276,6 @@
                     ],
                     "description": "Specifies where code lens will be rendered in the active document for the specified languages"
                 },
-                "gitlens.codeLens.recentChange.enabled": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Specifies whether the recent change code lens is shown"
-                },
-                "gitlens.codeLens.recentChange.command": {
-                    "type": "string",
-                    "default": "gitlens.showQuickCommitFileDetails",
-                    "enum": [
-                        "gitlens.toggleBlame",
-                        "gitlens.showBlameHistory",
-                        "gitlens.showFileHistory",
-                        "gitlens.diffWithPrevious",
-                        "gitlens.showQuickCommitDetails",
-                        "gitlens.showQuickCommitFileDetails",
-                        "gitlens.showQuickFileHistory",
-                        "gitlens.showQuickRepoHistory"
-                    ],
-                    "description": "Specifies the command executed when the recent change code lens is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
-                },
-                "gitlens.codeLens.authors.enabled": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Specifies whether the authors code lens is shown"
-                },
-                "gitlens.codeLens.authors.command": {
-                    "type": "string",
-                    "default": "gitlens.toggleBlame",
-                    "enum": [
-                        "gitlens.toggleBlame",
-                        "gitlens.showBlameHistory",
-                        "gitlens.showFileHistory",
-                        "gitlens.diffWithPrevious",
-                        "gitlens.showQuickCommitDetails",
-                        "gitlens.showQuickCommitFileDetails",
-                        "gitlens.showQuickFileHistory",
-                        "gitlens.showQuickRepoHistory"
-                    ],
-                    "description": "Specifies the command executed when the authors code lens is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
-                },
                 "gitlens.codeLens.debug": {
                     "type": "boolean",
                     "default": false,
@@ -270,6 +290,15 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Specifies whether blame information is shown in the status bar"
+                },
+                "gitlens.statusBar.alignment": {
+                  "type": "string",
+                  "default": "right",
+                  "enum": [
+                    "left",
+                    "right"
+                  ],
+                  "description": "Specifies the blame alignment in the status bar. `left` - align to the left,  `right` - align to the right"
                 },
                 "gitlens.statusBar.command": {
                     "type": "string",
@@ -301,15 +330,6 @@
                     "type": "string",
                     "default": null,
                     "description": "Specifies the date format of how absolute dates will be shown in the blame status bar. See https://momentjs.com/docs/#/displaying/format/ for valid formats"
-                },
-                "gitlens.statusBar.alignment": {
-                  "type": "string",
-                  "default": "right",
-                  "enum": [
-                    "left",
-                    "right"
-                  ],
-                  "description": "Specifies the blame alignment in the status bar. `left` - align to the left,  `right` - align to the right"
                 },
                 "gitlens.advanced.caching.enabled": {
                     "type": "boolean",
@@ -345,26 +365,6 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Specifies whether or not to toggle whitespace off then showing blame annotations (*may* be required by certain fonts/themes)"
-                },
-                "gitlens.debug": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Specifies debug mode"
-                },
-                "gitlens.outputLevel": {
-                    "type": "string",
-                    "default": "silent",
-                    "enum": [
-                        "silent",
-                        "errors",
-                        "verbose"
-                    ],
-                    "description": "Specifies how much (if any) output will be sent to the GitLens output channel"
-                },
-                "gitlens.insiders": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Specifies whether or not to enable new experimental features (expect there to be issues)"
                 }
             }
         },
