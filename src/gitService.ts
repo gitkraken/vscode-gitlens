@@ -306,7 +306,7 @@ export class GitService extends Disposable {
 
         const cacheKey = this.getCacheEntryKey(uri.fsPath);
         const entry = this._gitCache.get(cacheKey);
-        if (!entry) return await this.isTracked(uri);
+        if (entry === undefined) return await this.isTracked(uri);
 
         return !entry.hasErrors;
     }
@@ -691,8 +691,8 @@ export class GitService extends Disposable {
     }
 
     async getRemotes(repoPath: string): Promise<GitRemote[]> {
-        if (!this.config.insiders) return Promise.resolve([]);
-        if (!repoPath) return Promise.resolve([]);
+        if (!this.config.insiders) return [];
+        if (!repoPath) return [];
 
         Logger.log(`getRemotes('${repoPath}')`);
 
@@ -790,10 +790,7 @@ export class GitService extends Disposable {
     }
 
     isEditorBlameable(editor: TextEditor): boolean {
-        return (editor.viewColumn !== undefined ||
-            editor.document.uri.scheme === DocumentSchemes.File ||
-            editor.document.uri.scheme === DocumentSchemes.Git ||
-            this.hasGitUriForFile(editor));
+        return (editor.viewColumn !== undefined || this.isTrackable(editor.document.uri) || this.hasGitUriForFile(editor));
     }
 
     async isFileUncommitted(uri: GitUri): Promise<boolean> {
@@ -803,8 +800,16 @@ export class GitService extends Disposable {
         return !!status;
     }
 
+    isTrackable(uri: Uri): boolean {
+        // Logger.log(`isTrackable('${uri.scheme}', '${uri.fsPath}')`);
+
+        return uri.scheme === DocumentSchemes.File || uri.scheme === DocumentSchemes.Git || uri.scheme === DocumentSchemes.GitLensGit;
+    }
+
     async isTracked(uri: GitUri): Promise<boolean> {
-        Logger.log(`isFileUncommitted('${uri.repoPath}', '${uri.fsPath}')`);
+        if (!this.isTrackable(uri)) return false;
+
+        Logger.log(`isTracked('${uri.fsPath}', '${uri.repoPath}')`);
 
         const result = await Git.ls_files(uri.repoPath === undefined ? '' : uri.repoPath, uri.fsPath);
         return !!result;

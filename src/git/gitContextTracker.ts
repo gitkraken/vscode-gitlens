@@ -114,7 +114,7 @@ export class GitContextTracker extends Disposable {
     private async _updateContextHasRemotes(uri: GitUri | undefined) {
         try {
             let hasRemotes = false;
-            if (uri) {
+            if (uri && this.git.isTrackable(uri)) {
                 const repoPath = uri.repoPath || this.git.repoPath;
                 if (repoPath) {
                     const remotes = await this.git.getRemotes(repoPath);
