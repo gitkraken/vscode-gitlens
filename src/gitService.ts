@@ -5,7 +5,7 @@ import { CommandContext, setCommandContext } from './commands';
 import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes, ExtensionKey } from './constants';
 import { Git, GitBlameParser, GitBranch, GitCommit, GitLogCommit, GitLogParser, GitRemote, GitStashParser, GitStatusFile, GitStatusParser, IGit, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog, IGitStash, IGitStatus } from './git/git';
-import { IGitUriData, GitUri } from './git/gitUri';
+import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
 import { Logger } from './logger';
 import * as fs from 'fs';
@@ -13,7 +13,7 @@ import * as ignore from 'ignore';
 import * as moment from 'moment';
 import * as path from 'path';
 
-export { GitUri };
+export { GitUri, IGitCommitInfo };
 export * from './git/models/models';
 export { getNameFromRemoteResource, RemoteResource, RemoteProvider } from './git/remotes/provider';
 export * from './git/gitContextTracker';

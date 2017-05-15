@@ -1,8 +1,8 @@
 'use strict';
 import { Iterables } from '../system';
-import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
-import { Commands, Keyboard, OpenChangedFilesCommandArgs, ShowQuickBranchHistoryCommandArgs, ShowQuickRepoStatusCommandArgs, ShowQuickStashListCommandArgs } from '../commands';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem } from './common';
+import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from 'vscode';
+import { Commands, DiffWithWorkingCommandArgs, Keyboard, Keys, OpenChangedFilesCommandArgs, ShowQuickBranchHistoryCommandArgs, ShowQuickRepoStatusCommandArgs, ShowQuickStashListCommandArgs } from '../commands';
+import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem, QuickPickItem } from './common';
 import { GitService, GitStatusFile, GitUri, IGitStatus } from '../gitService';
 import * as path from 'path';
 
@@ -24,6 +24,17 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
             label: `${status.staged ? '$(check)' : '\u00a0\u00a0\u00a0'}\u00a0\u00a0${icon}\u00a0\u00a0\u00a0${path.basename(status.fileName)}`,
             description: description
         });
+    }
+
+    onDidPressKey(key: Keys): Promise<{} | undefined> {
+        return commands.executeCommand(Commands.DiffWithWorking,
+            this.uri,
+            {
+                showOptions: {
+                    preserveFocus: true,
+                    preview: false
+                } as TextDocumentShowOptions
+            } as DiffWithWorkingCommandArgs) as Promise<{} | undefined>;
     }
 }
 

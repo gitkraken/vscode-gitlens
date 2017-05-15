@@ -120,12 +120,12 @@ export class OpenFileCommandQuickPickItem extends CommandQuickPickItem {
         return openEditor(this.uri, options);
     }
 
-    onDidSelect(): Promise<{} | undefined> {
-        return this.execute({
-            preserveFocus: true,
-            preview: true
-        });
-    }
+    // onDidSelect(): Promise<{} | undefined> {
+    //     return this.execute({
+    //         preserveFocus: true,
+    //         preview: true
+    //     });
+    // }
 
     onDidPressKey(key: Keys): Promise<{} | undefined> {
         return this.execute({

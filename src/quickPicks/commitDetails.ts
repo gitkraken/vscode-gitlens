@@ -1,15 +1,16 @@
 'use strict';
 import { Arrays, Iterables } from '../system';
-import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
-import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandCommandArgs, Keyboard, KeyNoopCommand, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem } from './common';
-import { getGitStatusIcon, GitCommit, GitLogCommit, GitService, GitStashCommit, GitStatusFileStatus, GitUri, IGitLog, IGitStatusFile, RemoteResource } from '../gitService';
+import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from 'vscode';
+import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandCommandArgs, DiffWithPreviousCommandArgs, Keyboard, KeyNoopCommand, Keys, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
+import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, QuickPickItem } from './common';
+import { getGitStatusIcon, GitCommit, GitLogCommit, GitService, GitStashCommit, GitStatusFileStatus, GitUri, IGitCommitInfo, IGitLog, IGitStatusFile, RemoteResource } from '../gitService';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as moment from 'moment';
 import * as path from 'path';
 
 export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickItem {
 
+    private commit: GitCommit;
     fileName: string;
     gitUri: GitUri;
     sha: string;
@@ -44,11 +45,31 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
             description: description
         });
 
+        this.commit = commit;
         this.fileName = status.fileName;
-        this.gitUri = GitUri.fromFileStatus(status, commit.repoPath);
+        this.gitUri = GitUri.fromFileStatus(status, {
+            fileName: status.fileName,
+            repoPath: commit.repoPath,
+            sha: commit.sha,
+            originalFileName: status.originalFileName
+        } as IGitCommitInfo);
         this.sha = sha;
         this.shortSha = shortSha;
         this.status = status.status;
+    }
+
+    onDidPressKey(key: Keys): Promise<{} | undefined> {
+        if (this.commit.previousSha === undefined) return super.onDidPressKey(key);
+
+        return commands.executeCommand(Commands.DiffWithPrevious,
+            this.gitUri,
+            {
+                commit: this.commit,
+                showOptions: {
+                    preserveFocus: true,
+                    preview: false
+                } as TextDocumentShowOptions
+            } as DiffWithPreviousCommandArgs) as Promise<{} | undefined>;
     }
 }
 
@@ -288,6 +309,9 @@ export class CommitDetailsQuickPick {
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
                 scope.setKeyCommand('right', item);
+                if (typeof item.onDidSelect === 'function') {
+                    item.onDidSelect();
+                }
             }
         } as QuickPickOptions);
 
