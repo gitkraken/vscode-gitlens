@@ -32,7 +32,7 @@ export class BlameActiveLineController extends Disposable {
     constructor(context: ExtensionContext, private git: GitService, private gitContextTracker: GitContextTracker, private annotationController: BlameAnnotationController) {
         super(() => this.dispose());
 
-        this._updateBlameDebounced = Functions.debounce(this._updateBlame, 50);
+        this._updateBlameDebounced = Functions.debounce(this._updateBlame, 250);
 
         this._onConfigurationChanged();
 
@@ -112,10 +112,8 @@ export class BlameActiveLineController extends Disposable {
     private isEditorBlameable(editor: TextEditor | undefined): boolean {
         if (editor === undefined || editor.document === undefined) return false;
 
-        const scheme = editor.document.uri.scheme;
-        if (scheme !== DocumentSchemes.File && scheme !== DocumentSchemes.Git && scheme !== DocumentSchemes.GitLensGit) return false;
-
-        if (editor.document.isUntitled && scheme !== DocumentSchemes.Git && scheme !== DocumentSchemes.GitLensGit) return false;
+        if (!this.git.isTrackable(editor.document.uri)) return false;
+        if (editor.document.isUntitled && editor.document.uri.scheme === DocumentSchemes.File) return false;
 
         return this.git.isEditorBlameable(editor);
     }
