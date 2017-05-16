@@ -1,7 +1,6 @@
 'use strict';
-import { Disposable, workspace } from 'vscode';
-import * as vscode from 'vscode';
-import * as appInsights from 'applicationinsights';
+import { env, Disposable, version, workspace } from 'vscode';
+import { ExtensionKey } from './constants';
 import * as os from 'os';
 
 let _reporter: TelemetryReporter;
@@ -9,6 +8,9 @@ let _reporter: TelemetryReporter;
 export class Telemetry extends Disposable {
 
     static configure(key: string) {
+        if (!workspace.getConfiguration('telemetry').get<boolean>('enableTelemetry', true)) return;
+        if (workspace.getConfiguration(ExtensionKey).get<boolean>('debug')) return;
+
         _reporter = new TelemetryReporter(key);
     }
 
@@ -25,43 +27,34 @@ export class Telemetry extends Disposable {
     }
 }
 
-export class TelemetryReporter extends Disposable {
+export class TelemetryReporter {
 
-    private _client: typeof appInsights.client;
+    private appInsights: ApplicationInsights;
+    private _client: Client;
     private _context: { [key: string]: string };
-    private _disposable: Disposable;
-    private _enabled: boolean;
 
     constructor(key: string) {
-        super(() => this.dispose());
+        this.appInsights = require('applicationinsights') as ApplicationInsights;
 
-        appInsights.setup(key)
-            .setAutoCollectConsole(false)
-            .setAutoCollectExceptions(false)
-            .setAutoCollectPerformance(false)
-            .setAutoCollectRequests(false);
-
-        (appInsights as any)
-            .setAutoCollectDependencies(false)
-            .setAutoDependencyCorrelation(false)
-            .setOfflineMode(true);
-
-        this._client = appInsights.start().client;
+        if (this.appInsights.client) {
+            this._client = this.appInsights.getClient(key);
+            // no other way to enable offline mode
+            this._client.channel.setOfflineMode(true);
+        }
+        else {
+            this._client = this.appInsights.setup(key)
+                .setAutoCollectConsole(false)
+                .setAutoCollectDependencies(false)
+                .setAutoCollectExceptions(false)
+                .setAutoCollectPerformance(false)
+                .setAutoCollectRequests(false)
+                .setOfflineMode(true)
+                .start()
+                .client;
+        }
 
         this.setContext();
         this._stripPII(this._client);
-
-        this._onConfigurationChanged();
-
-        const subscriptions: Disposable[] = [];
-
-        subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigurationChanged, this));
-
-        this._disposable = Disposable.from(...subscriptions);
-    }
-
-    dispose() {
-        this._disposable && this._disposable.dispose();
     }
 
     setContext(context?: { [key: string]: string }) {
@@ -69,9 +62,9 @@ export class TelemetryReporter extends Disposable {
             this._context = Object.create(null);
 
             // Add vscode properties
-            this._context['code.language'] = vscode.env.language;
-            this._context['code.version'] = vscode.version;
-            this._context[this._client.context.keys.sessionId] = vscode.env.sessionId;
+            this._context['code.language'] = env.language;
+            this._context['code.version'] = version;
+            this._context[this._client.context.keys.sessionId] = env.sessionId;
 
             // Add os properties
             this._context['os.platform'] = os.platform();
@@ -86,20 +79,14 @@ export class TelemetryReporter extends Disposable {
     }
 
     trackEvent(name: string, properties?: { [key: string]: string }, measurements?: { [key: string]: number; }) {
-        if (!this._enabled) return;
         this._client.trackEvent(name, properties, measurements);
     }
 
     trackException(ex: Error) {
-        if (!this._enabled) return;
         this._client.trackException(ex);
     }
 
-    private _onConfigurationChanged() {
-        this._enabled = workspace.getConfiguration('telemetry').get<boolean>('enableTelemetry', true);
-    }
-
-    private _stripPII(client: typeof appInsights.client) {
+    private _stripPII(client: Client) {
         if (client && client.context && client.context.keys && client.context.tags) {
             const machineNameKey = client.context.keys.deviceMachineName;
             client.context.tags[machineNameKey] = '';
