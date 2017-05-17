@@ -1,6 +1,5 @@
 'use strict';
 import { env, Disposable, version, workspace } from 'vscode';
-import { ExtensionKey } from './constants';
 import * as os from 'os';
 
 let _reporter: TelemetryReporter;
@@ -9,7 +8,6 @@ export class Telemetry extends Disposable {
 
     static configure(key: string) {
         if (!workspace.getConfiguration('telemetry').get<boolean>('enableTelemetry', true)) return;
-        if (workspace.getConfiguration(ExtensionKey).get<boolean>('debug')) return;
 
         _reporter = new TelemetryReporter(key);
     }
@@ -34,7 +32,10 @@ export class TelemetryReporter {
     private _context: { [key: string]: string };
 
     constructor(key: string) {
+        const diagChannelState = process.env['APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL'];
+        process.env['APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL'] = true;
         this.appInsights = require('applicationinsights') as ApplicationInsights;
+        process.env['APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL'] = diagChannelState;
 
         if (this.appInsights.client) {
             this._client = this.appInsights.getClient(key);
