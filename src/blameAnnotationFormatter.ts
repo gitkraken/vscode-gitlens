@@ -49,7 +49,7 @@ export class BlameAnnotationFormatter {
     static getAnnotationHover(config: IBlameConfig, line: IGitCommitLine, commit: GitCommit): string | Array<string> {
         const message = `> \`${commit.message.replace(/\n/g, '\`\n>\n> \`')}\``;
         if (commit.isUncommitted) {
-            return `\`${'0'.repeat(8)}\` &nbsp; __Uncommitted changes__`;
+            return `\`${'0'.repeat(8)}\` &nbsp; __Uncommitted change__`;
         }
 
         return `\`${commit.shortSha}\` &nbsp; __${commit.author}__, ${moment(commit.date).fromNow()} _(${moment(commit.date).format(config.annotation.dateFormat || 'MMMM Do, YYYY h:MMa')})_ \n\n${message}`;
