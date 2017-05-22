@@ -354,17 +354,21 @@ export class BlameActiveLineController extends Disposable {
                                     }
                                 }
                             } as DecorationInstanceRenderOptions
-                        } as DecorationOptions,
+                        } as DecorationOptions
+                    ];
+
+                    if (activeLine === 'both') {
                         // Add a hover decoration to the area between the start of the line and the first non-whitespace character
-                        {
+                        decorationOptions.push({
                             range: range.with({
                                 end: range.end.with({
                                     character: editor.document.lineAt(range.end.line).firstNonWhitespaceCharacterIndex
                                 })
                             }),
                             hoverMessage: hoverMessage
-                        } as DecorationOptions
-                    ];
+                        } as DecorationOptions);
+                    }
+
                     break;
 
                 case 'hover':
@@ -374,6 +378,7 @@ export class BlameActiveLineController extends Disposable {
                             hoverMessage: hoverMessage
                         } as DecorationOptions
                     ];
+
                     break;
             }
 
