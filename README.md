@@ -78,7 +78,7 @@ GitLens provides an unobtrusive blame annotation at the end of the selected line
 
 #### Navigate and Explore
 
-- Adds a `Search Commits` command (`gitlens.showCommitSearch`) with a shortcut of `alt+f` to search for commits by message, author, file(s), or commit id
+- Adds a `Search Commits` command (`gitlens.showCommitSearch`) with a shortcut of `alt+/` to search for commits by message, author, file(s), or commit id
 
 - Adds commands to open files, commits, and branches in the supported remote services, currently **BitBucket, GitHub, GitLab, and Visual Studio Team Services** — only available if a Git upstream service is configured in the repository
   - `Open Line Commit in Remote` command (`gitlens.openCommitInRemote`) — opens the commit revision of the active line in the supported remote service
