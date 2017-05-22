@@ -326,41 +326,59 @@ export class BlameActiveLineController extends Disposable {
                 }
             }
 
-            let decorationOptions: DecorationOptions | undefined = undefined;
+            let decorationOptions: [DecorationOptions] | undefined = undefined;
             switch (activeLine) {
                 case 'both':
                 case 'inline':
-                    decorationOptions = {
-                        range: editor.document.validateRange(new Range(blameLine.line + offset, 0, blameLine.line + offset, 1000000)),
-                        hoverMessage: hoverMessage,
-                        renderOptions: {
-                            after: {
-                                contentText: annotation
-                            },
-                            dark: {
+                    const range = editor.document.validateRange(new Range(blameLine.line + offset, 0, blameLine.line + offset, 1000000));
+                    decorationOptions = [
+                        {
+                            range: range.with({
+                                start: range.start.with({
+                                    character: range.end.character
+                                })
+                            }),
+                            hoverMessage: hoverMessage,
+                            renderOptions: {
                                 after: {
-                                    color: this._config.blame.annotation.activeLineDarkColor || 'rgba(153, 153, 153, 0.35)'
+                                    contentText: annotation
+                                },
+                                dark: {
+                                    after: {
+                                        color: this._config.blame.annotation.activeLineDarkColor || 'rgba(153, 153, 153, 0.35)'
+                                    }
+                                },
+                                light: {
+                                    after: {
+                                        color: this._config.blame.annotation.activeLineLightColor || 'rgba(153, 153, 153, 0.35)'
+                                    }
                                 }
-                            },
-                            light: {
-                                after: {
-                                    color: this._config.blame.annotation.activeLineLightColor || 'rgba(153, 153, 153, 0.35)'
-                                }
-                            }
-                        } as DecorationInstanceRenderOptions
-                    } as DecorationOptions;
+                            } as DecorationInstanceRenderOptions
+                        } as DecorationOptions,
+                        // Add a hover decoration to the area between the start of the line and the first non-whitespace character
+                        {
+                            range: range.with({
+                                end: range.end.with({
+                                    character: editor.document.lineAt(range.end.line).firstNonWhitespaceCharacterIndex
+                                })
+                            }),
+                            hoverMessage: hoverMessage
+                        } as DecorationOptions
+                    ];
                     break;
 
                 case 'hover':
-                    decorationOptions = {
-                        range: editor.document.validateRange(new Range(blameLine.line + offset, 0, blameLine.line + offset, 1000000)),
-                        hoverMessage: hoverMessage
-                    } as DecorationOptions;
+                    decorationOptions = [
+                        {
+                            range: editor.document.validateRange(new Range(blameLine.line + offset, 0, blameLine.line + offset, 1000000)),
+                            hoverMessage: hoverMessage
+                        } as DecorationOptions
+                    ];
                     break;
             }
 
             if (decorationOptions !== undefined) {
-                editor.setDecorations(activeLineDecoration, [decorationOptions]);
+                editor.setDecorations(activeLineDecoration, decorationOptions);
             }
         }
     }
