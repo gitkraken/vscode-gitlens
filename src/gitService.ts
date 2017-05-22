@@ -4,7 +4,7 @@ import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, l
 import { CommandContext, setCommandContext } from './commands';
 import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes, ExtensionKey } from './constants';
-import { Git, GitBlameParser, GitBranch, GitCommit, GitLogCommit, GitLogParser, GitRemote, GitStashParser, GitStatusFile, GitStatusParser, IGit, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitLog, IGitStash, IGitStatus } from './git/git';
+import { Git, GitBlameParser, GitBranch, GitCommit, GitDiffParser, GitLogCommit, GitLogParser, GitRemote, GitStashParser, GitStatusFile, GitStatusParser, IGit, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitDiff, IGitLog, IGitStash, IGitStatus } from './git/git';
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
 import { Logger } from './logger';
@@ -25,7 +25,7 @@ class UriCacheEntry {
 
 class GitCacheEntry {
 
-    private cache: Map<string, ICachedBlame | ICachedLog> = new Map();
+    private cache: Map<string, ICachedBlame | ICachedDiff | ICachedLog> = new Map();
 
     constructor(public key: string) { }
 
@@ -33,11 +33,11 @@ class GitCacheEntry {
         return Iterables.every(this.cache.values(), _ => _.errorMessage !== undefined);
     }
 
-    get<T extends ICachedBlame | ICachedLog > (key: string): T | undefined {
+    get<T extends ICachedBlame | ICachedDiff | ICachedLog > (key: string): T | undefined {
         return this.cache.get(key) as T;
     }
 
-    set<T extends ICachedBlame | ICachedLog > (key: string, value: T) {
+    set<T extends ICachedBlame | ICachedDiff | ICachedLog > (key: string, value: T) {
         this.cache.set(key, value);
     }
 }
@@ -49,6 +49,7 @@ interface ICachedItem<T> {
 }
 
 interface ICachedBlame extends ICachedItem<IGitBlame> { }
+interface ICachedDiff extends ICachedItem<IGitDiff> { }
 interface ICachedLog extends ICachedItem<IGitLog> { }
 
 enum RemoveCacheReason {
@@ -88,7 +89,7 @@ export class GitService extends Disposable {
     private _fsWatcher: FileSystemWatcher | undefined;
     private _gitignore: Promise<ignore.Ignore>;
 
-    static EmptyPromise: Promise<IGitBlame | IGitLog | undefined> = Promise.resolve(undefined);
+    static EmptyPromise: Promise<IGitBlame | IGitDiff | IGitLog | undefined> = Promise.resolve(undefined);
 
     constructor(private context: ExtensionContext, public repoPath: string) {
         super(() => this.dispose());
@@ -563,6 +564,97 @@ export class GitService extends Disposable {
         const cacheKey = this.getCacheEntryKey(fileName);
         const entry = this._uriCache.get(cacheKey);
         return entry && entry.uri;
+    }
+
+    async getDiffForFile(repoPath: string | undefined, fileName: string, sha1?: string, sha2?: string): Promise<IGitDiff | undefined> {
+        let key: string = 'diff';
+        if (sha1 !== undefined) {
+            key += `:${sha1}`;
+        }
+        if (sha2 !== undefined) {
+            key += `:${sha2}`;
+        }
+
+        let entry: GitCacheEntry | undefined;
+        if (this.UseCaching) {
+            const cacheKey = this.getCacheEntryKey(fileName);
+            entry = this._gitCache.get(cacheKey);
+
+            if (entry !== undefined) {
+                const cachedDiff = entry.get<ICachedDiff>(key);
+                if (cachedDiff !== undefined) {
+                    Logger.log(`Cached(${key}): getDiffForFile('${repoPath}', '${fileName}', ${sha1}, ${sha2})`);
+                    return cachedDiff.item;
+                }
+            }
+
+            Logger.log(`Not Cached(${key}): getDiffForFile('${repoPath}', '${fileName}', ${sha1}, ${sha2})`);
+
+            if (entry === undefined) {
+                entry = new GitCacheEntry(cacheKey);
+                this._gitCache.set(entry.key, entry);
+            }
+        }
+        else {
+            Logger.log(`getDiffForFile('${repoPath}', '${fileName}', ${sha1}, ${sha2})`);
+        }
+
+        const promise = this._getDiffForFile(repoPath, fileName, sha1, sha2, entry, key);
+
+        if (entry) {
+            Logger.log(`Add log cache for '${entry.key}:${key}'`);
+
+            entry.set<ICachedDiff>(key, {
+                //date: new Date(),
+                item: promise
+            } as ICachedDiff);
+        }
+
+        return promise;
+    }
+
+    private async _getDiffForFile(repoPath: string | undefined, fileName: string, sha1: string | undefined, sha2: string | undefined, entry: GitCacheEntry | undefined, key: string): Promise<IGitDiff | undefined> {
+        const [file, root] = Git.splitPath(fileName, repoPath, false);
+
+        try {
+            const data = await Git.diff(root, file, sha1, sha2);
+            return GitDiffParser.parse(data, this.config.debug);
+        }
+        catch (ex) {
+            // Trap and cache expected diff errors
+            if (entry) {
+                const msg = ex && ex.toString();
+                Logger.log(`Replace diff cache with empty promise for '${entry.key}:${key}'`);
+
+                entry.set<ICachedDiff>(key, {
+                    //date: new Date(),
+                    item: GitService.EmptyPromise,
+                    errorMessage: msg
+                } as ICachedDiff);
+
+                return await GitService.EmptyPromise as IGitDiff;
+            }
+
+            return undefined;
+        }
+    }
+
+    async getDiffForLine(repoPath: string | undefined, fileName: string, line: number, sha1?: string, sha2?: string): Promise<[string | undefined, string | undefined] | undefined> {
+        try {
+            const diff = await this.getDiffForFile(repoPath, fileName, sha1, sha2);
+            if (diff === undefined) return undefined;
+
+            const chunk = diff.chunks.find(_ => Math.min(_.originalStart, _.changesStart) <= line && Math.max(_.originalEnd, _.changesEnd) >= line);
+            if (chunk === undefined) return undefined;
+
+            return [
+                chunk.original[line - chunk.originalStart + 1],
+                chunk.changes[line - chunk.changesStart + 1]
+            ];
+        }
+        catch (ex) {
+            return undefined;
+        }
     }
 
     async getLogCommit(repoPath: string | undefined, fileName: string, options?: { firstIfMissing?: boolean, previous?: boolean }): Promise<GitLogCommit | undefined>;

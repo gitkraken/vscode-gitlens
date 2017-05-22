@@ -297,6 +297,32 @@ export class BlameActiveLineController extends Disposable {
                 // If we don't have a possible dupe or we aren't showing annotations get the hover message
                 if (!commit.isUncommitted && (!possibleDuplicate || !this.annotationController.isAnnotating(editor))) {
                     hoverMessage = BlameAnnotationFormatter.getAnnotationHover(cfg, blameLine, logCommit || commit);
+
+                    // if (commit.previousSha !== undefined) {
+                    //     const changes = await this.git.getDiffForLine(this._uri.repoPath, this._uri.fsPath, blameLine.line + offset, commit.previousSha);
+                    //     if (changes !== undefined) {
+                    //         const previous = changes[0];
+                    //         if (previous !== undefined) {
+                    //             hoverMessage += `\n\n\`Before ${commit.shortSha}\`\n\`\`\`\n${previous.trim().replace(/\n/g, '\`\n>\n> \`')}\n\`\`\``;
+                    //         }
+                    //         else {
+                    //             hoverMessage += `\n\n\`Added in ${commit.shortSha}\``;
+                    //         }
+                    //     }
+                    // }
+                }
+                else if (commit.isUncommitted) {
+                    const changes = await this.git.getDiffForLine(this._uri.repoPath, this._uri.fsPath, blameLine.line + offset);
+                    if (changes !== undefined) {
+                        let original = changes[0];
+                        if (original !== undefined) {
+                            original = original.replace(/\n/g, '\`\n>\n> \`').trim();
+                            hoverMessage = `\`${'0'.repeat(8)}\` &nbsp; __Uncommitted change__\n\n\---\n\`\`\`\n${original}\n\`\`\``;
+                        }
+                        // else {
+                        //     hoverMessage = `\`${'0'.repeat(8)}\` &nbsp; __Uncommitted change__\n\n\`Added\``;
+                        // }
+                    }
                 }
             }
 

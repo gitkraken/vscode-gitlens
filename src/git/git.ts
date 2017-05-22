@@ -9,6 +9,7 @@ import * as tmp from 'tmp';
 export { IGit };
 export * from './models/models';
 export * from './parsers/blameParser';
+export * from './parsers/diffParser';
 export * from './parsers/logParser';
 export * from './parsers/stashParser';
 export * from './parsers/statusParser';
@@ -158,6 +159,18 @@ export class Git {
         catch (ex) {
             return '';
         }
+    }
+
+    static diff(repoPath: string, fileName: string, sha1?: string, sha2?: string) {
+        const params = [`diff`, `--diff-filter=M`, `-M`];
+        if (sha1) {
+            params.push(sha1);
+        }
+        if (sha2) {
+            params.push(sha2);
+        }
+
+        return gitCommand(repoPath, ...params, '--', fileName);
     }
 
     static diff_nameStatus(repoPath: string, sha1?: string, sha2?: string) {
