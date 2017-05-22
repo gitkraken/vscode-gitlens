@@ -27,7 +27,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
         args.line = args.line || (editor === undefined ? 0 : editor.selection.active.line);
 
         const gitUri = await GitUri.fromUri(uri, this.git);
-        if (gitUri.repoPath === undefined) return undefined;
+        if (!gitUri.repoPath) return window.showWarningMessage(`Unable to open branch compare`);
 
         const branches = await this.git.getBranches(gitUri.repoPath);
         const pick = await BranchesQuickPick.show(branches, `Compare ${path.basename(gitUri.fsPath)} to \u2026`, args.goBackCommand);
@@ -52,7 +52,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'DiffWithBranchCommand', 'getVersionedFile');
-            return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
+            return window.showErrorMessage(`Unable to open branch compare. See output channel for more details`);
         }
     }
 }

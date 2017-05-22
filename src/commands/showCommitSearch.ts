@@ -29,10 +29,11 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
 
     async execute(editor: TextEditor, uri?: Uri, args: ShowCommitSearchCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
-        if (uri === undefined) return undefined;
 
-        const gitUri = await GitUri.fromUri(uri, this.git);
-        if (gitUri.repoPath === undefined) return undefined;
+        const gitUri = uri === undefined ? undefined : await GitUri.fromUri(uri, this.git);
+
+        const repoPath = gitUri === undefined ? this.git.repoPath : gitUri.repoPath;
+        if (!repoPath) return window.showWarningMessage(`Unable to show commit search`);
 
         if (!args.search || args.searchBy == null) {
             if (!args.search) {
@@ -40,6 +41,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                     paste((err: Error, content: string) => resolve(err ? '' : content));
                 });
             }
+
             args.search = await window.showInputBox({
                 value: args.search,
                 prompt: `Please enter a search string`,
@@ -65,7 +67,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                 args.searchBy = GitRepoSearchBy.Message;
             }
 
-            const log = await this.git.getLogForRepoSearch(gitUri.repoPath, args.search, args.searchBy);
+            const log = await this.git.getLogForRepoSearch(repoPath, args.search, args.searchBy);
             if (log === undefined) return undefined;
 
             let originalSearch: string | undefined = undefined;
@@ -94,7 +96,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                 label: `go back \u21A9`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 to commit search`
             }, Commands.ShowCommitSearch, [
-                    gitUri,
+                    uri,
                     {
                         search: originalSearch,
                         goBackCommand: args.goBackCommand
@@ -115,7 +117,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                         label: `go back \u21A9`,
                         description: `\u00a0 \u2014 \u00a0\u00a0 to search for ${placeHolder}`
                     }, Commands.ShowCommitSearch, [
-                            gitUri,
+                            uri,
                             args
                         ])
                 } as ShowQuickCommitDetailsCommandArgs);

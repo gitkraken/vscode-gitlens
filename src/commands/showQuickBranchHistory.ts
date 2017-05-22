@@ -32,8 +32,8 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 
         let progressCancellation = args.branch === undefined ? undefined : BranchHistoryQuickPick.showProgress(args.branch);
         try {
-            const repoPath = (gitUri && gitUri.repoPath) || this.git.repoPath;
-            if (repoPath === undefined) return window.showWarningMessage(`Unable to show branch history`);
+            const repoPath = gitUri === undefined ? this.git.repoPath : gitUri.repoPath;
+            if (!repoPath) return window.showWarningMessage(`Unable to show branch history`);
 
             if (args.branch === undefined) {
                 const branches = await this.git.getBranches(repoPath);
