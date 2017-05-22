@@ -3,10 +3,11 @@ import { commands, Range, Uri } from 'vscode';
 import { BuiltInCommands } from '../../constants';
 import { GitLogCommit } from '../../gitService';
 
-export type RemoteResourceType = 'branch' | 'commit' | 'file' | 'working-file';
+export type RemoteResourceType = 'branch' | 'commit' | 'file' | 'repo' | 'working-file';
 export type RemoteResource = { type: 'branch', branch: string } |
     { type: 'commit', sha: string } |
     { type: 'file', branch?: string, commit?: GitLogCommit, fileName: string, range?: Range, sha?: string } |
+    { type: 'repo' } |
     { type: 'working-file', branch?: string, fileName: string, range?: Range };
 
 export function getNameFromRemoteResource(resource: RemoteResource) {
@@ -14,6 +15,7 @@ export function getNameFromRemoteResource(resource: RemoteResource) {
         case 'branch': return 'Branch';
         case 'commit': return 'Commit';
         case 'file': return 'File';
+        case 'repo': return 'Repository';
         case 'working-file': return 'Working File';
         default: return '';
     }
@@ -47,9 +49,15 @@ export abstract class RemoteProvider {
                 return this.openCommit(resource.sha);
             case 'file':
                 return this.openFile(resource.fileName, resource.branch, resource.sha, resource.range);
+            case 'repo':
+                return this.openRepo();
             case 'working-file':
                 return this.openFile(resource.fileName, resource.branch, undefined, resource.range);
         }
+    }
+
+    openRepo() {
+        return this._openUrl(this.baseUrl);
     }
 
     openBranch(branch: string) {

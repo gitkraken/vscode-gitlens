@@ -499,6 +499,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.openBranchInRemote",
+                "title": "Open Branch in Remote",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.openCommitInRemote",
                 "title": "Open Line Commit in Remote",
                 "category": "GitLens"
@@ -506,6 +511,11 @@
             {
                 "command": "gitlens.openFileInRemote",
                 "title": "Open File in Remote",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.openRepoInRemote",
+                "title": "Open Repository in Remote",
                 "category": "GitLens"
             },
             {
@@ -618,12 +628,20 @@
                     "when": "gitlens:enabled"
                 },
                 {
+                    "command": "gitlens.openBranchInRemote",
+                    "when": "gitlens:hasRemotes"
+                },
+                {
                     "command": "gitlens.openCommitInRemote",
                     "when": "gitlens:isBlameable && gitlens:hasRemotes"
                 },
                 {
                     "command": "gitlens.openFileInRemote",
                     "when": "gitlens:isTracked && gitlens:hasRemotes"
+                },
+                {
+                    "command": "gitlens.openRepoInRemote",
+                    "when": "gitlens:hasRemotes"
                 },
                 {
                     "command": "gitlens.stashApply",
@@ -899,7 +917,7 @@
         "@types/mocha": "2.2.41",
         "@types/node": "7.0.18",
         "@types/tmp": "0.0.33",
-        "mocha": "3.3.0",
+        "mocha": "3.4.1",
         "tslint": "5.2.0",
         "typescript": "2.3.2",
         "vscode": "1.1.0"

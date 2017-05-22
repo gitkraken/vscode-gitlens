@@ -58,6 +58,10 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                 }
                 break;
 
+            case 'repo':
+                description = `$(repo) Repository`;
+                break;
+
             case 'working-file':
                 description = `$(file-text) ${path.basename(resource.fileName)}`;
                 break;

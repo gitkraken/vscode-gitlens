@@ -32,6 +32,16 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
             let placeHolder: string = '';
             switch (args.resource.type) {
                 case 'branch':
+                    // Check to see if the remote is in the branch
+                    const index = args.resource.branch.indexOf('/');
+                    if (index >= 0) {
+                        const remoteName = args.resource.branch.substring(0, index);
+                        const remote = args.remotes.find(r => r.name === remoteName);
+                        if (remote !== undefined) {
+                            args.resource.branch = args.resource.branch.substring(index + 1);
+                            args.remotes = [remote];
+                        }
+                    }
                     placeHolder = `open ${args.resource.branch} branch in\u2026`;
                     break;
 
@@ -62,6 +72,11 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
                 case 'working-file':
                     placeHolder = `open ${args.resource.fileName} in\u2026`;
                     break;
+            }
+
+            if (args.remotes.length === 1) {
+                const command = new OpenRemoteCommandQuickPickItem(args.remotes[0], args.resource);
+                return command.execute();
             }
 
             const pick = await RemotesQuickPick.show(args.remotes, placeHolder, args.resource, args.goBackCommand);

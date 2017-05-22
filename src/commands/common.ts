@@ -6,7 +6,7 @@ import { Telemetry } from '../telemetry';
 
 export type Commands = 'gitlens.closeUnchangedFiles' | 'gitlens.copyMessageToClipboard' | 'gitlens.copyShaToClipboard' |
     'gitlens.diffDirectory' | 'gitlens.diffWithBranch' | 'gitlens.diffWithNext' | 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' |
-    'gitlens.openChangedFiles' | 'gitlens.openCommitInRemote' | 'gitlens.openFileInRemote' | 'gitlens.openInRemote' |
+    'gitlens.openChangedFiles' | 'gitlens.openBranchInRemote' | 'gitlens.openCommitInRemote' | 'gitlens.openFileInRemote' | 'gitlens.openInRemote' | 'gitlens.openRepoInRemote' |
     'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showCommitSearch' | 'gitlens.showFileHistory' |
     'gitlens.showLastQuickPick' | 'gitlens.showQuickBranchHistory' |
     'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' |
@@ -26,9 +26,11 @@ export const Commands = {
     DiffWithWorking: 'gitlens.diffWithWorking' as Commands,
     DiffLineWithWorking: 'gitlens.diffLineWithWorking' as Commands,
     OpenChangedFiles: 'gitlens.openChangedFiles' as Commands,
+    OpenBranchInRemote: 'gitlens.openBranchInRemote' as Commands,
     OpenCommitInRemote: 'gitlens.openCommitInRemote' as Commands,
     OpenFileInRemote: 'gitlens.openFileInRemote' as Commands,
     OpenInRemote: 'gitlens.openInRemote' as Commands,
+    OpenRepoInRemote: 'gitlens.openRepoInRemote' as Commands,
     ShowBlame: 'gitlens.showBlame' as Commands,
     ShowBlameHistory: 'gitlens.showBlameHistory' as Commands,
     ShowCommitSearch: 'gitlens.showCommitSearch' as Commands,
