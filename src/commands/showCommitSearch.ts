@@ -36,10 +36,25 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
         if (!repoPath) return window.showWarningMessage(`Unable to show commit search`);
 
         if (!args.search || args.searchBy == null) {
-            if (!args.search) {
-                args.search = await new Promise<string>((resolve, reject) => {
-                    paste((err: Error, content: string) => resolve(err ? '' : content));
-                });
+            try {
+                if (!args.search) {
+                    if (editor !== undefined && gitUri !== undefined) {
+                        const line = editor.selection.active.line - gitUri.offset;
+                        const blameLine = await this.git.getBlameForLine(gitUri, line);
+                        if (blameLine !== undefined) {
+                            args.search = `#${blameLine.commit.shortSha}`;
+                        }
+                    }
+
+                    if (!args.search) {
+                        args.search = await new Promise<string>((resolve, reject) => {
+                            paste((err: Error, content: string) => resolve(err ? '' : content));
+                        });
+                    }
+                }
+            }
+            catch (ex) {
+                Logger.error(ex, 'ShowCommitSearchCommand', 'search prefetch failed');
             }
 
             args.search = await window.showInputBox({
