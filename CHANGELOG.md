@@ -1,5 +1,25 @@
 ## Release Notes
 
+### 3.5.0-beta
+- Improves performance
+  - Reduces the number of git calls on known "untrackables"
+  - Caches many more git commands to reduce git command roundtrips and parsing
+  - Increases the debounce (delay) on cursor movement to reduce lag when navigating around a file
+- Adds diff information (previous line's code) into the active line hover when the current line is uncommitted
+- Adds `gitlens.statusBar.alignment` settings to control the alignment of the status bar -- thanks to Zack Schuster (@zackschuster)!
+- Adds `Open Branch in Remote` command (`gitlens.openBranchInRemote`) — opens the current branch commits in the supported remote service
+- Adds `Open Repository in Remote` command (`gitlens.openRepoInRemote`) — opens the repository in the supported remote service
+- Adds support to the `Search commits` command (`gitlens.showCommitSearch`) to work without any active editor
+- Adds commit search pre-population -- if there is an active editor it will use the commit sha of the current line commit, otherwise it will use the current clipboard
+- Changes the active line hover to only show at the beginning and end of a line if `gitlens.blame.annotation.activeLine` is `both`
+- Changes `alt+f` shortcut to `alt+/` for the `Search commits` command (`gitlens.showCommitSearch`)
+- Changes `alt+right` on commit details quick pick menu to execute the `Compare File with Previous Commit` command (`gitlens.diffWithPrevious`) when a file is selected
+- Changes `alt+right` on repository status quick pick menu to execute the `Compare File with Previous Commit` command (`gitlens.diffWithPrevious`) when a file is selected
+- Fixes incorrect file selection from the commit details quick pick menu
+- Fixes incorrect command execution when using `"gitlens.statusBar.command": "gitlens.showQuickRepoHistory"`
+- Fixes a bunch of issue that were revealed by enabling Typescript `strict` mode
+- Refactors command argument passing to allow for future inclusion into the SCM menus
+
 ### 3.4.9
 - Adds better support for deleted files when choosing `Open Changed Files` via in quick pick menus - now opens the file revision from the previous commit
 - Adds better support for deleted files when using `alt+right arrow` shortcut on the commit details quick pick menu - now opens the file revision from the previous commit
