@@ -25,15 +25,21 @@ class UriCacheEntry {
 
 class GitCacheEntry {
 
-    blame?: ICachedBlame;
-    log?: ICachedLog;
-
-    get hasErrors(): boolean {
-        return (this.blame !== undefined && this.blame.errorMessage !== undefined) ||
-            (this.log !== undefined && this.log.errorMessage !== undefined);
-    }
+    private cache: Map<string, ICachedBlame | ICachedLog> = new Map();
 
     constructor(public key: string) { }
+
+    get hasErrors(): boolean {
+        return Iterables.every(this.cache.values(), _ => _.errorMessage !== undefined);
+    }
+
+    get<T extends ICachedBlame | ICachedLog > (key: string): T | undefined {
+        return this.cache.get(key) as T;
+    }
+
+    set<T extends ICachedBlame | ICachedLog > (key: string, value: T) {
+        this.cache.set(key, value);
+    }
 }
 
 interface ICachedItem<T> {
@@ -312,38 +318,65 @@ export class GitService extends Disposable {
     }
 
     async getBlameForFile(uri: GitUri): Promise<IGitBlame | undefined> {
-        Logger.log(`getBlameForFile('${uri.repoPath}', '${uri.fsPath}', ${uri.sha})`);
+        let key: string = 'blame';
+        if (uri.sha !== undefined) {
+            key += `:${uri.sha}`;
+        }
 
         const fileName = uri.fsPath;
 
         let entry: GitCacheEntry | undefined;
-        if (this.UseCaching && !uri.sha) {
+        if (this.UseCaching) {
             const cacheKey = this.getCacheEntryKey(fileName);
             entry = this._gitCache.get(cacheKey);
 
-            if (entry !== undefined && entry.blame !== undefined) return entry.blame.item;
+            if (entry !== undefined) {
+                const cachedBlame = entry.get<ICachedBlame>(key);
+                if (cachedBlame !== undefined) {
+                    Logger.log(`Cached(${key}): getBlameForFile('${uri.repoPath}', '${uri.fsPath}', ${uri.sha})`);
+                    return cachedBlame.item;
+                }
+
+                if (key !== 'blame') {
+                    // Since we are looking for partial blame, see if we have the blame of the whole file
+                    const cachedBlame = entry.get<ICachedBlame>('blame');
+                    if (cachedBlame !== undefined) {
+                        Logger.log(`? Cache(${key}): getBlameForFile('${uri.repoPath}', '${uri.fsPath}', ${uri.sha})`);
+                        const blame = await cachedBlame.item;
+                        if (blame !== undefined && blame.commits.has(uri.sha!)) {
+                            Logger.log(`Cached(${key}): getBlameForFile('${uri.repoPath}', '${uri.fsPath}', ${uri.sha})`);
+                            return cachedBlame.item;
+                        }
+                    }
+                }
+            }
+
+            Logger.log(`Not Cached(${key}): getBlameForFile('${uri.repoPath}', '${uri.fsPath}', ${uri.sha})`);
+
             if (entry === undefined) {
                 entry = new GitCacheEntry(cacheKey);
+                this._gitCache.set(entry.key, entry);
             }
         }
+        else {
+            Logger.log(`getBlameForFile('${uri.repoPath}', '${uri.fsPath}', ${uri.sha})`);
+        }
 
-        const promise = this._getBlameForFile(uri, fileName, entry);
+        const promise = this._getBlameForFile(uri, fileName, entry, key);
 
         if (entry) {
-            Logger.log(`Add blame cache for '${entry.key}'`);
+            Logger.log(`Add blame cache for '${entry.key}:${key}'`);
 
-            entry.blame = {
+            entry.set<ICachedBlame>(key, {
                 //date: new Date(),
                 item: promise
-            } as ICachedBlame;
-
-            this._gitCache.set(entry.key, entry);
+            } as ICachedBlame);
         }
 
         return promise;
     }
 
-    private async _getBlameForFile(uri: GitUri, fileName: string, entry: GitCacheEntry | undefined): Promise<IGitBlame | undefined> {
+    private async _getBlameForFile(uri: GitUri, fileName: string, entry: GitCacheEntry | undefined, key: string): Promise<IGitBlame | undefined> {
         const [file, root] = Git.splitPath(fileName, uri.repoPath, false);
 
         const ignore = await this._gitignore;
@@ -363,16 +396,15 @@ export class GitService extends Disposable {
             // Trap and cache expected blame errors
             if (entry) {
                 const msg = ex && ex.toString();
-                Logger.log(`Replace blame cache with empty promise for '${entry.key}'`);
+                Logger.log(`Replace blame cache with empty promise for '${entry.key}:${key}'`);
 
-                entry.blame = {
+                entry.set<ICachedBlame>(key, {
                     //date: new Date(),
                     item: GitService.EmptyPromise,
                     errorMessage: msg
-                } as ICachedBlame;
+                } as ICachedBlame);
 
                 this._onDidBlameFail.fire(entry.key);
-                this._gitCache.set(entry.key, entry);
                 return await GitService.EmptyPromise as IGitBlame;
             }
 
@@ -383,7 +415,7 @@ export class GitService extends Disposable {
     async getBlameForLine(uri: GitUri, line: number): Promise<IGitBlameLine | undefined> {
         Logger.log(`getBlameForLine('${uri.repoPath}', '${uri.fsPath}', ${line}, ${uri.sha})`);
 
-        if (this.UseCaching && !uri.sha) {
+        if (this.UseCaching) {
             const blame = await this.getBlameForFile(uri);
             if (blame === undefined) return undefined;
 
@@ -604,37 +636,72 @@ export class GitService extends Disposable {
         }
     }
 
-    getLogForFile(repoPath: string | undefined, fileName: string, sha?: string, maxCount?: number, range?: Range, reverse: boolean = false): Promise<IGitLog | undefined> {
-        Logger.log(`getLogForFile('${repoPath}', '${fileName}', ${sha}, ${maxCount}, ${range && `[${range.start.line}, ${range.end.line}]`}, ${reverse})`);
+    async getLogForFile(repoPath: string | undefined, fileName: string, sha?: string, maxCount?: number, range?: Range, reverse: boolean = false): Promise<IGitLog | undefined> {
+        let key: string = 'log';
+        if (sha !== undefined) {
+            key += `:${sha}`;
+        }
+        if (maxCount !== undefined) {
+            key += `:n${maxCount}`;
+        }
 
         let entry: GitCacheEntry | undefined;
-        if (this.UseCaching && !sha && !range && !maxCount && !reverse) {
+        if (this.UseCaching && range === undefined && !reverse) {
             const cacheKey = this.getCacheEntryKey(fileName);
             entry = this._gitCache.get(cacheKey);
 
-            if (entry !== undefined && entry.log !== undefined) return entry.log.item;
+            if (entry !== undefined) {
+                const cachedLog = entry.get<ICachedLog>(key);
+                if (cachedLog !== undefined) {
+                    Logger.log(`Cached(${key}): getLogForFile('${repoPath}', '${fileName}', ${sha}, ${maxCount}, undefined, false)`);
+                    return cachedLog.item;
+                }
+
+                if (key !== 'log') {
+                    // Since we are looking for partial log, see if we have the log of the whole file
+                    const cachedLog = entry.get<ICachedLog>('log');
+                    if (cachedLog !== undefined) {
+                        if (sha === undefined) {
+                            Logger.log(`Cached(~${key}): getLogForFile('${repoPath}', '${fileName}', ${sha}, ${maxCount}, undefined, false)`);
+                            return cachedLog.item;
+                        }
+
+                        Logger.log(`? Cache(${key}): getLogForFile('${repoPath}', '${fileName}', ${sha}, ${maxCount}, undefined, false)`);
+                        const log = await cachedLog.item;
+                        if (log !== undefined && log.commits.has(sha)) {
+                            Logger.log(`Cached(${key}): getLogForFile('${repoPath}', '${fileName}', ${sha}, ${maxCount}, undefined, false)`);
+                            return cachedLog.item;
+                        }
+                    }
+                }
+            }
+
+            Logger.log(`Not Cached(${key}): getLogForFile('${repoPath}', '${fileName}', ${sha}, ${maxCount}, undefined, false)`);
+
             if (entry === undefined) {
                 entry = new GitCacheEntry(cacheKey);
+                this._gitCache.set(entry.key, entry);
             }
         }
+        else {
+            Logger.log(`getLogForFile('${repoPath}', '${fileName}', ${sha}, ${maxCount}, ${range && `[${range.start.line}, ${range.end.line}]`}, ${reverse})`);
+        }
 
-        const promise = this._getLogForFile(repoPath, fileName, sha, range, maxCount, reverse, entry);
+        const promise = this._getLogForFile(repoPath, fileName, sha, range, maxCount, reverse, entry, key);
 
         if (entry) {
-            Logger.log(`Add log cache for '${entry.key}'`);
+            Logger.log(`Add log cache for '${entry.key}:${key}'`);
 
-            entry.log = {
+            entry.set<ICachedLog>(key, {
                 //date: new Date(),
                 item: promise
-            } as ICachedLog;
-
-            this._gitCache.set(entry.key, entry);
+            } as ICachedLog);
         }
 
         return promise;
     }
 
-    private async _getLogForFile(repoPath: string | undefined, fileName: string, sha: string | undefined, range: Range | undefined, maxCount: number | undefined, reverse: boolean, entry: GitCacheEntry | undefined): Promise<IGitLog | undefined> {
+    private async _getLogForFile(repoPath: string | undefined, fileName: string, sha: string | undefined, range: Range | undefined, maxCount: number | undefined, reverse: boolean, entry: GitCacheEntry | undefined, key: string): Promise<IGitLog | undefined> {
         const [file, root] = Git.splitPath(fileName, repoPath, false);
 
         const ignore = await this._gitignore;
@@ -651,15 +718,14 @@ export class GitService extends Disposable {
             // Trap and cache expected log errors
             if (entry) {
                 const msg = ex && ex.toString();
-                Logger.log(`Replace log cache with empty promise for '${entry.key}'`);
+                Logger.log(`Replace log cache with empty promise for '${entry.key}:${key}'`);
 
-                entry.log = {
+                entry.set<ICachedLog>(key, {
                     //date: new Date(),
                     item: GitService.EmptyPromise,
                     errorMessage: msg
-                } as ICachedLog;
+                } as ICachedLog);
 
-                this._gitCache.set(entry.key, entry);
                 return await GitService.EmptyPromise as IGitLog;
             }
 

@@ -6,7 +6,7 @@ import { BlameAnnotationFormat, BlameAnnotationFormatter } from './blameAnnotati
 import { TextEditorComparer } from './comparers';
 import { IBlameConfig, IConfig, StatusBarCommand } from './configuration';
 import { DocumentSchemes, ExtensionKey } from './constants';
-import { BlameabilityChangeEvent, GitCommit, GitContextTracker, GitService, GitUri, IGitBlame, IGitCommitLine } from './gitService';
+import { BlameabilityChangeEvent, GitCommit, GitContextTracker, GitService, GitUri, IGitCommitLine } from './gitService';
 import * as moment from 'moment';
 
 const activeLineDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
@@ -18,7 +18,6 @@ const activeLineDecoration: TextEditorDecorationType = window.createTextEditorDe
 export class BlameActiveLineController extends Disposable {
 
     private _activeEditorLineDisposable: Disposable | undefined;
-    private _blame: Promise<IGitBlame> | undefined;
     private _blameable: boolean;
     private _config: IConfig;
     private _currentLine: number = -1;
@@ -27,7 +26,6 @@ export class BlameActiveLineController extends Disposable {
     private _statusBarItem: StatusBarItem | undefined;
     private _updateBlameDebounced: (line: number, editor: TextEditor) => Promise<void>;
     private _uri: GitUri;
-    private _useCaching: boolean;
 
     constructor(context: ExtensionContext, private git: GitService, private gitContextTracker: GitContextTracker, private annotationController: BlameAnnotationController) {
         super(() => this.dispose());
@@ -135,13 +133,11 @@ export class BlameActiveLineController extends Disposable {
         this._blameable = editor !== undefined && editor.document !== undefined && !editor.document.isDirty;
         this._editor = editor;
         this._uri = await GitUri.fromUri(editor.document.uri, this.git);
+
         const maxLines = this._config.advanced.caching.statusBar.maxLines;
-        this._useCaching = this._config.advanced.caching.enabled && (maxLines <= 0 || editor.document.lineCount <= maxLines);
-        if (this._useCaching) {
-            this._blame = this.git.getBlameForFile(this._uri);
-        }
-        else {
-            this._blame = undefined;
+        // If caching is on and the file is small enough -- kick off a blame for the whole file
+        if (this._config.advanced.caching.enabled && (maxLines <= 0 || editor.document.lineCount <= maxLines)) {
+            this.git.getBlameForFile(this._uri);
         }
 
         this._updateBlame(editor.selection.active.line, editor);
@@ -165,7 +161,6 @@ export class BlameActiveLineController extends Disposable {
     }
 
     private _onGitCacheChanged() {
-        this._blame = undefined;
         this._onActiveTextEditorChanged(window.activeTextEditor);
     }
 
@@ -191,22 +186,9 @@ export class BlameActiveLineController extends Disposable {
         let commitLine: IGitCommitLine | undefined = undefined;
         // Since blame information isn't valid when there are unsaved changes -- don't show any status
         if (this._blameable && line >= 0) {
-            if (this._useCaching) {
-                const blame = this._blame && await this._blame;
-                if (blame === undefined || !blame.lines.length) {
-                    this.clear(editor);
-                    return;
-                }
-
-                commitLine = blame.lines[line];
-                const sha = commitLine === undefined ? undefined : commitLine.sha;
-                commit = sha === undefined ? undefined : blame.commits.get(sha);
-            }
-            else {
-                const blameLine = await this.git.getBlameForLine(this._uri, line);
-                commitLine = blameLine === undefined ? undefined : blameLine.line;
-                commit = blameLine === undefined ? undefined : blameLine.commit;
-            }
+            const blameLine = await this.git.getBlameForLine(this._uri, line);
+            commitLine = blameLine === undefined ? undefined : blameLine.line;
+            commit = blameLine === undefined ? undefined : blameLine.commit;
         }
 
         if (commit !== undefined && commitLine !== undefined) {
