@@ -4,7 +4,7 @@ import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, l
 import { CommandContext, setCommandContext } from './commands';
 import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes, ExtensionKey } from './constants';
-import { Git, GitBlameParser, GitBranch, GitCommit, GitDiffParser, GitLogCommit, GitLogParser, GitRemote, GitStashParser, GitStatusFile, GitStatusParser, IGit, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitDiff, IGitLog, IGitStash, IGitStatus } from './git/git';
+import { Git, GitBlameParser, GitBranch, GitCommit, GitDiffParser, GitLogCommit, GitLogParser, GitRemote, GitStashParser, GitStatusFile, GitStatusParser, IGit, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitDiff, IGitLog, IGitStash, IGitStatus, setDefaultEncoding } from './git/git';
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
 import { Logger } from './logger';
@@ -129,6 +129,9 @@ export class GitService extends Disposable {
     }
 
     private _onConfigurationChanged() {
+        const encoding = workspace.getConfiguration('files').get<string>('encoding', 'utf8');
+        setDefaultEncoding(encoding);
+
         const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
 
         const codeLensChanged = !Objects.areEquivalent(cfg.codeLens, this.config && this.config.codeLens);

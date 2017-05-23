@@ -5,6 +5,7 @@ import { spawnPromise } from 'spawn-rx';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as tmp from 'tmp';
+import * as iconv from 'iconv-lite';
 
 export { IGit };
 export * from './models/models';
@@ -21,25 +22,43 @@ let git: IGit;
 const defaultLogParams = [`log`, `--name-status`, `--full-history`, `-M`, `--date=iso8601`, `--format=%H -%nauthor %an%nauthor-date %ai%nparents %P%nsummary %B%nfilename ?`];
 const defaultStashParams = [`stash`, `list`, `--name-status`, `--full-history`, `-M`, `--format=%H -%nauthor-date %ai%nreflog-selector %gd%nsummary %B%nfilename ?`];
 
-async function gitCommand(cwd: string, ...args: any[]) {
+let defaultEncoding = 'utf8';
+export function setDefaultEncoding(encoding: string) {
+    defaultEncoding = iconv.encodingExists(encoding) ? encoding : 'utf8';
+}
+
+const GitWarnings = [
+    /Not a git repository/,
+    /is outside repository/,
+    /no such path/,
+    /does not have any commits/
+];
+
+async function gitCommand(options: { cwd: string, encoding?: string }, ...args: any[]) {
     try {
         // Fixes https://github.com/eamodio/vscode-gitlens/issues/73
         // See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
         args.splice(0, 0, '-c', 'core.quotepath=false');
 
-        const s = await spawnPromise(git.path, args, { cwd: cwd });
-        Logger.log('git', ...args, `  cwd='${cwd}'`);
-        return s;
+        const opts = { encoding: 'utf8', ...options };
+        const s = await spawnPromise(git.path, args, { cwd: options.cwd, encoding: (opts.encoding === 'utf8') ? 'utf8' : 'binary' });
+        Logger.log('git', ...args, `  cwd='${options.cwd}'`);
+        if (opts.encoding === 'utf8' || opts.encoding === 'binary') return s;
+
+        return iconv.decode(Buffer.from(s, 'binary'), opts.encoding);
     }
     catch (ex) {
         const msg = ex && ex.toString();
-        if (msg && (msg.includes('Not a git repository') || msg.includes('is outside repository') || msg.includes('no such path') || msg.includes('does not have any commits'))) {
-            Logger.warn('git', ...args, `  cwd='${cwd}'`, msg && `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
-            return '';
+        if (msg) {
+            for (const warning of GitWarnings) {
+                if (warning.test(msg)) {
+                    Logger.warn('git', ...args, `  cwd='${options.cwd}'`, msg && `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
+                    return '';
+                }
+            }
         }
-        else {
-            Logger.error(ex, 'git', ...args, `  cwd='${cwd}'`, msg && `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
-        }
+
+        Logger.error(ex, 'git', ...args, `  cwd='${options.cwd}'`, msg && `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
         throw ex;
     }
 }
@@ -62,14 +81,14 @@ export class Git {
     static async getRepoPath(cwd: string | undefined) {
         if (cwd === undefined) return '';
 
-        const data = await gitCommand(cwd, 'rev-parse', '--show-toplevel');
+        const data = await gitCommand({ cwd }, 'rev-parse', '--show-toplevel');
         if (!data) return '';
 
         return data.replace(/\r?\n|\r/g, '').replace(/\\/g, '/');
     }
 
     static async getVersionedFile(repoPath: string | undefined, fileName: string, branchOrSha: string) {
-        const data = await Git.show(repoPath, fileName, branchOrSha);
+        const data = await Git.show(repoPath, fileName, branchOrSha, 'binary');
 
         const suffix = Git.isSha(branchOrSha) ? branchOrSha.substring(0, 8) : branchOrSha;
         const ext = path.extname(fileName);
@@ -82,7 +101,7 @@ export class Git {
                     }
 
                     Logger.log(`getVersionedFile('${repoPath}', '${fileName}', ${branchOrSha}); destination=${destination}`);
-                    fs.appendFile(destination, data, err => {
+                    fs.appendFile(destination, data, { encoding: 'binary' }, err => {
                         if (err) {
                             reject(err);
                             return;
@@ -144,7 +163,7 @@ export class Git {
             params.push(sha);
         }
 
-        return gitCommand(root, ...params, `--`, file);
+        return gitCommand({ cwd: root }, ...params, `--`, file);
     }
 
     static branch(repoPath: string, all: boolean) {
@@ -153,19 +172,19 @@ export class Git {
             params.push(`-a`);
         }
 
-        return gitCommand(repoPath, ...params);
+        return gitCommand({ cwd: repoPath }, ...params);
     }
 
     static async config_get(key: string, repoPath?: string) {
         try {
-            return await gitCommand(repoPath || '', `config`, `--get`, key);
+            return await gitCommand({ cwd: repoPath || '' }, `config`, `--get`, key);
         }
         catch (ex) {
             return '';
         }
     }
 
-    static diff(repoPath: string, fileName: string, sha1?: string, sha2?: string) {
+    static diff(repoPath: string, fileName: string, sha1?: string, sha2?: string, encoding?: string) {
         const params = [`diff`, `--diff-filter=M`, `-M`];
         if (sha1) {
             params.push(sha1);
@@ -174,7 +193,7 @@ export class Git {
             params.push(sha2);
         }
 
-        return gitCommand(repoPath, ...params, '--', fileName);
+        return gitCommand({ cwd: repoPath, encoding: encoding || defaultEncoding }, ...params, '--', fileName);
     }
 
     static diff_nameStatus(repoPath: string, sha1?: string, sha2?: string) {
@@ -186,7 +205,7 @@ export class Git {
             params.push(sha2);
         }
 
-        return gitCommand(repoPath, ...params);
+        return gitCommand({ cwd: repoPath }, ...params);
     }
 
     static difftool_dirDiff(repoPath: string, sha1: string, sha2?: string) {
@@ -195,7 +214,7 @@ export class Git {
             params.push(sha2);
         }
 
-        return gitCommand(repoPath, ...params);
+        return gitCommand({ cwd: repoPath }, ...params);
     }
 
     static log(repoPath: string, sha?: string, maxCount?: number, reverse: boolean = false) {
@@ -213,7 +232,7 @@ export class Git {
                 params.push(sha);
             }
         }
-        return gitCommand(repoPath, ...params);
+        return gitCommand({ cwd: repoPath }, ...params);
     }
 
     static log_file(repoPath: string, fileName: string, sha?: string, maxCount?: number, reverse: boolean = false, startLine?: number, endLine?: number) {
@@ -250,7 +269,7 @@ export class Git {
         params.push(`--`);
         params.push(file);
 
-        return gitCommand(root, ...params);
+        return gitCommand({ cwd: root }, ...params);
     }
 
     static log_search(repoPath: string, search: string[] = [], maxCount?: number) {
@@ -259,12 +278,12 @@ export class Git {
             params.push(`-n${maxCount}`);
         }
 
-        return gitCommand(repoPath, ...params, ...search);
+        return gitCommand({ cwd: repoPath }, ...params, ...search);
     }
 
     static async ls_files(repoPath: string, fileName: string): Promise<string> {
         try {
-            return await gitCommand(repoPath, 'ls-files', fileName);
+            return await gitCommand({ cwd: repoPath }, 'ls-files', fileName);
         }
         catch (ex) {
             return '';
@@ -272,33 +291,33 @@ export class Git {
     }
 
     static remote(repoPath: string): Promise<string> {
-        return gitCommand(repoPath, 'remote', '-v');
+        return gitCommand({ cwd: repoPath }, 'remote', '-v');
     }
 
     static remote_url(repoPath: string, remote: string): Promise<string> {
-        return gitCommand(repoPath, 'remote', 'get-url', remote);
+        return gitCommand({ cwd: repoPath }, 'remote', 'get-url', remote);
     }
 
-    static show(repoPath: string | undefined, fileName: string, branchOrSha: string) {
+    static show(repoPath: string | undefined, fileName: string, branchOrSha: string, encoding?: string) {
         const [file, root] = Git.splitPath(fileName, repoPath);
         branchOrSha = branchOrSha.replace('^', '');
 
         if (Git.isUncommitted(branchOrSha)) return Promise.reject(new Error(`sha=${branchOrSha} is uncommitted`));
-        return gitCommand(root, 'show', `${branchOrSha}:./${file}`);
+        return gitCommand({ cwd: root, encoding: encoding || defaultEncoding }, 'show', `${branchOrSha}:./${file}`);
     }
 
     static stash_apply(repoPath: string, stashName: string, deleteAfter: boolean) {
         if (!stashName) return undefined;
-        return gitCommand(repoPath, 'stash', deleteAfter ? 'pop' : 'apply', stashName);
+        return gitCommand({ cwd: repoPath }, 'stash', deleteAfter ? 'pop' : 'apply', stashName);
     }
 
     static stash_delete(repoPath: string, stashName: string) {
         if (!stashName) return undefined;
-        return gitCommand(repoPath, 'stash', 'drop', stashName);
+        return gitCommand({ cwd: repoPath }, 'stash', 'drop', stashName);
     }
 
     static stash_list(repoPath: string) {
-        return gitCommand(repoPath, ...defaultStashParams);
+        return gitCommand({ cwd: repoPath }, ...defaultStashParams);
     }
 
     static stash_save(repoPath: string, message?: string, unstagedOnly: boolean = false) {
@@ -309,18 +328,18 @@ export class Git {
         if (message) {
             params.push(message);
         }
-        return gitCommand(repoPath, ...params);
+        return gitCommand({ cwd: repoPath }, ...params);
     }
 
     static status(repoPath: string, porcelainVersion: number = 1): Promise<string> {
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
-        return gitCommand(repoPath, 'status', porcelain, '--branch');
+        return gitCommand({ cwd: repoPath }, 'status', porcelain, '--branch');
     }
 
     static status_file(repoPath: string, fileName: string, porcelainVersion: number = 1): Promise<string> {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
-        return gitCommand(root, 'status', porcelain, file);
+        return gitCommand({ cwd: root }, 'status', porcelain, file);
     }
 }
