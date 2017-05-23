@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [3.5.0-beta] - 2017-05-22
+## [3.5.0-beta] - 2017-05-23
 ### Added
 - Improves performance
   - Reduces the number of git calls on known "untrackables"
@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Refactors command argument passing to allow for future inclusion into the SCM menus
 
 ### Fixed
+- Fixes [#73](https://github.com/eamodio/vscode-gitlens/issues/73) - GitLens doesn't work with Chinese filenames
 - Fixes incorrect file selection from the commit details quick pick menu
 - Fixes incorrect command execution when using `"gitlens.statusBar.command": "gitlens.showQuickRepoHistory"`
 - Fixes a bunch of issues that were revealed by enabling Typescript `strict` mode
