@@ -23,6 +23,10 @@ const defaultStashParams = [`stash`, `list`, `--name-status`, `--full-history`, 
 
 async function gitCommand(cwd: string, ...args: any[]) {
     try {
+        // Fixes https://github.com/eamodio/vscode-gitlens/issues/73
+        // See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
+        args.splice(0, 0, '-c', 'core.quotepath=false');
+
         const s = await spawnPromise(git.path, args, { cwd: cwd });
         Logger.log('git', ...args, `  cwd='${cwd}'`);
         return s;
