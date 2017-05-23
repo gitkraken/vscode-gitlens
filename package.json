@@ -915,11 +915,11 @@
         "@types/applicationinsights": "0.15.33",
         "@types/copy-paste": "1.1.30",
         "@types/mocha": "2.2.41",
-        "@types/node": "7.0.21",
+        "@types/node": "7.0.22",
         "@types/tmp": "0.0.33",
         "mocha": "3.4.1",
-        "tslint": "5.2.0",
-        "typescript": "2.3.2",
+        "tslint": "5.3.0",
+        "typescript": "2.3.3",
         "vscode": "1.1.0"
     }
 }
