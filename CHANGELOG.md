@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [3.5.0-beta.2] - 2017-05-23
+### Fixed
+- Fixes [#40](https://github.com/eamodio/vscode-gitlens/issues/40) - Encoding issues
+  - Given the limitations of the vscode api, I'm unable to fix all the encoding issues, but many of them should now be squashed
+  - `files.encoding` is now honored for the cases where the encoding cannot currently be gleaned
+
 ## [3.5.0-beta] - 2017-05-23
 ### Added
 - Improves performance
@@ -11,7 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Caches many more git commands to reduce git command roundtrips and parsing
   - Increases the debounce (delay) on cursor movement to reduce lag when navigating around a file
 - Adds diff information (previous line's code) into the active line hover when the current line is uncommitted
-- Adds `gitlens.statusBar.alignment` settings to control the alignment of the status bar -- thanks to Zack Schuster (@zackschuster)!
+- Adds `gitlens.statusBar.alignment` settings to control the alignment of the status bar -- thanks to [PR #72](https://github.com/eamodio/vscode-gitlens/pull/72) by Zack Schuster ([@zackschuster](https://github.com/zackschuster))!
 - Adds `Open Branch in Remote` command (`gitlens.openBranchInRemote`) - opens the current branch commits in the supported remote service
 - Adds `Open Repository in Remote` command (`gitlens.openRepoInRemote`) - opens the repository in the supported remote service
 - Adds support to the `Search commits` command (`gitlens.showCommitSearch`) to work without any active editor
