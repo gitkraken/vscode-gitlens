@@ -16,8 +16,11 @@ export const keys: Keys[] = [
     '.'
 ];
 
-export declare type KeyMapping = { [id: string]: (QuickPickItem | (() => Promise<QuickPickItem>) | undefined) };
-let mappings: KeyMapping[] = [];
+export declare interface KeyMapping {
+    [id: string]: (QuickPickItem | (() => Promise<QuickPickItem>) | undefined);
+}
+
+const mappings: KeyMapping[] = [];
 
 let _instance: Keyboard;
 

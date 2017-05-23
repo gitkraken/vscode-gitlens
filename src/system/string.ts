@@ -1,5 +1,4 @@
 'use strict';
-//import { escapeRegExp as _escapeRegExp } from 'lodash';
 const _escapeRegExp = require('lodash.escaperegexp');
 
 export namespace Strings {

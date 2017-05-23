@@ -1,5 +1,4 @@
 'use strict';
-//import { isEqual as _isEqual } from 'lodash';
 const _isEqual = require('lodash.isequal');
 
 export namespace Objects {
@@ -8,13 +7,13 @@ export namespace Objects {
     }
 
     export function* entries(o: any): IterableIterator<[string, any]> {
-        for (let key in o) {
+        for (const key in o) {
             yield [key, o[key]];
         }
     }
 
     export function flatten(o: any, prefix: string = '', stringify: boolean = false): { [key: string]: any } {
-        let flattened = Object.create(null);
+        const flattened = Object.create(null);
         _flatten(flattened, prefix, o, stringify);
         return flattened;
     }
@@ -37,7 +36,7 @@ export namespace Objects {
             }
         }
         else if (Array.isArray(value)) {
-            let len = value.length;
+            const len = value.length;
             for (let i = 0; i < len; i++) {
                 _flatten(flattened, `${key}[${i}]`, value[i], stringify);
             }
@@ -47,7 +46,7 @@ export namespace Objects {
         }
         else {
             let isEmpty = true;
-            for (let p in value) {
+            for (const p in value) {
                 isEmpty = false;
                 _flatten(flattened, key ? `${key}.${p}` : p, value[p], stringify);
             }

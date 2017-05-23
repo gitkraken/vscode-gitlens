@@ -16,7 +16,7 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
             directory = '';
         }
 
-        let description = (status.status === 'R' && status.originalFileName)
+        const description = (status.status === 'R' && status.originalFileName)
             ? `${directory} \u00a0\u2190\u00a0 ${status.originalFileName}`
             : directory;
 
@@ -46,7 +46,7 @@ export class OpenStatusFilesCommandQuickPickItem extends CommandQuickPickItem {
         super(item || {
             label: `$(file-symlink-file) Open Changed Files`,
             description: ''
-            //detail: `Opens all of the changed files in the repository`
+            // detail: `Opens all of the changed files in the repository`
         }, Commands.OpenChangedFiles, [
                 undefined,
                 {
@@ -210,7 +210,6 @@ export class RepoStatusQuickPick {
                     } as ShowQuickRepoStatusCommandArgs
                 ]));
         }
-
 
         if (goBackCommand) {
             items.splice(0, 0, goBackCommand);

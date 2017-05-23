@@ -41,7 +41,7 @@ export class GitBlameParser {
         let entry: IBlameEntry | undefined = undefined;
         let position = -1;
         while (++position < lines.length) {
-            let lineParts = lines[position].split(' ');
+            const lineParts = lines[position].split(' ');
             if (lineParts.length < 2) {
                 continue;
             }
@@ -122,7 +122,7 @@ export class GitBlameParser {
 
         const authors: Map<string, IGitAuthor> = new Map();
         const commits: Map<string, GitCommit> = new Map();
-        const lines: Array<IGitCommitLine> = [];
+        const lines: IGitCommitLine[] = [];
 
         let relativeFileName = repoPath && fileName;
 

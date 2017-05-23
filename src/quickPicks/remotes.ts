@@ -30,7 +30,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
     constructor(remotes: GitRemote[], resource: RemoteResource, goBackCommand?: CommandQuickPickItem) {
         const name = getNameFromRemoteResource(resource);
 
-        let description: string = '';
+        let description = '';
         switch (resource.type) {
             case 'branch':
                 description = `$(git-branch) ${resource.branch}`;

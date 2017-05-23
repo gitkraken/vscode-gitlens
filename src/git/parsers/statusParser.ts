@@ -1,5 +1,5 @@
 'use strict';
-import { Git, GitStatusFileStatus, GitStatusFile, IGitStatus } from './../git';
+import { Git, GitStatusFile, GitStatusFileStatus, IGitStatus } from './../git';
 
 interface IFileStatusEntry {
     staged: boolean;
@@ -61,7 +61,7 @@ export class GitStatusParser {
             else {
                 let entry: IFileStatusEntry;
                 const rawStatus = line.substring(0, 2);
-                let fileName = line.substring(3);
+                const fileName = line.substring(3);
                 if (rawStatus[0] === 'R') {
                     const [file1, file2] = fileName.replace(/\"/g, '').split('->');
                     entry = this._parseFileEntry(rawStatus, file2.trim(), file1.trim());
@@ -98,7 +98,7 @@ export class GitStatusParser {
                 }
             }
             else {
-                let lineParts = line.split(' ');
+                const lineParts = line.split(' ');
                 let entry: IFileStatusEntry | undefined = undefined;
                 switch (lineParts[0][0]) {
                     case '1': // normal

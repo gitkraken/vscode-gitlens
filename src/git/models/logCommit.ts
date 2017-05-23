@@ -1,7 +1,7 @@
 'use strict';
 import { Uri } from 'vscode';
 import { GitCommit, GitCommitType, IGitCommitLine } from './commit';
-import { IGitStatusFile, GitStatusFileStatus } from './status';
+import { GitStatusFileStatus, IGitStatusFile } from './status';
 import * as path from 'path';
 
 export class GitLogCommit extends GitCommit {

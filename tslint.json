@@ -1,22 +1,52 @@
 {
     "rules": {
-        "arrow-parens": false,
+        "adjacent-overload-signatures": true,
+        "array-type": [
+            true,
+            "array"
+        ],
+        "arrow-parens": [
+            true,
+            "ban-single-arg-parens"
+        ],
+        "arrow-return-shorthand": true,
         "class-name": true,
         "comment-format": [
-            false
+            true,
+            "check-space"
         ],
-        "curly": false,
+        "curly": [
+            true,
+            "ignore-same-line"
+        ],
         "indent": [
             true,
             "spaces"
         ],
+        "interface-over-type-literal": true,
         "new-parens": true,
-        "no-duplicate-variable": true,
+        "no-angle-bracket-type-assertion": true,
+        "no-consecutive-blank-lines": [
+            true,
+            1
+        ],
+        "no-default-export": true,
         "no-eval": true,
-        "no-for-in-array": false,
+        // "no-for-in-array": true,
+        "no-inferrable-types": [
+            true,
+            "ignore-params",
+            "ignore-properties"
+        ],
         "no-internal-module": true,
+        "no-invalid-template-strings": true,
+        "no-irregular-whitespace": true,
         "no-reference": true,
+        "no-string-throw": true,
         "no-trailing-whitespace": true,
+        "no-unnecessary-callback-wrapper": true,
+        // "no-unnecessary-qualifier": true,
+        // "no-unsafe-any": true,
         "no-unsafe-finally": true,
         "no-unused-expression": false,
         "no-var-keyword": true,
@@ -35,10 +65,17 @@
             "ignore-for-loop"
         ],
         "ordered-imports": [
-            false,
+            true,
             {
+                "import-sources-order": "any",
                 "named-imports-order": "case-insensitive"
             }
+        ],
+        "prefer-const": true,
+        "prefer-for-of": true,
+        "prefer-template": [
+            true,
+            "allow-single-concat"
         ],
         "quotemark": [
             true,
@@ -50,6 +87,16 @@
             true,
             "always"
         ],
+        "space-before-function-paren": [
+            true,
+            {
+                "anonymous": "never",
+                "named": "never",
+                "asyncArrow": "always"
+            }
+        ],
+        // "strict-boolean-expressions": true,
+        // "strict-type-predicates": true,
         "trailing-comma": [
             true,
             {
@@ -71,6 +118,7 @@
                 "variable-declaration": "nospace"
             }
         ],
+        "typeof-compare": true,
         "use-isnan": true,
         "variable-name": [
             true,

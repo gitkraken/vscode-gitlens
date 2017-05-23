@@ -12,7 +12,7 @@ import { ShowBlameCommand, ToggleBlameCommand } from './commands';
 import { ShowBlameHistoryCommand, ShowFileHistoryCommand } from './commands';
 import { ShowLastQuickPickCommand } from './commands';
 import { ShowQuickBranchHistoryCommand, ShowQuickCurrentBranchHistoryCommand, ShowQuickFileHistoryCommand } from './commands';
-import { ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand, ShowCommitSearchCommand } from './commands';
+import { ShowCommitSearchCommand, ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand } from './commands';
 import { ShowQuickRepoStatusCommand, ShowQuickStashListCommand } from './commands';
 import { StashApplyCommand, StashDeleteCommand, StashSaveCommand } from './commands';
 import { ToggleCodeLensCommand } from './commands';

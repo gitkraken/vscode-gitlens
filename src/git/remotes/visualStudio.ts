@@ -21,7 +21,7 @@ export class VisualStudioService extends RemoteProvider {
     }
 
     protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
-        let line: string = '';
+        let line = '';
         if (range) {
             if (range.start.line === range.end.line) {
                 line = `&line=${range.start.line}`;

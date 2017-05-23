@@ -46,7 +46,7 @@ export class BlameAnnotationFormatter {
         return message;
     }
 
-    static getAnnotationHover(config: IBlameConfig, line: IGitCommitLine, commit: GitCommit): string | Array<string> {
+    static getAnnotationHover(config: IBlameConfig, line: IGitCommitLine, commit: GitCommit): string | string[] {
         const message = `> \`${commit.message.replace(/\n/g, '\`\n>\n> \`')}\``;
         if (commit.isUncommitted) {
             return `\`${'0'.repeat(8)}\` &nbsp; __Uncommitted change__`;
@@ -103,7 +103,7 @@ export class BlameAnnotationFormatter {
     static getMessage(config: IBlameConfig, commit: GitCommit, truncateTo: number = 0, force: boolean = false) {
         if (!force && !config.annotation.message) return '';
 
-        let message = commit.isUncommitted ? 'Uncommitted change' : commit.message;
+        const message = commit.isUncommitted ? 'Uncommitted change' : commit.message;
         if (truncateTo && message.length > truncateTo) {
             return `${message.substring(0, truncateTo - 1)}\u2026`;
         }

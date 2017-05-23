@@ -72,8 +72,8 @@ export class GitContextTracker extends Disposable {
         if (!TextDocumentComparer.equals(this._editor && this._editor.document, e && e.document)) return;
 
         // Can't unsubscribe here because undo doesn't trigger any other event
-        //this._unsubscribeToDocumentChanges();
-        //this.updateBlameability(false);
+        // this._unsubscribeToDocumentChanges();
+        // this.updateBlameability(false);
 
         // We have to defer because isDirty is not reliable inside this event
         setTimeout(() => this._updateBlameability(!e.document.isDirty), 1);
@@ -83,7 +83,7 @@ export class GitContextTracker extends Disposable {
         if (!TextDocumentComparer.equals(this._editor && this._editor.document, e)) return;
 
         // Don't need to resubscribe as we aren't unsubscribing on document changes anymore
-        //this._subscribeToDocumentChanges();
+        // this._subscribeToDocumentChanges();
         this._updateBlameability(!e.isDirty);
     }
 

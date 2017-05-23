@@ -1,5 +1,5 @@
 'use strict';
-import { env, Disposable, version, workspace } from 'vscode';
+import { Disposable, env, version, workspace } from 'vscode';
 import * as os from 'os';
 
 let _reporter: TelemetryReporter;

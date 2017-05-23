@@ -918,7 +918,7 @@
         "@types/node": "7.0.22",
         "@types/tmp": "0.0.33",
         "mocha": "3.4.1",
-        "tslint": "5.3.0",
+        "tslint": "5.3.2",
         "typescript": "2.3.3",
         "vscode": "1.1.0"
     }

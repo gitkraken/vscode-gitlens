@@ -29,7 +29,7 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
                 return command.execute();
             }
 
-            let placeHolder: string = '';
+            let placeHolder = '';
             switch (args.resource.type) {
                 case 'branch':
                     // Check to see if the remote is in the branch

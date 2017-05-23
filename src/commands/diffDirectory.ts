@@ -5,7 +5,7 @@ import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { BuiltInCommands } from '../constants';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, BranchesQuickPick } from '../quickPicks';
+import { BranchesQuickPick, CommandQuickPickItem } from '../quickPicks';
 
 export interface DiffDirectoryCommandCommandArgs {
     shaOrBranch1?: string;

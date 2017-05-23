@@ -57,4 +57,3 @@ export class ActiveEditorTracker extends Disposable {
         return editor;
     }
 }
-

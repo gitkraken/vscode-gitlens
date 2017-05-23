@@ -55,7 +55,7 @@ export namespace Iterables {
     }
 
     export function join(source: Iterable<any>, separator: string): string {
-        let value: string = '';
+        let value = '';
 
         const iterator = source[Symbol.iterator]();
         let next = iterator.next();

@@ -1,6 +1,6 @@
 'use strict';
 import { CancellationTokenSource, commands, Disposable, QuickPickItem, QuickPickOptions, TextDocumentShowOptions, TextEditor, Uri, window, workspace } from 'vscode';
-import { Commands, Keyboard, Keys, KeyboardScope, KeyMapping, openEditor } from '../commands';
+import { Commands, Keyboard, KeyboardScope, KeyMapping, Keys, openEditor } from '../commands';
 import { IAdvancedConfig } from '../configuration';
 import { ExtensionKey } from '../constants';
 import { GitCommit, GitLogCommit, GitStashCommit } from '../gitService';

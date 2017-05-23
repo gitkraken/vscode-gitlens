@@ -1,6 +1,6 @@
 'use strict';
 import { Functions, Objects } from './system';
-import { DecorationOptions, DecorationInstanceRenderOptions, DecorationRenderOptions, Disposable, ExtensionContext, Range, StatusBarAlignment, StatusBarItem, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
+import { DecorationInstanceRenderOptions, DecorationOptions, DecorationRenderOptions, Disposable, ExtensionContext, Range, StatusBarAlignment, StatusBarItem, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
 import { BlameAnnotationController } from './blameAnnotationController';
 import { BlameAnnotationFormat, BlameAnnotationFormatter } from './blameAnnotationFormatter';
 import { TextEditorComparer } from './comparers';
@@ -54,7 +54,7 @@ export class BlameActiveLineController extends Disposable {
     private _onConfigurationChanged() {
         const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
 
-        let changed: boolean = false;
+        let changed = false;
 
         if (!Objects.areEquivalent(cfg.statusBar, this._config && this._config.statusBar)) {
             changed = true;
@@ -89,7 +89,7 @@ export class BlameActiveLineController extends Disposable {
 
         if (!changed) return;
 
-        let trackActiveLine = cfg.statusBar.enabled || cfg.blame.annotation.activeLine !== 'off';
+        const trackActiveLine = cfg.statusBar.enabled || cfg.blame.annotation.activeLine !== 'off';
         if (trackActiveLine && !this._activeEditorLineDisposable) {
             const subscriptions: Disposable[] = [];
 

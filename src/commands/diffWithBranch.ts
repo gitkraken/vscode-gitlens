@@ -4,7 +4,7 @@ import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { BuiltInCommands } from '../constants';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, BranchesQuickPick } from '../quickPicks';
+import { BranchesQuickPick, CommandQuickPickItem } from '../quickPicks';
 import * as path from 'path';
 
 export interface DiffWithBranchCommandArgs {

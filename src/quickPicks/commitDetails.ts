@@ -83,7 +83,7 @@ export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPi
         super(uris, item || {
             label: `$(file-symlink-file) Open Changed Files`,
             description: `\u00a0 \u2014 \u00a0\u00a0 in \u00a0$(git-commit) ${commit.shortSha}`
-            //detail: `Opens all of the changed files in $(git-commit) ${commit.shortSha}`
+            // detail: `Opens all of the changed files in $(git-commit) ${commit.shortSha}`
         });
     }
 }
@@ -96,7 +96,7 @@ export class OpenCommitWorkingTreeFilesCommandQuickPickItem extends OpenFilesCom
         super(uris, item || {
             label: `$(file-symlink-file) Open Changed Working Files`,
             description: ''
-            //detail: `Opens all of the changed file in the working tree`
+            // detail: `Opens all of the changed file in the working tree`
         });
     }
 }

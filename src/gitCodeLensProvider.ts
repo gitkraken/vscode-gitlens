@@ -3,7 +3,7 @@ import { Functions, Iterables, Strings } from './system';
 import { CancellationToken, CodeLens, CodeLensProvider, Command, commands, DocumentSelector, Event, EventEmitter, ExtensionContext, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri, workspace } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs, ShowBlameHistoryCommandArgs, ShowFileHistoryCommandArgs, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from './commands';
 import { BuiltInCommands, DocumentSchemes, ExtensionKey } from './constants';
-import { CodeLensCommand, CodeLensLocation, IConfig, ICodeLensLanguageLocation } from './configuration';
+import { CodeLensCommand, CodeLensLocation, ICodeLensLanguageLocation, IConfig } from './configuration';
 import { GitCommit, GitService, GitUri, IGitBlame, IGitBlameLines } from './gitService';
 import { Logger } from './logger';
 import * as moment from 'moment';
@@ -115,7 +115,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
     }
 
     private _validateSymbolAndGetBlameRange(document: TextDocument, symbol: SymbolInformation, languageLocation: ICodeLensLanguageLocation): Range | undefined {
-        let valid: boolean = false;
+        let valid = false;
         let range: Range | undefined;
         switch (languageLocation.location) {
             case CodeLensLocation.All:

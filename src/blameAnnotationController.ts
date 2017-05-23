@@ -5,7 +5,7 @@ import { BlameAnnotationProvider } from './blameAnnotationProvider';
 import { TextDocumentComparer, TextEditorComparer } from './comparers';
 import { IBlameConfig } from './configuration';
 import { ExtensionKey } from './constants';
-import { BlameabilityChangeEvent, GitService, GitUri, GitContextTracker } from './gitService';
+import { BlameabilityChangeEvent, GitContextTracker, GitService, GitUri } from './gitService';
 import { Logger } from './logger';
 import { WhitespaceController } from './whitespaceController';
 
@@ -199,7 +199,7 @@ export class BlameAnnotationController extends Disposable {
     async toggleBlameAnnotation(editor: TextEditor, shaOrLine?: string | number): Promise<boolean> {
         if (!editor || !editor.document || !this.git.isEditorBlameable(editor)) return false;
 
-        let provider = this._annotationProviders.get(editor.viewColumn || -1);
+        const provider = this._annotationProviders.get(editor.viewColumn || -1);
         if (!provider) return this.showBlameAnnotation(editor, shaOrLine);
 
         await this.clear(provider.editor.viewColumn || -1);

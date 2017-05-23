@@ -1,6 +1,6 @@
 'use strict';
 import { Range } from 'vscode';
-import { Git, GitStatusFileStatus, GitLogCommit, GitCommitType, IGitAuthor, IGitLog, IGitStatusFile } from './../git';
+import { Git, GitCommitType, GitLogCommit, GitStatusFileStatus, IGitAuthor, IGitLog, IGitStatusFile } from './../git';
 // import { Logger } from '../../logger';
 import * as moment from 'moment';
 import * as path from 'path';
