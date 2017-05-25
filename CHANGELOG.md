@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [3.5.1] - 2017-05-25
+### Changed
+- Changes certain code lens actions to be unavailable (unclickable) when the commit referenced is uncommitted - avoids unwanted error messages
+- Debounces more events when tracking the active line to further reduce lag
+
+### Fixed
+- Fixes [#71](https://github.com/eamodio/vscode-gitlens/issues/71) - Blame information is invalid when a file has changed outside of vscode
+- Fixes issue with showing the incorrect blame for versioned files (i.e. files on the left of a diff, etc)
+
 ## [3.5.0] - 2017-05-24
 ### Added
 - Improves performance
