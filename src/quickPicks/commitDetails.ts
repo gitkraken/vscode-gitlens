@@ -110,7 +110,7 @@ export class CommitDetailsQuickPick {
 
         let index = 0;
 
-        if (stash && git.config.insiders) {
+        if (stash) {
             items.splice(index++, 0, new CommandQuickPickItem({
                 label: `$(git-pull-request) Apply Stashed Changes`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.message}`

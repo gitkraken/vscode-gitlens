@@ -645,11 +645,11 @@
                 },
                 {
                     "command": "gitlens.stashApply",
-                    "when": "gitlens:enabled && config.gitlens.insiders"
+                    "when": "gitlens:enabled"
                 },
                 {
                     "command": "gitlens.stashSave",
-                    "when": "gitlens:enabled && config.gitlens.insiders"
+                    "when": "gitlens:enabled"
                 }
             ],
             "explorer/context": [

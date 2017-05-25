@@ -19,7 +19,6 @@ export class StashSaveCommand extends Command {
     }
 
     async execute(args: StashSaveCommandArgs = { unstagedOnly : false }) {
-        if (!this.git.config.insiders) return undefined;
         if (!this.git.repoPath) return undefined;
 
         if (args.unstagedOnly === undefined) {
