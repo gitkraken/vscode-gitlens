@@ -299,7 +299,7 @@ export class BlameActiveLineController extends Disposable {
                     hoverMessage = BlameAnnotationFormatter.getAnnotationHover(cfg, blameLine, logCommit || commit);
 
                     // if (commit.previousSha !== undefined) {
-                    //     const changes = await this.git.getDiffForLine(this._uri.repoPath, this._uri.fsPath, blameLine.line + offset, commit.previousSha);
+                    //     const changes = await this.git.getDiffForLine(this._uri, blameLine.line + offset, commit.previousSha);
                     //     if (changes !== undefined) {
                     //         const previous = changes[0];
                     //         if (previous !== undefined) {
@@ -312,7 +312,7 @@ export class BlameActiveLineController extends Disposable {
                     // }
                 }
                 else if (commit.isUncommitted) {
-                    const changes = await this.git.getDiffForLine(this._uri.repoPath, this._uri.fsPath, blameLine.line + offset);
+                    const changes = await this.git.getDiffForLine(this._uri, blameLine.line + offset);
                     if (changes !== undefined) {
                         let original = changes[0];
                         if (original !== undefined) {

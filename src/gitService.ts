@@ -219,7 +219,7 @@ export class GitService extends Disposable {
         if (!this.UseCaching) return;
         if (document.uri.scheme !== DocumentSchemes.File) return;
 
-        const cacheKey = this.getCacheEntryKey(document.fileName);
+        const cacheKey = this.getCacheEntryKey(document.uri);
 
         if (reason === RemoveCacheReason.DocumentSaved) {
             // Don't remove broken blame on save (since otherwise we'll have to run the broken blame again)
@@ -313,7 +313,7 @@ export class GitService extends Disposable {
     public async getBlameability(uri: GitUri): Promise<boolean> {
         if (!this.UseCaching) return await this.isTracked(uri);
 
-        const cacheKey = this.getCacheEntryKey(uri.fsPath);
+        const cacheKey = this.getCacheEntryKey(uri);
         const entry = this._gitCache.get(cacheKey);
         if (entry === undefined) return await this.isTracked(uri);
 
@@ -326,11 +326,9 @@ export class GitService extends Disposable {
             key += `:${uri.sha}`;
         }
 
-        const fileName = uri.fsPath;
-
         let entry: GitCacheEntry | undefined;
         if (this.UseCaching) {
-            const cacheKey = this.getCacheEntryKey(fileName);
+            const cacheKey = this.getCacheEntryKey(uri);
             entry = this._gitCache.get(cacheKey);
 
             if (entry !== undefined) {
@@ -352,7 +350,7 @@ export class GitService extends Disposable {
             Logger.log(`getBlameForFile('${uri.repoPath}', '${uri.fsPath}', ${uri.sha})`);
         }
 
-        const promise = this._getBlameForFile(uri, fileName, entry, key);
+        const promise = this._getBlameForFile(uri, entry, key);
 
         if (entry) {
             Logger.log(`Add blame cache for '${entry.key}:${key}'`);
@@ -365,12 +363,12 @@ export class GitService extends Disposable {
         return promise;
     }
 
-    private async _getBlameForFile(uri: GitUri, fileName: string, entry: GitCacheEntry | undefined, key: string): Promise<IGitBlame | undefined> {
-        const [file, root] = Git.splitPath(fileName, uri.repoPath, false);
+    private async _getBlameForFile(uri: GitUri, entry: GitCacheEntry | undefined, key: string): Promise<IGitBlame | undefined> {
+        const [file, root] = Git.splitPath(uri.fsPath, uri.repoPath, false);
 
         const ignore = await this._gitignore;
         if (ignore && !ignore.filter([file]).length) {
-            Logger.log(`Skipping blame; '${fileName}' is gitignored`);
+            Logger.log(`Skipping blame; '${uri.fsPath}' is gitignored`);
             if (entry && entry.key) {
                 this._onDidBlameFail.fire(entry.key);
             }
@@ -537,8 +535,10 @@ export class GitService extends Disposable {
         return branches;
     }
 
-    getCacheEntryKey(fileName: string) {
-        return Git.normalizePath(fileName).toLowerCase();
+    getCacheEntryKey(fileName: string): string;
+    getCacheEntryKey(uri: Uri): string;
+    getCacheEntryKey(fileNameOrUri: string | Uri): string {
+        return Git.normalizePath(typeof fileNameOrUri === 'string' ? fileNameOrUri : fileNameOrUri.fsPath).toLowerCase();
     }
 
     async getConfig(key: string, repoPath?: string): Promise<string> {
@@ -547,13 +547,13 @@ export class GitService extends Disposable {
         return await Git.config_get(key, repoPath);
     }
 
-    getGitUriForFile(fileName: string) {
-        const cacheKey = this.getCacheEntryKey(fileName);
+    getGitUriForFile(uri: Uri) {
+        const cacheKey = this.getCacheEntryKey(uri);
         const entry = this._uriCache.get(cacheKey);
         return entry && entry.uri;
     }
 
-    async getDiffForFile(repoPath: string | undefined, fileName: string, sha1?: string, sha2?: string): Promise<IGitDiff | undefined> {
+    async getDiffForFile(uri: GitUri, sha1?: string, sha2?: string): Promise<IGitDiff | undefined> {
         let key = 'diff';
         if (sha1 !== undefined) {
             key += `:${sha1}`;
@@ -564,18 +564,18 @@ export class GitService extends Disposable {
 
         let entry: GitCacheEntry | undefined;
         if (this.UseCaching) {
-            const cacheKey = this.getCacheEntryKey(fileName);
+            const cacheKey = this.getCacheEntryKey(uri);
             entry = this._gitCache.get(cacheKey);
 
             if (entry !== undefined) {
                 const cachedDiff = entry.get<ICachedDiff>(key);
                 if (cachedDiff !== undefined) {
-                    Logger.log(`Cached(${key}): getDiffForFile('${repoPath}', '${fileName}', ${sha1}, ${sha2})`);
+                    Logger.log(`Cached(${key}): getDiffForFile('${uri.repoPath}', '${uri.fsPath}', ${sha1}, ${sha2})`);
                     return cachedDiff.item;
                 }
             }
 
-            Logger.log(`Not Cached(${key}): getDiffForFile('${repoPath}', '${fileName}', ${sha1}, ${sha2})`);
+            Logger.log(`Not Cached(${key}): getDiffForFile('${uri.repoPath}', '${uri.fsPath}', ${sha1}, ${sha2})`);
 
             if (entry === undefined) {
                 entry = new GitCacheEntry(cacheKey);
@@ -583,10 +583,10 @@ export class GitService extends Disposable {
             }
         }
         else {
-            Logger.log(`getDiffForFile('${repoPath}', '${fileName}', ${sha1}, ${sha2})`);
+            Logger.log(`getDiffForFile('${uri.repoPath}', '${uri.fsPath}', ${sha1}, ${sha2})`);
         }
 
-        const promise = this._getDiffForFile(repoPath, fileName, sha1, sha2, entry, key);
+        const promise = this._getDiffForFile(uri.repoPath, uri.fsPath, sha1, sha2, entry, key);
 
         if (entry) {
             Logger.log(`Add log cache for '${entry.key}:${key}'`);
@@ -624,9 +624,9 @@ export class GitService extends Disposable {
         }
     }
 
-    async getDiffForLine(repoPath: string | undefined, fileName: string, line: number, sha1?: string, sha2?: string): Promise<[string | undefined, string | undefined] | undefined> {
+    async getDiffForLine(uri: GitUri, line: number, sha1?: string, sha2?: string): Promise<[string | undefined, string | undefined] | undefined> {
         try {
-            const diff = await this.getDiffForFile(repoPath, fileName, sha1, sha2);
+            const diff = await this.getDiffForFile(uri, sha1, sha2);
             if (diff === undefined) return undefined;
 
             const chunk = diff.chunks.find(_ => Math.min(_.originalStart, _.changesStart) <= line && Math.max(_.originalEnd, _.changesEnd) >= line);
@@ -913,19 +913,10 @@ export class GitService extends Disposable {
         return Git.show(repoPath, fileName, sha);
     }
 
-    hasGitUriForFile(editor: TextEditor): boolean;
-    hasGitUriForFile(fileName: string): boolean;
-    hasGitUriForFile(fileNameOrEditor: string | TextEditor): boolean {
-        let fileName: string;
-        if (typeof fileNameOrEditor === 'string') {
-            fileName = fileNameOrEditor;
-        }
-        else {
-            if (!fileNameOrEditor || !fileNameOrEditor.document || !fileNameOrEditor.document.uri) return false;
-            fileName = fileNameOrEditor.document.uri.fsPath;
-        }
+    hasGitUriForFile(editor: TextEditor): boolean {
+        if (editor === undefined || editor.document === undefined || editor.document.uri === undefined) return false;
 
-        const cacheKey = this.getCacheEntryKey(fileName);
+        const cacheKey = this.getCacheEntryKey(editor.document.uri);
         return this._uriCache.has(cacheKey);
     }
 

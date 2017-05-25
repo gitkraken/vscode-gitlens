@@ -62,8 +62,8 @@ export class GitContextTracker extends Disposable {
     }
 
     private _onBlameFailed(key: string) {
-        const fileName = this._editor && this._editor.document && this._editor.document.fileName;
-        if (!fileName || key !== this.git.getCacheEntryKey(fileName)) return;
+        if (this._editor === undefined || this._editor.document === undefined || this._editor.document.uri === undefined) return;
+        if (key !== this.git.getCacheEntryKey(this._editor.document.uri)) return;
 
         this._updateBlameability(false);
     }

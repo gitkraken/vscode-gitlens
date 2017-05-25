@@ -89,7 +89,7 @@ export class GitUri extends Uri {
             if (commit !== undefined) return new GitUri(uri, commit);
         }
 
-        const gitUri = git.getGitUriForFile(uri.fsPath);
+        const gitUri = git.getGitUriForFile(uri);
         if (gitUri) return gitUri;
 
         return new GitUri(uri, (await git.getRepoPathFromFile(uri.fsPath)) || git.repoPath);
