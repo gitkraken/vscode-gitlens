@@ -4,13 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [3.5.0-beta.2] - 2017-05-23
-### Fixed
-- Fixes [#40](https://github.com/eamodio/vscode-gitlens/issues/40) - Encoding issues
-  - Given the limitations of the vscode api, I'm unable to fix all the encoding issues, but many of them should now be squashed
-  - `files.encoding` is now honored for the cases where the encoding cannot currently be gleaned
-
-## [3.5.0-beta] - 2017-05-23
+## [3.5.0] - 2017-05-24
 ### Added
 - Improves performance
   - Reduces the number of git calls on known "untrackables"
@@ -20,10 +14,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `gitlens.statusBar.alignment` settings to control the alignment of the status bar -- thanks to [PR #72](https://github.com/eamodio/vscode-gitlens/pull/72) by Zack Schuster ([@zackschuster](https://github.com/zackschuster))!
 - Adds `Open Branch in Remote` command (`gitlens.openBranchInRemote`) - opens the current branch commits in the supported remote service
 - Adds `Open Repository in Remote` command (`gitlens.openRepoInRemote`) - opens the repository in the supported remote service
+- Adds `Stash Changes` option to stashed changes quick pick menu -- no longer hidden behind the `"gitlens.insiders": true` setting
+- Adds `Stash Unstaged Changes` option to stashed changes quick pick menu -- no longer hidden behind the `"gitlens.insiders": true` setting
+- Adds `Apply Stashed Changes` command (`gitlens.stashApply`) to apply the selected stashed changes to the working tree -- no longer hidden behind the `"gitlens.insiders": true` setting
+- Adds `Stash Changes` command (`gitlens.stashSave`) to stash any working tree changes -- no longer hidden behind the `"gitlens.insiders": true` setting
 - Adds support to the `Search commits` command (`gitlens.showCommitSearch`) to work without any active editor
 - Adds commit search pre-population -- if there is an active editor it will use the commit sha of the current line commit, otherwise it will use the current clipboard
 
 ### Changed
+- Changes `Open File in Remote` and `Open Line Commit in Remote` commands to actually work for everyone (part of their implementation was still behind the `gitlens.insiders` setting)
 - Changes the active line hover to only show at the beginning and end of a line if `gitlens.blame.annotation.activeLine` is `both`
 - Changes `alt+f` shortcut to `alt+/` for the `Search commits` command (`gitlens.showCommitSearch`)
 - Changes `alt+right` on commit details quick pick menu to execute the `Compare File with Previous Commit` command (`gitlens.diffWithPrevious`) when a file is selected
@@ -32,6 +31,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes [#73](https://github.com/eamodio/vscode-gitlens/issues/73) - GitLens doesn't work with Chinese filenames
+- Fixes [#40](https://github.com/eamodio/vscode-gitlens/issues/40) - Encoding issues
+  - Given the limitations of the vscode api, I'm unable to fix all the encoding issues, but many of them should now be squashed
+  - `files.encoding` is now honored for the cases where the encoding cannot currently be gleaned
 - Fixes incorrect file selection from the commit details quick pick menu
 - Fixes incorrect command execution when using `"gitlens.statusBar.command": "gitlens.showQuickRepoHistory"`
 - Fixes a bunch of issues that were revealed by enabling Typescript `strict` mode

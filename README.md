@@ -141,7 +141,7 @@ GitLens provides an unobtrusive blame annotation at the end of the selected line
 
   ![Stashed Changes Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/screenshot-stash-list.png)
 
-  - [Insiders only](#insiders) — Provides entries to `Stash Changes`
+  - Provides entries to `Stash Changes`
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
 
   - Chosing a stash entry shows a **stash details quick pick menu** which is very similar to the **commit details quick pick menu** above
@@ -150,7 +150,7 @@ GitLens provides an unobtrusive blame annotation at the end of the selected line
 
     - Quickly see the set of files changed in the stash, complete with status indicators for adds, changes, renames, and deletes
     - Provides entries to `Copy Message to Clipboard`, `Directory Compare`, and `Open Changed Files`
-    - [Insiders only](#insiders) — Provides entries to `Apply Stashed Changes` and `Delete Stashed Changes` — both require a confirmation
+    - Provides entries to `Apply Stashed Changes` and `Delete Stashed Changes` — both require a confirmation
     - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
     - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
     - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the current revision of the while leaving the quick pick menu open
@@ -174,9 +174,9 @@ GitLens provides an unobtrusive blame annotation at the end of the selected line
 
 - Adds a `Close Unchanged Files` command (`gitlens.closeUnchangedFiles`) to close any files without working tree changes
 
-- [Insiders only](#insiders) — Adds a `Apply Stashed Changes` command (`gitlens.stashApply`) to chose a stash entry to apply to the working tree from a quick pick menu
+- Adds a `Apply Stashed Changes` command (`gitlens.stashApply`) to chose a stash entry to apply to the working tree from a quick pick menu
 
-- [Insiders only](#insiders) — Adds a `Stash Changes` command (`gitlens.stashSave`) to save any working tree changes to the stash — can optionally provide a stash message
+- Adds a `Stash Changes` command (`gitlens.stashSave`) to save any working tree changes to the stash — can optionally provide a stash message
 
 ## Insiders
 
