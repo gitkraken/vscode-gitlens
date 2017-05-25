@@ -339,19 +339,6 @@ export class GitService extends Disposable {
                     Logger.log(`Cached(${key}): getBlameForFile('${uri.repoPath}', '${uri.fsPath}', ${uri.sha})`);
                     return cachedBlame.item;
                 }
-
-                if (key !== 'blame') {
-                    // Since we are looking for partial blame, see if we have the blame of the whole file
-                    const cachedBlame = entry.get<ICachedBlame>('blame');
-                    if (cachedBlame !== undefined) {
-                        Logger.log(`? Cache(${key}): getBlameForFile('${uri.repoPath}', '${uri.fsPath}', ${uri.sha})`);
-                        const blame = await cachedBlame.item;
-                        if (blame !== undefined && blame.commits.has(uri.sha!)) {
-                            Logger.log(`Cached(${key}): getBlameForFile('${uri.repoPath}', '${uri.fsPath}', ${uri.sha})`);
-                            return cachedBlame.item;
-                        }
-                    }
-                }
             }
 
             Logger.log(`Not Cached(${key}): getBlameForFile('${uri.repoPath}', '${uri.fsPath}', ${uri.sha})`);

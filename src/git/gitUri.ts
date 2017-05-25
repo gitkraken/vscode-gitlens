@@ -83,14 +83,14 @@ export class GitUri extends Uri {
 
         if (!git.isTrackable(uri)) return new GitUri(uri, git.repoPath);
 
+        // If this is a git uri, assume it is showing the most recent commit
+        if (uri.scheme === DocumentSchemes.Git) {
+            const commit = await git.getLogCommit(undefined, uri.fsPath);
+            if (commit !== undefined) return new GitUri(uri, commit);
+        }
+
         const gitUri = git.getGitUriForFile(uri.fsPath);
         if (gitUri) return gitUri;
-
-        // If this is a git uri, assume it is showing the most recent commit
-        if (uri.scheme === DocumentSchemes.Git && uri.query === '~') {
-            const commit = await git.getLogCommit(undefined, uri.fsPath);
-            if (commit) return new GitUri(uri, commit);
-        }
 
         return new GitUri(uri, (await git.getRepoPathFromFile(uri.fsPath)) || git.repoPath);
     }
