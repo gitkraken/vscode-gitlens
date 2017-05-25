@@ -360,7 +360,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
     }
 
     _applyDiffWithPreviousCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: IGitBlameLines, commit?: GitCommit): T {
-        if (!commit) {
+        if (commit === undefined) {
             const blameLine = blame.allLines[lens.range.start.line];
             commit = blame.commits.get(blameLine.sha);
         }
@@ -382,7 +382,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
     _applyShowQuickCommitDetailsCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: IGitBlameLines, commit?: GitCommit): T {
         lens.command = {
             title: title,
-            command: CodeLensCommand.ShowQuickCommitDetails,
+            command: commit !== undefined && commit.isUncommitted ? '' : CodeLensCommand.ShowQuickCommitDetails,
             arguments: [
                 Uri.file(lens.uri.fsPath),
                 {
@@ -396,7 +396,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
     _applyShowQuickCommitFileDetailsCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: IGitBlameLines, commit?: GitCommit): T {
         lens.command = {
             title: title,
-            command: CodeLensCommand.ShowQuickCommitFileDetails,
+            command: commit !== undefined && commit.isUncommitted ? '' : CodeLensCommand.ShowQuickCommitFileDetails,
             arguments: [
                 Uri.file(lens.uri.fsPath),
                 {
