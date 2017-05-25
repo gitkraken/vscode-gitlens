@@ -140,7 +140,7 @@ export class BlameActiveLineController extends Disposable {
             this.git.getBlameForFile(this._uri);
         }
 
-        this._updateBlame(editor.selection.active.line, editor);
+        this._updateBlameDebounced(editor.selection.active.line, editor);
     }
 
     private _onBlameabilityChanged(e: BlameabilityChangeEvent) {
@@ -153,7 +153,7 @@ export class BlameActiveLineController extends Disposable {
         // Make sure this is for the editor we are tracking
         if (!TextEditorComparer.equals(this._editor, e.editor)) return;
 
-        this._updateBlame(this._editor.selection.active.line, this._editor);
+        this._updateBlameDebounced(this._editor.selection.active.line, this._editor);
     }
 
     private _onBlameAnnotationToggled() {
