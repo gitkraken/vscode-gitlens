@@ -1,6 +1,6 @@
 'use strict';
 import { Functions } from './system';
-import { DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, TextDocument, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
+import { DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, TextDocument, TextDocumentChangeEvent, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
 import { BlameAnnotationProvider } from './blameAnnotationProvider';
 import { TextDocumentComparer, TextEditorComparer } from './comparers';
 import { IBlameConfig } from './configuration';
@@ -176,6 +176,7 @@ export class BlameAnnotationController extends Disposable {
 
             subscriptions.push(window.onDidChangeVisibleTextEditors(Functions.debounce(this._onVisibleTextEditorsChanged, 100), this));
             subscriptions.push(window.onDidChangeTextEditorViewColumn(this._onTextEditorViewColumnChanged, this));
+            subscriptions.push(workspace.onDidChangeTextDocument(this._onTextDocumentChanged, this));
             subscriptions.push(workspace.onDidCloseTextDocument(this._onTextDocumentClosed, this));
             subscriptions.push(this.gitContextTracker.onDidBlameabilityChange(this._onBlameabilityChanged, this));
 
@@ -214,6 +215,23 @@ export class BlameAnnotationController extends Disposable {
 
             Logger.log('BlameabilityChanged:', `Clear blame annotations for column ${key}`);
             this.clear(key);
+        }
+    }
+
+    private _onTextDocumentChanged(e: TextDocumentChangeEvent) {
+        for (const [key, p] of this._annotationProviders) {
+            if (!TextDocumentComparer.equals(p.document, e.document)) continue;
+
+            // We have to defer because isDirty is not reliable inside this event
+            setTimeout(() => {
+                // If the document is dirty all is fine, just kick out since the GitContextTracker will handle it
+                if (e.document.isDirty) return;
+
+                // If the document isn't dirty, it is very likely this event was triggered by an outside edit of this document
+                // Which means the document has been reloaded and the blame annotations have been removed, so we need to update (clear) our state tracking
+                Logger.log('TextDocumentChanged:', `Clear blame annotations for column ${key}`);
+                this.clear(key);
+            }, 1);
         }
     }
 

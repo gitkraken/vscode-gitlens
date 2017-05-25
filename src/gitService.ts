@@ -1,6 +1,6 @@
 'use strict';
 import { Iterables, Objects } from './system';
-import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, languages, Location, Position, Range, TextDocument, TextEditor, Uri, workspace } from 'vscode';
+import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, languages, Location, Position, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, workspace } from 'vscode';
 import { CommandContext, setCommandContext } from './commands';
 import { CodeLensVisibility, IConfig } from './configuration';
 import { DocumentSchemes, ExtensionKey } from './constants';
@@ -166,6 +166,7 @@ export class GitService extends Disposable {
                 const disposables: Disposable[] = [];
 
                 disposables.push(workspace.onDidCloseTextDocument(d => this._removeCachedEntry(d, RemoveCacheReason.DocumentClosed)));
+                disposables.push(workspace.onDidChangeTextDocument(this._onTextDocumentChanged, this));
                 disposables.push(workspace.onDidSaveTextDocument(d => this._removeCachedEntry(d, RemoveCacheReason.DocumentSaved)));
                 disposables.push(this._fsWatcher.onDidChange(this._onGitChanged, this));
 
@@ -206,6 +207,21 @@ export class GitService extends Disposable {
         }
 
         this.config = cfg;
+    }
+
+    private _onTextDocumentChanged(e: TextDocumentChangeEvent) {
+        if (!this.UseCaching) return;
+        if (e.document.uri.scheme !== DocumentSchemes.File) return;
+
+        // We have to defer because isDirty is not reliable inside this event
+        setTimeout(() => {
+            // If the document is dirty all is fine, we'll just wait for the save before clearing our cache
+            if (e.document.isDirty) return;
+
+            // If the document isn't dirty, it is very likely this event was triggered by an outside edit of this document
+            // Which means the document has been reloaded and we should clear our cache for it
+            this._removeCachedEntry(e.document, RemoveCacheReason.DocumentSaved);
+        }, 1);
     }
 
     private _onGitChanged() {
