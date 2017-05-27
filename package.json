@@ -308,13 +308,14 @@
                         "gitlens.showBlameHistory",
                         "gitlens.showFileHistory",
                         "gitlens.diffWithPrevious",
+                        "gitlens.diffWithWorking",
                         "gitlens.toggleCodeLens",
                         "gitlens.showQuickCommitDetails",
                         "gitlens.showQuickCommitFileDetails",
                         "gitlens.showQuickFileHistory",
                         "gitlens.showQuickRepoHistory"
                     ],
-                    "description": "Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.toggleCodeLens` - toggles Git code lens. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
+                    "description": "Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current line commit with the previous. `gitlens.diffWithWorking` - compares the current line commit with the working tree. `gitlens.toggleCodeLens` - toggles Git code lens. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
                 },
                 "gitlens.statusBar.date": {
                     "type": "string",

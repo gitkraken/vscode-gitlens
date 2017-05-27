@@ -3,6 +3,7 @@ import { Functions, Objects } from './system';
 import { DecorationInstanceRenderOptions, DecorationOptions, DecorationRenderOptions, Disposable, ExtensionContext, Range, StatusBarAlignment, StatusBarItem, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
 import { BlameAnnotationController } from './blameAnnotationController';
 import { BlameAnnotationFormat, BlameAnnotationFormatter } from './blameAnnotationFormatter';
+import { Commands } from './commands';
 import { TextEditorComparer } from './comparers';
 import { IBlameConfig, IConfig, StatusBarCommand } from './configuration';
 import { DocumentSchemes, ExtensionKey } from './constants';
@@ -244,7 +245,12 @@ export class BlameActiveLineController extends Disposable {
                     this._statusBarItem.tooltip = 'Open File History Explorer';
                     break;
                 case StatusBarCommand.DiffWithPrevious:
-                    this._statusBarItem.tooltip = 'Compare with Previous Commit';
+                    this._statusBarItem.command = Commands.DiffLineWithPrevious;
+                    this._statusBarItem.tooltip = 'Compare File with Previous';
+                    break;
+                case StatusBarCommand.DiffWithWorking:
+                    this._statusBarItem.command = Commands.DiffLineWithWorking;
+                    this._statusBarItem.tooltip = 'Compare File with Working Tree';
                     break;
                 case StatusBarCommand.ToggleCodeLens:
                     this._statusBarItem.tooltip = 'Toggle Git CodeLens';

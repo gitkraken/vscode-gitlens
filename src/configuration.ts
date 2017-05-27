@@ -73,12 +73,13 @@ export interface ICodeLensesConfig {
     authors: ICodeLensConfig;
 }
 
-export type StatusBarCommand = 'gitlens.toggleBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.toggleCodeLens' | 'gitlens.diffWithPrevious' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory';
+export type StatusBarCommand = 'gitlens.toggleBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.toggleCodeLens' | 'gitlens.diffWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory';
 export const StatusBarCommand = {
     BlameAnnotate: Commands.ToggleBlame as StatusBarCommand,
     ShowBlameHistory: Commands.ShowBlameHistory as StatusBarCommand,
     ShowFileHistory: Commands.ShowFileHistory as CodeLensCommand,
     DiffWithPrevious: Commands.DiffWithPrevious as StatusBarCommand,
+    DiffWithWorking: Commands.DiffWithWorking as StatusBarCommand,
     ToggleCodeLens: Commands.ToggleCodeLens as StatusBarCommand,
     ShowQuickCommitDetails: Commands.ShowQuickCommitDetails as StatusBarCommand,
     ShowQuickCommitFileDetails: Commands.ShowQuickCommitFileDetails as StatusBarCommand,
