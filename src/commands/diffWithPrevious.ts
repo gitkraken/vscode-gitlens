@@ -32,17 +32,15 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
             const gitUri = await GitUri.fromUri(uri, this.git);
 
             try {
-                // If the sha is missing or the file is uncommitted, treat it as a DiffWithWorking
-                if (gitUri.sha === undefined && await this.git.isFileUncommitted(gitUri)) {
-                    return commands.executeCommand(Commands.DiffWithWorking, uri, { showOptions: args.showOptions } as DiffWithWorkingCommandArgs);
-                }
-
                 const sha = args.commit === undefined ? gitUri.sha : args.commit.sha;
 
                 const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, sha ? undefined : 2, args.range!);
                 if (log === undefined) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
 
                 args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
+
+                // If the sha is missing, treat it as a DiffWithWorking
+                if (gitUri.sha === undefined) return commands.executeCommand(Commands.DiffWithWorking, uri, { commit: args.commit, showOptions: args.showOptions } as DiffWithWorkingCommandArgs);
             }
             catch (ex) {
                 Logger.error(ex, 'DiffWithPreviousCommand', `getLogForFile(${gitUri.repoPath}, ${gitUri.fsPath})`);
