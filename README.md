@@ -68,13 +68,13 @@ GitLens provides an unobtrusive blame annotation at the end of the selected line
 
 - Adds a `Compare File with Next Commit` command (`gitlens.diffWithNext`) with a shortcut of `alt+.` to compare the active file/diff with the next commit revision
 
-- Adds a `Compare File with Previous Commit` command (`gitlens.diffWithPrevious`) with a shortcut of `alt+,` to compare the active file/diff with the previous commit revision
+- Adds a `Compare File with Previous` command (`gitlens.diffWithPrevious`) with a shortcut of `alt+,` to compare the active file/diff with the previous commit revision
 
-- Adds a `Compare Line with Previous Commit` command (`gitlens.diffLineWithPrevious`) with a shortcut of `shift+alt+,` to compare the active file/diff with the previous line commit revision
+- Adds a `Compare Line Commit with Previous` command (`gitlens.diffLineWithPrevious`) with a shortcut of `shift+alt+,` to compare the active file/diff with the previous line commit revision
 
 - Adds a `Compare File with Working Tree` command (`gitlens.diffWithWorking`) with a shortcut of `shift+alt+w` to compare the most recent commit revision of the active file/diff with the working tree
 
-- Adds a `Compare Line with Working Tree` command (`gitlens.diffLineWithWorking`) with a shortcut of `alt+w` to compare the commit revision of the active line with the working tree
+- Adds a `Compare Line Commit with Working Tree` command (`gitlens.diffLineWithWorking`) with a shortcut of `alt+w` to compare the commit revision of the active line with the working tree
 
 #### Navigate and Explore
 
@@ -120,7 +120,7 @@ GitLens provides an unobtrusive blame annotation at the end of the selected line
 
   ![Line Commit Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/screenshot-commit-file-details.png)
 
-  - Provides entries to `Show Commit Details`, `Show File History`, `Compare with...`, `Copy to Clipboard`, `Open File`, `Open File in <remote-service>` when available, and more
+  - Provides entries to `Show Commit Details`, `Show File History`, `Compare File with...`, `Copy to Clipboard`, `Open File`, `Open File in <remote-service>` when available, and more
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
 

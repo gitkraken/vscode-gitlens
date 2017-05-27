@@ -386,12 +386,12 @@
             },
             {
                 "command": "gitlens.diffWithPrevious",
-                "title": "Compare File with Previous Commit",
+                "title": "Compare File with Previous",
                 "category": "GitLens"
             },
             {
                 "command": "gitlens.diffLineWithPrevious",
-                "title": "Compare Line with Previous Commit",
+                "title": "Compare Line Commit with Previous",
                 "category": "GitLens"
             },
             {
@@ -401,7 +401,7 @@
             },
             {
                 "command": "gitlens.diffLineWithWorking",
-                "title": "Compare Line with Working Tree",
+                "title": "Compare Line Commit with Working Tree",
                 "category": "GitLens"
             },
             {

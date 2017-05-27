@@ -72,7 +72,7 @@ export class CommitFileDetailsQuickPick {
 
             if (commit.previousSha) {
                 items.push(new CommandQuickPickItem({
-                    label: `$(git-compare) Compare with Previous Commit`,
+                    label: `$(git-compare) Compare File with Previous`,
                     description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.previousShortSha} \u00a0 $(git-compare) \u00a0 $(git-commit) ${commit.shortSha}`
                 }, Commands.DiffWithPrevious, [
                         commit.uri,
@@ -85,7 +85,7 @@ export class CommitFileDetailsQuickPick {
 
         if (commit.workingFileName) {
             items.push(new CommandQuickPickItem({
-                label: `$(git-compare) Compare with Working Tree`,
+                label: `$(git-compare) Compare File with Working Tree`,
                 description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.shortSha} \u00a0 $(git-compare) \u00a0 $(file-text) ${workingName}`
             }, Commands.DiffWithWorking, [
                     Uri.file(path.resolve(commit.repoPath, commit.workingFileName)),
