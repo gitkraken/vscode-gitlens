@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [3.6.0-beta] - 2017-05-27
+### Added
+- Adds diff information (the line's previous version) into the active line hover
+- Adds a `gitlens.diffWithWorking` status bar command option - compares the current line commit with the working tree
+
+### Changed
+- Changes the behavior of the `Compare File with Working Tree` command (`gitlens.diffWithWorking`) - always does what it says :)
+  - Compares the current file with the working tree -- if the current file *is* the working file, it will show a `File matches the working tree` message
+- Changes the behavior of the `Compare File with Previous` command (`gitlens.diffWithPrevious`) - always does what it says  :)
+  - Compares the current file with the previous commit to that file
+- Changes the behavior of the `gitlens.diffWithPrevious` status bar command option - compares the current line commit with the previous
+- Renames `Compare File with Previous Commit` command to `Compare File with Previous`
+- Renames `Compare Line with Previous Commit` command to `Compare Line Commit with Previous`
+- Renames `Compare Line with Working Tree` command to `Compare Line Commit with Working Tree`
+- Renames `Compare with Previous Commit` in quick pick menus to `Compare File with Previous`
+- Renames `Compare with Working Tree` in quick pick menus to `Compare File with Working Tree`
+
 ## [3.5.1] - 2017-05-25
 ### Changed
 - Changes certain code lens actions to be unavailable (unclickable) when the commit referenced is uncommitted - avoids unwanted error messages
@@ -19,7 +36,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Reduces the number of git calls on known "untrackables"
   - Caches many more git commands to reduce git command roundtrips and parsing
   - Increases the debounce (delay) on cursor movement to reduce lag when navigating around a file
-- Adds diff information (previous line's code) into the active line hover when the current line is uncommitted
+- Adds diff information (the line's previous version) into the active line hover when the current line is uncommitted
 - Adds `gitlens.statusBar.alignment` settings to control the alignment of the status bar -- thanks to [PR #72](https://github.com/eamodio/vscode-gitlens/pull/72) by Zack Schuster ([@zackschuster](https://github.com/zackschuster))!
 - Adds `Open Branch in Remote` command (`gitlens.openBranchInRemote`) - opens the current branch commits in the supported remote service
 - Adds `Open Repository in Remote` command (`gitlens.openRepoInRemote`) - opens the repository in the supported remote service

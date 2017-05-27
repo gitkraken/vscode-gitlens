@@ -20,7 +20,7 @@ GitLens provides an unobtrusive blame annotation at the end of the selected line
 
 #### Git Blame Annotations
 
-- Adds a **blame annotation** to the end of the selected line showing the commit id and message, with more details in a hover popup ([optional](#extension-settings), on by default)
+- Adds a **blame annotation** to the end of the selected line showing the commit id and message, with more details (including the line's previous version) in a hover popup ([optional](#extension-settings), on by default)
 
 - Adds a `Toggle Blame Annotations` command (`gitlens.toggleBlame`) with a shortcut of `alt+b` to toggle **inline Git blame annotations** for a whole file with multiple styles — compact, expanded, and trailing
   - Also adds a `Show Blame Annotations` command (`gitlens.showBlame`)
