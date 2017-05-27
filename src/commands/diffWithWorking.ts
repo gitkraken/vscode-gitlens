@@ -26,6 +26,8 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
         if (args.commit === undefined || GitService.isUncommitted(args.commit.sha)) {
             const gitUri = await GitUri.fromUri(uri, this.git);
+            // If the sha is missing, just let the user know the file matches
+            if (gitUri.sha === undefined) return window.showInformationMessage(`File matches the working tree`);
 
             try {
                 args.commit = await this.git.getLogCommit(gitUri.repoPath, gitUri.fsPath, gitUri.sha, { firstIfMissing: true });
