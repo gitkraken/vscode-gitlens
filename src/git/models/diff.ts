@@ -1,18 +1,19 @@
 'use strict';
 
 export interface IGitDiffChunk {
+    current: (string | undefined)[];
+    currentStart: number;
+    currentEnd: number;
+
+    previous: (string | undefined)[];
+    previousStart: number;
+    previousEnd: number;
+
     chunk?: string;
-
-    original: (string | undefined)[];
-    originalStart: number;
-    originalEnd: number;
-
-    changes: (string | undefined)[];
-    changesStart: number;
-    changesEnd: number;
 }
 
 export interface IGitDiff {
-    diff?: string;
     chunks: IGitDiffChunk[];
+
+    diff?: string;
 }

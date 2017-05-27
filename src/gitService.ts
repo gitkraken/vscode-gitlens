@@ -570,6 +570,10 @@ export class GitService extends Disposable {
     }
 
     async getDiffForFile(uri: GitUri, sha1?: string, sha2?: string): Promise<IGitDiff | undefined> {
+        if (sha1 !== undefined && sha2 === undefined && uri.sha !== undefined) {
+            sha2 = uri.sha;
+        }
+
         let key = 'diff';
         if (sha1 !== undefined) {
             key += `:${sha1}`;
@@ -620,7 +624,7 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.diff(root, file, sha1, sha2);
-            return GitDiffParser.parse(data, this.config.debug);
+            return GitDiffParser.parse(data);
         }
         catch (ex) {
             // Trap and cache expected diff errors
@@ -645,12 +649,29 @@ export class GitService extends Disposable {
             const diff = await this.getDiffForFile(uri, sha1, sha2);
             if (diff === undefined) return undefined;
 
-            const chunk = diff.chunks.find(_ => Math.min(_.originalStart, _.changesStart) <= line && Math.max(_.originalEnd, _.changesEnd) >= line);
+            const chunk = diff.chunks.find(_ => _.currentStart <= line && _.currentEnd >= line);
             if (chunk === undefined) return undefined;
 
+            // Search for the line (skipping deleted lines -- since they don't currently exist in the editor)
+            // Keep track of the deleted lines for the original version
+            line = line - chunk.currentStart + 1;
+            let count = 0;
+            let deleted = 0;
+            for (const l of chunk.current) {
+                if (l === undefined) {
+                    deleted++;
+                    if (count === line) break;
+
+                    continue;
+                }
+
+                if (count === line) break;
+                count++;
+            }
+
             return [
-                chunk.original[line - chunk.originalStart + 1],
-                chunk.changes[line - chunk.changesStart + 1]
+                chunk.previous[line + deleted - 1],
+                chunk.current[line + deleted]
             ];
         }
         catch (ex) {

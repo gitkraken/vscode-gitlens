@@ -15,22 +15,41 @@ export class GitDiffParser {
             match = unifiedDiffRegex.exec(`${data}\n@@`);
             if (match == null) break;
 
-            const originalStart = +match[1];
-            const changedStart = +match[3];
+            const previousStart = +match[1];
+            const currentStart = +match[3];
 
             const chunk = match[5];
             const lines = chunk.split('\n').slice(1);
-            const original = lines.filter(l => l[0] !== '+').map(l => (l[0] === '-') ? l.substring(1) : undefined);
-            const changed = lines.filter(l => l[0] !== '-').map(l => (l[0] === '+') ? l.substring(1) : undefined);
+
+            const current = [];
+            const previous = [];
+            for (const l of lines) {
+                switch (l[0]) {
+                    case '+':
+                        current.push(` ${l.substring(1)}`);
+                        previous.push(undefined);
+                        break;
+
+                    case '-':
+                        current.push(undefined);
+                        previous.push(` ${l.substring(1)}`);
+                        break;
+
+                    default:
+                        current.push(l);
+                        previous.push(l);
+                        break;
+                }
+            }
 
             chunks.push({
                 chunk: debug ? chunk : undefined,
-                original: original,
-                originalStart: originalStart,
-                originalEnd: originalStart + +match[2],
-                changes: changed,
-                changesStart: changedStart,
-                changesEnd: changedStart + +match[4]
+                current: current,
+                currentStart: currentStart,
+                currentEnd: currentStart + +match[4],
+                previous: previous,
+                previousStart: previousStart,
+                previousEnd: previousStart + +match[2]
             });
         } while (match != null);
 

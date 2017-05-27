@@ -298,30 +298,25 @@ export class BlameActiveLineController extends Disposable {
                 if (!commit.isUncommitted && (!possibleDuplicate || !this.annotationController.isAnnotating(editor))) {
                     hoverMessage = BlameAnnotationFormatter.getAnnotationHover(cfg, blameLine, logCommit || commit);
 
-                    // if (commit.previousSha !== undefined) {
-                    //     const changes = await this.git.getDiffForLine(this._uri, blameLine.line + offset, commit.previousSha);
-                    //     if (changes !== undefined) {
-                    //         const previous = changes[0];
-                    //         if (previous !== undefined) {
-                    //             hoverMessage += `\n\n\`Before ${commit.shortSha}\`\n\`\`\`\n${previous.trim().replace(/\n/g, '\`\n>\n> \`')}\n\`\`\``;
-                    //         }
-                    //         else {
-                    //             hoverMessage += `\n\n\`Added in ${commit.shortSha}\``;
-                    //         }
-                    //     }
-                    // }
+                    if (commit.previousSha !== undefined) {
+                        const changes = await this.git.getDiffForLine(this._uri, blameLine.line + offset, commit.previousSha);
+                        if (changes !== undefined) {
+                            let previous = changes[0];
+                            if (previous !== undefined) {
+                                previous = previous.replace(/\n/g, '\`\n>\n> \`').trim();
+                                hoverMessage += `\n\n---\n\`\`\`\n${previous}\n\`\`\``;
+                            }
+                        }
+                    }
                 }
                 else if (commit.isUncommitted) {
                     const changes = await this.git.getDiffForLine(this._uri, blameLine.line + offset);
                     if (changes !== undefined) {
-                        let original = changes[0];
-                        if (original !== undefined) {
-                            original = original.replace(/\n/g, '\`\n>\n> \`').trim();
-                            hoverMessage = `\`${'0'.repeat(8)}\` &nbsp; __Uncommitted change__\n\n\---\n\`\`\`\n${original}\n\`\`\``;
+                        let previous = changes[0];
+                        if (previous !== undefined) {
+                            previous = previous.replace(/\n/g, '\`\n>\n> \`').trim();
+                            hoverMessage = `\`${'0'.repeat(8)}\` &nbsp; __Uncommitted change__\n\n---\n\`\`\`\n${previous}\n\`\`\``;
                         }
-                        // else {
-                        //     hoverMessage = `\`${'0'.repeat(8)}\` &nbsp; __Uncommitted change__\n\n\`Added\``;
-                        // }
                     }
                 }
             }
