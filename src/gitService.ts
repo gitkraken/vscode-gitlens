@@ -671,7 +671,7 @@ export class GitService extends Disposable {
 
             return [
                 chunk.previous[line + deleted - 1],
-                chunk.current[line + deleted]
+                chunk.current[line + deleted + (chunk.currentStart - chunk.previousStart)]
             ];
         }
         catch (ex) {
