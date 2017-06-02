@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [3.6.0-beta] - 2017-05-27
+## [3.6.0] - 2017-06-02
 ### Added
 - Adds diff information (the line's previous version) into the active line hover
 - Adds a `gitlens.diffWithWorking` status bar command option - compares the current line commit with the working tree
@@ -20,6 +20,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Renames `Compare Line with Working Tree` command to `Compare Line Commit with Working Tree`
 - Renames `Compare with Previous Commit` in quick pick menus to `Compare File with Previous`
 - Renames `Compare with Working Tree` in quick pick menus to `Compare File with Working Tree`
+
+### Fixed
+- Fixes [#79](https://github.com/eamodio/vscode-gitlens/issues/79) - Application insights package breaks GitLens + eslint
 
 ## [3.5.1] - 2017-05-25
 ### Changed

@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "3.6.0-beta",
+    "version": "3.6.0",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -892,12 +892,14 @@
         "*"
     ],
     "scripts": {
-        "compile": "npm run lint && tsc -p ./",
+        "clean": "git clean -xdf",
+        "compile": "tslint --project tslint.json && tsc -p ./",
         "watch": "tsc -watch -p ./",
         "lint": "tslint --project tslint.json",
-        "pack": "git clean -xdf --exclude=node_modules/ && vsce package",
+        "pack": "git clean -xdf && vsce package",
         "postinstall": "node ./node_modules/vscode/bin/install",
         "pub": "git clean -xdf && vsce publish",
+        "reset": "git clean -xdf && npm install",
         "vscode:prepublish": "npm install && npm run compile"
     },
     "dependencies": {
