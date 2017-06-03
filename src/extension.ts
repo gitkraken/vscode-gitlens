@@ -1,14 +1,13 @@
 'use strict';
 import { Objects } from './system';
 import { commands, ExtensionContext, extensions, languages, Uri, window, workspace } from 'vscode';
-import { BlameActiveLineController } from './blameActiveLineController';
-import { BlameAnnotationController } from './blameAnnotationController';
+import { AnnotationController } from './annotations/annotationController';
 import { CommandContext, setCommandContext } from './commands';
 import { CloseUnchangedFilesCommand, OpenChangedFilesCommand } from './commands';
 import { OpenBranchInRemoteCommand, OpenCommitInRemoteCommand, OpenFileInRemoteCommand, OpenInRemoteCommand, OpenRepoInRemoteCommand } from './commands';
 import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './commands';
 import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithBranchCommand, DiffWithNextCommand, DiffWithPreviousCommand, DiffWithWorkingCommand} from './commands';
-import { ShowBlameCommand, ToggleBlameCommand } from './commands';
+import { ShowFileBlameCommand, ShowLineBlameCommand, ToggleFileBlameCommand, ToggleLineBlameCommand } from './commands';
 import { ShowBlameHistoryCommand, ShowFileHistoryCommand } from './commands';
 import { ShowLastQuickPickCommand } from './commands';
 import { ShowQuickBranchHistoryCommand, ShowQuickCurrentBranchHistoryCommand, ShowQuickFileHistoryCommand } from './commands';
@@ -19,6 +18,7 @@ import { ToggleCodeLensCommand } from './commands';
 import { Keyboard } from './commands';
 import { IConfig } from './configuration';
 import { ApplicationInsightsKey, BuiltInCommands, ExtensionKey, QualifiedExtensionId, WorkspaceState } from './constants';
+import { CurrentLineController } from './currentLineController';
 import { GitContentProvider } from './gitContentProvider';
 import { GitContextTracker, GitService } from './gitService';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
@@ -74,11 +74,11 @@ export async function activate(context: ExtensionContext) {
 
     context.subscriptions.push(languages.registerCodeLensProvider(GitRevisionCodeLensProvider.selector, new GitRevisionCodeLensProvider(context, git)));
 
-    const annotationController = new BlameAnnotationController(context, git, gitContextTracker);
+    const annotationController = new AnnotationController(context, git, gitContextTracker);
     context.subscriptions.push(annotationController);
 
-    const activeLineController = new BlameActiveLineController(context, git, gitContextTracker, annotationController);
-    context.subscriptions.push(activeLineController);
+    const currentLineController = new CurrentLineController(context, git, gitContextTracker, annotationController);
+    context.subscriptions.push(currentLineController);
 
     context.subscriptions.push(new Keyboard());
 
@@ -98,8 +98,10 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new OpenFileInRemoteCommand(git));
     context.subscriptions.push(new OpenInRemoteCommand());
     context.subscriptions.push(new OpenRepoInRemoteCommand(git));
-    context.subscriptions.push(new ShowBlameCommand(annotationController));
-    context.subscriptions.push(new ToggleBlameCommand(annotationController));
+    context.subscriptions.push(new ShowFileBlameCommand(annotationController));
+    context.subscriptions.push(new ShowLineBlameCommand(currentLineController));
+    context.subscriptions.push(new ToggleFileBlameCommand(annotationController));
+    context.subscriptions.push(new ToggleLineBlameCommand(currentLineController));
     context.subscriptions.push(new ShowBlameHistoryCommand(git));
     context.subscriptions.push(new ShowFileHistoryCommand(git));
     context.subscriptions.push(new ShowLastQuickPickCommand());

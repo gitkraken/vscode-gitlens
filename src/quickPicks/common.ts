@@ -1,8 +1,7 @@
 'use strict';
 import { CancellationTokenSource, commands, Disposable, QuickPickItem, QuickPickOptions, TextDocumentShowOptions, TextEditor, Uri, window, workspace } from 'vscode';
 import { Commands, Keyboard, KeyboardScope, KeyMapping, Keys, openEditor } from '../commands';
-import { IAdvancedConfig } from '../configuration';
-import { ExtensionKey } from '../constants';
+import { ExtensionKey, IAdvancedConfig } from '../configuration';
 import { GitCommit, GitLogCommit, GitStashCommit } from '../gitService';
 // import { Logger } from '../logger';
 import * as moment from 'moment';

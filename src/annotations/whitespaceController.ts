@@ -1,6 +1,6 @@
 'use strict';
 import { Disposable, workspace } from 'vscode';
-import { Logger } from './logger';
+import { Logger } from '../logger';
 
 interface ConfigurationInspection {
     key: string;
@@ -118,8 +118,6 @@ export class WhitespaceController extends Disposable {
         if (this._count === 1 && this._configuration.overrideRequired) {
             // Override whitespace (turn off)
             await this._overrideWhitespace();
-            // Add a delay to give the editor time to turn off the whitespace
-            await new Promise((resolve, reject) => setTimeout(resolve, 250));
         }
     }
 
