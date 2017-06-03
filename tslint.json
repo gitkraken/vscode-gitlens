@@ -39,7 +39,7 @@
             "ignore-properties"
         ],
         "no-internal-module": true,
-        "no-invalid-template-strings": true,
+        // "no-invalid-template-strings": true,
         "no-irregular-whitespace": true,
         "no-reference": true,
         "no-string-throw": true,

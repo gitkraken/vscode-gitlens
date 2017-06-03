@@ -55,4 +55,10 @@ export namespace Objects {
             }
         }
     }
+
+    export function* values(o: any): IterableIterator<[any]> {
+        for (const key in o) {
+            yield [o[key]];
+        }
+    }
 }

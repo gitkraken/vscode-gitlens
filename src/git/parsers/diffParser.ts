@@ -1,5 +1,5 @@
 'use strict';
-import { IGitDiff, IGitDiffChunk } from './../git';
+import { IGitDiff, IGitDiffChunk, IGitDiffLine } from './../git';
 
 const unifiedDiffRegex = /^@@ -([\d]+),([\d]+) [+]([\d]+),([\d]+) @@([\s\S]*?)(?=^@@)/gm;
 
@@ -21,23 +21,29 @@ export class GitDiffParser {
             const chunk = match[5];
             const lines = chunk.split('\n').slice(1);
 
-            const current = [];
-            const previous = [];
+            const current: (IGitDiffLine | undefined)[] = [];
+            const previous: (IGitDiffLine | undefined)[] = [];
             for (const l of lines) {
                 switch (l[0]) {
                     case '+':
-                        current.push(` ${l.substring(1)}`);
+                        current.push({
+                            line: ` ${l.substring(1)}`,
+                            state: 'added'
+                        });
                         previous.push(undefined);
                         break;
 
                     case '-':
                         current.push(undefined);
-                        previous.push(` ${l.substring(1)}`);
+                        previous.push({
+                            line: ` ${l.substring(1)}`,
+                            state: 'removed'
+                        });
                         break;
 
                     default:
-                        current.push(l);
-                        previous.push(l);
+                        current.push({ line: l, state: 'unchanged' });
+                        previous.push({ line: l, state: 'unchanged' });
                         break;
                 }
             }

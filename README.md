@@ -5,56 +5,67 @@
 
 # GitLens
 
-GitLens **supercharges** the built-in Visual Studio Code Git capabilities. It helps you to **visualize code authorship** at a glance via inline Git blame annotations and code lens, **seamlessly navigate and explore** the history of a file or branch, **gain valuable insights** via powerful comparision commands, and so much more.
+GitLens **supercharges** the built-in Visual Studio Code Git capabilities. It helps you to **visualize code authorship** at a glance via Git blame annotations and code lens, **seamlessly navigate and explore** the history of a file or branch, **gain valuable insights** via powerful comparision commands, and so much more.
 
-GitLens provides an unobtrusive blame annotation at the end of the selected line, a status bar item showing the commit author and date of the selected line, code lens showing the most recent commit and # of authors of the file and/or code block, and many commands for exploring commits and histories, comparing and navigating revisions, stash access, repository status, and more. GitLens is also [highly customizable](#extension-settings) to meet your specific needs — find code lens intrusive or the selected line blame annotation distracting — no problem, it is easy to [turn them off or change how they behave](#extension-settings).
+GitLens provides an unobtrusive blame annotation at the end of the current line, a status bar item showing the commit author and date of the current line, code lens showing the most recent commit and # of authors of the file and/or code block, and many commands for exploring commits and histories, comparing and navigating revisions, stash access, repository status, and more. GitLens is also [highly customizable](#extension-settings) to meet your specific needs — find code lens intrusive or the current line blame annotation distracting — no problem, it is easy to [turn them off or change how they behave](#extension-settings).
 
 ## Previews
-#### Featuring code lens, whole file inline blame annotations, and navigation and exploration via quick pick menus
+#### Featuring code lens, file blame annotations, and navigation and exploration via quick pick menus
 ![GitLens preview 1](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/gitlens-preview1.gif)
 
-#### Featuring selected line blame annotation and hovers, status bar commit details, quick pick menus, compare with previous, and more
+#### Featuring current line blame annotation and hovers, status bar commit details, quick pick menus, compare with previous, and more
 ![GitLens preview 2](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/gitlens-preview2.gif)
 
 ## Features
 
 #### Git Blame Annotations
 
-- Adds a **blame annotation** to the end of the selected line showing the commit id and message, with more details (including the line's previous version) in a hover popup ([optional](#extension-settings), on by default)
+- Adds a [customizable](#line-blame-annotation-settings) **Git blame annotation** to the end of the current line ([optional](#line-blame-annotation-settings), on by default)
+  - Contains the commit author, date, and message, by [default](#line-blame-annotation-settings)
+  - Commit details, including the changes from the line's previous version, are provided in a hover popup ([optional](#line-blame-annotation-settings), on by default)
 
-- Adds a `Toggle Blame Annotations` command (`gitlens.toggleBlame`) with a shortcut of `alt+b` to toggle **inline Git blame annotations** for a whole file with multiple styles — compact, expanded, and trailing
-  - Also adds a `Show Blame Annotations` command (`gitlens.showBlame`)
+- Adds on-demand, highly [customizable](#file-blame-annotation-settings) **Git blame annotations** of the whole file
+  - Choose between `gutter` (default) and `hover` [annotation styles](#file-blame-annotation-settings)
+  - Contains the commit message and date, by [default](#file-blame-annotation-settings)
+  - Commit details are also provided in a hover popup ([optional](#file-blame-annotation-settings), on by default)
 
-- Adds **author and date blame information** about the selected line to the **status bar** ([optional](#extension-settings), on by default)
-  - By default clicking on the status bar shows a **commit details quick pick menu** with commands for comparing, navigating and exploring commits, and more
-
-  - Provides [customizable](#extension-settings) click behavior of the status bar — choose between one of the following
-    - Toggle whole file blame annotations on and off
-    - Toggle code lens on and off — only available if [`"gitlens.codeLens.visibility": "ondemand"`](#extension-settings) is set
-    - Compare the file with the previous commit
-    - Show a quick pick menu with details and commands for the commit
+- Adds [customizable](#status-bar-settings) **blame information** about the current line to the **status bar**  ([optional](#status-bar-settings), on by default)
+  - Contains the commit author and date, by [default](#status-bar-settings)
+  - Clicking the status bar item will, by [default](#status-bar-settings), show a **commit details quick pick menu** with commands for comparing, navigating and exploring commits, and more
+  - Provides [customizable](#status-bar-settings) click behavior — choose between one of the following
+    - Toggle file blame annotations on and off
+    - Toggle code lens on and off
+    - Compare the line commit with the previous commit
+    - Compare the line commit with the working tree
+    - Show a quick pick menu with details and commands for the commit (default)
     - Show a quick pick menu with file details and commands for the commit
     - Show a quick pick menu with the commit history of the file
     - Show a quick pick menu with the commit history of the current branch
 
+- Adds a `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) with a shortcut of `alt+b` to toggle the file blame annotations on and off
+  - Also adds a `Show File Blame Annotations` command (`gitlens.showFileBlame`)
+
+- Adds a `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`) to toggle the current line blame annotations on and off
+  - Also adds a `Show Line Blame Annotations` command (`gitlens.showLineBlame`)
+
 #### Git Code Lens
 
-- Adds **code lens** to the top of the file and on code blocks ([optional](#extension-settings), on by default)
+- Adds **code lens** to the top of the file and on code blocks ([optional](#code-lens-settings), on by default)
   - **Recent Change** — author and date of the most recent commit for the file or code block
-    - By default, clicking on the code lens shows a **commit file details quick pick menu** with commands for comparing, navigating and exploring commits, and more
+    - Clicking the code lens will, by [default](#code-lens-settings), show a **commit file details quick pick menu** with commands for comparing, navigating and exploring commits, and more
   - **Authors** — number of authors of the file or code block and the most prominent author (if there is more than one)
-    - By default, clicking on the code lens toggles the inline Git blame annotations on and off for the whole file
+    - Clicking the code lens will, by [default](#code-lens-settings), toggle the file Git blame annotations on and off of the whole file
     - Will be hidden if the author of the most recent commit is also the only author of the file or block, to avoid duplicate information and reduce visual noise
 
-- Provides [customizable](#extension-settings) click behavior for each code lens — choose between one of the following
-  - Toggle whole file blame annotations on and off
-  - Compare the file with the previous commit
+- Provides [customizable](#code-lens-settings) click behavior for each code lens — choose between one of the following
+  - Toggle file blame annotations on and off
+  - Compare the commit with the previous commit
   - Show a quick pick menu with details and commands for the commit
   - Show a quick pick menu with file details and commands for the commit
   - Show a quick pick menu with the commit history of the file
   - Show a quick pick menu with the commit history of the current branch
 
-- Adds a `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) with a shortcut of `shift+alt+b` to toggle the code lens on and off — only available if [`"gitlens.codeLens.visibility": "ondemand"`](#extension-settings) is set
+- Adds a `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) with a shortcut of `shift+alt+b` to toggle the code lens on and off
 
 #### Powerful Comparison Tools
 
@@ -180,40 +191,109 @@ GitLens provides an unobtrusive blame annotation at the end of the selected line
 
 ## Insiders
 
-Add [`"gitlens.insiders": true`](#extension-settings) to your settings to join the insiders channel and get early access to upcoming features. Be aware that because this provides early access expect there to be issues.
+Add [`"gitlens.insiders": true`](#general-extension-settings) to your settings to join the insiders channel and get early access to upcoming features. Be aware that because this provides early access expect there to be issues.
 
 ## Extension Settings
 
 GitLens is highly customizable and provides many configuration settings to allow the personalization of almost all features
 
+### General Settings
+
 |Name | Description
 |-----|------------
 |`gitlens.insiders`|Opts into the insiders channel -- provides access to upcoming features
 |`gitlens.outputLevel`|Specifies how much (if any) output will be sent to the GitLens output channel
-|`gitlens.blame.annotation.activeLine`|Specifies whether and how to show blame annotations on the active line. `off` - no annotation. `inline` - adds a trailing annotation to the active line. `hover` - adds hover annotation to the active line. `both` - adds both `inline` and `hover` annotations
-|`gitlens.blame.annotation.activeLineDarkColor`|Specifies the color of the active line blame annotation to use with a dark theme. Must be a valid css color
-|`gitlens.blame.annotation.activeLineLightColor`|Specifies the color of the active line blame annotation to use with a light theme. Must be a valid css color
-|`gitlens.blame.annotation.highlight`|Specifies whether and how to highlight blame annotations. `none` - no highlight. `gutter` - adds a gutter icon. `line` - adds a full-line highlight. `both` - adds both `gutter` and `line` highlights
-|`gitlens.blame.annotation.style`|Specifies the style of the blame annotations. `compact` - groups annotations to limit the repetition and also adds author and date when possible. `expanded` - shows an annotation on every line
-|`gitlens.blame.annotation.author`|Specifies whether the committer will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles
-|`gitlens.blame.annotation.date`|Specifies whether and how the commit date will be shown in the blame annotations. `off` - no date. `relative` - relative date (e.g. 1 day ago). `absolute` - date format specified by `gitlens.blame.annotation.dateFormat`. Applies only to the `expanded` & `trailing` annotation styles
-|`gitlens.blame.annotation.dateFormat`|Specifies the date format of how absolute dates will be shown in the blame annotations. See https://momentjs.com/docs/#/displaying/format/ for valid formats
-|`gitlens.blame.annotation.message`|Specifies whether the commit message will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles
-|`gitlens.blame.annotation.sha`|Specifies whether the commit sha will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles
-|`gitlens.codeLens.visibility`|Specifies when code lens will be shown in the active document. `auto` - always shown. `ondemand` - never shown, unless toggled via the `gitlens.toggleCodeLens` command. `off` - never shown
-|`gitlens.codeLens.authors.enabled`|Specifies whether the authors code lens is shown
-|`gitlens.codeLens.authors.command`|Specifies the command executed when the authors code lens is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick
-|`gitlens.codeLens.recentChange.enabled`|Specifies whether the recent change code lens is shown
-|`gitlens.codeLens.recentChange.command`|"Specifies the command executed when the recent change code lens is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick
-|`gitlens.codeLens.location`|Specifies where code lens will be rendered in the active document. `all` - render at the top of the document, on container-like (classes, modules, etc), and on member-like (methods, functions, properties, etc) lines. `document+containers` - render at the top of the document and on container-like lines. `document` - only render at the top of the document. `custom` - rendering controlled by `gitlens.codeLens.locationCustomSymbols`
-|`gitlens.codeLens.locationCustomSymbols`|Specifies the set of document symbols to render active document code lens on. Must be a member of `SymbolKind`
-|`gitlens.codeLens.languageLocations`|Specifies where code lens will be rendered in the active document for the specified languages
-|`gitlens.menus.diff.enabled`|Specifies whether diff commands will be added to the context menus
-|`gitlens.statusBar.enabled`|Specifies whether blame information is shown in the status bar
+
+### Blame Annotation Settings
+
+#### File Blame Annotation Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.blame.file.annotationType`|Specifies the type of blame annotations that will be shown for the current file. `gutter` - adds an annotation to the beginning of each line. `hover` - shows annotations when hovering over each line
+|`gitlens.blame.file.lineHighlight.enabled`|Specifies whether or not to highlight lines associated with the current line
+|`gitlens.blame.file.lineHighlight.locations`|Specifies where the associated line highlights will be shown. `gutter` - adds a gutter glyph. `line` - adds a full-line highlight background color. `overviewRuler` - adds a decoration to the overviewRuler (scroll bar)
+|`gitlens.annotations.file.gutter.format`|Specifies the format of the gutter blame annotations. Available tokens: `${id}` - commit id, `${author}` - commit author, `${message}` - commit message, `${ago}` - relative commit date (e.g. 1 day ago), `${date}` - formatted commit date (format specified by `gitlens.annotations.file.dateFormat`), `${authorAgo}` - commit author, relative commit date
+|`gitlens.annotations.file.gutter.dateFormat`|Specifies how to format absolute dates (using the `${date}` token) in gutter blame annotations. See https://momentjs.com/docs/#/displaying/format/ for valid formats
+|`gitlens.annotations.file.gutter.compact`|Specifies whether or not to compact (deduplicate) matching adjacent gutter blame annotations
+|`gitlens.annotations.file.gutter.heatmap.enabled`|Specifies whether or not to provide a heatmap indicator in the gutter blame annotations
+|`gitlens.annotations.file.gutter.heatmap.location`|Specifies where the heatmap indicators will be shown in the gutter blame annotations. `left` - adds a heatmap indicator on the left edge of the gutter blame annotations. `right` - adds a heatmap indicator on the right edge of the gutter blame annotations
+|`gitlens.annotations.file.gutter.hover.details`|Specifies whether or not to provide a commit details hover annotation over the gutter blame annotations
+|`gitlens.annotations.file.gutter.hover.wholeLine`|Specifies whether or not to trigger hover annotations over the whole line
+|`gitlens.annotations.file.hover.heatmap.enabled`|Specifies whether or not to provide heatmap indicators on the left edge of each line
+|`gitlens.annotations.file.hover.wholeLine`|Specifies whether or not to trigger hover annotations over the whole line
+
+#### Line Blame Annotation Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.blame.line.enabled`|Specifies whether or not to provide a blame annotation for the current line
+|`gitlens.blame.line.annotationType`|Specifies the type of blame annotations that will be shown for the current line. `trailing` - adds an annotation to the end of the current line. `hover` - shows annotations when hovering over the current line
+|`gitlens.annotations.line.trailing.format`|Specifies the format of the trailing blame annotations. Available tokens: `${id}` - commit id, `${author}` - commit author, `${message}` - commit message, `${ago}` - relative commit date (e.g. 1 day ago), `${date}` - formatted commit date (format specified by `gitlens.annotations.currentLine.dateFormat`), `${authorAgo}` - commit author, relative commit date
+|`gitlens.annotations.line.trailing.dateFormat`|Specifies how to format absolute dates (using the `${date}` token) in trailing blame annotations. See https://momentjs.com/docs/#/displaying/format/ for valid formats
+|`gitlens.annotations.line.trailing.hover.details`|Specifies whether or not to provide a commit details hover annotation over the trailing blame annotations
+|`gitlens.annotations.line.trailing.hover.changes`|Specifies whether or not to provide a changes (diff) hover annotation over the trailing blame annotations
+|`gitlens.annotations.line.trailing.hover.wholeLine`|Specifies whether or not to trigger hover annotations over the whole line
+|`gitlens.annotations.line.hover.details`|Specifies whether or not to provide a commit details hover annotation for the current line
+|`gitlens.annotations.line.hover.changes`|Specifies whether or not to provide a changes (diff) hover annotation for the current line
+
+### Code Lens Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.codeLens.enabled`|Specifies whether or not to provide any Git code lens
+|`gitlens.codeLens.recentChange.enabled`|Specifies whether or not to show a `recent change` code lens showing the author and date of the most recent commit for the file or code block
+|`gitlens.codeLens.recentChange.command`|Specifies the command to be executed when the `recent change` code lens is clicked. `gitlens.toggleFileBlame` - toggles file blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick
+|`gitlens.codeLens.authors.enabled`|Specifies whether or not to show an `authors` code lens showing number of authors of the file or code block and the most prominent author (if there is more than one)
+|`gitlens.codeLens.authors.command`|Specifies the command to be executed when the `authors` code lens is clicked. `gitlens.toggleFileBlame` - toggles file blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick
+|`gitlens.codeLens.locations`|Specifies where Git code lens will be shown in the document. `document` - adds code lens at the top of the document. `containers` -  adds code lens at the start of container-like symbols (modules, classes, interfaces, etc). `blocks` -  adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines. `custom` - adds code lens at the start of symbols contained in `gitlens.codeLens.locationCustomSymbols`
+|`gitlens.codeLens.customLocationSymbols`|Specifies the set of document symbols where Git code lens will be shown in the document
+|`gitlens.codeLens.perLanguageLocations`|Specifies where Git code lens will be shown in the document for the specified languages
+
+### Status Bar Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.statusBar.enabled`|Specifies whether or not to provide blame information on the status bar
 |`gitlens.statusBar.alignment`|Specifies the blame alignment in the status bar. `left` - align to the left,  `right` - align to the right
-|`gitlens.statusBar.command`|Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current line commit with the previous. `gitlens.diffWithWorking` - compares the current line commit with the working tree. `gitlens.toggleCodeLens` - toggles Git code lens. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick
-|`gitlens.statusBar.date`|Specifies whether and how the commit date will be shown in the blame status bar. `off` - no date. `relative` - relative date (e.g. 1 day ago). `absolute` - date format specified by `gitlens.statusBar.dateFormat`
-|`gitlens.statusBar.dateFormat`|Specifies the date format of how absolute dates will be shown in the blame status bar. See https://momentjs.com/docs/#/displaying/format/ for valid formats
+|`gitlens.statusBar.format`|Specifies the format of the blame information on the status bar. Available tokens: `${id}` - commit id, `${author}` - commit author, `${message}` - commit message, `${ago}` - relative commit date (e.g. 1 day ago), `${date}` - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)
+|`gitlens.statusBar.command`|Specifies the command to be executed when the blame status bar item is clicked. `gitlens.toggleFileBlame` - toggles file blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current line commit with the previous. `gitlens.diffWithWorking` - compares the current line commit with the working tree. `gitlens.toggleCodeLens` - toggles Git code lens. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick
+|`gitlens.statusBar.format`|Specifies the format of the status bar blame information. Available tokens: `${id}` - commit id, `${author}` - commit author, `${message}` - commit message, `${ago}` - relative commit date (e.g. 1 day ago), `${date}` - formatted commit date (format specified by `gitlens.statusBar.dateFormat`), `${authorAgo}` - commit author, relative commit date
+|`gitlens.statusBar.dateFormat`|Specifies the date format of absolute dates shown in the blame information on the status bar. See https://momentjs.com/docs/#/displaying/format/ for valid formats
+
+### Theme Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.theme.annotations.file.gutter.separateLines`|Specifies whether or not gutter blame annotations will be separated by a small gap
+|`gitlens.theme.annotations.file.gutter.dark.backgroundColor`|Specifies the dark theme background color of the gutter blame annotations
+|`gitlens.theme.annotations.file.gutter.light.backgroundColor`|Specifies the light theme background color of the gutter blame annotations
+|`gitlens.theme.annotations.file.gutter.dark.foregroundColor`|Specifies the dark theme foreground color of the gutter blame annotations
+|`gitlens.theme.annotations.file.gutter.light.foregroundColor`|Specifies the light theme foreground color of the gutter blame annotations
+|`gitlens.theme.annotations.file.gutter.dark.uncommittedForegroundColor`|Specifies the dark theme foreground color of an uncommitted line in the gutter blame annotations
+|`gitlens.theme.annotations.file.gutter.light.uncommittedForegroundColor`|Specifies the light theme foreground color of an uncommitted line in the gutter blame annotations
+|`gitlens.theme.annotations.file.hover.separateLines`|Specifies whether or not hover blame annotations will be separated by a small gap (if heatmap is enabled)
+|`gitlens.theme.annotations.line.trailing.dark.backgroundColor`|Specifies the dark theme background color of the trailing blame annotation
+|`gitlens.theme.annotations.line.trailing.light.backgroundColor`|Specifies the light theme background color of the trailing blame annotation
+|`gitlens.theme.annotations.line.trailing.dark.foregroundColor`|Specifies the dark theme foreground color of the trailing blame annotation
+|`gitlens.theme.annotations.line.trailing.light.foregroundColor`|Specifies the light theme foreground color of the trailing blame annotation
+|`gitlens.theme.lineHighlight.dark.backgroundColor`|Specifies the dark theme background color of the associated line highlights in blame annotations. Must be a valid css color
+|`gitlens.theme.lineHighlight.light.backgroundColor`|Specifies the light theme background color of the associated line highlights in blame annotations. Must be a valid css color
+|`gitlens.theme.lineHighlight.dark.overviewRulerColor`|Specifies the dark theme overview ruler color of the associated line highlights in blame annotations
+|`gitlens.theme.lineHighlight.light.overviewRulerColor`|Specifies the light theme overview ruler color of the associated line highlights in blame annotations
+
+### Advanced Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.advanced.toggleWhitespace.enabled`|Specifies whether or not to toggle whitespace off then showing blame annotations (*may* be required by certain fonts/themes)
+|`gitlens.advanced.menus`|Specifies which commands will be added to the menus
+|`gitlens.advanced.caching.enabled`|Specifies whether git output will be cached
+|`gitlens.advanced.caching.maxLines`|Specifies the threshold for caching larger documents
+|`gitlens.advanced.git`|Specifies the git path to use
+|`gitlens.advanced.gitignore.enabled`|Specifies whether or not to parse the root .gitignore file for better performance (i.e. avoids blaming excluded files)
+|`gitlens.advanced.maxQuickHistory`|Specifies the maximum number of QuickPick history entries to show
+|`gitlens.advanced.quickPick.closeOnFocusOut`|Specifies whether or not to close the QuickPick menu when focus is lost
 
 ## Known Issues
 

@@ -1,11 +1,16 @@
 'use strict';
 
+export interface IGitDiffLine {
+    line: string;
+    state: 'added' | 'removed' | 'unchanged';
+}
+
 export interface IGitDiffChunk {
-    current: (string | undefined)[];
+    current: (IGitDiffLine | undefined)[];
     currentStart: number;
     currentEnd: number;
 
-    previous: (string | undefined)[];
+    previous: (IGitDiffLine | undefined)[];
     previousStart: number;
     previousEnd: number;
 

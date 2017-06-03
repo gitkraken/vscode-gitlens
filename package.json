@@ -11,7 +11,7 @@
     },
     "license": "SEE LICENSE IN LICENSE",
     "displayName": "Git Lens \u2014 git blame annotations, code lens, and more",
-    "description": "Supercharge Visual Studio Code's Git capabilities \u2014 Visualize code authorship at a glance via inline Git blame annotations and code lens, seamlessly navigate and explore the history of a file or branch, gain valuable insights via powerful comparision commands, and so much more",
+    "description": "Supercharge Visual Studio Code's Git capabilities \u2014 Visualize code authorship at a glance via Git blame annotations and code lens, seamlessly navigate and explore the history of a file or branch, gain valuable insights via powerful comparision commands, and so much more",
     "badges": [
         {
             "url": "https://badges.gitter.im/vscode-gitlens/Lobby.svg",
@@ -73,118 +73,153 @@
                     ],
                     "description": "Specifies how much (if any) output will be sent to the GitLens output channel"
                 },
-                "gitlens.blame.annotation.activeLine": {
+                "gitlens.annotations.file.gutter.format": {
                     "type": "string",
-                    "default": "both",
-                    "enum": [
-                        "off",
-                        "inline",
-                        "hover",
-                        "both"
-                    ],
-                    "description": "Specifies whether and how to show blame annotations on the active line. `off` - no annotation. `inline` - adds a trailing annotation to the active line. `hover` - adds hover annotation to the active line. `both` - adds both `inline` and `hover` annotations"
+                    "default": "${message|40?} ${ago|14-}",
+                    "description": "Specifies the format of the gutter blame annotations. Available tokens: `${id}` - commit id, `${author}` - commit author, `${message}` - commit message, `${ago}` - relative commit date (e.g. 1 day ago), `${date}` - formatted commit date (format specified by `gitlens.annotations.file.dateFormat`), `${authorAgo}` - commit author, relative commit date"
                 },
-                "gitlens.blame.annotation.activeLineDarkColor": {
-                    "type": "string",
-                    "default": "rgba(153, 153, 153, 0.35)",
-                    "description": "Specifies the color of the active line blame annotation to use with a dark theme. Must be a valid css color"
-                },
-                "gitlens.blame.annotation.activeLineLightColor": {
-                    "type": "string",
-                    "default": "rgba(153, 153, 153, 0.35)",
-                    "description": "Specifies the color of the active line blame annotation to use with a light theme. Must be a valid css color"
-                },
-                "gitlens.blame.annotation.highlight": {
-                    "type": "string",
-                    "default": "both",
-                    "enum": [
-                        "none",
-                        "gutter",
-                        "line",
-                        "both"
-                    ],
-                    "description": "Specifies whether and how to highlight blame annotations. `none` - no highlight. `gutter` - adds a gutter icon. `line` - adds a full-line highlight. `both` - adds both `gutter` and `line` highlights"
-                },
-                "gitlens.blame.annotation.style": {
-                    "type": "string",
-                    "default": "expanded",
-                    "enum": [
-                        "compact",
-                        "expanded",
-                        "trailing"
-                    ],
-                    "description": "Specifies the style of the blame annotations. `compact` - groups annotations to limit the repetition and also adds author and date when possible. `expanded` - shows an annotation before every line. `trailing` - shows an annotation after every line"
-                },
-                "gitlens.blame.annotation.author": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Specifies whether the committer will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles"
-                },
-                "gitlens.blame.annotation.date": {
-                    "type": "string",
-                    "default": "off",
-                    "enum": [
-                        "off",
-                        "relative",
-                        "absolute"
-                    ],
-                    "description": "Specifies whether and how the commit date will be shown in the blame annotations. `off` - no date. `relative` - relative date (e.g. 1 day ago). `absolute` - date format specified by `gitlens.blame.annotation.dateFormat`. Applies only to the `expanded` & `trailing` annotation styles"
-                },
-                "gitlens.blame.annotation.dateFormat": {
+                "gitlens.annotations.file.gutter.dateFormat": {
                     "type": "string",
                     "default": null,
-                    "description": "Specifies the date format of how absolute dates will be shown in the blame annotations. See https://momentjs.com/docs/#/displaying/format/ for valid formats"
+                    "description": "Specifies how to format absolute dates (using the `${date}` token) in gutter blame annotations. See https://momentjs.com/docs/#/displaying/format/ for valid formats"
                 },
-                "gitlens.blame.annotation.message": {
+                "gitlens.annotations.file.gutter.compact": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to compact (deduplicate) matching adjacent gutter blame annotations"
+                },
+                "gitlens.annotations.file.gutter.heatmap.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to provide a heatmap indicator in the gutter blame annotations"
+                },
+                "gitlens.annotations.file.gutter.heatmap.location": {
+                    "type": "string",
+                    "default": "right",
+                    "enum": [
+                        "left",
+                        "right"
+                    ],
+                    "description": "Specifies where the heatmap indicators will be shown in the gutter blame annotations. `left` - adds a heatmap indicator on the left edge of the gutter blame annotations. `right` - adds a heatmap indicator on the right edge of the gutter blame annotations"
+                },
+                "gitlens.annotations.file.gutter.hover.details": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to provide a commit details hover annotation over the gutter blame annotations"
+                },
+                "gitlens.annotations.file.gutter.hover.wholeLine": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Specifies whether the commit message will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles"
+                    "description": "Specifies whether or not to trigger hover annotations over the whole line"
                 },
-                "gitlens.blame.annotation.sha": {
+                "gitlens.annotations.file.hover.heatmap.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether the commit id (sha) will be shown in the blame annotations. Applies only to the `expanded` & `trailing` annotation styles"
+                    "description": "Specifies whether or not to provide heatmap indicators on the left edge of each line"
                 },
-                "gitlens.codeLens.visibility": {
-                    "type": "string",
-                    "default": "auto",
-                    "enum": [
-                        "auto",
-                        "ondemand",
-                        "off"
-                    ],
-                    "description": "Specifies when code lens will be shown in the active document. `auto` - always shown. `ondemand` - never shown, unless toggled via the `gitlens.toggleCodeLens` command. `off` - never shown"
-                },
-                "gitlens.codeLens.authors.enabled": {
+                "gitlens.annotations.file.hover.wholeLine": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether the authors code lens is shown"
+                    "description": "Specifies whether or not to trigger hover annotations over the whole line"
                 },
-                "gitlens.codeLens.authors.command": {
+                "gitlens.annotations.line.hover.details": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to provide a commit details hover annotation for the current line"
+                },
+                "gitlens.annotations.line.hover.changes": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to provide a changes (diff) hover annotation for the current line"
+                },
+                "gitlens.annotations.line.trailing.format": {
                     "type": "string",
-                    "default": "gitlens.toggleBlame",
+                    "default": "${authorAgo} \u2022 ${message}",
+                    "description": "Specifies the format of the trailing blame annotations. Available tokens: `${id}` - commit id, `${author}` - commit author, `${message}` - commit message, `${ago}` - relative commit date (e.g. 1 day ago), `${date}` - formatted commit date (format specified by `gitlens.annotations.currentLine.dateFormat`), `${authorAgo}` - commit author, relative commit date"
+                },
+                "gitlens.annotations.line.trailing.dateFormat": {
+                    "type": "string",
+                    "default": null,
+                    "description": "Specifies how to format absolute dates (using the `${date}` token) in trailing blame annotations. See https://momentjs.com/docs/#/displaying/format/ for valid formats"
+                },
+                "gitlens.annotations.line.trailing.hover.details": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to provide a commit details hover annotation over the trailing blame annotations"
+                },
+                "gitlens.annotations.line.trailing.hover.changes": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to provide a changes (diff) hover annotation over the trailing blame annotations"
+                },
+                "gitlens.annotations.line.trailing.hover.wholeLine": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Specifies whether or not to trigger hover annotations over the whole line"
+                },
+                "gitlens.blame.file.annotationType": {
+                    "type": "string",
+                    "default": "gutter",
                     "enum": [
-                        "gitlens.toggleBlame",
-                        "gitlens.showBlameHistory",
-                        "gitlens.showFileHistory",
-                        "gitlens.diffWithPrevious",
-                        "gitlens.showQuickCommitDetails",
-                        "gitlens.showQuickCommitFileDetails",
-                        "gitlens.showQuickFileHistory",
-                        "gitlens.showQuickRepoHistory"
+                        "gutter",
+                        "hover"
                     ],
-                    "description": "Specifies the command executed when the authors code lens is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
+                    "description": "Specifies the type of blame annotations that will be shown for the current file. `gutter` - adds an annotation to the beginning of each line. `hover` - shows annotations when hovering over each line"
+                },
+                "gitlens.blame.file.lineHighlight.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to highlight lines associated with the current line"
+                },
+                "gitlens.blame.file.lineHighlight.locations": {
+                    "type": "array",
+                    "default": [
+                        "gutter",
+                        "line",
+                        "overviewRuler"
+                    ],
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "gutter",
+                            "line",
+                            "overviewRuler"
+                        ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "uniqueItems": true,
+                    "description": "Specifies where the associated line highlights will be shown. `gutter` - adds a gutter glyph. `line` - adds a full-line highlight background color. `overviewRuler` - adds a decoration to the overviewRuler (scroll bar)"
+                },
+                "gitlens.blame.line.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to provide a blame annotation for the current line"
+                },
+                "gitlens.blame.line.annotationType": {
+                    "type": "string",
+                    "default": "trailing",
+                    "enum": [
+                        "trailing",
+                        "hover"
+                    ],
+                    "description": "Specifies the type of blame annotations that will be shown for the current line. `trailing` - adds an annotation to the end of the current line. `hover` - shows annotations when hovering over the current line"
+                },
+                "gitlens.codeLens.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to provide any Git code lens"
                 },
                 "gitlens.codeLens.recentChange.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether the recent change code lens is shown"
+                    "description": "Specifies whether or not to show a `recent change` code lens showing the author and date of the most recent commit for the file or code block"
                 },
                 "gitlens.codeLens.recentChange.command": {
                     "type": "string",
                     "default": "gitlens.showQuickCommitFileDetails",
                     "enum": [
-                        "gitlens.toggleBlame",
+                        "gitlens.toggleFileBlame",
                         "gitlens.showBlameHistory",
                         "gitlens.showFileHistory",
                         "gitlens.diffWithPrevious",
@@ -193,103 +228,149 @@
                         "gitlens.showQuickFileHistory",
                         "gitlens.showQuickRepoHistory"
                     ],
-                    "description": "Specifies the command executed when the recent change code lens is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
+                    "description": "Specifies the command to be executed when the `recent change` code lens is clicked. `gitlens.toggleFileBlame` - toggles file blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
                 },
-                "gitlens.codeLens.location": {
+                "gitlens.codeLens.authors.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to show an `authors` code lens showing number of authors of the file or code block and the most prominent author (if there is more than one)"
+                },
+                "gitlens.codeLens.authors.command": {
                     "type": "string",
-                    "default": "document+containers",
+                    "default": "gitlens.toggleFileBlame",
                     "enum": [
-                        "all",
-                        "document+containers",
-                        "document",
-                        "custom"
+                        "gitlens.toggleFileBlame",
+                        "gitlens.showBlameHistory",
+                        "gitlens.showFileHistory",
+                        "gitlens.diffWithPrevious",
+                        "gitlens.showQuickCommitDetails",
+                        "gitlens.showQuickCommitFileDetails",
+                        "gitlens.showQuickFileHistory",
+                        "gitlens.showQuickRepoHistory"
                     ],
-                    "description": "Specifies where code lens will be rendered in the active document. `all` - render at the top of the document, on container-like (classes, modules, etc), and on member-like (methods, functions, properties, etc) lines. `document+containers` - render at the top of the document and on container-like lines. `document` - only render at the top of the document. `custom` - rendering controlled by `gitlens.codeLens.locationCustomSymbols`"
+                    "description": "Specifies the command to be executed when the `authors` code lens is clicked. `gitlens.toggleFileBlame` - toggles file blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
                 },
-                "gitlens.codeLens.locationCustomSymbols": {
+                "gitlens.codeLens.locations": {
                     "type": "array",
-                    "description": "Specifies the set of document symbols to render active document code lens on. Must be a member of `SymbolKind`"
+                    "default": [
+                        "document",
+                        "containers"
+                    ],
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "document",
+                            "containers",
+                            "blocks",
+                            "custom"
+                        ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "uniqueItems": true,
+                    "description": "Specifies where Git code lens will be shown in the document. `document` - adds code lens at the top of the document. `containers` -  adds code lens at the start of container-like symbols (modules, classes, interfaces, etc). `blocks` -  adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines. `custom` - adds code lens at the start of symbols contained in `gitlens.codeLens.locationCustomSymbols`"
                 },
-                "gitlens.codeLens.languageLocations": {
+                "gitlens.codeLens.customLocationSymbols": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true,
+                    "description": "Specifies the set of document symbols where Git code lens will be shown in the document. Must be a member of `SymbolKind`"
+                },
+                "gitlens.codeLens.perLanguageLocations": {
                     "type": "array",
                     "default": [
                         {
                             "language": "css",
-                            "location": "document"
+                            "locations": [
+                                "document"
+                            ]
                         },
                         {
                             "language": "html",
-                            "location": "document"
+                            "locations": [
+                                "document"
+                            ]
                         },
                         {
                             "language": "json",
-                            "location": "document"
+                            "locations": [
+                                "document"
+                            ]
                         },
                         {
                             "language": "less",
-                            "location": "document"
+                            "locations": [
+                                "document"
+                            ]
                         },
                         {
                             "language": "scss",
-                            "location": "document"
+                            "locations": [
+                                "document"
+                            ]
                         },
                         {
                             "language": "vue",
-                            "location": "document"
+                            "locations": [
+                                "document"
+                            ]
                         }
                     ],
                     "items": {
                         "type": "object",
                         "required": [
                             "language",
-                            "location"
+                            "locations"
                         ],
                         "properties": {
                             "language": {
                                 "type": "string",
                                 "description": "Specifies the language to which this code lens override applies"
                             },
-                            "location": {
-                                "type": "string",
-                                "default": "document+containers",
-                                "enum": [
-                                    "all",
-                                    "document+containers",
+                            "locations": {
+                                "type": "array",
+                                "default": [
                                     "document",
-                                    "custom",
-                                    "none"
+                                    "containers"
                                 ],
-                                "description": "Specifies where code lens will be rendered in the active document for the specified language. `all` - render at the top of the document, on container-like (classes, modules, etc), and on member-like (methods, functions, properties, etc) lines. `document+containers` - render at the top of the document and on container-like lines. `document` - only render at the top of the document. `custom` - rendering controlled by `customSymbols`"
+                                "items": {
+                                    "type": "string",
+                                    "enum": [
+                                        "document",
+                                        "containers",
+                                        "blocks",
+                                        "custom"
+                                    ]
+                                },
+                                "minItems": 1,
+                                "maxItems": 4,
+                                "uniqueItems": true,
+                                "description": "Specifies where Git code lens will be shown in the document for the specified language. `document` - adds code lens at the top of the document. `containers` -  adds code lens at the start of container-like symbols (modules, classes, interfaces, etc). `blocks` -  adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines. `custom` - adds code lens at the start of symbols contained in `customSymbols`"
                             },
                             "customSymbols": {
-                                "type": "string",
-                                "description": "Specifies the set of document symbols to render active document code lens on. Must be a member of `SymbolKind`"
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "uniqueItems": true,
+                                "description": "Specifies the set of document symbols where Git code lens will be shown in the document for the specified language. Must be a member of `SymbolKind`"
                             }
                         }
                     },
                     "uniqueItems": true,
-                    "enum": [
-                        "all",
-                        "document+containers",
-                        "document",
-                        "custom"
-                    ],
-                    "description": "Specifies where code lens will be rendered in the active document for the specified languages"
+                    "description": "Specifies where Git code lens will be shown in the document for the specified languages"
                 },
                 "gitlens.codeLens.debug": {
                     "type": "boolean",
                     "default": false,
                     "description": "Specifies whether or not to show debug information in code lens"
                 },
-                "gitlens.menus.diff.enabled": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Specifies whether diff commands will be added to the context menus"
-                },
                 "gitlens.statusBar.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether blame information is shown in the status bar"
+                    "description": "Specifies whether or not to provide blame information on the status bar"
                 },
                 "gitlens.statusBar.alignment": {
                     "type": "string",
@@ -304,7 +385,7 @@
                     "type": "string",
                     "default": "gitlens.showQuickCommitDetails",
                     "enum": [
-                        "gitlens.toggleBlame",
+                        "gitlens.toggleFileBlame",
                         "gitlens.showBlameHistory",
                         "gitlens.showFileHistory",
                         "gitlens.diffWithPrevious",
@@ -315,37 +396,112 @@
                         "gitlens.showQuickFileHistory",
                         "gitlens.showQuickRepoHistory"
                     ],
-                    "description": "Specifies the command executed when the blame status bar item is clicked. `gitlens.toggleBlame` - toggles blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current line commit with the previous. `gitlens.diffWithWorking` - compares the current line commit with the working tree. `gitlens.toggleCodeLens` - toggles Git code lens. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
+                    "description": "Specifies the command to be executed when the blame status bar item is clicked. `gitlens.toggleFileBlame` - toggles file blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current line commit with the previous. `gitlens.diffWithWorking` - compares the current line commit with the working tree. `gitlens.toggleCodeLens` - toggles Git code lens. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
                 },
-                "gitlens.statusBar.date": {
+                "gitlens.statusBar.format": {
                     "type": "string",
-                    "default": "relative",
-                    "enum": [
-                        "off",
-                        "relative",
-                        "absolute"
-                    ],
-                    "description": "Specifies whether and how the commit date will be shown in the blame status bar. `off` - no date. `relative` - relative date (e.g. 1 day ago). `absolute` - date format specified by `gitlens.statusBar.dateFormat`"
+                    "default": "${authorAgo}",
+                    "description": "Specifies the format of the status bar blame information. Available tokens: `${id}` - commit id, `${author}` - commit author, `${message}` - commit message, `${ago}` - relative commit date (e.g. 1 day ago), `${date}` - formatted commit date (format specified by `gitlens.statusBar.dateFormat`), `${authorAgo}` - commit author, relative commit date"
                 },
                 "gitlens.statusBar.dateFormat": {
                     "type": "string",
                     "default": null,
-                    "description": "Specifies the date format of how absolute dates will be shown in the blame status bar. See https://momentjs.com/docs/#/displaying/format/ for valid formats"
+                    "description": "Specifies the date format of absolute dates shown in the blame information on the status bar. See https://momentjs.com/docs/#/displaying/format/ for valid formats"
+                },
+                "gitlens.theme.annotations.file.gutter.separateLines": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not gutter blame annotations will be separated by a small gap"
+                },
+                "gitlens.theme.annotations.file.gutter.dark.backgroundColor": {
+                    "type": "string",
+                    "default": "rgba(255, 255, 255, 0.075)",
+                    "description": "Specifies the dark theme background color of the gutter blame annotations. Must be a valid css color"
+                },
+                "gitlens.theme.annotations.file.gutter.light.backgroundColor": {
+                    "type": "string",
+                    "default": "rgba(0, 0, 0, 0.05)",
+                    "description": "Specifies the light theme background color of the gutter blame annotations. Must be a valid css color"
+                },
+                "gitlens.theme.annotations.file.gutter.dark.foregroundColor": {
+                    "type": "string",
+                    "default": "rgb(190, 190, 190)",
+                    "description": "Specifies the dark theme foreground color of the gutter blame annotations. Must be a valid css color"
+                },
+                "gitlens.theme.annotations.file.gutter.light.foregroundColor": {
+                    "type": "string",
+                    "default": "rgb(116, 116, 116)",
+                    "description": "Specifies the light theme foreground color of the gutter blame annotations. Must be a valid css color"
+                },
+                "gitlens.theme.annotations.file.gutter.dark.uncommittedForegroundColor": {
+                    "type": "string",
+                    "default": "rgba(0, 188, 242, 0.6)",
+                    "description": "Specifies the dark theme foreground color of an uncommitted line in the gutter blame annotations. Must be a valid css color"
+                },
+                "gitlens.theme.annotations.file.gutter.light.uncommittedForegroundColor": {
+                    "type": "string",
+                    "default": "rgba(0, 188, 242, 0.6)",
+                    "description": "Specifies the light theme foreground color of an uncommitted line in the gutter blame annotations. Must be a valid css color"
+                },
+                "gitlens.theme.annotations.file.hover.separateLines": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Specifies whether or not hover blame annotations will be separated by a small gap (if heatmap is enabled)"
+                },
+                "gitlens.theme.annotations.line.trailing.dark.backgroundColor": {
+                    "type": "string",
+                    "default": null,
+                    "description": "Specifies the dark theme background color of the trailing blame annotation. Must be a valid css color"
+                },
+                "gitlens.theme.annotations.line.trailing.light.backgroundColor": {
+                    "type": "string",
+                    "default": null,
+                    "description": "Specifies the light theme background color of the trailing blame annotation. Must be a valid css color"
+                },
+                "gitlens.theme.annotations.line.trailing.dark.foregroundColor": {
+                    "type": "string",
+                    "default": "rgba(153, 153, 153, 0.35)",
+                    "description": "Specifies the dark theme foreground color of the trailing blame annotation. Must be a valid css color"
+                },
+                "gitlens.theme.annotations.line.trailing.light.foregroundColor": {
+                    "type": "string",
+                    "default": "rgba(153, 153, 153, 0.35)",
+                    "description": "Specifies the light theme foreground color of the trailing blame annotation. Must be a valid css color"
+                },
+                "gitlens.theme.lineHighlight.dark.backgroundColor": {
+                    "type": "string",
+                    "default": "rgba(0, 188, 242, 0.2)",
+                    "description": "Specifies the dark theme background color of the associated line highlights in blame annotations. Must be a valid css color"
+                },
+                "gitlens.theme.lineHighlight.light.backgroundColor": {
+                    "type": "string",
+                    "default": "rgba(0, 188, 242, 0.2)",
+                    "description": "Specifies the light theme background color of the associated line highlights in blame annotations. Must be a valid css color"
+                },
+                "gitlens.theme.lineHighlight.dark.overviewRulerColor": {
+                    "type": "string",
+                    "default": "rgba(0, 188, 242, 0.6)",
+                    "description": "Specifies the dark theme overview ruler color of the associated line highlights in blame annotations. Must be a valid css color"
+                },
+                "gitlens.theme.lineHighlight.light.overviewRulerColor": {
+                    "type": "string",
+                    "default": "rgba(0, 188, 242, 0.6)",
+                    "description": "Specifies the light theme overview ruler color of the associated line highlights in blame annotations. Must be a valid css color"
                 },
                 "gitlens.advanced.caching.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether git blame output will be cached"
+                    "description": "Specifies whether git output will be cached"
                 },
-                "gitlens.advanced.caching.statusBar.maxLines": {
+                "gitlens.advanced.caching.maxLines": {
                     "type": "number",
                     "default": 0,
-                    "description": "Specifies whether status bar git blame output will be cached for larger documents"
+                    "description": "Specifies the threshold for caching larger documents"
                 },
                 "gitlens.advanced.git": {
                     "type": "string",
                     "default": null,
-                    "description": "Specifies a git path to use"
+                    "description": "Specifies the git path to use"
                 },
                 "gitlens.advanced.gitignore.enabled": {
                     "type": "boolean",
@@ -356,6 +512,156 @@
                     "type": "number",
                     "default": 200,
                     "description": "Specifies the maximum number of QuickPick history entries to show"
+                },
+                "gitlens.advanced.menus": {
+                    "type": "object",
+                    "default": {
+                        "explorerContext": {
+                            "fileDiff": true,
+                            "history": true,
+                            "remote": true
+                        },
+                        "editorContext": {
+                            "blame": true,
+                            "copy": true,
+                            "fileDiff": true,
+                            "history": true,
+                            "lineDiff": true,
+                            "remote": true
+                        },
+                        "editorTitle": {
+                            "blame": true,
+                            "fileDiff": true,
+                            "history": true,
+                            "status": true
+                        },
+                        "editorTitleContext": {
+                            "blame": true,
+                            "fileDiff": true,
+                            "history": true,
+                            "remote": true
+                        }
+                    },
+                    "description": "Specifies which commands will be added to which menus",
+                    "properties": {
+                        "explorerContext": {
+                            "type": "object",
+                            "default": {
+                                "fileDiff": true,
+                                "history": true,
+                                "remote": true
+                            },
+                            "properties": {
+                                "fileDiff": {
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "history": {
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "remote": {
+                                    "type": "boolean",
+                                    "default": true
+                                }
+                            }
+                        },
+                        "editorContext": {
+                            "type": "object",
+                            "default": {
+                                "blame": true,
+                                "copy": true,
+                                "fileDiff": true,
+                                "history": true,
+                                "lineDiff": true,
+                                "remote": true
+                            },
+                            "properties": {
+                                "blame": {
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "copy": {
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "details": {
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "fileDiff": {
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "history": {
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "lineDiff": {
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "remote": {
+                                    "type": "boolean",
+                                    "default": true
+                                }
+                            }
+                        },
+                        "editorTitle": {
+                            "type": "object",
+                            "default": {
+                                "blame": true,
+                                "fileDiff": true,
+                                "history": true,
+                                "status": true
+                            },
+                            "properties": {
+                                "blame": {
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "fileDiff": {
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "history": {
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "status": {
+                                    "type": "boolean",
+                                    "default": true
+                                }
+                            }
+                        },
+                        "editorTitleContext": {
+                            "type": "object",
+                            "default": {
+                                "blame": true,
+                                "fileDiff": true,
+                                "history": true,
+                                "remote": true
+                            },
+                            "properties": {
+                                "blame": {
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "fileDiff": {
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "history": {
+                                    "type": "boolean",
+                                    "default": true
+                                },
+                                "remote": {
+                                    "type": "boolean",
+                                    "default": true
+                                }
+                            }
+                        }
+                    }
                 },
                 "gitlens.advanced.quickPick.closeOnFocusOut": {
                     "type": "boolean",
@@ -406,18 +712,28 @@
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.showBlame",
-                "title": "Show Blame Annotations",
+                "command": "gitlens.showFileBlame",
+                "title": "Show File Blame Annotations",
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.toggleBlame",
-                "title": "Toggle Blame Annotations",
+                "command": "gitlens.showLineBlame",
+                "title": "Show Line Blame Annotations",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.toggleFileBlame",
+                "title": "Toggle File Blame Annotations",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/git-icon-dark.svg",
                     "light": "images/git-icon-light.svg"
                 }
+            },
+            {
+                "command": "gitlens.toggleLineBlame",
+                "title": "Toggle Line Blame Annotations",
+                "category": "GitLens"
             },
             {
                 "command": "gitlens.toggleCodeLens",
@@ -561,11 +877,19 @@
                     "when": "gitlens:isBlameable"
                 },
                 {
-                    "command": "gitlens.showBlame",
+                    "command": "gitlens.showFileBlame",
                     "when": "gitlens:isBlameable"
                 },
                 {
-                    "command": "gitlens.toggleBlame",
+                    "command": "gitlens.showLineBlame",
+                    "when": "gitlens:isBlameable"
+                },
+                {
+                    "command": "gitlens.toggleFileBlame",
+                    "when": "gitlens:isBlameable"
+                },
+                {
+                    "command": "gitlens.toggleLineBlame",
                     "when": "gitlens:isBlameable"
                 },
                 {
@@ -655,134 +979,144 @@
             ],
             "explorer/context": [
                 {
-                    "command": "gitlens.diffWithPrevious",
-                    "when": "gitlens:enabled && config.gitlens.menus.diff.enabled",
-                    "group": "1_gitlens@1"
-                },
-                {
-                    "command": "gitlens.diffWithWorking",
-                    "when": "gitlens:enabled && config.gitlens.menus.diff.enabled",
-                    "group": "1_gitlens@2"
-                },
-                {
-                    "command": "gitlens.showQuickFileHistory",
-                    "when": "gitlens:enabled",
-                    "group": "1_gitlens_1@1"
-                },
-                {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled",
-                    "group": "1_gitlens_1@2"
-                }
-            ],
-            "editor/title": [
-                {
-                    "command": "gitlens.toggleBlame",
-                    "when": "gitlens:isBlameable",
+                    "when": "gitlens:enabled && config.gitlens.advanced.menus.explorerContext.remote",
                     "group": "navigation@100"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
-                    "when": "editorTextFocus && gitlens:isTracked && config.gitlens.menus.diff.enabled",
+                    "when": "gitlens:enabled && config.gitlens.advanced.menus.explorerContext.fileDiff",
+                    "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.diffWithWorking",
+                    "when": "gitlens:enabled && config.gitlens.advanced.menus.explorerContext.fileDiff",
+                    "group": "1_gitlens@2"
+                },
+                {
+                    "command": "gitlens.showQuickFileHistory",
+                    "when": "gitlens:enabled && config.gitlens.advanced.menus.explorerContext.history",
+                    "group": "1_gitlens_1@1"
+                }
+            ],
+            "editor/title": [
+                {
+                    "command": "gitlens.toggleFileBlame",
+                    "when": "gitlens:isBlameable && config.gitlens.advanced.menus.editorTitle.blame",
+                    "group": "navigation@100"
+                },
+                {
+                    "command": "gitlens.openFileInRemote",
+                    "when": "gitlens:enabled && config.gitlens.advanced.menus.editorTitleContext.remote",
+                    "group": "1_gitlens"
+                },
+                {
+                    "command": "gitlens.openRepoInRemote",
+                    "when": "gitlens:enabled && config.gitlens.advanced.menus.editorTitleContext.remote",
+                    "group": "1_gitlens"
+                },
+                {
+                    "command": "gitlens.diffWithPrevious",
+                    "when": "editorTextFocus && gitlens:isTracked && config.gitlens.advanced.menus.editorTitle.fileDiff",
                     "group": "2_gitlens"
                 },
                 {
                     "command": "gitlens.diffWithWorking",
-                    "when": "editorTextFocus && gitlens:isTracked && config.gitlens.menus.diff.enabled",
+                    "when": "editorTextFocus && gitlens:isTracked && config.gitlens.advanced.menus.editorTitle.fileDiff",
                     "group": "2_gitlens"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
-                    "when": "editorFocus && gitlens:isTracked",
+                    "when": "editorFocus && gitlens:isTracked && config.gitlens.advanced.menus.editorTitle.history",
                     "group": "2_gitlens_1"
                 },
                 {
                     "command": "gitlens.showQuickRepoHistory",
-                    "when": "!editorFocus && gitlens:enabled",
+                    "when": "!editorFocus && gitlens:enabled && config.gitlens.advanced.menus.editorTitle.history",
                     "group": "2_gitlens_1"
                 },
                 {
                     "command": "gitlens.showQuickRepoStatus",
-                    "when": "gitlens:enabled",
+                    "when": "gitlens:enabled && config.gitlens.advanced.menus.editorTitle.status",
                     "group": "2_gitlens_1"
                 }
             ],
             "editor/title/context": [
                 {
+                    "command": "gitlens.openFileInRemote",
+                    "when": "gitlens:enabled && config.gitlens.advanced.menus.editorTitleContext.remote",
+                    "group": "1_gitlens"
+                },
+                {
                     "command": "gitlens.diffWithPrevious",
-                    "when": "gitlens:enabled && config.gitlens.menus.diff.enabled",
-                    "group": "1_gitlens@1"
-                },
-                {
-                    "command": "gitlens.diffWithWorking",
-                    "when": "gitlens:enabled && config.gitlens.menus.diff.enabled",
-                    "group": "1_gitlens@2"
-                },
-                {
-                    "command": "gitlens.showQuickFileHistory",
-                    "when": "gitlens:enabled",
+                    "when": "gitlens:enabled && config.gitlens.advanced.menus.editorTitleContext.fileDiff",
                     "group": "1_gitlens_1@1"
                 },
                 {
-                    "command": "gitlens.toggleBlame",
-                    "when": "gitlens:enabled",
+                    "command": "gitlens.diffWithWorking",
+                    "when": "gitlens:enabled && config.gitlens.advanced.menus.editorTitleContext.fileDiff",
                     "group": "1_gitlens_1@2"
                 },
                 {
-                    "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled",
-                    "group": "1_gitlens_1@3"
+                    "command": "gitlens.showQuickFileHistory",
+                    "when": "gitlens:enabled && config.gitlens.advanced.menus.editorTitleContext.history",
+                    "group": "1_gitlens_2@1"
+                },
+                {
+                    "command": "gitlens.toggleFileBlame",
+                    "when": "gitlens:enabled && config.gitlens.advanced.menus.editorTitleContext.blame",
+                    "group": "1_gitlens_2@2"
                 }
             ],
             "editor/context": [
                 {
+                    "command": "gitlens.openFileInRemote",
+                    "when": "editorTextFocus && gitlens:isTracked && gitlens:hasRemotes && config.gitlens.advanced.menus.editorContext.remote",
+                    "group": "navigation@100"
+                },
+                {
                     "command": "gitlens.diffLineWithPrevious",
-                    "when": "editorTextFocus && gitlens:isBlameable && config.gitlens.menus.diff.enabled",
+                    "when": "editorTextFocus && gitlens:isBlameable && config.gitlens.advanced.menus.editorContext.lineDiff",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.diffLineWithWorking",
-                    "when": "editorTextFocus && gitlens:isBlameable && config.gitlens.menus.diff.enabled",
+                    "when": "editorTextFocus && gitlens:isBlameable && config.gitlens.advanced.menus.editorContext.lineDiff",
                     "group": "1_gitlens@2"
                 },
                 {
                     "command": "gitlens.showQuickCommitFileDetails",
-                    "when": "editorTextFocus && gitlens:isBlameable",
+                    "when": "editorTextFocus && gitlens:isBlameable && config.gitlens.advanced.menus.editorContext.details",
                     "group": "1_gitlens@3"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
-                    "when": "editorTextFocus && gitlens:isTracked && config.gitlens.menus.diff.enabled",
+                    "when": "editorTextFocus && gitlens:isTracked && config.gitlens.advanced.menus.editorContext.fileDiff",
                     "group": "1_gitlens_1@1"
                 },
                 {
                     "command": "gitlens.diffWithWorking",
-                    "when": "editorTextFocus && gitlens:isTracked && config.gitlens.menus.diff.enabled",
+                    "when": "editorTextFocus && gitlens:isTracked && config.gitlens.advanced.menus.editorContext.fileDiff",
                     "group": "1_gitlens_1@2"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
-                    "when": "gitlens:isTracked",
+                    "when": "gitlens:isTracked && config.gitlens.advanced.menus.editorContext.history",
                     "group": "3_gitlens@1"
                 },
                 {
-                    "command": "gitlens.toggleBlame",
-                    "when": "editorTextFocus && gitlens:isBlameable",
+                    "command": "gitlens.toggleFileBlame",
+                    "when": "editorTextFocus && gitlens:isBlameable && config.gitlens.advanced.menus.editorContext.blame",
                     "group": "3_gitlens@2"
                 },
                 {
-                    "command": "gitlens.openFileInRemote",
-                    "when": "editorTextFocus && gitlens:isTracked && gitlens:hasRemotes",
-                    "group": "3_gitlens@3"
-                },
-                {
                     "command": "gitlens.copyShaToClipboard",
-                    "when": "editorTextFocus && gitlens:isBlameable",
+                    "when": "editorTextFocus && gitlens:isBlameable && config.gitlens.advanced.menus.editorContext.copy",
                     "group": "9_gitlens@1"
                 },
                 {
                     "command": "gitlens.copyMessageToClipboard",
-                    "when": "editorTextFocus && gitlens:isBlameable",
+                    "when": "editorTextFocus && gitlens:isBlameable && config.gitlens.advanced.menus.editorContext.copy",
                     "group": "9_gitlens@2"
                 }
             ]
@@ -809,7 +1143,7 @@
                 "when": "gitlens:key:."
             },
             {
-                "command": "gitlens.toggleBlame",
+                "command": "gitlens.toggleFileBlame",
                 "key": "alt+b",
                 "mac": "alt+b",
                 "when": "editorTextFocus && gitlens:isTracked"

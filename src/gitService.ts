@@ -2,9 +2,9 @@
 import { Iterables, Objects } from './system';
 import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, languages, Location, Position, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, workspace } from 'vscode';
 import { CommandContext, setCommandContext } from './commands';
-import { CodeLensVisibility, IConfig } from './configuration';
+import { IConfig } from './configuration';
 import { DocumentSchemes, ExtensionKey } from './constants';
-import { Git, GitBlameParser, GitBranch, GitCommit, GitDiffParser, GitLogCommit, GitLogParser, GitRemote, GitStashParser, GitStatusFile, GitStatusParser, IGit, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitDiff, IGitLog, IGitStash, IGitStatus, setDefaultEncoding } from './git/git';
+import { Git, GitBlameParser, GitBranch, GitCommit, GitDiffParser, GitLogCommit, GitLogParser, GitRemote, GitStashParser, GitStatusFile, GitStatusParser, IGit, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitDiff, IGitDiffLine, IGitLog, IGitStash, IGitStatus, setDefaultEncoding } from './git/git';
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
 import { Logger } from './logger';
@@ -15,6 +15,7 @@ import * as path from 'path';
 
 export { GitUri, IGitCommitInfo };
 export * from './git/models/models';
+export * from './git/formatters/commit';
 export { getNameFromRemoteResource, RemoteResource, RemoteProvider } from './git/remotes/provider';
 export * from './git/gitContextTracker';
 
@@ -139,7 +140,7 @@ export class GitService extends Disposable {
 
         if (codeLensChanged) {
             Logger.log('CodeLens config changed; resetting CodeLens provider');
-            if (cfg.codeLens.visibility === CodeLensVisibility.Auto && (cfg.codeLens.recentChange.enabled || cfg.codeLens.authors.enabled)) {
+            if (cfg.codeLens.enabled && (cfg.codeLens.recentChange.enabled || cfg.codeLens.authors.enabled)) {
                 if (this._codeLensProvider) {
                     this._codeLensProvider.reset();
                 }
@@ -154,7 +155,7 @@ export class GitService extends Disposable {
                 this._codeLensProvider = undefined;
             }
 
-            setCommandContext(CommandContext.CanToggleCodeLens, cfg.codeLens.visibility !== CodeLensVisibility.Off && (cfg.codeLens.recentChange.enabled || cfg.codeLens.authors.enabled));
+            setCommandContext(CommandContext.CanToggleCodeLens, cfg.codeLens.recentChange.enabled || cfg.codeLens.authors.enabled);
         }
 
         if (advancedChanged) {
@@ -644,13 +645,13 @@ export class GitService extends Disposable {
         }
     }
 
-    async getDiffForLine(uri: GitUri, line: number, sha1?: string, sha2?: string): Promise<[string | undefined, string | undefined] | undefined> {
+    async getDiffForLine(uri: GitUri, line: number, sha1?: string, sha2?: string): Promise<[IGitDiffLine | undefined, IGitDiffLine | undefined]> {
         try {
             const diff = await this.getDiffForFile(uri, sha1, sha2);
-            if (diff === undefined) return undefined;
+            if (diff === undefined) return [undefined, undefined];
 
             const chunk = diff.chunks.find(_ => _.currentStart <= line && _.currentEnd >= line);
-            if (chunk === undefined) return undefined;
+            if (chunk === undefined) return [undefined, undefined];
 
             // Search for the line (skipping deleted lines -- since they don't currently exist in the editor)
             // Keep track of the deleted lines for the original version
@@ -675,7 +676,7 @@ export class GitService extends Disposable {
             ];
         }
         catch (ex) {
-            return undefined;
+            return [undefined, undefined];
         }
     }
 
@@ -1008,8 +1009,7 @@ export class GitService extends Disposable {
     }
 
     toggleCodeLens(editor: TextEditor) {
-        if (this.config.codeLens.visibility === CodeLensVisibility.Off ||
-            (!this.config.codeLens.recentChange.enabled && !this.config.codeLens.authors.enabled)) return;
+        if (!this.config.codeLens.recentChange.enabled && !this.config.codeLens.authors.enabled) return;
 
         Logger.log(`toggleCodeLens()`);
         if (this._codeLensProviderDisposable) {

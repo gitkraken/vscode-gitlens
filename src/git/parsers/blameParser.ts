@@ -60,7 +60,7 @@ export class GitBlameParser {
             switch (lineParts[0]) {
                 case 'author':
                     entry.author = Git.isUncommitted(entry.sha)
-                        ? 'Uncommitted'
+                        ? 'You'
                         : lineParts.slice(1).join(' ').trim();
                     break;
 

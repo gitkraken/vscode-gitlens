@@ -15,4 +15,8 @@ export namespace Functions {
     export function once<T extends Function>(fn: T): T {
         return _once(fn);
     }
+
+    export async function wait(ms: number) {
+        await new Promise(resolve => setTimeout(resolve, ms));
+    }
 }

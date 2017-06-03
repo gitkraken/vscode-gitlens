@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
         "forceConsistentCasingInFileNames": true,
-        "lib": [ "es2015" ],
+        "lib": [ "es2015", "es2016" ],
         "module": "commonjs",
         "noFallthroughCasesInSwitch": true,
         "noImplicitReturns": true,
@@ -12,7 +12,7 @@
         "skipLibCheck": true,
         "sourceMap": true,
         "strict": true,
-        "target": "es2015"
+        "target": "es2016"
     },
     "exclude": [
         "node_modules",

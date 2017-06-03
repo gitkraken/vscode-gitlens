@@ -7,13 +7,13 @@ import { Telemetry } from '../telemetry';
 export type Commands = 'gitlens.closeUnchangedFiles' | 'gitlens.copyMessageToClipboard' | 'gitlens.copyShaToClipboard' |
     'gitlens.diffDirectory' | 'gitlens.diffWithBranch' | 'gitlens.diffWithNext' | 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' |
     'gitlens.openChangedFiles' | 'gitlens.openBranchInRemote' | 'gitlens.openCommitInRemote' | 'gitlens.openFileInRemote' | 'gitlens.openInRemote' | 'gitlens.openRepoInRemote' |
-    'gitlens.showBlame' | 'gitlens.showBlameHistory' | 'gitlens.showCommitSearch' | 'gitlens.showFileHistory' |
-    'gitlens.showLastQuickPick' | 'gitlens.showQuickBranchHistory' |
+    'gitlens.showBlameHistory' | 'gitlens.showCommitSearch' | 'gitlens.showFileBlame' | 'gitlens.showFileHistory' |
+    'gitlens.showLastQuickPick' | 'gitlens.showLineBlame' | 'gitlens.showQuickBranchHistory' |
     'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' |
     'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory' |
     'gitlens.showQuickRepoStatus' | 'gitlens.showQuickStashList' |
     'gitlens.stashApply' | 'gitlens.stashDelete' | 'gitlens.stashSave' |
-    'gitlens.toggleBlame' | 'gitlens.toggleCodeLens';
+    'gitlens.toggleCodeLens' | 'gitlens.toggleFileBlame' | 'gitlens.toggleLineBlame';
 export const Commands = {
     CloseUnchangedFiles: 'gitlens.closeUnchangedFiles' as Commands,
     CopyMessageToClipboard: 'gitlens.copyMessageToClipboard' as Commands,
@@ -31,7 +31,8 @@ export const Commands = {
     OpenFileInRemote: 'gitlens.openFileInRemote' as Commands,
     OpenInRemote: 'gitlens.openInRemote' as Commands,
     OpenRepoInRemote: 'gitlens.openRepoInRemote' as Commands,
-    ShowBlame: 'gitlens.showBlame' as Commands,
+    ShowFileBlame: 'gitlens.showFileBlame' as Commands,
+    ShowLineBlame: 'gitlens.showLineBlame' as Commands,
     ShowBlameHistory: 'gitlens.showBlameHistory' as Commands,
     ShowCommitSearch: 'gitlens.showCommitSearch' as Commands,
     ShowFileHistory: 'gitlens.showFileHistory' as Commands,
@@ -46,7 +47,8 @@ export const Commands = {
     StashApply: 'gitlens.stashApply' as Commands,
     StashDelete: 'gitlens.stashDelete' as Commands,
     StashSave: 'gitlens.stashSave' as Commands,
-    ToggleBlame: 'gitlens.toggleBlame' as Commands,
+    ToggleFileBlame: 'gitlens.toggleFileBlame' as Commands,
+    ToggleLineBlame: 'gitlens.toggleLineBlame' as Commands,
     ToggleCodeLens: 'gitlens.toggleCodeLens' as Commands
 };
 

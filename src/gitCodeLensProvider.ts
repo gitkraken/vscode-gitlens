@@ -3,7 +3,7 @@ import { Functions, Iterables, Strings } from './system';
 import { CancellationToken, CodeLens, CodeLensProvider, Command, commands, DocumentSelector, Event, EventEmitter, ExtensionContext, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri, workspace } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs, ShowBlameHistoryCommandArgs, ShowFileHistoryCommandArgs, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from './commands';
 import { BuiltInCommands, DocumentSchemes, ExtensionKey } from './constants';
-import { CodeLensCommand, CodeLensLocation, ICodeLensLanguageLocation, IConfig } from './configuration';
+import { CodeLensCommand, CodeLensLocations, ICodeLensLanguageLocation, IConfig } from './configuration';
 import { GitCommit, GitService, GitUri, IGitBlame, IGitBlameLines } from './gitService';
 import { Logger } from './logger';
 import * as moment from 'moment';
@@ -56,24 +56,22 @@ export class GitCodeLensProvider implements CodeLensProvider {
     async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
         this._documentIsDirty = document.isDirty;
 
-        let languageLocations = this._config.codeLens.languageLocations.find(_ => _.language !== undefined && _.language.toLowerCase() === document.languageId);
+        let languageLocations = this._config.codeLens.perLanguageLocations.find(_ => _.language !== undefined && _.language.toLowerCase() === document.languageId);
         if (languageLocations == null) {
             languageLocations = {
                 language: undefined,
-                location: this._config.codeLens.location,
-                customSymbols: this._config.codeLens.locationCustomSymbols
+                locations: this._config.codeLens.locations,
+                customSymbols: this._config.codeLens.customLocationSymbols
             } as ICodeLensLanguageLocation;
         }
 
         const lenses: CodeLens[] = [];
 
-        if (languageLocations.location === CodeLensLocation.None) return lenses;
-
         const gitUri = await GitUri.fromUri(document.uri, this.git);
 
         const blamePromise = this.git.getBlameForFile(gitUri);
         let blame: IGitBlame | undefined;
-        if (languageLocations.location === CodeLensLocation.Document) {
+        if (languageLocations.locations.length === 1 && languageLocations.locations.includes(CodeLensLocations.Document)) {
             blame = await blamePromise;
             if (blame === undefined || !blame.lines.length) return lenses;
         }
@@ -91,7 +89,8 @@ export class GitCodeLensProvider implements CodeLensProvider {
             symbols.forEach(sym => this._provideCodeLens(gitUri, document, sym, languageLocations!, blame!, lenses));
         }
 
-        if (languageLocations.location !== CodeLensLocation.Custom || (languageLocations.customSymbols || []).find(_ => _.toLowerCase() === 'file')) {
+        if (languageLocations.locations.includes(CodeLensLocations.Document) ||
+            (languageLocations.locations.includes(CodeLensLocations.Custom) && (languageLocations.customSymbols || []).find(_ => _.toLowerCase() === 'file'))) {
             // Check if we have a lens for the whole document -- if not add one
             if (!lenses.find(l => l.range.start.line === 0 && l.range.end.line === 0)) {
                 const blameRange = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
@@ -117,55 +116,61 @@ export class GitCodeLensProvider implements CodeLensProvider {
     private _validateSymbolAndGetBlameRange(document: TextDocument, symbol: SymbolInformation, languageLocation: ICodeLensLanguageLocation): Range | undefined {
         let valid = false;
         let range: Range | undefined;
-        switch (languageLocation.location) {
-            case CodeLensLocation.All:
-            case CodeLensLocation.DocumentAndContainers:
-                switch (symbol.kind) {
-                    case SymbolKind.File:
-                        valid = true;
-                        // Adjust the range to be the whole file
-                        range = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
-                        break;
-                    case SymbolKind.Package:
-                    case SymbolKind.Module:
-                        // Adjust the range to be the whole file
-                        if (symbol.location.range.start.line === 0 && symbol.location.range.end.line === 0) {
-                            range = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
-                        }
-                        valid = true;
-                        break;
-                    case SymbolKind.Namespace:
-                    case SymbolKind.Class:
-                    case SymbolKind.Interface:
-                        valid = true;
-                        break;
-                    case SymbolKind.Constructor:
-                    case SymbolKind.Method:
-                    case SymbolKind.Function:
-                    case SymbolKind.Property:
-                    case SymbolKind.Enum:
-                        valid = languageLocation.location === CodeLensLocation.All;
-                        break;
+
+        switch (symbol.kind) {
+            case SymbolKind.File:
+                if (languageLocation.locations.includes(CodeLensLocations.Containers)) {
+                    valid = true;
+                }
+                else if (languageLocation.locations.includes(CodeLensLocations.Custom)) {
+                    valid = !!(languageLocation.customSymbols || []).find(_ => _.toLowerCase() === SymbolKind[symbol.kind].toLowerCase());
+                }
+
+                if (valid) {
+                    // Adjust the range to be for the whole file
+                    range = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
                 }
                 break;
-            case CodeLensLocation.Custom:
-                valid = !!(languageLocation.customSymbols || []).find(_ => _.toLowerCase() === SymbolKind[symbol.kind].toLowerCase());
+
+            case SymbolKind.Package:
+                if (languageLocation.locations.includes(CodeLensLocations.Containers)) {
+                    valid = true;
+                }
+                else if (languageLocation.locations.includes(CodeLensLocations.Custom)) {
+                    valid = !!(languageLocation.customSymbols || []).find(_ => _.toLowerCase() === SymbolKind[symbol.kind].toLowerCase());
+                }
+
                 if (valid) {
-                    switch (symbol.kind) {
-                        case SymbolKind.File:
-                            // Adjust the range to be the whole file
-                            range = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
-                            break;
-                        case SymbolKind.Package:
-                        case SymbolKind.Module:
-                            // Adjust the range to be the whole file
-                            if (symbol.location.range.start.line === 0 && symbol.location.range.end.line === 0) {
-                                range = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
-                            }
-                            break;
+                    // Adjust the range to be for the whole file
+                    if (symbol.location.range.start.line === 0 && symbol.location.range.end.line === 0) {
+                        range = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
                     }
                 }
                 break;
+
+            case SymbolKind.Class:
+            case SymbolKind.Interface:
+            case SymbolKind.Module:
+            case SymbolKind.Namespace:
+            case SymbolKind.Struct:
+                if (languageLocation.locations.includes(CodeLensLocations.Containers)) {
+                    valid = true;
+                }
+                break;
+
+            case SymbolKind.Constructor:
+            case SymbolKind.Enum:
+            case SymbolKind.Function:
+            case SymbolKind.Method:
+            case SymbolKind.Property:
+                if (languageLocation.locations.includes(CodeLensLocations.Blocks)) {
+                    valid = true;
+                }
+                break;
+        }
+
+        if (!valid && languageLocation.locations.includes(CodeLensLocations.Custom)) {
+            valid = !!(languageLocation.customSymbols || []).find(_ => _.toLowerCase() === SymbolKind[symbol.kind].toLowerCase());
         }
 
         return valid ? range || symbol.location.range : undefined;
@@ -302,7 +307,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
     _applyBlameAnnotateCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: IGitBlameLines): T {
         lens.command = {
             title: title,
-            command: Commands.ToggleBlame,
+            command: Commands.ToggleFileBlame,
             arguments: [Uri.file(lens.uri.fsPath)]
         };
         return lens;
