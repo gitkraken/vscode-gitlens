@@ -7,7 +7,7 @@
 
 GitLens **supercharges** the built-in Visual Studio Code Git capabilities. It helps you to **visualize code authorship** at a glance via Git blame annotations and code lens, **seamlessly navigate and explore** the history of a file or branch, **gain valuable insights** via powerful comparision commands, and so much more.
 
-GitLens provides an unobtrusive blame annotation at the end of the current line, a status bar item showing the commit author and date of the current line, code lens showing the most recent commit and # of authors of the file and/or code block, and many commands for exploring commits and histories, comparing and navigating revisions, stash access, repository status, and more. GitLens is also [highly customizable](#extension-settings) to meet your specific needs — find code lens intrusive or the current line blame annotation distracting — no problem, it is easy to [turn them off or change how they behave](#extension-settings).
+GitLens provides an unobtrusive blame annotation at the end of the current line, a status bar item showing the commit information (author and date, by default) of the current line, code lens showing the most recent commit and # of authors of the file and/or code block, and many commands for exploring commits and histories, comparing and navigating revisions, stash access, repository status, and more. GitLens is also [highly customizable](#extension-settings) to meet your specific needs — find code lens intrusive or the current line blame annotation distracting — no problem, it is easy to [turn them off or change how they behave](#extension-settings).
 
 ## Previews
 #### Featuring code lens, file blame annotations, and navigation and exploration via quick pick menus
@@ -20,14 +20,15 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 #### Git Blame Annotations
 
-- Adds a [customizable](#line-blame-annotation-settings) **Git blame annotation** to the end of the current line ([optional](#line-blame-annotation-settings), on by default)
-  - Contains the commit author, date, and message, by [default](#line-blame-annotation-settings)
-  - Commit details, including the changes from the line's previous version, are provided in a hover popup ([optional](#line-blame-annotation-settings), on by default)
+- Adds an unobtrusive, highly [customizable](#line-blame-annotation-settings) and [themeable](#theme-settings), **Git blame annotation** to the end of the current line ([optional](#line-blame-annotation-settings), on by default)
+  - Contains the author, date, and message of the line's most recent commit, by [default](#line-blame-annotation-settings)
+  - Also adds a `details` hover annotation to the current line annotation which provides more commit details ([optional](#line-blame-annotation-settings), on by default)
+  - Also adds a `changes` (diff) hover annotation to the current line annotation which provides **instant** access to the line's previous version ([optional](#line-blame-annotation-settings), on by default)
 
-- Adds on-demand, highly [customizable](#file-blame-annotation-settings) **Git blame annotations** of the whole file
+- Adds on-demand, beautiful, highly [customizable](#file-blame-annotation-settings) and [themeable](#theme-settings), **Git blame annotations** of the whole file
   - Choose between `gutter` (default) and `hover` [annotation styles](#file-blame-annotation-settings)
   - Contains the commit message and date, by [default](#file-blame-annotation-settings)
-  - Commit details are also provided in a hover popup ([optional](#file-blame-annotation-settings), on by default)
+  - Also adds a `details` hover annotation to the line's annotation which provides more commit details ([optional](#file-blame-annotation-settings), on by default)
 
 - Adds [customizable](#status-bar-settings) **blame information** about the current line to the **status bar**  ([optional](#status-bar-settings), on by default)
   - Contains the commit author and date, by [default](#status-bar-settings)
@@ -287,7 +288,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 |Name | Description
 |-----|------------
 |`gitlens.advanced.toggleWhitespace.enabled`|Specifies whether or not to toggle whitespace off then showing blame annotations (*may* be required by certain fonts/themes)
-|`gitlens.advanced.menus`|Specifies which commands will be added to the menus
+|`gitlens.advanced.menus`|Specifies which commands will be added to which menus
 |`gitlens.advanced.caching.enabled`|Specifies whether git output will be cached
 |`gitlens.advanced.caching.maxLines`|Specifies the threshold for caching larger documents
 |`gitlens.advanced.git`|Specifies the git path to use

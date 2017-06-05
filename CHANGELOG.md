@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [4.0.0-alpha.2] - 2017-06-05
+### Added
+- Adds all-new, beautiful, highly customizable and themeable, file blame annotations
+  - Can now fully customize the [layout and content](https://github.com/eamodio/vscode-gitlens/blob/develop/README.md#file-blame-annotation-settings), as well as the [theme](https://github.com/eamodio/vscode-gitlens/blob/develop/README.md#theme-settings)
+- Adds all-new configurability and themeability to the current line blame annotations
+  - Can now fully customize the [layout and content](https://github.com/eamodio/vscode-gitlens/blob/develop/README.md#line-blame-annotation-settings), as well as the [theme](https://github.com/eamodio/vscode-gitlens/blob/develop/README.md#theme-settings)
+- Adds all-new configurability to the status bar blame information
+  - Can now fully customize the [layout and content](https://github.com/eamodio/vscode-gitlens/blob/develop/README.md#status-bar-settings)
+- Adds all-new [configurability](https://github.com/eamodio/vscode-gitlens/blob/develop/README.md#advanced-settings) over which commands are added to which menus via the `gitlens.advanced.menus` setting
+- Adds better [configurability](https://github.com/eamodio/vscode-gitlens/blob/develop/README.md#code-lens-settings) over where Git code lens will be shown -- both by default and per language
+- Adds an all-new `changes` (diff) hover annotation to the current line - provides instant access to the line's previous version
+- Adds `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`) - toggles the current line blame annotations on and off
+- Adds `Show Line Blame Annotations` command (`gitlens.showLineBlame`) - shows the current line blame annotations
+- Adds `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) - toggles the file blame annotations on and off
+- Adds `Show File Blame Annotations` command (`gitlens.showFileBlame`) - shows the file blame annotations
+- Adds `Open File in Remote` command (`gitlens.openFileInRemote`) to the `editor/title` context menu
+- Adds `Open Repo in Remote` command (`gitlens.openRepoInRemote`) to the `editor/title` context menu
+
+### Changed
+- (BREAKING) Almost all of the GitLens settings have either been renamed, removed, or otherwise changed - see the [README](https://github.com/eamodio/vscode-gitlens/blob/develop/README.md#extension-settings)`
+- Changes the position of the `Open File in Remote` command (`gitlens.openFileInRemote`) in the context menus - now in the `navigation` group
+- Changes the `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) to always toggle the Git code lens on and off
+
+### Removed
+- Removes the on-demand `trailing` file blame annotations -- didn't work out and just ended up with a ton of visual noise
+- Removes `Toggle Blame Annotations` command (`gitlens.toggleBlame`) - replaced by the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`)
+- Removes `Show Blame Annotations` command (`gitlens.showBlame`) - replaced by the `Show File Blame Annotations` command (`gitlens.showFileBlame`)
+
 ## [3.6.1] - 2017-06-07
 ### Fixed
 - Fixes issues with the zone.js monkey patching done by application insights (telemetry) - disables all the monkey patching
