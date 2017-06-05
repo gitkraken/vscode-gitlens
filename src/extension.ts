@@ -129,6 +129,20 @@ async function notifyOnNewGitLensVersion(context: ExtensionContext, version: str
 
     const previousVersion = context.globalState.get<string>(WorkspaceState.GitLensVersion);
 
+    if (!context.globalState.get(WorkspaceState.SuppressWelcomeNotice, false)) {
+        await context.globalState.update(WorkspaceState.SuppressWelcomeNotice, true);
+
+        if (previousVersion === undefined) {
+            const result = await window.showInformationMessage(`Thank you for choosing GitLens! GitLens is powerful, feature rich, and highly configurable, so please be sure to view the docs and tailor it to suit your needs.`, 'View Docs');
+            if (result === 'View Docs') {
+                // TODO: Reset before release
+                // commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://marketplace.visualstudio.com/items/eamodio.gitlens'));
+                commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://github.com/eamodio/vscode-gitlens/blob/develop/README.md'));
+            }
+            return;
+        }
+    }
+
     await context.globalState.update(WorkspaceState.GitLensVersion, version);
 
     if (previousVersion) {
@@ -139,7 +153,9 @@ async function notifyOnNewGitLensVersion(context: ExtensionContext, version: str
 
     const result = await window.showInformationMessage(`GitLens has been updated to v${version}`, 'View Release Notes', `Don't Show Again`);
     if (result === 'View Release Notes') {
-        commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://marketplace.visualstudio.com/items/eamodio.gitlens/changelog'));
+        // TODO: Reset before release
+        // commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://marketplace.visualstudio.com/items/eamodio.gitlens/changelog'));
+        commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://github.com/eamodio/vscode-gitlens/blob/develop/CHANGELOG.md'));
     }
     else if (result === `Don't Show Again`) {
         context.globalState.update(WorkspaceState.SuppressUpdateNotice, true);

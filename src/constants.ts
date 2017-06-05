@@ -31,9 +31,10 @@ export const DocumentSchemes = {
     GitLensGit: 'gitlens-git' as DocumentSchemes
 };
 
-export type WorkspaceState = 'repoPath' | 'suppressGitVersionWarning' | 'suppressUpdateNotice';
+export type WorkspaceState = 'repoPath' | 'suppressGitVersionWarning' | 'suppressUpdateNotice' | 'suppressWelcomeNotice';
 export const WorkspaceState = {
     GitLensVersion: 'gitlensVersion' as WorkspaceState,
     SuppressGitVersionWarning: 'suppressGitVersionWarning' as WorkspaceState,
-    SuppressUpdateNotice: 'suppressUpdateNotice' as WorkspaceState
+    SuppressUpdateNotice: 'suppressUpdateNotice' as WorkspaceState,
+    SuppressWelcomeNotice: 'suppressWelcomeNotice' as WorkspaceState
 };
