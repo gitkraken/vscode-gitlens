@@ -1,5 +1,5 @@
 'use strict';
-import { Functions, Iterables, Strings } from './system';
+import { Functions, Iterables } from './system';
 import { CancellationToken, CodeLens, CodeLensProvider, Command, commands, DocumentSelector, Event, EventEmitter, ExtensionContext, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri, workspace } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs, ShowBlameHistoryCommandArgs, ShowFileHistoryCommandArgs, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from './commands';
 import { BuiltInCommands, DocumentSchemes, ExtensionKey } from './constants';
@@ -184,17 +184,8 @@ export class GitCodeLensProvider implements CodeLensProvider {
         // Make sure there is only 1 lens per line
         if (lenses.length && lenses[lenses.length - 1].range.start.line === line.lineNumber) return;
 
-        let startChar = -1;
-        try {
-            startChar = line.text.search(`\\b${Strings.escapeRegExp(symbol.name)}\\b`);
-        }
-        catch (ex) { }
-        if (startChar === -1) {
-            startChar = line.firstNonWhitespaceCharacterIndex;
-        }
-        else {
-            startChar += Math.floor(symbol.name.length / 2);
-        }
+        // Anchor the code lens to the end of the line -- so they are somewhat consistenly placed
+        let startChar = line.range.end.character - 1;
 
         let blameForRangeFn: (() => IGitBlameLines | undefined) | undefined = undefined;
         if (this._documentIsDirty || this._config.codeLens.recentChange.enabled) {
