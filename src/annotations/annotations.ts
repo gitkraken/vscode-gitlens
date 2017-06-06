@@ -77,8 +77,7 @@ export class Annotations {
                 before: {
                     ...renderOptions.before,
                     ...{
-                        contentText: content,
-                        margin: '0 26px 0 0'
+                        contentText: content
                     }
                 },
                 dark: {
@@ -113,7 +112,9 @@ export class Annotations {
             before: {
                 borderStyle: borderStyle,
                 borderWidth: borderWidth,
-                height: cfgFileTheme.separateLines ? 'calc(100% - 1px)' : '100%'
+                height: cfgFileTheme.separateLines ? 'calc(100% - 1px)' : '100%',
+                margin: '0 26px 0 0',
+                textDecoration: 'none'
             },
             dark: {
                 backgroundColor: cfgFileTheme.dark.backgroundColor || undefined,
@@ -123,7 +124,7 @@ export class Annotations {
                 backgroundColor: cfgFileTheme.light.backgroundColor || undefined,
                 color: cfgFileTheme.light.foregroundColor || themeDefaults.annotations.file.gutter.light.foregroundColor
             } as DecorationInstanceRenderOptions
-        };
+        } as IRenderOptions;
     }
 
     static hover(commit: GitCommit, renderOptions: IRenderOptions, heatmap: boolean): DecorationOptions {
@@ -142,7 +143,8 @@ export class Annotations {
                 borderWidth: '0 0 0 2px',
                 contentText: '\u200B',
                 height: cfgTheme.annotations.file.hover.separateLines ? 'calc(100% - 1px)' : '100%',
-                margin: '0 26px 0 0'
+                margin: '0 26px 0 0',
+                textDecoration: 'none'
             }
         } as IRenderOptions;
     }
