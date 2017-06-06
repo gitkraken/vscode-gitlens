@@ -233,6 +233,7 @@ export class AnnotationController extends Disposable {
         for (const [key, p] of this._annotationProviders) {
             if (!TextDocumentComparer.equals(p.document, e.document)) continue;
 
+            // TODO: Rework this once https://github.com/Microsoft/vscode/issues/27231 is released in v1.13
             // We have to defer because isDirty is not reliable inside this event
             setTimeout(() => {
                 // If the document is dirty all is fine, just kick out since the GitContextTracker will handle it
