@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "4.0.0-alpha.2",
+    "version": "4.0.0-beta",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -1234,7 +1234,7 @@
         "postinstall": "node ./node_modules/vscode/bin/install",
         "pub": "git clean -xdf && vsce publish",
         "reset": "git clean -xdf && npm install",
-        "vscode:prepublish": "npm install && npm run compile"
+        "vscode:prepublish": "npm install --no-save && npm run compile"
     },
     "dependencies": {
         "applicationinsights": "0.20.1",
@@ -1257,7 +1257,7 @@
         "@types/node": "7.0.28",
         "@types/tmp": "0.0.33",
         "mocha": "3.4.2",
-        "tslint": "5.4.2",
+        "tslint": "5.4.3",
         "typescript": "2.3.4",
         "vscode": "1.1.0"
     }
