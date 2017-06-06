@@ -11,7 +11,8 @@ import { BlameabilityChangeEvent, CommitFormatter, GitCommit, GitContextTracker,
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
     after: {
-        margin: '0 0 0 4em'
+        margin: '0 0 0 3em',
+        textDecoration: 'none'
     }
 } as DecorationRenderOptions);
 

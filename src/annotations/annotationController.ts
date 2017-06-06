@@ -12,7 +12,8 @@ import { WhitespaceController } from './whitespaceController';
 
 export const Decorations = {
     annotation: window.createTextEditorDecorationType({
-        isWholeLine: true
+        isWholeLine: true,
+        textDecoration: 'none'
     } as DecorationRenderOptions),
     highlight: undefined as TextEditorDecorationType | undefined
 };
