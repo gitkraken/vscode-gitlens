@@ -76,12 +76,12 @@
                 "gitlens.annotations.file.gutter.format": {
                     "type": "string",
                     "default": "${message|40?} ${ago|14-}",
-                    "description": "Specifies the format of the gutter blame annotations. Available tokens: `${id}` - commit id, `${author}` - commit author, `${message}` - commit message, `${ago}` - relative commit date (e.g. 1 day ago), `${date}` - formatted commit date (format specified by `gitlens.annotations.file.dateFormat`), `${authorAgo}` - commit author, relative commit date"
+                    "description": "Specifies the format of the gutter blame annotations\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.annotations.file.gutter.dateFormat`)\n ${authorAgo} - commit author, relative commit date\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting"
                 },
                 "gitlens.annotations.file.gutter.dateFormat": {
                     "type": "string",
                     "default": null,
-                    "description": "Specifies how to format absolute dates (using the `${date}` token) in gutter blame annotations. See https://momentjs.com/docs/#/displaying/format/ for valid formats"
+                    "description": "Specifies how to format absolute dates (using the `${date}` token) in gutter blame annotations\nSee https://momentjs.com/docs/#/displaying/format/ for valid formats"
                 },
                 "gitlens.annotations.file.gutter.compact": {
                     "type": "boolean",
@@ -100,7 +100,7 @@
                         "left",
                         "right"
                     ],
-                    "description": "Specifies where the heatmap indicators will be shown in the gutter blame annotations. `left` - adds a heatmap indicator on the left edge of the gutter blame annotations. `right` - adds a heatmap indicator on the right edge of the gutter blame annotations"
+                    "description": "Specifies where the heatmap indicators will be shown in the gutter blame annotations\n `left` - adds a heatmap indicator on the left edge of the gutter blame annotations\n `right` - adds a heatmap indicator on the right edge of the gutter blame annotations"
                 },
                 "gitlens.annotations.file.gutter.hover.details": {
                     "type": "boolean",
@@ -135,12 +135,12 @@
                 "gitlens.annotations.line.trailing.format": {
                     "type": "string",
                     "default": "${authorAgo} \u2022 ${message}",
-                    "description": "Specifies the format of the trailing blame annotations. Available tokens: `${id}` - commit id, `${author}` - commit author, `${message}` - commit message, `${ago}` - relative commit date (e.g. 1 day ago), `${date}` - formatted commit date (format specified by `gitlens.annotations.currentLine.dateFormat`), `${authorAgo}` - commit author, relative commit date"
+                    "description": "Specifies the format of the trailing blame annotations\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.annotations.line.trailing.dateFormat`)\n ${authorAgo} - commit author, relative commit date\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting"
                 },
                 "gitlens.annotations.line.trailing.dateFormat": {
                     "type": "string",
                     "default": null,
-                    "description": "Specifies how to format absolute dates (using the `${date}` token) in trailing blame annotations. See https://momentjs.com/docs/#/displaying/format/ for valid formats"
+                    "description": "Specifies how to format absolute dates (using the `${date}` token) in trailing blame annotations\nSee https://momentjs.com/docs/#/displaying/format/ for valid formats"
                 },
                 "gitlens.annotations.line.trailing.hover.details": {
                     "type": "boolean",
@@ -164,7 +164,7 @@
                         "gutter",
                         "hover"
                     ],
-                    "description": "Specifies the type of blame annotations that will be shown for the current file. `gutter` - adds an annotation to the beginning of each line. `hover` - shows annotations when hovering over each line"
+                    "description": "Specifies the type of blame annotations that will be shown for the current file\n `gutter` - adds an annotation to the beginning of each line\n `hover` - shows annotations when hovering over each line"
                 },
                 "gitlens.blame.file.lineHighlight.enabled": {
                     "type": "boolean",
@@ -189,7 +189,7 @@
                     "minItems": 1,
                     "maxItems": 3,
                     "uniqueItems": true,
-                    "description": "Specifies where the associated line highlights will be shown. `gutter` - adds a gutter glyph. `line` - adds a full-line highlight background color. `overviewRuler` - adds a decoration to the overviewRuler (scroll bar)"
+                    "description": "Specifies where the associated line highlights will be shown\n `gutter` - adds a gutter glyph\n `line` - adds a full-line highlight background color\n `overviewRuler` - adds a decoration to the overviewRuler (scroll bar)"
                 },
                 "gitlens.blame.line.enabled": {
                     "type": "boolean",
@@ -203,7 +203,7 @@
                         "trailing",
                         "hover"
                     ],
-                    "description": "Specifies the type of blame annotations that will be shown for the current line. `trailing` - adds an annotation to the end of the current line. `hover` - shows annotations when hovering over the current line"
+                    "description": "Specifies the type of blame annotations that will be shown for the current line\n `trailing` - adds an annotation to the end of the current line\n `hover` - shows annotations when hovering over the current line"
                 },
                 "gitlens.codeLens.enabled": {
                     "type": "boolean",
@@ -228,7 +228,7 @@
                         "gitlens.showQuickFileHistory",
                         "gitlens.showQuickRepoHistory"
                     ],
-                    "description": "Specifies the command to be executed when the `recent change` code lens is clicked. `gitlens.toggleFileBlame` - toggles file blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
+                    "description": "Specifies the command to be executed when the `recent change` code lens is clicked\n `gitlens.toggleFileBlame` - toggles file blame annotations\n `gitlens.showBlameHistory` - opens the blame history explorer\n `gitlens.showFileHistory` - opens the file history explorer\n `gitlens.diffWithPrevious` - compares the current committed file with the previous commit\n `gitlens.showQuickCommitDetails` - shows a commit details quick pick\n `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick\n `gitlens.showQuickFileHistory` - shows a file history quick pick\n `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
                 },
                 "gitlens.codeLens.authors.enabled": {
                     "type": "boolean",
@@ -248,7 +248,7 @@
                         "gitlens.showQuickFileHistory",
                         "gitlens.showQuickRepoHistory"
                     ],
-                    "description": "Specifies the command to be executed when the `authors` code lens is clicked. `gitlens.toggleFileBlame` - toggles file blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current committed file with the previous commit. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
+                    "description": "Specifies the command to be executed when the `authors` code lens is clicked\n `gitlens.toggleFileBlame` - toggles file blame annotations\n `gitlens.showBlameHistory` - opens the blame history explorer\n `gitlens.showFileHistory` - opens the file history explorer\n `gitlens.diffWithPrevious` - compares the current committed file with the previous commit\n `gitlens.showQuickCommitDetails` - shows a commit details quick pick\n `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick\n `gitlens.showQuickFileHistory` - shows a file history quick pick\n `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
                 },
                 "gitlens.codeLens.locations": {
                     "type": "array",
@@ -268,7 +268,7 @@
                     "minItems": 1,
                     "maxItems": 4,
                     "uniqueItems": true,
-                    "description": "Specifies where Git code lens will be shown in the document. `document` - adds code lens at the top of the document. `containers` -  adds code lens at the start of container-like symbols (modules, classes, interfaces, etc). `blocks` -  adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines. `custom` - adds code lens at the start of symbols contained in `gitlens.codeLens.locationCustomSymbols`"
+                    "description": "Specifies where Git code lens will be shown in the document\n `document` - adds code lens at the top of the document\n `containers` -  adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)\n `blocks` -  adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines\n `custom` - adds code lens at the start of symbols contained in `gitlens.codeLens.locationCustomSymbols`"
                 },
                 "gitlens.codeLens.customLocationSymbols": {
                     "type": "array",
@@ -276,7 +276,7 @@
                         "type": "string"
                     },
                     "uniqueItems": true,
-                    "description": "Specifies the set of document symbols where Git code lens will be shown in the document. Must be a member of `SymbolKind`"
+                    "description": "Specifies the set of document symbols where Git code lens will be shown in the document\nMust be a member of `SymbolKind`"
                 },
                 "gitlens.codeLens.perLanguageLocations": {
                     "type": "array",
@@ -347,7 +347,7 @@
                                 "minItems": 1,
                                 "maxItems": 4,
                                 "uniqueItems": true,
-                                "description": "Specifies where Git code lens will be shown in the document for the specified language. `document` - adds code lens at the top of the document. `containers` -  adds code lens at the start of container-like symbols (modules, classes, interfaces, etc). `blocks` -  adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines. `custom` - adds code lens at the start of symbols contained in `customSymbols`"
+                                "description": "Specifies where Git code lens will be shown in the document for the specified language\n `document` - adds code lens at the top of the document\n `containers` -  adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)\n `blocks` -  adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines\n `custom` - adds code lens at the start of symbols contained in `customSymbols`"
                             },
                             "customSymbols": {
                                 "type": "array",
@@ -355,7 +355,7 @@
                                     "type": "string"
                                 },
                                 "uniqueItems": true,
-                                "description": "Specifies the set of document symbols where Git code lens will be shown in the document for the specified language. Must be a member of `SymbolKind`"
+                                "description": "Specifies the set of document symbols where Git code lens will be shown in the document for the specified language\nMust be a member of `SymbolKind`"
                             }
                         }
                     },
@@ -379,7 +379,7 @@
                         "left",
                         "right"
                     ],
-                    "description": "Specifies the blame alignment in the status bar. `left` - align to the left,  `right` - align to the right"
+                    "description": "Specifies the blame alignment in the status bar\n `left` - align to the left\n `right` - align to the right"
                 },
                 "gitlens.statusBar.command": {
                     "type": "string",
@@ -396,12 +396,12 @@
                         "gitlens.showQuickFileHistory",
                         "gitlens.showQuickRepoHistory"
                     ],
-                    "description": "Specifies the command to be executed when the blame status bar item is clicked. `gitlens.toggleFileBlame` - toggles file blame annotations. `gitlens.showBlameHistory` - opens the blame history explorer. `gitlens.showFileHistory` - opens the file history explorer. `gitlens.diffWithPrevious` - compares the current line commit with the previous. `gitlens.diffWithWorking` - compares the current line commit with the working tree. `gitlens.toggleCodeLens` - toggles Git code lens. `gitlens.showQuickCommitDetails` - shows a commit details quick pick. `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick. `gitlens.showQuickFileHistory` - shows a file history quick pick. `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
+                    "description": "Specifies the command to be executed when the blame status bar item is clicked\n `gitlens.toggleFileBlame` - toggles file blame annotations\n `gitlens.showBlameHistory` - opens the blame history explorer\n `gitlens.showFileHistory` - opens the file history explorer\n `gitlens.diffWithPrevious` - compares the current line commit with the previous\n `gitlens.diffWithWorking` - compares the current line commit with the working tree\n `gitlens.toggleCodeLens` - toggles Git code lens\n `gitlens.showQuickCommitDetails` - shows a commit details quick pick\n `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick\n `gitlens.showQuickFileHistory` - shows a file history quick pick\n `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
                 },
                 "gitlens.statusBar.format": {
                     "type": "string",
                     "default": "${authorAgo}",
-                    "description": "Specifies the format of the status bar blame information. Available tokens: `${id}` - commit id, `${author}` - commit author, `${message}` - commit message, `${ago}` - relative commit date (e.g. 1 day ago), `${date}` - formatted commit date (format specified by `gitlens.statusBar.dateFormat`), `${authorAgo}` - commit author, relative commit date"
+                    "description": "Specifies the format of the status bar blame information\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)\n ${authorAgo} - commit author, relative commit date\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting"
                 },
                 "gitlens.statusBar.dateFormat": {
                     "type": "string",
