@@ -22,10 +22,12 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 - Adds an unobtrusive, highly [customizable](#line-blame-annotation-settings) and [themeable](#theme-settings), **Git blame annotation** to the end of the current line ([optional](#line-blame-annotation-settings), on by default)
 
-  ![Line Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/develop/images/screenshot-line-blame-annotations.png)
+  ![Line Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/develop/images/screenshot-line-blame-annotation.png)
   - Contains the author, date, and message of the line's most recent commit, by [default](#line-blame-annotation-settings)
   - Also adds a `details` hover annotation to the current line annotation which provides more commit details ([optional](#line-blame-annotation-settings), on by default)
   - Also adds a `changes` (diff) hover annotation to the current line annotation which provides **instant** access to the line's previous version ([optional](#line-blame-annotation-settings), on by default)
+
+    ![Line Blame Annotations](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/develop/images/screenshot-line-blame-annotations.png)
 
 - Adds on-demand, beautiful, highly [customizable](#file-blame-annotation-settings) and [themeable](#theme-settings), **Git blame annotations** of the whole file
 
