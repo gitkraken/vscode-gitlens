@@ -11,26 +11,32 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 ## Previews
 #### Featuring code lens, file blame annotations, and navigation and exploration via quick pick menus
-![GitLens preview 1](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/gitlens-preview1.gif)
+![GitLens preview 1](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/develop/images/gitlens-preview1.gif)
 
 #### Featuring current line blame annotation and hovers, status bar commit details, quick pick menus, compare with previous, and more
-![GitLens preview 2](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/gitlens-preview2.gif)
+![GitLens preview 2](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/develop/images/gitlens-preview2.gif)
 
 ## Features
 
 #### Git Blame Annotations
 
 - Adds an unobtrusive, highly [customizable](#line-blame-annotation-settings) and [themeable](#theme-settings), **Git blame annotation** to the end of the current line ([optional](#line-blame-annotation-settings), on by default)
+
+  ![Line Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/develop/images/screenshot-line-blame-annotations.png)
   - Contains the author, date, and message of the line's most recent commit, by [default](#line-blame-annotation-settings)
   - Also adds a `details` hover annotation to the current line annotation which provides more commit details ([optional](#line-blame-annotation-settings), on by default)
   - Also adds a `changes` (diff) hover annotation to the current line annotation which provides **instant** access to the line's previous version ([optional](#line-blame-annotation-settings), on by default)
 
 - Adds on-demand, beautiful, highly [customizable](#file-blame-annotation-settings) and [themeable](#theme-settings), **Git blame annotations** of the whole file
+
+  ![File Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/develop/images/screenshot-file-blame-annotations.png)
   - Choose between `gutter` (default) and `hover` [annotation styles](#file-blame-annotation-settings)
   - Contains the commit message and date, by [default](#file-blame-annotation-settings)
   - Also adds a `details` hover annotation to the line's annotation which provides more commit details ([optional](#file-blame-annotation-settings), on by default)
 
 - Adds [customizable](#status-bar-settings) **blame information** about the current line to the **status bar**  ([optional](#status-bar-settings), on by default)
+
+  ![Status Bar Blame](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/develop/images/screenshot-status-bar.png)
   - Contains the commit author and date, by [default](#status-bar-settings)
   - Clicking the status bar item will, by [default](#status-bar-settings), show a **commit details quick pick menu** with commands for comparing, navigating and exploring commits, and more
   - Provides [customizable](#status-bar-settings) click behavior — choose between one of the following
@@ -52,6 +58,8 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 #### Git Code Lens
 
 - Adds **code lens** to the top of the file and on code blocks ([optional](#code-lens-settings), on by default)
+
+  ![Git Code Lens](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/develop/images/screenshot-code-lens.png)
   - **Recent Change** — author and date of the most recent commit for the file or code block
     - Clicking the code lens will, by [default](#code-lens-settings), show a **commit file details quick pick menu** with commands for comparing, navigating and exploring commits, and more
   - **Authors** — number of authors of the file or code block and the most prominent author (if there is more than one)
