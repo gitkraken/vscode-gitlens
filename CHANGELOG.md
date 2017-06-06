@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [4.0.0-alpha.2] - 2017-06-05
+## [4.0.0-beta] - 2017-06-06
 ### Added
 - Adds all-new, beautiful, highly customizable and themeable, file blame annotations
   - Can now fully customize the [layout and content](https://github.com/eamodio/vscode-gitlens/blob/develop/README.md#file-blame-annotation-settings), as well as the [theme](https://github.com/eamodio/vscode-gitlens/blob/develop/README.md#theme-settings)
@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 - (BREAKING) Almost all of the GitLens settings have either been renamed, removed, or otherwise changed - see the [README](https://github.com/eamodio/vscode-gitlens/blob/develop/README.md#extension-settings)`
+- Changes the positioning of the Git code lens to try to be at the end of any other code lens on the same line
 - Changes the position of the `Open File in Remote` command (`gitlens.openFileInRemote`) in the context menus - now in the `navigation` group
 - Changes the `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) to always toggle the Git code lens on and off
 
@@ -31,6 +32,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes the on-demand `trailing` file blame annotations -- didn't work out and just ended up with a ton of visual noise
 - Removes `Toggle Blame Annotations` command (`gitlens.toggleBlame`) - replaced by the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`)
 - Removes `Show Blame Annotations` command (`gitlens.showBlame`) - replaced by the `Show File Blame Annotations` command (`gitlens.showFileBlame`)
+
+### Fixed
+- Fixes [#81](https://github.com/eamodio/vscode-gitlens/issues/81) - Current line annotation feels too sticky
 
 ## [3.6.1] - 2017-06-07
 ### Fixed
