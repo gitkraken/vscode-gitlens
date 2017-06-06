@@ -23,6 +23,7 @@ export class CurrentLineController extends Disposable {
     private _currentLine: number = -1;
     private _disposable: Disposable;
     private _editor: TextEditor | undefined;
+    private _isAnnotating: boolean = false;
     private _statusBarItem: StatusBarItem | undefined;
     private _updateBlameDebounced: (line: number, editor: TextEditor) => Promise<void>;
     private _uri: GitUri;
@@ -44,7 +45,7 @@ export class CurrentLineController extends Disposable {
     }
 
     dispose() {
-        this._editor && this._editor.setDecorations(annotationDecoration, []);
+        this._clearAnnotations(this._editor, true);
 
         this._activeEditorLineDisposable && this._activeEditorLineDisposable.dispose();
         this._statusBarItem && this._statusBarItem.dispose();
@@ -61,9 +62,7 @@ export class CurrentLineController extends Disposable {
             !Objects.areEquivalent(cfg.annotations.line.hover, this._config && this._config.annotations.line.hover) ||
             !Objects.areEquivalent(cfg.theme.annotations.line.trailing, this._config && this._config.theme.annotations.line.trailing)) {
             changed = true;
-            if (this._editor) {
-                this._editor.setDecorations(annotationDecoration, []);
-            }
+            this._clearAnnotations(this._editor);
         }
 
         if (!Objects.areEquivalent(cfg.statusBar, this._config && this._config.statusBar)) {
@@ -117,13 +116,10 @@ export class CurrentLineController extends Disposable {
 
     private async _onActiveTextEditorChanged(editor: TextEditor | undefined) {
         this._currentLine = -1;
-
-        const previousEditor = this._editor;
-        previousEditor && previousEditor.setDecorations(annotationDecoration, []);
+        this._clearAnnotations(this._editor);
 
         if (editor === undefined || !this.isEditorBlameable(editor)) {
             this.clear(editor);
-
             this._editor = undefined;
 
             return;
@@ -169,12 +165,14 @@ export class CurrentLineController extends Disposable {
 
         const line = e.selections[0].active.line;
         if (line === this._currentLine) return;
+
         this._currentLine = line;
 
-        if (!this._uri && e.textEditor) {
+        if (!this._uri && e.textEditor !== undefined) {
             this._uri = await GitUri.fromUri(e.textEditor.document.uri, this.git);
         }
 
+        this._clearAnnotations(e.textEditor);
         this._updateBlameDebounced(line, e.textEditor);
     }
 
@@ -198,18 +196,22 @@ export class CurrentLineController extends Disposable {
         }
     }
 
-    async clear(editor: TextEditor | undefined, previousEditor?: TextEditor) {
-        this._clearAnnotations(editor, previousEditor);
+    async clear(editor: TextEditor | undefined) {
+        this._clearAnnotations(editor, true);
         this._statusBarItem && this._statusBarItem.hide();
     }
 
-    private async _clearAnnotations(editor: TextEditor | undefined, previousEditor?: TextEditor) {
-        editor && editor.setDecorations(annotationDecoration, []);
+    private async _clearAnnotations(editor: TextEditor | undefined, force: boolean = false) {
+        if (editor === undefined || (!this._isAnnotating && !force)) return;
+
+        editor.setDecorations(annotationDecoration, []);
+        this._isAnnotating = false;
+
+        if (!force) return;
+
         // I have no idea why the decorators sometimes don't get removed, but if they don't try again with a tiny delay
-        if (editor !== undefined) {
-            await Functions.wait(1);
-            editor.setDecorations(annotationDecoration, []);
-        }
+        await Functions.wait(1);
+        editor.setDecorations(annotationDecoration, []);
     }
 
     async show(commit: GitCommit, blameLine: IGitCommitLine, editor: TextEditor) {
@@ -388,6 +390,7 @@ export class CurrentLineController extends Disposable {
 
         if (decorationOptions.length) {
             editor.setDecorations(annotationDecoration, decorationOptions);
+            this._isAnnotating = true;
         }
     }
 
