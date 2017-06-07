@@ -256,7 +256,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         const recentCommit = Iterables.first(blame.commits.values());
         title = `${recentCommit.author}, ${moment(recentCommit.date).fromNow()}`;
         if (this._config.codeLens.debug) {
-            title += ` [${SymbolKind[lens.symbolKind]}(${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Commit (${recentCommit.shortSha})]`;
+            title += ` [${SymbolKind[lens.symbolKind]}(${lens.range.start.character}-${lens.range.end.character}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Commit (${recentCommit.shortSha})]`;
         }
 
         switch (this._config.codeLens.recentChange.command) {
@@ -279,7 +279,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         const count = blame.authors.size;
         let title = `${count} ${count > 1 ? 'authors' : 'author'} (${Iterables.first(blame.authors.values()).name}${count > 1 ? ' and others' : ''})`;
         if (this._config.codeLens.debug) {
-            title += ` [${SymbolKind[lens.symbolKind]}(${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Authors (${Iterables.join(Iterables.map(blame.authors.values(), _ => _.name), ', ')})]`;
+            title += ` [${SymbolKind[lens.symbolKind]}(${lens.range.start.character}-${lens.range.end.character}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Authors (${Iterables.join(Iterables.map(blame.authors.values(), _ => _.name), ', ')})]`;
         }
 
         switch (this._config.codeLens.authors.command) {
