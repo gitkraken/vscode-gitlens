@@ -284,6 +284,16 @@ export interface IConfig {
         dateFormat: string;
     };
 
+    strings: {
+        codeLens: {
+            unsavedChanges: {
+                recentChangeAndAuthors: string;
+                recentChangeOnly: string;
+                authorsOnly: string;
+            };
+        };
+    };
+
     theme: IThemeConfig;
 
     debug: boolean;

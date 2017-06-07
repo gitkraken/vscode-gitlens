@@ -408,6 +408,21 @@
                     "default": null,
                     "description": "Specifies the date format of absolute dates shown in the blame information on the status bar. See https://momentjs.com/docs/#/displaying/format/ for valid formats"
                 },
+                "gitlens.strings.codeLens.unsavedChanges.recentChangeAndAuthors": {
+                    "type": "string",
+                    "default": "Cannot determine recent change or authors (unsaved changes)",
+                    "description": "Specifies the string to be shown in place of both the `recent change` and `authors` code lens when there are unsaved changes"
+                },
+                "gitlens.strings.codeLens.unsavedChanges.recentChangeOnly": {
+                    "type": "string",
+                    "default": "Cannot determine recent change (unsaved changes)",
+                    "description": "Specifies the string to be shown in place of the `recent change` code lens when there are unsaved changes"
+                },
+                "gitlens.strings.codeLens.unsavedChanges.authorsOnly": {
+                    "type": "string",
+                    "default": "Cannot determine authors (unsaved changes)",
+                    "description": "Specifies the string to be shown in place of the `authors` code lens when there are unsaved changes"
+                },
                 "gitlens.theme.annotations.file.gutter.separateLines": {
                     "type": "boolean",
                     "default": true,

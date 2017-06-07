@@ -237,13 +237,13 @@ export class GitCodeLensProvider implements CodeLensProvider {
         let title: string;
         if (this._documentIsDirty) {
             if (this._config.codeLens.recentChange.enabled && this._config.codeLens.authors.enabled) {
-                title = 'Cannot determine recent change or authors (unsaved changes)';
+                title = this._config.strings.codeLens.unsavedChanges.recentChangeAndAuthors;
             }
             else if (this._config.codeLens.recentChange.enabled) {
-                title = 'Cannot determine recent change (unsaved changes)';
+                title = this._config.strings.codeLens.unsavedChanges.recentChangeOnly;
             }
             else {
-                title = 'Cannot determine authors (unsaved changes)';
+                title = this._config.strings.codeLens.unsavedChanges.authorsOnly;
             }
 
             lens.command = { title: title } as Command;

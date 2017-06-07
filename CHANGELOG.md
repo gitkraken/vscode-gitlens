@@ -21,6 +21,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `Show File Blame Annotations` command (`gitlens.showFileBlame`) - shows the file blame annotations
 - Adds `Open File in Remote` command (`gitlens.openFileInRemote`) to the `editor/title` context menu
 - Adds `Open Repo in Remote` command (`gitlens.openRepoInRemote`) to the `editor/title` context menu
+- Adds `gitlens.strings.*` settings to allow for the customization of certain strings displayed
+- Adds `gitlens.theme.*` settings to allow for the theming of certain elements
 
 ### Changed
 - (BREAKING) Almost all of the GitLens settings have either been renamed, removed, or otherwise changed - see the [README](https://github.com/eamodio/vscode-gitlens/blob/develop/README.md#extension-settings)`
