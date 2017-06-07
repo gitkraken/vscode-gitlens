@@ -16,9 +16,9 @@ interface AutoCollectConsole {
 }
 
 interface AutoCollectExceptions {
-    constructor(client:Client): AutoCollectExceptions;
+    constructor(client: Client): AutoCollectExceptions;
     isInitialized(): boolean;
-    enable(isEnabled:boolean): void;
+    enable(isEnabled: boolean): void;
 }
 
 interface AutoCollectPerformance {
@@ -348,7 +348,7 @@ interface Client {
      * @param max    the max sample for this set
      * @param stdDev the standard deviation of the set
      */
-    trackMetric(name: string, value: number, count?:number, min?: number, max?: number, stdDev?: number, properties?: {
+    trackMetric(name: string, value: number, count?: number, min?: number, max?: number, stdDev?: number, properties?: {
         [key: string]: string;
     }): void;
 
@@ -374,7 +374,8 @@ interface Client {
      * @param error     An error that was returned for this request if it was unsuccessful. Defaults to null.
      */
     trackRequestSync(request: any /*http.IncomingMessage */, response: any /*http.ServerResponse */, ellapsedMilliseconds?: number, properties?: {
-        [key: string]: string;}, error?: any) : void;
+        [key: string]: string;
+    }, error?: any): void;
 
     /**
      * Log information about a dependency of your app. Typically used to track the time database calls or outgoing http requests take from your server.
@@ -503,6 +504,11 @@ interface ApplicationInsights {
      *
      */
     setOfflineMode(value: boolean, resentIntervall?: number): ApplicationInsights;
+
+    /**
+     *
+     */
+    setAutoDependencyCorrelation(value: boolean): ApplicationInsights;
 }
 
 declare module "applicationinsights" {

@@ -13,15 +13,21 @@ export class Telemetry extends Disposable {
     }
 
     static setContext(context?: { [key: string]: string }) {
-        _reporter && _reporter.setContext(context);
+        if (_reporter === undefined) return;
+
+        _reporter.setContext(context);
     }
 
     static trackEvent(name: string, properties?: { [key: string]: string }, measurements?: { [key: string]: number; }) {
-        _reporter && _reporter.trackEvent(name, properties, measurements);
+        if (_reporter === undefined) return;
+
+        _reporter.trackEvent(name, properties, measurements);
     }
 
     static trackException(ex: Error) {
-        _reporter && _reporter.trackException(ex);
+        if (_reporter === undefined) return;
+
+        _reporter.trackException(ex);
     }
 }
 
@@ -44,11 +50,12 @@ export class TelemetryReporter {
         }
         else {
             this._client = this.appInsights.setup(key)
-                .setAutoCollectConsole(false)
-                .setAutoCollectDependencies(false)
-                .setAutoCollectExceptions(false)
-                .setAutoCollectPerformance(false)
                 .setAutoCollectRequests(false)
+                .setAutoCollectPerformance(false)
+                .setAutoCollectExceptions(false)
+                .setAutoCollectDependencies(false)
+                .setAutoCollectConsole(false)
+                .setAutoDependencyCorrelation(false)
                 .setOfflineMode(true)
                 .start()
                 .client;

@@ -916,14 +916,13 @@
         "tmp": "0.0.31"
     },
     "devDependencies": {
-        "@types/applicationinsights": "0.15.33",
         "@types/copy-paste": "1.1.30",
         "@types/iconv-lite": "0.0.1",
         "@types/mocha": "2.2.41",
-        "@types/node": "7.0.27",
+        "@types/node": "7.0.28",
         "@types/tmp": "0.0.33",
         "mocha": "3.4.2",
-        "tslint": "5.4.2",
+        "tslint": "5.4.3",
         "typescript": "2.3.4",
         "vscode": "1.1.0"
     }
