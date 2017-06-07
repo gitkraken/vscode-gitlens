@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "3.6.0",
+    "version": "3.6.1",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -900,7 +900,7 @@
         "postinstall": "node ./node_modules/vscode/bin/install",
         "pub": "git clean -xdf && vsce publish",
         "reset": "git clean -xdf && npm install",
-        "vscode:prepublish": "npm install && npm run compile"
+        "vscode:prepublish": "npm install --no-save && npm run compile"
     },
     "dependencies": {
         "applicationinsights": "0.20.1",

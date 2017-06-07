@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [3.6.1] - 2017-06-07
+### Fixed
+- Fixes issues with the zone.js monkey patching done by application insights (telemetry) - disables all the monkey patching
+
 ## [3.6.0] - 2017-06-02
 ### Added
 - Adds diff information (the line's previous version) into the active line hover
