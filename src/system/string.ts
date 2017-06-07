@@ -1,5 +1,4 @@
 'use strict';
-import { Objects } from './object';
 const _escapeRegExp = require('lodash.escaperegexp');
 
 export namespace Strings {
@@ -37,13 +36,11 @@ export namespace Strings {
         return tokens;
     }
 
-    export function interpolate(template: string, tokens: { [key: string]: any }): string {
-        return new Function(...Object.keys(tokens), `return \`${template}\`;`)(...Objects.values(tokens));
-    }
+    export function interpolate(template: string, context: object): string {
+        if (!template) return template;
 
-    export function interpolateLazy(template: string, context: object): string {
-        template = template.replace(TokenSanitizeRegex, '$${c.$1}');
-        return new Function('c', `return \`${template}\`;`)(context);
+        template = template.replace(TokenSanitizeRegex, '$${this.$1}');
+        return new Function(`return \`${template}\`;`).call(context);
     }
 
     export function padLeft(s: string, padTo: number, padding: string = '\u00a0') {

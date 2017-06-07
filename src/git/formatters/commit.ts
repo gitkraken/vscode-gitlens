@@ -134,7 +134,7 @@ export class CommitFormatter {
             options = dateFormatOrOptions;
         }
 
-        return Strings.interpolateLazy(template, new CommitFormatter(commit, options));
+        return Strings.interpolate(template, new CommitFormatter(commit, options));
     }
 
     static toHoverAnnotation(commit: GitCommit, dateFormat: string = 'MMMM Do, YYYY h:MMa'): string | string[] {
