@@ -247,7 +247,7 @@ async function migrateSettings(context: ExtensionContext) {
         Logger.error(ex, 'migrateSettings');
     }
     finally {
-        await window.showInformationMessage(`GitLens v4 adds many new settings and removes a few old ones, so please review your settings to ensure they are configured properly.`);
+        window.showInformationMessage(`GitLens v4 adds many new settings and removes a few old ones, so please review your settings to ensure they are configured properly.`);
     }
 }
 
