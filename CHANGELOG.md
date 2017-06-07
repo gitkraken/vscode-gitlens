@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [4.0.0-beta] - 2017-06-06
+## [4.0.0-beta.2] - 2017-06-07
 ### Added
 - Adds all-new, beautiful, highly customizable and themeable, file blame annotations
   - Can now fully customize the [layout and content](https://github.com/eamodio/vscode-gitlens/blob/develop/README.md#file-blame-annotation-settings), as well as the [theme](https://github.com/eamodio/vscode-gitlens/blob/develop/README.md#theme-settings)
@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `Open Repo in Remote` command (`gitlens.openRepoInRemote`) to the `editor/title` context menu
 - Adds `gitlens.strings.*` settings to allow for the customization of certain strings displayed
 - Adds `gitlens.theme.*` settings to allow for the theming of certain elements
+- Adds `gitlens.advanced.telemetry.enabled` settings to explicitly opt-in or out of telemetry, but still ultimately honors the `telemetry.enableTelemetry` setting
 
 ### Changed
 - (BREAKING) Almost all of the GitLens settings have either been renamed, removed, or otherwise changed - see the [README](https://github.com/eamodio/vscode-gitlens/blob/develop/README.md#extension-settings)`
@@ -37,6 +38,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes [#81](https://github.com/eamodio/vscode-gitlens/issues/81) - Current line annotation feels too sticky
+- Fixes issues with the zone.js monkey patching done by application insights (telemetry) - disables all the monkey patching
 
 ## [3.6.1] - 2017-06-07
 ### Fixed
