@@ -98,6 +98,9 @@ export interface IAdvancedConfig {
     quickPick: {
         closeOnFocusOut: boolean;
     };
+    telemetry: {
+        enabled: boolean;
+    };
     toggleWhitespace: {
         enabled: boolean;
     };

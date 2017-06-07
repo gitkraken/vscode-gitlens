@@ -305,6 +305,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 |Name | Description
 |-----|------------
 |`gitlens.advanced.toggleWhitespace.enabled`|Specifies whether or not to toggle whitespace off then showing blame annotations (*may* be required by certain fonts/themes)
+|`gitlens.advanced.telemetry.enabled`|Specifies whether or not to enable GitLens telemetry (even if enabled still abides by the overall `telemetry.enableTelemetry` setting
 |`gitlens.advanced.menus`|Specifies which commands will be added to which menus
 |`gitlens.advanced.caching.enabled`|Specifies whether git output will be cached
 |`gitlens.advanced.caching.maxLines`|Specifies the threshold for caching larger documents

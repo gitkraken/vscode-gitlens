@@ -1,5 +1,6 @@
 'use strict';
 import { Disposable, env, version, workspace } from 'vscode';
+import { ExtensionKey, IConfig } from './configuration';
 import * as os from 'os';
 
 let _reporter: TelemetryReporter;
@@ -7,7 +8,8 @@ let _reporter: TelemetryReporter;
 export class Telemetry extends Disposable {
 
     static configure(key: string) {
-        if (!workspace.getConfiguration('telemetry').get<boolean>('enableTelemetry', true)) return;
+        const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
+        if (!cfg.advanced.telemetry.enabled || !workspace.getConfiguration('telemetry').get<boolean>('enableTelemetry', true)) return;
 
         _reporter = new TelemetryReporter(key);
     }
