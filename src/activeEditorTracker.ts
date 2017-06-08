@@ -1,5 +1,6 @@
 
 'use strict';
+import { Functions } from './system';
 import { commands, Disposable, TextEditor, window } from 'vscode';
 import { BuiltInCommands } from './constants';
 
@@ -11,19 +12,20 @@ export class ActiveEditorTracker extends Disposable {
     constructor() {
         super(() => this.dispose());
 
-        this._disposable = window.onDidChangeActiveTextEditor(e => this._resolver && this._resolver(e));
+        const fn = Functions.debounce((e: TextEditor) => this._resolver && this._resolver(e), 50);
+        this._disposable = window.onDidChangeActiveTextEditor(fn);
     }
 
     dispose() {
         this._disposable && this._disposable.dispose();
     }
 
-    async awaitClose(timeout: number = 500): Promise<TextEditor> {
+    async awaitClose(timeout: number = 500): Promise<TextEditor | undefined> {
         this.close();
         return this.wait(timeout);
     }
 
-    async awaitNext(timeout: number = 500): Promise<TextEditor> {
+    async awaitNext(timeout: number = 500): Promise<TextEditor | undefined> {
         this.next();
         return this.wait(timeout);
     }
@@ -36,15 +38,15 @@ export class ActiveEditorTracker extends Disposable {
         return commands.executeCommand(BuiltInCommands.NextEditor);
     }
 
-    async wait(timeout: number = 500): Promise<TextEditor> {
+    async wait(timeout: number = 500): Promise<TextEditor | undefined> {
         const editor = await new Promise<TextEditor>((resolve, reject) => {
             let timer: any;
 
-            this._resolver = (editor: TextEditor) => {
+            this._resolver = (e: TextEditor) => {
                 if (timer) {
                     clearTimeout(timer as any);
                     timer = 0;
-                    resolve(editor);
+                    resolve(e);
                 }
             };
 
@@ -53,6 +55,7 @@ export class ActiveEditorTracker extends Disposable {
                 timer = 0;
             }, timeout) as any;
         });
+
         this._resolver = undefined;
         return editor;
     }

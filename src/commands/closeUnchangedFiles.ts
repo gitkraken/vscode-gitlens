@@ -1,8 +1,9 @@
 'use strict';
-import { TextEditor, Uri, window } from 'vscode';
+import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorTracker } from '../activeEditorTracker';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { TextEditorComparer, UriComparer } from '../comparers';
+import { BuiltInCommands } from '../constants';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
 
@@ -30,34 +31,41 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
                 args.uris = status.files.map(_ => _.Uri);
             }
 
+            if (args.uris.length === 0) return commands.executeCommand(BuiltInCommands.CloseAllEditors);
+
             const editorTracker = new ActiveEditorTracker();
 
-            let active = window.activeTextEditor;
-            let editor = active;
-            do {
+            let count = 0;
+            let previous = undefined;
+            let editor = window.activeTextEditor;
+            while (true) {
                 if (editor !== undefined) {
-                    if ((editor.document !== undefined && editor.document.isDirty) ||
-                        args.uris.some(_ => UriComparer.equals(_, editor!.document && editor!.document.uri))) {
-                        // If we didn't start with a valid editor, set one once we find it
-                        if (active === undefined) {
-                            active = editor;
-                        }
-                        editor = await editorTracker.awaitNext(500);
+                    if (TextEditorComparer.equals(previous, editor, { useId: true, usePosition: true })) {
+                        break;
                     }
-                    else {
-                        if (active === editor) {
-                            active = undefined;
-                        }
-                        editor = await editorTracker.awaitClose(500);
+
+                    if (editor.document !== undefined &&
+                        (editor.document.isDirty || args.uris.some(_ => UriComparer.equals(_, editor!.document && editor!.document.uri)))) {
+                        previous = editor;
+                        editor = await editorTracker.awaitNext(500);
+                        continue;
+                    }
+                }
+
+                previous = editor;
+                editor = await editorTracker.awaitClose(500);
+
+                if (previous === undefined && editor === undefined) {
+                    count++;
+                    // This is such a shitty hack, but I can't figure out any other reliable way to know that we've cycled through all the editors :(
+                    if (count >= 4) {
+                        break;
                     }
                 }
                 else {
-                    if (active === editor) {
-                        active = undefined;
-                    }
-                    editor = await editorTracker.awaitClose(500);
+                    count = 0;
                 }
-            } while ((active === undefined && editor === undefined) || !TextEditorComparer.equals(active, editor, { useId: true, usePosition: true }));
+            }
 
             editorTracker.dispose();
 

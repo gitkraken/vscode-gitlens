@@ -7,9 +7,10 @@ export const QualifiedExtensionId = `eamodio.${ExtensionId}`;
 
 export const ApplicationInsightsKey = 'a9c302f8-6483-4d01-b92c-c159c799c679';
 
-export type BuiltInCommands = 'cursorMove' | 'editor.action.showReferences' | 'editor.action.toggleRenderWhitespace' | 'editorScroll' | 'revealLine' | 'setContext' | 'vscode.diff' | 'vscode.executeDocumentSymbolProvider' | 'vscode.executeCodeLensProvider' | 'vscode.open' | 'vscode.previewHtml' | 'workbench.action.closeActiveEditor' | 'workbench.action.nextEditor';
+export type BuiltInCommands = 'cursorMove' | 'editor.action.showReferences' | 'editor.action.toggleRenderWhitespace' | 'editorScroll' | 'revealLine' | 'setContext' | 'vscode.diff' | 'vscode.executeDocumentSymbolProvider' | 'vscode.executeCodeLensProvider' | 'vscode.open' | 'vscode.previewHtml' | 'workbench.action.closeActiveEditor' | 'workbench.action.closeAllEditors' | 'workbench.action.nextEditor';
 export const BuiltInCommands = {
     CloseActiveEditor: 'workbench.action.closeActiveEditor' as BuiltInCommands,
+    CloseAllEditors: 'workbench.action.closeAllEditors' as BuiltInCommands,
     CursorMove: 'cursorMove' as BuiltInCommands,
     Diff: 'vscode.diff' as BuiltInCommands,
     EditorScroll: 'editorScroll' as BuiltInCommands,
