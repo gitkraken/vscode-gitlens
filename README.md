@@ -9,36 +9,32 @@ GitLens **supercharges** the built-in Visual Studio Code Git capabilities. It he
 
 GitLens provides an unobtrusive blame annotation at the end of the current line, a status bar item showing the commit information (author and date, by default) of the current line, code lens showing the most recent commit and # of authors of the file and/or code block, and many commands for exploring commits and histories, comparing and navigating revisions, stash access, repository status, and more. GitLens is also [highly customizable](#extension-settings) to meet your specific needs — find code lens intrusive or the current line blame annotation distracting — no problem, it is easy to [turn them off or change how they behave](#extension-settings).
 
-## Previews
-#### Featuring code lens, file blame annotations, and navigation and exploration via quick pick menus
-![GitLens preview 1](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/develop/images/gitlens-preview1.gif)
-
-#### Featuring current line blame annotation and hovers, status bar commit details, quick pick menus, compare with previous, and more
-![GitLens preview 2](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/develop/images/gitlens-preview2.gif)
+### Preview — featuring blame annotations, code lens, status bar details, quick pick menus for navigation and exploration, compare with previous, and more
+![GitLens preview](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/gitlens-preview.gif)
 
 ## Features
 
-#### Git Blame Annotations
+### Git Blame Annotations
 
 - Adds an unobtrusive, highly [customizable](#line-blame-annotation-settings) and [themeable](#theme-settings), **Git blame annotation** to the end of the current line ([optional](#line-blame-annotation-settings), on by default)
 
-  ![Line Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/develop/images/screenshot-line-blame-annotation.png)
+  ![Line Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotation.png)
   - Contains the author, date, and message of the line's most recent commit, by [default](#line-blame-annotation-settings)
   - Also adds a `details` hover annotation to the current line annotation which provides more commit details ([optional](#line-blame-annotation-settings), on by default)
   - Also adds a `changes` (diff) hover annotation to the current line annotation which provides **instant** access to the line's previous version ([optional](#line-blame-annotation-settings), on by default)
 
-    ![Line Blame Annotations](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/develop/images/screenshot-line-blame-annotations.png)
+    ![Line Blame Annotations](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotations.png)
 
 - Adds on-demand, beautiful, highly [customizable](#file-blame-annotation-settings) and [themeable](#theme-settings), **Git blame annotations** of the whole file
 
-  ![File Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/develop/images/screenshot-file-blame-annotations.png)
+  ![File Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-file-blame-annotations.png)
   - Choose between `gutter` (default) and `hover` [annotation styles](#file-blame-annotation-settings)
   - Contains the commit message and date, by [default](#file-blame-annotation-settings)
   - Also adds a `details` hover annotation to the line's annotation which provides more commit details ([optional](#file-blame-annotation-settings), on by default)
 
 - Adds [customizable](#status-bar-settings) **blame information** about the current line to the **status bar**  ([optional](#status-bar-settings), on by default)
 
-  ![Status Bar Blame](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/develop/images/screenshot-status-bar.png)
+  ![Status Bar Blame](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-status-bar.png)
   - Contains the commit author and date, by [default](#status-bar-settings)
   - Clicking the status bar item will, by [default](#status-bar-settings), show a **commit details quick pick menu** with commands for comparing, navigating and exploring commits, and more
   - Provides [customizable](#status-bar-settings) click behavior — choose between one of the following
@@ -57,11 +53,11 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 - Adds a `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`) to toggle the current line blame annotations on and off
   - Also adds a `Show Line Blame Annotations` command (`gitlens.showLineBlame`)
 
-#### Git Code Lens
+### Git Code Lens
 
 - Adds **code lens** to the top of the file and on code blocks ([optional](#code-lens-settings), on by default)
 
-  ![Git Code Lens](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/develop/images/screenshot-code-lens.png)
+  ![Git Code Lens](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-code-lens.png)
   - **Recent Change** — author and date of the most recent commit for the file or code block
     - Clicking the code lens will, by [default](#code-lens-settings), show a **commit file details quick pick menu** with commands for comparing, navigating and exploring commits, and more
   - **Authors** — number of authors of the file or code block and the most prominent author (if there is more than one)
@@ -78,7 +74,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 - Adds a `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) with a shortcut of `shift+alt+b` to toggle the code lens on and off
 
-#### Powerful Comparison Tools
+### Powerful Comparison Tools
 
 - Effortlessly navigate between comparisions via the `alt+,` and `alt+.` shortcut keys to go back and forth through a file's revisions
 
@@ -98,7 +94,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 - Adds a `Compare Line Commit with Working Tree` command (`gitlens.diffLineWithWorking`) with a shortcut of `alt+w` to compare the commit revision of the active line with the working tree
 
-#### Navigate and Explore
+### Navigate and Explore
 
 - Adds a `Search Commits` command (`gitlens.showCommitSearch`) with a shortcut of `alt+/` to search for commits by message, author, file(s), or commit id
 
@@ -110,7 +106,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 - Adds a `Show Current Branch History` command (`gitlens.showQuickRepoHistory`) with a shortcut of `shift+alt+h` to show a paged **branch history quick pick menu** of the current branch for exploring its commit history
 
-  ![Branch History Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/screenshot-branch-history.png)
+  ![Branch History Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-branch-history.png)
 
   - Provides entries to `Show Commit Search` and `Open Branch in <remote-service>` when available
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
@@ -121,7 +117,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 - Adds a `Show File History` command (`gitlens.showQuickFileHistory`) to show a paged **file history quick pick menu** of the active file for exploring its commit history
 
-  ![File History Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/screenshot-file-history.png)
+  ![File History Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-file-history.png)
 
   - Provides entries to `Show Branch History` and `Open File in <remote-service>` when available
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
@@ -129,7 +125,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 - Adds a `Show Commit Details` command (`gitlens.showQuickCommitDetails`) to show a **commit details quick pick menu** of the most recent commit of the active file
 
-  ![Commit Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/screenshot-commit-details.png)
+  ![Commit Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-commit-details.png)
 
   - Quickly see the set of files changed in the commit, complete with status indicators for adds, changes, renames, and deletes
   - Provides entries to `Copy to Clipboard`, `Directory Compare`, `Open Changed Files`, `Open File in <remote-service>` when available, and more
@@ -140,7 +136,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 - Adds a `Show Line Commit Details` command (`gitlens.showQuickCommitFileDetails`) with a shortcut of `alt+c` to show a **file commit details quick pick menu** of the most recent commit of the active file
 
-  ![Line Commit Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/screenshot-commit-file-details.png)
+  ![Line Commit Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-commit-file-details.png)
 
   - Provides entries to `Show Commit Details`, `Show File History`, `Compare File with...`, `Copy to Clipboard`, `Open File`, `Open File in <remote-service>` when available, and more
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
@@ -148,7 +144,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 - Adds a `Show Repository Status` command (`gitlens.showQuickRepoStatus`) with a shortcut of `alt+s` to show a **repository status quick pick menu** for visualizing the current repository status
 
-  ![Repository Status Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/screenshot-repo-status.png)
+  ![Repository Status Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-repo-status.png)
 
   - Quickly see upstream status (if an Git upstream is configured) — complete with ahead and behind information
     - If you are ahead of the upstream, an entry will be shown with the number of commits ahead. Chosing it will show a limited **branch history quick pick menu** containing just the commits ahead of the upstream
@@ -161,14 +157,14 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 - Adds a `Show Stashed Changes` command (`gitlens.showQuickStashList`) to show a **stashed changes quick pick menu** for exploring your repository stash history
 
-  ![Stashed Changes Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/screenshot-stash-list.png)
+  ![Stashed Changes Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-stash-list.png)
 
   - Provides entries to `Stash Changes`
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
 
   - Chosing a stash entry shows a **stash details quick pick menu** which is very similar to the **commit details quick pick menu** above
 
-    ![Stash Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-git-codelens/master/images/screenshot-stash-details.png)
+    ![Stash Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-stash-details.png)
 
     - Quickly see the set of files changed in the stash, complete with status indicators for adds, changes, renames, and deletes
     - Provides entries to `Copy Message to Clipboard`, `Directory Compare`, and `Open Changed Files`
@@ -186,7 +182,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 - Adds a `Open Blame History Explorer` command (`gitlens.showBlameHistory`) to show a **blame history explorer** (peek style) to visualize the blame history of a file or code block
   - Likely to be deprecated in a future release, add your voice to [#66](https://github.com/eamodio/vscode-gitlens/issues/66) if you feel it should not be removed
 
-#### And More
+### And More
 
 - Adds a `Copy Commit ID to Clipboard` command (`gitlens.copyShaToClipboard`) to copy the commit id (sha) of the active line to the clipboard
 
