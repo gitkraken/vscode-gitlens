@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [4.0.1] - 2017-06-09
+### Fixed
+- Fixes [#87](https://github.com/eamodio/vscode-gitlens/issues/87) - Can't open files in remote when using git@ urls (ssh)
+
 ## [4.0.0] - 2017-06-09
 ### Added
 - Adds all-new, beautiful, highly customizable and themeable, file blame annotations
