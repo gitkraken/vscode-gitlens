@@ -1,7 +1,7 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
-import { GitCommit, GitLogCommit, GitService, GitUri, IGitLog } from '../gitService';
+import { GitCommit, GitLog, GitLogCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitFileDetailsQuickPick } from '../quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
@@ -11,7 +11,7 @@ import * as path from 'path';
 export interface ShowQuickCommitFileDetailsCommandArgs {
     sha?: string;
     commit?: GitCommit | GitLogCommit;
-    fileLog?: IGitLog;
+    fileLog?: GitLog;
 
     goBackCommand?: CommandQuickPickItem;
 }

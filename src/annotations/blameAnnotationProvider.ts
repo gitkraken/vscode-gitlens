@@ -2,12 +2,12 @@
 import { Iterables } from '../system';
 import { ExtensionContext, Range, TextEditor, TextEditorDecorationType } from 'vscode';
 import { AnnotationProviderBase } from './annotationProvider';
-import { GitService, GitUri, IGitBlame } from '../gitService';
+import { GitBlame, GitService, GitUri } from '../gitService';
 import { WhitespaceController } from './whitespaceController';
 
 export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase {
 
-    protected _blame: Promise<IGitBlame>;
+    protected _blame: Promise<GitBlame>;
 
     constructor(context: ExtensionContext, editor: TextEditor, decoration: TextEditorDecorationType, highlightDecoration: TextEditorDecorationType | undefined, whitespaceController: WhitespaceController | undefined, protected git: GitService, protected uri: GitUri) {
         super(context, editor, decoration, highlightDecoration, whitespaceController);
@@ -15,7 +15,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         this._blame = this.git.getBlameForFile(this.uri);
     }
 
-    async selection(shaOrLine?: string | number, blame?: IGitBlame) {
+    async selection(shaOrLine?: string | number, blame?: GitBlame) {
         if (!this.highlightDecoration) return;
 
         if (blame === undefined) {
@@ -57,14 +57,14 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         return blame !== undefined && blame.lines.length !== 0;
     }
 
-    protected async getBlame(requiresWhitespaceHack: boolean): Promise<IGitBlame | undefined> {
+    protected async getBlame(requiresWhitespaceHack: boolean): Promise<GitBlame | undefined> {
         let whitespacePromise: Promise<void> | undefined;
         // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- override whitespace (turn off)
         if (requiresWhitespaceHack) {
             whitespacePromise = this.whitespaceController && this.whitespaceController.override();
         }
 
-        let blame: IGitBlame;
+        let blame: GitBlame;
         if (whitespacePromise) {
             [blame] = await Promise.all([this._blame, whitespacePromise]);
         }

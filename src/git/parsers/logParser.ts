@@ -1,11 +1,11 @@
 'use strict';
 import { Range } from 'vscode';
-import { Git, GitCommitType, GitLogCommit, GitStatusFileStatus, IGitAuthor, IGitLog, IGitStatusFile } from './../git';
+import { Git, GitAuthor, GitCommitType, GitLog, GitLogCommit, GitStatusFileStatus, IGitStatusFile } from './../git';
 // import { Logger } from '../../logger';
 import * as moment from 'moment';
 import * as path from 'path';
 
-interface ILogEntry {
+interface LogEntry {
     sha: string;
 
     author: string;
@@ -29,15 +29,15 @@ const diffRegex = /diff --git a\/(.*) b\/(.*)/;
 
 export class GitLogParser {
 
-    private static _parseEntries(data: string, type: GitCommitType, maxCount: number | undefined, reverse: boolean): ILogEntry[] | undefined {
+    private static _parseEntries(data: string, type: GitCommitType, maxCount: number | undefined, reverse: boolean): LogEntry[] | undefined {
         if (!data) return undefined;
 
         const lines = data.split('\n');
         if (!lines.length) return undefined;
 
-        const entries: ILogEntry[] = [];
+        const entries: LogEntry[] = [];
 
-        let entry: ILogEntry | undefined = undefined;
+        let entry: LogEntry | undefined = undefined;
         let position = -1;
         while (++position < lines.length) {
             // Since log --reverse doesn't properly honor a max count -- enforce it here
@@ -53,7 +53,7 @@ export class GitLogParser {
 
                 entry = {
                     sha: lineParts[0]
-                } as ILogEntry;
+                } as LogEntry;
 
                 continue;
             }
@@ -166,11 +166,11 @@ export class GitLogParser {
         return entries;
     }
 
-    static parse(data: string, type: GitCommitType, repoPath: string | undefined, fileName: string | undefined, sha: string | undefined, maxCount: number | undefined, reverse: boolean, range: Range | undefined): IGitLog | undefined {
+    static parse(data: string, type: GitCommitType, repoPath: string | undefined, fileName: string | undefined, sha: string | undefined, maxCount: number | undefined, reverse: boolean, range: Range | undefined): GitLog | undefined {
         const entries = this._parseEntries(data, type, maxCount, reverse);
         if (!entries) return undefined;
 
-        const authors: Map<string, IGitAuthor> = new Map();
+        const authors: Map<string, GitAuthor> = new Map();
         const commits: Map<string, GitLogCommit> = new Map();
 
         let relativeFileName: string;
@@ -245,7 +245,7 @@ export class GitLogParser {
             author.lineCount += c.lines.length;
         });
 
-        const sortedAuthors: Map<string, IGitAuthor> = new Map();
+        const sortedAuthors: Map<string, GitAuthor> = new Map();
         // const values =
         Array.from(authors.values())
             .sort((a, b) => b.lineCount - a.lineCount)
@@ -265,7 +265,7 @@ export class GitLogParser {
             maxCount: maxCount,
             range: range,
             truncated: !!(maxCount && entries.length >= maxCount)
-        } as IGitLog;
+        } as GitLog;
     }
 
     private static _parseFileName(entry: { fileName?: string, originalFileName?: string }) {

@@ -7,7 +7,7 @@ import { Commands } from './commands';
 import { TextEditorComparer } from './comparers';
 import { FileAnnotationType, IConfig, LineAnnotationType, StatusBarCommand } from './configuration';
 import { DocumentSchemes, ExtensionKey } from './constants';
-import { BlameabilityChangeEvent, CommitFormatter, GitCommit, GitContextTracker, GitService, GitUri, IGitCommitLine } from './gitService';
+import { BlameabilityChangeEvent, CommitFormatter, GitCommit, GitCommitLine, GitContextTracker, GitService, GitUri } from './gitService';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
     after: {
@@ -181,7 +181,7 @@ export class CurrentLineController extends Disposable {
         line = line - this._uri.offset;
 
         let commit: GitCommit | undefined = undefined;
-        let commitLine: IGitCommitLine | undefined = undefined;
+        let commitLine: GitCommitLine | undefined = undefined;
         // Since blame information isn't valid when there are unsaved changes -- don't show any status
         if (this._blameable && line >= 0) {
             const blameLine = await this.git.getBlameForLine(this._uri, line);
@@ -215,7 +215,7 @@ export class CurrentLineController extends Disposable {
         editor.setDecorations(annotationDecoration, []);
     }
 
-    async show(commit: GitCommit, blameLine: IGitCommitLine, editor: TextEditor, line: number) {
+    async show(commit: GitCommit, blameLine: GitCommitLine, editor: TextEditor, line: number) {
         // I have no idea why I need this protection -- but it happens
         if (editor.document === undefined) return;
 
@@ -247,7 +247,7 @@ export class CurrentLineController extends Disposable {
         await this._updateBlame(editor.selection.active.line, editor);
     }
 
-    private async _updateAnnotations(commit: GitCommit, blameLine: IGitCommitLine, editor: TextEditor, line?: number) {
+    private async _updateAnnotations(commit: GitCommit, blameLine: GitCommitLine, editor: TextEditor, line?: number) {
         const cfg = this._config.blame.line;
         if (!cfg.enabled) return;
 

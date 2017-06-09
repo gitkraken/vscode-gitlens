@@ -1,11 +1,11 @@
 'use strict';
 import { Range } from 'vscode';
-import { IGitAuthor } from './commit';
+import { GitAuthor } from './commit';
 import { GitLogCommit } from './logCommit';
 
-export interface IGitLog {
+export interface GitLog {
     repoPath: string;
-    authors: Map<string, IGitAuthor>;
+    authors: Map<string, GitAuthor>;
     commits: Map<string, GitLogCommit>;
 
     sha: string | undefined;

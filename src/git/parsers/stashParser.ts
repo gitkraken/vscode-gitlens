@@ -1,9 +1,9 @@
 'use strict';
-import { Git, GitStashCommit, GitStatusFileStatus, IGitStash, IGitStatusFile } from './../git';
+import { Git, GitStash, GitStashCommit, GitStatusFileStatus, IGitStatusFile } from './../git';
 // import { Logger } from '../../logger';
 import * as moment from 'moment';
 
-interface IStashEntry {
+interface StashEntry {
     sha: string;
     date?: string;
     fileNames: string;
@@ -14,15 +14,15 @@ interface IStashEntry {
 
 export class GitStashParser {
 
-    private static _parseEntries(data: string): IStashEntry[] | undefined {
+    private static _parseEntries(data: string): StashEntry[] | undefined {
         if (!data) return undefined;
 
         const lines = data.split('\n');
         if (!lines.length) return undefined;
 
-        const entries: IStashEntry[] = [];
+        const entries: StashEntry[] = [];
 
-        let entry: IStashEntry | undefined = undefined;
+        let entry: StashEntry | undefined = undefined;
         let position = -1;
         while (++position < lines.length) {
             let lineParts = lines[position].split(' ');
@@ -35,7 +35,7 @@ export class GitStashParser {
 
                 entry = {
                     sha: lineParts[0]
-                } as IStashEntry;
+                } as StashEntry;
 
                 continue;
             }
@@ -109,7 +109,7 @@ export class GitStashParser {
         return entries;
     }
 
-    static parse(data: string, repoPath: string): IGitStash | undefined {
+    static parse(data: string, repoPath: string): GitStash | undefined {
         const entries = this._parseEntries(data);
         if (entries === undefined) return undefined;
 
@@ -128,7 +128,7 @@ export class GitStashParser {
         return {
             repoPath: repoPath,
             commits: commits
-        } as IGitStash;
+        } as GitStash;
     }
 
     private static _parseFileName(entry: { fileName?: string, originalFileName?: string }) {

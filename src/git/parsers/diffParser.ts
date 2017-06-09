@@ -1,14 +1,14 @@
 'use strict';
-import { IGitDiff, IGitDiffChunk, IGitDiffLine } from './../git';
+import { GitDiff, GitDiffChunk, GitDiffLine } from './../git';
 
 const unifiedDiffRegex = /^@@ -([\d]+),([\d]+) [+]([\d]+),([\d]+) @@([\s\S]*?)(?=^@@)/gm;
 
 export class GitDiffParser {
 
-    static parse(data: string, debug: boolean = false): IGitDiff | undefined {
+    static parse(data: string, debug: boolean = false): GitDiff | undefined {
         if (!data) return undefined;
 
-        const chunks: IGitDiffChunk[] = [];
+        const chunks: GitDiffChunk[] = [];
 
         let match: RegExpExecArray | null = null;
         do {
@@ -21,8 +21,8 @@ export class GitDiffParser {
             const chunk = match[5];
             const lines = chunk.split('\n').slice(1);
 
-            const current: (IGitDiffLine | undefined)[] = [];
-            const previous: (IGitDiffLine | undefined)[] = [];
+            const current: (GitDiffLine | undefined)[] = [];
+            const previous: (GitDiffLine | undefined)[] = [];
             for (const l of lines) {
                 switch (l[0]) {
                     case '+':
@@ -64,7 +64,7 @@ export class GitDiffParser {
         const diff = {
             diff: debug ? data : undefined,
             chunks: chunks
-        } as IGitDiff;
+        } as GitDiff;
         return diff;
     }
 }

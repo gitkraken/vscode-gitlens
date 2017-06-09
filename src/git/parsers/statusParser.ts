@@ -1,7 +1,7 @@
 'use strict';
-import { Git, GitStatusFile, GitStatusFileStatus, IGitStatus } from './../git';
+import { Git, GitStatus, GitStatusFile, GitStatusFileStatus } from './../git';
 
-interface IFileStatusEntry {
+interface FileStatusEntry {
     staged: boolean;
     status: GitStatusFileStatus;
     fileName: string;
@@ -13,7 +13,7 @@ const behindStatusV1Regex = /(?:behind ([0-9]+))/;
 
 export class GitStatusParser {
 
-    static parse(data: string, repoPath: string, porcelainVersion: number): IGitStatus | undefined {
+    static parse(data: string, repoPath: string, porcelainVersion: number): GitStatus | undefined {
         if (!data) return undefined;
 
         const lines = data.split('\n').filter(_ => !!_);
@@ -40,7 +40,7 @@ export class GitStatusParser {
         return status;
     }
 
-    private static _parseV1(lines: string[], repoPath: string, status: IGitStatus) {
+    private static _parseV1(lines: string[], repoPath: string, status: GitStatus) {
         let position = -1;
         while (++position < lines.length) {
             const line = lines[position];
@@ -59,7 +59,7 @@ export class GitStatusParser {
                 }
             }
             else {
-                let entry: IFileStatusEntry;
+                let entry: FileStatusEntry;
                 const rawStatus = line.substring(0, 2);
                 const fileName = line.substring(3);
                 if (rawStatus[0] === 'R') {
@@ -74,7 +74,7 @@ export class GitStatusParser {
         }
     }
 
-    private static _parseV2(lines: string[], repoPath: string, status: IGitStatus) {
+    private static _parseV2(lines: string[], repoPath: string, status: GitStatus) {
         let position = -1;
         while (++position < lines.length) {
             const line = lines[position];
@@ -99,7 +99,7 @@ export class GitStatusParser {
             }
             else {
                 const lineParts = line.split(' ');
-                let entry: IFileStatusEntry | undefined = undefined;
+                let entry: FileStatusEntry | undefined = undefined;
                 switch (lineParts[0][0]) {
                     case '1': // normal
                         entry = this._parseFileEntry(lineParts[1], lineParts.slice(8).join(' '));
@@ -123,7 +123,7 @@ export class GitStatusParser {
         }
     }
 
-    private static _parseFileEntry(rawStatus: string, fileName: string, originalFileName?: string): IFileStatusEntry {
+    private static _parseFileEntry(rawStatus: string, fileName: string, originalFileName?: string): FileStatusEntry {
         const indexStatus = rawStatus[0] !== '.' ? rawStatus[0].trim() : undefined;
         const workTreeStatus = rawStatus[1] !== '.' ? rawStatus[1].trim() : undefined;
 
@@ -132,6 +132,6 @@ export class GitStatusParser {
             fileName: fileName,
             originalFileName: originalFileName,
             staged: !!indexStatus
-        } as IFileStatusEntry;
+        } as FileStatusEntry;
     }
 }

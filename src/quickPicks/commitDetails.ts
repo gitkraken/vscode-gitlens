@@ -3,7 +3,7 @@ import { Arrays, Iterables } from '../system';
 import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from 'vscode';
 import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandCommandArgs, DiffWithPreviousCommandArgs, Keyboard, KeyNoopCommand, Keys, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, QuickPickItem } from './common';
-import { getGitStatusIcon, GitCommit, GitLogCommit, GitService, GitStashCommit, GitStatusFileStatus, GitUri, IGitCommitInfo, IGitLog, IGitStatusFile, RemoteResource } from '../gitService';
+import { getGitStatusIcon, GitCommit, GitLog, GitLogCommit, GitService, GitStashCommit, GitStatusFileStatus, GitUri, IGitCommitInfo, IGitStatusFile, RemoteResource } from '../gitService';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as moment from 'moment';
 import * as path from 'path';
@@ -103,7 +103,7 @@ export class OpenCommitWorkingTreeFilesCommandQuickPickItem extends OpenFilesCom
 
 export class CommitDetailsQuickPick {
 
-    static async show(git: GitService, commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, repoLog?: IGitLog): Promise<CommitWithFileStatusQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(git: GitService, commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, repoLog?: GitLog): Promise<CommitWithFileStatusQuickPickItem | CommandQuickPickItem | undefined> {
         const items: (CommitWithFileStatusQuickPickItem | CommandQuickPickItem)[] = commit.fileStatuses.map(fs => new CommitWithFileStatusQuickPickItem(commit, fs));
 
         const stash = commit.type === 'stash';

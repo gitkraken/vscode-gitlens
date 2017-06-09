@@ -1,25 +1,25 @@
 'use strict';
-import { GitCommit, IGitAuthor, IGitCommitLine } from './commit';
+import { GitAuthor, GitCommit, GitCommitLine } from './commit';
 
-export interface IGitBlame {
+export interface GitBlame {
     repoPath: string;
-    authors: Map<string, IGitAuthor>;
+    authors: Map<string, GitAuthor>;
     commits: Map<string, GitCommit>;
-    lines: IGitCommitLine[];
+    lines: GitCommitLine[];
 }
 
-export interface IGitBlameLine {
-    author: IGitAuthor;
+export interface GitBlameLine {
+    author: GitAuthor;
     commit: GitCommit;
-    line: IGitCommitLine;
+    line: GitCommitLine;
 }
 
-export interface IGitBlameLines extends IGitBlame {
-    allLines: IGitCommitLine[];
+export interface GitBlameLines extends GitBlame {
+    allLines: GitCommitLine[];
 }
 
-export interface IGitBlameCommitLines {
-    author: IGitAuthor;
+export interface GitBlameCommitLines {
+    author: GitAuthor;
     commit: GitCommit;
-    lines: IGitCommitLine[];
+    lines: GitCommitLine[];
 }

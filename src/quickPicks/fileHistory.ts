@@ -3,7 +3,7 @@ import { Arrays, Iterables } from '../system';
 import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, Keyboard, KeyNoopCommand, ShowQuickCurrentBranchHistoryCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
 import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './common';
-import { GitService, GitUri, IGitLog, RemoteResource } from '../gitService';
+import { GitLog, GitService, GitUri, RemoteResource } from '../gitService';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as path from 'path';
 
@@ -18,7 +18,7 @@ export class FileHistoryQuickPick {
             });
     }
 
-    static async show(git: GitService, log: IGitLog, uri: GitUri, progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(git: GitService, log: GitLog, uri: GitUri, progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
         let previousPageCommand: CommandQuickPickItem | undefined = undefined;

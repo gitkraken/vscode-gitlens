@@ -3,30 +3,12 @@ import { Uri } from 'vscode';
 import { Git } from '../git';
 import * as path from 'path';
 
-export interface IGitAuthor {
+export interface GitAuthor {
     name: string;
     lineCount: number;
 }
 
-export interface IGitCommit {
-    type: GitCommitType;
-    repoPath: string;
-    sha: string;
-    fileName: string;
-    author?: string;
-    date: Date;
-    message: string;
-    lines: IGitCommitLine[];
-    originalFileName?: string;
-    previousSha?: string;
-    previousFileName?: string;
-
-    readonly isUncommitted: boolean;
-    previousUri: Uri;
-    uri: Uri;
-}
-
-export interface IGitCommitLine {
+export interface GitCommitLine {
     sha: string;
     previousSha?: string;
     line: number;
@@ -36,10 +18,10 @@ export interface IGitCommitLine {
 
 export type GitCommitType = 'blame' | 'branch' | 'file'  | 'stash';
 
-export class GitCommit implements IGitCommit {
+export class GitCommit {
 
     type: GitCommitType;
-    lines: IGitCommitLine[];
+    lines: GitCommitLine[];
     originalFileName?: string;
     previousSha?: string;
     previousFileName?: string;
@@ -54,7 +36,7 @@ export class GitCommit implements IGitCommit {
         public author: string,
         public date: Date,
         public message: string,
-        lines?: IGitCommitLine[],
+        lines?: GitCommitLine[],
         originalFileName?: string,
         previousSha?: string,
         previousFileName?: string

@@ -1,5 +1,5 @@
 'use strict';
-import { IGitCommitLine } from './commit';
+import { GitCommitLine } from './commit';
 import { GitLogCommit } from './logCommit';
 import { GitStatusFileStatus, IGitStatusFile } from './status';
 
@@ -14,7 +14,7 @@ export class GitStashCommit extends GitLogCommit {
         message: string,
         status?: GitStatusFileStatus,
         fileStatuses?: IGitStatusFile[],
-        lines?: IGitCommitLine[],
+        lines?: GitCommitLine[],
         originalFileName?: string,
         previousSha?: string,
         previousFileName?: string

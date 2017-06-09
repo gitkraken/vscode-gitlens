@@ -3,7 +3,7 @@ import { Iterables } from '../system';
 import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from 'vscode';
 import { Commands, DiffWithWorkingCommandArgs, Keyboard, Keys, OpenChangedFilesCommandArgs, ShowQuickBranchHistoryCommandArgs, ShowQuickRepoStatusCommandArgs, ShowQuickStashListCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem, QuickPickItem } from './common';
-import { GitService, GitStatusFile, GitUri, IGitStatus } from '../gitService';
+import { GitService, GitStatus, GitStatusFile, GitUri } from '../gitService';
 import * as path from 'path';
 
 export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
@@ -58,7 +58,7 @@ export class OpenStatusFilesCommandQuickPickItem extends CommandQuickPickItem {
 
 export class RepoStatusQuickPick {
 
-    static async show(status: IGitStatus, goBackCommand?: CommandQuickPickItem): Promise<OpenStatusFileCommandQuickPickItem | OpenStatusFilesCommandQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(status: GitStatus, goBackCommand?: CommandQuickPickItem): Promise<OpenStatusFileCommandQuickPickItem | OpenStatusFilesCommandQuickPickItem | CommandQuickPickItem | undefined> {
         // Sort the status by staged and then filename
         const files = status.files;
         files.sort((a, b) => (a.staged ? -1 : 1) - (b.staged ? -1 : 1) || a.fileName.localeCompare(b.fileName));

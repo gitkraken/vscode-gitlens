@@ -2,12 +2,12 @@
 import { Iterables } from '../system';
 import { QuickPickOptions, window } from 'vscode';
 import { Commands, Keyboard, StashSaveCommandArgs } from '../commands';
-import { GitService, IGitStash } from '../gitService';
+import { GitService, GitStash } from '../gitService';
 import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut } from '../quickPicks';
 
 export class StashListQuickPick {
 
-    static async show(git: GitService, stash: IGitStash, mode: 'list' | 'apply', goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(git: GitService, stash: GitStash, mode: 'list' | 'apply', goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         const items = ((stash && Array.from(Iterables.map(stash.commits.values(), c => new CommitQuickPickItem(c)))) || []) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
         if (mode === 'list') {

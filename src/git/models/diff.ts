@@ -1,24 +1,24 @@
 'use strict';
 
-export interface IGitDiffLine {
+export interface GitDiffLine {
     line: string;
     state: 'added' | 'removed' | 'unchanged';
 }
 
-export interface IGitDiffChunk {
-    current: (IGitDiffLine | undefined)[];
+export interface GitDiffChunk {
+    current: (GitDiffLine | undefined)[];
     currentStart: number;
     currentEnd: number;
 
-    previous: (IGitDiffLine | undefined)[];
+    previous: (GitDiffLine | undefined)[];
     previousStart: number;
     previousEnd: number;
 
     chunk?: string;
 }
 
-export interface IGitDiff {
-    chunks: IGitDiffChunk[];
+export interface GitDiff {
+    chunks: GitDiffChunk[];
 
     diff?: string;
 }

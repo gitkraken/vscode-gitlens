@@ -1,7 +1,7 @@
 'use strict';
 import { Strings } from '../../system';
 import { GitCommit } from '../models/commit';
-import { IGitDiffLine } from '../models/diff';
+import { GitDiffLine } from '../models/diff';
 import * as moment from 'moment';
 
 export interface ICommitFormatOptions {
@@ -142,7 +142,7 @@ export class CommitFormatter {
         return `\`${commit.shortSha}\` &nbsp; __${commit.author}__, ${moment(commit.date).fromNow()} &nbsp; _(${moment(commit.date).format(dateFormat)})_${message}`;
     }
 
-    static toHoverDiff(commit: GitCommit, previous: IGitDiffLine | undefined, current: IGitDiffLine | undefined): string | undefined {
+    static toHoverDiff(commit: GitCommit, previous: GitDiffLine | undefined, current: GitDiffLine | undefined): string | undefined {
         if (previous === undefined && current === undefined) return undefined;
 
         const codeDiff = this._getCodeDiff(previous, current);
@@ -151,7 +151,7 @@ export class CommitFormatter {
             : `\`Changes\` &nbsp; \u2014 &nbsp; \`${commit.previousShortSha}\` \u2194 \`${commit.shortSha}\`\n${codeDiff}`;
     }
 
-    private static _getCodeDiff(previous: IGitDiffLine | undefined, current: IGitDiffLine | undefined): string {
+    private static _getCodeDiff(previous: GitDiffLine | undefined, current: GitDiffLine | undefined): string {
         return `\`\`\`
 -  ${previous === undefined ? '' : previous.line.trim()}
 +  ${current === undefined ? '' : current.line.trim()}

@@ -2,7 +2,7 @@
 import { Uri } from 'vscode';
 import * as path from 'path';
 
-export interface IGitStatus {
+export interface GitStatus {
 
     branch: string;
     repoPath: string;

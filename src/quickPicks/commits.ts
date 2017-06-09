@@ -2,12 +2,12 @@
 import { Iterables } from '../system';
 import { QuickPickOptions, window } from 'vscode';
 import { Keyboard } from '../commands';
-import { GitService, IGitLog } from '../gitService';
+import { GitLog, GitService } from '../gitService';
 import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut } from '../quickPicks';
 
 export class CommitsQuickPick {
 
-    static async show(git: GitService, log: IGitLog, placeHolder: string, goBackCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(git: GitService, log: GitLog, placeHolder: string, goBackCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         const items = ((log && Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c)))) || []) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
         if (goBackCommand) {

@@ -1,9 +1,9 @@
 'use strict';
-import { Git, GitCommit, IGitAuthor, IGitBlame, IGitCommitLine } from './../git';
+import { Git, GitAuthor, GitBlame, GitCommit, GitCommitLine } from './../git';
 import * as moment from 'moment';
 import * as path from 'path';
 
-interface IBlameEntry {
+interface BlameEntry {
     sha: string;
 
     line: number;
@@ -30,15 +30,15 @@ interface IBlameEntry {
 
 export class GitBlameParser {
 
-    private static _parseEntries(data: string): IBlameEntry[] | undefined {
+    private static _parseEntries(data: string): BlameEntry[] | undefined {
         if (!data) return undefined;
 
         const lines = data.split('\n');
         if (!lines.length) return undefined;
 
-        const entries: IBlameEntry[] = [];
+        const entries: BlameEntry[] = [];
 
-        let entry: IBlameEntry | undefined = undefined;
+        let entry: BlameEntry | undefined = undefined;
         let position = -1;
         while (++position < lines.length) {
             const lineParts = lines[position].split(' ');
@@ -50,7 +50,7 @@ export class GitBlameParser {
                     originalLine: parseInt(lineParts[1], 10) - 1,
                     line: parseInt(lineParts[2], 10) - 1,
                     lineCount: parseInt(lineParts[3], 10)
-                } as IBlameEntry;
+                } as BlameEntry;
 
                 continue;
             }
@@ -114,13 +114,13 @@ export class GitBlameParser {
         return entries;
     }
 
-    static parse(data: string, repoPath: string | undefined, fileName: string): IGitBlame | undefined {
+    static parse(data: string, repoPath: string | undefined, fileName: string): GitBlame | undefined {
         const entries = this._parseEntries(data);
         if (!entries) return undefined;
 
-        const authors: Map<string, IGitAuthor> = new Map();
+        const authors: Map<string, GitAuthor> = new Map();
         const commits: Map<string, GitCommit> = new Map();
-        const lines: IGitCommitLine[] = [];
+        const lines: GitCommitLine[] = [];
 
         let relativeFileName = repoPath && fileName;
 
@@ -161,7 +161,7 @@ export class GitBlameParser {
             }
 
             for (let j = 0, len = entry.lineCount; j < len; j++) {
-                const line: IGitCommitLine = {
+                const line: GitCommitLine = {
                     sha: entry.sha,
                     line: entry.line + j,
                     originalLine: entry.originalLine + j
@@ -185,7 +185,7 @@ export class GitBlameParser {
             author.lineCount += c.lines.length;
         });
 
-        const sortedAuthors: Map<string, IGitAuthor> = new Map();
+        const sortedAuthors: Map<string, GitAuthor> = new Map();
         // const values =
         Array.from(authors.values())
             .sort((a, b) => b.lineCount - a.lineCount)
@@ -202,6 +202,6 @@ export class GitBlameParser {
             // commits: sortedCommits,
             commits: commits,
             lines: lines
-        } as IGitBlame;
+        } as GitBlame;
     }
 }

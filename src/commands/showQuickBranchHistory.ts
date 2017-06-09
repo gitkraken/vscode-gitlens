@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
-import { GitService, GitUri, IGitLog } from '../gitService';
+import { GitLog, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { BranchesQuickPick, BranchHistoryQuickPick, CommandQuickPickItem } from '../quickPicks';
@@ -9,7 +9,7 @@ import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
 export interface ShowQuickBranchHistoryCommandArgs {
     branch?: string;
-    log?: IGitLog;
+    log?: GitLog;
     maxCount?: number;
 
     goBackCommand?: CommandQuickPickItem;

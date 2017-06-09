@@ -4,7 +4,7 @@ import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, l
 import { CommandContext, setCommandContext } from './commands';
 import { IConfig } from './configuration';
 import { DocumentSchemes, ExtensionKey } from './constants';
-import { Git, GitBlameParser, GitBranch, GitCommit, GitDiffParser, GitLogCommit, GitLogParser, GitRemote, GitStashParser, GitStatusFile, GitStatusParser, IGit, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitDiff, IGitDiffLine, IGitLog, IGitStash, IGitStatus, setDefaultEncoding } from './git/git';
+import { Git, GitAuthor, GitBlame, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitCommit, GitDiff, GitDiffLine, GitDiffParser, GitLog, GitLogCommit, GitLogParser, GitRemote, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
 import { Logger } from './logger';
@@ -26,7 +26,7 @@ class UriCacheEntry {
 
 class GitCacheEntry {
 
-    private cache: Map<string, ICachedBlame | ICachedDiff | ICachedLog> = new Map();
+    private cache: Map<string, CachedBlame | CachedDiff | CachedLog> = new Map();
 
     constructor(public key: string) { }
 
@@ -34,23 +34,23 @@ class GitCacheEntry {
         return Iterables.every(this.cache.values(), _ => _.errorMessage !== undefined);
     }
 
-    get<T extends ICachedBlame | ICachedDiff | ICachedLog>(key: string): T | undefined {
+    get<T extends CachedBlame | CachedDiff | CachedLog>(key: string): T | undefined {
         return this.cache.get(key) as T;
     }
 
-    set<T extends ICachedBlame | ICachedDiff | ICachedLog>(key: string, value: T) {
+    set<T extends CachedBlame | CachedDiff | CachedLog>(key: string, value: T) {
         this.cache.set(key, value);
     }
 }
 
-interface ICachedItem<T> {
+interface CachedItem<T> {
     item: Promise<T>;
     errorMessage?: string;
 }
 
-interface ICachedBlame extends ICachedItem<IGitBlame> { }
-interface ICachedDiff extends ICachedItem<IGitDiff> { }
-interface ICachedLog extends ICachedItem<IGitLog> { }
+interface CachedBlame extends CachedItem<GitBlame> { }
+interface CachedDiff extends CachedItem<GitDiff> { }
+interface CachedLog extends CachedItem<GitLog> { }
 
 enum RemoveCacheReason {
     DocumentClosed,
@@ -89,7 +89,7 @@ export class GitService extends Disposable {
     private _fsWatcher: FileSystemWatcher | undefined;
     private _gitignore: Promise<ignore.Ignore>;
 
-    static EmptyPromise: Promise<IGitBlame | IGitDiff | IGitLog | undefined> = Promise.resolve(undefined);
+    static EmptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
 
     constructor(private context: ExtensionContext, public repoPath: string) {
         super(() => this.dispose());
@@ -338,7 +338,7 @@ export class GitService extends Disposable {
         return !entry.hasErrors;
     }
 
-    async getBlameForFile(uri: GitUri): Promise<IGitBlame | undefined> {
+    async getBlameForFile(uri: GitUri): Promise<GitBlame | undefined> {
         let key = 'blame';
         if (uri.sha !== undefined) {
             key += `:${uri.sha}`;
@@ -350,7 +350,7 @@ export class GitService extends Disposable {
             entry = this._gitCache.get(cacheKey);
 
             if (entry !== undefined) {
-                const cachedBlame = entry.get<ICachedBlame>(key);
+                const cachedBlame = entry.get<CachedBlame>(key);
                 if (cachedBlame !== undefined) {
                     Logger.log(`Cached(${key}): getBlameForFile('${uri.repoPath}', '${uri.fsPath}', ${uri.sha})`);
                     return cachedBlame.item;
@@ -373,15 +373,15 @@ export class GitService extends Disposable {
         if (entry) {
             Logger.log(`Add blame cache for '${entry.key}:${key}'`);
 
-            entry.set<ICachedBlame>(key, {
+            entry.set<CachedBlame>(key, {
                 item: promise
-            } as ICachedBlame);
+            } as CachedBlame);
         }
 
         return promise;
     }
 
-    private async _getBlameForFile(uri: GitUri, entry: GitCacheEntry | undefined, key: string): Promise<IGitBlame | undefined> {
+    private async _getBlameForFile(uri: GitUri, entry: GitCacheEntry | undefined, key: string): Promise<GitBlame | undefined> {
         const [file, root] = Git.splitPath(uri.fsPath, uri.repoPath, false);
 
         const ignore = await this._gitignore;
@@ -390,7 +390,7 @@ export class GitService extends Disposable {
             if (entry && entry.key) {
                 this._onDidBlameFail.fire(entry.key);
             }
-            return await GitService.EmptyPromise as IGitBlame;
+            return await GitService.EmptyPromise as GitBlame;
         }
 
         try {
@@ -403,20 +403,20 @@ export class GitService extends Disposable {
                 const msg = ex && ex.toString();
                 Logger.log(`Replace blame cache with empty promise for '${entry.key}:${key}'`);
 
-                entry.set<ICachedBlame>(key, {
+                entry.set<CachedBlame>(key, {
                     item: GitService.EmptyPromise,
                     errorMessage: msg
-                } as ICachedBlame);
+                } as CachedBlame);
 
                 this._onDidBlameFail.fire(entry.key);
-                return await GitService.EmptyPromise as IGitBlame;
+                return await GitService.EmptyPromise as GitBlame;
             }
 
             return undefined;
         }
     }
 
-    async getBlameForLine(uri: GitUri, line: number): Promise<IGitBlameLine | undefined> {
+    async getBlameForLine(uri: GitUri, line: number): Promise<GitBlameLine | undefined> {
         Logger.log(`getBlameForLine('${uri.repoPath}', '${uri.fsPath}', ${line}, ${uri.sha})`);
 
         if (this.UseCaching) {
@@ -436,7 +436,7 @@ export class GitService extends Disposable {
                 author: Object.assign({}, blame.authors.get(commit.author), { lineCount: commit.lines.length }),
                 commit: commit,
                 line: blameLine
-            } as IGitBlameLine;
+            } as GitBlameLine;
         }
 
         const fileName = uri.fsPath;
@@ -454,14 +454,14 @@ export class GitService extends Disposable {
                 author: Iterables.first(blame.authors.values()),
                 commit: commit,
                 line: blame.lines[line]
-            } as IGitBlameLine;
+            } as GitBlameLine;
         }
         catch (ex) {
             return undefined;
         }
     }
 
-    async getBlameForRange(uri: GitUri, range: Range): Promise<IGitBlameLines | undefined> {
+    async getBlameForRange(uri: GitUri, range: Range): Promise<GitBlameLines | undefined> {
         Logger.log(`getBlameForRange('${uri.repoPath}', '${uri.fsPath}', [${range.start.line}, ${range.end.line}], ${uri.sha})`);
 
         const blame = await this.getBlameForFile(uri);
@@ -470,7 +470,7 @@ export class GitService extends Disposable {
         return this.getBlameForRangeSync(blame, uri, range);
     }
 
-    getBlameForRangeSync(blame: IGitBlame, uri: GitUri, range: Range): IGitBlameLines | undefined {
+    getBlameForRangeSync(blame: GitBlame, uri: GitUri, range: Range): GitBlameLines | undefined {
         Logger.log(`getBlameForRangeSync('${uri.repoPath}', '${uri.fsPath}', [${range.start.line}, ${range.end.line}], ${uri.sha})`);
 
         if (blame.lines.length === 0) return Object.assign({ allLines: blame.lines }, blame);
@@ -483,7 +483,7 @@ export class GitService extends Disposable {
         const shas: Set<string> = new Set();
         lines.forEach(l => shas.add(l.sha));
 
-        const authors: Map<string, IGitAuthor> = new Map();
+        const authors: Map<string, GitAuthor> = new Map();
         const commits: Map<string, GitCommit> = new Map();
         blame.commits.forEach(c => {
             if (!shas.has(c.sha)) return;
@@ -504,7 +504,7 @@ export class GitService extends Disposable {
             author.lineCount += commit.lines.length;
         });
 
-        const sortedAuthors: Map<string, IGitAuthor> = new Map();
+        const sortedAuthors: Map<string, GitAuthor> = new Map();
         Array.from(authors.values())
             .sort((a, b) => b.lineCount - a.lineCount)
             .forEach(a => sortedAuthors.set(a.name, a));
@@ -514,7 +514,7 @@ export class GitService extends Disposable {
             commits: commits,
             lines: lines,
             allLines: blame.lines
-        } as IGitBlameLines;
+        } as GitBlameLines;
     }
 
     async getBlameLocations(uri: GitUri, range: Range, selectedSha?: string, line?: number): Promise<Location[] | undefined> {
@@ -574,7 +574,7 @@ export class GitService extends Disposable {
         return entry && entry.uri;
     }
 
-    async getDiffForFile(uri: GitUri, sha1?: string, sha2?: string): Promise<IGitDiff | undefined> {
+    async getDiffForFile(uri: GitUri, sha1?: string, sha2?: string): Promise<GitDiff | undefined> {
         if (sha1 !== undefined && sha2 === undefined && uri.sha !== undefined) {
             sha2 = uri.sha;
         }
@@ -593,7 +593,7 @@ export class GitService extends Disposable {
             entry = this._gitCache.get(cacheKey);
 
             if (entry !== undefined) {
-                const cachedDiff = entry.get<ICachedDiff>(key);
+                const cachedDiff = entry.get<CachedDiff>(key);
                 if (cachedDiff !== undefined) {
                     Logger.log(`Cached(${key}): getDiffForFile('${uri.repoPath}', '${uri.fsPath}', ${sha1}, ${sha2})`);
                     return cachedDiff.item;
@@ -616,15 +616,15 @@ export class GitService extends Disposable {
         if (entry) {
             Logger.log(`Add log cache for '${entry.key}:${key}'`);
 
-            entry.set<ICachedDiff>(key, {
+            entry.set<CachedDiff>(key, {
                 item: promise
-            } as ICachedDiff);
+            } as CachedDiff);
         }
 
         return promise;
     }
 
-    private async _getDiffForFile(repoPath: string | undefined, fileName: string, sha1: string | undefined, sha2: string | undefined, entry: GitCacheEntry | undefined, key: string): Promise<IGitDiff | undefined> {
+    private async _getDiffForFile(repoPath: string | undefined, fileName: string, sha1: string | undefined, sha2: string | undefined, entry: GitCacheEntry | undefined, key: string): Promise<GitDiff | undefined> {
         const [file, root] = Git.splitPath(fileName, repoPath, false);
 
         try {
@@ -637,19 +637,19 @@ export class GitService extends Disposable {
                 const msg = ex && ex.toString();
                 Logger.log(`Replace diff cache with empty promise for '${entry.key}:${key}'`);
 
-                entry.set<ICachedDiff>(key, {
+                entry.set<CachedDiff>(key, {
                     item: GitService.EmptyPromise,
                     errorMessage: msg
-                } as ICachedDiff);
+                } as CachedDiff);
 
-                return await GitService.EmptyPromise as IGitDiff;
+                return await GitService.EmptyPromise as GitDiff;
             }
 
             return undefined;
         }
     }
 
-    async getDiffForLine(uri: GitUri, line: number, sha1?: string, sha2?: string): Promise<[IGitDiffLine | undefined, IGitDiffLine | undefined]> {
+    async getDiffForLine(uri: GitUri, line: number, sha1?: string, sha2?: string): Promise<[GitDiffLine | undefined, GitDiffLine | undefined]> {
         try {
             const diff = await this.getDiffForFile(uri, sha1, sha2);
             if (diff === undefined) return [undefined, undefined];
@@ -706,7 +706,7 @@ export class GitService extends Disposable {
         return commit || Iterables.first(log.commits.values());
     }
 
-    async getLogForRepo(repoPath: string, sha?: string, maxCount?: number, reverse: boolean = false): Promise<IGitLog | undefined> {
+    async getLogForRepo(repoPath: string, sha?: string, maxCount?: number, reverse: boolean = false): Promise<GitLog | undefined> {
         Logger.log(`getLogForRepo('${repoPath}', ${sha}, ${maxCount})`);
 
         if (maxCount == null) {
@@ -722,7 +722,7 @@ export class GitService extends Disposable {
         }
     }
 
-    async getLogForRepoSearch(repoPath: string, search: string, searchBy: GitRepoSearchBy, maxCount?: number): Promise<IGitLog | undefined> {
+    async getLogForRepoSearch(repoPath: string, search: string, searchBy: GitRepoSearchBy, maxCount?: number): Promise<GitLog | undefined> {
         Logger.log(`getLogForRepoSearch('${repoPath}', ${search}, ${searchBy}, ${maxCount})`);
 
         if (maxCount == null) {
@@ -755,7 +755,7 @@ export class GitService extends Disposable {
         }
     }
 
-    async getLogForFile(repoPath: string | undefined, fileName: string, sha?: string, maxCount?: number, range?: Range, reverse: boolean = false): Promise<IGitLog | undefined> {
+    async getLogForFile(repoPath: string | undefined, fileName: string, sha?: string, maxCount?: number, range?: Range, reverse: boolean = false): Promise<GitLog | undefined> {
         let key = 'log';
         if (sha !== undefined) {
             key += `:${sha}`;
@@ -770,7 +770,7 @@ export class GitService extends Disposable {
             entry = this._gitCache.get(cacheKey);
 
             if (entry !== undefined) {
-                const cachedLog = entry.get<ICachedLog>(key);
+                const cachedLog = entry.get<CachedLog>(key);
                 if (cachedLog !== undefined) {
                     Logger.log(`Cached(${key}): getLogForFile('${repoPath}', '${fileName}', ${sha}, ${maxCount}, undefined, false)`);
                     return cachedLog.item;
@@ -778,7 +778,7 @@ export class GitService extends Disposable {
 
                 if (key !== 'log') {
                     // Since we are looking for partial log, see if we have the log of the whole file
-                    const cachedLog = entry.get<ICachedLog>('log');
+                    const cachedLog = entry.get<CachedLog>('log');
                     if (cachedLog !== undefined) {
                         if (sha === undefined) {
                             Logger.log(`Cached(~${key}): getLogForFile('${repoPath}', '${fileName}', ${sha}, ${maxCount}, undefined, false)`);
@@ -811,21 +811,21 @@ export class GitService extends Disposable {
         if (entry) {
             Logger.log(`Add log cache for '${entry.key}:${key}'`);
 
-            entry.set<ICachedLog>(key, {
+            entry.set<CachedLog>(key, {
                 item: promise
-            } as ICachedLog);
+            } as CachedLog);
         }
 
         return promise;
     }
 
-    private async _getLogForFile(repoPath: string | undefined, fileName: string, sha: string | undefined, range: Range | undefined, maxCount: number | undefined, reverse: boolean, entry: GitCacheEntry | undefined, key: string): Promise<IGitLog | undefined> {
+    private async _getLogForFile(repoPath: string | undefined, fileName: string, sha: string | undefined, range: Range | undefined, maxCount: number | undefined, reverse: boolean, entry: GitCacheEntry | undefined, key: string): Promise<GitLog | undefined> {
         const [file, root] = Git.splitPath(fileName, repoPath, false);
 
         const ignore = await this._gitignore;
         if (ignore && !ignore.filter([file]).length) {
             Logger.log(`Skipping log; '${fileName}' is gitignored`);
-            return await GitService.EmptyPromise as IGitLog;
+            return await GitService.EmptyPromise as GitLog;
         }
 
         try {
@@ -838,12 +838,12 @@ export class GitService extends Disposable {
                 const msg = ex && ex.toString();
                 Logger.log(`Replace log cache with empty promise for '${entry.key}:${key}'`);
 
-                entry.set<ICachedLog>(key, {
+                entry.set<CachedLog>(key, {
                     item: GitService.EmptyPromise,
                     errorMessage: msg
-                } as ICachedLog);
+                } as CachedLog);
 
-                return await GitService.EmptyPromise as IGitLog;
+                return await GitService.EmptyPromise as GitLog;
             }
 
             return undefined;
@@ -911,7 +911,7 @@ export class GitService extends Disposable {
         return repoPath;
     }
 
-    async getStashList(repoPath: string): Promise<IGitStash | undefined> {
+    async getStashList(repoPath: string): Promise<GitStash | undefined> {
         Logger.log(`getStash('${repoPath}')`);
 
         const data = await Git.stash_list(repoPath);
@@ -930,7 +930,7 @@ export class GitService extends Disposable {
         return status.files[0];
     }
 
-    async getStatusForRepo(repoPath: string): Promise<IGitStatus | undefined> {
+    async getStatusForRepo(repoPath: string): Promise<GitStatus | undefined> {
         Logger.log(`getStatusForRepo('${repoPath}')`);
 
         const porcelainVersion = Git.validateVersion(2, 11) ? 2 : 1;
