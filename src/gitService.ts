@@ -423,8 +423,11 @@ export class GitService extends Disposable {
             const blame = await this.getBlameForFile(uri);
             if (blame === undefined) return undefined;
 
-            const blameLine = blame.lines[line];
-            if (blameLine === undefined) return undefined;
+            let blameLine = blame.lines[line];
+            if (blameLine === undefined) {
+                if (blame.lines.length !== line) return undefined;
+                blameLine = blame.lines[line - 1];
+            }
 
             const commit = blame.commits.get(blameLine.sha);
             if (commit === undefined) return undefined;

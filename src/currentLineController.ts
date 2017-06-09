@@ -190,7 +190,7 @@ export class CurrentLineController extends Disposable {
         }
 
         if (commit !== undefined && commitLine !== undefined) {
-            this.show(commit, commitLine, editor);
+            this.show(commit, commitLine, editor, line);
         }
         else {
             this.clear(editor);
@@ -215,12 +215,12 @@ export class CurrentLineController extends Disposable {
         editor.setDecorations(annotationDecoration, []);
     }
 
-    async show(commit: GitCommit, blameLine: IGitCommitLine, editor: TextEditor) {
+    async show(commit: GitCommit, blameLine: IGitCommitLine, editor: TextEditor, line: number) {
         // I have no idea why I need this protection -- but it happens
         if (editor.document === undefined) return;
 
         this._updateStatusBar(commit);
-        await this._updateAnnotations(commit, blameLine, editor);
+        await this._updateAnnotations(commit, blameLine, editor, line);
     }
 
     async showAnnotations(editor: TextEditor, type: LineAnnotationType) {
@@ -247,11 +247,11 @@ export class CurrentLineController extends Disposable {
         await this._updateBlame(editor.selection.active.line, editor);
     }
 
-    private async _updateAnnotations(commit: GitCommit, blameLine: IGitCommitLine, editor: TextEditor) {
+    private async _updateAnnotations(commit: GitCommit, blameLine: IGitCommitLine, editor: TextEditor, line?: number) {
         const cfg = this._config.blame.line;
         if (!cfg.enabled) return;
 
-        const line = blameLine.line + this._uri.offset;
+        line = line === undefined ? blameLine.line + this._uri.offset : line;
 
         const decorationOptions: DecorationOptions[] = [];
 
