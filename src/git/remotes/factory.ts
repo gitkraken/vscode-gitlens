@@ -15,7 +15,7 @@ const providerMap = new Map<string, (domain: string, path: string) => RemoteProv
     ['visualstudio.com', (domain: string, path: string) => new VisualStudioService(domain, path)]
 ]);
 
-const UrlRegex = /^(?:git:\/\/(.*?)\/|https:\/\/(.*?)\/|http:\/\/(.*?)\/|git@(.*):\/\/|ssh:\/\/git@(.*?)\/)(.*)$/;
+const UrlRegex = /^(?:git:\/\/(.*?)\/|https:\/\/(.*?)\/|http:\/\/(.*?)\/|git@(.*):|ssh:\/\/(?:.*@)?(.*?)(?::.*?)?\/)(.*)$/;
 
 export class RemoteProviderFactory {
 
@@ -25,7 +25,7 @@ export class RemoteProviderFactory {
             if (match == null) return undefined;
 
             const domain = match[1] || match[2] || match[3] || match[4] || match[5];
-            const path = match[6].replace(/\.git/, '');
+            const path = match[6].replace(/\.git\/?$/, '');
 
             const key = domain.toLowerCase().endsWith('visualstudio.com')
                 ? 'visualstudio.com'
