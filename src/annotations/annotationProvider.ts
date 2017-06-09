@@ -60,10 +60,11 @@ import { WhitespaceController } from './whitespaceController';
         this.whitespaceController && await this.whitespaceController.restore();
     }
 
-    async reset() {
+    async reset(whitespaceController: WhitespaceController | undefined) {
         await this.clear();
 
         this._config = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
+        this.whitespaceController = whitespaceController;
 
         await this.provideAnnotation(this.editor === undefined ? undefined : this.editor.selection.active.line);
     }

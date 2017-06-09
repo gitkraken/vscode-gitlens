@@ -56,16 +56,27 @@ export class AnnotationController extends Disposable {
 
     private _onConfigurationChanged() {
         let toggleWhitespace = workspace.getConfiguration(`${ExtensionKey}.advanced.toggleWhitespace`).get<boolean>('enabled');
-        if (!toggleWhitespace) {
-            // Until https://github.com/Microsoft/vscode/issues/11485 is fixed we need to toggle whitespace for non-monospace fonts and ligatures
-            // TODO: detect monospace font
-            toggleWhitespace = workspace.getConfiguration('editor').get<boolean>('fontLigatures');
+        // Until https://github.com/Microsoft/vscode/issues/11485 is fixed we need to toggle whitespace for non-monospace fonts and ligatures
+        // TODO: detect monospace vs non-monospace font
+
+        // if (!toggleWhitespace) {
+        //     // Since we know ligatures will break the whitespace rendering -- turn it back on
+        //     toggleWhitespace = workspace.getConfiguration('editor').get<boolean>('fontLigatures', false);
+        // }
+
+        // If the setting is on and we aren't showing any annotations, make sure it is necessary (i.e. only when rendering whitespace)
+        if (toggleWhitespace && this._annotationProviders.size === 0) {
+            toggleWhitespace = (workspace.getConfiguration('editor').get<string>('renderWhitespace') !== 'none');
         }
 
-        if (toggleWhitespace && !this._whitespaceController) {
+        let changed = false;
+
+        if (toggleWhitespace && this._whitespaceController === undefined) {
+            changed = true;
             this._whitespaceController = new WhitespaceController();
         }
-        else if (!toggleWhitespace && this._whitespaceController) {
+        else if (!toggleWhitespace && this._whitespaceController !== undefined) {
+            changed = true;
             this._whitespaceController.dispose();
             this._whitespaceController = undefined;
         }
@@ -73,8 +84,6 @@ export class AnnotationController extends Disposable {
         const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
         const cfgHighlight = cfg.blame.file.lineHighlight;
         const cfgTheme = cfg.theme.lineHighlight;
-
-        let changed = false;
 
         if (!Objects.areEquivalent(cfgHighlight, this._config && this._config.blame.file.lineHighlight) ||
             !Objects.areEquivalent(cfgTheme, this._config && this._config.theme.lineHighlight)) {
@@ -129,7 +138,7 @@ export class AnnotationController extends Disposable {
             for (const provider of this._annotationProviders.values()) {
                 if (provider === undefined) continue;
 
-                provider.reset();
+                provider.reset(this._whitespaceController);
             }
         }
     }
