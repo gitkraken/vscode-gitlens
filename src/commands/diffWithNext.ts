@@ -37,7 +37,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 
                 const sha = args.commit === undefined ? gitUri.sha : args.commit.sha;
 
-                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, sha ? undefined : 2, args.range!);
+                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, sha !== undefined ? undefined : 2, args.range!);
                 if (log === undefined) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
 
                 args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
