@@ -1,5 +1,5 @@
 'use strict';
-import { Objects } from './system';
+// import { Objects } from './system';
 import { commands, ExtensionContext, extensions, languages, Uri, window, workspace } from 'vscode';
 import { AnnotationController } from './annotations/annotationController';
 import { CommandContext, setCommandContext } from './commands';
@@ -121,7 +121,8 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new StashSaveCommand(git));
     context.subscriptions.push(new ToggleCodeLensCommand(git));
 
-    Telemetry.trackEvent('initialized', Objects.flatten(cfg, 'config', true));
+    // Constantly over my data cap so stop collecting initialized event
+    // Telemetry.trackEvent('initialized', Objects.flatten(cfg, 'config', true));
 }
 
 // this method is called when your extension is deactivated
