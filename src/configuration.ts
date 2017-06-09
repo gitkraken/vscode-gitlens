@@ -11,7 +11,14 @@ export const BlameLineHighlightLocations = {
     OverviewRuler: 'overviewRuler' as BlameLineHighlightLocations
 };
 
-export type CodeLensCommand = 'gitlens.toggleFileBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.diffWithPrevious' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory';
+export type CodeLensCommand = 'gitlens.toggleFileBlame' |
+    'gitlens.showBlameHistory' |
+    'gitlens.showFileHistory' |
+    'gitlens.diffWithPrevious' |
+    'gitlens.showQuickCommitDetails' |
+    'gitlens.showQuickCommitFileDetails' |
+    'gitlens.showQuickFileHistory' |
+    'gitlens.showQuickRepoHistory';
 export const CodeLensCommand = {
     BlameAnnotate: Commands.ToggleFileBlame as CodeLensCommand,
     ShowBlameHistory: Commands.ShowBlameHistory as CodeLensCommand,
@@ -43,7 +50,16 @@ export const LineAnnotationType = {
     Hover: 'hover' as LineAnnotationType
 };
 
-export type StatusBarCommand = 'gitlens.toggleFileBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.toggleCodeLens' | 'gitlens.diffWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory';
+export type StatusBarCommand = 'gitlens.toggleFileBlame' |
+    'gitlens.showBlameHistory' |
+    'gitlens.showFileHistory' |
+    'gitlens.toggleCodeLens' |
+    'gitlens.diffWithPrevious' |
+    'gitlens.diffWithWorking' |
+    'gitlens.showQuickCommitDetails' |
+    'gitlens.showQuickCommitFileDetails' |
+    'gitlens.showQuickFileHistory' |
+    'gitlens.showQuickRepoHistory';
 export const StatusBarCommand = {
     BlameAnnotate: Commands.ToggleFileBlame as StatusBarCommand,
     ShowBlameHistory: Commands.ShowBlameHistory as StatusBarCommand,
