@@ -3,6 +3,7 @@ import { commands, InputBoxOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { GitRepoSearchBy, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitsQuickPick } from '../quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 import { paste } from 'copy-paste';
@@ -33,7 +34,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
         const gitUri = uri === undefined ? undefined : await GitUri.fromUri(uri, this.git);
 
         const repoPath = gitUri === undefined ? this.git.repoPath : gitUri.repoPath;
-        if (!repoPath) return window.showWarningMessage(`Unable to show commit search`);
+        if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show commit search`);
 
         if (!args.search || args.searchBy == null) {
             try {

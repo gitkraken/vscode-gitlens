@@ -872,6 +872,11 @@
                 "command": "gitlens.stashSave",
                 "title": "Stash Changes",
                 "category": "GitLens"
+            },
+            {
+                "command": "gitlens.resetSuppressedWarnings",
+                "title": "Reset Suppressed Warnings",
+                "category": "GitLens"
             }
         ],
         "menus": {
@@ -1002,6 +1007,10 @@
                 },
                 {
                     "command": "gitlens.stashSave",
+                    "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.resetSuppressedWarnings",
                     "when": "gitlens:enabled"
                 }
             ],

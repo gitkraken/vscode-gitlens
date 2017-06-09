@@ -6,6 +6,7 @@ import { DiffWithPreviousCommandArgs } from './diffWithPrevious';
 import { DiffWithWorkingCommandArgs } from './diffWithWorking';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import * as path from 'path';
 
 export interface DiffLineWithPreviousCommandArgs {
@@ -35,7 +36,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 
             try {
                 const blame = await this.git.getBlameForLine(gitUri, blameline);
-                if (blame === undefined) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
+                if (blame === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
 
                 args.commit = blame.commit;
 

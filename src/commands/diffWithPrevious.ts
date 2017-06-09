@@ -6,7 +6,7 @@ import { BuiltInCommands } from '../constants';
 import { DiffWithWorkingCommandArgs } from './diffWithWorking';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import * as moment from 'moment';
+import { Messages } from '../messages';
 import * as path from 'path';
 
 export interface DiffWithPreviousCommandArgs {
@@ -35,7 +35,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                 const sha = args.commit === undefined ? gitUri.sha : args.commit.sha;
 
                 const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, sha !== undefined ? undefined : 2, args.range!);
-                if (log === undefined) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
+                if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
 
                 args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
 
@@ -48,7 +48,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
             }
         }
 
-        if (args.commit.previousSha === undefined) return window.showInformationMessage(`Commit ${args.commit.shortSha} (${args.commit.author}, ${moment(args.commit.date).fromNow()}) has no previous commit`);
+        if (args.commit.previousSha === undefined) return Messages.showCommitHasNoPreviousCommitWarningMessage(args.commit);
 
         try {
             const [rhs, lhs] = await Promise.all([

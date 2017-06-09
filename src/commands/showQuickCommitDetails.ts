@@ -5,6 +5,7 @@ import { GitCommit, GitLogCommit, GitService, GitUri, IGitLog } from '../gitServ
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitDetailsQuickPick, CommitWithFileStatusQuickPickItem } from '../quickPicks';
 import { ShowQuickCommitFileDetailsCommandArgs } from './showQuickCommitFileDetails';
+import { Messages } from '../messages';
 import * as path from 'path';
 
 export interface ShowQuickCommitDetailsCommandArgs {
@@ -38,9 +39,12 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 
             try {
                 const blame = await this.git.getBlameForLine(gitUri, blameline);
-                if (blame === undefined) return window.showWarningMessage(`Unable to show commit details. File is probably not under source control`);
+                if (blame === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to show commit details');
 
-                args.sha = blame.commit.isUncommitted ? blame.commit.previousSha : blame.commit.sha;
+                // Because the previous sha of an uncommitted file isn't trust worthy we just have to kick out
+                if (blame.commit.isUncommitted) return Messages.showLineUncommittedWarningMessage('Unable to show commit details');
+
+                args.sha = blame.commit.sha;
                 repoPath = blame.commit.repoPath;
                 workingFileName = blame.commit.fileName;
 
@@ -64,13 +68,13 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 
                 if (args.repoLog === undefined) {
                     const log = await this.git.getLogForRepo(repoPath!, args.sha, 2);
-                    if (log === undefined) return window.showWarningMessage(`Unable to show commit details`);
+                    if (log === undefined) return Messages.showCommitNotFoundWarningMessage(`Unable to show commit details`);
 
                     args.commit = log.commits.get(args.sha!);
                 }
             }
 
-            if (args.commit === undefined) return window.showWarningMessage(`Unable to show commit details`);
+            if (args.commit === undefined) return Messages.showCommitNotFoundWarningMessage(`Unable to show commit details`);
 
             if (args.commit.workingFileName === undefined) {
                 args.commit.workingFileName = workingFileName;

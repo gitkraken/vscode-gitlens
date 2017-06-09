@@ -6,6 +6,7 @@ import { TextEditorComparer, UriComparer } from '../comparers';
 import { BuiltInCommands } from '../constants';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 
 export interface CloseUnchangedFilesCommandArgs {
     uris?: Uri[];
@@ -23,7 +24,7 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
         try {
             if (args.uris === undefined) {
                 const repoPath = await this.git.getRepoPathFromUri(uri);
-                if (!repoPath) return window.showWarningMessage(`Unable to close unchanged files`);
+                if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to close unchanged files`);
 
                 const status = await this.git.getStatusForRepo(repoPath);
                 if (status === undefined) return window.showWarningMessage(`Unable to close unchanged files`);

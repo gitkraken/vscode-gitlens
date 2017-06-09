@@ -4,6 +4,7 @@ import { commands, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { OpenInRemoteCommandArgs } from './openInRemote';
 
 export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
@@ -27,7 +28,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
             if (blameline < 0) return undefined;
 
             const blame = await this.git.getBlameForLine(gitUri, blameline);
-            if (blame === undefined) return window.showWarningMessage(`Unable to open commit in remote provider. File is probably not under source control`);
+            if (blame === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open commit in remote provider');
 
             let commit = blame.commit;
             // If the line is uncommitted, find the previous commit

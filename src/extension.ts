@@ -1,12 +1,13 @@
 'use strict';
 // import { Objects } from './system';
-import { commands, ExtensionContext, extensions, languages, Uri, window, workspace } from 'vscode';
+import { ExtensionContext, extensions, languages, window, workspace } from 'vscode';
 import { AnnotationController } from './annotations/annotationController';
 import { CommandContext, setCommandContext } from './commands';
 import { CloseUnchangedFilesCommand, OpenChangedFilesCommand } from './commands';
 import { OpenBranchInRemoteCommand, OpenCommitInRemoteCommand, OpenFileInRemoteCommand, OpenInRemoteCommand, OpenRepoInRemoteCommand } from './commands';
 import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './commands';
 import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithBranchCommand, DiffWithNextCommand, DiffWithPreviousCommand, DiffWithWorkingCommand} from './commands';
+import { ResetSuppressedWarningsCommand } from './commands';
 import { ShowFileBlameCommand, ShowLineBlameCommand, ToggleFileBlameCommand, ToggleLineBlameCommand } from './commands';
 import { ShowBlameHistoryCommand, ShowFileHistoryCommand } from './commands';
 import { ShowLastQuickPickCommand } from './commands';
@@ -17,17 +18,19 @@ import { StashApplyCommand, StashDeleteCommand, StashSaveCommand } from './comma
 import { ToggleCodeLensCommand } from './commands';
 import { Keyboard } from './commands';
 import { BlameLineHighlightLocations, CodeLensLocations, IConfig, LineAnnotationType } from './configuration';
-import { ApplicationInsightsKey, BuiltInCommands, ExtensionKey, QualifiedExtensionId, WorkspaceState } from './constants';
+import { ApplicationInsightsKey, ExtensionKey, QualifiedExtensionId, WorkspaceState } from './constants';
 import { CurrentLineController } from './currentLineController';
 import { GitContentProvider } from './gitContentProvider';
 import { GitContextTracker, GitService } from './gitService';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { Logger } from './logger';
+import { Messages, SuppressedKeys } from './messages';
 import { Telemetry } from './telemetry';
 
 // this method is called when your extension is activated
 export async function activate(context: ExtensionContext) {
     Logger.configure(context);
+    Messages.configure(context);
     Telemetry.configure(ApplicationInsightsKey);
 
     const gitlens = extensions.getExtension(QualifiedExtensionId)!;
@@ -105,6 +108,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new ShowLineBlameCommand(currentLineController));
     context.subscriptions.push(new ToggleFileBlameCommand(annotationController));
     context.subscriptions.push(new ToggleLineBlameCommand(currentLineController));
+    context.subscriptions.push(new ResetSuppressedWarningsCommand(context));
     context.subscriptions.push(new ShowBlameHistoryCommand(git));
     context.subscriptions.push(new ShowFileHistoryCommand(git));
     context.subscriptions.push(new ShowLastQuickPickCommand());
@@ -253,49 +257,25 @@ async function migrateSettings(context: ExtensionContext) {
 }
 
 async function notifyOnNewGitLensVersion(context: ExtensionContext, version: string) {
-    if (context.globalState.get(WorkspaceState.SuppressUpdateNotice, false)) return;
+    if (context.globalState.get(SuppressedKeys.UpdateNotice, false)) return;
 
     const previousVersion = context.globalState.get<string>(WorkspaceState.GitLensVersion);
 
-    if (!context.globalState.get(WorkspaceState.SuppressWelcomeNotice, false)) {
-        await context.globalState.update(WorkspaceState.SuppressWelcomeNotice, true);
-
-        if (previousVersion === undefined) {
-            const result = await window.showInformationMessage(`Thank you for choosing GitLens! GitLens is powerful, feature rich, and highly configurable, so please be sure to view the docs and tailor it to suit your needs.`, 'View Docs');
-            if (result === 'View Docs') {
-                // TODO: Reset before release
-                // commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://marketplace.visualstudio.com/items/eamodio.gitlens'));
-                commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://github.com/eamodio/vscode-gitlens/blob/develop/README.md'));
-            }
-            return;
-        }
+    if (previousVersion === undefined) {
+        await Messages.showWelcomeMessage();
+        return;
     }
 
-    if (previousVersion) {
-        const [major, minor] = version.split('.');
-        const [prevMajor, prevMinor] = previousVersion.split('.');
-        if (major === prevMajor && minor === prevMinor) return;
-    }
+    const [major, minor] = version.split('.');
+    const [prevMajor, prevMinor] = previousVersion.split('.');
+    if (major === prevMajor && minor === prevMinor) return;
 
-    const result = await window.showInformationMessage(`GitLens has been updated to v${version}`, 'View Release Notes', `Don't Show Again`);
-    if (result === 'View Release Notes') {
-        // TODO: Reset before release
-        // commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://marketplace.visualstudio.com/items/eamodio.gitlens/changelog'));
-        commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://github.com/eamodio/vscode-gitlens/blob/develop/CHANGELOG.md'));
-    }
-    else if (result === `Don't Show Again`) {
-        context.globalState.update(WorkspaceState.SuppressUpdateNotice, true);
-    }
+    await Messages.showUpdateMessage(version);
 }
 
 async function notifyOnUnsupportedGitVersion(context: ExtensionContext, version: string) {
-    if (context.globalState.get(WorkspaceState.SuppressGitVersionWarning, false)) return;
+    if (GitService.validateGitVersion(2, 2)) return;
 
     // If git is less than v2.2.0
-    if (!GitService.validateGitVersion(2, 2)) {
-        const result = await window.showErrorMessage(`GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git.`, `Don't Show Again`);
-        if (result === `Don't Show Again`) {
-            context.globalState.update(WorkspaceState.SuppressGitVersionWarning, true);
-        }
-    }
+    await Messages.showUnsupportedGitVersionErrorMessage(version);
 }

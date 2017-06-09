@@ -5,6 +5,7 @@ import { GitService, GitUri, IGitLog } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, FileHistoryQuickPick } from '../quickPicks';
 import { ShowQuickCommitFileDetailsCommandArgs } from './showQuickCommitFileDetails';
+import { Messages } from '../messages';
 import * as path from 'path';
 
 export interface ShowQuickFileHistoryCommandArgs {
@@ -36,7 +37,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
         try {
             if (args.log === undefined) {
                 args.log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha, args.maxCount, args.range);
-                if (args.log === undefined) return window.showWarningMessage(`Unable to show file history. File is probably not under source control`);
+                if (args.log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to show file history');
             }
 
             if (progressCancellation.token.isCancellationRequested) return undefined;

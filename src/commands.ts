@@ -19,6 +19,7 @@ export * from './commands/openCommitInRemote';
 export * from './commands/openFileInRemote';
 export * from './commands/openInRemote';
 export * from './commands/openRepoInRemote';
+export * from './commands/resetSuppressedWarnings';
 export * from './commands/showBlameHistory';
 export * from './commands/showFileBlame';
 export * from './commands/showFileHistory';

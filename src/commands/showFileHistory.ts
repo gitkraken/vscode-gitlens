@@ -3,6 +3,7 @@ import { commands, Position, Range, TextEditor, TextEditorEdit, Uri, window } fr
 import { Commands, EditorCommand, getCommandUri } from './common';
 import { BuiltInCommands } from '../constants';
 import { GitService, GitUri } from '../gitService';
+import { Messages } from '../messages';
 import { Logger } from '../logger';
 
 export interface ShowFileHistoryCommandArgs {
@@ -30,7 +31,7 @@ export class ShowFileHistoryCommand extends EditorCommand {
 
         try {
             const locations = await this.git.getLogLocations(gitUri, args.sha, args.line);
-            if (locations === undefined) return window.showWarningMessage(`Unable to show file history. File is probably not under source control`);
+            if (locations === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to show file history');
 
             return commands.executeCommand(BuiltInCommands.ShowReferences, uri, args.position, locations);
         }

@@ -4,6 +4,7 @@ import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { BuiltInCommands } from '../constants';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import * as path from 'path';
 
 export interface DiffWithWorkingCommandArgs {
@@ -31,7 +32,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
             try {
                 args.commit = await this.git.getLogCommit(gitUri.repoPath, gitUri.fsPath, gitUri.sha, { firstIfMissing: true });
-                if (args.commit === undefined) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
+                if (args.commit === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
             }
             catch (ex) {
                 Logger.error(ex, 'DiffWithWorkingCommand', `getLogCommit(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`);

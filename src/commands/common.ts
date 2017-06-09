@@ -20,6 +20,7 @@ export type Commands = 'gitlens.closeUnchangedFiles' |
     'gitlens.openFileInRemote' |
     'gitlens.openInRemote' |
     'gitlens.openRepoInRemote' |
+    'gitlens.resetSuppressedWarnings' |
     'gitlens.showBlameHistory' |
     'gitlens.showCommitSearch' |
     'gitlens.showFileBlame' |
@@ -56,6 +57,7 @@ export const Commands = {
     OpenFileInRemote: 'gitlens.openFileInRemote' as Commands,
     OpenInRemote: 'gitlens.openInRemote' as Commands,
     OpenRepoInRemote: 'gitlens.openRepoInRemote' as Commands,
+    ResetSuppressedWarnings: 'gitlens.resetSuppressedWarnings' as Commands,
     ShowBlameHistory: 'gitlens.showBlameHistory' as Commands,
     ShowCommitSearch: 'gitlens.showCommitSearch' as Commands,
     ShowFileBlame: 'gitlens.showFileBlame' as Commands,

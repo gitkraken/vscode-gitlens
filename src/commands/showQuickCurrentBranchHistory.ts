@@ -4,6 +4,7 @@ import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { ShowQuickBranchHistoryCommandArgs } from './showQuickBranchHistory';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { CommandQuickPickItem } from '../quickPicks';
 
 export interface ShowQuickCurrentBranchHistoryCommandArgs {
@@ -21,7 +22,7 @@ export class ShowQuickCurrentBranchHistoryCommand extends ActiveEditorCachedComm
 
         try {
             const repoPath = await this.git.getRepoPathFromUri(uri);
-            if (!repoPath) return window.showWarningMessage(`Unable to show branch history`);
+            if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show branch history`);
 
             const branch = await this.git.getBranch(repoPath);
             if (branch === undefined) return undefined;

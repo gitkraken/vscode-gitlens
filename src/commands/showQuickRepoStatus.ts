@@ -3,6 +3,7 @@ import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { CommandQuickPickItem, RepoStatusQuickPick } from '../quickPicks';
 
 export interface ShowQuickRepoStatusCommandArgs {
@@ -20,7 +21,7 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
 
         try {
             const repoPath = await this.git.getRepoPathFromUri(uri);
-            if (!repoPath) return window.showWarningMessage(`Unable to show repository status`);
+            if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show repository status`);
 
             const status = await this.git.getStatusForRepo(repoPath);
             if (status === undefined) return window.showWarningMessage(`Unable to show repository status`);

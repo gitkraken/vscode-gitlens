@@ -3,6 +3,7 @@ import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { CommandQuickPickItem, StashListQuickPick } from '../quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
@@ -21,7 +22,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
 
         try {
             const repoPath = await this.git.getRepoPathFromUri(uri);
-            if (!repoPath) return window.showWarningMessage(`Unable to show stashed changes`);
+            if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show stashed changes`);
 
             const stash = await this.git.getStashList(repoPath);
             if (stash === undefined) return window.showWarningMessage(`Unable to show stashed changes`);
