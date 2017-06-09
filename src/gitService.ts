@@ -287,18 +287,18 @@ export class GitService extends Disposable {
         if (sha === undefined) {
             // Get the most recent commit for this file name
             const c = await this.getLogCommit(repoPath, fileName);
-            if (!c) return undefined;
+            if (c === undefined) return undefined;
 
             sha = c.sha;
         }
 
         // Get the full commit (so we can see if there are any matching renames in the file statuses)
         const log = await this.getLogForRepo(repoPath, sha, 1);
-        if (!log) return undefined;
+        if (log === undefined) return undefined;
 
         const c = Iterables.first(log.commits.values());
         const status = c.fileStatuses.find(_ => _.originalFileName === fileName);
-        if (!status) return undefined;
+        if (status === undefined) return undefined;
 
         return status.fileName;
     }
@@ -444,7 +444,7 @@ export class GitService extends Disposable {
         try {
             const data = await Git.blame(uri.repoPath, fileName, uri.sha, line + 1, line + 1);
             const blame = GitBlameParser.parse(data, uri.repoPath, fileName);
-            if (!blame) return undefined;
+            if (blame === undefined) return undefined;
 
             const commit = Iterables.first(blame.commits.values());
             if (uri.repoPath) {
@@ -465,7 +465,7 @@ export class GitService extends Disposable {
         Logger.log(`getBlameForRange('${uri.repoPath}', '${uri.fsPath}', [${range.start.line}, ${range.end.line}], ${uri.sha})`);
 
         const blame = await this.getBlameForFile(uri);
-        if (!blame) return undefined;
+        if (blame === undefined) return undefined;
 
         return this.getBlameForRangeSync(blame, uri, range);
     }
@@ -473,7 +473,7 @@ export class GitService extends Disposable {
     getBlameForRangeSync(blame: IGitBlame, uri: GitUri, range: Range): IGitBlameLines | undefined {
         Logger.log(`getBlameForRangeSync('${uri.repoPath}', '${uri.fsPath}', [${range.start.line}, ${range.end.line}], ${uri.sha})`);
 
-        if (!blame.lines.length) return Object.assign({ allLines: blame.lines }, blame);
+        if (blame.lines.length === 0) return Object.assign({ allLines: blame.lines }, blame);
 
         if (range.start.line === 0 && range.end.line === blame.lines.length - 1) {
             return Object.assign({ allLines: blame.lines }, blame);
@@ -521,7 +521,7 @@ export class GitService extends Disposable {
         Logger.log(`getBlameLocations('${uri.repoPath}', '${uri.fsPath}', [${range.start.line}, ${range.end.line}], ${uri.sha})`);
 
         const blame = await this.getBlameForRange(uri, range);
-        if (!blame) return undefined;
+        if (blame === undefined) return undefined;
 
         const commitCount = blame.commits.size;
 
@@ -691,17 +691,17 @@ export class GitService extends Disposable {
         if (typeof shaOrOptions === 'string') {
             sha = shaOrOptions;
         }
-        else if (!options) {
+        else if (options === undefined) {
             options = shaOrOptions;
         }
 
         options = options || {};
 
         const log = await this.getLogForFile(repoPath, fileName, sha, options.previous ? 2 : 1);
-        if (!log) return undefined;
+        if (log === undefined) return undefined;
 
         const commit = sha && log.commits.get(sha);
-        if (!commit && sha && !options.firstIfMissing) return undefined;
+        if (commit === undefined && sha && !options.firstIfMissing) return undefined;
 
         return commit || Iterables.first(log.commits.values());
     }
@@ -854,7 +854,7 @@ export class GitService extends Disposable {
         Logger.log(`getLogLocations('${uri.repoPath}', '${uri.fsPath}', ${uri.sha}, ${selectedSha}, ${line})`);
 
         const log = await this.getLogForFile(uri.repoPath, uri.fsPath, uri.sha);
-        if (!log) return undefined;
+        if (log === undefined) return undefined;
 
         const commitCount = log.commits.size;
 

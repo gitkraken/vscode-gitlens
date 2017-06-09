@@ -42,9 +42,7 @@ export class GitBlameParser {
         let position = -1;
         while (++position < lines.length) {
             const lineParts = lines[position].split(' ');
-            if (lineParts.length < 2) {
-                continue;
-            }
+            if (lineParts.length < 2) continue;
 
             if (entry === undefined) {
                 entry = {
