@@ -4,8 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [4.0.2-beta] - 2017-06-10
+## [4.1.0-beta] - 2017-06-10
 ### Added
+- Adds all-new recent changes annotations of the whole-file - annotates and highlights all of lines changed in the most recent commit
+  - Can customize the [layout](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#file-recent-changes-annotation-settings), as well as the [theme](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#theme-settings)
+- Adds `Toggle Recent File Changes Annotations` command (`gitlens.toggleFileRecentChanges`) - toggles the recent changes annotations on and off
 - Improves performance
   - Optimized git output parsing to increase speed and reduce memory usage
   - Defers diff chunk parsing until it is actually required
