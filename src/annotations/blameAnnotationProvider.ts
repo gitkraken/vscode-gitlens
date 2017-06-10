@@ -9,7 +9,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 
     protected _blame: Promise<GitBlame>;
 
-    constructor(context: ExtensionContext, editor: TextEditor, decoration: TextEditorDecorationType, highlightDecoration: TextEditorDecorationType | undefined, whitespaceController: WhitespaceController | undefined, protected git: GitService, protected uri: GitUri) {
+    constructor(context: ExtensionContext, editor: TextEditor, decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined, whitespaceController: WhitespaceController | undefined, protected git: GitService, protected uri: GitUri) {
         super(context, editor, decoration, highlightDecoration, whitespaceController);
 
         this._blame = this.git.getBlameForFile(this.uri);
@@ -56,7 +56,6 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         const blame = await this._blame;
         return blame !== undefined && blame.lines.length !== 0;
     }
-
     protected async getBlame(requiresWhitespaceHack: boolean): Promise<GitBlame | undefined> {
         let whitespacePromise: Promise<void> | undefined;
         // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- override whitespace (turn off)

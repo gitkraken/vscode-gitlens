@@ -53,6 +53,14 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 - Adds a `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`) to toggle the current line blame annotations on and off
   - Also adds a `Show Line Blame Annotations` command (`gitlens.showLineBlame`)
 
+### Git Recent Changes Annotations
+
+- Adds on-demand, [customizable](#file-recent-changes-annotation-settings) and [themeable](#theme-settings), **recent changes annotations** of the whole file
+  - Highlights all of lines changed in the most recent commit
+  - Also adds a `changes` (diff) hover annotation to the current line annotation which provides **instant** access to the line's previous version ([optional](#file-recent-changes-annotation-settings), on by default)
+
+- Adds `Toggle Recent File Changes Annotations` command (`gitlens.toggleFileRecentChanges`) to toggle the recent changes annotations on and off
+
 ### Git Code Lens
 
 - Adds **code lens** to the top of the file and on code blocks ([optional](#code-lens-settings), on by default)
@@ -243,6 +251,14 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.annotations.line.trailing.hover.wholeLine`|Specifies whether or not to trigger hover annotations over the whole line
 |`gitlens.annotations.line.hover.details`|Specifies whether or not to provide a commit details hover annotation for the current line
 |`gitlens.annotations.line.hover.changes`|Specifies whether or not to provide a changes (diff) hover annotation for the current line
+
+### File Recent Changes Annotation Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.recentChanges.file.lineHighlight.locations`|Specifies where the highlights of the recently changed lines will be shown<br />`gutter` - adds a gutter glyph<br />`line` - adds a full-line highlight background color<br />`overviewRuler` - adds a decoration to the overviewRuler (scroll bar)
+|`gitlens.annotations.file.recentChanges.hover.changes`|Specifies whether or not to provide a changes (diff) hover annotations
+|`gitlens.annotations.file.recentChanges.hover.wholeLine`|Specifies whether or not to trigger hover annotations over the whole line
 
 ### Code Lens Settings
 

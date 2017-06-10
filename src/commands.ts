@@ -38,4 +38,5 @@ export * from './commands/stashDelete';
 export * from './commands/stashSave';
 export * from './commands/toggleCodeLens';
 export * from './commands/toggleFileBlame';
+export * from './commands/toggleFileRecentChanges';
 export * from './commands/toggleLineBlame';

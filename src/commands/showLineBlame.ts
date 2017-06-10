@@ -1,8 +1,8 @@
 'use strict';
 import { TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
-import { CurrentLineController } from '../currentLineController';
+import { CurrentLineController, LineAnnotationType } from '../currentLineController';
 import { Commands, EditorCommand } from './common';
-import { ExtensionKey, IConfig, LineAnnotationType } from '../configuration';
+import { ExtensionKey, IConfig } from '../configuration';
 import { Logger } from '../logger';
 
 export interface ShowLineBlameCommandArgs {

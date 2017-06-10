@@ -1,8 +1,8 @@
 'use strict';
 import { TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
-import { AnnotationController } from '../annotations/annotationController';
+import { AnnotationController, FileAnnotationType } from '../annotations/annotationController';
 import { Commands, EditorCommand } from './common';
-import { ExtensionKey, FileAnnotationType, IConfig } from '../configuration';
+import { ExtensionKey, IConfig } from '../configuration';
 import { Logger } from '../logger';
 
 export interface ToggleFileBlameCommandArgs {

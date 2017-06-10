@@ -122,6 +122,16 @@
                     "default": true,
                     "description": "Specifies whether or not to trigger hover annotations over the whole line"
                 },
+                "gitlens.annotations.file.recentChanges.hover.changes": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to provide a changes (diff) hover annotations"
+                },
+                "gitlens.annotations.file.recentChanges.hover.wholeLine": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to trigger hover annotations over the whole line"
+                },
                 "gitlens.annotations.line.hover.details": {
                     "type": "boolean",
                     "default": true,
@@ -204,6 +214,26 @@
                         "hover"
                     ],
                     "description": "Specifies the type of blame annotations that will be shown for the current line\n `trailing` - adds an annotation to the end of the current line\n `hover` - shows annotations when hovering over the current line"
+                },
+                "gitlens.recentChanges.file.lineHighlight.locations": {
+                    "type": "array",
+                    "default": [
+                        "gutter",
+                        "line",
+                        "overviewRuler"
+                    ],
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "gutter",
+                            "line",
+                            "overviewRuler"
+                        ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "uniqueItems": true,
+                    "description": "Specifies where the highlights of the recently changed lines will be shown\n `gutter` - adds a gutter glyph\n `line` - adds a full-line highlight background color\n `overviewRuler` - adds a decoration to the overviewRuler (scroll bar)"
                 },
                 "gitlens.codeLens.enabled": {
                     "type": "boolean",
@@ -759,6 +789,11 @@
                 }
             },
             {
+                "command": "gitlens.toggleFileRecentChanges",
+                "title": "Toggle Recent File Changes Annotations",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.toggleLineBlame",
                 "title": "Toggle Line Blame Annotations",
                 "category": "GitLens"
@@ -920,6 +955,10 @@
                 {
                     "command": "gitlens.toggleFileBlame",
                     "when": "gitlens:isBlameable"
+                },
+                {
+                    "command": "gitlens.toggleFileRecentChanges",
+                    "when": "gitlens:isTracked"
                 },
                 {
                     "command": "gitlens.toggleLineBlame",

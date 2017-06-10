@@ -3,19 +3,29 @@ import { Functions, Objects } from '../system';
 import { DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, TextDocument, TextDocumentChangeEvent, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
 import { AnnotationProviderBase } from './annotationProvider';
 import { TextDocumentComparer, TextEditorComparer } from '../comparers';
-import { BlameLineHighlightLocations, ExtensionKey, FileAnnotationType, IConfig, themeDefaults } from '../configuration';
+import { ExtensionKey, IConfig, LineHighlightLocations, themeDefaults } from '../configuration';
 import { BlameabilityChangeEvent, GitContextTracker, GitService, GitUri } from '../gitService';
 import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
 import { HoverBlameAnnotationProvider } from './hoverBlameAnnotationProvider';
 import { Logger } from '../logger';
+import { RecentChangesAnnotationProvider } from './recentChangesAnnotationProvider';
 import { WhitespaceController } from './whitespaceController';
 
+export type FileAnnotationType = 'gutter' | 'hover' | 'recentChanges';
+export const FileAnnotationType = {
+    Gutter: 'gutter' as FileAnnotationType,
+    Hover: 'hover' as FileAnnotationType,
+    RecentChanges: 'recentChanges' as FileAnnotationType
+};
+
 export const Decorations = {
-    annotation: window.createTextEditorDecorationType({
+    blameAnnotation: window.createTextEditorDecorationType({
         isWholeLine: true,
         textDecoration: 'none'
     } as DecorationRenderOptions),
-    highlight: undefined as TextEditorDecorationType | undefined
+    blameHighlight: undefined as TextEditorDecorationType | undefined,
+    recentChangesAnnotation: undefined as TextEditorDecorationType | undefined,
+    recentChangesHighlight: undefined as TextEditorDecorationType | undefined
 };
 
 export class AnnotationController extends Disposable {
@@ -46,8 +56,8 @@ export class AnnotationController extends Disposable {
     dispose() {
         this._annotationProviders.forEach(async (p, i) => await this.clear(i));
 
-        Decorations.annotation && Decorations.annotation.dispose();
-        Decorations.highlight && Decorations.highlight.dispose();
+        Decorations.blameAnnotation && Decorations.blameAnnotation.dispose();
+        Decorations.blameHighlight && Decorations.blameHighlight.dispose();
 
         this._annotationsDisposable && this._annotationsDisposable.dispose();
         this._whitespaceController && this._whitespaceController.dispose();
@@ -82,50 +92,83 @@ export class AnnotationController extends Disposable {
         }
 
         const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
-        const cfgHighlight = cfg.blame.file.lineHighlight;
+        const cfgBlameHighlight = cfg.blame.file.lineHighlight;
+        const cfgChangesHighlight = cfg.recentChanges.file.lineHighlight;
         const cfgTheme = cfg.theme.lineHighlight;
 
-        if (!Objects.areEquivalent(cfgHighlight, this._config && this._config.blame.file.lineHighlight) ||
+        if (!Objects.areEquivalent(cfgBlameHighlight, this._config && this._config.blame.file.lineHighlight) ||
+            !Objects.areEquivalent(cfgChangesHighlight, this._config && this._config.recentChanges.file.lineHighlight) ||
             !Objects.areEquivalent(cfgTheme, this._config && this._config.theme.lineHighlight)) {
             changed = true;
 
-            Decorations.highlight && Decorations.highlight.dispose();
+            Decorations.blameHighlight && Decorations.blameHighlight.dispose();
 
-            if (cfgHighlight.enabled) {
-                Decorations.highlight = window.createTextEditorDecorationType({
+            if (cfgBlameHighlight.enabled) {
+                Decorations.blameHighlight = window.createTextEditorDecorationType({
                     gutterIconSize: 'contain',
                     isWholeLine: true,
                     overviewRulerLane: OverviewRulerLane.Right,
                     dark: {
-                        backgroundColor: cfgHighlight.locations.includes(BlameLineHighlightLocations.Line)
+                        backgroundColor: cfgBlameHighlight.locations.includes(LineHighlightLocations.Line)
                             ? cfgTheme.dark.backgroundColor || themeDefaults.lineHighlight.dark.backgroundColor
                             : undefined,
-                        gutterIconPath: cfgHighlight.locations.includes(BlameLineHighlightLocations.Gutter)
+                        gutterIconPath: cfgBlameHighlight.locations.includes(LineHighlightLocations.Gutter)
                             ? this.context.asAbsolutePath('images/blame-dark.svg')
                             : undefined,
-                        overviewRulerColor: cfgHighlight.locations.includes(BlameLineHighlightLocations.OverviewRuler)
+                        overviewRulerColor: cfgBlameHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
                             ? cfgTheme.dark.overviewRulerColor || themeDefaults.lineHighlight.dark.overviewRulerColor
                             : undefined
                     },
                     light: {
-                        backgroundColor: cfgHighlight.locations.includes(BlameLineHighlightLocations.Line)
+                        backgroundColor: cfgBlameHighlight.locations.includes(LineHighlightLocations.Line)
                             ? cfgTheme.light.backgroundColor || themeDefaults.lineHighlight.light.backgroundColor
                             : undefined,
-                        gutterIconPath: cfgHighlight.locations.includes(BlameLineHighlightLocations.Gutter)
+                        gutterIconPath: cfgBlameHighlight.locations.includes(LineHighlightLocations.Gutter)
                             ? this.context.asAbsolutePath('images/blame-light.svg')
                             : undefined,
-                        overviewRulerColor: cfgHighlight.locations.includes(BlameLineHighlightLocations.OverviewRuler)
+                        overviewRulerColor: cfgBlameHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
                             ? cfgTheme.light.overviewRulerColor || themeDefaults.lineHighlight.light.overviewRulerColor
                             : undefined
                     }
                 });
             }
             else {
-                Decorations.highlight = undefined;
+                Decorations.blameHighlight = undefined;
             }
+
+            Decorations.recentChangesHighlight && Decorations.recentChangesHighlight.dispose();
+
+            Decorations.recentChangesHighlight = window.createTextEditorDecorationType({
+                gutterIconSize: 'contain',
+                isWholeLine: true,
+                overviewRulerLane: OverviewRulerLane.Right,
+                dark: {
+                    backgroundColor: cfgChangesHighlight.locations.includes(LineHighlightLocations.Line)
+                        ? cfgTheme.dark.backgroundColor || themeDefaults.lineHighlight.dark.backgroundColor
+                        : undefined,
+                    gutterIconPath: cfgChangesHighlight.locations.includes(LineHighlightLocations.Gutter)
+                        ? this.context.asAbsolutePath('images/blame-dark.svg')
+                        : undefined,
+                    overviewRulerColor: cfgChangesHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
+                        ? cfgTheme.dark.overviewRulerColor || themeDefaults.lineHighlight.dark.overviewRulerColor
+                        : undefined
+                },
+                light: {
+                    backgroundColor: cfgChangesHighlight.locations.includes(LineHighlightLocations.Line)
+                        ? cfgTheme.light.backgroundColor || themeDefaults.lineHighlight.light.backgroundColor
+                        : undefined,
+                    gutterIconPath: cfgChangesHighlight.locations.includes(LineHighlightLocations.Gutter)
+                        ? this.context.asAbsolutePath('images/blame-light.svg')
+                        : undefined,
+                    overviewRulerColor: cfgChangesHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
+                        ? cfgTheme.light.overviewRulerColor || themeDefaults.lineHighlight.light.overviewRulerColor
+                        : undefined
+                }
+            });
         }
 
         if (!Objects.areEquivalent(cfg.blame.file, this._config && this._config.blame.file) ||
+            !Objects.areEquivalent(cfg.recentChanges.file, this._config && this._config.recentChanges.file) ||
             !Objects.areEquivalent(cfg.annotations, this._config && this._config.annotations) ||
             !Objects.areEquivalent(cfg.theme.annotations, this._config && this._config.theme.annotations)) {
             changed = true;
@@ -138,7 +181,12 @@ export class AnnotationController extends Disposable {
             for (const provider of this._annotationProviders.values()) {
                 if (provider === undefined) continue;
 
-                provider.reset(this._whitespaceController);
+                if (provider.annotationType === FileAnnotationType.RecentChanges) {
+                    provider.reset(Decorations.recentChangesAnnotation, Decorations.recentChangesHighlight);
+                }
+                else {
+                    provider.reset(Decorations.blameAnnotation, Decorations.blameHighlight, this._whitespaceController);
+                }
             }
         }
     }
@@ -184,10 +232,15 @@ export class AnnotationController extends Disposable {
         let provider: AnnotationProviderBase | undefined = undefined;
         switch (type) {
             case FileAnnotationType.Gutter:
-                provider = new GutterBlameAnnotationProvider(this.context, editor, Decorations.annotation, Decorations.highlight, this._whitespaceController, this.git, gitUri);
+                provider = new GutterBlameAnnotationProvider(this.context, editor, Decorations.blameAnnotation, Decorations.blameHighlight, this._whitespaceController, this.git, gitUri);
                 break;
+
             case FileAnnotationType.Hover:
-                provider = new HoverBlameAnnotationProvider(this.context, editor, Decorations.annotation, Decorations.highlight, this._whitespaceController, this.git, gitUri);
+                provider = new HoverBlameAnnotationProvider(this.context, editor, Decorations.blameAnnotation, Decorations.blameHighlight, this._whitespaceController, this.git, gitUri);
+                break;
+
+            case FileAnnotationType.RecentChanges:
+                provider = new RecentChangesAnnotationProvider(this.context, editor, undefined, Decorations.recentChangesHighlight!, this.git, gitUri);
                 break;
         }
         if (provider === undefined || !(await provider.validate())) return false;
@@ -219,13 +272,17 @@ export class AnnotationController extends Disposable {
     }
 
     async toggleAnnotations(editor: TextEditor, type: FileAnnotationType, shaOrLine?: string | number): Promise<boolean> {
-        if (!editor || !editor.document || !this.git.isEditorBlameable(editor)) return false;
+        if (!editor || !editor.document || type === FileAnnotationType.RecentChanges ? !this.git.isTrackable(editor.document.uri) : !this.git.isEditorBlameable(editor)) return false;
 
         const provider = this._annotationProviders.get(editor.viewColumn || -1);
         if (provider === undefined) return this.showAnnotations(editor, type, shaOrLine);
 
+        const reopen = provider.annotationType !== type;
         await this.clear(provider.editor.viewColumn || -1);
-        return false;
+
+        if (!reopen) return false;
+
+        return this.showAnnotations(editor, type, shaOrLine);
     }
 
     private _onBlameabilityChanged(e: BlameabilityChangeEvent) {

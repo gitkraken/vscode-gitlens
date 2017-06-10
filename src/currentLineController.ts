@@ -1,11 +1,11 @@
 'use strict';
 import { Functions, Objects } from './system';
 import { DecorationOptions, DecorationRenderOptions, Disposable, ExtensionContext, Range, StatusBarAlignment, StatusBarItem, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
-import { AnnotationController } from './annotations/annotationController';
+import { AnnotationController, FileAnnotationType } from './annotations/annotationController';
 import { Annotations, endOfLineIndex } from './annotations/annotations';
 import { Commands } from './commands';
 import { TextEditorComparer } from './comparers';
-import { FileAnnotationType, IConfig, LineAnnotationType, StatusBarCommand } from './configuration';
+import { IConfig, StatusBarCommand } from './configuration';
 import { DocumentSchemes, ExtensionKey } from './constants';
 import { BlameabilityChangeEvent, CommitFormatter, GitCommit, GitCommitLine, GitContextTracker, GitService, GitUri } from './gitService';
 
@@ -15,6 +15,12 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
         textDecoration: 'none'
     }
 } as DecorationRenderOptions);
+
+export type LineAnnotationType = 'trailing' | 'hover';
+export const LineAnnotationType = {
+    Trailing: 'trailing' as LineAnnotationType,
+    Hover: 'hover' as LineAnnotationType
+};
 
 export class CurrentLineController extends Disposable {
 
@@ -348,6 +354,20 @@ export class CurrentLineController extends Disposable {
                         if (showChangesStartIndex === 0) {
                             showChangesInStartingWhitespace = true;
                             showChangesStartIndex = firstNonWhitespace === 0 ? 1 : firstNonWhitespace;
+                        }
+                    }
+
+                    break;
+                }
+                case FileAnnotationType.RecentChanges: {
+                    const cfgChanges = this._config.annotations.file.recentChanges.hover;
+                    if (cfgChanges.changes) {
+                        if (cfgChanges.wholeLine) {
+                            // Avoid double annotations if we are showing the whole-file hover blame annotations
+                            showChanges = false;
+                        }
+                        else {
+                            showChangesInStartingWhitespace = false;
                         }
                     }
 

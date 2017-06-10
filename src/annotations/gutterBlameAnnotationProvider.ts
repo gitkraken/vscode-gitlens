@@ -1,9 +1,9 @@
 'use strict';
 import { Strings } from '../system';
 import { DecorationOptions, Range } from 'vscode';
+import { FileAnnotationType } from './annotationController';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { Annotations, endOfLineIndex } from './annotations';
-import { FileAnnotationType } from '../configuration';
 import { ICommitFormatOptions } from '../gitService';
 import * as moment from 'moment';
 
@@ -67,7 +67,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         }
 
         if (decorations.length) {
-            this.editor.setDecorations(this.decoration, decorations);
+            this.editor.setDecorations(this.decoration!, decorations);
         }
 
         this.selection(shaOrLine, blame);

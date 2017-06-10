@@ -39,6 +39,7 @@ export type Commands = 'gitlens.closeUnchangedFiles' |
     'gitlens.stashSave' |
     'gitlens.toggleCodeLens' |
     'gitlens.toggleFileBlame' |
+    'gitlens.toggleFileRecentChanges' |
     'gitlens.toggleLineBlame';
 export const Commands = {
     CloseUnchangedFiles: 'gitlens.closeUnchangedFiles' as Commands,
@@ -76,6 +77,7 @@ export const Commands = {
     StashSave: 'gitlens.stashSave' as Commands,
     ToggleCodeLens: 'gitlens.toggleCodeLens' as Commands,
     ToggleFileBlame: 'gitlens.toggleFileBlame' as Commands,
+    ToggleFileRecentChanges: 'gitlens.toggleFileRecentChanges' as Commands,
     ToggleLineBlame: 'gitlens.toggleLineBlame' as Commands
 };
 

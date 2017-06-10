@@ -8,7 +8,7 @@ import { OpenBranchInRemoteCommand, OpenCommitInRemoteCommand, OpenFileInRemoteC
 import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './commands';
 import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithBranchCommand, DiffWithNextCommand, DiffWithPreviousCommand, DiffWithWorkingCommand} from './commands';
 import { ResetSuppressedWarningsCommand } from './commands';
-import { ShowFileBlameCommand, ShowLineBlameCommand, ToggleFileBlameCommand, ToggleLineBlameCommand } from './commands';
+import { ShowFileBlameCommand, ShowLineBlameCommand, ToggleFileBlameCommand, ToggleFileRecentChangesCommand, ToggleLineBlameCommand } from './commands';
 import { ShowBlameHistoryCommand, ShowFileHistoryCommand } from './commands';
 import { ShowLastQuickPickCommand } from './commands';
 import { ShowQuickBranchHistoryCommand, ShowQuickCurrentBranchHistoryCommand, ShowQuickFileHistoryCommand } from './commands';
@@ -17,9 +17,9 @@ import { ShowQuickRepoStatusCommand, ShowQuickStashListCommand } from './command
 import { StashApplyCommand, StashDeleteCommand, StashSaveCommand } from './commands';
 import { ToggleCodeLensCommand } from './commands';
 import { Keyboard } from './commands';
-import { BlameLineHighlightLocations, CodeLensLocations, IConfig, LineAnnotationType } from './configuration';
+import { CodeLensLocations, IConfig, LineHighlightLocations } from './configuration';
 import { ApplicationInsightsKey, ExtensionKey, QualifiedExtensionId, WorkspaceState } from './constants';
-import { CurrentLineController } from './currentLineController';
+import { CurrentLineController, LineAnnotationType } from './currentLineController';
 import { GitContentProvider } from './gitContentProvider';
 import { GitContextTracker, GitService } from './gitService';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
@@ -107,6 +107,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new ShowFileBlameCommand(annotationController));
     context.subscriptions.push(new ShowLineBlameCommand(currentLineController));
     context.subscriptions.push(new ToggleFileBlameCommand(annotationController));
+    context.subscriptions.push(new ToggleFileRecentChangesCommand(annotationController));
     context.subscriptions.push(new ToggleLineBlameCommand(currentLineController));
     context.subscriptions.push(new ResetSuppressedWarningsCommand(context));
     context.subscriptions.push(new ShowBlameHistoryCommand(git));
@@ -166,10 +167,10 @@ async function migrateSettings(context: ExtensionContext) {
                     await cfg.update('blame.file.lineHighlight.enabled', false);
                     break;
                 case 'gutter':
-                    await cfg.update('blame.file.lineHighlight.locations', [BlameLineHighlightLocations.Gutter, BlameLineHighlightLocations.OverviewRuler], true);
+                    await cfg.update('blame.file.lineHighlight.locations', [LineHighlightLocations.Gutter, LineHighlightLocations.OverviewRuler], true);
                     break;
                 case 'line':
-                    await cfg.update('blame.file.lineHighlight.locations', [BlameLineHighlightLocations.Line, BlameLineHighlightLocations.OverviewRuler], true);
+                    await cfg.update('blame.file.lineHighlight.locations', [LineHighlightLocations.Line, LineHighlightLocations.OverviewRuler], true);
                     break;
                 case 'both':
             }

@@ -1,15 +1,10 @@
 'use strict';
+import { FileAnnotationType } from './annotations/annotationController';
 import { Commands } from './commands';
+import { LineAnnotationType } from './currentLineController';
 import { OutputLevel } from './logger';
 
 export { ExtensionKey } from './constants';
-
-export type BlameLineHighlightLocations = 'gutter' | 'line' | 'overviewRuler';
-export const BlameLineHighlightLocations = {
-    Gutter: 'gutter' as BlameLineHighlightLocations,
-    Line: 'line' as BlameLineHighlightLocations,
-    OverviewRuler: 'overviewRuler' as BlameLineHighlightLocations
-};
 
 export type CodeLensCommand = 'gitlens.toggleFileBlame' |
     'gitlens.showBlameHistory' |
@@ -38,16 +33,11 @@ export const CodeLensLocations = {
     Custom: 'custom' as CodeLensLocations
 };
 
-export type FileAnnotationType = 'gutter' | 'hover';
-export const FileAnnotationType = {
-    Gutter: 'gutter' as FileAnnotationType,
-    Hover: 'hover' as FileAnnotationType
-};
-
-export type LineAnnotationType = 'trailing' | 'hover';
-export const LineAnnotationType = {
-    Trailing: 'trailing' as LineAnnotationType,
-    Hover: 'hover' as LineAnnotationType
+export type LineHighlightLocations = 'gutter' | 'line' | 'overviewRuler';
+export const LineHighlightLocations = {
+    Gutter: 'gutter' as LineHighlightLocations,
+    Line: 'line' as LineHighlightLocations,
+    OverviewRuler: 'overviewRuler' as LineHighlightLocations
 };
 
 export type StatusBarCommand = 'gitlens.toggleFileBlame' |
@@ -244,6 +234,13 @@ export interface IConfig {
                 };
                 wholeLine: boolean;
             };
+
+            recentChanges: {
+                hover: {
+                    changes: boolean;
+                    wholeLine: boolean;
+                };
+            };
         };
 
         line: {
@@ -269,7 +266,7 @@ export interface IConfig {
             annotationType: FileAnnotationType;
             lineHighlight: {
                 enabled: boolean;
-                locations: BlameLineHighlightLocations[];
+                locations: LineHighlightLocations[];
             };
         };
 
@@ -277,6 +274,14 @@ export interface IConfig {
             enabled: boolean;
             annotationType: LineAnnotationType;
         };
+    };
+
+    recentChanges: {
+        file: {
+            lineHighlight: {
+                locations: LineHighlightLocations[];
+            };
+        }
     };
 
     codeLens: {

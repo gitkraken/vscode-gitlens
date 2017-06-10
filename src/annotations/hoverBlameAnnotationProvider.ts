@@ -1,8 +1,8 @@
 'use strict';
 import { DecorationOptions, Range } from 'vscode';
+import { FileAnnotationType } from './annotationController';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { Annotations, endOfLineIndex } from './annotations';
-import { FileAnnotationType } from '../configuration';
 import * as moment from 'moment';
 
 export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
@@ -40,7 +40,7 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
         }
 
         if (decorations.length) {
-            this.editor.setDecorations(this.decoration, decorations);
+            this.editor.setDecorations(this.decoration!, decorations);
         }
 
         this.selection(shaOrLine, blame);
