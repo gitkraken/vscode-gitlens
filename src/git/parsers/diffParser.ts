@@ -12,15 +12,22 @@ export class GitDiffParser {
         const chunks: GitDiffChunk[] = [];
 
         let match: RegExpExecArray | null = null;
+
+        let chunk: string;
+        let currentStart: number;
+        let previousStart: number;
+
         do {
             match = unifiedDiffRegex.exec(`${data}\n@@`);
             if (match == null) break;
 
-            const previousStart = +match[1];
-            const currentStart = +match[3];
+            // Stops excessive memory usage
+            // https://bugs.chromium.org/p/v8/issues/detail?id=2869
+            chunk = (' ' + match[5]).substr(1);
+            currentStart = parseInt(match[3], 10);
+            previousStart = parseInt(match[1], 10);
 
-            const chunk = match[5];
-            chunks.push(new GitDiffChunk(chunk, { start: currentStart, end: currentStart + +match[4] }, { start: previousStart, end: previousStart + +match[2] }));
+            chunks.push(new GitDiffChunk(chunk, { start: currentStart, end: currentStart + parseInt(match[4], 10) }, { start: previousStart, end: previousStart + parseInt(match[2], 10) }));
         } while (match != null);
 
         if (!chunks.length) return undefined;
