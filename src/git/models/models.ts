@@ -1,5 +1,6 @@
 'use strict';
 export * from './blame';
+export * from './blameCommit';
 export * from './branch';
 export * from './commit';
 export * from './diff';

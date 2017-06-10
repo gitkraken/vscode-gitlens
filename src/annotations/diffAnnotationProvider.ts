@@ -41,7 +41,7 @@ export class DiffAnnotationProvider extends AnnotationProviderBase {
         const decorators: DecorationOptions[] = [];
 
         for (const chunk of diff.chunks) {
-            let count = chunk.currentStart - 2;
+            let count = chunk.currentPosition.start - 2;
             for (const change of chunk.current) {
                 if (change === undefined) continue;
 

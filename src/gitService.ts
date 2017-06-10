@@ -4,7 +4,7 @@ import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, l
 import { CommandContext, setCommandContext } from './commands';
 import { IConfig } from './configuration';
 import { DocumentSchemes, ExtensionKey } from './constants';
-import { Git, GitAuthor, GitBlame, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitCommit, GitDiff, GitDiffLine, GitDiffParser, GitLog, GitLogCommit, GitLogParser, GitRemote, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
+import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitCommit, GitDiff, GitDiffLine, GitDiffParser, GitLog, GitLogCommit, GitLogParser, GitRemote, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
 import { Logger } from './logger';
@@ -395,7 +395,8 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.blame(root, file, uri.sha);
-            return GitBlameParser.parse(data, root, file);
+            const blame = GitBlameParser.parse(data, root, file);
+            return blame;
         }
         catch (ex) {
             // Trap and cache expected blame errors
@@ -480,15 +481,14 @@ export class GitService extends Disposable {
         }
 
         const lines = blame.lines.slice(range.start.line, range.end.line + 1);
-        const shas: Set<string> = new Set();
-        lines.forEach(l => shas.add(l.sha));
+        const shas = new Set(lines.map(l => l.sha));
 
         const authors: Map<string, GitAuthor> = new Map();
-        const commits: Map<string, GitCommit> = new Map();
-        blame.commits.forEach(c => {
+        const commits: Map<string, GitBlameCommit> = new Map();
+        for (const c of blame.commits.values()) {
             if (!shas.has(c.sha)) return;
 
-            const commit: GitCommit = new GitCommit('blame', c.repoPath, c.sha, c.fileName, c.author, c.date, c.message,
+            const commit = new GitBlameCommit(c.repoPath, c.sha, c.fileName, c.author, c.date, c.message,
                 c.lines.filter(l => l.line >= range.start.line && l.line <= range.end.line), c.originalFileName, c.previousSha, c.previousFileName);
             commits.set(c.sha, commit);
 
@@ -502,12 +502,9 @@ export class GitService extends Disposable {
             }
 
             author.lineCount += commit.lines.length;
-        });
+        }
 
-        const sortedAuthors: Map<string, GitAuthor> = new Map();
-        Array.from(authors.values())
-            .sort((a, b) => b.lineCount - a.lineCount)
-            .forEach(a => sortedAuthors.set(a.name, a));
+        const sortedAuthors = new Map([...authors.entries()].sort((a, b) => b[1].lineCount - a[1].lineCount));
 
         return {
             authors: sortedAuthors,
@@ -629,7 +626,8 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.diff(root, file, sha1, sha2);
-            return GitDiffParser.parse(data);
+            const diff = GitDiffParser.parse(data);
+            return diff;
         }
         catch (ex) {
             // Trap and cache expected diff errors
@@ -654,12 +652,12 @@ export class GitService extends Disposable {
             const diff = await this.getDiffForFile(uri, sha1, sha2);
             if (diff === undefined) return [undefined, undefined];
 
-            const chunk = diff.chunks.find(_ => _.currentStart <= line && _.currentEnd >= line);
+            const chunk = diff.chunks.find(_ => _.currentPosition.start <= line && _.currentPosition.end >= line);
             if (chunk === undefined) return [undefined, undefined];
 
             // Search for the line (skipping deleted lines -- since they don't currently exist in the editor)
             // Keep track of the deleted lines for the original version
-            line = line - chunk.currentStart + 1;
+            line = line - chunk.currentPosition.start + 1;
             let count = 0;
             let deleted = 0;
             for (const l of chunk.current) {
@@ -676,7 +674,7 @@ export class GitService extends Disposable {
 
             return [
                 chunk.previous[line + deleted - 1],
-                chunk.current[line + deleted + (chunk.currentStart - chunk.previousStart)]
+                chunk.current[line + deleted + (chunk.currentPosition.start - chunk.previousPosition.start)]
             ];
         }
         catch (ex) {
@@ -715,7 +713,8 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.log(repoPath, sha, maxCount, reverse);
-            return GitLogParser.parse(data, 'branch', repoPath, undefined, sha, maxCount, reverse, undefined);
+            const log = GitLogParser.parse(data, 'branch', repoPath, undefined, sha, maxCount, reverse, undefined);
+            return log;
         }
         catch (ex) {
             return undefined;
@@ -748,7 +747,8 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.log_search(repoPath, searchArgs, maxCount);
-            return GitLogParser.parse(data, 'branch', repoPath, undefined, undefined, maxCount, false, undefined);
+            const log = GitLogParser.parse(data, 'branch', repoPath, undefined, undefined, maxCount, false, undefined);
+            return log;
         }
         catch (ex) {
             return undefined;
@@ -830,7 +830,8 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.log_file(root, file, sha, maxCount, reverse, range && range.start.line + 1, range && range.end.line + 1);
-            return GitLogParser.parse(data, 'file', root, file, sha, maxCount, reverse, range);
+            const log = GitLogParser.parse(data, 'file', root, file, sha, maxCount, reverse, range);
+            return log;
         }
         catch (ex) {
             // Trap and cache expected log errors
@@ -915,7 +916,8 @@ export class GitService extends Disposable {
         Logger.log(`getStash('${repoPath}')`);
 
         const data = await Git.stash_list(repoPath);
-        return GitStashParser.parse(data, repoPath);
+        const stash = GitStashParser.parse(data, repoPath);
+        return stash;
     }
 
     async getStatusForFile(repoPath: string, fileName: string): Promise<GitStatusFile | undefined> {
@@ -936,7 +938,8 @@ export class GitService extends Disposable {
         const porcelainVersion = Git.validateVersion(2, 11) ? 2 : 1;
 
         const data = await Git.status(repoPath, porcelainVersion);
-        return GitStatusParser.parse(data, repoPath, porcelainVersion);
+        const status = GitStatusParser.parse(data, repoPath, porcelainVersion);
+        return status;
     }
 
     async getVersionedFile(repoPath: string | undefined, fileName: string, sha: string) {

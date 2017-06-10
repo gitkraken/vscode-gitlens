@@ -43,6 +43,19 @@ export namespace Strings {
         return new Function(`return \`${template}\`;`).call(context);
     }
 
+    export function* lines(s: string): IterableIterator<string> {
+        let i = 0;
+        while (i < s.length) {
+            let j = s.indexOf('\n', i);
+            if (j === -1) {
+                j = s.length;
+            }
+
+            yield s.substring(i, j);
+            i = j + 1;
+        }
+    }
+
     export function padLeft(s: string, padTo: number, padding: string = '\u00a0') {
         const diff = padTo - s.length;
         return (diff <= 0) ? s : '\u00a0'.repeat(diff) + s;

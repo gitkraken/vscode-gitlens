@@ -1,16 +1,17 @@
 'use strict';
-import { GitAuthor, GitCommit, GitCommitLine } from './commit';
+import { GitAuthor, GitCommitLine } from './commit';
+import { GitBlameCommit } from './blameCommit';
 
 export interface GitBlame {
     repoPath: string;
     authors: Map<string, GitAuthor>;
-    commits: Map<string, GitCommit>;
+    commits: Map<string, GitBlameCommit>;
     lines: GitCommitLine[];
 }
 
 export interface GitBlameLine {
     author: GitAuthor;
-    commit: GitCommit;
+    commit: GitBlameCommit;
     line: GitCommitLine;
 }
 
@@ -20,6 +21,6 @@ export interface GitBlameLines extends GitBlame {
 
 export interface GitBlameCommitLines {
     author: GitAuthor;
-    commit: GitCommit;
+    commit: GitBlameCommit;
     lines: GitCommitLine[];
 }

@@ -1,4 +1,5 @@
 'use strict';
+import { Strings } from '../../system';
 import { Range } from 'vscode';
 import { Git, GitAuthor, GitCommitType, GitLog, GitLogCommit, GitStatusFileStatus, IGitStatusFile } from './../git';
 // import { Logger } from '../../logger';
@@ -10,9 +11,6 @@ interface LogEntry {
 
     author: string;
     authorDate?: string;
-
-    // committer?: string;
-    // committerDate?: string;
 
     parentShas?: string[];
 
@@ -29,24 +27,47 @@ const diffRegex = /diff --git a\/(.*) b\/(.*)/;
 
 export class GitLogParser {
 
-    private static _parseEntries(data: string, type: GitCommitType, maxCount: number | undefined, reverse: boolean): LogEntry[] | undefined {
+    static parse(data: string, type: GitCommitType, repoPath: string | undefined, fileName: string | undefined, sha: string | undefined, maxCount: number | undefined, reverse: boolean, range: Range | undefined): GitLog | undefined {
         if (!data) return undefined;
 
-        const lines = data.split('\n');
-        if (!lines.length) return undefined;
+        const authors: Map<string, GitAuthor> = new Map();
+        const commits: Map<string, GitLogCommit> = new Map();
 
-        const entries: LogEntry[] = [];
+        let relativeFileName: string;
+        let recentCommit: GitLogCommit | undefined = undefined;
+
+        if (repoPath !== undefined) {
+            repoPath = Git.normalizePath(repoPath);
+        }
 
         let entry: LogEntry | undefined = undefined;
-        let position = -1;
-        while (++position < lines.length) {
-            // Since log --reverse doesn't properly honor a max count -- enforce it here
-            if (reverse && maxCount && (entries.length >= maxCount)) break;
+        let line: string | undefined = undefined;
+        let lineParts: string[];
+        let next: IteratorResult<string> | undefined = undefined;
 
-            let lineParts = lines[position].split(' ');
-            if (lineParts.length < 2) {
-                continue;
+        let i = -1;
+        let first = true;
+        let skip = false;
+
+        const lines = Strings.lines(data);
+        // for (line of lines) {
+        while (true) {
+            if (!skip) {
+                next = lines.next();
+                if (next.done) break;
+
+                line = next.value;
+                i++;
             }
+            else {
+                skip = false;
+            }
+
+            // Since log --reverse doesn't properly honor a max count -- enforce it here
+            if (reverse && maxCount && (i >= maxCount)) break;
+
+            lineParts = line!.split(' ');
+            if (lineParts.length < 2) continue;
 
             if (entry === undefined) {
                 if (!Git.shaRegex.test(lineParts[0])) continue;
@@ -69,47 +90,54 @@ export class GitLogParser {
                     entry.authorDate = `${lineParts[1]}T${lineParts[2]}${lineParts[3]}`;
                     break;
 
-                // case 'committer':
-                //     entry.committer = lineParts.slice(1).join(' ').trim();
-                //     break;
-
-                // case 'committer-date':
-                //     entry.committerDate = lineParts.slice(1).join(' ').trim();
-                //     break;
-
                 case 'parents':
                     entry.parentShas = lineParts.slice(1);
                     break;
 
                 case 'summary':
                     entry.summary = lineParts.slice(1).join(' ').trim();
-                    while (++position < lines.length) {
-                        const next = lines[position];
-                        if (!next) break;
-                        if (next === 'filename ?') {
-                            position--;
+                    while (true) {
+                        next = lines.next();
+                        if (next.done) break;
+
+                        i++;
+                        line = next.value;
+                        if (!line) break;
+
+                        if (line === 'filename ?') {
+                            skip = true;
                             break;
                         }
 
-                        entry.summary += `\n${lines[position]}`;
+                        entry.summary += `\n${line}`;
                     }
                     break;
 
                 case 'filename':
                     if (type === 'branch') {
-                        const nextLine = lines[position + 1];
-                        // If the next line isn't blank, make sure it isn't starting a new commit
-                        if (nextLine && Git.shaRegex.test(nextLine)) continue;
+                        next = lines.next();
+                        if (next.done) break;
 
-                        position++;
+                        i++;
+                        line = next.value;
+
+                        // If the next line isn't blank, make sure it isn't starting a new commit
+                        if (line && Git.shaRegex.test(line)) {
+                            skip = true;
+                            continue;
+                        }
 
                         let diff = false;
-                        while (++position < lines.length) {
-                            const line = lines[position];
+                        while (true) {
+                            next = lines.next();
+                            if (next.done) break;
+
+                            i++;
+                            line = next.value;
                             lineParts = line.split(' ');
 
                             if (Git.shaRegex.test(lineParts[0])) {
-                                position--;
+                                skip = true;
                                 break;
                             }
 
@@ -147,125 +175,88 @@ export class GitLogParser {
                         }
                     }
                     else {
-                        position += 2;
-                        const line = lines[position];
+                        next = lines.next();
+                        next = lines.next();
+
+                        i += 2;
+                        line = next.value;
+
                         entry.status = line[0] as GitStatusFileStatus;
                         entry.fileName = line.substring(1);
                         this._parseFileName(entry);
                     }
 
-                    entries.push(entry);
+                    if (first && repoPath === undefined && type === 'file' && fileName !== undefined) {
+                        // Try to get the repoPath from the most recent commit
+                        repoPath = Git.normalizePath(fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName!, ''));
+                        relativeFileName = Git.normalizePath(path.relative(repoPath, fileName));
+                    }
+                    else {
+                        relativeFileName = entry.fileName!;
+                    }
+                    first = false;
+
+                    recentCommit = GitLogParser._parseEntry(entry, type, repoPath, relativeFileName, commits, authors, recentCommit);
+
                     entry = undefined;
                     break;
-
-                default:
-                    break;
             }
+
+            if (next!.done) break;
+
         }
-
-        return entries;
-    }
-
-    static parse(data: string, type: GitCommitType, repoPath: string | undefined, fileName: string | undefined, sha: string | undefined, maxCount: number | undefined, reverse: boolean, range: Range | undefined): GitLog | undefined {
-        const entries = this._parseEntries(data, type, maxCount, reverse);
-        if (!entries) return undefined;
-
-        const authors: Map<string, GitAuthor> = new Map();
-        const commits: Map<string, GitLogCommit> = new Map();
-
-        let relativeFileName: string;
-        let recentCommit: GitLogCommit | undefined = undefined;
-
-        if (repoPath !== undefined) {
-            repoPath = Git.normalizePath(repoPath);
-        }
-
-        for (let i = 0, len = entries.length; i < len; i++) {
-            // Since log --reverse doesn't properly honor a max count -- enforce it here
-            if (reverse && maxCount && (i >= maxCount)) break;
-
-            const entry = entries[i];
-
-            if (i === 0 && repoPath === undefined && type === 'file' && fileName !== undefined) {
-                // Try to get the repoPath from the most recent commit
-                repoPath = Git.normalizePath(fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName!, ''));
-                relativeFileName = Git.normalizePath(path.relative(repoPath, fileName));
-            }
-            else {
-                relativeFileName = entry.fileName!;
-            }
-
-            let commit = commits.get(entry.sha);
-            if (commit === undefined) {
-                if (entry.author !== undefined) {
-                    let author = authors.get(entry.author);
-                    if (author === undefined) {
-                        author = {
-                            name: entry.author,
-                            lineCount: 0
-                        };
-                        authors.set(entry.author, author);
-                    }
-                }
-
-                commit = new GitLogCommit(type, repoPath!, entry.sha, relativeFileName, entry.author, moment(entry.authorDate).toDate(), entry.summary!, entry.status, entry.fileStatuses, undefined, entry.originalFileName);
-                commit.parentShas = entry.parentShas!;
-
-                if (relativeFileName !== entry.fileName) {
-                    commit.originalFileName = entry.fileName;
-                }
-
-                commits.set(entry.sha, commit);
-            }
-            // else {
-            //     Logger.log(`merge commit? ${entry.sha}`);
-            // }
-
-            if (recentCommit !== undefined) {
-                recentCommit.previousSha = commit.sha;
-
-                // If the commit sha's match (merge commit), just forward it along
-                commit.nextSha = commit.sha !== recentCommit.sha ? recentCommit.sha : recentCommit.nextSha;
-
-                // Only add a filename if this is a file log
-                if (type === 'file') {
-                    recentCommit.previousFileName = commit.originalFileName || commit.fileName;
-                    commit.nextFileName = recentCommit.originalFileName || recentCommit.fileName;
-                }
-            }
-            recentCommit = commit;
-        }
-
-        commits.forEach(c => {
-            if (c.author === undefined) return;
-
-            const author = authors.get(c.author);
-            if (author === undefined) return;
-
-            author.lineCount += c.lines.length;
-        });
-
-        const sortedAuthors: Map<string, GitAuthor> = new Map();
-        // const values =
-        Array.from(authors.values())
-            .sort((a, b) => b.lineCount - a.lineCount)
-            .forEach(a => sortedAuthors.set(a.name, a));
-
-        // const sortedCommits: Map<string, IGitCommit> = new Map();
-        // Array.from(commits.values())
-        //     .sort((a, b) => b.date.getTime() - a.date.getTime())
-        //     .forEach(c => sortedCommits.set(c.sha, c));
 
         return {
             repoPath: repoPath,
-            authors: sortedAuthors,
-            // commits: sortedCommits,
+            authors: authors,
             commits: commits,
             sha: sha,
             maxCount: maxCount,
             range: range,
-            truncated: !!(maxCount && entries.length >= maxCount)
+            truncated: !!(maxCount && i >= maxCount)
         } as GitLog;
+    }
+
+    private static _parseEntry(entry: LogEntry, type: GitCommitType, repoPath: string | undefined, relativeFileName: string, commits: Map<string, GitLogCommit>, authors: Map<string, GitAuthor>, recentCommit: GitLogCommit | undefined): GitLogCommit | undefined {
+        let commit = commits.get(entry.sha);
+        if (commit === undefined) {
+            if (entry.author !== undefined) {
+                let author = authors.get(entry.author);
+                if (author === undefined) {
+                    author = {
+                        name: entry.author,
+                        lineCount: 0
+                    };
+                    authors.set(entry.author, author);
+                }
+            }
+
+            commit = new GitLogCommit(type, repoPath!, entry.sha, relativeFileName, entry.author, moment(entry.authorDate).toDate(), entry.summary!, entry.status, entry.fileStatuses, undefined, entry.originalFileName);
+            commit.parentShas = entry.parentShas!;
+
+            if (relativeFileName !== entry.fileName) {
+                commit.originalFileName = entry.fileName;
+            }
+
+            commits.set(entry.sha, commit);
+        }
+        // else {
+        //     Logger.log(`merge commit? ${entry.sha}`);
+        // }
+
+        if (recentCommit !== undefined) {
+            recentCommit.previousSha = commit.sha;
+
+            // If the commit sha's match (merge commit), just forward it along
+            commit.nextSha = commit.sha !== recentCommit.sha ? recentCommit.sha : recentCommit.nextSha;
+
+            // Only add a filename if this is a file log
+            if (type === 'file') {
+                recentCommit.previousFileName = commit.originalFileName || commit.fileName;
+                commit.nextFileName = recentCommit.originalFileName || recentCommit.fileName;
+            }
+        }
+        return commit;
     }
 
     private static _parseFileName(entry: { fileName?: string, originalFileName?: string }) {

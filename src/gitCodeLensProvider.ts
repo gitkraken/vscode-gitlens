@@ -4,7 +4,7 @@ import { CancellationToken, CodeLens, CodeLensProvider, Command, commands, Docum
 import { Commands, DiffWithPreviousCommandArgs, ShowBlameHistoryCommandArgs, ShowFileHistoryCommandArgs, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from './commands';
 import { BuiltInCommands, DocumentSchemes, ExtensionKey } from './constants';
 import { CodeLensCommand, CodeLensLocations, ICodeLensLanguageLocation, IConfig } from './configuration';
-import { GitBlame, GitBlameLines, GitCommit, GitService, GitUri } from './gitService';
+import { GitBlame, GitBlameCommit, GitBlameLines, GitService, GitUri } from './gitService';
 import { Logger } from './logger';
 import * as moment from 'moment';
 
@@ -304,7 +304,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         return lens;
     }
 
-    _applyShowBlameHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitCommit): T {
+    _applyShowBlameHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitBlameCommit): T {
         let line = lens.range.start.line;
         if (commit) {
             const blameLine = commit.lines.find(_ => _.line === line);
@@ -330,7 +330,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         return lens;
     }
 
-    _applyShowFileHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitCommit): T {
+    _applyShowFileHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitBlameCommit): T {
         let line = lens.range.start.line;
         if (commit) {
             const blameLine = commit.lines.find(_ => _.line === line);
@@ -355,7 +355,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         return lens;
     }
 
-    _applyDiffWithPreviousCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitCommit): T {
+    _applyDiffWithPreviousCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitBlameCommit): T {
         if (commit === undefined) {
             const blameLine = blame.allLines[lens.range.start.line];
             commit = blame.commits.get(blameLine.sha);
@@ -375,7 +375,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         return lens;
     }
 
-    _applyShowQuickCommitDetailsCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitCommit): T {
+    _applyShowQuickCommitDetailsCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitBlameCommit): T {
         lens.command = {
             title: title,
             command: commit !== undefined && commit.isUncommitted ? '' : CodeLensCommand.ShowQuickCommitDetails,
@@ -389,7 +389,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         return lens;
     }
 
-    _applyShowQuickCommitFileDetailsCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitCommit): T {
+    _applyShowQuickCommitFileDetailsCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitBlameCommit): T {
         lens.command = {
             title: title,
             command: commit !== undefined && commit.isUncommitted ? '' : CodeLensCommand.ShowQuickCommitFileDetails,
@@ -403,7 +403,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         return lens;
     }
 
-    _applyShowQuickFileHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitCommit): T {
+    _applyShowQuickFileHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitBlameCommit): T {
         lens.command = {
             title: title,
             command: CodeLensCommand.ShowQuickFileHistory,
@@ -417,7 +417,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         return lens;
     }
 
-    _applyShowQuickBranchHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitCommit): T {
+    _applyShowQuickBranchHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitBlameCommit): T {
         lens.command = {
             title: title,
             command: CodeLensCommand.ShowQuickCurrentBranchHistory,

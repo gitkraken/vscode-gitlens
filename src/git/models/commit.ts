@@ -21,7 +21,7 @@ export type GitCommitType = 'blame' | 'branch' | 'file'  | 'stash';
 export class GitCommit {
 
     type: GitCommitType;
-    lines: GitCommitLine[];
+    // lines: GitCommitLine[];
     originalFileName?: string;
     previousSha?: string;
     previousFileName?: string;
@@ -36,7 +36,7 @@ export class GitCommit {
         public author: string,
         public date: Date,
         public message: string,
-        lines?: GitCommitLine[],
+        // lines?: GitCommitLine[],
         originalFileName?: string,
         previousSha?: string,
         previousFileName?: string
@@ -44,7 +44,7 @@ export class GitCommit {
         this.type = type;
         this.fileName = this.fileName && this.fileName.replace(/, ?$/, '');
 
-        this.lines = lines || [];
+        // this.lines = lines || [];
         this.originalFileName = originalFileName;
         this.previousSha = previousSha;
         this.previousFileName = previousFileName;

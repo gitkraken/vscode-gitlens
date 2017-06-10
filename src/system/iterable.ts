@@ -92,7 +92,7 @@ export namespace Iterables {
         return source.next().value;
     }
 
-    export function* skip<T>(source: Iterable<T> | IterableIterator<T>, count: number): Iterable<T> {
+    export function* skip<T>(source: Iterable<T> | IterableIterator<T>, count: number): Iterable<T> | IterableIterator<T> {
         let i = 0;
         for (const item of source) {
             if (i >= count) yield item;

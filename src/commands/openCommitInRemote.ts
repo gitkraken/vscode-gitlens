@@ -2,7 +2,7 @@
 import { Arrays } from '../system';
 import { commands, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
-import { GitCommit, GitService, GitUri } from '../gitService';
+import { GitBlameCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { OpenInRemoteCommandArgs } from './openInRemote';
@@ -33,7 +33,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
             let commit = blame.commit;
             // If the line is uncommitted, find the previous commit
             if (commit.isUncommitted) {
-                commit = new GitCommit(commit.type, commit.repoPath, commit.previousSha!, commit.previousFileName!, commit.author, commit.date, commit.message);
+                commit = new GitBlameCommit(commit.repoPath, commit.previousSha!, commit.previousFileName!, commit.author, commit.date, commit.message, []);
             }
 
             const remotes = Arrays.uniqueBy(await this.git.getRemotes(gitUri.repoPath), _ => _.url, _ => !!_.provider);
