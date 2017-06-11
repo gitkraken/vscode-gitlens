@@ -122,10 +122,15 @@
                     "default": true,
                     "description": "Specifies whether or not to trigger hover annotations over the whole line"
                 },
+                "gitlens.annotations.file.recentChanges.hover.details": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to provide a commit details hover annotation"
+                },
                 "gitlens.annotations.file.recentChanges.hover.changes": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to provide a changes (diff) hover annotations"
+                    "description": "Specifies whether or not to provide a changes (diff) hover annotation"
                 },
                 "gitlens.annotations.file.recentChanges.hover.wholeLine": {
                     "type": "boolean",

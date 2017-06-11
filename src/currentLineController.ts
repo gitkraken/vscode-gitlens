@@ -361,6 +361,16 @@ export class CurrentLineController extends Disposable {
                 }
                 case FileAnnotationType.RecentChanges: {
                     const cfgChanges = this._config.annotations.file.recentChanges.hover;
+                    if (cfgChanges.details) {
+                        if (cfgChanges.wholeLine) {
+                            // Avoid double annotations if we are showing the whole-file hover blame annotations
+                            showDetails = false;
+                        }
+                        else {
+                            showDetailsInStartingWhitespace = false;
+                        }
+                    }
+
                     if (cfgChanges.changes) {
                         if (cfgChanges.wholeLine) {
                             // Avoid double annotations if we are showing the whole-file hover blame annotations

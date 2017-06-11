@@ -34,15 +34,27 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
                 if (change.state === 'unchanged') continue;
 
                 let endingIndex = 0;
+                if (cfg.hover.details || cfg.hover.changes) {
+                    endingIndex = cfg.hover.wholeLine ? endOfLineIndex : this.editor.document.lineAt(count).firstNonWhitespaceCharacterIndex;
+                }
+
+                const range = this.editor.document.validateRange(new Range(new Position(count, 0), new Position(count, endingIndex)));
+
+                if (cfg.hover.details) {
+                    decorators.push({
+                        hoverMessage: CommitFormatter.toHoverAnnotation(commit),
+                        range: range
+                    } as DecorationOptions);
+                }
+
                 let message: string | undefined = undefined;
                 if (cfg.hover.changes) {
                     message = CommitFormatter.toHoverDiff(commit, chunk.previous[count], change);
-                    endingIndex = cfg.hover.wholeLine ? endOfLineIndex : this.editor.document.lineAt(count).firstNonWhitespaceCharacterIndex;
                 }
 
                 decorators.push({
                     hoverMessage: message,
-                    range: this.editor.document.validateRange(new Range(new Position(count, 0), new Position(count, endingIndex)))
+                    range: range
                 } as DecorationOptions);
             }
         }

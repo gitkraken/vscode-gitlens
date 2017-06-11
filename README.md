@@ -20,8 +20,8 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
   ![Line Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotation.png)
   - Contains the author, date, and message of the line's most recent commit, by [default](#line-blame-annotation-settings)
-  - Also adds a `details` hover annotation to the current line annotation which provides more commit details ([optional](#line-blame-annotation-settings), on by default)
-  - Also adds a `changes` (diff) hover annotation to the current line annotation which provides **instant** access to the line's previous version ([optional](#line-blame-annotation-settings), on by default)
+  - Adds a `details` hover annotation to the current line annotation, which provides more commit details ([optional](#line-blame-annotation-settings), on by default)
+  - Adds a `changes` (diff) hover annotation to the current line annotation, which provides **instant** access to the line's previous version ([optional](#line-blame-annotation-settings), on by default)
 
     ![Line Blame Annotations](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotations.png)
 
@@ -30,7 +30,9 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
   ![File Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-file-blame-annotations.png)
   - Choose between `gutter` (default) and `hover` [annotation styles](#file-blame-annotation-settings)
   - Contains the commit message and date, by [default](#file-blame-annotation-settings)
-  - Also adds a `details` hover annotation to the line's annotation which provides more commit details ([optional](#file-blame-annotation-settings), on by default)
+  - Adds a `details` hover annotation to the line's annotation, which provides more commit details ([optional](#file-blame-annotation-settings), on by default)
+  - Adds a `heatmap` (age) indicator to the gutter annotations (on right edge by [default](#file-blame-annotation-settings)), which provides an easy, at-a-glance way to tell the age of a line ([optional](#file-blame-annotation-settings), on by default)
+    - Indicator ranges from bright yellow (newer) to dark brown (older)
 
 - Adds [customizable](#status-bar-settings) **blame information** about the current line to the **status bar**  ([optional](#status-bar-settings), on by default)
 
@@ -57,7 +59,8 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 - Adds on-demand, [customizable](#file-recent-changes-annotation-settings) and [themeable](#theme-settings), **recent changes annotations** of the whole file
   - Highlights all of lines changed in the most recent commit
-  - Also adds a `changes` (diff) hover annotation to the current line annotation which provides **instant** access to the line's previous version ([optional](#file-recent-changes-annotation-settings), on by default)
+  - Adds a `details` hover annotation to each line, which provides more commit details ([optional](#file-blame-annotation-settings), on by default)
+  - Adds a `changes` (diff) hover annotation to each line, which provides **instant** access to the line's previous version ([optional](#file-recent-changes-annotation-settings), on by default)
 
 - Adds `Toggle Recent File Changes Annotations` command (`gitlens.toggleFileRecentChanges`) to toggle the recent changes annotations on and off
 
@@ -257,7 +260,8 @@ GitLens is highly customizable and provides many configuration settings to allow
 |Name | Description
 |-----|------------
 |`gitlens.recentChanges.file.lineHighlight.locations`|Specifies where the highlights of the recently changed lines will be shown<br />`gutter` - adds a gutter glyph<br />`line` - adds a full-line highlight background color<br />`overviewRuler` - adds a decoration to the overviewRuler (scroll bar)
-|`gitlens.annotations.file.recentChanges.hover.changes`|Specifies whether or not to provide a changes (diff) hover annotations
+|`gitlens.annotations.file.recentChanges.hover.details`|Specifies whether or not to provide a commit details hover annotation
+|`gitlens.annotations.file.recentChanges.hover.changes`|Specifies whether or not to provide a changes (diff) hover annotation
 |`gitlens.annotations.file.recentChanges.hover.wholeLine`|Specifies whether or not to trigger hover annotations over the whole line
 
 ### Code Lens Settings

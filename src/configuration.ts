@@ -237,6 +237,7 @@ export interface IConfig {
 
             recentChanges: {
                 hover: {
+                    details: boolean;
                     changes: boolean;
                     wholeLine: boolean;
                 };
