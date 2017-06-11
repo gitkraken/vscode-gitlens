@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [4.1.0-beta] - 2017-06-10
+## [4.1.0-beta.2] - 2017-06-12
 ### Added
 - Adds all-new recent changes annotations of the whole-file - annotates and highlights all of lines changed in the most recent commit
   - Can customize the [layout](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#file-recent-changes-annotation-settings), as well as the [theme](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#theme-settings)
@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes excessive memory usage when parsing diffs
+- Fixes extra newline in multiline commit messages
+- Fixes (again) [#33](https://github.com/eamodio/vscode-gitlens/issues/33) - Commit messages can causes markdown formatting in hovers
 
 ## [4.0.1] - 2017-06-09
 ### Fixed
