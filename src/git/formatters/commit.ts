@@ -138,7 +138,7 @@ export class CommitFormatter {
     }
 
     static toHoverAnnotation(commit: GitCommit, dateFormat: string = 'MMMM Do, YYYY h:MMa'): string | string[] {
-        const message = commit.isUncommitted ? '' : `\n\n> ${commit.message.replace(/\n/g, '\n>\n> ')}`;
+        const message = commit.isUncommitted ? '' : `\n\n> ${commit.message.replace(/\n/g, '  \n')}`;
         return `\`${commit.shortSha}\` &nbsp; __${commit.author}__, ${moment(commit.date).fromNow()} &nbsp; _(${moment(commit.date).format(dateFormat)})_${message}`;
     }
 
