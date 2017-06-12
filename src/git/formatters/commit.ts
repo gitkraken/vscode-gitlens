@@ -4,6 +4,9 @@ import { GitCommit } from '../models/commit';
 import { GitDiffLine } from '../models/diff';
 import * as moment from 'moment';
 
+const escapeMarkdownRegEx = /[`\>\#\*\_\-\+\.]/g;
+// const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
+
 export interface ICommitFormatOptions {
     dateFormat?: string | null;
     tokenOptions?: {
@@ -163,7 +166,17 @@ export class CommitFormatter {
             dateFormat = 'MMMM Do, YYYY h:MMa';
         }
 
-        const message = commit.isUncommitted ? '' : `\n\n> ${commit.message.replace(/\n/g, '  \n')}`;
+        let message = '';
+        if (!commit.isUncommitted) {
+            message = commit.message
+                // Escape markdown
+                .replace(escapeMarkdownRegEx, '\\$&')
+                // Escape markdown header (since the above regex won't match it)
+                .replace(/^===/gm, '\u200b===')
+                // Keep under the same block-quote
+                .replace(/\n/g, '  \n');
+            message = `\n\n> ${message}`;
+        }
         return `\`${commit.shortSha}\` &nbsp; __${commit.author}__, ${moment(commit.date).fromNow()} &nbsp; _(${moment(commit.date).format(dateFormat)})_${message}`;
     }
 
