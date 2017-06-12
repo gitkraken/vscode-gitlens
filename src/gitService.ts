@@ -486,7 +486,7 @@ export class GitService extends Disposable {
         const authors: Map<string, GitAuthor> = new Map();
         const commits: Map<string, GitBlameCommit> = new Map();
         for (const c of blame.commits.values()) {
-            if (!shas.has(c.sha)) return;
+            if (!shas.has(c.sha)) continue;
 
             const commit = new GitBlameCommit(c.repoPath, c.sha, c.fileName, c.author, c.date, c.message,
                 c.lines.filter(l => l.line >= range.start.line && l.line <= range.end.line), c.originalFileName, c.previousSha, c.previousFileName);

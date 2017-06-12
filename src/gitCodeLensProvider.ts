@@ -73,7 +73,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         let blame: GitBlame | undefined;
         if (languageLocations.locations.length === 1 && languageLocations.locations.includes(CodeLensLocations.Document)) {
             blame = await blamePromise;
-            if (blame === undefined || !blame.lines.length) return lenses;
+            if (blame === undefined || blame.lines.length === 0) return lenses;
         }
         else {
             const values = await Promise.all([
@@ -82,7 +82,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
             ]);
 
             blame = values[0] as GitBlame;
-            if (blame === undefined || !blame.lines.length) return lenses;
+            if (blame === undefined || blame.lines.length === 0) return lenses;
 
             const symbols = values[1] as SymbolInformation[];
             Logger.log('GitCodeLensProvider.provideCodeLenses:', `${symbols.length} symbol(s) found`);
