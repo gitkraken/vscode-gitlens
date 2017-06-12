@@ -33,6 +33,7 @@ export type Commands = 'gitlens.closeUnchangedFiles' |
     'gitlens.showQuickRepoHistory' |
     'gitlens.showQuickRepoStatus' |
     'gitlens.showQuickStashList' |
+    'gitlens.showStashList' |
     'gitlens.stashApply' |
     'gitlens.stashDelete' |
     'gitlens.stashSave' |
@@ -71,6 +72,7 @@ export const Commands = {
     ShowQuickCurrentBranchHistory: 'gitlens.showQuickRepoHistory' as Commands,
     ShowQuickRepoStatus: 'gitlens.showQuickRepoStatus' as Commands,
     ShowQuickStashList: 'gitlens.showQuickStashList' as Commands,
+    ShowStashList: 'gitlens.showStashList' as Commands,
     StashApply: 'gitlens.stashApply' as Commands,
     StashDelete: 'gitlens.stashDelete' as Commands,
     StashSave: 'gitlens.stashSave' as Commands,

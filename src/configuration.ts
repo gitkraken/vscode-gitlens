@@ -303,6 +303,13 @@ export interface IConfig {
 
     defaultDateFormat: string | null;
 
+    explorer: {
+        commitFormat: string;
+        commitFileFormat: string;
+        stashFormat: string;
+        // dateFormat: string | null;
+    };
+
     statusBar: {
         enabled: boolean;
         alignment: 'left' | 'right';
