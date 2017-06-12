@@ -216,7 +216,7 @@ export interface IConfig {
         file: {
             gutter: {
                 format: string;
-                dateFormat: string;
+                dateFormat: string | null;
                 compact: boolean;
                 heatmap: {
                     enabled: boolean;
@@ -252,7 +252,7 @@ export interface IConfig {
 
             trailing: {
                 format: string;
-                dateFormat: string;
+                dateFormat: string | null;
                 hover: {
                     changes: boolean;
                     details: boolean;
@@ -301,12 +301,14 @@ export interface IConfig {
         debug: boolean;
     };
 
+    defaultDateFormat: string | null;
+
     statusBar: {
         enabled: boolean;
         alignment: 'left' | 'right';
         command: StatusBarCommand;
         format: string;
-        dateFormat: string;
+        dateFormat: string | null;
     };
 
     strings: {

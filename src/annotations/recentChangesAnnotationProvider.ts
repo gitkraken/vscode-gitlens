@@ -21,6 +21,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
         if (diff === undefined) return false;
 
         const cfg = this._config.annotations.file.recentChanges;
+        const dateFormat = this._config.defaultDateFormat;
 
         const decorators: DecorationOptions[] = [];
 
@@ -42,7 +43,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
                 if (cfg.hover.details) {
                     decorators.push({
-                        hoverMessage: CommitFormatter.toHoverAnnotation(commit),
+                        hoverMessage: CommitFormatter.toHoverAnnotation(commit, dateFormat),
                         range: range
                     } as DecorationOptions);
                 }

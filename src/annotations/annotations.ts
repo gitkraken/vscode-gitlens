@@ -59,8 +59,8 @@ export class Annotations {
         } as DecorationOptions;
     }
 
-    static detailsHover(commit: GitCommit): DecorationOptions {
-        const message = CommitFormatter.toHoverAnnotation(commit);
+    static detailsHover(commit: GitCommit, dateFormat: string | null): DecorationOptions {
+        const message = CommitFormatter.toHoverAnnotation(commit, dateFormat);
         return {
             hoverMessage: message
         } as DecorationOptions;
@@ -127,9 +127,9 @@ export class Annotations {
         } as IRenderOptions;
     }
 
-    static hover(commit: GitCommit, renderOptions: IRenderOptions, heatmap: boolean): DecorationOptions {
+    static hover(commit: GitCommit, renderOptions: IRenderOptions, heatmap: boolean, dateFormat: string | null): DecorationOptions {
         return {
-            hoverMessage: CommitFormatter.toHoverAnnotation(commit),
+            hoverMessage: CommitFormatter.toHoverAnnotation(commit, dateFormat),
             renderOptions: heatmap ? { before: { ...renderOptions.before } } : undefined
         } as DecorationOptions;
     }

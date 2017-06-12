@@ -291,7 +291,7 @@ export class CurrentLineController extends Disposable {
                     showDetailsInStartingWhitespace = true;
                 }
 
-                const decoration = Annotations.trailing(commit, cfgAnnotations.format, cfgAnnotations.dateFormat, this._config.theme);
+                const decoration = Annotations.trailing(commit, cfgAnnotations.format, cfgAnnotations.dateFormat === null ? this._config.defaultDateFormat : cfgAnnotations.dateFormat, this._config.theme);
                 decoration.range = editor.document.validateRange(new Range(line, endOfLineIndex, line, endOfLineIndex));
                 decorationOptions.push(decoration);
 
@@ -395,7 +395,7 @@ export class CurrentLineController extends Disposable {
                 // I have no idea why I need this protection -- but it happens
                 if (editor.document === undefined) return;
 
-                const decoration = Annotations.detailsHover(logCommit || commit);
+                const decoration = Annotations.detailsHover(logCommit || commit, this._config.defaultDateFormat);
                 decoration.range = editor.document.validateRange(new Range(line, showDetailsStartIndex, line, endOfLineIndex));
                 decorationOptions.push(decoration);
 
@@ -429,7 +429,7 @@ export class CurrentLineController extends Disposable {
         const cfg = this._config.statusBar;
         if (!cfg.enabled || this._statusBarItem === undefined) return;
 
-        this._statusBarItem.text = `$(git-commit) ${CommitFormatter.fromTemplate(cfg.format, commit, cfg.dateFormat)}`;
+        this._statusBarItem.text = `$(git-commit) ${CommitFormatter.fromTemplate(cfg.format, commit, cfg.dateFormat === null ? this._config.defaultDateFormat : cfg.dateFormat)}`;
 
         switch (cfg.command) {
             case StatusBarCommand.BlameAnnotate:

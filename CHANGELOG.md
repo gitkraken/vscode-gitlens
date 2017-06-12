@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves performance
   - Optimized git output parsing to increase speed and reduce memory usage
   - Defers diff chunk parsing until it is actually required
+- Adds `gitlens.defaultDateFormat` setting to specify how all absolute dates will be formatted by default
 
 ### Fixed
 - Fixes excessive memory usage when parsing diffs

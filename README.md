@@ -219,6 +219,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 
 |Name | Description
 |-----|------------
+|`gitlens.defaultDateFormat`|Specifies how all absolute dates will be formatted by default\nSee https://momentjs.com/docs/#/displaying/format/ for valid formats
 |`gitlens.insiders`|Opts into the insiders channel -- provides access to upcoming features
 |`gitlens.outputLevel`|Specifies how much (if any) output will be sent to the GitLens output channel
 

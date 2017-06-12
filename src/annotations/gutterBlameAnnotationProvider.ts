@@ -25,7 +25,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             }, {} as { [token: string]: ICommitFormatOptions });
 
         const options: ICommitFormatOptions = {
-            dateFormat: cfg.dateFormat,
+            dateFormat: cfg.dateFormat === null ? this._config.defaultDateFormat : cfg.dateFormat,
             tokenOptions: tokenOptions
         };
 
@@ -33,6 +33,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         const offset = this.uri.offset;
         let previousLine: string | undefined = undefined;
         const renderOptions = Annotations.gutterRenderOptions(this._config.theme, cfg.heatmap);
+        const dateFormat = this._config.defaultDateFormat;
 
         const decorations: DecorationOptions[] = [];
 
@@ -58,7 +59,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             decorations.push(gutter);
 
             if (cfg.hover.details) {
-                const details = Annotations.detailsHover(commit);
+                const details = Annotations.detailsHover(commit, dateFormat);
                 details.range = cfg.hover.wholeLine
                     ? this.editor.document.validateRange(new Range(line, 0, line, endOfLineIndex))
                     : gutter.range;

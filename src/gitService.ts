@@ -521,13 +521,14 @@ export class GitService extends Disposable {
         if (blame === undefined) return undefined;
 
         const commitCount = blame.commits.size;
+        const dateFormat = this.config.defaultDateFormat === null ? 'MMMM Do, YYYY h:MMa' : this.config.defaultDateFormat;
 
         const locations: Location[] = [];
         Iterables.forEach(blame.commits.values(), (c, i) => {
             if (c.isUncommitted) return;
 
-            const decoration = `\u2937 ${c.author}, ${moment(c.date).format('MMMM Do, YYYY h:MMa')}`;
-            const uri = GitService.toReferenceGitContentUri(c, i + 1, commitCount, c.originalFileName, decoration);
+            const decoration = `\u2937 ${c.author}, ${moment(c.date).format(dateFormat)}`;
+            const uri = GitService.toReferenceGitContentUri(c, i + 1, commitCount, c.originalFileName, decoration, dateFormat);
             locations.push(new Location(uri, new Position(0, 0)));
             if (c.sha === selectedSha) {
                 locations.push(new Location(uri, new Position((line || 0) + 1, 0)));
@@ -858,13 +859,14 @@ export class GitService extends Disposable {
         if (log === undefined) return undefined;
 
         const commitCount = log.commits.size;
+        const dateFormat = this.config.defaultDateFormat === null ? 'MMMM Do, YYYY h:MMa' : this.config.defaultDateFormat;
 
         const locations: Location[] = [];
         Iterables.forEach(log.commits.values(), (c, i) => {
             if (c.isUncommitted) return;
 
-            const decoration = `\u2937 ${c.author}, ${moment(c.date).format('MMMM Do, YYYY h:MMa')}`;
-            const uri = GitService.toReferenceGitContentUri(c, i + 1, commitCount, c.originalFileName, decoration);
+            const decoration = `\u2937 ${c.author}, ${moment(c.date).format(dateFormat)}`;
+            const uri = GitService.toReferenceGitContentUri(c, i + 1, commitCount, c.originalFileName, decoration, dateFormat);
             locations.push(new Location(uri, new Position(0, 0)));
             if (c.sha === selectedSha) {
                 locations.push(new Location(uri, new Position((line || 0) + 1, 0)));
@@ -1086,11 +1088,11 @@ export class GitService extends Disposable {
         return Uri.parse(`${DocumentSchemes.GitLensGit}:${path.basename(fileName!, extension)}:${shortSha}${extension}?${JSON.stringify(data)}`);
     }
 
-    static toReferenceGitContentUri(commit: GitCommit, index: number, commitCount: number, originalFileName?: string, decoration?: string): Uri {
-        return GitService._toReferenceGitContentUri(commit, DocumentSchemes.GitLensGit, commitCount, GitService._toGitUriData(commit, index, originalFileName, decoration));
+    static toReferenceGitContentUri(commit: GitCommit, index: number, commitCount: number, originalFileName: string | undefined, decoration: string, dateFormat: string | null): Uri {
+        return GitService._toReferenceGitContentUri(commit, DocumentSchemes.GitLensGit, commitCount, GitService._toGitUriData(commit, index, originalFileName, decoration), dateFormat);
     }
 
-    private static _toReferenceGitContentUri(commit: GitCommit, scheme: DocumentSchemes, commitCount: number, data: IGitUriData) {
+    private static _toReferenceGitContentUri(commit: GitCommit, scheme: DocumentSchemes, commitCount: number, data: IGitUriData, dateFormat: string | null) {
         const pad = (n: number) => ('0000000' + n).slice(-('' + commitCount).length);
         const ext = path.extname(data.fileName);
         const uriPath = `${path.relative(commit.repoPath, data.fileName.slice(0, -ext.length))}/${commit.shortSha}${ext}`;
@@ -1100,8 +1102,12 @@ export class GitService extends Disposable {
             message = message.substring(0, 49) + '\u2026';
         }
 
+        if (dateFormat === null) {
+            dateFormat = 'MMMM Do, YYYY h:MMa';
+        }
+
         // NOTE: Need to specify an index here, since I can't control the sort order -- just alphabetic or by file location
-        return Uri.parse(`${scheme}:${pad(data.index || 0)} \u2022 ${encodeURIComponent(message)} \u2022 ${moment(commit.date).format('MMM D, YYYY hh:MMa')} \u2022 ${encodeURIComponent(uriPath)}?${JSON.stringify(data)}`);
+        return Uri.parse(`${scheme}:${pad(data.index || 0)} \u2022 ${encodeURIComponent(message)} \u2022 ${moment(commit.date).format(dateFormat)} \u2022 ${encodeURIComponent(uriPath)}?${JSON.stringify(data)}`);
     }
 
     private static _toGitUriData<T extends IGitUriData>(commit: IGitUriData, index?: number, originalFileName?: string, decoration?: string): T {

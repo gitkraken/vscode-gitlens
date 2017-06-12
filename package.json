@@ -402,6 +402,11 @@
                     "default": false,
                     "description": "Specifies whether or not to show debug information in code lens"
                 },
+                "gitlens.defaultDateFormat": {
+                    "type": "string",
+                    "default": null,
+                    "description": "Specifies how all absolute dates will be formatted by default\nSee https://momentjs.com/docs/#/displaying/format/ for valid formats"
+                },
                 "gitlens.statusBar.enabled": {
                     "type": "boolean",
                     "default": true,
