@@ -3,22 +3,14 @@ import { Iterables } from '../system';
 import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from 'vscode';
 import { Commands, DiffWithWorkingCommandArgs, Keyboard, Keys, OpenChangedFilesCommandArgs, ShowQuickBranchHistoryCommandArgs, ShowQuickRepoStatusCommandArgs, ShowQuickStashListCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem, QuickPickItem } from './common';
-import { GitService, GitStatus, GitStatusFile, GitUri } from '../gitService';
+import { GitStatus, GitStatusFile, GitUri } from '../gitService';
 import * as path from 'path';
 
 export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 
     constructor(status: GitStatusFile, item?: QuickPickItem) {
         const icon = status.getIcon();
-
-        let directory: string | undefined = GitService.normalizePath(path.dirname(status.fileName));
-        if (!directory || directory === '.') {
-            directory = '';
-        }
-
-        const description = (status.status === 'R' && status.originalFileName)
-            ? `${directory} \u00a0\u2190\u00a0 ${status.originalFileName}`
-            : directory;
+        const description = status.getFormattedDirectory(true);
 
         super(status.Uri, item || {
             label: `${status.staged ? '$(check)' : '\u00a0\u00a0\u00a0'}\u00a0\u00a0${icon}\u00a0\u00a0\u00a0${path.basename(status.fileName)}`,

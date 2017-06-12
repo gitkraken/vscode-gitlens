@@ -1,6 +1,7 @@
 'use strict';
 import { Uri } from 'vscode';
 import { Git } from '../git';
+import { GitUri } from '../gitUri';
 import * as path from 'path';
 
 export interface GitAuthor {
@@ -74,9 +75,6 @@ export class GitCommit {
     }
 
     getFormattedPath(separator: string = ' \u00a0\u2022\u00a0 '): string {
-        const directory = Git.normalizePath(path.dirname(this.fileName));
-        return (!directory || directory === '.')
-            ? path.basename(this.fileName)
-            : `${path.basename(this.fileName)}${separator}${directory}`;
+        return GitUri.getFormattedPath(this.fileName, separator);
     }
 }
