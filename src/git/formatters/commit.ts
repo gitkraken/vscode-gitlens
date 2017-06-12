@@ -17,9 +17,18 @@ export interface ICommitFormatOptions {
 
 export class CommitFormatter {
 
+    private _commit: GitCommit;
     private _options: ICommitFormatOptions;
 
-    constructor(private commit: GitCommit, options?: ICommitFormatOptions) {
+    constructor(commit: GitCommit, options?: ICommitFormatOptions) {
+        this.reset(commit, options);
+    }
+
+    reset(commit: GitCommit, options?: ICommitFormatOptions) {
+        this._commit = commit;
+
+        if (options === undefined && this._options !== undefined) return;
+
         options = options || {};
         if (options.tokenOptions == null) {
             options.tokenOptions = {};
@@ -33,31 +42,31 @@ export class CommitFormatter {
     }
 
     get ago() {
-        const ago = moment(this.commit.date).fromNow();
+        const ago = moment(this._commit.date).fromNow();
         return this._padOrTruncate(ago, this._options.tokenOptions!.ago);
     }
 
     get author() {
-        const author = this.commit.author;
+        const author = this._commit.author;
         return this._padOrTruncate(author, this._options.tokenOptions!.author);
     }
 
     get authorAgo() {
-        const authorAgo = `${this.commit.author}, ${moment(this.commit.date).fromNow()}`;
+        const authorAgo = `${this._commit.author}, ${moment(this._commit.date).fromNow()}`;
         return this._padOrTruncate(authorAgo, this._options.tokenOptions!.authorAgo);
     }
 
     get date() {
-        const date = moment(this.commit.date).format(this._options.dateFormat!);
+        const date = moment(this._commit.date).format(this._options.dateFormat!);
         return this._padOrTruncate(date, this._options.tokenOptions!.date);
     }
 
     get id() {
-        return this.commit.shortSha;
+        return this._commit.shortSha;
     }
 
     get message() {
-        const message = this.commit.isUncommitted ? 'Uncommitted change' : this.commit.message;
+        const message = this._commit.isUncommitted ? 'Uncommitted change' : this._commit.message;
         return this._padOrTruncate(message, this._options.tokenOptions!.message);
     }
 
@@ -111,6 +120,18 @@ export class CommitFormatter {
         if (diff < 0) return Strings.truncate(s, max);
 
         return s;
+    }
+
+    private static _formatter: CommitFormatter | undefined = undefined;
+
+    static fromCommit(commit: GitCommit, options?: ICommitFormatOptions): CommitFormatter {
+        if (CommitFormatter._formatter === undefined) {
+            CommitFormatter._formatter = new CommitFormatter(commit, options);
+        }
+        else {
+            CommitFormatter._formatter.reset(commit, options);
+        }
+        return CommitFormatter._formatter;
     }
 
     static fromTemplate(template: string, commit: GitCommit, dateFormat: string | null): string;

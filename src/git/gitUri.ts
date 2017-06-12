@@ -102,6 +102,28 @@ export class GitUri extends Uri {
         const uri = Uri.file(path.resolve(repoPath, original ? status.originalFileName || status.fileName : status.fileName));
         return new GitUri(uri, repoPathOrCommit);
     }
+
+    static getDirectory(fileName: string): string {
+        const directory: string | undefined = GitService.normalizePath(path.dirname(fileName));
+        return (!directory || directory === '.') ? '' : directory;
+    }
+
+    static getFormattedPath(fileNameOrUri: string | Uri, separator: string = ' \u00a0\u2022\u00a0 '): string {
+        let fileName: string;
+        if (fileNameOrUri instanceof Uri) {
+            if (fileNameOrUri instanceof GitUri) return fileNameOrUri.getFormattedPath(separator);
+
+            fileName = fileNameOrUri.fsPath;
+        }
+        else {
+            fileName = fileNameOrUri;
+        }
+
+        const directory = GitUri.getDirectory(fileName);
+        return !directory
+            ? path.basename(fileName)
+            : `${path.basename(fileName)}${separator}${directory}`;
+    }
 }
 
 export interface IGitCommitInfo {

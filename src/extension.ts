@@ -21,8 +21,8 @@ import { CodeLensLocations, IConfig, LineHighlightLocations } from './configurat
 import { ApplicationInsightsKey, ExtensionKey, QualifiedExtensionId, WorkspaceState } from './constants';
 import { CurrentLineController, LineAnnotationType } from './currentLineController';
 import { GitContentProvider } from './gitContentProvider';
-import { GitContextTracker, GitService } from './gitService';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
+import { GitContextTracker, GitService } from './gitService';
 import { Logger } from './logger';
 import { Messages, SuppressedKeys } from './messages';
 import { Telemetry } from './telemetry';
@@ -270,6 +270,8 @@ async function notifyOnNewGitLensVersion(context: ExtensionContext, version: str
     const [major, minor] = version.split('.');
     const [prevMajor, prevMinor] = previousVersion.split('.');
     if (major === prevMajor && minor === prevMinor) return;
+    // Don't notify on downgrades
+    if (major < prevMajor || (major === prevMajor && minor < prevMinor)) return;
 
     await Messages.showUpdateMessage(version);
 }

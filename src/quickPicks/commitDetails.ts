@@ -3,7 +3,7 @@ import { Arrays, Iterables } from '../system';
 import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from 'vscode';
 import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandCommandArgs, DiffWithPreviousCommandArgs, Keyboard, KeyNoopCommand, Keys, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, QuickPickItem } from './common';
-import { getGitStatusIcon, GitCommit, GitLog, GitLogCommit, GitService, GitStashCommit, GitStatusFileStatus, GitUri, IGitCommitInfo, IGitStatusFile, RemoteResource } from '../gitService';
+import { getGitStatusIcon, GitCommit, GitLog, GitLogCommit, GitService, GitStashCommit, GitStatusFile, GitStatusFileStatus, GitUri, IGitCommitInfo, IGitStatusFile, RemoteResource } from '../gitService';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as moment from 'moment';
 import * as path from 'path';
@@ -19,15 +19,7 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
 
     constructor(commit: GitCommit, status: IGitStatusFile) {
         const icon = getGitStatusIcon(status.status);
-
-        let directory: string | undefined = GitService.normalizePath(path.dirname(status.fileName));
-        if (!directory || directory === '.') {
-            directory = '';
-        }
-
-        const description = (status.status === 'R' && status.originalFileName)
-            ? `${directory} \u00a0\u2190\u00a0 ${status.originalFileName}`
-            : directory;
+        const description = GitStatusFile.getFormattedDirectory(status, true);
 
         let sha;
         let shortSha;
