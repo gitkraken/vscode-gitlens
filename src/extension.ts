@@ -12,13 +12,14 @@ import { ShowBlameHistoryCommand, ShowFileHistoryCommand } from './commands';
 import { ShowLastQuickPickCommand } from './commands';
 import { ShowQuickBranchHistoryCommand, ShowQuickCurrentBranchHistoryCommand, ShowQuickFileHistoryCommand } from './commands';
 import { ShowCommitSearchCommand, ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand } from './commands';
-import { ShowQuickRepoStatusCommand, ShowQuickStashListCommand } from './commands';
+import { ShowQuickRepoStatusCommand, ShowQuickStashListCommand, ShowStashListCommand } from './commands';
 import { StashApplyCommand, StashDeleteCommand, StashSaveCommand } from './commands';
 import { ToggleCodeLensCommand } from './commands';
 import { CodeLensLocations, IConfig, LineHighlightLocations } from './configuration';
 import { ApplicationInsightsKey, CommandContext, ExtensionKey, QualifiedExtensionId, setCommandContext, WorkspaceState } from './constants';
 import { CurrentLineController, LineAnnotationType } from './currentLineController';
 import { GitContentProvider } from './gitContentProvider';
+import { GitExplorer } from './views/gitExplorer';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { GitContextTracker, GitService } from './gitService';
 import { Keyboard } from './keyboard';
@@ -87,6 +88,12 @@ export async function activate(context: ExtensionContext) {
 
     context.subscriptions.push(new Keyboard());
 
+    let explorer: GitExplorer | undefined = undefined;
+    if (cfg.insiders) {
+        explorer = new GitExplorer(context, git);
+        context.subscriptions.push(window.registerTreeDataProvider('gitlens-explorer', explorer));
+    }
+
     context.subscriptions.push(new CloseUnchangedFilesCommand(git));
     context.subscriptions.push(new OpenChangedFilesCommand(git));
     context.subscriptions.push(new CopyMessageToClipboardCommand(git));
@@ -111,7 +118,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new ToggleLineBlameCommand(currentLineController));
     context.subscriptions.push(new ResetSuppressedWarningsCommand(context));
     context.subscriptions.push(new ShowBlameHistoryCommand(git));
-    context.subscriptions.push(new ShowFileHistoryCommand(git));
+    context.subscriptions.push(new ShowFileHistoryCommand(git, explorer));
     context.subscriptions.push(new ShowLastQuickPickCommand());
     context.subscriptions.push(new ShowQuickBranchHistoryCommand(git));
     context.subscriptions.push(new ShowQuickCurrentBranchHistoryCommand(git));
@@ -121,6 +128,9 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new ShowQuickFileHistoryCommand(git));
     context.subscriptions.push(new ShowQuickRepoStatusCommand(git));
     context.subscriptions.push(new ShowQuickStashListCommand(git));
+    if (cfg.insiders) {
+        context.subscriptions.push(new ShowStashListCommand(git, explorer!));
+    }
     context.subscriptions.push(new StashApplyCommand(git));
     context.subscriptions.push(new StashDeleteCommand(git));
     context.subscriptions.push(new StashSaveCommand(git));

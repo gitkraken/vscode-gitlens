@@ -1,5 +1,6 @@
 'use strict';
 import { commands, Disposable, SourceControlResourceGroup, SourceControlResourceState, TextDocumentShowOptions, TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
+import { ExplorerNode } from '../views/gitExplorerNodes';
 import { Logger } from '../logger';
 import { Telemetry } from '../telemetry';
 
@@ -34,6 +35,7 @@ export type Commands = 'gitlens.closeUnchangedFiles' |
     'gitlens.showQuickRepoHistory' |
     'gitlens.showQuickRepoStatus' |
     'gitlens.showQuickStashList' |
+    'gitlens.showStashList' |
     'gitlens.stashApply' |
     'gitlens.stashDelete' |
     'gitlens.stashSave' |
@@ -73,6 +75,7 @@ export const Commands = {
     ShowQuickCurrentBranchHistory: 'gitlens.showQuickRepoHistory' as Commands,
     ShowQuickRepoStatus: 'gitlens.showQuickRepoStatus' as Commands,
     ShowQuickStashList: 'gitlens.showQuickStashList' as Commands,
+    ShowStashList: 'gitlens.showStashList' as Commands,
     StashApply: 'gitlens.stashApply' as Commands,
     StashDelete: 'gitlens.stashDelete' as Commands,
     StashSave: 'gitlens.stashSave' as Commands,
@@ -116,7 +119,12 @@ export interface CommandUriContext extends CommandBaseContext {
     type: 'uri';
 }
 
-export type CommandContext = CommandScmGroupsContext | CommandScmStatesContext | CommandUnknownContext | CommandUriContext;
+export interface CommandViewContext extends CommandBaseContext {
+    type: 'view';
+    node: ExplorerNode;
+}
+
+export type CommandContext = CommandScmGroupsContext | CommandScmStatesContext | CommandUnknownContext | CommandUriContext | CommandViewContext;
 
 function isScmResourceGroup(group: any): group is SourceControlResourceGroup {
     if (group === undefined) return false;
@@ -178,6 +186,11 @@ export abstract class Command extends Disposable {
         if (options.uri && (firstArg === undefined || firstArg instanceof Uri)) {
             const [uri, ...rest] = args as [Uri, any];
             return [{ type: 'uri', editor: editor, uri: uri }, rest];
+        }
+
+        if (firstArg instanceof ExplorerNode) {
+            const [node, ...rest] = args as [ExplorerNode, any];
+            return [{ type: 'view', node: node, uri: node.uri }, rest];
         }
 
         if (isScmResourceState(firstArg)) {
