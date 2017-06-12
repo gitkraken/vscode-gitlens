@@ -195,9 +195,9 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 ### And More
 
-- Adds a `Copy Commit ID to Clipboard` command (`gitlens.copyShaToClipboard`) to copy the commit id (sha) of the active line to the clipboard
+- Adds a `Copy Commit ID to Clipboard` command (`gitlens.copyShaToClipboard`) to copy the commit id (sha) of the active line to the clipboard or from the most recent commit to the current branch, if there is no active editor
 
-- Adds a `Copy Commit Message to Clipboard` command (`gitlens.copyMessageToClipboard`) to copy the commit message of the active line to the clipboard
+- Adds a `Copy Commit Message to Clipboard` command (`gitlens.copyMessageToClipboard`) to copy the commit message of the active line to the clipboard or from the most recent commit to the current branch, if there is no active editor
 
 - Adds a `Open Changed Files` command (`gitlens.openChangedFiles`) to open any files with working tree changes
 
