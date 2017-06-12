@@ -15,6 +15,7 @@ import * as path from 'path';
 export { GitUri, IGitCommitInfo };
 export * from './git/models/models';
 export * from './git/formatters/commit';
+export * from './git/formatters/status';
 export { getNameFromRemoteResource, RemoteResource, RemoteProvider } from './git/remotes/provider';
 export * from './git/gitContextTracker';
 
