@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "4.1.0-beta.2",
+    "version": "4.1.0",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -1331,7 +1331,7 @@
         "@types/copy-paste": "1.1.30",
         "@types/iconv-lite": "0.0.1",
         "@types/mocha": "2.2.41",
-        "@types/node": "7.0.29",
+        "@types/node": "7.0.31",
         "@types/tmp": "0.0.33",
         "mocha": "3.4.2",
         "tslint": "5.4.3",
