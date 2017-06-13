@@ -1,5 +1,7 @@
 'use strict';
+import { Strings } from '../../system';
 import { Uri } from 'vscode';
+import { GlyphChars } from '../../constants';
 import { GitUri } from '../gitUri';
 import * as path from 'path';
 
@@ -37,7 +39,7 @@ export class GitStatusFile implements IGitStatusFile {
         return GitStatusFile.getFormattedDirectory(this, includeOriginal);
     }
 
-    getFormattedPath(separator: string = ' \u00a0\u2022\u00a0 '): string {
+    getFormattedPath(separator: string = Strings.pad(GlyphChars.Dot, 2, 2)): string {
         return GitUri.getFormattedPath(this.fileName, separator);
     }
 
@@ -52,7 +54,7 @@ export class GitStatusFile implements IGitStatusFile {
     static getFormattedDirectory(status: IGitStatusFile, includeOriginal: boolean = false): string {
         const directory = GitUri.getDirectory(status.fileName);
         return (includeOriginal && status.status === 'R' && status.originalFileName)
-            ? `${directory} \u00a0\u2190\u00a0 ${status.originalFileName}`
+            ? `${directory} ${Strings.pad(GlyphChars.ArrowLeft, 1, 1)} ${status.originalFileName}`
             : directory;
     }
 }
@@ -68,6 +70,6 @@ const statusOcticonsMap = {
     U: '$(question)'
 };
 
-export function getGitStatusIcon(status: GitStatusFileStatus, missing: string = '\u00a0\u00a0\u00a0\u00a0'): string {
+export function getGitStatusIcon(status: GitStatusFileStatus, missing: string = GlyphChars.Space.repeat(4)): string {
     return statusOcticonsMap[status] || missing;
 }

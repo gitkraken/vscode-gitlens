@@ -2,7 +2,7 @@
 import { Iterables } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
-import { BuiltInCommands } from '../constants';
+import { BuiltInCommands, GlyphChars } from '../constants';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
@@ -39,7 +39,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
                 const current = Iterables.find(branches, _ => _.current);
                 if (current == null) return window.showWarningMessage(`Unable to open directory compare`);
 
-                const pick = await BranchesQuickPick.show(branches, `Compare ${current.name} to \u2026`);
+                const pick = await BranchesQuickPick.show(branches, `Compare ${current.name} to ${GlyphChars.Ellipsis}`);
                 if (pick === undefined) return undefined;
 
                 if (pick instanceof CommandQuickPickItem) return pick.execute();

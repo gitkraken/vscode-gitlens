@@ -1,8 +1,9 @@
 'use strict';
-import { Arrays, Iterables } from '../system';
+import { Arrays, Iterables, Strings } from '../system';
 import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from 'vscode';
 import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandCommandArgs, DiffWithPreviousCommandArgs, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, QuickPickItem } from './common';
+import { GlyphChars } from '../constants';
 import { getGitStatusIcon, GitCommit, GitLog, GitLogCommit, GitService, GitStashCommit, GitStatusFile, GitStatusFileStatus, GitUri, IGitCommitInfo, IGitStatusFile, RemoteResource } from '../gitService';
 import { Keyboard, KeyNoopCommand, Keys } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
@@ -34,7 +35,7 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
         }
 
         super(GitService.toGitContentUri(sha, shortSha, status.fileName, commit.repoPath, status.originalFileName), {
-            label: `\u00a0\u00a0\u00a0\u00a0${icon}\u00a0\u00a0 ${path.basename(status.fileName)}`,
+            label: `${Strings.pad(icon, 4, 2)} ${path.basename(status.fileName)}`,
             description: description
         });
 
@@ -75,7 +76,7 @@ export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPi
 
         super(uris, item || {
             label: `$(file-symlink-file) Open Changed Files`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 in \u00a0$(git-commit) ${commit.shortSha}`
+            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} in ${GlyphChars.Space}$(git-commit) ${commit.shortSha}`
             // detail: `Opens all of the changed files in $(git-commit) ${commit.shortSha}`
         });
     }
@@ -106,7 +107,7 @@ export class CommitDetailsQuickPick {
         if (stash) {
             items.splice(index++, 0, new CommandQuickPickItem({
                 label: `$(git-pull-request) Apply Stashed Changes`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.message}`
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.message}`
             }, Commands.StashApply, [
                     {
                         confirm: true,
@@ -118,7 +119,7 @@ export class CommitDetailsQuickPick {
 
             items.splice(index++, 0, new CommandQuickPickItem({
                 label: `$(x) Delete Stashed Changes`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.message}`
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.message}`
             }, Commands.StashDelete, [
                     {
                         confirm: true,
@@ -131,7 +132,7 @@ export class CommitDetailsQuickPick {
         if (!stash) {
             items.splice(index++, 0, new CommandQuickPickItem({
                 label: `$(clippy) Copy Commit ID to Clipboard`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.shortSha}`
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.shortSha}`
             }, Commands.CopyShaToClipboard, [
                     uri,
                     {
@@ -142,7 +143,7 @@ export class CommitDetailsQuickPick {
 
         items.splice(index++, 0, new CommandQuickPickItem({
             label: `$(clippy) Copy Message to Clipboard`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 ${commit.message}`
+            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.message}`
         }, Commands.CopyMessageToClipboard, [
                 uri,
                 {
@@ -162,7 +163,7 @@ export class CommitDetailsQuickPick {
 
             items.splice(index++, 0, new CommandQuickPickItem({
                 label: `$(git-compare) Directory Compare with Previous Commit`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.previousShortSha || `${commit.shortSha}^`} \u00a0 $(git-compare) \u00a0 $(git-commit) ${commit.shortSha}`
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.previousShortSha || `${commit.shortSha}^`} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`
             }, Commands.DiffDirectory, [
                     commit.uri,
                     {
@@ -174,7 +175,7 @@ export class CommitDetailsQuickPick {
 
         items.splice(index++, 0, new CommandQuickPickItem({
             label: `$(git-compare) Directory Compare with Working Tree`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 $(git-commit) ${commit.shortSha} \u00a0 $(git-compare) \u00a0 $(file-directory) Working Tree`
+            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(file-directory) Working Tree`
         }, Commands.DiffDirectory, [
                 uri,
                 {
@@ -298,7 +299,7 @@ export class CommitDetailsQuickPick {
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: `${commit.shortSha} \u00a0\u2022\u00a0 ${commit.author ? `${commit.author}, ` : ''}${moment(commit.date).fromNow()} \u00a0\u2022\u00a0 ${commit.message}`,
+            placeHolder: `${commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.author ? `${commit.author}, ` : ''}${moment(commit.date).fromNow()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.message}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
                 scope.setKeyCommand('right', item);

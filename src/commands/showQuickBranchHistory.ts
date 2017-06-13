@@ -1,6 +1,8 @@
 'use strict';
+import { Strings } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
+import { GlyphChars } from '../constants';
 import { GitLog, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
@@ -39,7 +41,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
             if (args.branch === undefined) {
                 const branches = await this.git.getBranches(repoPath);
 
-                const pick = await BranchesQuickPick.show(branches, `Show history for branch\u2026`);
+                const pick = await BranchesQuickPick.show(branches, `Show history for branch${GlyphChars.Ellipsis}`);
                 if (pick === undefined) return undefined;
 
                 if (pick instanceof CommandQuickPickItem) return pick.execute();
@@ -64,8 +66,8 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 
             // Create a command to get back to here
             const currentCommand = new CommandQuickPickItem({
-                label: `go back \u21A9`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 to \u00a0$(git-branch) ${args.branch} history`
+                label: `go back ${GlyphChars.ArrowBack}`,
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to ${GlyphChars.Space}$(git-branch) ${args.branch} history`
             }, Commands.ShowQuickBranchHistory, [
                     uri,
                     args

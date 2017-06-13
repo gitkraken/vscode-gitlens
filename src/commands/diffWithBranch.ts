@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
-import { BuiltInCommands } from '../constants';
+import { BuiltInCommands, GlyphChars } from '../constants';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
@@ -31,7 +31,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
         if (!gitUri.repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open branch compare`);
 
         const branches = await this.git.getBranches(gitUri.repoPath);
-        const pick = await BranchesQuickPick.show(branches, `Compare ${path.basename(gitUri.fsPath)} to \u2026`, args.goBackCommand);
+        const pick = await BranchesQuickPick.show(branches, `Compare ${path.basename(gitUri.fsPath)} to ${GlyphChars.Ellipsis}`, args.goBackCommand);
         if (pick === undefined) return undefined;
 
         if (pick instanceof CommandQuickPickItem) return pick.execute();
@@ -45,7 +45,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
             await commands.executeCommand(BuiltInCommands.Diff,
                 Uri.file(compare),
                 gitUri.fileUri(),
-                `${path.basename(gitUri.fsPath)} (${branch}) \u2194 ${path.basename(gitUri.fsPath)}`,
+                `${path.basename(gitUri.fsPath)} (${branch}) ${GlyphChars.ArrowLeftRight} ${path.basename(gitUri.fsPath)}`,
                 args.showOptions);
 
             // TODO: Figure out how to focus the left pane

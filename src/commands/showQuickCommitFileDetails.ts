@@ -1,6 +1,8 @@
 'use strict';
+import { Strings } from '../system';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
+import { GlyphChars } from '../constants';
 import { GitCommit, GitLog, GitLogCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitFileDetailsQuickPick } from '../quickPicks';
@@ -85,8 +87,8 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
             if (args.goBackCommand === undefined) {
                 // Create a command to get back to the commit details
                 args.goBackCommand = new CommandQuickPickItem({
-                    label: `go back \u21A9`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 to details of \u00a0$(git-commit) ${shortSha}`
+                    label: `go back ${GlyphChars.ArrowBack}`,
+                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to details of ${GlyphChars.Space}$(git-commit) ${shortSha}`
                 }, Commands.ShowQuickCommitDetails, [
                         new GitUri(args.commit.uri, args.commit),
                         {
@@ -98,8 +100,8 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
 
             // Create a command to get back to where we are right now
             const currentCommand = new CommandQuickPickItem({
-                label: `go back \u21A9`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 to details of \u00a0$(file-text) ${path.basename(args.commit.fileName)} in \u00a0$(git-commit) ${shortSha}`
+                label: `go back ${GlyphChars.ArrowBack}`,
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to details of ${GlyphChars.Space}$(file-text) ${path.basename(args.commit.fileName)} in ${GlyphChars.Space}$(git-commit) ${shortSha}`
             }, Commands.ShowQuickCommitFileDetails, [
                     new GitUri(args.commit.uri, args.commit),
                     args

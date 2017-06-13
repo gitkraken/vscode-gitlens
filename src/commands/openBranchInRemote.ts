@@ -2,6 +2,7 @@
 import { Arrays } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { GlyphChars } from '../constants';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { BranchesQuickPick, CommandQuickPickItem } from '../quickPicks';
@@ -29,7 +30,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
             if (args.branch === undefined) {
                 const branches = await this.git.getBranches(repoPath);
 
-                const pick = await BranchesQuickPick.show(branches, `Show history for branch\u2026`);
+                const pick = await BranchesQuickPick.show(branches, `Show history for branch${GlyphChars.Ellipsis}`);
                 if (pick === undefined) return undefined;
 
                 if (pick instanceof CommandQuickPickItem) return undefined;

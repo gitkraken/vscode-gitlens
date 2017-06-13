@@ -1,8 +1,9 @@
 'use strict';
-import { Arrays, Iterables } from '../system';
+import { Arrays, Iterables, Strings } from '../system';
 import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, ShowQuickCurrentBranchHistoryCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
 import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './common';
+import { GlyphChars } from '../constants';
 import { GitLog, GitService, GitUri, RemoteResource } from '../gitService';
 import { Keyboard, KeyNoopCommand } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
@@ -11,7 +12,7 @@ import * as path from 'path';
 export class FileHistoryQuickPick {
 
     static showProgress(uri: GitUri) {
-        return showQuickPickProgress(`${uri.getFormattedPath()}${uri.sha ? ` \u00a0\u2022\u00a0 ${uri.shortSha}` : ''}`,
+        return showQuickPickProgress(`${uri.getFormattedPath()}${uri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${uri.shortSha}` : ''}`,
             {
                 left: KeyNoopCommand,
                 ',': KeyNoopCommand,
@@ -30,7 +31,7 @@ export class FileHistoryQuickPick {
                 index++;
                 items.splice(0, 0, new CommandQuickPickItem({
                     label: `$(sync) Show All Commits`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 this may take a while`
+                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
                 }, Commands.ShowQuickFileHistory, [
                         Uri.file(uri.fsPath),
                         {
@@ -45,13 +46,13 @@ export class FileHistoryQuickPick {
                     index++;
                     items.splice(0, 0, new CommandQuickPickItem({
                         label: `$(history) Show File History`,
-                        description: `\u00a0 \u2014 \u00a0\u00a0 of ${path.basename(workingFileName)}`
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} of ${path.basename(workingFileName)}`
                     }, Commands.ShowQuickFileHistory, [
                             Uri.file(path.resolve(log.repoPath, workingFileName)),
                             {
                                 goBackCommand: new CommandQuickPickItem({
-                                    label: `go back \u21A9`,
-                                    description: `\u00a0 \u2014 \u00a0\u00a0 to history of \u00a0$(file-text) ${path.basename(uri.fsPath)}${uri.sha ? ` from \u00a0$(git-commit) ${uri.shortSha}` : ''}`
+                                    label: `go back ${GlyphChars.ArrowBack}`,
+                                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${GlyphChars.Space}$(file-text) ${path.basename(uri.fsPath)}${uri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${uri.shortSha}` : ''}`
                                 }, Commands.ShowQuickFileHistory, [
                                         uri,
                                         {
@@ -74,7 +75,7 @@ export class FileHistoryQuickPick {
             if (log.truncated) {
                 const npc = new CommandQuickPickItem({
                     label: `$(arrow-right) Show Next Commits`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 shows ${log.maxCount} newer commits`
+                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} newer commits`
                 }, Commands.ShowQuickFileHistory, [
                         uri,
                         {
@@ -88,7 +89,7 @@ export class FileHistoryQuickPick {
                 if (last != null) {
                     previousPageCommand = new CommandQuickPickItem({
                         label: `$(arrow-left) Show Previous Commits`,
-                        description: `\u00a0 \u2014 \u00a0\u00a0 shows ${log.maxCount} older commits`
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} older commits`
                     }, Commands.ShowQuickFileHistory, [
                             new GitUri(uri, last),
                             {
@@ -107,8 +108,8 @@ export class FileHistoryQuickPick {
         const branch = await git.getBranch(uri.repoPath!);
 
         const currentCommand = new CommandQuickPickItem({
-            label: `go back \u21A9`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 to history of \u00a0$(file-text) ${path.basename(uri.fsPath)}${uri.sha ? ` from \u00a0$(git-commit) ${uri.shortSha}` : ''}`
+            label: `go back ${GlyphChars.ArrowBack}`,
+            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${GlyphChars.Space}$(file-text) ${path.basename(uri.fsPath)}${uri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${uri.shortSha}` : ''}`
         }, Commands.ShowQuickFileHistory, [
                 uri,
                 {
@@ -122,7 +123,7 @@ export class FileHistoryQuickPick {
         if (goBackCommand === undefined) {
             items.splice(index++, 0, new CommandQuickPickItem({
                 label: `$(history) Show Branch History`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 shows  \u00a0$(git-branch) ${branch!.name} history`
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows  ${GlyphChars.Space}$(git-branch) ${branch!.name} history`
             }, Commands.ShowQuickCurrentBranchHistory,
                 [
                     undefined,
@@ -161,7 +162,7 @@ export class FileHistoryQuickPick {
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: `${commit.getFormattedPath()}${uri.sha ? ` \u00a0\u2022\u00a0 ${uri.shortSha}` : ''}`,
+            placeHolder: `${commit.getFormattedPath()}${uri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${uri.shortSha}` : ''}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
             // onDidSelectItem: (item: QuickPickItem) => {
             //     scope.setKeyCommand('right', item);

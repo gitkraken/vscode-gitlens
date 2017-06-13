@@ -1,6 +1,7 @@
 'use strict';
+import { Strings } from '../system';
 import { Uri } from 'vscode';
-import { DocumentSchemes } from '../constants';
+import { DocumentSchemes, GlyphChars } from '../constants';
 import { GitService, IGitStatusFile } from '../gitService';
 import * as path from 'path';
 
@@ -62,7 +63,7 @@ export class GitUri extends Uri {
         return Uri.file(this.sha ? this.path : this.fsPath);
     }
 
-    getFormattedPath(separator: string = ' \u00a0\u2022\u00a0 '): string {
+    getFormattedPath(separator: string = Strings.pad(GlyphChars.Dot, 2, 2)): string {
         let directory = path.dirname(this.fsPath);
         if (this.repoPath) {
             directory = path.relative(this.repoPath, directory);
@@ -108,7 +109,7 @@ export class GitUri extends Uri {
         return (!directory || directory === '.') ? '' : directory;
     }
 
-    static getFormattedPath(fileNameOrUri: string | Uri, separator: string = ' \u00a0\u2022\u00a0 '): string {
+    static getFormattedPath(fileNameOrUri: string | Uri, separator: string = Strings.pad(GlyphChars.Dot, 2, 2)): string {
         let fileName: string;
         if (fileNameOrUri instanceof Uri) {
             if (fileNameOrUri instanceof GitUri) return fileNameOrUri.getFormattedPath(separator);

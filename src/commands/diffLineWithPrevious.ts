@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
-import { BuiltInCommands } from '../constants';
+import { BuiltInCommands, GlyphChars } from '../constants';
 import { DiffWithPreviousCommandArgs } from './diffWithPrevious';
 import { DiffWithWorkingCommandArgs } from './diffWithWorking';
 import { GitCommit, GitService, GitUri } from '../gitService';
@@ -76,7 +76,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
             await commands.executeCommand(BuiltInCommands.Diff,
                 Uri.file(lhs),
                 Uri.file(rhs),
-                `${path.basename(args.commit.uri.fsPath)} (${args.commit.shortSha}) \u2194 ${path.basename(gitUri.fsPath)} (${gitUri.shortSha})`,
+                `${path.basename(args.commit.uri.fsPath)} (${args.commit.shortSha}) ${GlyphChars.ArrowLeftRight} ${path.basename(gitUri.fsPath)} (${gitUri.shortSha})`,
                 args.showOptions);
 
             // TODO: Figure out how to focus the left pane

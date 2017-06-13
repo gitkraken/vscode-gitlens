@@ -2,7 +2,7 @@
 import { Iterables } from '../system';
 import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
-import { BuiltInCommands } from '../constants';
+import { BuiltInCommands, GlyphChars } from '../constants';
 import { GitLogCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
@@ -60,7 +60,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
             await commands.executeCommand(BuiltInCommands.Diff,
                 Uri.file(lhs),
                 Uri.file(rhs),
-                `${path.basename(args.commit.uri.fsPath)} (${args.commit.shortSha}) \u2194 ${path.basename(args.commit.nextUri.fsPath)} (${args.commit.nextShortSha})`,
+                `${path.basename(args.commit.uri.fsPath)} (${args.commit.shortSha}) ${GlyphChars.ArrowLeftRight} ${path.basename(args.commit.nextUri.fsPath)} (${args.commit.nextShortSha})`,
                 args.showOptions);
 
             // TODO: Figure out how to focus the left pane

@@ -1,7 +1,9 @@
 'use strict';
+import { Strings } from '../system';
 import { MessageItem, window } from 'vscode';
 import { GitService, GitStashCommit } from '../gitService';
 import { Command, Commands } from './common';
+import { GlyphChars } from '../constants';
 import { CommitQuickPickItem, StashListQuickPick } from '../quickPicks';
 import { Logger } from '../logger';
 import { CommandQuickPickItem } from '../quickPicks';
@@ -28,8 +30,8 @@ export class StashApplyCommand extends Command {
             if (stash === undefined) return window.showInformationMessage(`There are no stashed changes`);
 
             const currentCommand = new CommandQuickPickItem({
-                label: `go back \u21A9`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 to apply stashed changes`
+                label: `go back ${GlyphChars.ArrowBack}`,
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to apply stashed changes`
             }, Commands.StashApply, [args]);
 
             const pick = await StashListQuickPick.show(this.git, stash, 'apply', args.goBackCommand, currentCommand);
@@ -41,7 +43,7 @@ export class StashApplyCommand extends Command {
 
         try {
             if (args.confirm) {
-                const message = args.stashItem.message.length > 80 ? `${args.stashItem.message.substring(0, 80)}\u2026` : args.stashItem.message;
+                const message = args.stashItem.message.length > 80 ? `${args.stashItem.message.substring(0, 80)}${GlyphChars.Ellipsis}` : args.stashItem.message;
                 const result = await window.showWarningMessage(`Apply stashed changes '${message}' to your working tree?`, { title: 'Yes, delete after applying' } as MessageItem, { title: 'Yes' } as MessageItem, { title: 'No', isCloseAffordance: true } as MessageItem);
                 if (result === undefined || result.title === 'No') return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
 

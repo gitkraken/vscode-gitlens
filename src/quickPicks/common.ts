@@ -1,7 +1,9 @@
 'use strict';
+import { Strings } from '../system';
 import { CancellationTokenSource, commands, Disposable, QuickPickItem, QuickPickOptions, TextDocumentShowOptions, TextEditor, Uri, window, workspace } from 'vscode';
 import { Commands, openEditor } from '../commands';
 import { ExtensionKey, IAdvancedConfig } from '../configuration';
+import { GlyphChars } from '../constants';
 import { GitCommit, GitLogCommit, GitStashCommit } from '../gitService';
 import { Keyboard, KeyboardScope, KeyMapping, Keys } from '../keyboard';
 // import { Logger } from '../logger';
@@ -166,18 +168,18 @@ export class CommitQuickPickItem implements QuickPickItem {
         let message = commit.message;
         const index = message.indexOf('\n');
         if (index !== -1) {
-            message = `${message.substring(0, index)}\u00a0$(ellipsis)`;
+            message = `${message.substring(0, index)}${GlyphChars.Space}$(ellipsis)`;
         }
 
         if (commit instanceof GitStashCommit) {
             this.label = message;
             this.description = '';
-            this.detail = `\u00a0 ${commit.stashName}\u00a0\u00a0\u2022\u00a0 ${moment(commit.date).fromNow()}\u00a0\u00a0\u2022\u00a0 ${commit.getDiffStatus()}`;
+            this.detail = `${GlyphChars.Space} ${commit.stashName} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${moment(commit.date).fromNow()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`;
         }
         else {
             this.label = message;
-            this.description = `\u00a0$(git-commit)\u00a0 ${commit.shortSha}`;
-            this.detail = `\u00a0 ${commit.author}, ${moment(commit.date).fromNow()}${(commit.type === 'branch') ? `\u00a0\u00a0\u2022\u00a0 ${(commit as GitLogCommit).getDiffStatus()}` : ''}`;
+            this.description = `${Strings.pad('$(git-commit)', 1, 1)} ${commit.shortSha}`;
+            this.detail = `${GlyphChars.Space} ${commit.author}, ${moment(commit.date).fromNow()}${(commit.type === 'branch') ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${(commit as GitLogCommit).getDiffStatus()}` : ''}`;
         }
     }
 }

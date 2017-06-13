@@ -1,6 +1,8 @@
 'use strict';
+import { Strings } from '../system';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { GlyphChars } from '../constants';
 import { GitLogCommit, GitRemote, RemoteResource } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, OpenRemoteCommandQuickPickItem, RemotesQuickPick } from '../quickPicks';
@@ -42,35 +44,35 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
                             args.remotes = [remote];
                         }
                     }
-                    placeHolder = `open ${args.resource.branch} branch in\u2026`;
+                    placeHolder = `open ${args.resource.branch} branch in${GlyphChars.Ellipsis}`;
                     break;
 
                 case 'commit':
                     const shortSha = args.resource.sha.substring(0, 8);
-                    placeHolder = `open commit ${shortSha} in\u2026`;
+                    placeHolder = `open commit ${shortSha} in${GlyphChars.Ellipsis}`;
                     break;
 
                 case 'file':
                     if (args.resource.commit !== undefined && args.resource.commit instanceof GitLogCommit) {
                         if (args.resource.commit.status === 'D') {
                             args.resource.sha = args.resource.commit.previousSha;
-                            placeHolder = `open ${args.resource.fileName} \u00a0\u2022\u00a0 ${args.resource.commit.previousShortSha} in\u2026`;
+                            placeHolder = `open ${args.resource.fileName} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${args.resource.commit.previousShortSha} in${GlyphChars.Ellipsis}`;
                         }
                         else {
                             args.resource.sha = args.resource.commit.sha;
-                            placeHolder = `open ${args.resource.fileName} \u00a0\u2022\u00a0 ${args.resource.commit.shortSha} in\u2026`;
+                            placeHolder = `open ${args.resource.fileName} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${args.resource.commit.shortSha} in${GlyphChars.Ellipsis}`;
                         }
                     }
                     else {
                         const shortFileSha = args.resource.sha === undefined ? '' : args.resource.sha.substring(0, 8);
-                        const shaSuffix = shortFileSha ? ` \u00a0\u2022\u00a0 ${shortFileSha}` : '';
+                        const shaSuffix = shortFileSha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${shortFileSha}` : '';
 
-                        placeHolder = `open ${args.resource.fileName}${shaSuffix} in\u2026`;
+                        placeHolder = `open ${args.resource.fileName}${shaSuffix} in${GlyphChars.Ellipsis}`;
                     }
                     break;
 
                 case 'working-file':
-                    placeHolder = `open ${args.resource.fileName} in\u2026`;
+                    placeHolder = `open ${args.resource.fileName} in${GlyphChars.Ellipsis}`;
                     break;
             }
 

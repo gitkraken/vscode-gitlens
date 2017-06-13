@@ -2,7 +2,7 @@
 import { Iterables, Objects } from './system';
 import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, languages, Location, Position, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, workspace } from 'vscode';
 import { IConfig } from './configuration';
-import { CommandContext, DocumentSchemes, ExtensionKey, setCommandContext } from './constants';
+import { CommandContext, DocumentSchemes, ExtensionKey, GlyphChars, setCommandContext } from './constants';
 import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitCommit, GitDiff, GitDiffLine, GitDiffParser, GitLog, GitLogCommit, GitLogParser, GitRemote, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
@@ -526,7 +526,7 @@ export class GitService extends Disposable {
         Iterables.forEach(blame.commits.values(), (c, i) => {
             if (c.isUncommitted) return;
 
-            const decoration = `\u2937 ${c.author}, ${moment(c.date).format(dateFormat)}`;
+            const decoration = `${GlyphChars.ArrowDropRight} ${c.author}, ${moment(c.date).format(dateFormat)}`;
             const uri = GitService.toReferenceGitContentUri(c, i + 1, commitCount, c.originalFileName, decoration, dateFormat);
             locations.push(new Location(uri, new Position(0, 0)));
             if (c.sha === selectedSha) {
@@ -864,7 +864,7 @@ export class GitService extends Disposable {
         Iterables.forEach(log.commits.values(), (c, i) => {
             if (c.isUncommitted) return;
 
-            const decoration = `\u2937 ${c.author}, ${moment(c.date).format(dateFormat)}`;
+            const decoration = `${GlyphChars.ArrowDropRight} ${c.author}, ${moment(c.date).format(dateFormat)}`;
             const uri = GitService.toReferenceGitContentUri(c, i + 1, commitCount, c.originalFileName, decoration, dateFormat);
             locations.push(new Location(uri, new Position(0, 0)));
             if (c.sha === selectedSha) {
@@ -1098,7 +1098,7 @@ export class GitService extends Disposable {
 
         let message = commit.message;
         if (message.length > 50) {
-            message = message.substring(0, 49) + '\u2026';
+            message = message.substring(0, 49) + GlyphChars.Ellipsis;
         }
 
         if (dateFormat === null) {
@@ -1106,7 +1106,7 @@ export class GitService extends Disposable {
         }
 
         // NOTE: Need to specify an index here, since I can't control the sort order -- just alphabetic or by file location
-        return Uri.parse(`${scheme}:${pad(data.index || 0)} \u2022 ${encodeURIComponent(message)} \u2022 ${moment(commit.date).format(dateFormat)} \u2022 ${encodeURIComponent(uriPath)}?${JSON.stringify(data)}`);
+        return Uri.parse(`${scheme}:${pad(data.index || 0)} ${GlyphChars.Dot} ${encodeURIComponent(message)} ${GlyphChars.Dot} ${moment(commit.date).format(dateFormat)} ${GlyphChars.Dot} ${encodeURIComponent(uriPath)}?${JSON.stringify(data)}`);
     }
 
     private static _toGitUriData<T extends IGitUriData>(commit: IGitUriData, index?: number, originalFileName?: string, decoration?: string): T {

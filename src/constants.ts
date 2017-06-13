@@ -67,6 +67,33 @@ export const DocumentSchemes = {
     GitLensGit: 'gitlens-git' as DocumentSchemes
 };
 
+export type GlyphChars = '\u21a9' |
+    '\u2193' |
+    '\u2937' |
+    '\u2190' |
+    '\u2194' |
+    '\u21e8' |
+    '\u2191' |
+    '\u2014' |
+    '\u2022' |
+    '\u2026' |
+    '\u00a0' |
+    '\u200b';
+export const GlyphChars = {
+    ArrowBack: '\u21a9' as GlyphChars,
+    ArrowDown: '\u2193' as GlyphChars,
+    ArrowDropRight: '\u2937' as GlyphChars,
+    ArrowLeft: '\u2190' as GlyphChars,
+    ArrowLeftRight: '\u2194' as GlyphChars,
+    ArrowRightHollow: '\u21e8' as GlyphChars,
+    ArrowUp: '\u2191' as GlyphChars,
+    Dash: '\u2014' as GlyphChars,
+    Dot: '\u2022' as GlyphChars,
+    Ellipsis: '\u2026' as GlyphChars,
+    Space: '\u00a0' as GlyphChars,
+    ZeroWidthSpace: '\u200b' as GlyphChars
+};
+
 export type WorkspaceState = 'gitlensVersion';
 export const WorkspaceState = {
     GitLensVersion: 'gitlensVersion' as WorkspaceState

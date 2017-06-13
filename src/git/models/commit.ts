@@ -1,5 +1,7 @@
 'use strict';
+import { Strings } from '../../system';
 import { Uri } from 'vscode';
+import { GlyphChars } from '../../constants';
 import { Git } from '../git';
 import { GitUri } from '../gitUri';
 import * as path from 'path';
@@ -22,7 +24,6 @@ export type GitCommitType = 'blame' | 'branch' | 'file'  | 'stash';
 export class GitCommit {
 
     type: GitCommitType;
-    // lines: GitCommitLine[];
     originalFileName?: string;
     previousSha?: string;
     previousFileName?: string;
@@ -37,7 +38,6 @@ export class GitCommit {
         public author: string,
         public date: Date,
         public message: string,
-        // lines?: GitCommitLine[],
         originalFileName?: string,
         previousSha?: string,
         previousFileName?: string
@@ -45,7 +45,6 @@ export class GitCommit {
         this.type = type;
         this.fileName = this.fileName && this.fileName.replace(/, ?$/, '');
 
-        // this.lines = lines || [];
         this.originalFileName = originalFileName;
         this.previousSha = previousSha;
         this.previousFileName = previousFileName;
@@ -74,7 +73,7 @@ export class GitCommit {
         return Uri.file(path.resolve(this.repoPath, this.originalFileName || this.fileName));
     }
 
-    getFormattedPath(separator: string = ' \u00a0\u2022\u00a0 '): string {
+    getFormattedPath(separator: string = Strings.pad(GlyphChars.Dot, 2, 2)): string {
         return GitUri.getFormattedPath(this.fileName, separator);
     }
 }

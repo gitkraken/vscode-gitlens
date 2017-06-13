@@ -1,5 +1,7 @@
+import { Strings } from '../system';
 import { DecorationInstanceRenderOptions, DecorationOptions, ThemableDecorationRenderOptions } from 'vscode';
 import { IThemeConfig, themeDefaults } from '../configuration';
+import { GlyphChars } from '../constants';
 import { CommitFormatter, GitCommit, GitDiffLine, GitService, GitUri, ICommitFormatOptions } from '../gitService';
 import * as moment from 'moment';
 
@@ -56,7 +58,7 @@ export class Annotations {
                 // Escape markdown
                 .replace(escapeMarkdownRegEx, '\\$&')
                 // Escape markdown header (since the above regex won't match it)
-                .replace(/^===/gm, '\u200b===')
+                .replace(/^===/gm, `${GlyphChars.ZeroWidthSpace}===`)
                 // Keep under the same block-quote
                 .replace(/\n/g, '  \n');
             message = `\n\n> ${message}`;
@@ -69,8 +71,8 @@ export class Annotations {
 
         const codeDiff = this._getCodeDiff(previous, current);
         return commit.isUncommitted
-            ? `\`Changes\` &nbsp; \u2014 &nbsp; _uncommitted_\n${codeDiff}`
-            : `\`Changes\` &nbsp; \u2014 &nbsp; \`${commit.previousShortSha}\` \u2194 \`${commit.shortSha}\`\n${codeDiff}`;
+            ? `\`Changes\` &nbsp; ${GlyphChars.Dash} &nbsp; _uncommitted_\n${codeDiff}`
+            : `\`Changes\` &nbsp; ${GlyphChars.Dash} &nbsp; \`${commit.previousShortSha}\` ${GlyphChars.ArrowLeftRight} \`${commit.shortSha}\`\n${codeDiff}`;
     }
 
     private static _getCodeDiff(previous: GitDiffLine | undefined, current: GitDiffLine | undefined): string {
@@ -104,9 +106,9 @@ export class Annotations {
     }
 
     static gutter(commit: GitCommit, format: string, dateFormatOrFormatOptions: string | null | ICommitFormatOptions, renderOptions: IRenderOptions, compact: boolean): DecorationOptions {
-        let content = `\u00a0${CommitFormatter.fromTemplate(format, commit, dateFormatOrFormatOptions)}\u00a0`;
+        let content = Strings.pad(CommitFormatter.fromTemplate(format, commit, dateFormatOrFormatOptions), 1, 1);
         if (compact) {
-            content = '\u00a0'.repeat(content.length);
+            content = GlyphChars.Space.repeat(content.length);
         }
 
         return {
@@ -178,7 +180,7 @@ export class Annotations {
             before: {
                 borderStyle: 'solid',
                 borderWidth: '0 0 0 2px',
-                contentText: '\u200B',
+                contentText: GlyphChars.ZeroWidthSpace,
                 height: cfgTheme.annotations.file.hover.separateLines ? 'calc(100% - 1px)' : '100%',
                 margin: '0 26px 0 0',
                 textDecoration: 'none'
@@ -191,7 +193,7 @@ export class Annotations {
         return {
             renderOptions: {
                 after: {
-                    contentText: `\u00a0${message}\u00a0`
+                    contentText: Strings.pad(message, 1, 1)
                 },
                 dark: {
                     after: {

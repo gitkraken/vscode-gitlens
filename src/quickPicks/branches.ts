@@ -1,7 +1,8 @@
 'use strict';
 import { QuickPickItem, QuickPickOptions, window } from 'vscode';
-import { GitBranch } from '../gitService';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './common';
+import { GlyphChars } from '../constants';
+import { GitBranch } from '../gitService';
 
 export class BranchQuickPickItem implements QuickPickItem {
 
@@ -10,8 +11,8 @@ export class BranchQuickPickItem implements QuickPickItem {
     detail: string;
 
     constructor(public branch: GitBranch) {
-        this.label = `${branch.current ? '$(check)\u00a0' : '\u00a0\u00a0\u00a0\u00a0'} ${branch.name}`;
-        this.description = branch.remote ? '\u00a0\u00a0 remote branch' : '';
+        this.label = `${branch.current ? `$(check)${GlyphChars.Space}` : GlyphChars.Space.repeat(4)} ${branch.name}`;
+        this.description = branch.remote ? `${GlyphChars.Space.repeat(2)} remote branch` : '';
     }
 }
 

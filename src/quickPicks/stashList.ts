@@ -1,7 +1,8 @@
 'use strict';
-import { Iterables } from '../system';
+import { Iterables, Strings } from '../system';
 import { QuickPickOptions, window } from 'vscode';
 import { Commands, StashSaveCommandArgs } from '../commands';
+import { GlyphChars } from '../constants';
 import { GitService, GitStash } from '../gitService';
 import { Keyboard } from '../keyboard';
 import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut } from '../quickPicks';
@@ -14,7 +15,7 @@ export class StashListQuickPick {
         if (mode === 'list') {
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `$(repo-push) Stash Unstaged Changes`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 stashes only unstaged changes`
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} stashes only unstaged changes`
             }, Commands.StashSave, [
                     {
                         unstagedOnly: true,
@@ -24,7 +25,7 @@ export class StashListQuickPick {
 
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `$(repo-force-push) Stash Changes`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 stashes all changes`
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} stashes all changes`
             }, Commands.StashSave, [
                     {
                         unstagedOnly: false,
@@ -42,8 +43,8 @@ export class StashListQuickPick {
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             placeHolder: mode === 'apply'
-                ? `Apply stashed changes to your working tree\u2026`
-                : `stashed changes \u2014 search by message, filename, or commit id`,
+                ? `Apply stashed changes to your working tree${GlyphChars.Ellipsis}`
+                : `stashed changes ${GlyphChars.Dash} search by message, filename, or commit id`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
             // onDidSelectItem: (item: QuickPickItem) => {
             //     scope.setKeyCommand('right', item);

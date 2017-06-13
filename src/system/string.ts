@@ -56,6 +56,12 @@ export namespace Strings {
         }
     }
 
+    export function pad(s: string, before: number = 0, after: number = 0, padding: string = `\u00a0`) {
+        if (before === 0 && after === 0) return s;
+
+        return `${before === 0 ? '' : padding.repeat(before)}${s}${after === 0 ? '' : padding.repeat(after)}`;
+    }
+
     export function padLeft(s: string, padTo: number, padding: string = '\u00a0') {
         const diff = padTo - s.length;
         return (diff <= 0) ? s : '\u00a0'.repeat(diff) + s;

@@ -1,7 +1,8 @@
 'use strict';
 import { MessageItem, window } from 'vscode';
-import { GitService } from '../gitService';
 import { Command, Commands } from './common';
+import { GlyphChars } from '../constants';
+import { GitService } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem } from '../quickPicks';
 
@@ -29,7 +30,7 @@ export class StashDeleteCommand extends Command {
 
         try {
             if (args.confirm) {
-                const message = args.stashItem.message.length > 80 ? `${args.stashItem.message.substring(0, 80)}\u2026` : args.stashItem.message;
+                const message = args.stashItem.message.length > 80 ? `${args.stashItem.message.substring(0, 80)}${GlyphChars.Ellipsis}` : args.stashItem.message;
                 const result = await window.showWarningMessage(`Delete stashed changes '${message}'?`, { title: 'Yes' } as MessageItem, { title: 'No', isCloseAffordance: true } as MessageItem);
                 if (result === undefined || result.title !== 'Yes') return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
             }

@@ -1,7 +1,9 @@
 'use strict';
+import { Strings } from '../system';
 import { QuickPickOptions, window } from 'vscode';
 import { Commands, OpenInRemoteCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './common';
+import { GlyphChars } from '../constants';
 import { getNameFromRemoteResource, GitLogCommit, GitRemote, RemoteResource } from '../gitService';
 import * as path from 'path';
 
@@ -13,7 +15,7 @@ export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
     constructor(remote: GitRemote, resource: RemoteResource) {
         super({
             label: `$(link-external) Open ${getNameFromRemoteResource(resource)} in ${remote.provider!.name}`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 $(repo) ${remote.provider!.path}`
+            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(repo) ${remote.provider!.path}`
         }, undefined, undefined);
 
         this.remote = remote;
@@ -45,16 +47,16 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                 if (resource.commit !== undefined && resource.commit instanceof GitLogCommit) {
                     if (resource.commit.status === 'D') {
                         resource.sha = resource.commit.previousSha;
-                        description = `$(file-text) ${path.basename(resource.fileName)} in \u00a0$(git-commit) ${resource.commit.previousShortSha} (deleted in \u00a0$(git-commit) ${resource.commit.shortSha})`;
+                        description = `$(file-text) ${path.basename(resource.fileName)} in ${GlyphChars.Space}$(git-commit) ${resource.commit.previousShortSha} (deleted in ${GlyphChars.Space}$(git-commit) ${resource.commit.shortSha})`;
                     }
                     else {
                         resource.sha = resource.commit.sha;
-                        description = `$(file-text) ${path.basename(resource.fileName)} in \u00a0$(git-commit) ${resource.commit.shortSha}`;
+                        description = `$(file-text) ${path.basename(resource.fileName)} in ${GlyphChars.Space}$(git-commit) ${resource.commit.shortSha}`;
                     }
                 }
                 else {
                     const shortFileSha = resource.sha === undefined ? '' : resource.sha.substring(0, 8);
-                    description = `$(file-text) ${path.basename(resource.fileName)}${shortFileSha ? ` in \u00a0$(git-commit) ${shortFileSha}` : ''}`;
+                    description = `$(file-text) ${path.basename(resource.fileName)}${shortFileSha ? ` in ${GlyphChars.Space}$(git-commit) ${shortFileSha}` : ''}`;
                 }
                 break;
 
@@ -71,7 +73,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
         if (remotes.length === 1) {
             super({
                 label: `$(link-external) Open ${name} in ${remote.provider!.name}`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 $(repo) ${remote.provider!.path} \u00a0\u2022\u00a0 ${description}`
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(repo) ${remote.provider!.path} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${description}`
             }, Commands.OpenInRemote, [
                     undefined,
                     {
@@ -89,8 +91,8 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
             : 'Remote';
 
         super({
-            label: `$(link-external) Open ${name} in ${provider}\u2026`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 ${description}`
+            label: `$(link-external) Open ${name} in ${provider}${GlyphChars.Ellipsis}`,
+            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${description}`
         }, Commands.OpenInRemote, [
                 undefined,
                 {

@@ -1,6 +1,8 @@
 'use strict';
+import { Strings } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
+import { GlyphChars } from '../constants';
 import { GitCommit, GitLog, GitLogCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitDetailsQuickPick, CommitWithFileStatusQuickPickItem } from '../quickPicks';
@@ -83,8 +85,8 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
             if (args.goBackCommand === undefined) {
                 // Create a command to get back to the branch history
                 args.goBackCommand = new CommandQuickPickItem({
-                    label: `go back \u21A9`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 to branch history`
+                    label: `go back ${GlyphChars.ArrowBack}`,
+                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to branch history`
                 }, Commands.ShowQuickCurrentBranchHistory, [
                         new GitUri(args.commit.uri, args.commit)
                     ]);
@@ -92,8 +94,8 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 
             // Create a command to get back to where we are right now
             const currentCommand = new CommandQuickPickItem({
-                label: `go back \u21A9`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 to details of \u00a0$(git-commit) ${args.commit.shortSha}`
+                label: `go back ${GlyphChars.ArrowBack}`,
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to details of ${GlyphChars.Space}$(git-commit) ${args.commit.shortSha}`
             }, Commands.ShowQuickCommitDetails, [
                     new GitUri(args.commit.uri, args.commit),
                     args

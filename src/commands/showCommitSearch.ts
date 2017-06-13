@@ -1,6 +1,8 @@
 'use strict';
+import { Strings } from '../system';
 import { commands, InputBoxOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
+import { GlyphChars } from '../constants';
 import { GitRepoSearchBy, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
@@ -109,8 +111,8 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
 
             // Create a command to get back to here
             const currentCommand = new CommandQuickPickItem({
-                label: `go back \u21A9`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 to commit search`
+                label: `go back ${GlyphChars.ArrowBack}`,
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to commit search`
             }, Commands.ShowCommitSearch, [
                     uri,
                     {
@@ -130,8 +132,8 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                     sha: pick.commit.sha,
                     commit: pick.commit,
                     goBackCommand: new CommandQuickPickItem({
-                        label: `go back \u21A9`,
-                        description: `\u00a0 \u2014 \u00a0\u00a0 to search for ${placeHolder}`
+                        label: `go back ${GlyphChars.ArrowBack}`,
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 2)} to search for ${placeHolder}`
                     }, Commands.ShowCommitSearch, [
                             uri,
                             args

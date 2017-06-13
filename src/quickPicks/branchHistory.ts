@@ -1,8 +1,9 @@
 'use strict';
-import { Arrays, Iterables } from '../system';
+import { Arrays, Iterables, Strings } from '../system';
 import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, ShowCommitSearchCommandArgs, ShowQuickBranchHistoryCommandArgs } from '../commands';
 import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './common';
+import { GlyphChars } from '../constants';
 import { GitLog, GitService, GitUri, RemoteResource } from '../gitService';
 import { Keyboard, KeyNoopCommand } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
@@ -10,7 +11,7 @@ import { OpenRemotesCommandQuickPickItem } from './remotes';
 export class BranchHistoryQuickPick {
 
     static showProgress(branch: string) {
-        return showQuickPickProgress(`${branch} history \u2014 search by commit message, filename, or commit id`,
+        return showQuickPickProgress(`${branch} history ${GlyphChars.Dash} search by commit message, filename, or commit id`,
             {
                 left: KeyNoopCommand,
                 ',': KeyNoopCommand,
@@ -22,8 +23,8 @@ export class BranchHistoryQuickPick {
         const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
         const currentCommand = new CommandQuickPickItem({
-            label: `go back \u21A9`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 to \u00a0$(git-branch) ${branch} history`
+            label: `go back ${GlyphChars.ArrowBack}`,
+            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to ${GlyphChars.Space}$(git-branch) ${branch} history`
         }, Commands.ShowQuickBranchHistory, [
                 uri,
                 {
@@ -44,7 +45,7 @@ export class BranchHistoryQuickPick {
 
         items.splice(0, 0, new CommandQuickPickItem({
             label: `$(search) Show Commit Search`,
-            description: `\u00a0 \u2014 \u00a0\u00a0 search for commits by message, author, files, or commit id`
+            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} search for commits by message, author, files, or commit id`
         }, Commands.ShowCommitSearch, [
                 new GitUri(Uri.file(log.repoPath), { fileName: '', repoPath: log.repoPath }),
                 {
@@ -58,7 +59,7 @@ export class BranchHistoryQuickPick {
             if (log.truncated) {
                 items.splice(0, 0, new CommandQuickPickItem({
                     label: `$(sync) Show All Commits`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 this may take a while`
+                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
                 }, Commands.ShowQuickBranchHistory, [
                         new GitUri(Uri.file(log.repoPath), { fileName: '', repoPath: log.repoPath }),
                         {
@@ -71,7 +72,7 @@ export class BranchHistoryQuickPick {
             else {
                 items.splice(0, 0, new CommandQuickPickItem({
                     label: `$(history) Show Branch History`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 shows \u00a0$(git-branch) ${branch} history`
+                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${GlyphChars.Space}$(git-branch) ${branch} history`
                 }, Commands.ShowQuickBranchHistory, [
                         new GitUri(Uri.file(log.repoPath), { fileName: '', repoPath: log.repoPath }),
                         {
@@ -88,7 +89,7 @@ export class BranchHistoryQuickPick {
             if (log.truncated) {
                 const npc = new CommandQuickPickItem({
                     label: `$(arrow-right) Show Next Commits`,
-                    description: `\u00a0 \u2014 \u00a0\u00a0 shows ${log.maxCount} newer commits`
+                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} newer commits`
                 }, Commands.ShowQuickBranchHistory, [
                         uri,
                         {
@@ -102,7 +103,7 @@ export class BranchHistoryQuickPick {
                 if (last != null) {
                     previousPageCommand = new CommandQuickPickItem({
                         label: `$(arrow-left) Show Previous Commits`,
-                        description: `\u00a0 \u2014 \u00a0\u00a0 shows ${log.maxCount} older commits`
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} older commits`
                     }, Commands.ShowQuickBranchHistory, [
                             new GitUri(uri ? uri : last.uri, last),
                             {
@@ -135,7 +136,7 @@ export class BranchHistoryQuickPick {
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: `${branch} history \u2014 search by commit message, filename, or commit id`,
+            placeHolder: `${branch} history ${GlyphChars.Dash} search by commit message, filename, or commit id`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
             // onDidSelectItem: (item: QuickPickItem) => {
             //     scope.setKeyCommand('right', item);

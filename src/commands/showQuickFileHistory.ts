@@ -1,6 +1,8 @@
 'use strict';
+import { Strings } from '../system';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
+import { GlyphChars } from '../constants';
 import { GitLog, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, FileHistoryQuickPick } from '../quickPicks';
@@ -49,8 +51,8 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 
             // Create a command to get back to where we are right now
             const currentCommand = new CommandQuickPickItem({
-                label: `go back \u21A9`,
-                description: `\u00a0 \u2014 \u00a0\u00a0 to history of \u00a0$(file-text) ${path.basename(pick.commit.fileName)}${gitUri.sha ? ` from \u00a0$(git-commit) ${gitUri.shortSha}` : ''}`
+                label: `go back ${GlyphChars.ArrowBack}`,
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${GlyphChars.Space}$(file-text) ${path.basename(pick.commit.fileName)}${gitUri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}` : ''}`
             }, Commands.ShowQuickFileHistory, [
                     uri,
                     args
