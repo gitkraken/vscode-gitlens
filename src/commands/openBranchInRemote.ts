@@ -1,6 +1,6 @@
 'use strict';
 import { Arrays } from '../system';
-import { commands, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
+import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
@@ -17,7 +17,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
         super(Commands.OpenBranchInRemote);
     }
 
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, args: OpenBranchInRemoteCommandArgs = {}) {
+    async execute(editor: TextEditor, uri?: Uri, args: OpenBranchInRemoteCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
         const gitUri = uri && await GitUri.fromUri(uri, this.git);

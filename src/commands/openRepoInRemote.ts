@@ -1,6 +1,6 @@
 'use strict';
 import { Arrays } from '../system';
-import { commands, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
+import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
@@ -12,7 +12,7 @@ export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
         super(Commands.OpenRepoInRemote);
     }
 
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri) {
+    async execute(editor: TextEditor, uri?: Uri) {
         uri = getCommandUri(uri, editor);
 
         const gitUri = uri && await GitUri.fromUri(uri, this.git);

@@ -1,6 +1,6 @@
 'use strict';
 import { Arrays } from '../system';
-import { commands, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
+import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { GitBlameCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
@@ -13,7 +13,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
         super(Commands.OpenCommitInRemote);
     }
 
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri) {
+    async execute(editor: TextEditor, uri?: Uri) {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
         if (editor !== undefined && editor.document !== undefined && editor.document.isDirty) return undefined;
