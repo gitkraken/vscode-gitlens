@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "4.1.0",
+    "version": "4.1.1",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -801,7 +801,11 @@
             {
                 "command": "gitlens.toggleFileRecentChanges",
                 "title": "Toggle Recent File Changes Annotations",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/git-icon.svg",
+                    "light": "images/light/git-icon.svg"
+                }
             },
             {
                 "command": "gitlens.toggleLineBlame",
@@ -1118,6 +1122,7 @@
             "editor/title": [
                 {
                     "command": "gitlens.toggleFileBlame",
+                    "alt": "gitlens.toggleFileRecentChanges",
                     "when": "gitlens:isBlameable && config.gitlens.advanced.menus.editorTitle.blame",
                     "group": "navigation@100"
                 },

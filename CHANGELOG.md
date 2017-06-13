@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [4.1.1] - 2017-06-13
+### Added
+- Adds an `alt` command to the `Toggle File Blame Annotations` command button, which when you hold down `alt` and click it will execute the `Toggle Recent File Changes Annotations` command instead
+
+### Fixed
+- Fixes missing `Toggle File Blame Annotations` command icon
+
 ## [4.1.0] - 2017-06-13
 ### Added
 - Adds all-new recent changes annotations of the whole-file - annotates and highlights all of lines changed in the most recent commit
