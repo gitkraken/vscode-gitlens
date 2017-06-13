@@ -1,9 +1,10 @@
 'use strict';
 import { Arrays, Iterables } from '../system';
 import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
-import { Commands, Keyboard, KeyNoopCommand, ShowQuickCurrentBranchHistoryCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
+import { Commands, ShowQuickCurrentBranchHistoryCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
 import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './common';
 import { GitLog, GitService, GitUri, RemoteResource } from '../gitService';
+import { Keyboard, KeyNoopCommand } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as path from 'path';
 

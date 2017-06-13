@@ -1229,81 +1229,73 @@
                 "when": "gitlens:key:."
             },
             {
+                "command": "gitlens.key.escape",
+                "key": "escape",
+                "when": "gitlens:key:escape"
+            },
+            {
                 "command": "gitlens.toggleFileBlame",
                 "key": "alt+b",
-                "mac": "alt+b",
                 "when": "editorTextFocus && gitlens:isTracked"
             },
             {
                 "command": "gitlens.toggleCodeLens",
                 "key": "shift+alt+b",
-                "mac": "shift+alt+b",
                 "when": "editorTextFocus && gitlens:isTracked && gitlens:canToggleCodeLens"
             },
             {
                 "command": "gitlens.showLastQuickPick",
                 "key": "alt+-",
-                "mac": "alt+-",
                 "when": "gitlens:enabled"
             },
             {
                 "command": "gitlens.showCommitSearch",
                 "key": "alt+/",
-                "mac": "alt+/",
                 "when": "gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickFileHistory",
                 "key": "alt+h",
-                "mac": "alt+h",
                 "when": "gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickRepoHistory",
                 "key": "shift+alt+h",
-                "mac": "shift+alt+h",
                 "when": "gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickRepoStatus",
                 "key": "alt+s",
-                "mac": "alt+s",
                 "when": "gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickCommitFileDetails",
                 "key": "alt+c",
-                "mac": "alt+c",
                 "when": "editorTextFocus && gitlens:enabled"
             },
             {
                 "command": "gitlens.diffWithNext",
                 "key": "alt+.",
-                "mac": "alt+.",
                 "when": "editorTextFocus && gitlens:isTracked"
             },
             {
                 "command": "gitlens.diffLineWithPrevious",
                 "key": "shift+alt+,",
-                "mac": "shift+alt+,",
                 "when": "editorTextFocus && gitlens:isTracked"
             },
             {
                 "command": "gitlens.diffWithPrevious",
                 "key": "alt+,",
-                "mac": "alt+,",
                 "when": "editorTextFocus && gitlens:isTracked"
             },
             {
                 "command": "gitlens.diffLineWithWorking",
                 "key": "alt+w",
-                "mac": "alt+w",
                 "when": "editorTextFocus && gitlens:isTracked"
             },
             {
                 "command": "gitlens.diffWithWorking",
                 "key": "shift+alt+w",
-                "mac": "shift+alt+w",
                 "when": "editorTextFocus && gitlens:isTracked"
             }
         ]

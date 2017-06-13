@@ -1,6 +1,5 @@
 'use strict';
 import { commands, Disposable, TextDocumentShowOptions, TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
-import { BuiltInCommands } from '../constants';
 import { Logger } from '../logger';
 import { Telemetry } from '../telemetry';
 
@@ -85,27 +84,6 @@ export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
     if (uri instanceof Uri) return uri;
     if (editor === undefined || editor.document === undefined) return undefined;
     return editor.document.uri;
-}
-
-export type CommandContext = 'gitlens:canToggleCodeLens' |
-    'gitlens:enabled' |
-    'gitlens:hasRemotes' |
-    'gitlens:isBlameable' |
-    'gitlens:isRepository' |
-    'gitlens:isTracked' |
-    'gitlens:key';
-export const CommandContext = {
-    CanToggleCodeLens: 'gitlens:canToggleCodeLens' as CommandContext,
-    Enabled: 'gitlens:enabled' as CommandContext,
-    HasRemotes: 'gitlens:hasRemotes' as CommandContext,
-    IsBlameable: 'gitlens:isBlameable' as CommandContext,
-    IsRepository: 'gitlens:isRepository' as CommandContext,
-    IsTracked: 'gitlens:isTracked' as CommandContext,
-    Key: 'gitlens:key' as CommandContext
-};
-
-export function setCommandContext(key: CommandContext | string, value: any) {
-    return commands.executeCommand(BuiltInCommands.SetContext, key, value);
 }
 
 export abstract class Command extends Disposable {

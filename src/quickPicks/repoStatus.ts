@@ -1,9 +1,10 @@
 'use strict';
 import { Iterables } from '../system';
 import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from 'vscode';
-import { Commands, DiffWithWorkingCommandArgs, Keyboard, Keys, OpenChangedFilesCommandArgs, ShowQuickBranchHistoryCommandArgs, ShowQuickRepoStatusCommandArgs, ShowQuickStashListCommandArgs } from '../commands';
+import { Commands, DiffWithWorkingCommandArgs, OpenChangedFilesCommandArgs, ShowQuickBranchHistoryCommandArgs, ShowQuickRepoStatusCommandArgs, ShowQuickStashListCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem, QuickPickItem } from './common';
 import { GitStatus, GitStatusFile, GitUri } from '../gitService';
+import { Keyboard, Keys } from '../keyboard';
 import * as path from 'path';
 
 export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {

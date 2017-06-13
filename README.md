@@ -33,6 +33,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
   - Adds a `details` hover annotation to the line's annotation, which provides more commit details ([optional](#file-blame-annotation-settings), on by default)
   - Adds a `heatmap` (age) indicator to the gutter annotations (on right edge by [default](#file-blame-annotation-settings)), which provides an easy, at-a-glance way to tell the age of a line ([optional](#file-blame-annotation-settings), on by default)
     - Indicator ranges from bright yellow (newer) to dark brown (older)
+  - Press `Escape` to quickly toggle the annotations off
 
 - Adds [customizable](#status-bar-settings) **blame information** about the current line to the **status bar**  ([optional](#status-bar-settings), on by default)
 
@@ -61,6 +62,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
   - Highlights all of lines changed in the most recent commit
   - Adds a `details` hover annotation to each line, which provides more commit details ([optional](#file-blame-annotation-settings), on by default)
   - Adds a `changes` (diff) hover annotation to each line, which provides **instant** access to the line's previous version ([optional](#file-recent-changes-annotation-settings), on by default)
+  - Press `Escape` to quickly toggle the annotations off
 
 - Adds `Toggle Recent File Changes Annotations` command (`gitlens.toggleFileRecentChanges`) to toggle the recent changes annotations on and off
 

@@ -1,4 +1,5 @@
 'use strict';
+import { commands } from 'vscode';
 
 export const ExtensionId = 'gitlens';
 export const ExtensionKey = ExtensionId;
@@ -37,6 +38,27 @@ export const BuiltInCommands = {
     ShowReferences: 'editor.action.showReferences' as BuiltInCommands,
     ToggleRenderWhitespace: 'editor.action.toggleRenderWhitespace' as BuiltInCommands
 };
+
+export type CommandContext = 'gitlens:canToggleCodeLens' |
+    'gitlens:enabled' |
+    'gitlens:hasRemotes' |
+    'gitlens:isBlameable' |
+    'gitlens:isRepository' |
+    'gitlens:isTracked' |
+    'gitlens:key';
+export const CommandContext = {
+    CanToggleCodeLens: 'gitlens:canToggleCodeLens' as CommandContext,
+    Enabled: 'gitlens:enabled' as CommandContext,
+    HasRemotes: 'gitlens:hasRemotes' as CommandContext,
+    IsBlameable: 'gitlens:isBlameable' as CommandContext,
+    IsRepository: 'gitlens:isRepository' as CommandContext,
+    IsTracked: 'gitlens:isTracked' as CommandContext,
+    Key: 'gitlens:key' as CommandContext
+};
+
+export function setCommandContext(key: CommandContext | string, value: any) {
+    return commands.executeCommand(BuiltInCommands.SetContext, key, value);
+}
 
 export type DocumentSchemes = 'file' | 'git' | 'gitlens-git';
 export const DocumentSchemes = {

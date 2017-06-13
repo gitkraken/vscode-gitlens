@@ -1,8 +1,8 @@
 'use strict';
 import { Iterables } from '../system';
 import { QuickPickOptions, window } from 'vscode';
-import { Keyboard } from '../commands';
 import { GitLog, GitService } from '../gitService';
+import { Keyboard } from '../keyboard';
 import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut } from '../quickPicks';
 
 export class CommitsQuickPick {

@@ -1,9 +1,10 @@
 'use strict';
 import { Arrays, Iterables } from '../system';
 import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from 'vscode';
-import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandCommandArgs, DiffWithPreviousCommandArgs, Keyboard, KeyNoopCommand, Keys, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
+import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandCommandArgs, DiffWithPreviousCommandArgs, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, QuickPickItem } from './common';
 import { getGitStatusIcon, GitCommit, GitLog, GitLogCommit, GitService, GitStashCommit, GitStatusFile, GitStatusFileStatus, GitUri, IGitCommitInfo, IGitStatusFile, RemoteResource } from '../gitService';
+import { Keyboard, KeyNoopCommand, Keys } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as moment from 'moment';
 import * as path from 'path';

@@ -1,8 +1,9 @@
 'use strict';
 import { Iterables } from '../system';
 import { QuickPickOptions, window } from 'vscode';
-import { Commands, Keyboard, StashSaveCommandArgs } from '../commands';
+import { Commands, StashSaveCommandArgs } from '../commands';
 import { GitService, GitStash } from '../gitService';
+import { Keyboard } from '../keyboard';
 import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut } from '../quickPicks';
 
 export class StashListQuickPick {

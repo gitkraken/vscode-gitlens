@@ -9,8 +9,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds all-new recent changes annotations of the whole-file - annotates and highlights all of lines changed in the most recent commit
   - Can customize the [layout](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#file-recent-changes-annotation-settings), as well as the [theme](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#theme-settings)
 - Adds `Toggle Recent File Changes Annotations` command (`gitlens.toggleFileRecentChanges`) - toggles the recent changes annotations on and off
+- Adds ability to press `Escape` to quickly toggle any whole-file annotations off
 - Improves performance
-  - Optimized git output parsing to increase speed and reduce memory usage
+  - Optimized git output parsing to increase speed and dramatically reduce memory usage
   - Defers diff chunk parsing until it is actually required
 - Adds `gitlens.defaultDateFormat` setting to specify how all absolute dates will be formatted by default
 

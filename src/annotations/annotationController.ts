@@ -2,6 +2,7 @@
 import { Functions, Objects } from '../system';
 import { DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, TextDocument, TextDocumentChangeEvent, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
 import { AnnotationProviderBase } from './annotationProvider';
+import { Keyboard, KeyboardScope, KeyCommand, Keys } from '../keyboard';
 import { TextDocumentComparer, TextEditorComparer } from '../comparers';
 import { ExtensionKey, IConfig, LineHighlightLocations, themeDefaults } from '../configuration';
 import { BlameabilityChangeEvent, GitContextTracker, GitService, GitUri } from '../gitService';
@@ -193,13 +194,17 @@ export class AnnotationController extends Disposable {
 
     async clear(column: number) {
         const provider = this._annotationProviders.get(column);
-        if (!provider) return;
+        if (provider === undefined) return;
 
         this._annotationProviders.delete(column);
         await provider.dispose();
 
         if (this._annotationProviders.size === 0) {
             Logger.log(`Remove listener registrations for annotations`);
+
+            this._keyboardScope && this._keyboardScope.dispose();
+            this._keyboardScope = undefined;
+
             this._annotationsDisposable && this._annotationsDisposable.dispose();
             this._annotationsDisposable = undefined;
         }
@@ -207,16 +212,18 @@ export class AnnotationController extends Disposable {
         this._onDidToggleAnnotations.fire();
     }
 
-    getAnnotationType(editor: TextEditor): FileAnnotationType | undefined {
+    getAnnotationType(editor: TextEditor | undefined): FileAnnotationType | undefined {
         const provider = this.getProvider(editor);
         return provider === undefined ? undefined : provider.annotationType;
     }
 
-    getProvider(editor: TextEditor): AnnotationProviderBase | undefined {
+    getProvider(editor: TextEditor | undefined): AnnotationProviderBase | undefined {
         if (!editor || !editor.document || !this.git.isEditorBlameable(editor)) return undefined;
 
         return this._annotationProviders.get(editor.viewColumn || -1);
     }
+
+    private _keyboardScope: KeyboardScope | undefined = undefined;
 
     async showAnnotations(editor: TextEditor, type: FileAnnotationType, shaOrLine?: string | number): Promise<boolean> {
         if (!editor || !editor.document || !this.git.isEditorBlameable(editor)) return false;
@@ -225,6 +232,21 @@ export class AnnotationController extends Disposable {
         if (currentProvider && TextEditorComparer.equals(currentProvider.editor, editor)) {
             await currentProvider.selection(shaOrLine);
             return true;
+        }
+
+        // Allows pressing escape to exit the annotations
+        if (this._keyboardScope === undefined) {
+            this._keyboardScope = await Keyboard.instance.beginScope({
+                escape: {
+                    onDidPressKey: (key: Keys) => {
+                        const editor = window.activeTextEditor;
+                        if (editor === undefined) return Promise.resolve(undefined);
+
+                        this.clear(editor.viewColumn || -1);
+                        return Promise.resolve(undefined);
+                    }
+                } as KeyCommand
+            });
         }
 
         const gitUri = await GitUri.fromUri(editor.document.uri, this.git);

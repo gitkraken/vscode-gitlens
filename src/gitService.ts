@@ -1,9 +1,8 @@
 'use strict';
 import { Iterables, Objects } from './system';
 import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, languages, Location, Position, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, workspace } from 'vscode';
-import { CommandContext, setCommandContext } from './commands';
 import { IConfig } from './configuration';
-import { DocumentSchemes, ExtensionKey } from './constants';
+import { CommandContext, DocumentSchemes, ExtensionKey, setCommandContext } from './constants';
 import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitCommit, GitDiff, GitDiffLine, GitDiffParser, GitLog, GitLogCommit, GitLogParser, GitRemote, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { GitCodeLensProvider } from './gitCodeLensProvider';

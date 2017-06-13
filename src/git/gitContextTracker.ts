@@ -1,7 +1,7 @@
 'use strict';
 import { Disposable, Event, EventEmitter, TextDocument, TextDocumentChangeEvent, TextEditor, window, workspace } from 'vscode';
-import { CommandContext, setCommandContext } from '../commands';
 import { TextDocumentComparer } from '../comparers';
+import { CommandContext, setCommandContext } from '../constants';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 

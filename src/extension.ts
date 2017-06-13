@@ -2,7 +2,6 @@
 // import { Objects } from './system';
 import { ExtensionContext, extensions, languages, window, workspace } from 'vscode';
 import { AnnotationController } from './annotations/annotationController';
-import { CommandContext, setCommandContext } from './commands';
 import { CloseUnchangedFilesCommand, OpenChangedFilesCommand } from './commands';
 import { OpenBranchInRemoteCommand, OpenCommitInRemoteCommand, OpenFileInRemoteCommand, OpenInRemoteCommand, OpenRepoInRemoteCommand } from './commands';
 import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './commands';
@@ -16,13 +15,13 @@ import { ShowCommitSearchCommand, ShowQuickCommitDetailsCommand, ShowQuickCommit
 import { ShowQuickRepoStatusCommand, ShowQuickStashListCommand } from './commands';
 import { StashApplyCommand, StashDeleteCommand, StashSaveCommand } from './commands';
 import { ToggleCodeLensCommand } from './commands';
-import { Keyboard } from './commands';
 import { CodeLensLocations, IConfig, LineHighlightLocations } from './configuration';
-import { ApplicationInsightsKey, ExtensionKey, QualifiedExtensionId, WorkspaceState } from './constants';
+import { ApplicationInsightsKey, CommandContext, ExtensionKey, QualifiedExtensionId, setCommandContext, WorkspaceState } from './constants';
 import { CurrentLineController, LineAnnotationType } from './currentLineController';
 import { GitContentProvider } from './gitContentProvider';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { GitContextTracker, GitService } from './gitService';
+import { Keyboard } from './keyboard';
 import { Logger } from './logger';
 import { Messages, SuppressedKeys } from './messages';
 import { Telemetry } from './telemetry';
