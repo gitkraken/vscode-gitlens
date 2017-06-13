@@ -1,9 +1,9 @@
 'use strict';
 import { DecorationOptions, ExtensionContext, Position, Range, TextEditor, TextEditorDecorationType } from 'vscode';
-import { endOfLineIndex } from './annotations';
+import { Annotations, endOfLineIndex } from './annotations';
 import { FileAnnotationType } from './annotationController';
 import { AnnotationProviderBase } from './annotationProvider';
-import { CommitFormatter, GitService, GitUri } from '../gitService';
+import { GitService, GitUri } from '../gitService';
 
 export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
@@ -43,14 +43,14 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
                 if (cfg.hover.details) {
                     decorators.push({
-                        hoverMessage: CommitFormatter.toHoverAnnotation(commit, dateFormat),
+                        hoverMessage: Annotations.getHoverMessage(commit, dateFormat),
                         range: range
                     } as DecorationOptions);
                 }
 
                 let message: string | undefined = undefined;
                 if (cfg.hover.changes) {
-                    message = CommitFormatter.toHoverDiff(commit, chunk.previous[count], change);
+                    message = Annotations.getHoverDiffMessage(commit, chunk.previous[count], change);
                 }
 
                 decorators.push({

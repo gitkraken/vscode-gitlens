@@ -113,7 +113,7 @@ export class AnnotationController extends Disposable {
                             ? cfgTheme.dark.backgroundColor || themeDefaults.lineHighlight.dark.backgroundColor
                             : undefined,
                         gutterIconPath: cfgBlameHighlight.locations.includes(LineHighlightLocations.Gutter)
-                            ? this.context.asAbsolutePath('images/blame-dark.svg')
+                            ? this.context.asAbsolutePath('images/dark/highlight-gutter.svg')
                             : undefined,
                         overviewRulerColor: cfgBlameHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
                             ? cfgTheme.dark.overviewRulerColor || themeDefaults.lineHighlight.dark.overviewRulerColor
@@ -124,7 +124,7 @@ export class AnnotationController extends Disposable {
                             ? cfgTheme.light.backgroundColor || themeDefaults.lineHighlight.light.backgroundColor
                             : undefined,
                         gutterIconPath: cfgBlameHighlight.locations.includes(LineHighlightLocations.Gutter)
-                            ? this.context.asAbsolutePath('images/blame-light.svg')
+                            ? this.context.asAbsolutePath('images/light/highlight-gutter.svg')
                             : undefined,
                         overviewRulerColor: cfgBlameHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
                             ? cfgTheme.light.overviewRulerColor || themeDefaults.lineHighlight.light.overviewRulerColor
@@ -147,7 +147,7 @@ export class AnnotationController extends Disposable {
                         ? cfgTheme.dark.backgroundColor || themeDefaults.lineHighlight.dark.backgroundColor
                         : undefined,
                     gutterIconPath: cfgChangesHighlight.locations.includes(LineHighlightLocations.Gutter)
-                        ? this.context.asAbsolutePath('images/blame-dark.svg')
+                        ? this.context.asAbsolutePath('images/dark/highlight-gutter.svg')
                         : undefined,
                     overviewRulerColor: cfgChangesHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
                         ? cfgTheme.dark.overviewRulerColor || themeDefaults.lineHighlight.dark.overviewRulerColor
@@ -158,7 +158,7 @@ export class AnnotationController extends Disposable {
                         ? cfgTheme.light.backgroundColor || themeDefaults.lineHighlight.light.backgroundColor
                         : undefined,
                     gutterIconPath: cfgChangesHighlight.locations.includes(LineHighlightLocations.Gutter)
-                        ? this.context.asAbsolutePath('images/blame-light.svg')
+                        ? this.context.asAbsolutePath('images/light/highlight-gutter.svg')
                         : undefined,
                     overviewRulerColor: cfgChangesHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
                         ? cfgTheme.light.overviewRulerColor || themeDefaults.lineHighlight.light.overviewRulerColor

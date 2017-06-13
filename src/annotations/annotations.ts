@@ -1,6 +1,6 @@
 import { DecorationInstanceRenderOptions, DecorationOptions, ThemableDecorationRenderOptions } from 'vscode';
 import { IThemeConfig, themeDefaults } from '../configuration';
-import { CommitFormatter, GitCommit, GitService, GitUri, ICommitFormatOptions } from '../gitService';
+import { CommitFormatter, GitCommit, GitDiffLine, GitService, GitUri, ICommitFormatOptions } from '../gitService';
 import * as moment from 'moment';
 
 interface IHeatmapConfig {
@@ -20,6 +20,8 @@ interface IRenderOptions {
 }
 
 export const endOfLineIndex = 1000000;
+const escapeMarkdownRegEx = /[`\>\#\*\_\-\+\.]/g;
+// const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
 
 export class Annotations {
 
@@ -43,15 +45,50 @@ export class Annotations {
         return '#793738';
     }
 
+    static getHoverMessage(commit: GitCommit, dateFormat: string | null): string | string[] {
+        if (dateFormat === null) {
+            dateFormat = 'MMMM Do, YYYY h:MMa';
+        }
+
+        let message = '';
+        if (!commit.isUncommitted) {
+            message = commit.message
+                // Escape markdown
+                .replace(escapeMarkdownRegEx, '\\$&')
+                // Escape markdown header (since the above regex won't match it)
+                .replace(/^===/gm, '\u200b===')
+                // Keep under the same block-quote
+                .replace(/\n/g, '  \n');
+            message = `\n\n> ${message}`;
+        }
+        return `\`${commit.shortSha}\` &nbsp; __${commit.author}__, ${moment(commit.date).fromNow()} &nbsp; _(${moment(commit.date).format(dateFormat)})_${message}`;
+    }
+
+    static getHoverDiffMessage(commit: GitCommit, previous: GitDiffLine | undefined, current: GitDiffLine | undefined): string | undefined {
+        if (previous === undefined && current === undefined) return undefined;
+
+        const codeDiff = this._getCodeDiff(previous, current);
+        return commit.isUncommitted
+            ? `\`Changes\` &nbsp; \u2014 &nbsp; _uncommitted_\n${codeDiff}`
+            : `\`Changes\` &nbsp; \u2014 &nbsp; \`${commit.previousShortSha}\` \u2194 \`${commit.shortSha}\`\n${codeDiff}`;
+    }
+
+    private static _getCodeDiff(previous: GitDiffLine | undefined, current: GitDiffLine | undefined): string {
+        return `\`\`\`
+-  ${previous === undefined ? '' : previous.line.trim()}
++  ${current === undefined ? '' : current.line.trim()}
+\`\`\``;
+    }
+
     static async changesHover(commit: GitCommit, line: number, uri: GitUri, git: GitService): Promise<DecorationOptions> {
         let message: string | undefined = undefined;
         if (commit.isUncommitted) {
             const [previous, current] = await git.getDiffForLine(uri, line + uri.offset);
-            message = CommitFormatter.toHoverDiff(commit, previous, current);
+            message = this.getHoverDiffMessage(commit, previous, current);
         }
         else if (commit.previousSha !== undefined) {
             const [previous, current] = await git.getDiffForLine(uri, line + uri.offset, commit.previousSha);
-            message = CommitFormatter.toHoverDiff(commit, previous, current);
+            message = this.getHoverDiffMessage(commit, previous, current);
         }
 
         return {
@@ -60,7 +97,7 @@ export class Annotations {
     }
 
     static detailsHover(commit: GitCommit, dateFormat: string | null): DecorationOptions {
-        const message = CommitFormatter.toHoverAnnotation(commit, dateFormat);
+        const message = this.getHoverMessage(commit, dateFormat);
         return {
             hoverMessage: message
         } as DecorationOptions;
@@ -129,7 +166,7 @@ export class Annotations {
 
     static hover(commit: GitCommit, renderOptions: IRenderOptions, heatmap: boolean, dateFormat: string | null): DecorationOptions {
         return {
-            hoverMessage: CommitFormatter.toHoverAnnotation(commit, dateFormat),
+            hoverMessage: this.getHoverMessage(commit, dateFormat),
             renderOptions: heatmap ? { before: { ...renderOptions.before } } : undefined
         } as DecorationOptions;
     }

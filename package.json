@@ -794,8 +794,8 @@
                 "title": "Toggle File Blame Annotations",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/git-icon-dark.svg",
-                    "light": "images/git-icon-light.svg"
+                    "dark": "images/dark/git-icon.svg",
+                    "light": "images/light/git-icon.svg"
                 }
             },
             {
