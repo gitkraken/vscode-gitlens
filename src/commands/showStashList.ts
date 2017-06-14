@@ -1,14 +1,14 @@
 'use strict';
 import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { Commands, EditorCommand, getCommandUri } from './common';
-import { GitStashExplorer } from '../views/gitStashExplorer';
+import { StashExplorer } from '../views/stashExplorer';
 import { GitService, GitUri } from '../gitService';
 import { Messages } from '../messages';
 import { Logger } from '../logger';
 
 export class ShowStashListCommand extends EditorCommand {
 
-    constructor(private git: GitService, private explorer: GitStashExplorer) {
+    constructor(private git: GitService, private explorer: StashExplorer) {
         super(Commands.ShowStashList);
     }
 

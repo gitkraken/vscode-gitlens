@@ -6,7 +6,7 @@ import { StashCommitNode } from './stashCommitNode';
 
 export * from './gitExplorerNodes';
 
-export class GitStashExplorer implements TreeDataProvider<ExplorerNode>  {
+export class StashExplorer implements TreeDataProvider<ExplorerNode>  {
     private _node: ExplorerNode;
     private _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
     public get onDidChangeTreeData(): Event<StashCommitNode> {
