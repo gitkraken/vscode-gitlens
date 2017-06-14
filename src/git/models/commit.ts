@@ -76,4 +76,12 @@ export class GitCommit {
     getFormattedPath(separator: string = Strings.pad(GlyphChars.Dot, 2, 2)): string {
         return GitUri.getFormattedPath(this.fileName, separator);
     }
+
+    with(changes: { type?: GitCommitType, fileName?: string, sha?: string, originalFileName?: string, previousFileName?: string, previousSha?: string }) {
+        return new GitCommit(changes.type || this.type, this.repoPath,
+            changes.sha || this.sha, changes.fileName || this.fileName,
+            this.author, this.date, this.message,
+            changes.originalFileName || this.originalFileName,
+            changes.previousSha || this.previousSha, changes.previousFileName || this.previousFileName);
+    }
 }
