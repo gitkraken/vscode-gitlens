@@ -1,6 +1,6 @@
 'use strict';
 import { commands, Disposable, SourceControlResourceGroup, SourceControlResourceState, TextDocumentShowOptions, TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
-import { ExplorerNode } from '../views/gitExplorerNodes';
+import { ExplorerNode } from '../views/explorerNodes';
 import { Logger } from '../logger';
 import { Telemetry } from '../telemetry';
 
