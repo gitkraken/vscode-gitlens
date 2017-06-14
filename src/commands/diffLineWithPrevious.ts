@@ -79,6 +79,8 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
                 `${path.basename(args.commit.uri.fsPath)} (${args.commit.shortSha}) ${GlyphChars.ArrowLeftRight} ${path.basename(gitUri.fsPath)} (${gitUri.shortSha})`,
                 args.showOptions);
 
+            if (args.line === undefined || args.line === 0) return undefined;
+
             // TODO: Figure out how to focus the left pane
             return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: args.line, at: 'center' });
         }

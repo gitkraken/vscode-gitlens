@@ -48,6 +48,8 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
                 `${path.basename(gitUri.fsPath)} (${branch}) ${GlyphChars.ArrowLeftRight} ${path.basename(gitUri.fsPath)}`,
                 args.showOptions);
 
+            if (args.line === undefined || args.line === 0) return undefined;
+
             // TODO: Figure out how to focus the left pane
             return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: args.line, at: 'center' });
         }

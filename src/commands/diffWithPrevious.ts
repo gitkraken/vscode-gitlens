@@ -26,9 +26,14 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
 
-        args.line = args.line || (editor === undefined ? 0 : editor.selection.active.line);
+        if (args.commit !== undefined && args.commit.type !== 'file') {
+            args.line = 0;
+        }
+        else {
+            args.line = args.line || (editor === undefined ? 0 : editor.selection.active.line);
+        }
 
-        if (args.commit === undefined || (args.commit.type !== 'file') || args.range !== undefined) {
+        if (args.commit === undefined || args.commit.type !== 'file' || args.range !== undefined) {
             const gitUri = await GitUri.fromUri(uri, this.git);
 
             try {
@@ -61,6 +66,8 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                 Uri.file(rhs),
                 `${path.basename(args.commit.previousUri.fsPath)} (${args.commit.previousShortSha}) ${GlyphChars.ArrowLeftRight} ${path.basename(args.commit.uri.fsPath)} (${args.commit.shortSha})`,
                 args.showOptions);
+
+            if (args.line === undefined || args.line === 0) return undefined;
 
             // TODO: Figure out how to focus the left pane
             return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: args.line, at: 'center' });
