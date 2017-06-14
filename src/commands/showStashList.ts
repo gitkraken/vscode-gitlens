@@ -1,14 +1,14 @@
 'use strict';
 import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { Commands, EditorCommand, getCommandUri } from './common';
-import { GitExplorer } from '../views/gitExplorer';
+import { GitStashExplorer } from '../views/gitStashExplorer';
 import { GitService, GitUri } from '../gitService';
 import { Messages } from '../messages';
 import { Logger } from '../logger';
 
 export class ShowStashListCommand extends EditorCommand {
 
-    constructor(private git: GitService, private explorer: GitExplorer) {
+    constructor(private git: GitService, private explorer: GitStashExplorer) {
         super(Commands.ShowStashList);
     }
 
@@ -19,7 +19,7 @@ export class ShowStashListCommand extends EditorCommand {
             const repoPath = await this.git.getRepoPathFromUri(uri);
             if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show stashed changes`);
 
-            this.explorer.addStash(new GitUri(uri, { repoPath: repoPath, fileName: uri!.fsPath }));
+            this.explorer.update(new GitUri(uri, { repoPath: repoPath, fileName: uri!.fsPath }));
             return undefined;
         }
         catch (ex) {
