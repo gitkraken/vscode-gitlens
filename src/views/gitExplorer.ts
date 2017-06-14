@@ -1,10 +1,10 @@
 'use strict';
 import { Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem, Uri, window } from 'vscode';
 import { UriComparer } from '../comparers';
-import { ExplorerNode, FileHistoryNode, RepositoryNode, ResourceType, StashNode } from './gitExplorerNodes';
+import { ExplorerNode, FileHistoryNode, RepositoryNode, ResourceType, StashNode } from './explorerNodes';
 import { GitService, GitUri } from '../gitService';
 
-export * from './gitExplorerNodes';
+export * from './explorerNodes';
 
 export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 

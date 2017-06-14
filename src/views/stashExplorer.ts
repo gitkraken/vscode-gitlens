@@ -1,12 +1,13 @@
 'use strict';
 import { Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem, Uri, window } from 'vscode';
-import { ExplorerNode, StashNode } from './gitExplorerNodes';
+import { ExplorerNode, StashNode } from './explorerNodes';
 import { GitService, GitUri } from '../gitService';
 import { StashCommitNode } from './stashCommitNode';
 
-export * from './gitExplorerNodes';
+export * from './explorerNodes';
 
 export class StashExplorer implements TreeDataProvider<ExplorerNode>  {
+
     private _node: ExplorerNode;
     private _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
     public get onDidChangeTreeData(): Event<StashCommitNode> {
