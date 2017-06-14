@@ -1,6 +1,6 @@
 'use strict';
 import { Iterables } from '../system';
-import { Command, ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitFileNode } from './commitFileNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { CommitFormatter, GitCommit, GitService, GitUri } from '../gitService';
@@ -8,25 +8,9 @@ import { CommitFormatter, GitCommit, GitService, GitUri } from '../gitService';
 export class CommitNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'commit';
-    command: Command;
 
     constructor(public commit: GitCommit, uri: GitUri, context: ExtensionContext, git: GitService) {
         super(uri, context, git);
-
-        // this.command = {
-        //     title: 'Compare File with Previous',
-        //     command: Commands.DiffWithPrevious,
-        //     arguments: [
-        //         Uri.file(commit.uri.fsPath),
-        //         {
-        //             commit: commit,
-        //             showOptions: {
-        //                 preserveFocus: true,
-        //                 preview: true
-        //             }
-        //         } as DiffWithPreviousCommandArgs
-        //     ]
-        // };
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
@@ -48,7 +32,6 @@ export class CommitNode extends ExplorerNode {
             dark: this.context.asAbsolutePath('images/dark/icon-commit.svg'),
             light: this.context.asAbsolutePath('images/light/icon-commit.svg')
         };
-        item.command = this.command;
         return item;
     }
 }
