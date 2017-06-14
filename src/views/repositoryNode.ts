@@ -5,7 +5,6 @@ import { CommitNode } from './commitNode';
 import { GlyphChars } from '../constants';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitBranch, GitService, GitUri } from '../gitService';
-import { StashNode } from './stashNode';
 
 export class RepositoryNode extends ExplorerNode {
 
@@ -19,7 +18,6 @@ export class RepositoryNode extends ExplorerNode {
     async getChildren(): Promise<ExplorerNode[]> {
         return [
             new StatusNode(this.uri, this.context, this.git),
-            new StashNode(this.uri, this.context, this.git),
             new BranchesNode(this.uri, this.context, this.git)
         ];
     }

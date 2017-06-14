@@ -1400,6 +1400,10 @@
                 {
                     "id": "gitlens-explorer",
                     "name": "GitLens Explorer"
+                },
+                {
+                    "id": "gitstash-explorer",
+                    "name": "Git Stashes"
                 }
             ]
         }

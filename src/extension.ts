@@ -20,6 +20,7 @@ import { ApplicationInsightsKey, CommandContext, ExtensionKey, QualifiedExtensio
 import { CurrentLineController, LineAnnotationType } from './currentLineController';
 import { GitContentProvider } from './gitContentProvider';
 import { GitExplorer } from './views/gitExplorer';
+import { GitStashExplorer } from './views/gitStashExplorer';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { GitContextTracker, GitService } from './gitService';
 import { Keyboard } from './keyboard';
@@ -93,6 +94,12 @@ export async function activate(context: ExtensionContext) {
         explorer = new GitExplorer(context, git);
         context.subscriptions.push(window.registerTreeDataProvider('gitlens-explorer', explorer));
     }
+    let stashExplorer;
+    if (cfg.insiders) {
+        stashExplorer = new GitStashExplorer(context, git);
+        context.subscriptions.push(window.registerTreeDataProvider('gitstash-explorer', stashExplorer));
+        context.subscriptions.push(new ShowStashListCommand(git, stashExplorer!));
+    }
 
     context.subscriptions.push(new CloseUnchangedFilesCommand(git));
     context.subscriptions.push(new OpenChangedFilesCommand(git));
@@ -128,9 +135,6 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new ShowQuickFileHistoryCommand(git));
     context.subscriptions.push(new ShowQuickRepoStatusCommand(git));
     context.subscriptions.push(new ShowQuickStashListCommand(git));
-    if (cfg.insiders) {
-        context.subscriptions.push(new ShowStashListCommand(git, explorer!));
-    }
     context.subscriptions.push(new StashApplyCommand(git));
     context.subscriptions.push(new StashDeleteCommand(git));
     context.subscriptions.push(new StashSaveCommand(git));
