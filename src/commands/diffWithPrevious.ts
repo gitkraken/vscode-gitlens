@@ -34,6 +34,9 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
         }
 
         if (args.commit === undefined || args.commit.type !== 'file' || args.range !== undefined) {
+            // Since we will be changing the args and they could be cached -- make a copy
+            args = { ...args };
+
             const gitUri = await GitUri.fromUri(uri, this.git);
 
             try {
