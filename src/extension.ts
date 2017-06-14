@@ -20,7 +20,7 @@ import { ApplicationInsightsKey, CommandContext, ExtensionKey, QualifiedExtensio
 import { CurrentLineController, LineAnnotationType } from './currentLineController';
 import { GitContentProvider } from './gitContentProvider';
 import { GitExplorer } from './views/gitExplorer';
-import { GitStashExplorer } from './views/gitStashExplorer';
+import { StashExplorer } from './views/stashExplorer';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { GitContextTracker, GitService } from './gitService';
 import { Keyboard } from './keyboard';
@@ -96,7 +96,7 @@ export async function activate(context: ExtensionContext) {
     }
     let stashExplorer;
     if (cfg.insiders) {
-        stashExplorer = new GitStashExplorer(context, git);
+        stashExplorer = new StashExplorer(context, git);
         context.subscriptions.push(window.registerTreeDataProvider('gitstash-explorer', stashExplorer));
         context.subscriptions.push(new ShowStashListCommand(git, stashExplorer!));
     }
