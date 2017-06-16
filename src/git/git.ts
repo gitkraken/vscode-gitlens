@@ -185,7 +185,7 @@ export class Git {
     }
 
     static diff(repoPath: string, fileName: string, sha1?: string, sha2?: string, encoding?: string) {
-        const params = [`diff`, `--diff-filter=M`, `-M`];
+        const params = [`diff`, `--diff-filter=M`, `-M`, `--no-ext-diff`];
         if (sha1) {
             params.push(sha1);
         }
@@ -197,7 +197,7 @@ export class Git {
     }
 
     static diff_nameStatus(repoPath: string, sha1?: string, sha2?: string) {
-        const params = [`diff`, `--name-status`, `-M`];
+        const params = [`diff`, `--name-status`, `-M`, `--no-ext-diff`];
         if (sha1) {
             params.push(sha1);
         }
