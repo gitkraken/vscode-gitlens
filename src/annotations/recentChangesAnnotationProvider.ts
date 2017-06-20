@@ -50,7 +50,8 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
                 let message: string | undefined = undefined;
                 if (cfg.hover.changes) {
-                    message = Annotations.getHoverDiffMessage(commit, chunk.previous[count], change);
+                    const previousPos = count - (chunk.previousPosition.start + (chunk.previousPosition.start - chunk.currentPosition.start)) + 1;
+                    message = Annotations.getHoverDiffMessage(commit, chunk.previous[previousPos], change);
                 }
 
                 decorators.push({
