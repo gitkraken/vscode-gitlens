@@ -2,7 +2,7 @@ import { Strings } from '../system';
 import { DecorationInstanceRenderOptions, DecorationOptions, ThemableDecorationRenderOptions } from 'vscode';
 import { IThemeConfig, themeDefaults } from '../configuration';
 import { GlyphChars } from '../constants';
-import { CommitFormatter, GitCommit, GitDiffLine, GitService, GitUri, ICommitFormatOptions } from '../gitService';
+import { CommitFormatter, GitCommit, GitDiffChunkLine, GitService, GitUri, ICommitFormatOptions } from '../gitService';
 import * as moment from 'moment';
 
 interface IHeatmapConfig {
@@ -66,32 +66,26 @@ export class Annotations {
         return `\`${commit.shortSha}\` &nbsp; __${commit.author}__, ${moment(commit.date).fromNow()} &nbsp; _(${moment(commit.date).format(dateFormat)})_${message}`;
     }
 
-    static getHoverDiffMessage(commit: GitCommit, previous: GitDiffLine | undefined, current: GitDiffLine | undefined): string | undefined {
-        if (previous === undefined && current === undefined) return undefined;
+    static getHoverDiffMessage(commit: GitCommit, chunkLine: GitDiffChunkLine | undefined): string | undefined {
+        if (chunkLine === undefined) return undefined;
 
-        const codeDiff = this._getCodeDiff(previous, current);
+        const codeDiff = this._getCodeDiff(chunkLine);
         return commit.isUncommitted
             ? `\`Changes\` &nbsp; ${GlyphChars.Dash} &nbsp; _uncommitted_\n${codeDiff}`
             : `\`Changes\` &nbsp; ${GlyphChars.Dash} &nbsp; \`${commit.previousShortSha}\` ${GlyphChars.ArrowLeftRight} \`${commit.shortSha}\`\n${codeDiff}`;
     }
 
-    private static _getCodeDiff(previous: GitDiffLine | undefined, current: GitDiffLine | undefined): string {
+    private static _getCodeDiff(chunkLine: GitDiffChunkLine): string {
+        const previous = chunkLine.previous === undefined ? undefined : chunkLine.previous[0];
         return `\`\`\`
--  ${previous === undefined ? '' : previous.line.trim()}
-+  ${current === undefined ? '' : current.line.trim()}
+-  ${previous === undefined || previous.line === undefined ? '' : previous.line.trim()}
++  ${chunkLine.line === undefined ? '' : chunkLine.line.trim()}
 \`\`\``;
     }
 
     static async changesHover(commit: GitCommit, line: number, uri: GitUri, git: GitService): Promise<DecorationOptions> {
-        let message: string | undefined = undefined;
-        if (commit.isUncommitted) {
-            const [previous, current] = await git.getDiffForLine(uri, line + uri.offset);
-            message = this.getHoverDiffMessage(commit, previous, current);
-        }
-        else if (commit.previousSha !== undefined) {
-            const [previous, current] = await git.getDiffForLine(uri, line + uri.offset, commit.previousSha);
-            message = this.getHoverDiffMessage(commit, previous, current);
-        }
+        const chunkLine = await git.getDiffForLine(uri, line + uri.offset, commit.isUncommitted ? undefined : commit.previousSha);
+        const message = this.getHoverDiffMessage(commit, chunkLine);
 
         return {
             hoverMessage: message

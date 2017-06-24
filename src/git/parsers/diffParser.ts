@@ -1,6 +1,6 @@
 'use strict';
 import { Iterables, Strings } from '../../system';
-import { GitDiff, GitDiffChunk, GitDiffLine } from './../git';
+import { GitDiff, GitDiffChunk, GitDiffChunkLine, GitDiffLine } from './../git';
 
 const unifiedDiffRegex = /^@@ -([\d]+),([\d]+) [+]([\d]+),([\d]+) @@([\s\S]*?)(?=^@@)/gm;
 
@@ -39,36 +39,81 @@ export class GitDiffParser {
         return diff;
     }
 
-    static parseChunk(chunk: string): [(GitDiffLine | undefined)[], (GitDiffLine | undefined)[]] {
+    static parseChunk(chunk: string): GitDiffChunkLine[] {
         const lines = Iterables.skip(Strings.lines(chunk), 1);
 
-        const current: (GitDiffLine | undefined)[] = [];
-        const previous: (GitDiffLine | undefined)[] = [];
+        const currentLines: (GitDiffLine | undefined)[] = [];
+        const previousLines: (GitDiffLine | undefined)[] = [];
+
+        let removed = 0;
         for (const l of lines) {
             switch (l[0]) {
                 case '+':
-                    current.push({
+                    currentLines.push({
                         line: ` ${l.substring(1)}`,
                         state: 'added'
                     });
-                    previous.push(undefined);
+
+                    if (removed > 0) {
+                        removed--;
+                    }
+                    else {
+                        previousLines.push(undefined);
+                    }
+
                     break;
 
                 case '-':
-                    current.push(undefined);
-                    previous.push({
+                    removed++;
+
+                    previousLines.push({
                         line: ` ${l.substring(1)}`,
                         state: 'removed'
                     });
+
                     break;
 
                 default:
-                    current.push({ line: l, state: 'unchanged' });
-                    previous.push({ line: l, state: 'unchanged' });
+                    while (removed > 0) {
+                        removed--;
+                        currentLines.push(undefined);
+                    }
+
+                    currentLines.push({ line: l, state: 'unchanged' });
+                    previousLines.push({ line: l, state: 'unchanged' });
+
                     break;
             }
         }
 
-        return [current, previous];
+        const chunkLines: GitDiffChunkLine[] = [];
+
+        let chunkLine: GitDiffChunkLine | undefined = undefined;
+        let current: GitDiffLine | undefined = undefined;
+
+        for (let i = 0; i < currentLines.length; i++) {
+            current = currentLines[i];
+            if (current === undefined) {
+                // Don't think we need to worry about this case because the diff will always have "padding" (i.e. unchanged lines) around each chunk
+                if (chunkLine === undefined) continue;
+
+                if (chunkLine.previous === undefined) {
+                    chunkLine.previous = [previousLines[i]];
+                    continue;
+                }
+
+                chunkLine.previous.push(previousLines[i]);
+                continue;
+            }
+
+            chunkLine = {
+                line: current.line,
+                state: current.state,
+                previous: [previousLines[i]]
+            };
+            chunkLines.push(chunkLine);
+        }
+
+        return chunkLines;
     }
 }

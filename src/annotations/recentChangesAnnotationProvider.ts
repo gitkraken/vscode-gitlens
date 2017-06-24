@@ -27,12 +27,12 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
         for (const chunk of diff.chunks) {
             let count = chunk.currentPosition.start - 2;
-            for (const change of chunk.current) {
-                if (change === undefined) continue;
+            for (const line of chunk.lines) {
+                if (line.line === undefined) continue;
 
                 count++;
 
-                if (change.state === 'unchanged') continue;
+                if (line.state === 'unchanged') continue;
 
                 let endingIndex = 0;
                 if (cfg.hover.details || cfg.hover.changes) {
@@ -50,8 +50,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
                 let message: string | undefined = undefined;
                 if (cfg.hover.changes) {
-                    const previousPos = count - (chunk.previousPosition.start + (chunk.previousPosition.start - chunk.currentPosition.start)) + 1;
-                    message = Annotations.getHoverDiffMessage(commit, chunk.previous[previousPos], change);
+                    message = Annotations.getHoverDiffMessage(commit, line);
                 }
 
                 decorators.push({

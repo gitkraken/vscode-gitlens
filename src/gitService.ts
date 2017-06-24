@@ -3,7 +3,7 @@ import { Iterables, Objects } from './system';
 import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, languages, Location, Position, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, workspace } from 'vscode';
 import { IConfig } from './configuration';
 import { CommandContext, DocumentSchemes, ExtensionKey, GlyphChars, setCommandContext } from './constants';
-import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitCommit, GitDiff, GitDiffLine, GitDiffParser, GitLog, GitLogCommit, GitLogParser, GitRemote, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
+import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitCommit, GitDiff, GitDiffChunkLine, GitDiffParser, GitLog, GitLogCommit, GitLogParser, GitRemote, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
 import { Logger } from './logger';
@@ -647,38 +647,18 @@ export class GitService extends Disposable {
         }
     }
 
-    async getDiffForLine(uri: GitUri, line: number, sha1?: string, sha2?: string): Promise<[GitDiffLine | undefined, GitDiffLine | undefined]> {
+    async getDiffForLine(uri: GitUri, line: number, sha1?: string, sha2?: string): Promise<GitDiffChunkLine | undefined> {
         try {
             const diff = await this.getDiffForFile(uri, sha1, sha2);
-            if (diff === undefined) return [undefined, undefined];
+            if (diff === undefined) return undefined;
 
             const chunk = diff.chunks.find(_ => _.currentPosition.start <= line && _.currentPosition.end >= line);
-            if (chunk === undefined) return [undefined, undefined];
+            if (chunk === undefined) return undefined;
 
-            // Search for the line (skipping deleted lines -- since they don't currently exist in the editor)
-            // Keep track of the deleted lines for the original version
-            line = line - chunk.currentPosition.start + 1;
-            let count = 0;
-            let deleted = 0;
-            for (const l of chunk.current) {
-                if (l === undefined) {
-                    deleted++;
-                    if (count === line) break;
-
-                    continue;
-                }
-
-                if (count === line) break;
-                count++;
-            }
-
-            return [
-                chunk.previous[line + deleted - 1],
-                chunk.current[line + deleted + (chunk.currentPosition.start - chunk.previousPosition.start)]
-            ];
+            return chunk.lines[line - chunk.currentPosition.start + 1];
         }
         catch (ex) {
-            return [undefined, undefined];
+            return undefined;
         }
     }
 
