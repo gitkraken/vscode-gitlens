@@ -235,16 +235,16 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...params);
     }
 
-    static log_file(repoPath: string, fileName: string, sha?: string, maxCount?: number, reverse: boolean = false, startLine?: number, endLine?: number) {
+    static log_file(repoPath: string, fileName: string, sha?: string, options: { maxCount?: number, reverse?: boolean, startLine?: number, endLine?: number, skipMerges?: boolean } = { reverse: false, skipMerges: false }) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const params = [...defaultLogParams, `--follow`];
-        if (maxCount && !reverse) {
-            params.push(`-n${maxCount}`);
+        if (options.maxCount && !options.reverse) {
+            params.push(`-n${options.maxCount}`);
         }
 
         // If we are looking for a specific sha don't exclude merge commits
-        if (!sha || maxCount! > 2) {
+        if (options.skipMerges || !sha || options.maxCount! > 2) {
             params.push(`--no-merges`);
         }
         else {
@@ -252,7 +252,7 @@ export class Git {
         }
 
         if (sha) {
-            if (reverse) {
+            if (options.reverse) {
                 params.push(`--reverse`);
                 params.push(`--ancestry-path`);
                 params.push(`${sha}..HEAD`);
@@ -262,8 +262,8 @@ export class Git {
             }
         }
 
-        if (startLine != null && endLine != null) {
-            params.push(`-L ${startLine},${endLine}:${file}`);
+        if (options.startLine != null && options.endLine != null) {
+            params.push(`-L ${options.startLine},${options.endLine}:${file}`);
         }
 
         params.push(`--`);

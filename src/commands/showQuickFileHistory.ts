@@ -38,7 +38,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
         const progressCancellation = FileHistoryQuickPick.showProgress(gitUri);
         try {
             if (args.log === undefined) {
-                args.log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha, args.maxCount, args.range);
+                args.log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha, { maxCount: args.maxCount, range: args.range });
                 if (args.log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to show file history');
             }
 
