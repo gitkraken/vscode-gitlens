@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [4.1.4] - 2017-06-25
+## Changed
+- Optimizes performance of the `Compare with Previous` commands - also avoids trying to focus a line if we don't have one
+
+### Fixed
+- Fixes `changes` (diff) hover not showing the correct previous line (for real this time)
+- Attempts to fix #99 - undo/redo spawns too many git processes
+
 ## [4.1.3] - 2017-06-20
 ### Fixed
 - Fixes `changes` (diff) hover not showing the correct previous line when showing recent changes annotations of the whole-file
