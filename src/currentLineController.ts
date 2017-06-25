@@ -8,6 +8,7 @@ import { TextEditorComparer } from './comparers';
 import { IConfig, StatusBarCommand } from './configuration';
 import { DocumentSchemes, ExtensionKey } from './constants';
 import { BlameabilityChangeEvent, CommitFormatter, GitCommit, GitCommitLine, GitContextTracker, GitService, GitUri } from './gitService';
+import { Logger } from './logger';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
     after: {
@@ -163,6 +164,7 @@ export class CurrentLineController extends Disposable {
     }
 
     private _onGitCacheChanged() {
+        Logger.log('Git cache changed; resetting current line annotations');
         this._onActiveTextEditorChanged(window.activeTextEditor);
     }
 

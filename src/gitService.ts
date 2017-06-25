@@ -1,5 +1,5 @@
 'use strict';
-import { Iterables, Objects } from './system';
+import { Functions, Iterables, Objects } from './system';
 import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, languages, Location, Position, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, workspace } from 'vscode';
 import { IConfig } from './configuration';
 import { CommandContext, DocumentSchemes, ExtensionKey, GlyphChars, setCommandContext } from './constants';
@@ -85,6 +85,7 @@ export class GitService extends Disposable {
     private _codeLensProvider: GitCodeLensProvider | undefined;
     private _codeLensProviderDisposable: Disposable | undefined;
     private _disposable: Disposable | undefined;
+    private _fireGitCacheChangeDebounced: () => void;
     private _fsWatcher: FileSystemWatcher | undefined;
     private _gitignore: Promise<ignore.Ignore>;
 
@@ -96,6 +97,8 @@ export class GitService extends Disposable {
         this._gitCache = new Map();
         this._remotesCache = new Map();
         this._uriCache = new Map();
+
+        this._fireGitCacheChangeDebounced = Functions.debounce(this._fireGitCacheChange, 50);
 
         this._onConfigurationChanged();
 
@@ -228,8 +231,16 @@ export class GitService extends Disposable {
     private _onGitChanged() {
         this._gitCache.clear();
 
-        this._onDidChangeGitCache.fire();
-        this._codeLensProvider && this._codeLensProvider.reset();
+        this._fireGitCacheChangeDebounced();
+    }
+
+    private _fireGitCacheChange() {
+        setTimeout(() => {
+            // Refresh the code lenses
+            this._codeLensProvider && this._codeLensProvider.reset();
+
+            this._onDidChangeGitCache.fire();
+        }, 1);
     }
 
     private _removeCachedEntry(document: TextDocument, reason: RemoveCacheReason) {
@@ -248,10 +259,7 @@ export class GitService extends Disposable {
             Logger.log(`Clear cache entry for '${cacheKey}', reason=${RemoveCacheReason[reason]}`);
 
             if (reason === RemoveCacheReason.DocumentSaved) {
-                this._onDidChangeGitCache.fire();
-
-                // Refresh the codelenses with the updated blame
-                this._codeLensProvider && this._codeLensProvider.reset();
+                this._fireGitCacheChangeDebounced();
             }
         }
     }
