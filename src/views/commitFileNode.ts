@@ -33,6 +33,7 @@ export class CommitFileNode extends ExplorerNode {
                 GitUri.fromFileStatus(this.status, this.commit.repoPath),
                 {
                     commit: this.commit,
+                    line: 0,
                     showOptions: {
                         preserveFocus: true,
                         preview: true
