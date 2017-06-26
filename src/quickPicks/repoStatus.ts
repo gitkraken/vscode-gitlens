@@ -11,7 +11,7 @@ import * as path from 'path';
 export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 
     constructor(status: GitStatusFile, item?: QuickPickItem) {
-        const icon = status.getIcon();
+        const icon = status.getOcticon();
         const description = status.getFormattedDirectory(true);
 
         super(status.Uri, item || {
