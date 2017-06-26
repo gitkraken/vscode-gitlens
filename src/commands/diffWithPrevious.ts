@@ -26,11 +26,8 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
 
-        if (args.commit !== undefined && args.commit.type !== 'file') {
-            args.line = 0;
-        }
-        else {
-            args.line = args.line || (editor === undefined ? 0 : editor.selection.active.line);
+        if (args.line === undefined) {
+            args.line = editor === undefined ? 0 : editor.selection.active.line;
         }
 
         if (args.commit === undefined || args.commit.type !== 'file' || args.range !== undefined) {
