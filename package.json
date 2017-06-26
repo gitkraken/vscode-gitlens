@@ -859,7 +859,7 @@
             },
             {
                 "command": "gitlens.showQuickCommitFileDetails",
-                "title": "Show Line Commit Details",
+                "title": "Show Commit File Details",
                 "category": "GitLens"
             },
             {
@@ -919,20 +919,12 @@
             },
             {
                 "command": "gitlens.openCommitInRemote",
-                "title": "Open Line Commit in Remote",
-                "icon": {
-                    "dark": "images/dark/git-icon.svg",
-                    "light": "images/light/git-icon.svg"
-                },
+                "title": "Open Commit in Remote",
                 "category": "GitLens"
             },
             {
                 "command": "gitlens.openFileInRemote",
                 "title": "Open File in Remote",
-                "icon": {
-                    "dark": "images/dark/icon-commit.svg",
-                    "light": "images/light/icon-commit.svg"
-                },
                 "category": "GitLens"
             },
             {
