@@ -1,5 +1,5 @@
 'use strict';
-import { commands, Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem, Uri, window } from 'vscode';
+import { commands, Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem, Uri } from 'vscode';
 import { UriComparer } from '../comparers';
 import { ExplorerNode, FileHistoryNode, RepositoryNode, ResourceType, StashNode } from './explorerNodes';
 import { GitService, GitUri } from '../gitService';
@@ -18,12 +18,13 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     constructor(private context: ExtensionContext, private git: GitService) {
         commands.registerCommand('gitlens.gitExplorer.refresh', () => this.refresh());
 
-        const editor = window.activeTextEditor;
+        // const editor = window.activeTextEditor;
 
-        const uri = (editor !== undefined && editor.document !== undefined)
-            ? new GitUri(editor.document.uri, { repoPath: git.repoPath, fileName: editor.document.uri.fsPath })
-            : new GitUri(Uri.file(git.repoPath), { repoPath: git.repoPath, fileName: git.repoPath });
+        // const uri = (editor !== undefined && editor.document !== undefined)
+        //     ? new GitUri(editor.document.uri, { repoPath: git.repoPath, fileName: editor.document.uri.fsPath })
+        //     : new GitUri(Uri.file(git.repoPath), { repoPath: git.repoPath, fileName: git.repoPath });
 
+        const uri = new GitUri(Uri.file(git.repoPath), { repoPath: git.repoPath, fileName: git.repoPath });
         this._roots.push(new RepositoryNode(uri, context, git));
     }
 

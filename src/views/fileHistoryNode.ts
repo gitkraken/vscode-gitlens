@@ -18,7 +18,7 @@ export class FileHistoryNode extends ExplorerNode {
         const log = await this.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, this.uri.sha);
         if (log === undefined) return [];
 
-        return [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.uri, this.context, this.git))];
+        return [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.context, this.git))];
     }
 
     getTreeItem(): TreeItem {

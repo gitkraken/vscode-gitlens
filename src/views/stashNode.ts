@@ -18,7 +18,7 @@ export class StashNode extends ExplorerNode {
         const stash = await this.git.getStashList(this.uri.repoPath!);
         if (stash === undefined) return [];
 
-        return [...Iterables.map(stash.commits.values(), c => new StashCommitNode(c, this.uri, this.context, this.git))];
+        return [...Iterables.map(stash.commits.values(), c => new StashCommitNode(c, this.context, this.git))];
     }
 
     getTreeItem(): TreeItem {

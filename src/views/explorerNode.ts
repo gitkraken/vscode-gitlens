@@ -8,7 +8,7 @@ export abstract class ExplorerNode {
 
     abstract readonly resourceType: ResourceType;
 
-    constructor(public uri: GitUri, protected context: ExtensionContext, protected git: GitService) { }
+    constructor(public readonly uri: GitUri, protected readonly context: ExtensionContext, protected readonly git: GitService) { }
 
     abstract getChildren(): ExplorerNode[] | Promise<ExplorerNode[]>;
     abstract getTreeItem(): TreeItem | Promise<TreeItem>;
