@@ -5,6 +5,7 @@ import { GlyphChars } from '../constants';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem } from '../quickPicks';
+import { StashCommitNode } from '../views/stashCommitNode';
 
 export interface StashDeleteCommandArgs {
     confirm?: boolean;
@@ -19,8 +20,16 @@ export class StashDeleteCommand extends Command {
         super(Commands.StashDelete);
     }
 
-    async execute(args: StashDeleteCommandArgs = { confirm: true }) {
+    async execute(args: StashDeleteCommandArgs | StashCommitNode = { confirm: true }) {
         if (!this.git.repoPath) return undefined;
+        let stashCommitNode = undefined;
+        if (args instanceof StashCommitNode) {
+            stashCommitNode = args;
+            args = {
+                confirm: true,
+                stashItem: args.commit
+            };
+        }
 
         args = { ...args };
         if (args.stashItem === undefined || args.stashItem.stashName === undefined) return undefined;
@@ -36,7 +45,11 @@ export class StashDeleteCommand extends Command {
                 if (result === undefined || result.title !== 'Yes') return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
             }
 
-            return await this.git.stashDelete(this.git.repoPath, args.stashItem.stashName);
+            const ret = await this.git.stashDelete(this.git.repoPath, args.stashItem.stashName);
+            if (stashCommitNode) {
+                stashCommitNode.refreshNode();
+            }
+            return ret;
         }
         catch (ex) {
             Logger.error(ex, 'StashDeleteCommand');

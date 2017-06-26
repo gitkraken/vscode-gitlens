@@ -2,7 +2,6 @@
 import { commands, Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem, Uri } from 'vscode';
 import { ExplorerNode, StashNode } from './explorerNodes';
 import { GitService, GitUri } from '../gitService';
-import { StashCommitNode } from './stashCommitNode';
 
 export * from './explorerNodes';
 
@@ -10,7 +9,7 @@ export class StashExplorer implements TreeDataProvider<ExplorerNode>  {
 
     private _node: ExplorerNode;
     private _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
-    public get onDidChangeTreeData(): Event<StashCommitNode> {
+    public get onDidChangeTreeData(): Event<ExplorerNode> {
         return this._onDidChangeTreeData.event;
     }
 
@@ -28,6 +27,11 @@ export class StashExplorer implements TreeDataProvider<ExplorerNode>  {
     }
 
     async getTreeItem(node: ExplorerNode): Promise<TreeItem> {
+        if (node.onDidChangeTreeData) {
+            node.onDidChangeTreeData(() => {
+                this._onDidChangeTreeData.fire();
+            });
+        }
         return node.getTreeItem();
     }
 

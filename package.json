@@ -948,9 +948,18 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.stashDelete",
+                "title": "Delete Stashed Changes",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.stashSave",
                 "title": "Stash Changes",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-add.svg",
+                    "light": "images/light/icon-add.svg"
+                }
             },
             {
                 "command": "gitlens.resetSuppressedWarnings",
@@ -1312,6 +1321,11 @@
                     "command": "gitlens.stashExplorer.refresh",
                     "when": "gitlens:enabled && view == gitlens.stashExplorer",
                     "group": "navigation"
+                },
+                {
+                    "command": "gitlens.stashSave",
+                    "when": "gitlens:enabled && view == gitlens.stashExplorer",
+                    "group": "navigation"
                 }
             ],
             "view/item/context": [
@@ -1354,6 +1368,16 @@
                     "command": "gitlens.diffWithWorking",
                     "when": "gitlens:enabled && view == gitlens.stashExplorer && viewItem == commit-file",
                     "group": "2_gitlens@2"
+                },
+                {
+                    "command": "gitlens.stashApply",
+                    "when": "gitlens:enabled && view == gitlens.stashExplorer && viewItem == stash-commit",
+                    "group": "3_gitlens@1"
+                },
+                {
+                    "command": "gitlens.stashDelete",
+                    "when": "gitlens:enabled && view == gitlens.stashExplorer && viewItem == stash-commit",
+                    "group": "3_gitlens@1"
                 }
             ]
         },
