@@ -92,12 +92,12 @@ export async function activate(context: ExtensionContext) {
     let explorer: GitExplorer | undefined = undefined;
     if (cfg.insiders) {
         explorer = new GitExplorer(context, git);
-        context.subscriptions.push(window.registerTreeDataProvider('gitlens-explorer', explorer));
+        context.subscriptions.push(window.registerTreeDataProvider('gitlens.gitExplorer', explorer));
     }
     let stashExplorer;
     if (cfg.insiders) {
         stashExplorer = new StashExplorer(context, git);
-        context.subscriptions.push(window.registerTreeDataProvider('gitstash-explorer', stashExplorer));
+        context.subscriptions.push(window.registerTreeDataProvider('gitlens.stashExplorer', stashExplorer));
         context.subscriptions.push(new ShowStashListCommand(git, stashExplorer!));
     }
 

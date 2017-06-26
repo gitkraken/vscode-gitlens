@@ -1,5 +1,5 @@
 'use strict';
-import { Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem, Uri, window } from 'vscode';
+import { commands, Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem, Uri, window } from 'vscode';
 import { UriComparer } from '../comparers';
 import { ExplorerNode, FileHistoryNode, RepositoryNode, ResourceType, StashNode } from './explorerNodes';
 import { GitService, GitUri } from '../gitService';
@@ -16,6 +16,8 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     private _roots: ExplorerNode[] = [];
 
     constructor(private context: ExtensionContext, private git: GitService) {
+        commands.registerCommand('gitlens.gitExplorer.refresh', () => this.refresh());
+
         const editor = window.activeTextEditor;
 
         const uri = (editor !== undefined && editor.document !== undefined)
