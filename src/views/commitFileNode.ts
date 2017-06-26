@@ -1,5 +1,5 @@
 'use strict';
-import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { getGitStatusIcon, GitCommit, GitService, GitUri, IGitStatusFile, StatusFileFormatter } from '../gitService';
@@ -9,8 +9,8 @@ export class CommitFileNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'commit-file';
 
-    constructor(public status: IGitStatusFile, public commit: GitCommit, private template: string,  uri: GitUri, context: ExtensionContext, git: GitService) {
-        super(uri, context, git);
+    constructor(public readonly status: IGitStatusFile, public commit: GitCommit, private template: string, context: ExtensionContext, git: GitService) {
+        super(new GitUri(Uri.file(path.resolve(commit.repoPath, status.fileName)), { repoPath: commit.repoPath, fileName: status.fileName, sha: commit.sha }), context, git);
     }
 
     getChildren(): Promise<ExplorerNode[]> {

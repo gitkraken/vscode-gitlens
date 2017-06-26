@@ -9,8 +9,9 @@ export class CommitNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'commit';
 
-    constructor(public commit: GitCommit, uri: GitUri, context: ExtensionContext, git: GitService) {
-        super(uri, context, git);
+    constructor(public readonly commit: GitCommit, context: ExtensionContext, git: GitService) {
+        super(new GitUri(commit.uri, commit), context, git);
+        this.commit = commit;
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
@@ -20,7 +21,7 @@ export class CommitNode extends ExplorerNode {
         const commit = Iterables.first(log.commits.values());
         if (commit === undefined) return [];
 
-        return [...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit, this.git.config.gitExplorer.commitFileFormat, this.uri, this.context, this.git))];
+        return [...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit, this.git.config.gitExplorer.commitFileFormat, this.context, this.git))];
     }
 
     getTreeItem(): TreeItem {

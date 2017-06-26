@@ -8,12 +8,12 @@ export class StashCommitNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'stash-commit';
 
-    constructor(public commit: GitStashCommit, uri: GitUri, context: ExtensionContext, git: GitService) {
-        super(uri, context, git);
+    constructor(public readonly commit: GitStashCommit, context: ExtensionContext, git: GitService) {
+        super(new GitUri(commit.uri, commit), context, git);
     }
 
     async getChildren(): Promise<CommitFileNode[]> {
-        return Promise.resolve((this.commit as GitStashCommit).fileStatuses.map(_ => new CommitFileNode(_, this.commit, this.git.config.stashExplorer.stashFileFormat, this.uri, this.context, this.git)));
+        return Promise.resolve((this.commit as GitStashCommit).fileStatuses.map(_ => new CommitFileNode(_, this.commit, this.git.config.stashExplorer.stashFileFormat, this.context, this.git)));
     }
 
     getTreeItem(): TreeItem {
