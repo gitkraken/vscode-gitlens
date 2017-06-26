@@ -303,10 +303,15 @@ export interface IConfig {
 
     defaultDateFormat: string | null;
 
-    explorer: {
+    gitExplorer: {
         commitFormat: string;
         commitFileFormat: string;
+        // dateFormat: string | null;
+    };
+
+    stashExplorer: {
         stashFormat: string;
+        stashFileFormat: string;
         // dateFormat: string | null;
     };
 

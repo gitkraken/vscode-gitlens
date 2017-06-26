@@ -73,3 +73,18 @@ const statusOcticonsMap = {
 export function getGitStatusOcticon(status: GitStatusFileStatus, missing: string = GlyphChars.Space.repeat(4)): string {
     return statusOcticonsMap[status] || missing;
 }
+
+const statusIconsMap = {
+    '!': 'icon-status-ignored.svg',
+    '?': 'icon-status-untracked.svg',
+    A: 'icon-status-added.svg',
+    C: 'icon-status-copied.svg',
+    D: 'icon-status-deleted.svg',
+    M: 'icon-status-modified.svg',
+    R: 'icon-status-renamed.svg',
+    U: 'icon-status-conflict.svg'
+};
+
+export function getGitStatusIcon(status: GitStatusFileStatus): string {
+    return statusIconsMap[status];
+}
