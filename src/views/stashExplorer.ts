@@ -1,5 +1,5 @@
 'use strict';
-import { Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem, Uri, window } from 'vscode';
+import { commands, Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem, Uri, window } from 'vscode';
 import { ExplorerNode, StashNode } from './explorerNodes';
 import { GitService, GitUri } from '../gitService';
 import { StashCommitNode } from './stashCommitNode';
@@ -15,6 +15,8 @@ export class StashExplorer implements TreeDataProvider<ExplorerNode>  {
     }
 
     constructor(private context: ExtensionContext, private git: GitService) {
+        commands.registerCommand('gitlens.stashExplorer.refresh', () => this.refresh());
+
         const editor = window.activeTextEditor;
 
         const uri = (editor !== undefined && editor.document !== undefined)
