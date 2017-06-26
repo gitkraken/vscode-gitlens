@@ -20,11 +20,11 @@ export class CommitNode extends ExplorerNode {
         const commit = Iterables.first(log.commits.values());
         if (commit === undefined) return [];
 
-        return [...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit, this.uri, this.context, this.git))];
+        return [...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit, this.git.config.gitExplorer.commitFileFormat, this.uri, this.context, this.git))];
     }
 
     getTreeItem(): TreeItem {
-        const label = CommitFormatter.fromTemplate(this.git.config.explorer.commitFormat, this.commit, this.git.config.defaultDateFormat);
+        const label = CommitFormatter.fromTemplate(this.git.config.gitExplorer.commitFormat, this.commit, this.git.config.defaultDateFormat);
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
         item.contextValue = this.resourceType;

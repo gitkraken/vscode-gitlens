@@ -13,11 +13,11 @@ export class StashCommitNode extends ExplorerNode {
     }
 
     async getChildren(): Promise<CommitFileNode[]> {
-        return Promise.resolve((this.commit as GitStashCommit).fileStatuses.map(_ => new CommitFileNode(_, this.commit, this.uri, this.context, this.git)));
+        return Promise.resolve((this.commit as GitStashCommit).fileStatuses.map(_ => new CommitFileNode(_, this.commit, this.git.config.stashExplorer.stashFileFormat, this.uri, this.context, this.git)));
     }
 
     getTreeItem(): TreeItem {
-        const label = CommitFormatter.fromTemplate(this.git.config.explorer.stashFormat, this.commit, this.git.config.defaultDateFormat);
+        const label = CommitFormatter.fromTemplate(this.git.config.stashExplorer.stashFormat, this.commit, this.git.config.defaultDateFormat);
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
         item.contextValue = this.resourceType;

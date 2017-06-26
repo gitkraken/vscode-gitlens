@@ -2,13 +2,14 @@
 import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { GitCommit, GitService, GitUri, IGitStatusFile } from '../gitService';
+import { getGitStatusIcon, GitCommit, GitService, GitUri, IGitStatusFile, StatusFileFormatter } from '../gitService';
+import * as path from 'path';
 
 export class CommitFileNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'commit-file';
 
-    constructor(public status: IGitStatusFile, public commit: GitCommit, uri: GitUri, context: ExtensionContext, git: GitService) {
+    constructor(public status: IGitStatusFile, public commit: GitCommit, private template: string,  uri: GitUri, context: ExtensionContext, git: GitService) {
         super(uri, context, git);
     }
 
@@ -24,8 +25,15 @@ export class CommitFileNode extends ExplorerNode {
             }
         }
 
-        const item = new TreeItem(`${GitUri.getFormattedPath(this.status.fileName)}`, TreeItemCollapsibleState.None);
+        const item = new TreeItem(StatusFileFormatter.fromTemplate(this.template, this.status), TreeItemCollapsibleState.None);
         item.contextValue = this.resourceType;
+
+        const icon = getGitStatusIcon(this.status.status);
+        item.iconPath = {
+            dark: this.context.asAbsolutePath(path.join('images', 'dark', icon)),
+            light: this.context.asAbsolutePath(path.join('images', 'light', icon))
+        };
+
         item.command = {
             title: 'Compare File with Previous',
             command: Commands.DiffWithPrevious,
@@ -41,6 +49,7 @@ export class CommitFileNode extends ExplorerNode {
                 } as DiffWithPreviousCommandArgs
             ]
         };
+
         return item;
     }
 }
