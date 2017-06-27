@@ -184,7 +184,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         // Make sure there is only 1 lens per line
         if (lenses.length && lenses[lenses.length - 1].range.start.line === line.lineNumber) return;
 
-        // Anchor the code lens to the end of the line -- so they are somewhat consistenly placed
+        // Anchor the code lens to the end of the line -- so they are somewhat consistently placed
         let startChar = line.range.end.character - 1;
 
         let blameForRangeFn: (() => GitBlameLines | undefined) | undefined = undefined;
