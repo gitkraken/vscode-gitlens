@@ -43,8 +43,8 @@ export class GitStatusFile implements IGitStatusFile {
         return GitUri.getFormattedPath(this.fileName, separator);
     }
 
-    getIcon() {
-        return getGitStatusIcon(this.status);
+    getOcticon() {
+        return getGitStatusOcticon(this.status);
     }
 
     get Uri(): Uri {
@@ -70,6 +70,6 @@ const statusOcticonsMap = {
     U: '$(question)'
 };
 
-export function getGitStatusIcon(status: GitStatusFileStatus, missing: string = GlyphChars.Space.repeat(4)): string {
+export function getGitStatusOcticon(status: GitStatusFileStatus, missing: string = GlyphChars.Space.repeat(4)): string {
     return statusOcticonsMap[status] || missing;
 }

@@ -11,11 +11,11 @@ import * as path from 'path';
 export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 
     constructor(status: GitStatusFile, item?: QuickPickItem) {
-        const icon = status.getIcon();
+        const octicon = status.getOcticon();
         const description = status.getFormattedDirectory(true);
 
         super(status.Uri, item || {
-            label: `${status.staged ? '$(check)' : GlyphChars.Space.repeat(3)}${Strings.pad(icon, 2, 2)} ${path.basename(status.fileName)}`,
+            label: `${status.staged ? '$(check)' : GlyphChars.Space.repeat(3)}${Strings.pad(octicon, 2, 2)} ${path.basename(status.fileName)}`,
             description: description
         });
     }

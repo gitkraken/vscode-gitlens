@@ -4,7 +4,7 @@ import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from
 import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandCommandArgs, DiffWithPreviousCommandArgs, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, QuickPickItem } from './common';
 import { GlyphChars } from '../constants';
-import { getGitStatusIcon, GitCommit, GitLog, GitLogCommit, GitService, GitStashCommit, GitStatusFile, GitStatusFileStatus, GitUri, IGitCommitInfo, IGitStatusFile, RemoteResource } from '../gitService';
+import { getGitStatusOcticon, GitCommit, GitLog, GitLogCommit, GitService, GitStashCommit, GitStatusFile, GitStatusFileStatus, GitUri, IGitCommitInfo, IGitStatusFile, RemoteResource } from '../gitService';
 import { Keyboard, KeyNoopCommand, Keys } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as moment from 'moment';
@@ -20,7 +20,7 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
     status: GitStatusFileStatus;
 
     constructor(commit: GitCommit, status: IGitStatusFile) {
-        const icon = getGitStatusIcon(status.status);
+        const octicon = getGitStatusOcticon(status.status);
         const description = GitStatusFile.getFormattedDirectory(status, true);
 
         let sha;
@@ -35,7 +35,7 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
         }
 
         super(GitService.toGitContentUri(sha, shortSha, status.fileName, commit.repoPath, status.originalFileName), {
-            label: `${Strings.pad(icon, 4, 2)} ${path.basename(status.fileName)}`,
+            label: `${Strings.pad(octicon, 4, 2)} ${path.basename(status.fileName)}`,
             description: description
         });
 
