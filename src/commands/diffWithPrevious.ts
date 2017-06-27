@@ -23,18 +23,19 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
     }
 
     async run(context: CommandContext, args: DiffWithPreviousCommandArgs = {}): Promise<any> {
+        // Since we can change the args and they could be cached -- make a copy
         switch (context.type) {
             case 'uri':
-                return this.execute(context.editor, context.uri, args);
+                return this.execute(context.editor, context.uri, { ...args });
             case 'view':
-                return this.execute(undefined, context.node.uri, args);
+                return this.execute(undefined, context.node.uri, { ...args });
             case 'scm-states':
                 const resource = context.scmResourceStates[0];
-                return this.execute(undefined, resource.resourceUri, args);
+                return this.execute(undefined, resource.resourceUri, { ...args });
             case 'scm-groups':
                 return undefined;
             default:
-                return this.execute(context.editor, undefined, args);
+                return this.execute(context.editor, undefined, { ...args });
         }
     }
 
@@ -47,9 +48,6 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
         }
 
         if (args.commit === undefined || args.commit.type !== 'file' || args.range !== undefined) {
-            // Since we will be changing the args and they could be cached -- make a copy
-            args = { ...args };
-
             const gitUri = await GitUri.fromUri(uri, this.git);
 
             try {
