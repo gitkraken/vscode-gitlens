@@ -19,10 +19,11 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
         super(Commands.DiffWithWorking);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, args: DiffWithWorkingCommandArgs = {}): Promise<any> {
+    async execute(editor?: TextEditor, uri?: Uri, args: DiffWithWorkingCommandArgs = {}): Promise<any> {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
 
+        args = { ...args };
         if (args.line === undefined) {
             args.line = editor === undefined ? 0 : editor.selection.active.line;
         }

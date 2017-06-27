@@ -21,12 +21,16 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
         super(Commands.DiffLineWithPrevious);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, args: DiffLineWithPreviousCommandArgs = {}): Promise<any> {
+    async execute(editor?: TextEditor, uri?: Uri, args: DiffLineWithPreviousCommandArgs = {}): Promise<any> {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
 
         const gitUri = await GitUri.fromUri(uri, this.git);
-        args.line = args.line || (editor === undefined ? gitUri.offset : editor.selection.active.line);
+
+        args = { ...args };
+        if (args.line === undefined) {
+            args.line = editor === undefined ? gitUri.offset : editor.selection.active.line;
+        }
 
         if (args.commit === undefined || GitService.isUncommitted(args.commit.sha)) {
             if (editor !== undefined && editor.document !== undefined && editor.document.isDirty) return undefined;

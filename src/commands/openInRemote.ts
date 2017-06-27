@@ -23,9 +23,10 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
     async execute(editor: TextEditor, uri?: Uri, args: OpenInRemoteCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
-        try {
-            if (args.remotes === undefined || args.resource === undefined) return undefined;
+        args = { ...args };
+        if (args.remotes === undefined || args.resource === undefined) return undefined;
 
+        try {
             if (args.remotes.length === 1) {
                 const command = new OpenRemoteCommandQuickPickItem(args.remotes[0], args.resource);
                 return command.execute();

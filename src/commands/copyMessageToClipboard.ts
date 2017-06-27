@@ -17,10 +17,12 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
         super(Commands.CopyMessageToClipboard);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, args: CopyMessageToClipboardCommandArgs = {}): Promise<any> {
+    async execute(editor?: TextEditor, uri?: Uri, args: CopyMessageToClipboardCommandArgs = {}): Promise<any> {
         uri = getCommandUri(uri, editor);
 
         try {
+            args = { ...args };
+
             // If we don't have an editor then get the message of the last commit to the branch
             if (uri === undefined) {
                 if (!this.git.repoPath) return undefined;

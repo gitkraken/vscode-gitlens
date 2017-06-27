@@ -19,7 +19,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
         super(Commands.DiffDirectory);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, args: DiffDirectoryCommandCommandArgs = {}): Promise<any> {
+    async execute(editor?: TextEditor, uri?: Uri, args: DiffDirectoryCommandCommandArgs = {}): Promise<any> {
         const diffTool = await this.git.getConfig('diff.tool');
         if (!diffTool) {
             const result = await window.showWarningMessage(`Unable to open directory compare because there is no Git diff tool configured`, 'View Git Docs');
@@ -35,6 +35,8 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
             if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open directory compare`);
 
             if (!args.shaOrBranch1) {
+                args = { ...args };
+
                 const branches = await this.git.getBranches(repoPath);
                 const current = Iterables.find(branches, _ => _.current);
                 if (current == null) return window.showWarningMessage(`Unable to open directory compare`);

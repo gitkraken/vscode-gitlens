@@ -88,28 +88,35 @@ export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
     return editor.document.uri;
 }
 
-export interface ScmGroupsCommandContext {
+export interface CommandContextParsingOptions {
+    editor: boolean;
+    uri: boolean;
+}
+
+export interface CommandBaseContext {
+    editor?: TextEditor;
+    uri?: Uri;
+}
+
+export interface CommandScmGroupsContext extends CommandBaseContext {
     type: 'scm-groups';
     scmResourceGroups: SourceControlResourceGroup[];
 }
 
-export interface ScmStatesCommandContext {
+export interface CommandScmStatesContext extends CommandBaseContext {
     type: 'scm-states';
     scmResourceStates: SourceControlResourceState[];
 }
 
-export interface UnknownCommandContext {
+export interface CommandUnknownContext extends CommandBaseContext {
     type: 'unknown';
-    editor?: TextEditor;
 }
 
-export interface UriCommandContext {
+export interface CommandUriContext extends CommandBaseContext {
     type: 'uri';
-    editor?: TextEditor;
-    uri: Uri;
 }
 
-export type CommandContext = ScmGroupsCommandContext | ScmStatesCommandContext | UnknownCommandContext | UriCommandContext;
+export type CommandContext = CommandScmGroupsContext | CommandScmStatesContext | CommandUnknownContext | CommandUriContext;
 
 function isScmResourceGroup(group: any): group is SourceControlResourceGroup {
     if (group === undefined) return false;
@@ -129,16 +136,15 @@ function isTextEditor(editor: any): editor is TextEditor {
     return editor.id !== undefined && ((editor as TextEditor).edit !== undefined || (editor as TextEditor).document !== undefined);
 }
 
-export interface Command {
-    run?(context: CommandContext, ...args: any[]): any;
-}
-
 export abstract class Command extends Disposable {
+
+    protected readonly contextParsingOptions: CommandContextParsingOptions = { editor: false, uri: false };
 
     private _disposable: Disposable;
 
     constructor(protected command: Commands) {
         super(() => this.dispose());
+
         this._disposable = commands.registerCommand(command, this._execute, this);
     }
 
@@ -146,91 +152,81 @@ export abstract class Command extends Disposable {
         this._disposable && this._disposable.dispose();
     }
 
-    protected _execute(...args: any[]): any {
-        Telemetry.trackEvent(this.command);
-
-        if (typeof this.run === 'function') {
-            let editor: TextEditor | undefined = undefined;
-
-            let firstArg = args[0];
-            if (firstArg === undefined || isTextEditor(firstArg)) {
-                editor = firstArg;
-                args = args.slice(1);
-                firstArg = args[0];
-            }
-
-            if (firstArg instanceof Uri) {
-                const [uri, ...rest] = args;
-                return this.run({ type: 'uri', editor: editor, uri: uri }, ...rest);
-            }
-
-            if (isScmResourceState(firstArg)) {
-                const states = [];
-                let count = 0;
-                for (const arg of args) {
-                    if (!isScmResourceState(arg)) break;
-
-                    count++;
-                    states.push(arg);
-                }
-
-                return this.run({ type: 'scm-states', scmResourceStates: states }, ...args.slice(count));
-            }
-
-            if (isScmResourceGroup(firstArg)) {
-                const groups = [];
-                let count = 0;
-                for (const arg of args) {
-                    if (!isScmResourceGroup(arg)) break;
-
-                    count++;
-                    groups.push(arg);
-                }
-
-                return this.run({ type: 'scm-groups', scmResourceGroups: groups }, ...args.slice(count));
-            }
-
-            return this.run({ type: 'unknown', editor: editor }, ...args);
-        }
-
+    protected async preExecute(context: CommandContext, ...args: any[]): Promise<any> {
         return this.execute(...args);
     }
 
     abstract execute(...args: any[]): any;
-}
 
-export abstract class EditorCommand extends Disposable {
-
-    private _disposable: Disposable;
-
-    constructor(public readonly command: Commands) {
-        super(() => this.dispose());
-        this._disposable = commands.registerTextEditorCommand(command, this._execute, this);
-    }
-
-    dispose() {
-        this._disposable && this._disposable.dispose();
-    }
-
-    private _execute(editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any {
+    protected _execute(...args: any[]): any {
         Telemetry.trackEvent(this.command);
-        return this.execute(editor, edit, ...args);
+
+        const [context, rest] = Command._parseContext(this.contextParsingOptions, ...args);
+        return this.preExecute(context, ...rest);
     }
 
-    abstract execute(editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any;
+    private static _parseContext(options: CommandContextParsingOptions, ...args: any[]): [CommandContext, any[]] {
+        let editor: TextEditor | undefined = undefined;
+
+        let firstArg = args[0];
+        if (options.editor && (firstArg === undefined || isTextEditor(firstArg))) {
+            editor = firstArg;
+            args = args.slice(1);
+            firstArg = args[0];
+        }
+
+        if (options.uri && (firstArg === undefined || firstArg instanceof Uri)) {
+            const [uri, ...rest] = args as [Uri, any];
+            return [{ type: 'uri', editor: editor, uri: uri }, rest];
+        }
+
+        if (isScmResourceState(firstArg)) {
+            const states = [];
+            let count = 0;
+            for (const arg of args) {
+                if (!isScmResourceState(arg)) break;
+
+                count++;
+                states.push(arg);
+            }
+
+            return [{ type: 'scm-states', scmResourceStates: states, uri: states[0].resourceUri }, args.slice(count)];
+        }
+
+        if (isScmResourceGroup(firstArg)) {
+            const groups = [];
+            let count = 0;
+            for (const arg of args) {
+                if (!isScmResourceGroup(arg)) break;
+
+                count++;
+                groups.push(arg);
+            }
+
+            return [{ type: 'scm-groups', scmResourceGroups: groups }, args.slice(count)];
+        }
+
+        return [{ type: 'unknown', editor: editor }, args];
+    }
 }
 
 export abstract class ActiveEditorCommand extends Command {
 
+    protected readonly contextParsingOptions: CommandContextParsingOptions = { editor: true, uri: true };
+
     constructor(public readonly command: Commands) {
         super(command);
+    }
+
+    protected async preExecute(context: CommandContext, ...args: any[]): Promise<any> {
+        return this.execute(context.editor, context.uri, ...args);
     }
 
     protected _execute(...args: any[]): any {
         return super._execute(window.activeTextEditor, ...args);
     }
 
-    abstract execute(editor: TextEditor, ...args: any[]): any;
+    abstract execute(editor?: TextEditor, ...args: any[]): any;
 }
 
 let lastCommand: { command: string, args: any[] } | undefined = undefined;
@@ -253,6 +249,27 @@ export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
     }
 
     abstract execute(editor: TextEditor, ...args: any[]): any;
+}
+
+export abstract class EditorCommand extends Disposable {
+
+    private _disposable: Disposable;
+
+    constructor(public readonly command: Commands) {
+        super(() => this.dispose());
+        this._disposable = commands.registerTextEditorCommand(command, this._execute, this);
+    }
+
+    dispose() {
+        this._disposable && this._disposable.dispose();
+    }
+
+    private _execute(editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any {
+        Telemetry.trackEvent(this.command);
+        return this.execute(editor, edit, ...args);
+    }
+
+    abstract execute(editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any;
 }
 
 export async function openEditor(uri: Uri, options?: TextDocumentShowOptions): Promise<TextEditor | undefined> {

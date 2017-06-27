@@ -22,6 +22,7 @@ export class StashDeleteCommand extends Command {
     async execute(args: StashDeleteCommandArgs = { confirm: true }) {
         if (!this.git.repoPath) return undefined;
 
+        args = { ...args };
         if (args.stashItem === undefined || args.stashItem.stashName === undefined) return undefined;
 
         if (args.confirm === undefined) {

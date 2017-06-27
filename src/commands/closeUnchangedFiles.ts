@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorTracker } from '../activeEditorTracker';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { TextEditorComparer, UriComparer } from '../comparers';
 import { BuiltInCommands } from '../constants';
 import { GitService } from '../gitService';
@@ -18,27 +18,13 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
         super(Commands.CloseUnchangedFiles);
     }
 
-    async run(context: CommandContext, args: CloseUnchangedFilesCommandArgs = {}): Promise<any> {
-        // Since we can change the args and they could be cached -- make a copy
-        switch (context.type) {
-            case 'uri':
-                return this.execute(context.editor, context.uri, { ...args });
-            case 'scm-states':
-                return undefined;
-            case 'scm-groups':
-                // const group = context.scmResourceGroups[0];
-                // args.uris = group.resourceStates.map(_ => _.resourceUri);
-                return this.execute(undefined, undefined, { ...args });
-            default:
-                return this.execute(context.editor, undefined, { ...args });
-        }
-    }
-
-    async execute(editor: TextEditor | undefined, uri?: Uri, args: CloseUnchangedFilesCommandArgs = {}) {
+    async execute(editor?: TextEditor, uri?: Uri, args: CloseUnchangedFilesCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
         try {
             if (args.uris === undefined) {
+                args = { ...args };
+
                 const repoPath = await this.git.getRepoPathFromUri(uri);
                 if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to close unchanged files`);
 

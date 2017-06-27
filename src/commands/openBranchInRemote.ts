@@ -18,7 +18,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
         super(Commands.OpenBranchInRemote);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, args: OpenBranchInRemoteCommandArgs = {}) {
+    async execute(editor?: TextEditor, uri?: Uri, args: OpenBranchInRemoteCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
         const gitUri = uri && await GitUri.fromUri(uri, this.git);
@@ -28,6 +28,8 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
 
         try {
             if (args.branch === undefined) {
+                args = { ...args };
+
                 const branches = await this.git.getBranches(repoPath);
 
                 const pick = await BranchesQuickPick.show(branches, `Show history for branch${GlyphChars.Ellipsis}`);

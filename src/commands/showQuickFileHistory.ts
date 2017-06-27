@@ -1,7 +1,7 @@
 'use strict';
 import { Strings } from '../system';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCachedCommand, CommandContext, Commands, getCommandUri } from './common';
+import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
 import { GitLog, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
@@ -25,27 +25,13 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
         super(Commands.ShowQuickFileHistory);
     }
 
-    async run(context: CommandContext, args: ShowQuickFileHistoryCommandArgs = {}): Promise<any> {
-        // Since we can change the args and they could be cached -- make a copy
-        switch (context.type) {
-            case 'uri':
-                return this.execute(context.editor, context.uri, { ...args });
-            case 'scm-states':
-                const resource = context.scmResourceStates[0];
-                return this.execute(undefined, resource.resourceUri, { ...args });
-            case 'scm-groups':
-                return undefined;
-            default:
-                return this.execute(context.editor, undefined, { ...args });
-        }
-    }
-
-    async execute(editor: TextEditor | undefined, uri?: Uri, args: ShowQuickFileHistoryCommandArgs = {}) {
+    async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickFileHistoryCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return commands.executeCommand(Commands.ShowQuickCurrentBranchHistory);
 
         const gitUri = await GitUri.fromUri(uri, this.git);
 
+        args = { ...args };
         if (args.maxCount == null) {
             args.maxCount = this.git.config.advanced.maxQuickHistory;
         }

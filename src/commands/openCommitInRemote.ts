@@ -13,7 +13,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
         super(Commands.OpenCommitInRemote);
     }
 
-    async execute(editor: TextEditor, uri?: Uri) {
+    async execute(editor?: TextEditor, uri?: Uri) {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
         if (editor !== undefined && editor.document !== undefined && editor.document.isDirty) return undefined;

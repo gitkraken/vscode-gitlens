@@ -16,7 +16,7 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
         super(Commands.ShowQuickRepoStatus);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, args: ShowQuickRepoStatusCommandArgs = {}) {
+    async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickRepoStatusCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
         try {

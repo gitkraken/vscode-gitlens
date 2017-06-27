@@ -17,7 +17,7 @@ export class ShowQuickCurrentBranchHistoryCommand extends ActiveEditorCachedComm
         super(Commands.ShowQuickCurrentBranchHistory);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, args: ShowQuickCurrentBranchHistoryCommandArgs = {}) {
+    async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickCurrentBranchHistoryCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
         try {

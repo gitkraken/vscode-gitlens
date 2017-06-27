@@ -21,6 +21,8 @@ export class ToggleFileBlameCommand extends EditorCommand {
 
         try {
             if (args.type === undefined) {
+                args = { ...args };
+
                 const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
                 args.type = cfg.blame.file.annotationType;
             }

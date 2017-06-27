@@ -25,6 +25,7 @@ export class StashApplyCommand extends Command {
     async execute(args: StashApplyCommandArgs = { confirm: true, deleteAfter: false }) {
         if (!this.git.repoPath) return undefined;
 
+        args = { ...args };
         if (args.stashItem === undefined || args.stashItem.stashName === undefined) {
             const stash = await this.git.getStashList(this.git.repoPath);
             if (stash === undefined) return window.showInformationMessage(`There are no stashed changes`);

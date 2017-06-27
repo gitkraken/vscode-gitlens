@@ -11,7 +11,7 @@ export class ShowLastQuickPickCommand extends Command {
 
     async execute() {
         const command = getLastCommand();
-        if (!command) return undefined;
+        if (command === undefined) return undefined;
 
         try {
             return commands.executeCommand(command.command, ...command.args);

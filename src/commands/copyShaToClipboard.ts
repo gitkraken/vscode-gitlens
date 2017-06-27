@@ -16,10 +16,12 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
         super(Commands.CopyShaToClipboard);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, args: CopyShaToClipboardCommandArgs = {}): Promise<any> {
+    async execute(editor?: TextEditor, uri?: Uri, args: CopyShaToClipboardCommandArgs = {}): Promise<any> {
         uri = getCommandUri(uri, editor);
 
         try {
+            args = { ...args };
+
             // If we don't have an editor then get the sha of the last commit to the branch
             if (uri === undefined) {
                 if (!this.git.repoPath) return undefined;

@@ -24,7 +24,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         super(Commands.ShowQuickCommitDetails);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, args: ShowQuickCommitDetailsCommandArgs = {}) {
+    async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickCommitDetailsCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
 
@@ -33,6 +33,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         let repoPath = gitUri.repoPath;
         let workingFileName = path.relative(repoPath || '', gitUri.fsPath);
 
+        args = { ...args };
         if (args.sha === undefined) {
             if (editor === undefined) return undefined;
 

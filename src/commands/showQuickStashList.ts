@@ -19,7 +19,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
         super(Commands.ShowQuickStashList);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, args: ShowQuickStashListCommandArgs = {}) {
+    async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickStashListCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
         try {

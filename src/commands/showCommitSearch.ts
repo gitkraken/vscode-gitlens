@@ -30,7 +30,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
         super(Commands.ShowCommitSearch);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, args: ShowCommitSearchCommandArgs = {}) {
+    async execute(editor?: TextEditor, uri?: Uri, args: ShowCommitSearchCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
         const gitUri = uri === undefined ? undefined : await GitUri.fromUri(uri, this.git);
@@ -38,6 +38,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
         const repoPath = gitUri === undefined ? this.git.repoPath : gitUri.repoPath;
         if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show commit search`);
 
+        args = { ...args };
         if (!args.search || args.searchBy == null) {
             try {
                 if (!args.search) {
@@ -95,14 +96,17 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                     originalSearch = `@${args.search}`;
                     placeHolder = `commits with author matching '${args.search}'`;
                     break;
+
                 case GitRepoSearchBy.Files:
                     originalSearch = `:${args.search}`;
                     placeHolder = `commits with files matching '${args.search}'`;
                     break;
+
                 case GitRepoSearchBy.Message:
                     originalSearch = args.search;
                     placeHolder = `commits with message matching '${args.search}'`;
                     break;
+
                 case GitRepoSearchBy.Sha:
                     originalSearch = `#${args.search}`;
                     placeHolder = `commits with id matching '${args.search}'`;

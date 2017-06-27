@@ -24,6 +24,8 @@ export class ShowBlameHistoryCommand extends EditorCommand {
         if (uri === undefined) return undefined;
 
         if (args.range == null || args.position == null) {
+            args = { ...args };
+
             // If the command is executed manually -- treat it as a click on the root lens (i.e. show blame for the whole file)
             args.range = editor.document.validateRange(new Range(0, 0, 1000000, 1000000));
             args.position = editor.document.validateRange(new Range(0, 0, 0, 1000000)).start;

@@ -1,6 +1,6 @@
 'use strict';
 import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, openEditor } from './common';
+import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
@@ -15,27 +15,13 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
         super(Commands.OpenChangedFiles);
     }
 
-    async run(context: CommandContext, args: OpenChangedFilesCommandArgs = {}): Promise<any> {
-        // Since we can change the args and they could be cached -- make a copy
-        switch (context.type) {
-            case 'uri':
-                return this.execute(context.editor, context.uri, { ...args });
-            case 'scm-states':
-                return undefined;
-            case 'scm-groups':
-                // const group = context.scmResourceGroups[0];
-                // args.uris = group.resourceStates.map(_ => _.resourceUri);
-                return this.execute(undefined, undefined, { ...args });
-            default:
-                return this.execute(context.editor, undefined, { ...args });
-        }
-    }
-
-    async execute(editor: TextEditor | undefined, uri?: Uri, args: OpenChangedFilesCommandArgs = {}) {
+    async execute(editor?: TextEditor, uri?: Uri, args: OpenChangedFilesCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
         try {
             if (args.uris === undefined) {
+                args = { ...args };
+
                 const repoPath = await this.git.getRepoPathFromUri(uri);
                 if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open changed files`);
 

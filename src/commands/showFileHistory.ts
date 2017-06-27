@@ -23,6 +23,8 @@ export class ShowFileHistoryCommand extends EditorCommand {
         if (uri === undefined) return undefined;
 
         if (args.position == null) {
+            args = { ...args };
+
             // If the command is executed manually -- treat it as a click on the root lens (i.e. show blame for the whole file)
             args.position = editor.document.validateRange(new Range(0, 0, 0, 1000000)).start;
         }
