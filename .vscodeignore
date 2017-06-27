@@ -1,5 +1,6 @@
 !images/**/*.svg
 !images/*.svg
+!images/gitlens-icon.png
 images/**
 .vscode/**
 .vscode-test/**

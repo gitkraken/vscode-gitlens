@@ -37,7 +37,7 @@
         "color": "#56098c",
         "theme": "dark"
     },
-    "icon": "images/gitlens-icon.svg",
+    "icon": "images/gitlens-icon.png",
     "preview": false,
     "homepage": "https://github.com/eamodio/vscode-gitlens/blob/master/README.md",
     "bugs": {
