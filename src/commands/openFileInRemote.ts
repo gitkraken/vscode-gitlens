@@ -1,7 +1,7 @@
 'use strict';
 import { Arrays } from '../system';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, CommandContext, Commands, getCommandUri } from './common';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { OpenInRemoteCommandArgs } from './openInRemote';
@@ -12,7 +12,21 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
         super(Commands.OpenFileInRemote);
     }
 
-    async execute(editor: TextEditor, uri?: Uri) {
+    async run(context: CommandContext): Promise<any> {
+        switch (context.type) {
+            case 'uri':
+                return this.execute(context.editor, context.uri);
+            case 'scm-states':
+                const resource = context.scmResourceStates[0];
+                return this.execute(undefined, resource.resourceUri);
+            case 'scm-groups':
+                return undefined;
+            default:
+                return this.execute(context.editor, undefined);
+        }
+    }
+
+    async execute(editor: TextEditor | undefined, uri?: Uri) {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
 

@@ -1,6 +1,6 @@
 'use strict';
 import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, CommandContext, Commands, getCommandUri } from './common';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
@@ -21,7 +21,22 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
         super(Commands.DiffWithBranch);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, args: DiffWithBranchCommandArgs = {}): Promise<any> {
+    async run(context: CommandContext, args: DiffWithBranchCommandArgs = {}): Promise<any> {
+        // Since we can change the args and they could be cached -- make a copy
+        switch (context.type) {
+            case 'uri':
+                return this.execute(context.editor, context.uri, { ...args });
+            case 'scm-states':
+                const resource = context.scmResourceStates[0];
+                return this.execute(undefined, resource.resourceUri, { ...args });
+            case 'scm-groups':
+                return undefined;
+            default:
+                return this.execute(context.editor, undefined, { ...args });
+        }
+    }
+
+    async execute(editor: TextEditor | undefined, uri?: Uri, args: DiffWithBranchCommandArgs = {}): Promise<any> {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
 
