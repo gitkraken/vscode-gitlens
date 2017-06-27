@@ -47,8 +47,13 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
 
                     if (editor.document !== undefined &&
                         (editor.document.isDirty || args.uris.some(_ => UriComparer.equals(_, editor!.document && editor!.document.uri)))) {
+                        const lastPrevious = previous;
                         previous = editor;
                         editor = await editorTracker.awaitNext(500);
+
+                        if (TextEditorComparer.equals(lastPrevious, editor, { useId: true, usePosition: true })) {
+                            break;
+                        }
                         continue;
                     }
                 }
