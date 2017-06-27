@@ -25,7 +25,9 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
 
-        args.line = args.line || (editor === undefined ? 0 : editor.selection.active.line);
+        if (args.line === undefined) {
+            args.line = editor === undefined ? 0 : editor.selection.active.line;
+        }
 
         const gitUri = await GitUri.fromUri(uri, this.git);
         if (!gitUri.repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open branch compare`);
