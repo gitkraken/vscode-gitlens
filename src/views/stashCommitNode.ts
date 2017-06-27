@@ -1,5 +1,5 @@
 'use strict';
-import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Event, EventEmitter, ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitFileNode } from './commitFileNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { CommitFormatter, GitService, GitStashCommit, GitUri } from '../gitService';
@@ -7,6 +7,15 @@ import { CommitFormatter, GitService, GitStashCommit, GitUri } from '../gitServi
 export class StashCommitNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'stash-commit';
+
+    private _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
+    public get onDidChangeTreeData(): Event<ExplorerNode> {
+        return this._onDidChangeTreeData.event;
+    }
+
+    public refreshNode() {
+        this._onDidChangeTreeData.fire();
+    }
 
     constructor(public readonly commit: GitStashCommit, context: ExtensionContext, git: GitService) {
         super(new GitUri(commit.uri, commit), context, git);
