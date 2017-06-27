@@ -95,7 +95,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 - Adds a `Directory Compare` command (`gitlens.diffDirectory`) to open the configured Git difftool to compare directories between branches
 
-- Adds a `Compare File with...` command (`gitlens.diffWithBranch`) to compare the active file with the same file on the selected branch
+- Adds a `Compare File with Branch...` command (`gitlens.diffWithBranch`) to compare the active file with the same file on the selected branch
 
 - Adds a `Compare File with Next Commit` command (`gitlens.diffWithNext`) with a shortcut of `alt+.` to compare the active file/diff with the next commit revision
 
