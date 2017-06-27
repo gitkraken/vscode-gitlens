@@ -1,7 +1,7 @@
 'use strict';
 import { Iterables } from '../system';
 import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, CommandContext, Commands, getCommandUri } from './common';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { DiffWithWorkingCommandArgs } from './diffWithWorking';
 import { GitCommit, GitService, GitUri } from '../gitService';
@@ -22,15 +22,27 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
         super(Commands.DiffWithPrevious);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, args: DiffWithPreviousCommandArgs = {}): Promise<any> {
+    async run(context: CommandContext, args: DiffWithPreviousCommandArgs = {}): Promise<any> {
+        // Since we can change the args and they could be cached -- make a copy
+        switch (context.type) {
+            case 'uri':
+                return this.execute(context.editor, context.uri, { ...args });
+            case 'scm-states':
+                const resource = context.scmResourceStates[0];
+                return this.execute(undefined, resource.resourceUri, { ...args });
+            case 'scm-groups':
+                return undefined;
+            default:
+                return this.execute(context.editor, undefined, { ...args });
+        }
+    }
+
+    async execute(editor: TextEditor | undefined, uri?: Uri, args: DiffWithPreviousCommandArgs = {}): Promise<any> {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
 
-        if (args.commit !== undefined && args.commit.type !== 'file') {
-            args.line = 0;
-        }
-        else {
-            args.line = args.line || (editor === undefined ? 0 : editor.selection.active.line);
+        if (args.line === undefined) {
+            args.line = editor === undefined ? 0 : editor.selection.active.line;
         }
 
         if (args.commit === undefined || args.commit.type !== 'file' || args.range !== undefined) {
