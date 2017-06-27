@@ -1219,6 +1219,35 @@
                     "when": "gitlens:enabled && config.gitlens.advanced.menus.explorerContext.history",
                     "group": "1_gitlens_1@1"
                 }
+            ],
+            "scm/resourceGroup/context": [
+                {
+                    "command": "gitlens.openChangedFiles",
+                    "when": "gitlens:enabled",
+                    "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.closeUnchangedFiles",
+                    "when": "gitlens:enabled",
+                    "group": "1_gitlens@2"
+                }
+            ],
+            "scm/resourceState/context": [
+                {
+                    "command": "gitlens.openFileInRemote",
+                    "when": "gitlens:enabled && gitlens:hasRemotes",
+                    "group": "navigation"
+                },
+                {
+                    "command": "gitlens.diffWithRevision",
+                    "when": "gitlens:enabled",
+                    "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.showQuickFileHistory",
+                    "when": "gitlens:enabled",
+                    "group": "1_gitlens_1@1"
+                }
             ]
         },
         "keybindings": [
