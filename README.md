@@ -113,7 +113,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 - Adds commands to open files, commits, branches, and the repository in the supported remote services, currently **BitBucket, GitHub, GitLab, and Visual Studio Team Services** — only available if a Git upstream service is configured in the repository
   - `Open Branch in Remote` command (`gitlens.openBranchInRemote`) — opens the current branch commits in the supported remote service
-  - `Open Line Commit in Remote` command (`gitlens.openCommitInRemote`) — opens the commit revision of the active line in the supported remote service
+  - `Open Commit in Remote` command (`gitlens.openCommitInRemote`) — opens the commit revision of the active line in the supported remote service
   - `Open File in Remote` command (`gitlens.openFileInRemote`) — opens the active file/revision in the supported remote service
   - `Open Repository in Remote` command (`gitlens.openRepoInRemote`) — opens the repository in the supported remote service
 
@@ -147,9 +147,9 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
   - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the current revision of the while leaving the quick pick menu open
     - NOTE: Once [vscode issue #10568](https://github.com/Microsoft/vscode/issues/10568) is resolved this will change to preview the comparison of the current revision with the previous one
 
-- Adds a `Show Line Commit Details` command (`gitlens.showQuickCommitFileDetails`) with a shortcut of `alt+c` to show a **file commit details quick pick menu** of the most recent commit of the active file
+- Adds a `Show Commit File Details` command (`gitlens.showQuickCommitFileDetails`) with a shortcut of `alt+c` to show a **file commit details quick pick menu** of the most recent commit of the active file
 
-  ![Line Commit Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-commit-file-details.png)
+  ![Commit File Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-commit-file-details.png)
 
   - Provides entries to `Show Commit Details`, `Show File History`, `Compare File with...`, `Copy to Clipboard`, `Open File`, `Open File in <remote-service>` when available, and more
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available

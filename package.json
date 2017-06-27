@@ -844,7 +844,7 @@
             },
             {
                 "command": "gitlens.showQuickCommitFileDetails",
-                "title": "Show Line Commit Details",
+                "title": "Show Commit File Details",
                 "category": "GitLens"
             },
             {
@@ -899,7 +899,7 @@
             },
             {
                 "command": "gitlens.openCommitInRemote",
-                "title": "Open Line Commit in Remote",
+                "title": "Open Commit in Remote",
                 "category": "GitLens"
             },
             {
