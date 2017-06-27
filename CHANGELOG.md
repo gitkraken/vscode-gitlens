@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [4.2.0] - 2017-06-27
+## Added
+- Adds `Compare File with Revision...` command (`gitlens.diffWithRevision`) - compare the active file with the selected revision of the same file
+- Adds `Open Changed Files` command (`gitlens.openChangedFiles`) to the source control group context menu
+- Adds `Close Unchanged Files` command (`gitlens.closeUnchangedFiles`) to the source control group context menu
+- Adds `Open File in Remote` command (`gitlens.openFileInRemote`) to the source control resource context menu
+- Adds `Compare File with Revision...` command (`gitlens.diffWithRevision`) to the source control resource context menu
+- Adds `Show File History` command (`gitlens.showQuickFileHistory`) to the source control resource context menu
+
+## Changed
+- Renames `Compare File with...` command to `Compare File with Branch...`
+- Renames `Open Line Commit in Remote` command to `Open Commit in Remote`
+- Renames `Show Line Commit Details` command to `Show Commit File Details`
+- Updates the description of `gitlens.blame.line.enabled` to be clearer about its behavior
+- Updates the description of `gitlens.codeLens.enabled` to be clearer about its behavior
+
+### Fixed
+- Fixes #103 - Toggle file blame annotations disables line blame annotations if line blame annotations are off by default
+- Fixes another infinite loop in the `Close Unchanged Files` command
+
 ## [4.1.4] - 2017-06-25
 ## Changed
 - Optimizes performance of the `Compare with Previous` commands - also avoids trying to focus a line if we don't have one
