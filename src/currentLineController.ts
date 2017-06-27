@@ -25,14 +25,15 @@ export const LineAnnotationType = {
 
 export class CurrentLineController extends Disposable {
 
-    private _activeEditorLineDisposable: Disposable | undefined;
     private _blameable: boolean;
+    private _blameLineAnnotationState: { enabled: boolean, annotationType: LineAnnotationType } | undefined = undefined;
     private _config: IConfig;
     private _currentLine: number = -1;
     private _disposable: Disposable;
     private _editor: TextEditor | undefined;
     private _isAnnotating: boolean = false;
     private _statusBarItem: StatusBarItem | undefined;
+    private _trackCurrentLineDisposable: Disposable | undefined;
     private _updateBlameDebounced: (line: number, editor: TextEditor) => Promise<void>;
     private _uri: GitUri;
 
@@ -55,7 +56,7 @@ export class CurrentLineController extends Disposable {
     dispose() {
         this._clearAnnotations(this._editor, true);
 
-        this._activeEditorLineDisposable && this._activeEditorLineDisposable.dispose();
+        this._trackCurrentLineDisposable && this._trackCurrentLineDisposable.dispose();
         this._statusBarItem && this._statusBarItem.dispose();
         this._disposable && this._disposable.dispose();
     }
@@ -65,8 +66,14 @@ export class CurrentLineController extends Disposable {
 
         let changed = false;
 
-        if (!Objects.areEquivalent(cfg.blame.line, this._config && this._config.blame.line) ||
-            !Objects.areEquivalent(cfg.annotations.line.trailing, this._config && this._config.annotations.line.trailing) ||
+        if (!Objects.areEquivalent(cfg.blame.line, this._config && this._config.blame.line)) {
+            changed = true;
+            this._blameLineAnnotationState = undefined;
+
+            this._clearAnnotations(this._editor);
+        }
+
+        if (!Objects.areEquivalent(cfg.annotations.line.trailing, this._config && this._config.annotations.line.trailing) ||
             !Objects.areEquivalent(cfg.annotations.line.hover, this._config && this._config.annotations.line.hover) ||
             !Objects.areEquivalent(cfg.theme.annotations.line.trailing, this._config && this._config.theme.annotations.line.trailing)) {
             changed = true;
@@ -95,19 +102,19 @@ export class CurrentLineController extends Disposable {
 
         if (!changed) return;
 
-        const trackCurrentLine = cfg.statusBar.enabled || cfg.blame.line.enabled;
-        if (trackCurrentLine && !this._activeEditorLineDisposable) {
+        const trackCurrentLine = cfg.statusBar.enabled || cfg.blame.line.enabled || (this._blameLineAnnotationState && this._blameLineAnnotationState.enabled);
+        if (trackCurrentLine && !this._trackCurrentLineDisposable) {
             const subscriptions: Disposable[] = [];
 
             subscriptions.push(window.onDidChangeActiveTextEditor(this._onActiveTextEditorChanged, this));
             subscriptions.push(window.onDidChangeTextEditorSelection(this._onTextEditorSelectionChanged, this));
             subscriptions.push(this.gitContextTracker.onDidBlameabilityChange(this._onBlameabilityChanged, this));
 
-            this._activeEditorLineDisposable = Disposable.from(...subscriptions);
+            this._trackCurrentLineDisposable = Disposable.from(...subscriptions);
         }
-        else if (!trackCurrentLine && this._activeEditorLineDisposable) {
-            this._activeEditorLineDisposable.dispose();
-            this._activeEditorLineDisposable = undefined;
+        else if (!trackCurrentLine && this._trackCurrentLineDisposable) {
+            this._trackCurrentLineDisposable.dispose();
+            this._trackCurrentLineDisposable = undefined;
         }
 
         this._onActiveTextEditorChanged(window.activeTextEditor);
@@ -234,10 +241,9 @@ export class CurrentLineController extends Disposable {
     async showAnnotations(editor: TextEditor, type: LineAnnotationType) {
         if (editor === undefined) return;
 
-        const cfg = this._config.blame.line;
-        if (!cfg.enabled || cfg.annotationType !== type) {
-            cfg.enabled = true;
-            cfg.annotationType = type;
+        const state = this._blameLineAnnotationState !== undefined ? this._blameLineAnnotationState : this._config.blame.line;
+        if (!state.enabled || state.annotationType !== type) {
+            this._blameLineAnnotationState = { enabled: true, annotationType: type };
 
             await this._clearAnnotations(editor);
             await this._updateBlame(editor.selection.active.line, editor);
@@ -247,9 +253,8 @@ export class CurrentLineController extends Disposable {
     async toggleAnnotations(editor: TextEditor, type: LineAnnotationType) {
         if (editor === undefined) return;
 
-        const cfg = this._config.blame.line;
-        cfg.enabled = !cfg.enabled;
-        cfg.annotationType = type;
+        const state = this._blameLineAnnotationState !== undefined ? this._blameLineAnnotationState : this._config.blame.line;
+        this._blameLineAnnotationState = { enabled: !state.enabled, annotationType: type };
 
         await this._clearAnnotations(editor);
         await this._updateBlame(editor.selection.active.line, editor);
@@ -257,7 +262,9 @@ export class CurrentLineController extends Disposable {
 
     private async _updateAnnotations(commit: GitCommit, blameLine: GitCommitLine, editor: TextEditor, line?: number) {
         const cfg = this._config.blame.line;
-        if (!cfg.enabled) return;
+
+        const state = this._blameLineAnnotationState !== undefined ? this._blameLineAnnotationState : cfg;
+        if (!state.enabled) return;
 
         line = line === undefined ? blameLine.line + this._uri.offset : line;
 
@@ -271,7 +278,7 @@ export class CurrentLineController extends Disposable {
         let showDetailsStartIndex = 0;
         let showDetailsInStartingWhitespace = false;
 
-        switch (cfg.annotationType) {
+        switch (state.annotationType) {
             case LineAnnotationType.Trailing: {
                 const cfgAnnotations = this._config.annotations.line.trailing;
 
