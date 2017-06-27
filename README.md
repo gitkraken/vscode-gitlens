@@ -103,6 +103,8 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 - Adds a `Compare Line Commit with Previous` command (`gitlens.diffLineWithPrevious`) with a shortcut of `shift+alt+,` to compare the active file/diff with the previous line commit revision
 
+- Adds a `Compare File with Revision...` command (`gitlens.diffWithRevision`) to compare the active file with the selected revision of the same file
+
 - Adds a `Compare File with Working Tree` command (`gitlens.diffWithWorking`) with a shortcut of `shift+alt+w` to compare the most recent commit revision of the active file/diff with the working tree
 
 - Adds a `Compare Line Commit with Working Tree` command (`gitlens.diffLineWithWorking`) with a shortcut of `alt+w` to compare the commit revision of the active line with the working tree

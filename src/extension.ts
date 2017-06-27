@@ -5,7 +5,7 @@ import { AnnotationController } from './annotations/annotationController';
 import { CloseUnchangedFilesCommand, OpenChangedFilesCommand } from './commands';
 import { OpenBranchInRemoteCommand, OpenCommitInRemoteCommand, OpenFileInRemoteCommand, OpenInRemoteCommand, OpenRepoInRemoteCommand } from './commands';
 import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './commands';
-import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithBranchCommand, DiffWithNextCommand, DiffWithPreviousCommand, DiffWithWorkingCommand} from './commands';
+import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithBranchCommand, DiffWithNextCommand, DiffWithPreviousCommand, DiffWithRevisionCommand, DiffWithWorkingCommand} from './commands';
 import { ResetSuppressedWarningsCommand } from './commands';
 import { ShowFileBlameCommand, ShowLineBlameCommand, ToggleFileBlameCommand, ToggleFileRecentChangesCommand, ToggleLineBlameCommand } from './commands';
 import { ShowBlameHistoryCommand, ShowFileHistoryCommand } from './commands';
@@ -97,6 +97,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new DiffWithBranchCommand(git));
     context.subscriptions.push(new DiffWithNextCommand(git));
     context.subscriptions.push(new DiffWithPreviousCommand(git));
+    context.subscriptions.push(new DiffWithRevisionCommand(git));
     context.subscriptions.push(new DiffWithWorkingCommand(git));
     context.subscriptions.push(new OpenBranchInRemoteCommand(git));
     context.subscriptions.push(new OpenCommitInRemoteCommand(git));

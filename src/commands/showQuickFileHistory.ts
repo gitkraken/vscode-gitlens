@@ -59,7 +59,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
-            const pick = await FileHistoryQuickPick.show(this.git, args.log, gitUri, progressCancellation, args.goBackCommand, args.nextPageCommand);
+            const pick = await FileHistoryQuickPick.show(this.git, args.log, gitUri, progressCancellation, { goBackCommand: args.goBackCommand, nextPageCommand: args.nextPageCommand });
             if (pick === undefined) return undefined;
 
             if (pick instanceof CommandQuickPickItem) return pick.execute();

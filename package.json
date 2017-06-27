@@ -770,6 +770,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.diffWithRevision",
+                "title": "Compare File with Revision...",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.diffWithWorking",
                 "title": "Compare File with Working Tree",
                 "category": "GitLens"
@@ -949,6 +954,10 @@
                 {
                     "command": "gitlens.diffLineWithPrevious",
                     "when": "gitlens:isBlameable"
+                },
+                {
+                    "command": "gitlens.diffWithRevision",
+                    "when": "gitlens:isTracked"
                 },
                 {
                     "command": "gitlens.diffWithWorking",

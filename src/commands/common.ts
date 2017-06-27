@@ -11,6 +11,7 @@ export type Commands = 'gitlens.closeUnchangedFiles' |
     'gitlens.diffWithNext' |
     'gitlens.diffWithPrevious' |
     'gitlens.diffLineWithPrevious' |
+    'gitlens.diffWithRevision' |
     'gitlens.diffWithWorking' |
     'gitlens.diffLineWithWorking' |
     'gitlens.openChangedFiles' |
@@ -49,6 +50,7 @@ export const Commands = {
     DiffWithNext: 'gitlens.diffWithNext' as Commands,
     DiffWithPrevious: 'gitlens.diffWithPrevious' as Commands,
     DiffLineWithPrevious: 'gitlens.diffLineWithPrevious' as Commands,
+    DiffWithRevision: 'gitlens.diffWithRevision' as Commands,
     DiffWithWorking: 'gitlens.diffWithWorking' as Commands,
     DiffLineWithWorking: 'gitlens.diffLineWithWorking' as Commands,
     OpenChangedFiles: 'gitlens.openChangedFiles' as Commands,
