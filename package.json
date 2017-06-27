@@ -11,7 +11,7 @@
     },
     "license": "SEE LICENSE IN LICENSE",
     "displayName": "Git Lens \u2014 git blame annotations, code lens, and more",
-    "description": "Supercharge Visual Studio Code's Git capabilities \u2014 Visualize code authorship at a glance via Git blame annotations and code lens, seamlessly navigate and explore the history of a file or branch, gain valuable insights via powerful comparision commands, and so much more",
+    "description": "Supercharge Visual Studio Code's Git capabilities \u2014 Visualize code authorship at a glance via Git blame annotations and code lens, seamlessly navigate and explore the history of a file or branch, gain valuable insights via powerful comparison commands, and so much more",
     "badges": [
         {
             "url": "https://badges.gitter.im/vscode-gitlens/Lobby.svg",
@@ -209,7 +209,7 @@
                 "gitlens.blame.line.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to provide a blame annotation for the current line"
+                    "description": "Specifies whether or not to provide a blame annotation for the current line, by default\nUse the `gitlens.toggleLineBlame` command to toggle the annotations on and off for the current session"
                 },
                 "gitlens.blame.line.annotationType": {
                     "type": "string",
@@ -243,7 +243,7 @@
                 "gitlens.codeLens.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to provide any Git code lens"
+                    "description": "Specifies whether or not to provide any Git code lens, by default\nUse the `gitlens.toggleCodeLens` command to toggle the Git code lens on and off for the current session"
                 },
                 "gitlens.codeLens.recentChange.enabled": {
                     "type": "boolean",
