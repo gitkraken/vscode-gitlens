@@ -65,16 +65,23 @@ export const GitRepoSearchBy = {
     Sha: 'sha' as GitRepoSearchBy
 };
 
+type RepoChangedReasons = 'stash' | 'unknown';
+
 export class GitService extends Disposable {
+
+    private _onDidBlameFail = new EventEmitter<string>();
+    get onDidBlameFail(): Event<string> {
+        return this._onDidBlameFail.event;
+    }
 
     private _onDidChangeGitCache = new EventEmitter<void>();
     get onDidChangeGitCache(): Event<void> {
         return this._onDidChangeGitCache.event;
     }
 
-    private _onDidBlameFail = new EventEmitter<string>();
-    get onDidBlameFail(): Event<string> {
-        return this._onDidBlameFail.event;
+    private _onDidChangeRepo = new EventEmitter<RepoChangedReasons[]>();
+    get onDidChangeRepo(): Event<RepoChangedReasons[]> {
+        return this._onDidChangeRepo.event;
     }
 
     private _gitCache: Map<string, GitCacheEntry>;
@@ -86,9 +93,9 @@ export class GitService extends Disposable {
     private _codeLensProvider: GitCodeLensProvider | undefined;
     private _codeLensProviderDisposable: Disposable | undefined;
     private _disposable: Disposable | undefined;
-    private _fireGitCacheChangeDebounced: () => void;
-    private _fsWatcher: FileSystemWatcher | undefined;
     private _gitignore: Promise<ignore.Ignore | undefined>;
+    private _repoWatcher: FileSystemWatcher | undefined;
+    private _stashWatcher: FileSystemWatcher | undefined;
 
     static EmptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
 
@@ -98,8 +105,6 @@ export class GitService extends Disposable {
         this._gitCache = new Map();
         this._remotesCache = new Map();
         this._uriCache = new Map();
-
-        this._fireGitCacheChangeDebounced = Functions.debounce(this._fireGitCacheChange, 50);
 
         this._onConfigurationChanged();
 
@@ -120,8 +125,11 @@ export class GitService extends Disposable {
         this._cacheDisposable && this._cacheDisposable.dispose();
         this._cacheDisposable = undefined;
 
-        this._fsWatcher && this._fsWatcher.dispose();
-        this._fsWatcher = undefined;
+        this._repoWatcher && this._repoWatcher.dispose();
+        this._repoWatcher = undefined;
+
+        this._stashWatcher && this._stashWatcher.dispose();
+        this._stashWatcher = undefined;
 
         this._gitCache.clear();
         this._remotesCache.clear();
@@ -165,14 +173,16 @@ export class GitService extends Disposable {
             if (cfg.advanced.caching.enabled) {
                 this._cacheDisposable && this._cacheDisposable.dispose();
 
-                this._fsWatcher = this._fsWatcher || workspace.createFileSystemWatcher('**/.git/index', true, false, true);
+                this._repoWatcher = this._repoWatcher || workspace.createFileSystemWatcher('**/.git/index', true, false, true);
+                this._stashWatcher = this._stashWatcher || workspace.createFileSystemWatcher('**/.git/refs/stash', true, false, true);
 
                 const disposables: Disposable[] = [];
 
                 disposables.push(workspace.onDidCloseTextDocument(d => this._removeCachedEntry(d, RemoveCacheReason.DocumentClosed)));
                 disposables.push(workspace.onDidChangeTextDocument(this._onTextDocumentChanged, this));
                 disposables.push(workspace.onDidSaveTextDocument(d => this._removeCachedEntry(d, RemoveCacheReason.DocumentSaved)));
-                disposables.push(this._fsWatcher.onDidChange(this._onGitChanged, this));
+                disposables.push(this._repoWatcher.onDidChange(this._onRepoChanged, this));
+                disposables.push(this._stashWatcher.onDidChange(this._onStashChanged, this));
 
                 this._cacheDisposable = Disposable.from(...disposables);
             }
@@ -180,8 +190,11 @@ export class GitService extends Disposable {
                 this._cacheDisposable && this._cacheDisposable.dispose();
                 this._cacheDisposable = undefined;
 
-                this._fsWatcher && this._fsWatcher.dispose();
-                this._fsWatcher = undefined;
+                this._repoWatcher && this._repoWatcher.dispose();
+                this._repoWatcher = undefined;
+
+                this._stashWatcher && this._stashWatcher.dispose();
+                this._stashWatcher = undefined;
 
                 this._gitCache.clear();
                 this._remotesCache.clear();
@@ -229,19 +242,51 @@ export class GitService extends Disposable {
         }, 1);
     }
 
-    private _onGitChanged() {
+    private _onRepoChanged() {
         this._gitCache.clear();
 
-        this._fireGitCacheChangeDebounced();
+        this._fireRepoChange();
+        this._fireGitCacheChange();
     }
 
-    private _fireGitCacheChange() {
-        setTimeout(() => {
-            // Refresh the code lenses
-            this._codeLensProvider && this._codeLensProvider.reset();
+    private _onStashChanged() {
+        this._fireRepoChange('stash');
+    }
 
-            this._onDidChangeGitCache.fire();
-        }, 1);
+    private _fireGitCacheChangeDebounced: (() => void) | undefined = undefined;
+
+    private _fireGitCacheChange() {
+        if (this._fireGitCacheChangeDebounced === undefined) {
+            this._fireGitCacheChangeDebounced = Functions.debounce(this._fireGitCacheChangeCore, 50);
+        }
+
+        return this._fireGitCacheChangeDebounced();
+    }
+
+    private _fireGitCacheChangeCore() {
+        // Refresh the code lenses
+        this._codeLensProvider && this._codeLensProvider.reset();
+
+        this._onDidChangeGitCache.fire();
+    }
+
+    private _fireRepoChangeDebounced: (() => void) | undefined = undefined;
+    private _repoChangedReasons: RepoChangedReasons[] = [];
+
+    private _fireRepoChange(reason: RepoChangedReasons = 'unknown') {
+        if (this._fireRepoChangeDebounced === undefined) {
+            this._fireRepoChangeDebounced = Functions.debounce(this._fireRepoChangeCore, 50);
+        }
+
+        this._repoChangedReasons.push(reason);
+        return this._fireRepoChangeDebounced();
+    }
+
+    private _fireRepoChangeCore() {
+        const reasons = this._repoChangedReasons;
+        this._repoChangedReasons = [];
+
+        this._onDidChangeRepo.fire(reasons);
     }
 
     private _removeCachedEntry(document: TextDocument, reason: RemoveCacheReason) {
@@ -260,7 +305,7 @@ export class GitService extends Disposable {
             Logger.log(`Clear cache entry for '${cacheKey}', reason=${RemoveCacheReason[reason]}`);
 
             if (reason === RemoveCacheReason.DocumentSaved) {
-                this._fireGitCacheChangeDebounced();
+                this._fireGitCacheChange();
             }
         }
     }

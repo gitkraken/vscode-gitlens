@@ -1318,14 +1318,14 @@
                     "group": "navigation"
                 },
                 {
-                    "command": "gitlens.stashExplorer.refresh",
-                    "when": "gitlens:enabled && view == gitlens.stashExplorer",
-                    "group": "navigation"
-                },
-                {
                     "command": "gitlens.stashSave",
                     "when": "gitlens:enabled && view == gitlens.stashExplorer",
-                    "group": "navigation"
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "gitlens.stashExplorer.refresh",
+                    "when": "gitlens:enabled && view == gitlens.stashExplorer",
+                    "group": "navigation@2"
                 }
             ],
             "view/item/context": [

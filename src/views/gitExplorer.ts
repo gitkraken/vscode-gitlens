@@ -1,4 +1,5 @@
 'use strict';
+// import { Functions } from '../system';
 import { commands, Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem, Uri } from 'vscode';
 import { UriComparer } from '../comparers';
 import { ExplorerNode, FileHistoryNode, RepositoryNode, ResourceType, StashNode } from './explorerNodes';
@@ -7,6 +8,8 @@ import { GitService, GitUri } from '../gitService';
 export * from './explorerNodes';
 
 export class GitExplorer implements TreeDataProvider<ExplorerNode> {
+
+    // private _refreshDebounced: () => void;
 
     private _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
     public get onDidChangeTreeData(): Event<ExplorerNode> {
@@ -17,6 +20,8 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
     constructor(private context: ExtensionContext, private git: GitService) {
         commands.registerCommand('gitlens.gitExplorer.refresh', () => this.refresh());
+
+        // this._refreshDebounced = Functions.debounce(this.refresh.bind(this), 250);
 
         // const editor = window.activeTextEditor;
 
@@ -29,6 +34,9 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     }
 
     async getTreeItem(node: ExplorerNode): Promise<TreeItem> {
+        // if (node.onDidChangeTreeData !== undefined) {
+        //     node.onDidChangeTreeData(() => setTimeout(this._refreshDebounced, 1));
+        // }
         return node.getTreeItem();
     }
 
@@ -51,12 +59,12 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         if (!this._roots.some(_ => _.resourceType === type.rootType && UriComparer.equals(uri, _.uri))) {
             this._roots.push(new type(uri, this.context, this.git));
         }
-        this._onDidChangeTreeData.fire();
+        this.refresh();
     }
 
     clear() {
         this._roots = [];
-        this._onDidChangeTreeData.fire();
+        this.refresh();
     }
 
     refresh() {

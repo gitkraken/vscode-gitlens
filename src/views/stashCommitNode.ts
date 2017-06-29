@@ -13,10 +13,6 @@ export class StashCommitNode extends ExplorerNode {
         return this._onDidChangeTreeData.event;
     }
 
-    public refreshNode() {
-        this._onDidChangeTreeData.fire();
-    }
-
     constructor(public readonly commit: GitStashCommit, context: ExtensionContext, git: GitService) {
         super(new GitUri(commit.uri, commit), context, git);
     }
@@ -42,5 +38,9 @@ export class StashCommitNode extends ExplorerNode {
         //     ]
         // };
         return item;
+    }
+
+    refresh() {
+        this._onDidChangeTreeData.fire();
     }
 }

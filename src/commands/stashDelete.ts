@@ -1,6 +1,6 @@
 'use strict';
 import { MessageItem, window } from 'vscode';
-import { Command, Commands } from './common';
+import { Command, CommandContext, Commands } from './common';
 import { GlyphChars } from '../constants';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
@@ -20,16 +20,21 @@ export class StashDeleteCommand extends Command {
         super(Commands.StashDelete);
     }
 
-    async execute(args: StashDeleteCommandArgs | StashCommitNode = { confirm: true }) {
-        if (!this.git.repoPath) return undefined;
-        let stashCommitNode = undefined;
-        if (args instanceof StashCommitNode) {
-            stashCommitNode = args;
-            args = {
-                confirm: true,
-                stashItem: args.commit
-            };
+    protected async preExecute(context: CommandContext, args: StashDeleteCommandArgs = { confirm: true }) {
+        if (context.type === 'view' && context.node instanceof StashCommitNode) {
+            args = { ...args };
+
+            const stash = context.node.commit;
+            args.stashItem = { stashName: stash.stashName, message: stash.message };
+
+            return this.execute(args);
         }
+
+        return super.preExecute(context, args);
+    }
+
+    async execute(args: StashDeleteCommandArgs = { confirm: true }) {
+        if (!this.git.repoPath) return undefined;
 
         args = { ...args };
         if (args.stashItem === undefined || args.stashItem.stashName === undefined) return undefined;
@@ -45,11 +50,7 @@ export class StashDeleteCommand extends Command {
                 if (result === undefined || result.title !== 'Yes') return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
             }
 
-            const ret = await this.git.stashDelete(this.git.repoPath, args.stashItem.stashName);
-            if (stashCommitNode) {
-                stashCommitNode.refreshNode();
-            }
-            return ret;
+            return await this.git.stashDelete(this.git.repoPath, args.stashItem.stashName);
         }
         catch (ex) {
             Logger.error(ex, 'StashDeleteCommand');

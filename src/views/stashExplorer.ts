@@ -1,4 +1,5 @@
 'use strict';
+// import { Functions } from '../system';
 import { commands, Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem, Uri } from 'vscode';
 import { ExplorerNode, StashNode } from './explorerNodes';
 import { GitService, GitUri } from '../gitService';
@@ -8,6 +9,8 @@ export * from './explorerNodes';
 export class StashExplorer implements TreeDataProvider<ExplorerNode>  {
 
     private _node: ExplorerNode;
+    // private _refreshDebounced: () => void;
+
     private _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
     public get onDidChangeTreeData(): Event<ExplorerNode> {
         return this._onDidChangeTreeData.event;
@@ -15,6 +18,14 @@ export class StashExplorer implements TreeDataProvider<ExplorerNode>  {
 
     constructor(private context: ExtensionContext, private git: GitService) {
         commands.registerCommand('gitlens.stashExplorer.refresh', () => this.refresh());
+
+        context.subscriptions.push(this.git.onDidChangeRepo(reasons => {
+            if (!reasons.includes('stash')) return;
+
+            this.refresh();
+        }, this));
+
+        // this._refreshDebounced = Functions.debounce(this.refresh.bind(this), 250);
 
         // const editor = window.activeTextEditor;
 
@@ -27,11 +38,9 @@ export class StashExplorer implements TreeDataProvider<ExplorerNode>  {
     }
 
     async getTreeItem(node: ExplorerNode): Promise<TreeItem> {
-        if (node.onDidChangeTreeData) {
-            node.onDidChangeTreeData(() => {
-                this._onDidChangeTreeData.fire();
-            });
-        }
+        // if (node.onDidChangeTreeData !== undefined) {
+        //     node.onDidChangeTreeData(() => setTimeout(this._refreshDebounced, 1));
+        // }
         return node.getTreeItem();
     }
 

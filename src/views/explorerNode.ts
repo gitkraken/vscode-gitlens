@@ -13,5 +13,5 @@ export abstract class ExplorerNode {
     abstract getTreeItem(): TreeItem | Promise<TreeItem>;
 
     onDidChangeTreeData?: Event<ExplorerNode>;
-    refreshNode?(): void;
+    refresh?(): void;
 }
