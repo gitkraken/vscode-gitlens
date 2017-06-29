@@ -280,7 +280,7 @@ export class AnnotationController extends Disposable {
             subscriptions.push(window.onDidChangeTextEditorViewColumn(this._onTextEditorViewColumnChanged, this));
             subscriptions.push(workspace.onDidChangeTextDocument(this._onTextDocumentChanged, this));
             subscriptions.push(workspace.onDidCloseTextDocument(this._onTextDocumentClosed, this));
-            subscriptions.push(this.gitContextTracker.onDidBlameabilityChange(this._onBlameabilityChanged, this));
+            subscriptions.push(this.gitContextTracker.onDidChangeBlameability(this._onBlameabilityChanged, this));
 
             this._annotationsDisposable = Disposable.from(...subscriptions);
         }

@@ -12,9 +12,9 @@ export interface BlameabilityChangeEvent {
 
 export class GitContextTracker extends Disposable {
 
-    private _onDidBlameabilityChange = new EventEmitter<BlameabilityChangeEvent>();
-    get onDidBlameabilityChange(): Event<BlameabilityChangeEvent> {
-        return this._onDidBlameabilityChange.event;
+    private _onDidChangeBlameability = new EventEmitter<BlameabilityChangeEvent>();
+    get onDidChangeBlameability(): Event<BlameabilityChangeEvent> {
+        return this._onDidChangeBlameability.event;
     }
 
     private _disposable: Disposable;
@@ -154,7 +154,7 @@ export class GitContextTracker extends Disposable {
 
         try {
             setCommandContext(CommandContext.IsBlameable, blameable);
-            this._onDidBlameabilityChange.fire({
+            this._onDidChangeBlameability.fire({
                 blameable: blameable,
                 editor: this._editor
             });

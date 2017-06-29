@@ -108,7 +108,7 @@ export class CurrentLineController extends Disposable {
 
             subscriptions.push(window.onDidChangeActiveTextEditor(this._onActiveTextEditorChanged, this));
             subscriptions.push(window.onDidChangeTextEditorSelection(this._onTextEditorSelectionChanged, this));
-            subscriptions.push(this.gitContextTracker.onDidBlameabilityChange(this._onBlameabilityChanged, this));
+            subscriptions.push(this.gitContextTracker.onDidChangeBlameability(this._onBlameabilityChanged, this));
 
             this._trackCurrentLineDisposable = Disposable.from(...subscriptions);
         }
