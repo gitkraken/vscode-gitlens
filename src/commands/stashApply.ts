@@ -70,7 +70,10 @@ export class StashApplyCommand extends Command {
         catch (ex) {
             Logger.error(ex, 'StashApplyCommand');
             if (ex.message.includes('Your local changes to the following files would be overwritten by merge')) {
-                return window.showErrorMessage(`Unable to apply stash. Your working tree changes would be overwritten.`);
+                return window.showWarningMessage(`Unable to apply stash. Your working tree changes would be overwritten.`);
+            }
+            else if (ex.message.includes('Auto-merging') && ex.message.includes('CONFLICT')) {
+                return window.showInformationMessage(`Stash applied with conflicts`);
             }
             else {
                 return window.showErrorMessage(`Unable to apply stash. See output channel for more details`);
