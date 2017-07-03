@@ -1,5 +1,5 @@
 'use strict';
-import { ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { Command, ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { getGitStatusIcon, GitCommit, GitService, GitUri, IGitStatusFile, StatusFileFormatter } from '../gitService';
@@ -34,7 +34,13 @@ export class CommitFileNode extends ExplorerNode {
             light: this.context.asAbsolutePath(path.join('images', 'light', icon))
         };
 
-        item.command = {
+        item.command = this.getCommand();
+
+        return item;
+    }
+
+    getCommand(): Command | undefined {
+        return {
             title: 'Compare File with Previous',
             command: Commands.DiffWithPrevious,
             arguments: [
@@ -49,7 +55,5 @@ export class CommitFileNode extends ExplorerNode {
                 } as DiffWithPreviousCommandArgs
             ]
         };
-
-        return item;
     }
 }

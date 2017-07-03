@@ -964,6 +964,7 @@
             {
                 "command": "gitlens.gitExplorer.refresh",
                 "title": "Refresh",
+                "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-refresh.svg",
                     "light": "images/light/icon-refresh.svg"
@@ -972,10 +973,31 @@
             {
                 "command": "gitlens.stashExplorer.refresh",
                 "title": "Refresh",
+                "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-refresh.svg",
                     "light": "images/light/icon-refresh.svg"
                 }
+            },
+            {
+                "command": "gitlens.stashExplorer.openChanges",
+                "title": "Open Changes",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.stashExplorer.openFile",
+                "title": "Open File",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.stashExplorer.openStashedFile",
+                "title": "Open Stashed File",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.stashExplorer.openFileInRemote",
+                "title": "Open File in Remote",
+                "category": "GitLens"
             }
         ],
         "menus": {
@@ -1127,6 +1149,22 @@
                 {
                     "command": "gitlens.stashExplorer.refresh",
                     "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.stashExplorer.openChanges",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.stashExplorer.openFile",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.stashExplorer.openStashedFile",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.stashExplorer.openFileInRemote",
+                    "when": "false"
                 }
             ],
             "editor/context": [
@@ -1328,36 +1366,16 @@
                 {
                     "command": "gitlens.openFileInRemote",
                     "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == commit-file",
-                    "group": "1_gitlens@2"
-                },
-                {
-                    "command": "gitlens.diffWithPrevious",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == commit-file",
-                    "group": "2_gitlens@1"
-                },
-                {
-                    "command": "gitlens.diffWithWorking",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == commit-file",
-                    "group": "2_gitlens@2"
-                },
-                {
-                    "command": "gitlens.openCommitInRemote",
-                    "when": "gitlens:enabled && view == gitlens.stashExplorer && viewItem == stash-commit",
                     "group": "1_gitlens@1"
                 },
                 {
-                    "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && view == gitlens.stashExplorer && viewItem == commit-file",
-                    "group": "1_gitlens@2"
-                },
-                {
                     "command": "gitlens.diffWithPrevious",
-                    "when": "gitlens:enabled && view == gitlens.stashExplorer && viewItem == commit-file",
+                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == commit-file",
                     "group": "2_gitlens@1"
                 },
                 {
                     "command": "gitlens.diffWithWorking",
-                    "when": "gitlens:enabled && view == gitlens.stashExplorer && viewItem == commit-file",
+                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == commit-file",
                     "group": "2_gitlens@2"
                 },
                 {
@@ -1369,6 +1387,31 @@
                     "command": "gitlens.stashDelete",
                     "when": "gitlens:enabled && view == gitlens.stashExplorer && viewItem == stash-commit",
                     "group": "3_gitlens@1"
+                },
+                {
+                    "command": "gitlens.stashExplorer.openChanges",
+                    "when": "gitlens:enabled && view == gitlens.stashExplorer && viewItem == commit-file",
+                    "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.stashExplorer.openFile",
+                    "when": "gitlens:enabled && view == gitlens.stashExplorer && viewItem == commit-file",
+                    "group": "1_gitlens@2"
+                },
+                {
+                    "command": "gitlens.stashExplorer.openStashedFile",
+                    "when": "gitlens:enabled && view == gitlens.stashExplorer && viewItem == commit-file",
+                    "group": "1_gitlens@3"
+                },
+                {
+                    "command": "gitlens.stashExplorer.openFileInRemote",
+                    "when": "gitlens:enabled && view == gitlens.stashExplorer && viewItem == commit-file",
+                    "group": "1_gitlens@4"
+                },
+                {
+                    "command": "gitlens.diffWithWorking",
+                    "when": "gitlens:enabled && view == gitlens.stashExplorer && viewItem == commit-file",
+                    "group": "2_gitlens@2"
                 }
             ]
         },

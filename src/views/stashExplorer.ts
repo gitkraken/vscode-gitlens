@@ -1,7 +1,8 @@
 'use strict';
 // import { Functions } from '../system';
 import { commands, Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem, Uri } from 'vscode';
-import { ExplorerNode, StashNode } from './explorerNodes';
+import { Commands, DiffWithPreviousCommandArgs, openEditor } from '../commands';
+import { ExplorerNode, StashCommitNode, StashNode } from './explorerNodes';
 import { GitService, GitUri } from '../gitService';
 
 export * from './explorerNodes';
@@ -18,6 +19,17 @@ export class StashExplorer implements TreeDataProvider<ExplorerNode>  {
 
     constructor(private context: ExtensionContext, private git: GitService) {
         commands.registerCommand('gitlens.stashExplorer.refresh', () => this.refresh());
+        commands.registerCommand('gitlens.stashExplorer.openChanges', (node: StashCommitNode) => {
+            const command = node.getCommand();
+            if (command === undefined || command.arguments === undefined) return;
+
+            const [uri, args] = command.arguments as [Uri, DiffWithPreviousCommandArgs];
+            args.showOptions!.preview = false;
+            commands.executeCommand(command.command, uri, args);
+        });
+        commands.registerCommand('gitlens.stashExplorer.openFile', (node: StashCommitNode) => openEditor(node.uri, { preserveFocus: true, preview: false }));
+        commands.registerCommand('gitlens.stashExplorer.openStashedFile', (node: StashCommitNode) => openEditor(GitService.toGitContentUri(node.uri), { preserveFocus: true, preview: false }));
+        commands.registerCommand('gitlens.stashExplorer.openFileInRemote', (node: StashCommitNode) => commands.executeCommand(Commands.OpenFileInRemote, node.commit.previousUri));
 
         context.subscriptions.push(this.git.onDidChangeRepo(reasons => {
             if (!reasons.includes('stash')) return;
