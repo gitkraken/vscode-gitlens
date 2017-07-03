@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [4.3.1] - 2017-07-03
+## Added
+- Adds `gitlens.stashExplorer.enabled` setting to specify whether or not to show the `Git Stashes` explorer
+- Adds `Toggle Git Stashed Explorer` command (`gitlens.stashExplorer.toggle`) - toggles the `Git Stashes` explorer on and off
+
+## Changed
+- Hides the `Git Stashes` explorer by default
+
+## Fixed
+- Fixes [#108](https://github.com/eamodio/vscode-gitlens/issues/108) - Option to remove stash explorer from the main explorer?
+
 ## [4.3.0] - 2017-07-03
 ## Added
 - Adds `Git Stashes` view to the Explorer activity
@@ -33,7 +44,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Updates the description of `gitlens.codeLens.enabled` to be clearer about its behavior
 
 ### Fixed
-- Fixes #103 - Toggle file blame annotations disables line blame annotations if line blame annotations are off by default
+- Fixes [#103](https://github.com/eamodio/vscode-gitlens/issues/103) - Toggle file blame annotations disables line blame annotations if line blame annotations are off by default
 - Fixes another infinite loop in the `Close Unchanged Files` command
 
 ## [4.1.4] - 2017-06-25
@@ -42,7 +53,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes `changes` (diff) hover not showing the correct previous line (for real this time)
-- Attempts to fix #99 - undo/redo spawns too many git processes
+- Attempts to fix [#99](https://github.com/eamodio/vscode-gitlens/issues/99) - undo/redo spawns too many git processes
 
 ## [4.1.3] - 2017-06-20
 ### Fixed
