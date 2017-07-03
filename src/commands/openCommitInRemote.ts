@@ -6,7 +6,7 @@ import { GitBlameCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { OpenInRemoteCommandArgs } from './openInRemote';
-import { CommitNode } from '../views/gitExplorer';
+import { CommitNode } from '../views/explorerNodes';
 
 export interface OpenCommitInRemoteCommandArgs {
     sha?: string;
