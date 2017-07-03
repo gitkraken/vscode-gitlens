@@ -1,7 +1,8 @@
 'use strict';
 // import { Functions } from '../system';
-import { commands, Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem, Uri } from 'vscode';
+import { commands, Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem, Uri, workspace } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs, openEditor } from '../commands';
+import { ExtensionKey, IConfig } from '../configuration';
 import { ExplorerNode, StashCommitNode, StashNode } from './explorerNodes';
 import { GitService, GitUri } from '../gitService';
 
@@ -18,18 +19,12 @@ export class StashExplorer implements TreeDataProvider<ExplorerNode>  {
     }
 
     constructor(private context: ExtensionContext, private git: GitService) {
-        commands.registerCommand('gitlens.stashExplorer.refresh', () => this.refresh());
-        commands.registerCommand('gitlens.stashExplorer.openChanges', (node: StashCommitNode) => {
-            const command = node.getCommand();
-            if (command === undefined || command.arguments === undefined) return;
-
-            const [uri, args] = command.arguments as [Uri, DiffWithPreviousCommandArgs];
-            args.showOptions!.preview = false;
-            commands.executeCommand(command.command, uri, args);
-        });
-        commands.registerCommand('gitlens.stashExplorer.openFile', (node: StashCommitNode) => openEditor(node.uri, { preserveFocus: true, preview: false }));
-        commands.registerCommand('gitlens.stashExplorer.openStashedFile', (node: StashCommitNode) => openEditor(GitService.toGitContentUri(node.uri), { preserveFocus: true, preview: false }));
-        commands.registerCommand('gitlens.stashExplorer.openFileInRemote', (node: StashCommitNode) => commands.executeCommand(Commands.OpenFileInRemote, node.commit.previousUri));
+        commands.registerCommand('gitlens.stashExplorer.refresh', this.refresh, this);
+        commands.registerCommand('gitlens.stashExplorer.toggle', this.toggle, this);
+        commands.registerCommand('gitlens.stashExplorer.openChanges', this.openChanges, this);
+        commands.registerCommand('gitlens.stashExplorer.openFile', this.openFile, this);
+        commands.registerCommand('gitlens.stashExplorer.openStashedFile', this.openStashedFile, this);
+        commands.registerCommand('gitlens.stashExplorer.openFileInRemote', this.openFileInRemote, this);
 
         context.subscriptions.push(this.git.onDidChangeRepo(reasons => {
             if (!reasons.includes('stash')) return;
@@ -61,12 +56,40 @@ export class StashExplorer implements TreeDataProvider<ExplorerNode>  {
         return node.getChildren();
     }
 
-    update(uri: GitUri) {
-        this._node = new StashNode(uri, this.context, this.git);
-        this.refresh();
-    }
+    // update(uri: GitUri) {
+    //     this._node = new StashNode(uri, this.context, this.git);
+    //     this.refresh();
+    // }
 
     refresh() {
+        if (!this.git.config.stashExplorer.enabled) return;
+
         this._onDidChangeTreeData.fire();
+    }
+
+    private toggle() {
+        const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
+        workspace.getConfiguration(ExtensionKey).update('stashExplorer.enabled', !cfg.stashExplorer.enabled, true);
+    }
+
+    private openChanges(node: StashCommitNode) {
+        const command = node.getCommand();
+        if (command === undefined || command.arguments === undefined) return;
+
+        const [uri, args] = command.arguments as [Uri, DiffWithPreviousCommandArgs];
+        args.showOptions!.preview = false;
+        return commands.executeCommand(command.command, uri, args);
+    }
+
+    private openFile(node: StashCommitNode) {
+        return openEditor(node.uri, { preserveFocus: true, preview: false });
+    }
+
+    private openStashedFile(node: StashCommitNode) {
+        return openEditor(GitService.toGitContentUri(node.uri), { preserveFocus: true, preview: false });
+    }
+
+    private openFileInRemote(node: StashCommitNode) {
+        return commands.executeCommand(Commands.OpenFileInRemote, node.commit.previousUri);
     }
 }

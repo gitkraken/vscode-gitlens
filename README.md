@@ -111,9 +111,9 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 ### Navigate and Explore
 
-- Adds a `Git Stashes` view to the Explorer activity
+- Adds a `Git Stashes` explorer to the Explorer activity ([optional](#git-stashes-explorer-settings), off by default)
 
-  ![Git Stashes view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-stashes.png)
+  ![Git Stashes explorer](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-stashes.png)
 
   - Shows all of the stashed changes in the repository
   - Provides toolbar buttons to `Stash Changes` and `Refresh`
@@ -288,6 +288,14 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.codeLens.locations`|Specifies where Git code lens will be shown in the document<br />`document` - adds code lens at the top of the document<br />`containers` -  adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)<br />`blocks` -  adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines<br />`custom` - adds code lens at the start of symbols contained in `gitlens.codeLens.locationCustomSymbols`
 |`gitlens.codeLens.customLocationSymbols`|Specifies the set of document symbols where Git code lens will be shown in the document
 |`gitlens.codeLens.perLanguageLocations`|Specifies where Git code lens will be shown in the document for the specified languages
+
+### Git Stashes Explorer Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.stashExplorer.enabled`|Specifies whether or not to show the `Git Stashes` explorer
+|`gitlens.stashExplorer.stashFormat`|Specifies the format of stashed changes in the `Git Stashes` explorer <br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
+|`gitlens.stashExplorer.stashFileFormat`|Specifies the format of a stashed file in the `Git Stashes`  explorer <br />Available tokens<br /> ${file} - file name<br /> ${path} - file path
 
 ### Status Bar Settings
 

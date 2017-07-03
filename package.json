@@ -407,25 +407,20 @@
                     "default": null,
                     "description": "Specifies how all absolute dates will be formatted by default\nSee https://momentjs.com/docs/#/displaying/format/ for valid formats"
                 },
-                "gitlens.gitExplorer.commitFormat": {
-                    "type": "string",
-                    "default": "${authorAgo} \u00a0\u2022\u00a0 ${message} \u00a0\u2022\u00a0 ${id}",
-                    "description": "Specifies the format of a commit in the explorer view\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)\n ${authorAgo} - commit author, relative commit date\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting"
-                },
-                "gitlens.gitExplorer.commitFileFormat": {
-                    "type": "string",
-                    "default": "${file} \u00a0\u2022\u00a0 ${path}",
-                    "description": "Specifies the format of a file commit in the explorer view\nAvailable tokens\n ${file} - file name\n ${path} - file path"
+                "gitlens.stashExplorer.enabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Specifies whether or not to show the `Git Stashes` explorer"
                 },
                 "gitlens.stashExplorer.stashFormat": {
                     "type": "string",
                     "default": "${message}",
-                    "description": "Specifies the format of a stash in the explorer view\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)\n ${authorAgo} - commit author, relative commit date\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting"
+                    "description": "Specifies the format of stashed changes in the `Git Stashes` explorer\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)\n ${authorAgo} - commit author, relative commit date\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting"
                 },
                 "gitlens.stashExplorer.stashFileFormat": {
                     "type": "string",
                     "default": "${file} \u00a0\u2022\u00a0 ${path}",
-                    "description": "Specifies the format of a stashed file in the stash explorer view\nAvailable tokens\n ${file} - file name\n ${path} - file path"
+                    "description": "Specifies the format of a stashed file in the `Git Stashes` explorer\nAvailable tokens\n ${file} - file name\n ${path} - file path"
                 },
                 "gitlens.statusBar.enabled": {
                     "type": "boolean",
@@ -998,6 +993,11 @@
                 "command": "gitlens.stashExplorer.openFileInRemote",
                 "title": "Open File in Remote",
                 "category": "GitLens"
+            },
+            {
+                "command": "gitlens.stashExplorer.toggle",
+                "title": "Toggle Git Stashes Explorer",
+                "category": "GitLens"
             }
         ],
         "menus": {
@@ -1144,6 +1144,10 @@
                 },
                 {
                     "command": "gitlens.gitExplorer.refresh",
+                    "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.stashExplorer.toggle",
                     "when": "gitlens:enabled"
                 },
                 {
@@ -1511,7 +1515,8 @@
             "explorer": [
                 {
                     "id": "gitlens.stashExplorer",
-                    "name": "Git Stashes"
+                    "name": "Git Stashes",
+                    "when": "gitlens:enabled && config.gitlens.stashExplorer.enabled"
                 }
             ]
         }
