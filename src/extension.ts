@@ -89,17 +89,10 @@ export async function activate(context: ExtensionContext) {
 
     context.subscriptions.push(new Keyboard());
 
-    // let explorer: GitExplorer | undefined = undefined;
-    // if (cfg.insiders) {
-    //     explorer = new GitExplorer(context, git);
-    //     context.subscriptions.push(window.registerTreeDataProvider('gitlens.gitExplorer', explorer));
-    // }
+    // const explorer = new GitExplorer(context, git);
+    // context.subscriptions.push(window.registerTreeDataProvider('gitlens.gitExplorer', explorer));
 
-    let stashExplorer;
-    if (cfg.insiders) {
-        stashExplorer = new StashExplorer(context, git);
-        context.subscriptions.push(window.registerTreeDataProvider('gitlens.stashExplorer', stashExplorer));
-    }
+    context.subscriptions.push(window.registerTreeDataProvider('gitlens.stashExplorer', new StashExplorer(context, git)));
 
     context.subscriptions.push(new CloseUnchangedFilesCommand(git));
     context.subscriptions.push(new OpenChangedFilesCommand(git));
