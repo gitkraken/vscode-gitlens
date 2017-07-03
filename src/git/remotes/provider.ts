@@ -41,7 +41,7 @@ export abstract class RemoteProvider {
         return commands.executeCommand(BuiltInCommands.Open, Uri.parse(url));
     }
 
-    open(resource: RemoteResource): Promise<{}> {
+    open(resource: RemoteResource): Promise<{} | undefined> {
         switch (resource.type) {
             case 'branch':
                 return this.openBranch(resource.branch);

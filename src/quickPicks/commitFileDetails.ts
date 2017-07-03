@@ -5,7 +5,7 @@ import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandA
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem } from './common';
 import { GlyphChars } from '../constants';
 import { GitBranch, GitLog, GitLogCommit, GitService, GitUri, RemoteResource } from '../gitService';
-import { Keyboard, KeyNoopCommand } from '../keyboard';
+import { Keyboard, KeyCommand, KeyNoopCommand } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as moment from 'moment';
 import * as path from 'path';
@@ -173,8 +173,8 @@ export class CommitFileDetailsQuickPick {
             items.splice(0, 0, goBackCommand);
         }
 
-        let previousCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>) | undefined = undefined;
-        let nextCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>) | undefined = undefined;
+        let previousCommand: KeyCommand | (() => Promise<KeyCommand>) | undefined = undefined;
+        let nextCommand: KeyCommand | (() => Promise<KeyCommand>) | undefined = undefined;
         if (!stash) {
             // If we have the full history, we are good
             if (fileLog !== undefined && !fileLog.truncated && fileLog.sha === undefined) {
@@ -278,7 +278,7 @@ export class CommitFileDetailsQuickPick {
             placeHolder: `${commit.getFormattedPath()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${isUncommitted ? `Uncommitted ${GlyphChars.ArrowRightHollow} ` : '' }${commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.author}, ${moment(commit.date).fromNow()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.message}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
-                scope.setKeyCommand('right', item);
+                scope.setKeyCommand('right', item as KeyCommand);
             }
         } as QuickPickOptions);
 

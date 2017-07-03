@@ -88,7 +88,7 @@ export class GitService extends Disposable {
     private _disposable: Disposable | undefined;
     private _fireGitCacheChangeDebounced: () => void;
     private _fsWatcher: FileSystemWatcher | undefined;
-    private _gitignore: Promise<ignore.Ignore>;
+    private _gitignore: Promise<ignore.Ignore | undefined>;
 
     static EmptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
 

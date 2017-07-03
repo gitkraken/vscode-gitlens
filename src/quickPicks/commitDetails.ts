@@ -5,7 +5,7 @@ import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandA
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, QuickPickItem } from './common';
 import { GlyphChars } from '../constants';
 import { getGitStatusOcticon, GitCommit, GitLog, GitLogCommit, GitService, GitStashCommit, GitStatusFile, GitStatusFileStatus, GitUri, IGitCommitInfo, IGitStatusFile, RemoteResource } from '../gitService';
-import { Keyboard, KeyNoopCommand, Keys } from '../keyboard';
+import { Keyboard, KeyCommand, KeyNoopCommand, Keys } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as moment from 'moment';
 import * as path from 'path';
@@ -203,8 +203,8 @@ export class CommitDetailsQuickPick {
             items.splice(0, 0, goBackCommand);
         }
 
-        let previousCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>) | undefined = undefined;
-        let nextCommand: CommandQuickPickItem | (() => Promise<CommandQuickPickItem>) | undefined = undefined;
+        let previousCommand: KeyCommand | (() => Promise<KeyCommand>) | undefined = undefined;
+        let nextCommand: KeyCommand | (() => Promise<KeyCommand>) | undefined = undefined;
         if (!stash) {
             // If we have the full history, we are good
             if (repoLog !== undefined && !repoLog.truncated && repoLog.sha === undefined) {

@@ -20,7 +20,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         // Precalculate the formatting options so we don't need to do it on each iteration
         const tokenOptions = Strings.getTokensFromTemplate(cfg.format)
             .reduce((map, token) => {
-                map[token.key] = token.options;
+                map[token.key] = token.options as ICommitFormatOptions;
                 return map;
             }, {} as { [token: string]: ICommitFormatOptions });
 

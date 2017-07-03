@@ -7,7 +7,7 @@ import { WhitespaceController } from './whitespaceController';
 
 export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase {
 
-    protected _blame: Promise<GitBlame>;
+    protected _blame: Promise<GitBlame | undefined>;
 
     constructor(context: ExtensionContext, editor: TextEditor, decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined, whitespaceController: WhitespaceController | undefined, protected git: GitService, protected uri: GitUri) {
         super(context, editor, decoration, highlightDecoration, whitespaceController);
@@ -63,7 +63,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
             whitespacePromise = this.whitespaceController && this.whitespaceController.override();
         }
 
-        let blame: GitBlame;
+        let blame: GitBlame | undefined;
         if (whitespacePromise) {
             [blame] = await Promise.all([this._blame, whitespacePromise]);
         }
@@ -71,7 +71,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
             blame = await this._blame;
         }
 
-        if (!blame || !blame.lines.length) {
+        if (blame === undefined || !blame.lines.length) {
             this.whitespaceController && await this.whitespaceController.restore();
             return undefined;
         }

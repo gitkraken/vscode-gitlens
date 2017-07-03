@@ -22,7 +22,7 @@ export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
         this.resource = resource;
     }
 
-    async execute(): Promise<{}> {
+    async execute(): Promise<{} | undefined> {
         return this.remote.provider!.open(this.resource);
     }
 }
