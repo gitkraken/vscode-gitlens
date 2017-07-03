@@ -1104,20 +1104,30 @@ export class GitService extends Disposable {
 
     static toGitContentUri(sha: string, shortSha: string, fileName: string, repoPath: string, originalFileName?: string): Uri;
     static toGitContentUri(commit: GitCommit): Uri;
-    static toGitContentUri(shaOrcommit: string | GitCommit, shortSha?: string, fileName?: string, repoPath?: string, originalFileName?: string): Uri {
+    static toGitContentUri(uri: GitUri): Uri;
+    static toGitContentUri(shaOrcommitOrUri: string | GitCommit | GitUri, shortSha?: string, fileName?: string, repoPath?: string, originalFileName?: string): Uri {
         let data: IGitUriData;
-        if (typeof shaOrcommit === 'string') {
+        if (typeof shaOrcommitOrUri === 'string') {
             data = GitService._toGitUriData({
-                sha: shaOrcommit,
+                sha: shaOrcommitOrUri,
                 fileName: fileName!,
                 repoPath: repoPath!,
                 originalFileName: originalFileName
             });
         }
+        else if (shaOrcommitOrUri instanceof GitCommit) {
+            data = GitService._toGitUriData(shaOrcommitOrUri, undefined, shaOrcommitOrUri.originalFileName);
+            fileName = shaOrcommitOrUri.fileName;
+            shortSha = shaOrcommitOrUri.shortSha;
+        }
         else {
-            data = GitService._toGitUriData(shaOrcommit, undefined, shaOrcommit.originalFileName);
-            fileName = shaOrcommit.fileName;
-            shortSha = shaOrcommit.shortSha;
+            data = GitService._toGitUriData({
+                sha: shaOrcommitOrUri.sha!,
+                fileName: shaOrcommitOrUri.fsPath!,
+                repoPath: shaOrcommitOrUri.repoPath!
+            });
+            fileName = shaOrcommitOrUri.fsPath;
+            shortSha = shaOrcommitOrUri.shortSha;
         }
 
         const extension = path.extname(fileName!);
