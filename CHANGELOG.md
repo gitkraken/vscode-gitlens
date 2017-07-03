@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [4.3.0] - 2017-07-03
+## Added
+- Adds `Git Stashes` view to the Explorer activity
+
+  ![Git Stashes view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-stashes.png)
+
+  - Shows all of the stashed changes in the repository
+  - Provides toolbar buttons to `Stash Changes` and `Refresh`
+  - Provides a context menu with `Apply Stashed Changes` and `Delete Stashed Changes` commands — both require a confirmation
+  - Expand each stash to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
+    - Provides a context menu with `Open Changes`, `Open File`, `Open Stashed File`, `Open File in Remote`, and `Compare File with Working Tree` commands
+
 ## [4.2.0] - 2017-06-27
 ## Added
 - Adds `Compare File with Revision...` command (`gitlens.diffWithRevision`) - compare the active file with the selected revision of the same file

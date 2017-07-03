@@ -111,6 +111,16 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 ### Navigate and Explore
 
+- Adds a `Git Stashes` view to the Explorer activity
+
+  ![Git Stashes view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-stashes.png)
+
+  - Shows all of the stashed changes in the repository
+  - Provides toolbar buttons to `Stash Changes` and `Refresh`
+  - Provides a context menu with `Apply Stashed Changes` and `Delete Stashed Changes` commands — both require a confirmation
+  - Expand each stash to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
+    - Provides a context menu with `Open Changes`, `Open File`, `Open Stashed File`, `Open File in Remote`, and `Compare File with Working Tree` commands
+
 - Adds a `Search Commits` command (`gitlens.showCommitSearch`) with a shortcut of `alt+/` to search for commits by message, author, file(s), or commit id
 
 - Adds commands to open files, commits, branches, and the repository in the supported remote services, currently **BitBucket, GitHub, GitLab, and Visual Studio Team Services** — only available if a Git upstream service is configured in the repository
@@ -146,8 +156,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
   - Provides entries to `Copy to Clipboard`, `Directory Compare`, `Open Changed Files`, `Open File in <remote-service>` when available, and more
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
-  - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the current revision of the while leaving the quick pick menu open
-    - NOTE: Once [vscode issue #10568](https://github.com/Microsoft/vscode/issues/10568) is resolved this will change to preview the comparison of the current revision with the previous one
+  - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the comparison of the current revision with the previous one
 
 - Adds a `Show Commit File Details` command (`gitlens.showQuickCommitFileDetails`) with a shortcut of `alt+c` to show a **file commit details quick pick menu** of the most recent commit of the active file
 
@@ -167,8 +176,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
   - Quickly see all working changes, both staged and unstaged, complete with status indicators for adds, changes, renames, and deletes
   - Provides entries to `Show Stashed Changes`, `Open Changed Files`, and `Close Unchanged Files`
   - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
-  - Use the `alt+right arrow` shortcut on a file entry in the `Staged Files` or `Unstaged Files` sections to preview the working file while leaving the quick pick menu open
-    - NOTE: Once [vscode issue #10568](https://github.com/Microsoft/vscode/issues/10568) is resolved this will change to preview the comparison of the working file with the previous revision
+  - Use the `alt+right arrow` shortcut on a file entry in the `Staged Files` or `Unstaged Files` sections to preview the comparison of the working file with the previous revision
 
 - Adds a `Show Stashed Changes` command (`gitlens.showQuickStashList`) to show a **stashed changes quick pick menu** for exploring your repository stash history
 
@@ -186,8 +194,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
     - Provides entries to `Apply Stashed Changes` and `Delete Stashed Changes` — both require a confirmation
     - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
     - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
-    - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the current revision of the while leaving the quick pick menu open
-      - NOTE: Once [vscode issue #10568](https://github.com/Microsoft/vscode/issues/10568) is resolved this will change to preview the comparison of the current revision with the previous one
+    - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to  preview the comparison of the current revision with the previous one
 
 - Adds a `Show Last Opened Quick Pick` command (`gitlens.showLastQuickPick`) with a shortcut of `alt+-` to quickly get back to where you were when the last GitLens quick pick menu closed
 
