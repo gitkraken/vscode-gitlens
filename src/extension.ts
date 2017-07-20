@@ -5,7 +5,7 @@ import { AnnotationController } from './annotations/annotationController';
 import { CloseUnchangedFilesCommand, OpenChangedFilesCommand } from './commands';
 import { OpenBranchInRemoteCommand, OpenCommitInRemoteCommand, OpenFileInRemoteCommand, OpenInRemoteCommand, OpenRepoInRemoteCommand } from './commands';
 import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './commands';
-import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithBranchCommand, DiffWithNextCommand, DiffWithPreviousCommand, DiffWithRevisionCommand, DiffWithWorkingCommand} from './commands';
+import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithBranchCommand, DiffWithNextCommand, DiffWithPreviousCommand, DiffWithRevisionCommand, DiffWithWorkingCommand } from './commands';
 import { ResetSuppressedWarningsCommand } from './commands';
 import { ShowFileBlameCommand, ShowLineBlameCommand, ToggleFileBlameCommand, ToggleFileRecentChangesCommand, ToggleLineBlameCommand } from './commands';
 import { ShowBlameHistoryCommand, ShowFileHistoryCommand } from './commands';

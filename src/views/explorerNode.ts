@@ -1,5 +1,5 @@
 'use strict';
-import { Command, Event, ExtensionContext, TreeItem} from 'vscode';
+import { Command, Event, ExtensionContext, TreeItem } from 'vscode';
 import { GitService, GitUri } from '../gitService';
 
 export declare type ResourceType = 'status' | 'branches' | 'repository' | 'branch-history' | 'file-history' | 'stash-history' | 'commit' | 'stash-commit' | 'commit-file';
