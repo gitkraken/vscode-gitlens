@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [4.3.2] - 2017-07-20
+## Fixed
+- Fixes [#118](https://github.com/eamodio/vscode-gitlens/issues/118) - GitLens stopped working on latest insiders build-- thanks to [PR #121](https://github.com/eamodio/vscode-gitlens/pull/121) by Johannes Rieken ([@jrieken](https://github.com/jrieken))
+
 ## [4.3.1] - 2017-07-03
 ## Added
 - Adds `gitlens.stashExplorer.enabled` setting to specify whether or not to show the `Git Stashes` explorer
