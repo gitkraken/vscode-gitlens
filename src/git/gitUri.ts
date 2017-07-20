@@ -19,11 +19,11 @@ export class GitUri extends Uri {
         if (!uri) return;
 
         const base = this as any;
-        base._scheme = uri.scheme;
-        base._authority = uri.authority;
-        base._path = uri.path;
-        base._query = uri.query;
-        base._fragment = uri.fragment;
+        for (const key in uri) {
+            if (uri.hasOwnProperty(key)) {
+                base[key] = (uri as any)[key];
+            }
+        }
 
         this.offset = 0;
         if (uri.scheme === DocumentSchemes.GitLensGit) {
