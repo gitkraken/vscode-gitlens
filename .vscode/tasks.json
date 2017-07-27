@@ -9,13 +9,18 @@
 // A task runner that calls a custom npm script that compiles the extension.
 {
     "version": "2.0.0",
-    "showOutput": "silent",
+    "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+    },
     "tasks": [
         {
-            "taskName": "compile",
-            "command": "npm run compile --silent",
-            "isBuildCommand": true,
-            "isShellCommand": true,
+            "label": "compile",
+            "type": "npm",
+            "script": "compile",
+            "group": "build",
             "problemMatcher": [
                 "$tsc",
                 {
@@ -25,19 +30,17 @@
             ]
         },
         {
-            "taskName": "lint",
-            "command": "npm run lint --silent",
-            "isShellCommand": true,
+            "type": "npm",
+            "script": "lint",
             "problemMatcher": {
                 "base": "$tslint5",
                 "fileLocation": "relative"
             }
         },
         {
-            "taskName": "watch",
-            "command": "npm run watch --silent",
+            "type": "npm",
+            "script": "watch",
             "isBackground": true,
-            "isShellCommand": true,
             "problemMatcher": "$tsc-watch"
         }
     ]
