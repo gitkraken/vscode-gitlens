@@ -1,6 +1,6 @@
 'use strict';
 import { Functions, Objects } from '../system';
-import { DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, TextDocument, TextDocumentChangeEvent, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
+import { DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, Progress, ProgressLocation, TextDocument, TextDocumentChangeEvent, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
 import { AnnotationProviderBase } from './annotationProvider';
 import { Keyboard, KeyboardScope, KeyCommand, Keys } from '../keyboard';
 import { TextDocumentComparer, TextEditorComparer } from '../comparers';
@@ -11,6 +11,7 @@ import { HoverBlameAnnotationProvider } from './hoverBlameAnnotationProvider';
 import { Logger } from '../logger';
 import { RecentChangesAnnotationProvider } from './recentChangesAnnotationProvider';
 import { WhitespaceController } from './whitespaceController';
+import * as path from 'path';
 
 export type FileAnnotationType = 'gutter' | 'hover' | 'recentChanges';
 export const FileAnnotationType = {
@@ -234,15 +235,35 @@ export class AnnotationController extends Disposable {
             return true;
         }
 
+        return window.withProgress({ location: ProgressLocation.Window }, async (progress: Progress<{message: string}>) => this._showAnnotationsCore(currentProvider, editor, type, shaOrLine, progress));
+    }
+
+    private async _showAnnotationsCore(currentProvider: AnnotationProviderBase | undefined, editor: TextEditor, type: FileAnnotationType, shaOrLine?: string | number, progress?: Progress<{ message: string}>): Promise<boolean> {
+        if (progress !== undefined) {
+            let annotationsLabel = 'annotations';
+            switch (type) {
+                case FileAnnotationType.Gutter:
+                case FileAnnotationType.Hover:
+                    annotationsLabel = 'blame annotations';
+                    break;
+
+                case FileAnnotationType.RecentChanges:
+                    annotationsLabel = 'recent changes annotations';
+                    break;
+            }
+
+            progress!.report({ message: `Computing ${annotationsLabel} for ${path.basename(editor.document.fileName)}` });
+        }
+
         // Allows pressing escape to exit the annotations
         if (this._keyboardScope === undefined) {
             this._keyboardScope = await Keyboard.instance.beginScope({
                 escape: {
                     onDidPressKey: (key: Keys) => {
-                        const editor = window.activeTextEditor;
-                        if (editor === undefined) return Promise.resolve(undefined);
+                        const e = window.activeTextEditor;
+                        if (e === undefined) return Promise.resolve(undefined);
 
-                        this.clear(editor.viewColumn || -1);
+                        this.clear(e.viewColumn || -1);
                         return Promise.resolve(undefined);
                     }
                 } as KeyCommand
