@@ -1,9 +1,14 @@
 'use strict';
 const _escapeRegExp = require('lodash.escaperegexp');
+const stringWidth = require('string-width');
 
 export namespace Strings {
     export function escapeRegExp(s: string): string {
         return _escapeRegExp(s);
+    }
+
+    export function getWidth(s: string): number {
+        return stringWidth(s);
     }
 
     const TokenRegex = /\$\{([^|]*?)(?:\|(\d+)(\-|\?)?)?\}/g;
@@ -63,18 +68,19 @@ export namespace Strings {
     }
 
     export function padLeft(s: string, padTo: number, padding: string = '\u00a0') {
-        const diff = padTo - s.length;
+        const diff = padTo - getWidth(s);
         return (diff <= 0) ? s : '\u00a0'.repeat(diff) + s;
     }
 
     export function padLeftOrTruncate(s: string, max: number, padding?: string) {
-        if (s.length < max) return padLeft(s, max, padding);
-        if (s.length > max) return truncate(s, max);
+        const len = getWidth(s);
+        if (len < max) return padLeft(s, max, padding);
+        if (len > max) return truncate(s, max);
         return s;
     }
 
     export function padRight(s: string, padTo: number, padding: string = '\u00a0') {
-        const diff = padTo - s.length;
+        const diff = padTo - getWidth(s);
         return (diff <= 0) ? s : s + '\u00a0'.repeat(diff);
     }
 
@@ -82,19 +88,21 @@ export namespace Strings {
         const left = max < 0;
         max = Math.abs(max);
 
-        if (s.length < max) return left ? padLeft(s, max, padding) : padRight(s, max, padding);
-        if (s.length > max) return truncate(s, max);
+        const len = getWidth(s);
+        if (len < max) return left ? padLeft(s, max, padding) : padRight(s, max, padding);
+        if (len > max) return truncate(s, max);
         return s;
     }
 
     export function padRightOrTruncate(s: string, max: number, padding?: string) {
-        if (s.length < max) return padRight(s, max, padding);
-        if (s.length > max) return truncate(s, max);
+        const len = getWidth(s);
+        if (len < max) return padRight(s, max, padding);
+        if (len > max) return truncate(s, max);
         return s;
     }
 
     export function truncate(s: string, truncateTo?: number) {
-        if (!s || truncateTo === undefined || s.length <= truncateTo) return s;
+        if (!s || truncateTo === undefined || getWidth(s) <= truncateTo) return s;
         return `${s.substring(0, truncateTo - 1)}\u2026`;
     }
 }
