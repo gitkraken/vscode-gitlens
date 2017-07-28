@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [4.3.3] - 2017-07-28
+## Added
+- Adds progress indicator for when computing annotations takes a while
+
+## Changed
+- Optimizes performance of the providing blame annotations, especially for large files (saw a 3.5x improvement on some files)
+
+## Fixed
+- Fixes [#107](https://github.com/eamodio/vscode-gitlens/issues/107) - Double-byte characters break blame layout (still requires proper font support)
+
 ## [4.3.2] - 2017-07-20
 ## Fixed
 - Fixes [#118](https://github.com/eamodio/vscode-gitlens/issues/118) - GitLens stopped working on latest insiders build-- thanks to [PR #121](https://github.com/eamodio/vscode-gitlens/pull/121) by Johannes Rieken ([@jrieken](https://github.com/jrieken))
@@ -27,7 +37,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
   - Shows all of the stashed changes in the repository
   - Provides toolbar buttons to `Stash Changes` and `Refresh`
-  - Provides a context menu with `Apply Stashed Changes` and `Delete Stashed Changes` commands — both require a confirmation
+  - Provides a context menu with `Apply Stashed Changes` and `Delete Stashed Changes` commands - both require a confirmation
   - Expand each stash to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
     - Provides a context menu with `Open Changes`, `Open File`, `Open Stashed File`, `Open File in Remote`, and `Compare File with Working Tree` commands
 
