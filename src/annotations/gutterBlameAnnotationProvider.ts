@@ -62,8 +62,8 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
                     compacted = true;
                 }
 
-                // const firstNonWhitespace = document.lineAt(line).firstNonWhitespaceCharacterIndex;
-                gutter.range = new Range(line, 0, line, 0); // document.validateRange(new Range(line, 0, line, firstNonWhitespace));
+                const endIndex = document.lineAt(line).firstNonWhitespaceCharacterIndex;
+                gutter.range = new Range(line, 0, line, endIndex);
                 decorations.push(gutter);
 
                 if (details !== undefined) {
@@ -93,8 +93,8 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
                 Annotations.applyHeatmap(gutter, commit.date, now);
             }
 
-            // const firstNonWhitespace = document.lineAt(line).firstNonWhitespaceCharacterIndex;
-            gutter.range = new Range(line, 0, line, 0); // document.validateRange(new Range(line, 0, line, firstNonWhitespace));
+            const endIndex = document.lineAt(line).firstNonWhitespaceCharacterIndex;
+            gutter.range = new Range(line, 0, line, endIndex);
             decorations.push(gutter);
 
             if (cfg.hover.details) {

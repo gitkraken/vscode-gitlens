@@ -24,6 +24,7 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
         const dateFormat = this._config.defaultDateFormat;
 
         const decorations: DecorationOptions[] = [];
+        const document = this.document;
 
         let commit: GitBlameCommit | undefined;
         let hover: DecorationOptions | undefined;
@@ -36,8 +37,13 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
             hover = Annotations.hover(commit, renderOptions, cfg.heatmap.enabled, dateFormat);
 
-            const endIndex = cfg.wholeLine ? endOfLineIndex : this.editor.document.lineAt(line).firstNonWhitespaceCharacterIndex;
-            hover.range = this.editor.document.validateRange(new Range(line, 0, line, endIndex));
+            if (cfg.wholeLine) {
+                hover.range = document.validateRange(new Range(line, 0, line, endOfLineIndex));
+            }
+            else {
+                const endIndex = document.lineAt(line).firstNonWhitespaceCharacterIndex;
+                hover.range = new Range(line, 0, line, endIndex);
+            }
 
             if (cfg.heatmap.enabled) {
                 Annotations.applyHeatmap(hover, commit.date, now);
