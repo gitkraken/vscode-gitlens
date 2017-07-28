@@ -99,11 +99,8 @@ export class Annotations {
         } as DecorationOptions;
     }
 
-    static gutter(commit: GitCommit, format: string, dateFormatOrFormatOptions: string | null | ICommitFormatOptions, renderOptions: IRenderOptions, compact: boolean): DecorationOptions {
-        let content = Strings.pad(CommitFormatter.fromTemplate(format, commit, dateFormatOrFormatOptions), 1, 1);
-        if (compact) {
-            content = GlyphChars.Space.repeat(content.length);
-        }
+    static gutter(commit: GitCommit, format: string, dateFormatOrFormatOptions: string | null | ICommitFormatOptions, renderOptions: IRenderOptions): DecorationOptions {
+        const content = Strings.pad(CommitFormatter.fromTemplate(format, commit, dateFormatOrFormatOptions), 1, 1);
 
         return {
             renderOptions: {
