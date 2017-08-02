@@ -14,9 +14,9 @@
     "description": "Supercharge Visual Studio Code's Git capabilities \u2014 Visualize code authorship at a glance via Git blame annotations and code lens, seamlessly navigate and explore the history of a file or branch, gain valuable insights via powerful comparison commands, and so much more",
     "badges": [
         {
-            "url": "https://badges.gitter.im/vscode-gitlens/Lobby.svg",
-            "href": "https://gitter.im/vscode-gitlens/Lobby",
-            "description": "Chat at https://gitter.im/vscode-gitlens/Lobby"
+            "url": "https://img.shields.io/badge/chat-on%20slack-brightgreen.svg",
+            "href": "https://join.slack.com/t/vscode-gitlens/shared_invite/MjIxOTgxNDE3NzM0LTE1MDE2Nzk1MTgtMjkwMmZjMzcxNQ",
+            "description": "Chat at https://vscode-gitlens.slack.com/"
         }
     ],
     "categories": [

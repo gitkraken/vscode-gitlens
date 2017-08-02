@@ -1,5 +1,5 @@
-!images/**/*.svg
-!images/*.svg
+!images/dark/**
+!images/light/**
 !images/gitlens-icon.png
 images/**
 .vscode/**

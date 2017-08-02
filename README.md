@@ -1,7 +1,7 @@
 [![](https://vsmarketplacebadge.apphb.com/version/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
 [![](https://vsmarketplacebadge.apphb.com/installs/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
 [![](https://vsmarketplacebadge.apphb.com/rating/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
-[![Chat at https://gitter.im/vscode-gitlens/Lobby](https://badges.gitter.im/vscode-gitlens/Lobby.svg)](https://gitter.im/vscode-gitlens/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Chat at https://vscode-gitlens.slack.com/](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/chat-badge.png)](https://join.slack.com/t/vscode-gitlens/shared_invite/MjIxOTgxNDE3NzM0LTE1MDE2Nzk1MTgtMjkwMmZjMzcxNQ)
 
 # GitLens
 
