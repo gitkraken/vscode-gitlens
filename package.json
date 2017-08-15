@@ -7,7 +7,7 @@
     },
     "publisher": "eamodio",
     "engines": {
-        "vscode": "^1.14.0"
+        "vscode": "^1.15.0"
     },
     "license": "SEE LICENSE IN LICENSE",
     "displayName": "Git Lens \u2014 git blame annotations, code lens, and more",
@@ -1547,16 +1547,16 @@
         "moment": "2.18.1",
         "spawn-rx": "2.0.11",
         "string-width": "2.1.1",
-        "tmp": "0.0.31"
+        "tmp": "0.0.33"
     },
     "devDependencies": {
         "@types/copy-paste": "1.1.30",
         "@types/iconv-lite": "0.0.1",
         "@types/mocha": "2.2.41",
-        "@types/node": "8.0.17",
+        "@types/node": "8.0.22",
         "@types/tmp": "0.0.33",
-        "mocha": "3.4.2",
-        "tslint": "5.5.0",
+        "mocha": "3.5.0",
+        "tslint": "5.6.0",
         "typescript": "2.4.2",
         "vscode": "1.1.4"
     }
