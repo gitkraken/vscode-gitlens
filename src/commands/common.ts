@@ -4,7 +4,9 @@ import { ExplorerNode } from '../views/explorerNodes';
 import { Logger } from '../logger';
 import { Telemetry } from '../telemetry';
 
-export type Commands = 'gitlens.closeUnchangedFiles' |
+export type Commands =
+    'gitlens.clearFileAnnotations' |
+    'gitlens.closeUnchangedFiles' |
     'gitlens.copyMessageToClipboard' |
     'gitlens.copyShaToClipboard' |
     'gitlens.diffDirectory' |
@@ -43,6 +45,7 @@ export type Commands = 'gitlens.closeUnchangedFiles' |
     'gitlens.toggleFileRecentChanges' |
     'gitlens.toggleLineBlame';
 export const Commands = {
+    ClearFileAnnotations: 'gitlens.clearFileAnnotations' as Commands,
     CloseUnchangedFiles: 'gitlens.closeUnchangedFiles' as Commands,
     CopyMessageToClipboard: 'gitlens.copyMessageToClipboard' as Commands,
     CopyShaToClipboard: 'gitlens.copyShaToClipboard' as Commands,

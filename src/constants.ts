@@ -39,13 +39,15 @@ export const BuiltInCommands = {
     ToggleRenderWhitespace: 'editor.action.toggleRenderWhitespace' as BuiltInCommands
 };
 
-export type CommandContext = 'gitlens:canToggleCodeLens' |
+export type CommandContext =
+    'gitlens:canToggleCodeLens' |
     'gitlens:enabled' |
     'gitlens:hasRemotes' |
     'gitlens:isBlameable' |
     'gitlens:isRepository' |
     'gitlens:isTracked' |
-    'gitlens:key';
+    'gitlens:key' |
+    'gitlens:annotationStatus';
 export const CommandContext = {
     CanToggleCodeLens: 'gitlens:canToggleCodeLens' as CommandContext,
     Enabled: 'gitlens:enabled' as CommandContext,
@@ -53,7 +55,8 @@ export const CommandContext = {
     IsBlameable: 'gitlens:isBlameable' as CommandContext,
     IsRepository: 'gitlens:isRepository' as CommandContext,
     IsTracked: 'gitlens:isTracked' as CommandContext,
-    Key: 'gitlens:key' as CommandContext
+    Key: 'gitlens:key' as CommandContext,
+    AnnotationStatus: 'gitlens:annotationStatus' as CommandContext
 };
 
 export function setCommandContext(key: CommandContext | string, value: any) {

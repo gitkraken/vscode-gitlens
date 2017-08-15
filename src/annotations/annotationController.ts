@@ -5,6 +5,7 @@ import { AnnotationProviderBase } from './annotationProvider';
 import { Keyboard, KeyboardScope, KeyCommand, Keys } from '../keyboard';
 import { TextDocumentComparer, TextEditorComparer } from '../comparers';
 import { ExtensionKey, IConfig, LineHighlightLocations, themeDefaults } from '../configuration';
+import { CommandContext, setCommandContext } from '../constants';
 import { BlameabilityChangeEvent, GitContextTracker, GitService, GitUri } from '../gitService';
 import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
 import { HoverBlameAnnotationProvider } from './hoverBlameAnnotationProvider';
@@ -203,6 +204,8 @@ export class AnnotationController extends Disposable {
         if (this._annotationProviders.size === 0) {
             Logger.log(`Remove listener registrations for annotations`);
 
+            await setCommandContext(CommandContext.AnnotationStatus, undefined);
+
             this._keyboardScope && this._keyboardScope.dispose();
             this._keyboardScope = undefined;
 
@@ -235,7 +238,16 @@ export class AnnotationController extends Disposable {
             return true;
         }
 
-        return window.withProgress({ location: ProgressLocation.Window }, async (progress: Progress<{message: string}>) => this._showAnnotationsCore(currentProvider, editor, type, shaOrLine, progress));
+        return window.withProgress({ location: ProgressLocation.Window }, async (progress: Progress<{ message: string }>) => {
+            await setCommandContext(CommandContext.AnnotationStatus, 'computing');
+
+            const computingAnnotations = this._showAnnotationsCore(currentProvider, editor, type, shaOrLine, progress);
+            const result = await computingAnnotations;
+
+            await setCommandContext(CommandContext.AnnotationStatus, result ? 'computed' : undefined);
+
+            return computingAnnotations;
+        });
     }
 
     private async _showAnnotationsCore(currentProvider: AnnotationProviderBase | undefined, editor: TextEditor, type: FileAnnotationType, shaOrLine?: string | number, progress?: Progress<{ message: string}>): Promise<boolean> {
@@ -311,11 +323,12 @@ export class AnnotationController extends Disposable {
             this._onDidToggleAnnotations.fire();
             return true;
         }
+
         return false;
     }
 
     async toggleAnnotations(editor: TextEditor, type: FileAnnotationType, shaOrLine?: string | number): Promise<boolean> {
-        if (!editor || !editor.document || type === FileAnnotationType.RecentChanges ? !this.git.isTrackable(editor.document.uri) : !this.git.isEditorBlameable(editor)) return false;
+        if (!editor || !editor.document || (type === FileAnnotationType.RecentChanges ? !this.git.isTrackable(editor.document.uri) : !this.git.isEditorBlameable(editor))) return false;
 
         const provider = this._annotationProviders.get(editor.viewColumn || -1);
         if (provider === undefined) return this.showAnnotations(editor, type, shaOrLine);

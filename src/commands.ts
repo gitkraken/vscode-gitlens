@@ -1,6 +1,7 @@
 'use strict';
 export * from './commands/common';
 
+export * from './commands/clearFileAnnotations';
 export * from './commands/closeUnchangedFiles';
 export * from './commands/copyMessageToClipboard';
 export * from './commands/copyShaToClipboard';

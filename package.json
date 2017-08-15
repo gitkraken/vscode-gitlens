@@ -819,6 +819,24 @@
                 }
             },
             {
+                "command": "gitlens.clearFileAnnotations",
+                "title": "Clear File Annotations",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/git-icon-orange.svg",
+                    "light": "images/light/git-icon-orange.svg"
+                }
+            },
+            {
+                "command": "gitlens.computingFileAnnotations",
+                "title": "Computing File Annotations...",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/git-icon-progress.svg",
+                    "light": "images/light/git-icon-progress.svg"
+                }
+            },
+            {
                 "command": "gitlens.toggleFileRecentChanges",
                 "title": "Toggle Recent File Changes Annotations",
                 "category": "GitLens",
@@ -1047,6 +1065,14 @@
                     "when": "gitlens:isBlameable"
                 },
                 {
+                    "command": "gitlens.clearFileAnnotations",
+                    "when": "gitlens:annotationStatus == computed"
+                },
+                {
+                    "command": "gitlens.computingFileAnnotations",
+                    "when": "false"
+                },
+                {
                     "command": "gitlens.toggleFileRecentChanges",
                     "when": "gitlens:isTracked"
                 },
@@ -1227,7 +1253,17 @@
                 {
                     "command": "gitlens.toggleFileBlame",
                     "alt": "gitlens.toggleFileRecentChanges",
-                    "when": "gitlens:isBlameable && config.gitlens.advanced.menus.editorTitle.blame",
+                    "when": "gitlens:isBlameable && !gitlens:annotationStatus && config.gitlens.advanced.menus.editorTitle.blame",
+                    "group": "navigation@100"
+                },
+                {
+                    "command": "gitlens.computingFileAnnotations",
+                    "when": "gitlens:annotationStatus == computing && config.gitlens.advanced.menus.editorTitle.blame",
+                    "group": "navigation@100"
+                },
+                {
+                    "command": "gitlens.clearFileAnnotations",
+                    "when": "gitlens:annotationStatus == computed && config.gitlens.advanced.menus.editorTitle.blame",
                     "group": "navigation@100"
                 },
                 {

@@ -1,13 +1,13 @@
 'use strict';
 // import { Objects } from './system';
-import { ExtensionContext, extensions, languages, window, workspace } from 'vscode';
+import { commands, ExtensionContext, extensions, languages, window, workspace } from 'vscode';
 import { AnnotationController } from './annotations/annotationController';
 import { CloseUnchangedFilesCommand, OpenChangedFilesCommand } from './commands';
 import { OpenBranchInRemoteCommand, OpenCommitInRemoteCommand, OpenFileInRemoteCommand, OpenInRemoteCommand, OpenRepoInRemoteCommand } from './commands';
 import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './commands';
 import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithBranchCommand, DiffWithNextCommand, DiffWithPreviousCommand, DiffWithRevisionCommand, DiffWithWorkingCommand } from './commands';
 import { ResetSuppressedWarningsCommand } from './commands';
-import { ShowFileBlameCommand, ShowLineBlameCommand, ToggleFileBlameCommand, ToggleFileRecentChangesCommand, ToggleLineBlameCommand } from './commands';
+import { ClearFileAnnotationsCommand, ShowFileBlameCommand, ShowLineBlameCommand, ToggleFileBlameCommand, ToggleFileRecentChangesCommand, ToggleLineBlameCommand } from './commands';
 import { ShowBlameHistoryCommand, ShowFileHistoryCommand } from './commands';
 import { ShowLastQuickPickCommand } from './commands';
 import { ShowQuickBranchHistoryCommand, ShowQuickCurrentBranchHistoryCommand, ShowQuickFileHistoryCommand } from './commands';
@@ -94,6 +94,8 @@ export async function activate(context: ExtensionContext) {
 
     context.subscriptions.push(window.registerTreeDataProvider('gitlens.stashExplorer', new StashExplorer(context, git)));
 
+    context.subscriptions.push(commands.registerTextEditorCommand('gitlens.computingFileAnnotations', () => { }));
+
     context.subscriptions.push(new CloseUnchangedFilesCommand(git));
     context.subscriptions.push(new OpenChangedFilesCommand(git));
     context.subscriptions.push(new CopyMessageToClipboardCommand(git));
@@ -111,6 +113,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new OpenFileInRemoteCommand(git));
     context.subscriptions.push(new OpenInRemoteCommand());
     context.subscriptions.push(new OpenRepoInRemoteCommand(git));
+    context.subscriptions.push(new ClearFileAnnotationsCommand(annotationController));
     context.subscriptions.push(new ShowFileBlameCommand(annotationController));
     context.subscriptions.push(new ShowLineBlameCommand(currentLineController));
     context.subscriptions.push(new ToggleFileBlameCommand(annotationController));

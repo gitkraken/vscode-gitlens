@@ -17,7 +17,7 @@ export class ToggleFileBlameCommand extends EditorCommand {
     }
 
     async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, args: ToggleFileBlameCommandArgs = {}): Promise<any> {
-        if (editor !== undefined && editor.document !== undefined && editor.document.isDirty) return undefined;
+        if (editor === undefined || editor.document === undefined || editor.document.isDirty) return undefined;
 
         try {
             if (args.type === undefined) {
