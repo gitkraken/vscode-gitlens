@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## Changed
 - Changes chat links from Gitter to [Slack](https://join.slack.com/t/vscode-gitlens/shared_invite/MjIxOTgxNDE3NzM0LTE1MDE2Nzk1MTgtMjkwMmZjMzcxNQ)
 - Changes the look of the line separators on the gutter blame annotations
-- Changes gitlens.advanced.toggleWhitespace.enabled
+- Changes the `gitlens.advanced.toggleWhitespace.enabled` configuration setting to default to `false` -- as this should no longer be required
 
 ## Removed
 - Removes unneeded `gitlens.stashExplorer.enabled` configuration setting since users can add or remove custom views natively now

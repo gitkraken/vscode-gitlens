@@ -743,7 +743,7 @@
                 },
                 "gitlens.advanced.toggleWhitespace.enabled": {
                     "type": "boolean",
-                    "default": true,
+                    "default": false,
                     "description": "Specifies whether or not to toggle whitespace off then showing blame annotations (*may* be required by certain fonts/themes)"
                 }
             }
