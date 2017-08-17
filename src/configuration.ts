@@ -134,10 +134,6 @@ export interface IThemeConfig {
                     uncommittedForegroundColor: string | null;
                 };
             };
-
-            hover: {
-                separateLines: boolean;
-            };
         };
 
         line: {
@@ -181,9 +177,6 @@ export const themeDefaults: IThemeConfig = {
                     foregroundColor: 'rgb(116, 116, 116)',
                     uncommittedForegroundColor: null
                 }
-            },
-            hover: {
-                separateLines: false
             }
         },
         line: {

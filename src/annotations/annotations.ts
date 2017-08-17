@@ -142,17 +142,18 @@ export class Annotations {
             before: {
                 borderStyle: borderStyle,
                 borderWidth: borderWidth,
-                height: cfgFileTheme.separateLines ? 'calc(100% - 1px)' : '100%',
-                margin: '0 26px 0 0',
-                textDecoration: 'none'
+                height: '100%',
+                margin: '0 26px -1px 0'
             },
             dark: {
                 backgroundColor: cfgFileTheme.dark.backgroundColor || undefined,
-                color: cfgFileTheme.dark.foregroundColor || themeDefaults.annotations.file.gutter.dark.foregroundColor
+                color: cfgFileTheme.dark.foregroundColor || themeDefaults.annotations.file.gutter.dark.foregroundColor,
+                textDecoration: cfgFileTheme.separateLines ? 'overline solid rgba(0, 0, 0, .2)' : 'none'
             } as DecorationInstanceRenderOptions,
             light: {
                 backgroundColor: cfgFileTheme.light.backgroundColor || undefined,
-                color: cfgFileTheme.light.foregroundColor || themeDefaults.annotations.file.gutter.light.foregroundColor
+                color: cfgFileTheme.light.foregroundColor || themeDefaults.annotations.file.gutter.light.foregroundColor,
+                textDecoration: cfgFileTheme.separateLines ? 'overline solid rgba(0, 0, 0, .05)' : 'none'
             } as DecorationInstanceRenderOptions
         } as IRenderOptions;
     }
@@ -172,7 +173,7 @@ export class Annotations {
                 borderStyle: 'solid',
                 borderWidth: '0 0 0 2px',
                 contentText: GlyphChars.ZeroWidthSpace,
-                height: cfgTheme.annotations.file.hover.separateLines ? 'calc(100% - 1px)' : '100%',
+                height: '100%',
                 margin: '0 26px 0 0',
                 textDecoration: 'none'
             }

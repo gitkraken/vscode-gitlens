@@ -508,11 +508,6 @@
                     "default": "rgba(0, 188, 242, 0.6)",
                     "description": "Specifies the light theme foreground color of an uncommitted line in the gutter blame annotations. Must be a valid css color"
                 },
-                "gitlens.theme.annotations.file.hover.separateLines": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Specifies whether or not hover blame annotations will be separated by a small gap (if heatmap is enabled)"
-                },
                 "gitlens.theme.annotations.line.trailing.dark.backgroundColor": {
                     "type": "string",
                     "default": null,

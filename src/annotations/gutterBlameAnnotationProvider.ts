@@ -36,6 +36,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         const offset = this.uri.offset;
         const renderOptions = Annotations.gutterRenderOptions(this._config.theme, cfg.heatmap);
         const dateFormat = this._config.defaultDateFormat;
+        const separateLines = this._config.theme.annotations.file.gutter.separateLines;
 
         const decorations: DecorationOptions[] = [];
         const document = this.document;
@@ -58,7 +59,18 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
                 if (cfg.compact && !compacted) {
                     // Since we are wiping out the contextText make sure to copy the objects
                     gutter.renderOptions = { ...gutter.renderOptions };
-                    gutter.renderOptions.before = { ...gutter.renderOptions.before, ...{ contentText: GlyphChars.Space.repeat(gutter.renderOptions!.before!.contentText!.length) } }; // !.before!.contentText = GlyphChars.Space.repeat(gutter.renderOptions!.before!.contentText!.length);
+                    gutter.renderOptions.before = {
+                        ...gutter.renderOptions.before,
+                        ...{ contentText: GlyphChars.Space.repeat(gutter.renderOptions!.before!.contentText!.length) }
+                    };
+
+                    if (separateLines) {
+                        gutter.renderOptions.dark = { ...gutter.renderOptions.dark };
+                        gutter.renderOptions.dark.before = { ...gutter.renderOptions.dark.before, ...{ textDecoration: 'none' } };
+                        gutter.renderOptions.light = { ...gutter.renderOptions.light };
+                        gutter.renderOptions.light.before = { ...gutter.renderOptions.light.before, ...{ textDecoration: 'none' } };
+                    }
+
                     compacted = true;
                 }
 
@@ -78,16 +90,9 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             }
 
             compacted = false;
-            gutter = Annotations.gutter(commit, cfg.format, options, renderOptions);
+            previousSha = l.sha;
 
-            // TODO: Remove this "if" once vscode 1.15 ships - since empty lines won't be "missing" anymore -- Woo!
-            if (cfg.compact) {
-                const isEmptyOrWhitespace = document.lineAt(line).isEmptyOrWhitespace;
-                previousSha = isEmptyOrWhitespace ? undefined : l.sha;
-            }
-            else {
-                previousSha = l.sha;
-            }
+            gutter = Annotations.gutter(commit, cfg.format, options, renderOptions);
 
             if (cfg.heatmap.enabled) {
                 Annotations.applyHeatmap(gutter, commit.date, now);

@@ -13,10 +13,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## Changed
 - Changes chat links from Gitter to [Slack](https://join.slack.com/t/vscode-gitlens/shared_invite/MjIxOTgxNDE3NzM0LTE1MDE2Nzk1MTgtMjkwMmZjMzcxNQ)
+- Changes the look of the line separators on the gutter blame annotations
 
 ## Removed
 - Removes unneeded `gitlens.stashExplorer.enabled` configuration setting since users can add or remove custom views natively now
 - Removes unneeded `Toggle Git Stashed Explorer` command (`gitlens.stashExplorer.toggle`) since users can add or remove custom views natively now
+- Removes the `gitlens.theme.annotations.file.hover.separateLines` configuration setting
 
 ## Fixed
 - Fixes jumpiness when opening a diff to a certain line

@@ -318,14 +318,13 @@ GitLens is highly customizable and provides many configuration settings to allow
 
 |Name | Description
 |-----|------------
-|`gitlens.theme.annotations.file.gutter.separateLines`|Specifies whether or not gutter blame annotations will be separated by a small gap
+|`gitlens.theme.annotations.file.gutter.separateLines`|Specifies whether or not gutter blame annotations will have line separators
 |`gitlens.theme.annotations.file.gutter.dark.backgroundColor`|Specifies the dark theme background color of the gutter blame annotations
 |`gitlens.theme.annotations.file.gutter.light.backgroundColor`|Specifies the light theme background color of the gutter blame annotations
 |`gitlens.theme.annotations.file.gutter.dark.foregroundColor`|Specifies the dark theme foreground color of the gutter blame annotations
 |`gitlens.theme.annotations.file.gutter.light.foregroundColor`|Specifies the light theme foreground color of the gutter blame annotations
 |`gitlens.theme.annotations.file.gutter.dark.uncommittedForegroundColor`|Specifies the dark theme foreground color of an uncommitted line in the gutter blame annotations
 |`gitlens.theme.annotations.file.gutter.light.uncommittedForegroundColor`|Specifies the light theme foreground color of an uncommitted line in the gutter blame annotations
-|`gitlens.theme.annotations.file.hover.separateLines`|Specifies whether or not hover blame annotations will be separated by a small gap (if heatmap is enabled)
 |`gitlens.theme.annotations.line.trailing.dark.backgroundColor`|Specifies the dark theme background color of the trailing blame annotation
 |`gitlens.theme.annotations.line.trailing.light.backgroundColor`|Specifies the light theme background color of the trailing blame annotation
 |`gitlens.theme.annotations.line.trailing.dark.foregroundColor`|Specifies the dark theme foreground color of the trailing blame annotation
