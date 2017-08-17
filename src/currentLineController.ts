@@ -1,6 +1,6 @@
 'use strict';
 import { Functions, Objects } from './system';
-import { DecorationOptions, DecorationRenderOptions, Disposable, ExtensionContext, Range, StatusBarAlignment, StatusBarItem, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
+import { debug, DecorationOptions, DecorationRenderOptions, Disposable, ExtensionContext, Range, StatusBarAlignment, StatusBarItem, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
 import { AnnotationController, FileAnnotationType } from './annotations/annotationController';
 import { Annotations, endOfLineIndex } from './annotations/annotations';
 import { Commands } from './commands';
@@ -26,9 +26,10 @@ export const LineAnnotationType = {
 export class CurrentLineController extends Disposable {
 
     private _blameable: boolean;
-    private _blameLineAnnotationState: { enabled: boolean, annotationType: LineAnnotationType } | undefined = undefined;
+    private _blameLineAnnotationState: { enabled: boolean, annotationType: LineAnnotationType, reason: 'user' | 'debugging' } | undefined = undefined;
     private _config: IConfig;
     private _currentLine: number = -1;
+    private _debugSessionEndDisposable: Disposable | undefined;
     private _disposable: Disposable;
     private _editor: TextEditor | undefined;
     private _isAnnotating: boolean = false;
@@ -48,7 +49,8 @@ export class CurrentLineController extends Disposable {
 
         subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigurationChanged, this));
         subscriptions.push(git.onDidChangeGitCache(this._onGitCacheChanged, this));
-        subscriptions.push(annotationController.onDidToggleAnnotations(this._onAnnotationsToggled, this));
+        subscriptions.push(annotationController.onDidToggleAnnotations(this._onFileAnnotationsToggled, this));
+        subscriptions.push(debug.onDidStartDebugSession(this._onDebugSessionStarted, this));
 
         this._disposable = Disposable.from(...subscriptions);
     }
@@ -58,6 +60,7 @@ export class CurrentLineController extends Disposable {
 
         this._trackCurrentLineDisposable && this._trackCurrentLineDisposable.dispose();
         this._statusBarItem && this._statusBarItem.dispose();
+        this._debugSessionEndDisposable && this._debugSessionEndDisposable.dispose();
         this._disposable && this._disposable.dispose();
     }
 
@@ -117,40 +120,11 @@ export class CurrentLineController extends Disposable {
             this._trackCurrentLineDisposable = undefined;
         }
 
-        this._onActiveTextEditorChanged(window.activeTextEditor);
+        this.refresh(window.activeTextEditor);
     }
 
-    private isEditorBlameable(editor: TextEditor | undefined): boolean {
-        if (editor === undefined || editor.document === undefined) return false;
-
-        if (!this.git.isTrackable(editor.document.uri)) return false;
-        if (editor.document.isUntitled && editor.document.uri.scheme === DocumentSchemes.File) return false;
-
-        return this.git.isEditorBlameable(editor);
-    }
-
-    private async _onActiveTextEditorChanged(editor: TextEditor | undefined) {
-        this._currentLine = -1;
-        this._clearAnnotations(this._editor);
-
-        if (editor === undefined || !this.isEditorBlameable(editor)) {
-            this.clear(editor);
-            this._editor = undefined;
-
-            return;
-        }
-
-        this._blameable = editor !== undefined && editor.document !== undefined && !editor.document.isDirty;
-        this._editor = editor;
-        this._uri = await GitUri.fromUri(editor.document.uri, this.git);
-
-        const maxLines = this._config.advanced.caching.maxLines;
-        // If caching is on and the file is small enough -- kick off a blame for the whole file
-        if (this._config.advanced.caching.enabled && (maxLines <= 0 || editor.document.lineCount <= maxLines)) {
-            this.git.getBlameForFile(this._uri);
-        }
-
-        this._updateBlameDebounced(editor.selection.active.line, editor);
+    private _onActiveTextEditorChanged(editor?: TextEditor) {
+        this.refresh(editor);
     }
 
     private _onBlameabilityChanged(e: BlameabilityChangeEvent) {
@@ -166,13 +140,30 @@ export class CurrentLineController extends Disposable {
         this._updateBlameDebounced(this._editor.selection.active.line, this._editor);
     }
 
-    private _onAnnotationsToggled() {
-        this._onActiveTextEditorChanged(window.activeTextEditor);
+    private _onDebugSessionStarted() {
+        const state = this._blameLineAnnotationState !== undefined ? this._blameLineAnnotationState : this._config.blame.line;
+        if (!state.enabled) return;
+
+        this._debugSessionEndDisposable = debug.onDidTerminateDebugSession(this._onDebugSessionEnded, this);
+        this.toggleAnnotations(window.activeTextEditor, state.annotationType, 'debugging');
+    }
+
+    private _onDebugSessionEnded() {
+        this._debugSessionEndDisposable && this._debugSessionEndDisposable.dispose();
+        this._debugSessionEndDisposable = undefined;
+
+        if (this._blameLineAnnotationState === undefined || this._blameLineAnnotationState.enabled || this._blameLineAnnotationState.reason !== 'debugging') return;
+
+        this.toggleAnnotations(window.activeTextEditor, this._blameLineAnnotationState.annotationType);
+    }
+
+    private _onFileAnnotationsToggled() {
+        this.refresh(window.activeTextEditor);
     }
 
     private _onGitCacheChanged() {
         Logger.log('Git cache changed; resetting current line annotations');
-        this._onActiveTextEditorChanged(window.activeTextEditor);
+        this.refresh(window.activeTextEditor);
     }
 
     private async _onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent): Promise<void> {
@@ -190,6 +181,15 @@ export class CurrentLineController extends Disposable {
 
         this._clearAnnotations(e.textEditor);
         this._updateBlameDebounced(line, e.textEditor);
+    }
+
+    private _isEditorBlameable(editor: TextEditor | undefined): boolean {
+        if (editor === undefined || editor.document === undefined) return false;
+
+        if (!this.git.isTrackable(editor.document.uri)) return false;
+        if (editor.document.isUntitled && editor.document.uri.scheme === DocumentSchemes.File) return false;
+
+        return this.git.isEditorBlameable(editor);
     }
 
     private async _updateBlame(line: number, editor: TextEditor) {
@@ -230,6 +230,30 @@ export class CurrentLineController extends Disposable {
         editor.setDecorations(annotationDecoration, []);
     }
 
+    async refresh(editor?: TextEditor) {
+        this._currentLine = -1;
+        this._clearAnnotations(this._editor);
+
+        if (editor === undefined || !this._isEditorBlameable(editor)) {
+            this.clear(editor);
+            this._editor = undefined;
+
+            return;
+        }
+
+        this._blameable = editor !== undefined && editor.document !== undefined && !editor.document.isDirty;
+        this._editor = editor;
+        this._uri = await GitUri.fromUri(editor.document.uri, this.git);
+
+        const maxLines = this._config.advanced.caching.maxLines;
+        // If caching is on and the file is small enough -- kick off a blame for the whole file
+        if (this._config.advanced.caching.enabled && (maxLines <= 0 || editor.document.lineCount <= maxLines)) {
+            this.git.getBlameForFile(this._uri);
+        }
+
+        this._updateBlameDebounced(editor.selection.active.line, editor);
+    }
+
     async show(commit: GitCommit, blameLine: GitCommitLine, editor: TextEditor, line: number) {
         // I have no idea why I need this protection -- but it happens
         if (editor.document === undefined) return;
@@ -238,23 +262,23 @@ export class CurrentLineController extends Disposable {
         await this._updateAnnotations(commit, blameLine, editor, line);
     }
 
-    async showAnnotations(editor: TextEditor, type: LineAnnotationType) {
+    async showAnnotations(editor: TextEditor | undefined, type: LineAnnotationType, reason: 'user' | 'debugging' = 'user') {
         if (editor === undefined) return;
 
         const state = this._blameLineAnnotationState !== undefined ? this._blameLineAnnotationState : this._config.blame.line;
         if (!state.enabled || state.annotationType !== type) {
-            this._blameLineAnnotationState = { enabled: true, annotationType: type };
+            this._blameLineAnnotationState = { enabled: true, annotationType: type, reason: reason };
 
             await this._clearAnnotations(editor);
             await this._updateBlame(editor.selection.active.line, editor);
         }
     }
 
-    async toggleAnnotations(editor: TextEditor, type: LineAnnotationType) {
+    async toggleAnnotations(editor: TextEditor | undefined, type: LineAnnotationType, reason: 'user' | 'debugging' = 'user') {
         if (editor === undefined) return;
 
         const state = this._blameLineAnnotationState !== undefined ? this._blameLineAnnotationState : this._config.blame.line;
-        this._blameLineAnnotationState = { enabled: !state.enabled, annotationType: type };
+        this._blameLineAnnotationState = { enabled: !state.enabled, annotationType: type, reason: reason };
 
         await this._clearAnnotations(editor);
         await this._updateBlame(editor.selection.active.line, editor);

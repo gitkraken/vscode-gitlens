@@ -4,16 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [4.x] - 2017-08-16
+## [4.4.0] - 2017-08-17
 ## Added
-- Adds progress indicator to the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) icon
-  - Icon pulses while annotations are computed
-- Adds active state to the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) icon
-  - Icon turns orange while the annotations are visible
+- Adds progress indicator to the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) icon -- pulses while annotations are computed
+- Adds active state to the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) icon -- turns orange while the annotations are visible
+- Adds automatic disabling of the current line blame annotations when starting a debug session and will restore them when the debug session ends -- can still be manually toggled via the `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`)
 
 ## Changed
 - Changes chat links from Gitter to [Slack](https://join.slack.com/t/vscode-gitlens/shared_invite/MjIxOTgxNDE3NzM0LTE1MDE2Nzk1MTgtMjkwMmZjMzcxNQ)
 - Changes the look of the line separators on the gutter blame annotations
+- Changes gitlens.advanced.toggleWhitespace.enabled
 
 ## Removed
 - Removes unneeded `gitlens.stashExplorer.enabled` configuration setting since users can add or remove custom views natively now
@@ -35,7 +35,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [4.3.2] - 2017-07-20
 ## Fixed
-- Fixes [#118](https://github.com/eamodio/vscode-gitlens/issues/118) - GitLens stopped working on latest insiders build-- thanks to [PR #121](https://github.com/eamodio/vscode-gitlens/pull/121) by Johannes Rieken ([@jrieken](https://github.com/jrieken))
+- Fixes [#118](https://github.com/eamodio/vscode-gitlens/issues/118) - GitLens stopped working on latest insiders build -- thanks to [PR #121](https://github.com/eamodio/vscode-gitlens/pull/121) by Johannes Rieken ([@jrieken](https://github.com/jrieken))
 
 ## [4.3.1] - 2017-07-03
 ## Added
