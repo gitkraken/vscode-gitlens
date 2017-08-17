@@ -293,7 +293,6 @@ GitLens is highly customizable and provides many configuration settings to allow
 
 |Name | Description
 |-----|------------
-|`gitlens.stashExplorer.enabled`|Specifies whether or not to show the `Git Stashes` explorer
 |`gitlens.stashExplorer.stashFormat`|Specifies the format of stashed changes in the `Git Stashes` explorer <br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
 |`gitlens.stashExplorer.stashFileFormat`|Specifies the format of a stashed file in the `Git Stashes`  explorer <br />Available tokens<br /> ${file} - file name<br /> ${path} - file path
 

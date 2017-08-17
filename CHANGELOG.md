@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [4.x] - 2017-08-16
+## Added
+- Adds progress indicator to the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) icon
+  - Icon pulses while annotations are computed
+- Adds active state to the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) icon
+  - Icon turns orange while the annotations are visible
+
+## Changed
+- Changes chat links from Gitter to [Slack](https://join.slack.com/t/vscode-gitlens/shared_invite/MjIxOTgxNDE3NzM0LTE1MDE2Nzk1MTgtMjkwMmZjMzcxNQ)
+
+## Removed
+- Removes unneeded `gitlens.stashExplorer.enabled` configuration setting since users can add or remove custom views natively now
+- Removes unneeded `Toggle Git Stashed Explorer` command (`gitlens.stashExplorer.toggle`) since users can add or remove custom views natively now
+
 ## [4.3.3] - 2017-07-28
 ## Added
 - Adds progress indicator for when computing annotations takes a while

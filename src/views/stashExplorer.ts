@@ -1,8 +1,7 @@
 'use strict';
 // import { Functions } from '../system';
-import { commands, Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem, Uri, workspace } from 'vscode';
+import { commands, Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs, openEditor } from '../commands';
-import { ExtensionKey, IConfig } from '../configuration';
 import { ExplorerNode, StashCommitNode, StashNode } from './explorerNodes';
 import { GitService, GitUri } from '../gitService';
 
@@ -20,7 +19,6 @@ export class StashExplorer implements TreeDataProvider<ExplorerNode>  {
 
     constructor(private context: ExtensionContext, private git: GitService) {
         commands.registerCommand('gitlens.stashExplorer.refresh', this.refresh, this);
-        commands.registerCommand('gitlens.stashExplorer.toggle', this.toggle, this);
         commands.registerCommand('gitlens.stashExplorer.openChanges', this.openChanges, this);
         commands.registerCommand('gitlens.stashExplorer.openFile', this.openFile, this);
         commands.registerCommand('gitlens.stashExplorer.openStashedFile', this.openStashedFile, this);
@@ -62,14 +60,7 @@ export class StashExplorer implements TreeDataProvider<ExplorerNode>  {
     // }
 
     refresh() {
-        if (!this.git.config.stashExplorer.enabled) return;
-
         this._onDidChangeTreeData.fire();
-    }
-
-    private toggle() {
-        const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
-        workspace.getConfiguration(ExtensionKey).update('stashExplorer.enabled', !cfg.stashExplorer.enabled, true);
     }
 
     private openChanges(node: StashCommitNode) {

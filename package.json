@@ -407,11 +407,6 @@
                     "default": null,
                     "description": "Specifies how all absolute dates will be formatted by default\nSee https://momentjs.com/docs/#/displaying/format/ for valid formats"
                 },
-                "gitlens.stashExplorer.enabled": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Specifies whether or not to show the `Git Stashes` explorer"
-                },
                 "gitlens.stashExplorer.stashFormat": {
                     "type": "string",
                     "default": "${message}",
@@ -1011,11 +1006,6 @@
                 "command": "gitlens.stashExplorer.openFileInRemote",
                 "title": "Open File in Remote",
                 "category": "GitLens"
-            },
-            {
-                "command": "gitlens.stashExplorer.toggle",
-                "title": "Toggle Git Stashes Explorer",
-                "category": "GitLens"
             }
         ],
         "menus": {
@@ -1170,10 +1160,6 @@
                 },
                 {
                     "command": "gitlens.gitExplorer.refresh",
-                    "when": "gitlens:enabled"
-                },
-                {
-                    "command": "gitlens.stashExplorer.toggle",
                     "when": "gitlens:enabled"
                 },
                 {
@@ -1552,7 +1538,7 @@
                 {
                     "id": "gitlens.stashExplorer",
                     "name": "Git Stashes",
-                    "when": "gitlens:enabled && config.gitlens.stashExplorer.enabled"
+                    "when": "gitlens:enabled"
                 }
             ]
         }
