@@ -4,10 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [4.4.0] - 2017-08-17
+## [4.4.0-beta] - 2017-08-17
 ## Added
-- Adds progress indicator to the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) icon -- pulses while annotations are computed
-- Adds active state to the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) icon -- turns orange while the annotations are visible
+- Adds a progress indicator to the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) icon -- pulses while annotations are computed
+- Adds an active state to the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) icon -- turns orange while the annotations are visible
 - Adds automatic disabling of the current line blame annotations when starting a debug session and will restore them when the debug session ends -- can still be manually toggled via the `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`)
 
 ## Changed
