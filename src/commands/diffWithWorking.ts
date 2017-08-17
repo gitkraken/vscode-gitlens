@@ -1,5 +1,5 @@
 'use strict';
-import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { GitCommit, GitService, GitUri } from '../gitService';
@@ -51,16 +51,18 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
         try {
             const compare = await this.git.getVersionedFile(args.commit.repoPath, args.commit.uri.fsPath, args.commit.sha);
 
+            if (args.line !== undefined && args.line !== 0) {
+                if (args.showOptions === undefined) {
+                    args.showOptions = {};
+                }
+                args.showOptions.selection = new Range(args.line, 0, args.line, 0);
+            }
+
             await commands.executeCommand(BuiltInCommands.Diff,
                 Uri.file(compare),
                 Uri.file(path.resolve(gitUri.repoPath, workingFileName)),
                 `${path.basename(args.commit.uri.fsPath)} (${args.commit.shortSha}) ${GlyphChars.ArrowLeftRight} ${path.basename(workingFileName)}`,
                 args.showOptions);
-
-            if (args.line === undefined || args.line === 0) return undefined;
-
-            // TODO: Figure out how to focus the left pane
-            return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: args.line, at: 'center' });
         }
         catch (ex) {
             Logger.error(ex, 'DiffWithWorkingCommand', 'getVersionedFile');

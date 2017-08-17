@@ -60,16 +60,18 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
                 this.git.getVersionedFile(args.commit.repoPath, args.commit.uri.fsPath, args.commit.sha)
             ]);
 
+            if (args.line !== undefined && args.line !== 0) {
+                if (args.showOptions === undefined) {
+                    args.showOptions = {};
+                }
+                args.showOptions.selection = new Range(args.line, 0, args.line, 0);
+            }
+
             await commands.executeCommand(BuiltInCommands.Diff,
                 Uri.file(lhs),
                 Uri.file(rhs),
                 `${path.basename(args.commit.uri.fsPath)} (${args.commit.shortSha}) ${GlyphChars.ArrowLeftRight} ${path.basename(args.commit.nextUri.fsPath)} (${args.commit.nextShortSha})`,
                 args.showOptions);
-
-            if (args.line === undefined || args.line === 0) return undefined;
-
-            // TODO: Figure out how to focus the left pane
-            return await commands.executeCommand(BuiltInCommands.RevealLine, { lineNumber: args.line, at: 'center' });
         }
         catch (ex) {
             Logger.error(ex, 'DiffWithNextCommand', 'getVersionedFile');

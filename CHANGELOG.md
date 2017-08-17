@@ -18,6 +18,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes unneeded `gitlens.stashExplorer.enabled` configuration setting since users can add or remove custom views natively now
 - Removes unneeded `Toggle Git Stashed Explorer` command (`gitlens.stashExplorer.toggle`) since users can add or remove custom views natively now
 
+## Fixed
+- Fixes jumpiness when opening a diff to a certain line
+
 ## [4.3.3] - 2017-07-28
 ## Added
 - Adds progress indicator for when computing annotations takes a while
