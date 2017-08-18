@@ -338,7 +338,6 @@ GitLens is highly customizable and provides many configuration settings to allow
 
 |Name | Description
 |-----|------------
-|`gitlens.advanced.toggleWhitespace.enabled`|Specifies whether or not to toggle whitespace off then showing blame annotations (*may* be required by certain fonts/themes)
 |`gitlens.advanced.telemetry.enabled`|Specifies whether or not to enable GitLens telemetry (even if enabled still abides by the overall `telemetry.enableTelemetry` setting
 |`gitlens.advanced.menus`|Specifies which commands will be added to which menus
 |`gitlens.advanced.caching.enabled`|Specifies whether git output will be cached
@@ -351,7 +350,6 @@ GitLens is highly customizable and provides many configuration settings to allow
 ## Known Issues
 
 - If the `Copy to * clipboard` commands don't work on Linux -- `xclip` needs to be installed. You can install it via `sudo apt-get install xclip`
-- Visible whitespace causes issues ([vscode issue #11485](https://github.com/Microsoft/vscode/issues/11485)) with the `expanded` and `compact` blame annotation styles when using a non-monospace font -- set `"gitlens.advanced.toggleWhitespace.enabled": true` if you are using a non-monospace font
 
 ## Contributors
 

@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [4.4.0-beta] - 2017-08-17
+## [4.4.0] - 2017-08-18
 ## Added
 - Adds a progress indicator to the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) icon -- pulses while annotations are computed
 - Adds an active state to the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) icon -- turns orange while the annotations are visible
@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## Changed
 - Changes chat links from Gitter to [Slack](https://join.slack.com/t/vscode-gitlens/shared_invite/MjIxOTgxNDE3NzM0LTE1MDE2Nzk1MTgtMjkwMmZjMzcxNQ)
 - Changes the look of the line separators on the gutter blame annotations
-- Changes the `gitlens.advanced.toggleWhitespace.enabled` configuration setting to default to `false` -- as this should no longer be required
+- Changes the `gitlens.advanced.toggleWhitespace.enabled` configuration setting to default to `false` -- thanks to the awesome work in vscode by Alexandru Dima ([@alexandrudima](https://github.com/alexandrudima)) this is no longer required!
 
 ## Removed
 - Removes unneeded `gitlens.stashExplorer.enabled` configuration setting since users can add or remove custom views natively now
