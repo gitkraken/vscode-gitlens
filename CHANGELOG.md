@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [4.4.1] - 2017-08-23
+## Fixed
+- Fixes [#114](https://github.com/eamodio/vscode-gitlens/issues/114) - Stylus files makes code lens freak out
+
 ## [4.4.0] - 2017-08-18
 ## Added
 - Adds a progress indicator to the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) icon -- pulses while annotations are computed
