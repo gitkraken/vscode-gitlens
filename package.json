@@ -351,6 +351,12 @@
                             "locations": [
                                 "document"
                             ]
+                        },
+                        {
+                            "language": "stylus",
+                            "locations": [
+                                "document"
+                            ]
                         }
                     ],
                     "items": {
