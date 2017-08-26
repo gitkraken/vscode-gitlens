@@ -1,15 +1,15 @@
 'use strict';
 import { TextEditor, TextEditorEdit } from 'vscode';
+import { CodeLensController } from '../codeLensController';
 import { Commands, EditorCommand } from './common';
-import { GitService } from '../gitService';
 
 export class ToggleCodeLensCommand extends EditorCommand {
 
-    constructor(private git: GitService) {
+    constructor(private codeLensController: CodeLensController) {
         super(Commands.ToggleCodeLens);
     }
 
     execute(editor: TextEditor, edit: TextEditorEdit) {
-        return this.git.toggleCodeLens(editor);
+        return this.codeLensController.toggleCodeLens(editor);
     }
 }
