@@ -17,6 +17,7 @@ import { StashApplyCommand, StashDeleteCommand, StashSaveCommand } from './comma
 import { ToggleCodeLensCommand } from './commands';
 import { CodeLensLocations, IConfig, LineHighlightLocations } from './configuration';
 import { ApplicationInsightsKey, CommandContext, ExtensionKey, QualifiedExtensionId, setCommandContext, WorkspaceState } from './constants';
+import { CodeLensController } from './codeLensController';
 import { CurrentLineController, LineAnnotationType } from './currentLineController';
 import { GitContentProvider } from './gitContentProvider';
 // import { GitExplorer } from './views/gitExplorer';
@@ -71,7 +72,7 @@ export async function activate(context: ExtensionContext) {
 
     await context.globalState.update(WorkspaceState.GitLensVersion, gitlensVersion);
 
-    const git = new GitService(context, repoPath);
+    const git = new GitService(repoPath);
     context.subscriptions.push(git);
 
     const gitContextTracker = new GitContextTracker(git);
@@ -83,6 +84,9 @@ export async function activate(context: ExtensionContext) {
 
     const annotationController = new AnnotationController(context, git, gitContextTracker);
     context.subscriptions.push(annotationController);
+
+    const codeLensController = new CodeLensController(context, git);
+    context.subscriptions.push(codeLensController);
 
     const currentLineController = new CurrentLineController(context, git, gitContextTracker, annotationController);
     context.subscriptions.push(currentLineController);
@@ -134,7 +138,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new StashApplyCommand(git));
     context.subscriptions.push(new StashDeleteCommand(git));
     context.subscriptions.push(new StashSaveCommand(git));
-    context.subscriptions.push(new ToggleCodeLensCommand(git));
+    context.subscriptions.push(new ToggleCodeLensCommand(codeLensController));
 
     // Constantly over my data cap so stop collecting initialized event
     // Telemetry.trackEvent('initialized', Objects.flatten(cfg, 'config', true));

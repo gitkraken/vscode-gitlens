@@ -1,11 +1,10 @@
 'use strict';
 import { Functions, Iterables, Objects } from './system';
-import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, languages, Location, Position, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, workspace } from 'vscode';
+import { Disposable, Event, EventEmitter, FileSystemWatcher, Location, Position, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, workspace } from 'vscode';
 import { IConfig } from './configuration';
-import { CommandContext, DocumentSchemes, ExtensionKey, GlyphChars, setCommandContext } from './constants';
+import { DocumentSchemes, ExtensionKey, GlyphChars } from './constants';
 import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitCommit, GitDiff, GitDiffChunkLine, GitDiffParser, GitLog, GitLogCommit, GitLogParser, GitRemote, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
-import { GitCodeLensProvider } from './gitCodeLensProvider';
 import { Logger } from './logger';
 import * as fs from 'fs';
 import * as ignore from 'ignore';
@@ -90,8 +89,6 @@ export class GitService extends Disposable {
     private _uriCache: Map<string, UriCacheEntry>;
 
     config: IConfig;
-    private _codeLensProvider: GitCodeLensProvider | undefined;
-    private _codeLensProviderDisposable: Disposable | undefined;
     private _disposable: Disposable | undefined;
     private _gitignore: Promise<ignore.Ignore | undefined>;
     private _repoWatcher: FileSystemWatcher | undefined;
@@ -99,7 +96,7 @@ export class GitService extends Disposable {
 
     static EmptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
 
-    constructor(private context: ExtensionContext, public repoPath: string) {
+    constructor(public repoPath: string) {
         super(() => this.dispose());
 
         this._gitCache = new Map();
@@ -117,10 +114,6 @@ export class GitService extends Disposable {
 
     dispose() {
         this._disposable && this._disposable.dispose();
-
-        this._codeLensProviderDisposable && this._codeLensProviderDisposable.dispose();
-        this._codeLensProviderDisposable = undefined;
-        this._codeLensProvider = undefined;
 
         this._cacheDisposable && this._cacheDisposable.dispose();
         this._cacheDisposable = undefined;
@@ -146,30 +139,7 @@ export class GitService extends Disposable {
 
         const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
 
-        const codeLensChanged = !Objects.areEquivalent(cfg.codeLens, this.config && this.config.codeLens);
-        const advancedChanged = !Objects.areEquivalent(cfg.advanced, this.config && this.config.advanced);
-
-        if (codeLensChanged) {
-            Logger.log('CodeLens config changed; resetting CodeLens provider');
-            if (cfg.codeLens.enabled && (cfg.codeLens.recentChange.enabled || cfg.codeLens.authors.enabled)) {
-                if (this._codeLensProvider) {
-                    this._codeLensProvider.reset();
-                }
-                else {
-                    this._codeLensProvider = new GitCodeLensProvider(this.context, this);
-                    this._codeLensProviderDisposable = languages.registerCodeLensProvider(GitCodeLensProvider.selector, this._codeLensProvider);
-                }
-            }
-            else {
-                this._codeLensProviderDisposable && this._codeLensProviderDisposable.dispose();
-                this._codeLensProviderDisposable = undefined;
-                this._codeLensProvider = undefined;
-            }
-
-            setCommandContext(CommandContext.CanToggleCodeLens, cfg.codeLens.recentChange.enabled || cfg.codeLens.authors.enabled);
-        }
-
-        if (advancedChanged) {
+        if (!Objects.areEquivalent(cfg.advanced, this.config && this.config.advanced)) {
             if (cfg.advanced.caching.enabled) {
                 this._cacheDisposable && this._cacheDisposable.dispose();
 
@@ -264,9 +234,6 @@ export class GitService extends Disposable {
     }
 
     private _fireGitCacheChangeCore() {
-        // Refresh the code lenses
-        this._codeLensProvider && this._codeLensProvider.reset();
-
         this._onDidChangeGitCache.fire();
     }
 
@@ -1051,19 +1018,6 @@ export class GitService extends Disposable {
         Logger.log(`stashSave('${repoPath}', ${message}, ${unstagedOnly})`);
 
         return Git.stash_save(repoPath, message, unstagedOnly);
-    }
-
-    toggleCodeLens(editor: TextEditor) {
-        if (!this.config.codeLens.recentChange.enabled && !this.config.codeLens.authors.enabled) return;
-
-        Logger.log(`toggleCodeLens()`);
-        if (this._codeLensProviderDisposable) {
-            this._codeLensProviderDisposable.dispose();
-            this._codeLensProviderDisposable = undefined;
-            return;
-        }
-
-        this._codeLensProviderDisposable = languages.registerCodeLensProvider(GitCodeLensProvider.selector, new GitCodeLensProvider(this.context, this));
     }
 
     static getGitPath(gitPath?: string): Promise<IGit> {
