@@ -40,7 +40,7 @@ export class GitStatusFile implements IGitStatusFile {
     }
 
     getFormattedPath(separator: string = Strings.pad(GlyphChars.Dot, 2, 2)): string {
-        return GitUri.getFormattedPath(this.fileName, separator);
+        return GitStatusFile.getFormattedPath(this, separator);
     }
 
     getOcticon() {
@@ -56,6 +56,10 @@ export class GitStatusFile implements IGitStatusFile {
         return (includeOriginal && status.status === 'R' && status.originalFileName)
             ? `${directory} ${Strings.pad(GlyphChars.ArrowLeft, 1, 1)} ${status.originalFileName}`
             : directory;
+    }
+
+    static getFormattedPath(status: IGitStatusFile, separator: string = Strings.pad(GlyphChars.Dot, 2, 2)): string {
+        return GitUri.getFormattedPath(status.fileName, separator);
     }
 }
 

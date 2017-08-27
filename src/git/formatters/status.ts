@@ -7,6 +7,7 @@ import * as path from 'path';
 export interface IStatusFormatOptions extends IFormatOptions {
     tokenOptions?: {
         file?: Strings.ITokenOptions;
+        filePath?: Strings.ITokenOptions;
         path?: Strings.ITokenOptions;
     };
 }
@@ -16,6 +17,11 @@ export class StatusFileFormatter extends Formatter<IGitStatusFile, IStatusFormat
     get file() {
         const file = path.basename(this._item.fileName);
         return this._padOrTruncate(file, this._options.tokenOptions!.file);
+    }
+
+    get filePath() {
+        const filePath = GitStatusFile.getFormattedPath(this._item);
+        return this._padOrTruncate(filePath, this._options.tokenOptions!.filePath);
     }
 
     get path() {
