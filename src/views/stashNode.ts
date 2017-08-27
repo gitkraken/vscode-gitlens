@@ -14,9 +14,9 @@ export class StashNode extends ExplorerNode {
         super(uri);
      }
 
-    async getChildren(): Promise<StashCommitNode[]> {
+    async getChildren(): Promise<ExplorerNode[]> {
         const stash = await this.git.getStashList(this.uri.repoPath!);
-        if (stash === undefined) return [];
+        if (stash === undefined) return [new TextExplorerNode('No stashed changes')];
 
         return [...Iterables.map(stash.commits.values(), c => new StashCommitNode(c, this.context, this.git))];
     }

@@ -1,7 +1,7 @@
 'use strict';
 // import { Functions } from '../system';
 import { commands, Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem, Uri } from 'vscode';
-import { Commands, DiffWithPreviousCommandArgs, openEditor } from '../commands';
+import { Commands, DiffWithPreviousCommandArgs, openEditor, OpenFileInRemoteCommandArgs } from '../commands';
 import { ExplorerNode, StashCommitNode, StashNode } from './explorerNodes';
 import { GitService, GitUri } from '../gitService';
 
@@ -10,7 +10,6 @@ export * from './explorerNodes';
 export class StashExplorer implements TreeDataProvider<ExplorerNode>  {
 
     private _node: ExplorerNode;
-    // private _refreshDebounced: () => void;
 
     private _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
     public get onDidChangeTreeData(): Event<ExplorerNode> {
@@ -24,28 +23,12 @@ export class StashExplorer implements TreeDataProvider<ExplorerNode>  {
         commands.registerCommand('gitlens.stashExplorer.openStashedFile', this.openStashedFile, this);
         commands.registerCommand('gitlens.stashExplorer.openFileInRemote', this.openFileInRemote, this);
 
-        context.subscriptions.push(this.git.onDidChangeRepo(reasons => {
-            if (!reasons.includes('stash')) return;
+        context.subscriptions.push(this.git.onDidChangeRepo(this.onRepoChanged, this));
 
-            this.refresh();
-        }, this));
-
-        // this._refreshDebounced = Functions.debounce(this.refresh.bind(this), 250);
-
-        // const editor = window.activeTextEditor;
-
-        // const uri = (editor !== undefined && editor.document !== undefined)
-        //     ? new GitUri(editor.document.uri, { repoPath: git.repoPath, fileName: editor.document.uri.fsPath })
-        //     : new GitUri(Uri.file(git.repoPath), { repoPath: git.repoPath, fileName: git.repoPath });
-
-        const uri = new GitUri(Uri.file(git.repoPath), { repoPath: git.repoPath, fileName: git.repoPath });
-        this._node = new StashNode(uri, this.context, this.git);
+        this._node = this.getRootNode();
     }
 
     async getTreeItem(node: ExplorerNode): Promise<TreeItem> {
-        // if (node.onDidChangeTreeData !== undefined) {
-        //     node.onDidChangeTreeData(() => setTimeout(this._refreshDebounced, 1));
-        // }
         return node.getTreeItem();
     }
 
@@ -54,10 +37,16 @@ export class StashExplorer implements TreeDataProvider<ExplorerNode>  {
         return node.getChildren();
     }
 
-    // update(uri: GitUri) {
-    //     this._node = new StashNode(uri, this.context, this.git);
-    //     this.refresh();
-    // }
+    private getRootNode(): ExplorerNode {
+        const uri = new GitUri(Uri.file(this.git.repoPath), { repoPath: this.git.repoPath, fileName: this.git.repoPath });
+        return new StashNode(uri, this.context, this.git);
+    }
+
+    private onRepoChanged(reasons: ('stash' | 'unknown')[]) {
+        if (!reasons.includes('stash')) return;
+
+        this.refresh();
+    }
 
     refresh() {
         this._onDidChangeTreeData.fire();
@@ -81,6 +70,6 @@ export class StashExplorer implements TreeDataProvider<ExplorerNode>  {
     }
 
     private openFileInRemote(node: StashCommitNode) {
-        return commands.executeCommand(Commands.OpenFileInRemote, node.commit.previousUri);
+        return commands.executeCommand(Commands.OpenFileInRemote, node.commit.uri, { range: false } as OpenFileInRemoteCommandArgs);
     }
 }
