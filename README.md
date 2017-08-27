@@ -113,6 +113,10 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 - Adds a [customizable](#git-file-history-explorer-settings) `Git File History` explorer to the Explorer activity -- currently [insiders](#insiders) only
 
+  - Shows the commit history of the active file -- automatically tracks the active editor
+  - Provides toolbar buttons to `Refresh`
+  - Provides a context menu with `Open Changes`, `Compare File with Working Tree`, `Open File`, `Open File Revision`, `Open File in Remote`, `Open File Revision in Remote`, and `Show Commit Details` commands
+
 - Adds a [customizable](#git-stashes-explorer-settings) `Git Stashes` explorer to the Explorer activity
 
   ![Git Stashes explorer](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-stashes.png)
