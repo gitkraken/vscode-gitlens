@@ -1,8 +1,9 @@
 'use strict';
 import { Strings } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCachedCommand, CommandContext, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
+import { CommitNode } from '../views/explorerNodes';
 import { GitCommit, GitLog, GitLogCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitDetailsQuickPick, CommitWithFileStatusQuickPickItem } from '../quickPicks';
@@ -22,6 +23,18 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 
     constructor(private git: GitService) {
         super(Commands.ShowQuickCommitDetails);
+    }
+
+    protected async preExecute(context: CommandContext, ...args: any[]): Promise<any> {
+        if (context.type === 'view') {
+            if (context.node instanceof CommitNode) {
+                args = [{ sha: context.node.uri.sha, commit: context.node.commit }];
+            }
+            else {
+                args = [{ sha: context.node.uri.sha }];
+            }
+        }
+        return this.execute(context.editor, context.uri, ...args);
     }
 
     async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickCommitDetailsCommandArgs = {}) {

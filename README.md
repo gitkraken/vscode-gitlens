@@ -111,7 +111,9 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 ### Navigate and Explore
 
-- Adds a `Git Stashes` explorer to the Explorer activity ([optional](#git-stashes-explorer-settings), off by default)
+- Adds a [customizable](#git-file-history-explorer-settings) `Git File History` explorer to the Explorer activity -- currently [insiders](#insiders) only
+
+- Adds a [customizable](#git-stashes-explorer-settings) `Git Stashes` explorer to the Explorer activity
 
   ![Git Stashes explorer](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-stashes.png)
 
@@ -288,6 +290,12 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.codeLens.locations`|Specifies where Git code lens will be shown in the document<br />`document` - adds code lens at the top of the document<br />`containers` -  adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)<br />`blocks` -  adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines<br />`custom` - adds code lens at the start of symbols contained in `gitlens.codeLens.locationCustomSymbols`
 |`gitlens.codeLens.customLocationSymbols`|Specifies the set of document symbols where Git code lens will be shown in the document
 |`gitlens.codeLens.perLanguageLocations`|Specifies where Git code lens will be shown in the document for the specified languages
+
+### Git File History Explorer Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.fileHistoryExplorer.commitFormat`|Specifies the format of committed changes in the `Git File History` explorer <br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
 
 ### Git Stashes Explorer Settings
 

@@ -296,6 +296,12 @@ export interface IConfig {
 
     defaultDateFormat: string | null;
 
+    fileHistoryExplorer: {
+        commitFormat: string;
+        // commitFileFormat: string;
+        // dateFormat: string | null;
+    };
+
     gitExplorer: {
         commitFormat: string;
         commitFileFormat: string;

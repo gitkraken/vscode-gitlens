@@ -21,6 +21,7 @@ import { CodeLensController } from './codeLensController';
 import { CurrentLineController, LineAnnotationType } from './currentLineController';
 import { GitContentProvider } from './gitContentProvider';
 // import { GitExplorer } from './views/gitExplorer';
+import { FileHistoryExplorer } from './views/fileHistoryExplorer';
 import { StashExplorer } from './views/stashExplorer';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { GitContextTracker, GitService } from './gitService';
@@ -96,6 +97,7 @@ export async function activate(context: ExtensionContext) {
     // const explorer = new GitExplorer(context, git);
     // context.subscriptions.push(window.registerTreeDataProvider('gitlens.gitExplorer', explorer));
 
+    context.subscriptions.push(window.registerTreeDataProvider('gitlens.fileHistoryExplorer', new FileHistoryExplorer(context, git)));
     context.subscriptions.push(window.registerTreeDataProvider('gitlens.stashExplorer', new StashExplorer(context, git)));
 
     context.subscriptions.push(commands.registerTextEditorCommand('gitlens.computingFileAnnotations', () => { }));
