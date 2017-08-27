@@ -9,9 +9,8 @@ export class CommitNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'commit';
 
-    constructor(public readonly commit: GitCommit, context: ExtensionContext, git: GitService) {
-        super(new GitUri(commit.uri, commit), context, git);
-        this.commit = commit;
+    constructor(public readonly commit: GitCommit, private template: string, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+        super(new GitUri(commit.uri, commit));
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
@@ -25,7 +24,7 @@ export class CommitNode extends ExplorerNode {
     }
 
     getTreeItem(): TreeItem {
-        const label = CommitFormatter.fromTemplate(this.git.config.gitExplorer.commitFormat, this.commit, this.git.config.defaultDateFormat);
+        const label = CommitFormatter.fromTemplate(this.template, this.commit, this.git.config.defaultDateFormat);
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
         item.contextValue = this.resourceType;

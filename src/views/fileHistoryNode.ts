@@ -2,7 +2,7 @@
 import { Iterables } from '../system';
 import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitNode } from './commitNode';
-import { ExplorerNode, ResourceType } from './explorerNode';
+import { ExplorerNode, ResourceType, TextExplorerNode } from './explorerNode';
 import { GitService, GitUri } from '../gitService';
 
 export class FileHistoryNode extends ExplorerNode {
@@ -10,15 +10,15 @@ export class FileHistoryNode extends ExplorerNode {
     static readonly rootType: ResourceType = 'file-history';
     readonly resourceType: ResourceType = 'file-history';
 
-    constructor(uri: GitUri, context: ExtensionContext, git: GitService) {
-        super(uri, context, git);
+    constructor(uri: GitUri, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+        super(uri);
      }
 
     async getChildren(): Promise<CommitNode[]> {
         const log = await this.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, this.uri.sha);
         if (log === undefined) return [];
 
-        return [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.context, this.git))];
+        return [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.git.config.gitExplorer.commitFormat, this.context, this.git))];
     }
 
     getTreeItem(): TreeItem {

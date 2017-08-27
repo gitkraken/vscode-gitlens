@@ -13,8 +13,8 @@ export class StashCommitNode extends ExplorerNode {
         return this._onDidChangeTreeData.event;
     }
 
-    constructor(public readonly commit: GitStashCommit, context: ExtensionContext, git: GitService) {
-        super(new GitUri(commit.uri, commit), context, git);
+    constructor(public readonly commit: GitStashCommit, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+        super(new GitUri(commit.uri, commit));
     }
 
     async getChildren(): Promise<CommitFileNode[]> {

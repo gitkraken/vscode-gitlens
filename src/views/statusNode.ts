@@ -8,9 +8,9 @@ export class StatusNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'status';
 
-    constructor(uri: GitUri, context: ExtensionContext, git: GitService) {
-        super(uri, context, git);
-    }
+    constructor(uri: GitUri, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+        super(uri);
+     }
 
     async getChildren(): Promise<ExplorerNode[]> {
         return [];

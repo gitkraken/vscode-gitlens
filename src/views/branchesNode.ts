@@ -9,9 +9,9 @@ export class BranchesNode extends ExplorerNode {
 
         readonly resourceType: ResourceType = 'branches';
 
-        constructor(uri: GitUri, context: ExtensionContext, git: GitService) {
-            super(uri, context, git);
-         }
+        constructor(uri: GitUri, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+            super(uri);
+        }
 
         async getChildren(): Promise<BranchHistoryNode[]> {
             const branches = await this.git.getBranches(this.uri.repoPath!);
