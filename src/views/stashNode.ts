@@ -1,7 +1,7 @@
 'use strict';
 import { Iterables } from '../system';
 import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ExplorerNode, ResourceType } from './explorerNode';
+import { ExplorerNode, ResourceType, TextExplorerNode } from './explorerNode';
 import { GitService, GitUri } from '../gitService';
 import { StashCommitNode } from './stashCommitNode';
 
@@ -10,8 +10,8 @@ export class StashNode extends ExplorerNode {
     static readonly rootType: ResourceType = 'stash-history';
     readonly resourceType: ResourceType = 'stash-history';
 
-    constructor(uri: GitUri, context: ExtensionContext, git: GitService) {
-        super(uri, context, git);
+    constructor(uri: GitUri, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+        super(uri);
      }
 
     async getChildren(): Promise<StashCommitNode[]> {

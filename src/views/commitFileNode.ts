@@ -9,8 +9,8 @@ export class CommitFileNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'commit-file';
 
-    constructor(public readonly status: IGitStatusFile, public commit: GitCommit, private template: string, context: ExtensionContext, git: GitService) {
-        super(new GitUri(Uri.file(path.resolve(commit.repoPath, status.fileName)), { repoPath: commit.repoPath, fileName: status.fileName, sha: commit.sha }), context, git);
+    constructor(public readonly status: IGitStatusFile, public commit: GitCommit, private template: string, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+        super(new GitUri(Uri.file(path.resolve(commit.repoPath, status.fileName)), { repoPath: commit.repoPath, fileName: status.fileName, sha: commit.sha }));
     }
 
     getChildren(): Promise<ExplorerNode[]> {

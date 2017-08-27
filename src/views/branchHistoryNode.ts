@@ -10,15 +10,15 @@ export class BranchHistoryNode extends ExplorerNode {
 
         readonly resourceType: ResourceType = 'branch-history';
 
-        constructor(public readonly branch: GitBranch, uri: GitUri, context: ExtensionContext, git: GitService) {
-            super(uri, context, git);
-         }
+        constructor(public readonly branch: GitBranch, uri: GitUri, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+            super(uri);
+        }
 
         async getChildren(): Promise<CommitNode[]> {
             const log = await this.git.getLogForRepo(this.uri.repoPath!, this.branch.name);
             if (log === undefined) return [];
 
-            return [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.context, this.git))];
+            return [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.git.config.gitExplorer.commitFormat, this.context, this.git))];
         }
 
         getTreeItem(): TreeItem {
