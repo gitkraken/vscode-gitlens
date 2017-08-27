@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [4.5.0-beta] - 2017-08-27
+### Added
+- Adds an all-new `Git File History` explorer to the Explorer activity -- enabled via `"gitlens.insiders": true`
+  - Shows the commit history of the active file -- automatically tracks the active editor
+  - Provides toolbar buttons to `Refresh`
+  - Provides a context menu with `Open Changes`, `Compare File with Working Tree`, `Open File`, `Open File Revision`, `Open File in Remote`, `Open File Revision in Remote`, and `Show Commit Details` commands
+- Adds a `No stashed changes` message to the `Git Stashes` explorer when there are no stashes
+- Adds `${filePath}` token to file formatting
+
+### Changed
+- Changes `gitlens.stashExplorer.stashFileFormat` setting to defaults to `${filePath}` for better separator handling
+
 ## [4.4.3] - 2017-08-30
 ## Fixed
 - Fixes [#135](https://github.com/eamodio/vscode-gitlens/issues/135) - Full-width characters break gutter annotations (really this time)
@@ -29,7 +41,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## Removed
 - Removes unneeded `gitlens.stashExplorer.enabled` configuration setting since users can add or remove custom views natively now
-- Removes unneeded `Toggle Git Stashed Explorer` command (`gitlens.stashExplorer.toggle`) since users can add or remove custom views natively now
+- Removes unneeded `Toggle Git Stashes Explorer` command (`gitlens.stashExplorer.toggle`) since users can add or remove custom views natively now
 - Removes the `gitlens.theme.annotations.file.hover.separateLines` configuration setting
 
 ## Fixed
@@ -52,7 +64,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [4.3.1] - 2017-07-03
 ## Added
 - Adds `gitlens.stashExplorer.enabled` setting to specify whether or not to show the `Git Stashes` explorer
-- Adds `Toggle Git Stashed Explorer` command (`gitlens.stashExplorer.toggle`) - toggles the `Git Stashes` explorer on and off
+- Adds `Toggle Git Stashes Explorer` command (`gitlens.stashExplorer.toggle`) - toggles the `Git Stashes` explorer on and off
 
 ## Changed
 - Hides the `Git Stashes` explorer by default
