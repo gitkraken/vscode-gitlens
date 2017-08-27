@@ -297,14 +297,12 @@ export interface IConfig {
     defaultDateFormat: string | null;
 
     gitExplorer: {
-        enabled: boolean;
         commitFormat: string;
         commitFileFormat: string;
         // dateFormat: string | null;
     };
 
     stashExplorer: {
-        enabled: boolean;
         stashFormat: string;
         stashFileFormat: string;
         // dateFormat: string | null;

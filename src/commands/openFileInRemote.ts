@@ -6,13 +6,17 @@ import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { OpenInRemoteCommandArgs } from './openInRemote';
 
+export interface OpenFileInRemoteCommandArgs {
+    range?: boolean;
+}
+
 export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 
     constructor(private git: GitService) {
         super(Commands.OpenFileInRemote);
     }
 
-    async execute(editor?: TextEditor, uri?: Uri) {
+    async execute(editor?: TextEditor, uri?: Uri, args: OpenFileInRemoteCommandArgs = { range: true }) {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
 
@@ -23,7 +27,9 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 
         try {
             const remotes = Arrays.uniqueBy(await this.git.getRemotes(gitUri.repoPath), _ => _.url, _ => !!_.provider);
-            const range = editor === undefined ? undefined : new Range(editor.selection.start.with({ line: editor.selection.start.line + 1 }), editor.selection.end.with({ line: editor.selection.end.line + 1 }));
+            const range = (args.range && editor !== undefined)
+                ? new Range(editor.selection.start.with({ line: editor.selection.start.line + 1 }), editor.selection.end.with({ line: editor.selection.end.line + 1 }))
+                : undefined;
 
             return commands.executeCommand(Commands.OpenInRemote, uri, {
                 resource: {
