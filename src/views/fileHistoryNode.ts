@@ -14,11 +14,11 @@ export class FileHistoryNode extends ExplorerNode {
         super(uri);
      }
 
-    async getChildren(): Promise<CommitNode[]> {
+    async getChildren(): Promise<ExplorerNode[]> {
         const log = await this.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, this.uri.sha);
-        if (log === undefined) return [];
+        if (log === undefined) return [new TextExplorerNode('No file history')];
 
-        return [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.git.config.gitExplorer.commitFormat, this.context, this.git))];
+        return [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.git.config.fileHistoryExplorer.commitFormat, this.context, this.git))];
     }
 
     getTreeItem(): TreeItem {

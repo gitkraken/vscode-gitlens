@@ -1,6 +1,7 @@
 'use strict';
 import { Iterables } from '../system';
-import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Command, ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { CommitFileNode } from './commitFileNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { CommitFormatter, GitCommit, GitService, GitUri } from '../gitService';
@@ -14,6 +15,8 @@ export class CommitNode extends ExplorerNode {
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
+        if (this.commit.type === 'file') Promise.resolve([]);
+
         const log = await this.git.getLogForRepo(this.commit.repoPath, this.commit.sha, 1);
         if (log === undefined) return [];
 
@@ -24,14 +27,40 @@ export class CommitNode extends ExplorerNode {
     }
 
     getTreeItem(): TreeItem {
-        const label = CommitFormatter.fromTemplate(this.template, this.commit, this.git.config.defaultDateFormat);
+        const item = new TreeItem(CommitFormatter.fromTemplate(this.template, this.commit, this.git.config.defaultDateFormat));
+        if (this.commit.type === 'file') {
+            item.collapsibleState = TreeItemCollapsibleState.None;
+            item.command = this.getCommand();
+            item.contextValue = 'commit-file';
+        }
+        else {
+            item.collapsibleState = TreeItemCollapsibleState.Collapsed;
+            item.contextValue = this.resourceType;
+        }
 
-        const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
-        item.contextValue = this.resourceType;
         item.iconPath = {
             dark: this.context.asAbsolutePath('images/dark/icon-commit.svg'),
             light: this.context.asAbsolutePath('images/light/icon-commit.svg')
         };
+
         return item;
+    }
+
+    getCommand(): Command | undefined {
+        return {
+            title: 'Compare File with Previous',
+            command: Commands.DiffWithPrevious,
+            arguments: [
+                new GitUri(this.uri, this.commit),
+                {
+                    commit: this.commit,
+                    line: 0,
+                    showOptions: {
+                        preserveFocus: true,
+                        preview: true
+                    }
+                } as DiffWithPreviousCommandArgs
+            ]
+        };
     }
 }
