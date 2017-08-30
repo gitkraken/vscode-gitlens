@@ -273,9 +273,12 @@ async function notifyOnNewGitLensVersion(context: ExtensionContext, version: str
     const previousVersion = context.globalState.get<string>(WorkspaceState.GitLensVersion);
 
     if (previousVersion === undefined) {
+        Logger.log(`GitLens first-time install`);
         await Messages.showWelcomeMessage();
         return;
     }
+
+    Logger.log(`GitLens upgraded from v${previousVersion} to v${version}`);
 
     const [major, minor] = version.split('.');
     const [prevMajor, prevMinor] = previousVersion.split('.');

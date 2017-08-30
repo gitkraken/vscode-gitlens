@@ -2,6 +2,7 @@
 import { commands, ExtensionContext, Uri, window } from 'vscode';
 import { BuiltInCommands } from './constants';
 import { GitCommit } from './gitService';
+import { Logger } from './logger';
 import * as moment from 'moment';
 
 export type SuppressedKeys = 'suppressCommitHasNoPreviousCommitWarning' |
@@ -72,7 +73,12 @@ export class Messages {
     }
 
     private static async _showMessage(type: 'info' | 'warn' | 'error', message: string, suppressionKey: SuppressedKeys, dontShowAgain: string | null = 'Don\'t Show Again', ...actions: any[]): Promise<string | undefined> {
-        if (Messages.context.globalState.get(suppressionKey, false)) return undefined;
+        Logger.log(`ShowMessage(${type}, "${message}", ${suppressionKey}, ${dontShowAgain})`);
+
+        if (Messages.context.globalState.get(suppressionKey, false)) {
+            Logger.log(`ShowMessage(${type}, ${message}, ${suppressionKey}, ${dontShowAgain}) skipped`);
+            return undefined;
+        }
 
         if (dontShowAgain !== null) {
             actions.push(dontShowAgain);
@@ -94,10 +100,12 @@ export class Messages {
         }
 
         if (dontShowAgain === null || result === dontShowAgain) {
+            Logger.log(`ShowMessage(${type}, ${message}, ${suppressionKey}, ${dontShowAgain}) don't show again requested`);
             await Messages.context.globalState.update(suppressionKey, true);
             return undefined;
         }
 
+        Logger.log(`ShowMessage(${type}, ${message}, ${suppressionKey}, ${dontShowAgain}) returned ${result}`);
         return result;
     }
 }
