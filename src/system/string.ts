@@ -115,7 +115,7 @@ export namespace Strings {
             count += getWidth(s[chars++]);
         }
 
-        if (count > truncateTo) {
+        if (count >= truncateTo) {
             chars--;
         }
 
