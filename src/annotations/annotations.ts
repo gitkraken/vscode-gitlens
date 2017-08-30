@@ -63,7 +63,7 @@ export class Annotations {
                 .replace(/\n/g, '  \n');
             message = `\n\n> ${message}`;
         }
-        return `\`${commit.shortSha}\` &nbsp; __${commit.author}__, ${moment(commit.date).fromNow()} &nbsp; _(${moment(commit.date).format(dateFormat)})_${message}`;
+        return `[${commit.shortSha}](command:gitlens.openCommitInRemote) &nbsp; __${commit.author}__, ${moment(commit.date).fromNow()} &nbsp; _(${moment(commit.date).format(dateFormat)})_${message}`;
     }
 
     static getHoverDiffMessage(commit: GitCommit, chunkLine: GitDiffChunkLine | undefined): string | undefined {
