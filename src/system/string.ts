@@ -102,7 +102,23 @@ export namespace Strings {
     }
 
     export function truncate(s: string, truncateTo?: number) {
-        if (!s || truncateTo === undefined || getWidth(s) <= truncateTo) return s;
-        return `${s.substring(0, truncateTo - 1)}\u2026`;
+        if (!s || truncateTo === undefined) return s;
+
+        const len = getWidth(s);
+        if (len <= truncateTo) return s;
+        if (len === s.length) return `${s.substring(0, truncateTo - 1)}\u2026`;
+
+        // Skip ahead to start as far as we can by assuming all the double-width characters won't be truncated
+        let chars = Math.floor(truncateTo / (len / s.length));
+        let count = getWidth(s.substring(0, chars));
+        while (count < truncateTo) {
+            count += getWidth(s[chars++]);
+        }
+
+        if (count > truncateTo) {
+            chars--;
+        }
+
+        return `${s.substring(0, chars)}\u2026`;
     }
 }
