@@ -31,7 +31,9 @@ const GitWarnings = [
     /Not a git repository/,
     /is outside repository/,
     /no such path/,
-    /does not have any commits/
+    /does not have any commits/,
+    /Path \'.*?\' does not exist in/,
+    /Path \'.*?\' exists on disk, but not in/
 ];
 
 async function gitCommand(options: { cwd: string, encoding?: string }, ...args: any[]) {

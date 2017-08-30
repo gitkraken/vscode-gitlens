@@ -44,6 +44,14 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                 break;
 
             case 'file':
+                description = `$(file-text) ${path.basename(resource.fileName)}`;
+                break;
+
+            case 'repo':
+                description = `$(repo) Repository`;
+                break;
+
+            case 'revision':
                 if (resource.commit !== undefined && resource.commit instanceof GitLogCommit) {
                     if (resource.commit.status === 'D') {
                         resource.sha = resource.commit.previousSha;
@@ -58,14 +66,6 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                     const shortFileSha = resource.sha === undefined ? '' : resource.sha.substring(0, 8);
                     description = `$(file-text) ${path.basename(resource.fileName)}${shortFileSha ? ` in ${GlyphChars.Space}$(git-commit) ${shortFileSha}` : ''}`;
                 }
-                break;
-
-            case 'repo':
-                description = `$(repo) Repository`;
-                break;
-
-            case 'working-file':
-                description = `$(file-text) ${path.basename(resource.fileName)}`;
                 break;
         }
 

@@ -69,28 +69,31 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
 
 export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPickItem {
 
-    constructor(commit: GitLogCommit, item?: QuickPickItem) {
-        const uris = commit.fileStatuses.map(s => (s.status === 'D')
-            ? GitService.toGitContentUri(commit.previousSha!, commit.previousShortSha!, s.fileName, commit.repoPath, s.originalFileName)
-            : GitService.toGitContentUri(commit.sha, commit.shortSha, s.fileName, commit.repoPath, s.originalFileName));
+    constructor(commit: GitLogCommit, versioned: boolean = false, item?: QuickPickItem) {
+        const repoPath = commit.repoPath;
+        const uris = commit.fileStatuses
+            .filter(s => s.status !== 'D')
+            .map(s => GitUri.fromFileStatus(s, repoPath));
 
         super(uris, item || {
             label: `$(file-symlink-file) Open Changed Files`,
-            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} in ${GlyphChars.Space}$(git-commit) ${commit.shortSha}`
-            // detail: `Opens all of the changed files in $(git-commit) ${commit.shortSha}`
+            description: ''
+            // detail: `Opens all of the changed file in the working tree`
         });
     }
 }
 
-export class OpenCommitWorkingTreeFilesCommandQuickPickItem extends OpenFilesCommandQuickPickItem {
+export class OpenCommitFileRevisionsCommandQuickPickItem extends OpenFilesCommandQuickPickItem {
 
-    constructor(commit: GitLogCommit, versioned: boolean = false, item?: QuickPickItem) {
-        const repoPath = commit.repoPath;
-        const uris = commit.fileStatuses.filter(_ => _.status !== 'D').map(_ => GitUri.fromFileStatus(_, repoPath));
+    constructor(commit: GitLogCommit, item?: QuickPickItem) {
+        const uris = commit.fileStatuses
+            .filter(s => s.status !== 'D')
+            .map(s => GitService.toGitContentUri(commit.sha, commit.shortSha, s.fileName, commit.repoPath, s.originalFileName));
+
         super(uris, item || {
-            label: `$(file-symlink-file) Open Changed Working Files`,
-            description: ''
-            // detail: `Opens all of the changed file in the working tree`
+            label: `$(file-symlink-file) Open Changed Revisions`,
+            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} in ${GlyphChars.Space}$(git-commit) ${commit.shortSha}`
+            // detail: `Opens all of the changed files in $(git-commit) ${commit.shortSha}`
         });
     }
 }
@@ -196,8 +199,8 @@ export class CommitDetailsQuickPick {
                 } as ShowQuickCommitDetailsCommandArgs
             ]));
 
-        items.push(new OpenCommitFilesCommandQuickPickItem(commit));
-        items.push(new OpenCommitWorkingTreeFilesCommandQuickPickItem(commit));
+            items.push(new OpenCommitFilesCommandQuickPickItem(commit));
+            items.push(new OpenCommitFileRevisionsCommandQuickPickItem(commit));
 
         if (goBackCommand) {
             items.splice(0, 0, goBackCommand);

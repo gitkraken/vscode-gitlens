@@ -4,13 +4,13 @@ import { Command, ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'v
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { CommitFileNode } from './commitFileNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { CommitFormatter, GitCommit, GitService, GitUri } from '../gitService';
+import { CommitFormatter, GitLogCommit, GitService, GitUri } from '../gitService';
 
 export class CommitNode extends ExplorerNode {
 
-    readonly resourceType: ResourceType = 'commit';
+    readonly resourceType: ResourceType = 'gitlens:commit';
 
-    constructor(public readonly commit: GitCommit, private template: string, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+    constructor(public readonly commit: GitLogCommit, private readonly template: string, protected readonly context: ExtensionContext, protected readonly git: GitService) {
         super(new GitUri(commit.uri, commit));
     }
 
@@ -23,7 +23,7 @@ export class CommitNode extends ExplorerNode {
         const commit = Iterables.first(log.commits.values());
         if (commit === undefined) return [];
 
-        return [...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit, this.git.config.gitExplorer.commitFileFormat, this.context, this.git))];
+        return [...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit, this.context, this.git))];
     }
 
     getTreeItem(): TreeItem {
@@ -31,7 +31,8 @@ export class CommitNode extends ExplorerNode {
         if (this.commit.type === 'file') {
             item.collapsibleState = TreeItemCollapsibleState.None;
             item.command = this.getCommand();
-            item.contextValue = 'commit-file';
+            const resourceType: ResourceType = 'gitlens:commit-file';
+            item.contextValue = resourceType;
         }
         else {
             item.collapsibleState = TreeItemCollapsibleState.Collapsed;
@@ -47,8 +48,19 @@ export class CommitNode extends ExplorerNode {
     }
 
     getCommand(): Command | undefined {
+        let allowMissingPrevious = false;
+        let prefix = undefined;
+        const status = this.commit.fileStatuses[0];
+        if (status.status === 'A') {
+            allowMissingPrevious = true;
+            prefix = 'added in ';
+        }
+        else if (status.status === 'D') {
+            prefix = 'deleted in ';
+        }
+
         return {
-            title: 'Compare File with Previous',
+            title: 'Compare File with Previous Revision',
             command: Commands.DiffWithPrevious,
             arguments: [
                 new GitUri(this.uri, this.commit),
@@ -58,7 +70,9 @@ export class CommitNode extends ExplorerNode {
                     showOptions: {
                         preserveFocus: true,
                         preview: true
-                    }
+                    },
+                    allowMissingPrevious: allowMissingPrevious,
+                    rightTitlePrefix: prefix
                 } as DiffWithPreviousCommandArgs
             ]
         };

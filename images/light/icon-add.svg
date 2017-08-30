@@ -1,1 +1,5 @@
-<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg"><title>Layer 1</title><rect height="11" width="3" y="3" x="7" fill="#424242"/><rect height="3" width="11" y="7" x="3" fill="#424242"/></svg>
+<?xml version="1.0" encoding="utf-8"?>
+<svg width="16" height="22" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <rect fill="#424242" x="6.5" y="5.5" width="3" height="11"/>
+    <rect fill="#424242" x="2.5" y="9.5" width="11" height="3"/>
+</svg>

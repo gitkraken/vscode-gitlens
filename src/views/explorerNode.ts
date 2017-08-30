@@ -2,7 +2,22 @@
 import { Command, Event, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../gitService';
 
-export declare type ResourceType = 'text' | 'status' | 'branches' | 'repository' | 'branch-history' | 'file-history' | 'stash-history' | 'commit' | 'stash-commit' | 'commit-file';
+export declare type ResourceType =
+    'gitlens:branches' |
+    'gitlens:branch-history' |
+    'gitlens:commit' |
+    'gitlens:commit-file' |
+    'gitlens:file-history' |
+    'gitlens:history' |
+    'gitlens:message' |
+    'gitlens:remote' |
+    'gitlens:remotes' |
+    'gitlens:repository' |
+    'gitlens:stash' |
+    'gitlens:stash-file' |
+    'gitlens:stashes' |
+    'gitlens:status' |
+    'gitlens:status-upstream';
 
 export abstract class ExplorerNode {
 
@@ -22,11 +37,11 @@ export abstract class ExplorerNode {
     refresh?(): void;
 }
 
-export class TextExplorerNode extends ExplorerNode {
+export class MessageNode extends ExplorerNode {
 
-    readonly resourceType: ResourceType = 'text';
+    readonly resourceType: ResourceType = 'gitlens:message';
 
-    constructor(private text: string) {
+    constructor(private message: string) {
         super(new GitUri());
     }
 
@@ -35,7 +50,7 @@ export class TextExplorerNode extends ExplorerNode {
     }
 
     getTreeItem(): TreeItem | Promise<TreeItem> {
-        const item = new TreeItem(this.text, TreeItemCollapsibleState.None);
+        const item = new TreeItem(this.message, TreeItemCollapsibleState.None);
         item.contextValue = this.resourceType;
         return item;
     }

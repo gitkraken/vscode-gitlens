@@ -1,6 +1,7 @@
 'use strict';
 import { commands, Disposable, SourceControlResourceGroup, SourceControlResourceState, TextDocumentShowOptions, TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
 import { ExplorerNode } from '../views/explorerNodes';
+import { GitBranch, GitCommit } from '../gitService';
 import { Logger } from '../logger';
 import { Telemetry } from '../telemetry';
 
@@ -123,6 +124,18 @@ export interface CommandUriContext extends CommandBaseContext {
 export interface CommandViewContext extends CommandBaseContext {
     type: 'view';
     node: ExplorerNode;
+}
+
+export function isCommandViewContextWithBranch(context: CommandContext): context is CommandViewContext & { node: (ExplorerNode & { branch: GitBranch }) } {
+    return context.type === 'view' && (context.node as any).branch && (context.node as any).branch instanceof GitBranch;
+}
+
+interface ICommandViewContextWithCommit<T extends GitCommit> extends CommandViewContext {
+    node: (ExplorerNode & { commit: T });
+}
+
+export function isCommandViewContextWithCommit<T extends GitCommit>(context: CommandContext): context is ICommandViewContextWithCommit<T> {
+    return context.type === 'view' && (context.node as any).commit && (context.node as any).commit instanceof GitCommit;
 }
 
 export type CommandContext = CommandScmGroupsContext | CommandScmStatesContext | CommandUnknownContext | CommandUriContext | CommandViewContext;

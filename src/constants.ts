@@ -8,6 +8,8 @@ export const QualifiedExtensionId = `eamodio.${ExtensionId}`;
 
 export const ApplicationInsightsKey = 'a9c302f8-6483-4d01-b92c-c159c799c679';
 
+export const FakeSha = 'ffffffffffffffffffffffffffffffffffffffff';
+
 export type BuiltInCommands = 'cursorMove' |
     'editor.action.showReferences' |
     'editor.action.toggleRenderWhitespace' |
@@ -40,23 +42,25 @@ export const BuiltInCommands = {
 };
 
 export type CommandContext =
+    'gitlens:annotationStatus' |
     'gitlens:canToggleCodeLens' |
     'gitlens:enabled' |
     'gitlens:hasRemotes' |
+    'gitlens:gitExplorer:view' |
     'gitlens:isBlameable' |
     'gitlens:isRepository' |
     'gitlens:isTracked' |
-    'gitlens:key' |
-    'gitlens:annotationStatus';
+    'gitlens:key';
 export const CommandContext = {
+    AnnotationStatus: 'gitlens:annotationStatus' as CommandContext,
     CanToggleCodeLens: 'gitlens:canToggleCodeLens' as CommandContext,
     Enabled: 'gitlens:enabled' as CommandContext,
+    GitExplorerView: 'gitlens:gitExplorer:view' as CommandContext,
     HasRemotes: 'gitlens:hasRemotes' as CommandContext,
     IsBlameable: 'gitlens:isBlameable' as CommandContext,
     IsRepository: 'gitlens:isRepository' as CommandContext,
     IsTracked: 'gitlens:isTracked' as CommandContext,
-    Key: 'gitlens:key' as CommandContext,
-    AnnotationStatus: 'gitlens:annotationStatus' as CommandContext
+    Key: 'gitlens:key' as CommandContext
 };
 
 export function setCommandContext(key: CommandContext | string, value: any) {
@@ -77,6 +81,7 @@ export type GlyphChars = '\u21a9' |
     '\u2194' |
     '\u21e8' |
     '\u2191' |
+    '\u2713' |
     '\u2014' |
     '\u2022' |
     '\u2026' |
@@ -90,6 +95,7 @@ export const GlyphChars = {
     ArrowLeftRight: '\u2194' as GlyphChars,
     ArrowRightHollow: '\u21e8' as GlyphChars,
     ArrowUp: '\u2191' as GlyphChars,
+    Check: '\u2713' as GlyphChars,
     Dash: '\u2014' as GlyphChars,
     Dot: '\u2022' as GlyphChars,
     Ellipsis: '\u2026' as GlyphChars,

@@ -32,13 +32,12 @@ export class GitRevisionCodeLensProvider implements CodeLensProvider {
         const lenses: CodeLens[] = [];
 
         const commit = await this.git.getLogCommit(gitUri.repoPath, gitUri.fsPath, gitUri.sha, { firstIfMissing: true, previous: true });
-        if (!commit) return lenses;
-
-        lenses.push(new GitDiffWithWorkingCodeLens(this.git, commit.uri.fsPath, commit, new Range(0, 0, 0, 1)));
+        if (commit === undefined) return lenses;
 
         if (commit.previousSha) {
-            lenses.push(new GitDiffWithPreviousCodeLens(this.git, commit.previousUri.fsPath, commit, new Range(0, 1, 0, 2)));
+            lenses.push(new GitDiffWithPreviousCodeLens(this.git, commit.previousUri.fsPath, commit, new Range(0, 0, 0, 1)));
         }
+        lenses.push(new GitDiffWithWorkingCodeLens(this.git, commit.uri.fsPath, commit, new Range(0, 1, 0, 2)));
 
         return lenses;
     }
@@ -51,7 +50,7 @@ export class GitRevisionCodeLensProvider implements CodeLensProvider {
 
     _resolveDiffWithWorkingTreeCodeLens(lens: GitDiffWithWorkingCodeLens, token: CancellationToken): Thenable<CodeLens> {
         lens.command = {
-            title: `Compare ${lens.commit.shortSha} with Working Tree`,
+            title: `Compare Revision (${lens.commit.shortSha}) with Working`,
             command: Commands.DiffWithWorking,
             arguments: [
                 Uri.file(lens.fileName),
@@ -66,7 +65,7 @@ export class GitRevisionCodeLensProvider implements CodeLensProvider {
 
     _resolveGitDiffWithPreviousCodeLens(lens: GitDiffWithPreviousCodeLens, token: CancellationToken): Thenable<CodeLens> {
         lens.command = {
-            title: `Compare ${lens.commit.shortSha} with Previous ${lens.commit.previousShortSha}`,
+            title: `Compare Revision (${lens.commit.shortSha}) with Previous (${lens.commit.previousShortSha})`,
             command: Commands.DiffWithPrevious,
             arguments: [
                 Uri.file(lens.fileName),

@@ -1,7 +1,7 @@
 'use strict';
 import { Arrays } from '../system';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { OpenInRemoteCommandArgs } from './openInRemote';
@@ -14,6 +14,16 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 
     constructor(private git: GitService) {
         super(Commands.OpenFileInRemote);
+    }
+
+    protected async preExecute(context: CommandContext, args: OpenFileInRemoteCommandArgs = {}): Promise<any> {
+        if (isCommandViewContextWithCommit(context)) {
+            args = { ...args };
+            args.range = false;
+            return this.execute(context.editor, context.node.commit.uri, args);
+        }
+
+        return this.execute(context.editor, context.uri, args);
     }
 
     async execute(editor?: TextEditor, uri?: Uri, args: OpenFileInRemoteCommandArgs = { range: true }) {

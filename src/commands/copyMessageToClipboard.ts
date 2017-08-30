@@ -1,7 +1,7 @@
 'use strict';
 import { Iterables } from '../system';
 import { TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { copy } from 'copy-paste';
@@ -15,6 +15,16 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 
     constructor(private git: GitService) {
         super(Commands.CopyMessageToClipboard);
+    }
+
+    protected async preExecute(context: CommandContext, args: CopyMessageToClipboardCommandArgs = {}): Promise<any> {
+        if (isCommandViewContextWithCommit(context)) {
+            args = { ...args };
+            args.sha = context.node.commit.sha;
+            return this.execute(context.editor, context.node.commit.uri, args);
+        }
+
+        return this.execute(context.editor, context.uri, args);
     }
 
     async execute(editor?: TextEditor, uri?: Uri, args: CopyMessageToClipboardCommandArgs = {}): Promise<any> {
@@ -64,7 +74,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 
                 // Get the full commit message -- since blame only returns the summary
                 const commit = await this.git.getLogCommit(gitUri.repoPath, gitUri.fsPath, args.sha);
-                if (!commit) return undefined;
+                if (commit === undefined) return undefined;
 
                 args.message = commit.message;
             }

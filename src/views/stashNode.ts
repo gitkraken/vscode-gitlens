@@ -1,29 +1,35 @@
 'use strict';
-import { Iterables } from '../system';
-import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ExplorerNode, ResourceType, TextExplorerNode } from './explorerNode';
-import { GitService, GitUri } from '../gitService';
-import { StashCommitNode } from './stashCommitNode';
+import { Event, EventEmitter, ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ExplorerNode, ResourceType } from './explorerNode';
+import { CommitFormatter, GitService, GitStashCommit, GitUri } from '../gitService';
+import { StashFileNode } from './stashFileNode';
 
 export class StashNode extends ExplorerNode {
 
-    static readonly rootType: ResourceType = 'stash-history';
-    readonly resourceType: ResourceType = 'stash-history';
+    readonly resourceType: ResourceType = 'gitlens:stash';
 
-    constructor(uri: GitUri, protected readonly context: ExtensionContext, protected readonly git: GitService) {
-        super(uri);
-     }
+    private _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
+    public get onDidChangeTreeData(): Event<ExplorerNode> {
+        return this._onDidChangeTreeData.event;
+    }
+
+    constructor(public readonly commit: GitStashCommit, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+        super(new GitUri(commit.uri, commit));
+    }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        const stash = await this.git.getStashList(this.uri.repoPath!);
-        if (stash === undefined) return [new TextExplorerNode('No stashed changes')];
-
-        return [...Iterables.map(stash.commits.values(), c => new StashCommitNode(c, this.context, this.git))];
+        return Promise.resolve((this.commit as GitStashCommit).fileStatuses.map(s => new StashFileNode(s, this.commit, this.context, this.git)));
     }
 
     getTreeItem(): TreeItem {
-        const item = new TreeItem(`Stashed Changes`, TreeItemCollapsibleState.Collapsed);
+        const label = CommitFormatter.fromTemplate(this.git.config.gitExplorer.stashFormat, this.commit, this.git.config.defaultDateFormat);
+
+        const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
         item.contextValue = this.resourceType;
         return item;
+    }
+
+    refresh() {
+        this._onDidChangeTreeData.fire();
     }
 }

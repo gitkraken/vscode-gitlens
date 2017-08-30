@@ -7,9 +7,9 @@ import * as path from 'path';
 
 export class CommitFileNode extends ExplorerNode {
 
-    readonly resourceType: ResourceType = 'commit-file';
+    readonly resourceType: ResourceType = 'gitlens:commit-file';
 
-    constructor(public readonly status: IGitStatusFile, public commit: GitCommit, private template: string, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+    constructor(public readonly status: IGitStatusFile, public commit: GitCommit, protected readonly context: ExtensionContext, protected readonly git: GitService) {
         super(new GitUri(Uri.file(path.resolve(commit.repoPath, status.fileName)), { repoPath: commit.repoPath, fileName: status.fileName, sha: commit.sha }));
     }
 
@@ -25,7 +25,7 @@ export class CommitFileNode extends ExplorerNode {
             }
         }
 
-        const item = new TreeItem(StatusFileFormatter.fromTemplate(this.template, this.status), TreeItemCollapsibleState.None);
+        const item = new TreeItem(StatusFileFormatter.fromTemplate(this.git.config.gitExplorer.commitFileFormat, this.status), TreeItemCollapsibleState.None);
         item.contextValue = this.resourceType;
 
         const icon = getGitStatusIcon(this.status.status);
@@ -40,8 +40,18 @@ export class CommitFileNode extends ExplorerNode {
     }
 
     getCommand(): Command | undefined {
+        let allowMissingPrevious = false;
+        let prefix = undefined;
+        if (this.status.status === 'A') {
+            allowMissingPrevious = true;
+            prefix = 'added in ';
+        }
+        else if (this.status.status === 'D') {
+            prefix = 'deleted in ';
+        }
+
         return {
-            title: 'Compare File with Previous',
+            title: 'Compare File with Previous Revision',
             command: Commands.DiffWithPrevious,
             arguments: [
                 GitUri.fromFileStatus(this.status, this.commit.repoPath),
@@ -51,7 +61,9 @@ export class CommitFileNode extends ExplorerNode {
                     showOptions: {
                         preserveFocus: true,
                         preview: true
-                    }
+                    },
+                    allowMissingPrevious: allowMissingPrevious,
+                    rightTitlePrefix: prefix
                 } as DiffWithPreviousCommandArgs
             ]
         };

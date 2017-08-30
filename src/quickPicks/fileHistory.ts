@@ -139,7 +139,7 @@ export class FileHistoryQuickPick {
             const remotes = Arrays.uniqueBy(await git.getRemotes(uri.repoPath!), _ => _.url, _ => !!_.provider);
             if (remotes.length) {
                 items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, {
-                    type: 'file',
+                    type: 'revision',
                     branch: branch!.name,
                     fileName: uri.getRelativePath(),
                     sha: uri.sha

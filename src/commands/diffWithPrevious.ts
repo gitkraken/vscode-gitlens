@@ -2,7 +2,7 @@
 import { Iterables } from '../system';
 import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
-import { BuiltInCommands, GlyphChars } from '../constants';
+import { BuiltInCommands, FakeSha, GlyphChars } from '../constants';
 import { DiffWithWorkingCommandArgs } from './diffWithWorking';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
@@ -14,6 +14,10 @@ export interface DiffWithPreviousCommandArgs {
     line?: number;
     range?: Range;
     showOptions?: TextDocumentShowOptions;
+
+    allowMissingPrevious?: boolean;
+    leftTitlePrefix?: string;
+    rightTitlePrefix?: string;
 }
 
 export class DiffWithPreviousCommand extends ActiveEditorCommand {
@@ -51,12 +55,12 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
             }
         }
 
-        if (args.commit.previousSha === undefined) return Messages.showCommitHasNoPreviousCommitWarningMessage(args.commit);
+        if (args.commit.previousSha === undefined && !args.allowMissingPrevious) return Messages.showCommitHasNoPreviousCommitWarningMessage(args.commit);
 
         try {
             const [rhs, lhs] = await Promise.all([
                 this.git.getVersionedFile(args.commit.repoPath, args.commit.uri.fsPath, args.commit.sha),
-                this.git.getVersionedFile(args.commit.repoPath, args.commit.previousUri.fsPath, args.commit.previousSha)
+                this.git.getVersionedFile(args.commit.repoPath, args.commit.previousUri.fsPath, args.commit.previousSha === undefined ? FakeSha : args.commit.previousSha)
             ]);
 
             if (args.line !== undefined && args.line !== 0) {
@@ -69,7 +73,9 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
             await commands.executeCommand(BuiltInCommands.Diff,
                 Uri.file(lhs),
                 Uri.file(rhs),
-                `${path.basename(args.commit.previousUri.fsPath)} (${args.commit.previousShortSha}) ${GlyphChars.ArrowLeftRight} ${path.basename(args.commit.uri.fsPath)} (${args.commit.shortSha})`,
+                args.commit.previousShortSha === undefined
+                    ? `${path.basename(args.commit.uri.fsPath)} (${args.rightTitlePrefix || ''}${args.commit.shortSha})`
+                    : `${path.basename(args.commit.previousUri.fsPath)} (${args.leftTitlePrefix || ''}${args.commit.previousShortSha}) ${GlyphChars.ArrowLeftRight} ${path.basename(args.commit.uri.fsPath)} (${args.rightTitlePrefix || ''}${args.commit.shortSha})`,
                 args.showOptions);
         }
         catch (ex) {

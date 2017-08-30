@@ -1,23 +1,19 @@
 'use strict';
-import { Iterables } from '../system';
 import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { CommitNode } from './commitNode';
-import { ExplorerNode, MessageNode, ResourceType } from './explorerNode';
+import { ExplorerNode, ResourceType } from './explorerNode';
+import { FileHistoryNode } from './fileHistoryNode';
 import { GitService, GitUri } from '../gitService';
 
-export class FileHistoryNode extends ExplorerNode {
+export class HistoryNode extends ExplorerNode {
 
-    readonly resourceType: ResourceType = 'gitlens:file-history';
+    readonly resourceType: ResourceType = 'gitlens:history';
 
     constructor(uri: GitUri, protected readonly context: ExtensionContext, protected readonly git: GitService) {
         super(uri);
      }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        const log = await this.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, this.uri.sha);
-        if (log === undefined) return [new MessageNode('No file history')];
-
-        return [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.git.config.gitExplorer.commitFormat, this.context, this.git))];
+        return [new FileHistoryNode(this.uri, this.context, this.git)];
     }
 
     getTreeItem(): TreeItem {

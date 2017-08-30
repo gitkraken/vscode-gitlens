@@ -28,6 +28,7 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
 
         try {
             if (args.remotes.length === 1) {
+                this.ensureRemoteBranchName(args);
                 const command = new OpenRemoteCommandQuickPickItem(args.remotes[0], args.resource);
                 return command.execute();
             }
@@ -35,16 +36,7 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
             let placeHolder = '';
             switch (args.resource.type) {
                 case 'branch':
-                    // Check to see if the remote is in the branch
-                    const index = args.resource.branch.indexOf('/');
-                    if (index >= 0) {
-                        const remoteName = args.resource.branch.substring(0, index);
-                        const remote = args.remotes.find(r => r.name === remoteName);
-                        if (remote !== undefined) {
-                            args.resource.branch = args.resource.branch.substring(index + 1);
-                            args.remotes = [remote];
-                        }
-                    }
+                    this.ensureRemoteBranchName(args);
                     placeHolder = `open ${args.resource.branch} branch in${GlyphChars.Ellipsis}`;
                     break;
 
@@ -54,6 +46,10 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
                     break;
 
                 case 'file':
+                    placeHolder = `open ${args.resource.fileName} in${GlyphChars.Ellipsis}`;
+                    break;
+
+                case 'revision':
                     if (args.resource.commit !== undefined && args.resource.commit instanceof GitLogCommit) {
                         if (args.resource.commit.status === 'D') {
                             args.resource.sha = args.resource.commit.previousSha;
@@ -71,10 +67,6 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
                         placeHolder = `open ${args.resource.fileName}${shaSuffix} in${GlyphChars.Ellipsis}`;
                     }
                     break;
-
-                case 'working-file':
-                    placeHolder = `open ${args.resource.fileName} in${GlyphChars.Ellipsis}`;
-                    break;
             }
 
             if (args.remotes.length === 1) {
@@ -91,6 +83,21 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
         catch (ex) {
             Logger.error(ex, 'OpenInRemoteCommand');
             return window.showErrorMessage(`Unable to open in remote provider. See output channel for more details`);
+        }
+    }
+
+    private ensureRemoteBranchName(args: OpenInRemoteCommandArgs) {
+        if (args.remotes === undefined || args.resource === undefined || args.resource.type !== 'branch') return;
+
+        // Check to see if the remote is in the branch
+        const index = args.resource.branch.indexOf('/');
+        if (index >= 0) {
+            const remoteName = args.resource.branch.substring(0, index);
+            const remote = args.remotes.find(r => r.name === remoteName);
+            if (remote !== undefined) {
+                args.resource.branch = args.resource.branch.substring(index + 1);
+                args.remotes = [remote];
+            }
         }
     }
 }

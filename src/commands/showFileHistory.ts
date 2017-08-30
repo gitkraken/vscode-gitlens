@@ -2,7 +2,7 @@
 import { commands, Position, Range, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { Commands, EditorCommand, getCommandUri } from './common';
 import { BuiltInCommands } from '../constants';
-import { GitExplorer } from '../views/gitExplorer';
+// import { GitExplorer } from '../views/gitExplorer';
 import { GitService, GitUri } from '../gitService';
 import { Messages } from '../messages';
 import { Logger } from '../logger';
@@ -15,7 +15,7 @@ export interface ShowFileHistoryCommandArgs {
 
 export class ShowFileHistoryCommand extends EditorCommand {
 
-    constructor(private git: GitService, private explorer?: GitExplorer) {
+    constructor(private git: GitService) {
         super(Commands.ShowFileHistory);
     }
 
@@ -33,10 +33,10 @@ export class ShowFileHistoryCommand extends EditorCommand {
         const gitUri = await GitUri.fromUri(uri, this.git);
 
         try {
-            if (this.explorer !== undefined) {
-                this.explorer.addHistory(gitUri);
-                return undefined;
-            }
+            // if (this.explorer !== undefined) {
+            //     this.explorer.addHistory(gitUri);
+            //     return undefined;
+            // }
 
             const locations = await this.git.getLogLocations(gitUri, args.sha, args.line);
             if (locations === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to show file history');

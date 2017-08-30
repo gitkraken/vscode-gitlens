@@ -1,12 +1,11 @@
 'use strict';
 import { Arrays } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
 import { GitBlameCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { OpenInRemoteCommandArgs } from './openInRemote';
-import { CommitNode } from '../views/explorerNodes';
 
 export interface OpenCommitInRemoteCommandArgs {
     sha?: string;
@@ -19,7 +18,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
     }
 
     protected async preExecute(context: CommandContext, args: OpenCommitInRemoteCommandArgs = {}): Promise<any> {
-        if (context.type === 'view' && context.node instanceof CommitNode) {
+        if (isCommandViewContextWithCommit(context)) {
             args = { ...args };
             args.sha = context.node.commit.sha;
             return this.execute(context.editor, context.node.commit.uri, args);

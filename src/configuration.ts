@@ -2,6 +2,7 @@
 import { FileAnnotationType } from './annotations/annotationController';
 import { Commands } from './commands';
 import { LineAnnotationType } from './currentLineController';
+import { GitExplorerView } from './views/gitExplorer';
 import { OutputLevel } from './logger';
 
 export { ExtensionKey } from './constants';
@@ -296,19 +297,10 @@ export interface IConfig {
 
     defaultDateFormat: string | null;
 
-    fileHistoryExplorer: {
-        commitFormat: string;
-        // commitFileFormat: string;
-        // dateFormat: string | null;
-    };
-
     gitExplorer: {
+        view: GitExplorerView;
         commitFormat: string;
         commitFileFormat: string;
-        // dateFormat: string | null;
-    };
-
-    stashExplorer: {
         stashFormat: string;
         stashFileFormat: string;
         // dateFormat: string | null;

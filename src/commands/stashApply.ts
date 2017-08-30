@@ -1,13 +1,11 @@
 'use strict';
 import { Strings } from '../system';
 import { MessageItem, window } from 'vscode';
-import { GitService, GitStashCommit } from '../gitService';
-import { Command, CommandContext, Commands } from './common';
+import { Command, CommandContext, Commands, isCommandViewContextWithCommit } from './common';
 import { GlyphChars } from '../constants';
-import { CommitQuickPickItem, StashListQuickPick } from '../quickPicks';
+import { GitService, GitStashCommit } from '../gitService';
 import { Logger } from '../logger';
-import { CommandQuickPickItem } from '../quickPicks';
-import { StashCommitNode } from '../views/stashCommitNode';
+import { CommandQuickPickItem, CommitQuickPickItem, StashListQuickPick } from '../quickPicks';
 
 export interface StashApplyCommandArgs {
     confirm?: boolean;
@@ -24,12 +22,9 @@ export class StashApplyCommand extends Command {
     }
 
     protected async preExecute(context: CommandContext, args: StashApplyCommandArgs = { confirm: true, deleteAfter: false }) {
-        if (context.type === 'view' && context.node instanceof StashCommitNode) {
+        if (isCommandViewContextWithCommit<GitStashCommit>(context)) {
             args = { ...args };
-
-            const stash = context.node.commit;
-            args.stashItem = { stashName: stash.stashName, message: stash.message };
-
+            args.stashItem = { stashName: context.node.commit.stashName, message: context.node.commit.message };
             return this.execute(args);
         }
 

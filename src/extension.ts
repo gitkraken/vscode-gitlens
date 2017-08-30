@@ -20,9 +20,7 @@ import { ApplicationInsightsKey, CommandContext, ExtensionKey, QualifiedExtensio
 import { CodeLensController } from './codeLensController';
 import { CurrentLineController, LineAnnotationType } from './currentLineController';
 import { GitContentProvider } from './gitContentProvider';
-// import { GitExplorer } from './views/gitExplorer';
-import { FileHistoryExplorer } from './views/fileHistoryExplorer';
-import { StashExplorer } from './views/stashExplorer';
+import { GitExplorer } from './views/gitExplorer';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { GitContextTracker, GitService } from './gitService';
 import { Keyboard } from './keyboard';
@@ -94,11 +92,7 @@ export async function activate(context: ExtensionContext) {
 
     context.subscriptions.push(new Keyboard());
 
-    // const explorer = new GitExplorer(context, git);
-    // context.subscriptions.push(window.registerTreeDataProvider('gitlens.gitExplorer', explorer));
-
-    context.subscriptions.push(window.registerTreeDataProvider('gitlens.fileHistoryExplorer', new FileHistoryExplorer(context, git)));
-    context.subscriptions.push(window.registerTreeDataProvider('gitlens.stashExplorer', new StashExplorer(context, git)));
+    context.subscriptions.push(window.registerTreeDataProvider('gitlens.gitExplorer', new GitExplorer(context, git)));
 
     context.subscriptions.push(commands.registerTextEditorCommand('gitlens.computingFileAnnotations', () => { }));
 

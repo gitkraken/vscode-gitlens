@@ -8,7 +8,6 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitsQuickPick } from '../quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
-import { paste } from 'copy-paste';
 
 const searchByRegex = /^([@:#])/;
 const searchByMap = new Map<string, GitRepoSearchBy>([
@@ -48,12 +47,6 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                         if (blameLine !== undefined) {
                             args.search = `#${blameLine.commit.shortSha}`;
                         }
-                    }
-
-                    if (!args.search) {
-                        args.search = await new Promise<string>((resolve, reject) => {
-                            paste((err: Error, content: string) => resolve(err ? '' : content));
-                        });
                     }
                 }
             }

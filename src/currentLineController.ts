@@ -476,11 +476,11 @@ export class CurrentLineController extends Disposable {
                 break;
             case StatusBarCommand.DiffWithPrevious:
                 this._statusBarItem.command = Commands.DiffLineWithPrevious;
-                this._statusBarItem.tooltip = 'Compare Line Commit with Previous';
+                this._statusBarItem.tooltip = 'Compare Line Revision with Previous';
                 break;
             case StatusBarCommand.DiffWithWorking:
                 this._statusBarItem.command = Commands.DiffLineWithWorking;
-                this._statusBarItem.tooltip = 'Compare Line Commit with Working Tree';
+                this._statusBarItem.tooltip = 'Compare Line Revision with Working';
                 break;
             case StatusBarCommand.ToggleCodeLens:
                 this._statusBarItem.tooltip = 'Toggle Git CodeLens';

@@ -13,6 +13,17 @@ import * as path from 'path';
 export class OpenCommitFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 
     constructor(commit: GitLogCommit, item?: QuickPickItem) {
+        const uri = Uri.file(path.resolve(commit.repoPath, commit.fileName));
+        super(uri, item || {
+            label: `$(file-symlink-file) Open File`,
+            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${path.basename(commit.fileName)}`
+        });
+    }
+}
+
+export class OpenCommitFileRevisionCommandQuickPickItem extends OpenFileCommandQuickPickItem {
+
+    constructor(commit: GitLogCommit, item?: QuickPickItem) {
         let description: string;
         let uri: Uri;
         if (commit.status === 'D') {
@@ -24,19 +35,8 @@ export class OpenCommitFileCommandQuickPickItem extends OpenFileCommandQuickPick
             description = `${Strings.pad(GlyphChars.Dash, 2, 3)} ${path.basename(commit.fileName)} in ${GlyphChars.Space}$(git-commit) ${commit.shortSha}`;
         }
         super(uri, item || {
-            label: `$(file-symlink-file) Open File`,
+            label: `$(file-symlink-file) Open Revision`,
             description: description
-        });
-    }
-}
-
-export class OpenCommitWorkingTreeFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
-
-    constructor(commit: GitLogCommit, item?: QuickPickItem) {
-        const uri = Uri.file(path.resolve(commit.repoPath, commit.fileName));
-        super(uri, item || {
-            label: `$(file-symlink-file) Open Working File`,
-            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${path.basename(commit.fileName)}`
         });
     }
 }
@@ -74,7 +74,7 @@ export class CommitFileDetailsQuickPick {
 
             if (commit.previousSha) {
                 items.push(new CommandQuickPickItem({
-                    label: `$(git-compare) Compare File with Previous`,
+                    label: `$(git-compare) Compare File with Previous Revision`,
                     description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.previousShortSha} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`
                 }, Commands.DiffWithPrevious, [
                         commit.uri,
@@ -87,7 +87,7 @@ export class CommitFileDetailsQuickPick {
 
         if (commit.workingFileName) {
             items.push(new CommandQuickPickItem({
-                label: `$(git-compare) Compare File with Working Tree`,
+                label: `$(git-compare) Compare File with Working Revision`,
                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(file-text) ${workingName}`
             }, Commands.DiffWithWorking, [
                     Uri.file(path.resolve(commit.repoPath, commit.workingFileName)),
@@ -120,26 +120,26 @@ export class CommitFileDetailsQuickPick {
                 ]));
         }
 
-        items.push(new OpenCommitFileCommandQuickPickItem(commit));
         if (commit.workingFileName && commit.status !== 'D') {
-            items.push(new OpenCommitWorkingTreeFileCommandQuickPickItem(commit));
+            items.push(new OpenCommitFileCommandQuickPickItem(commit));
         }
+        items.push(new OpenCommitFileRevisionCommandQuickPickItem(commit));
 
         const remotes = Arrays.uniqueBy(await git.getRemotes(commit.repoPath), _ => _.url, _ => !!_.provider);
         if (remotes.length) {
-            if (!stash) {
-                items.push(new OpenRemotesCommandQuickPickItem(remotes, {
-                    type: 'file',
-                    fileName: commit.fileName,
-                    commit
-                } as RemoteResource, currentCommand));
-            }
             if (commit.workingFileName && commit.status !== 'D') {
                 const branch = await git.getBranch(commit.repoPath || git.repoPath) as GitBranch;
                 items.push(new OpenRemotesCommandQuickPickItem(remotes, {
-                    type: 'working-file',
+                    type: 'file',
                     fileName: commit.workingFileName,
                     branch: branch.name
+                } as RemoteResource, currentCommand));
+            }
+            if (!stash) {
+                items.push(new OpenRemotesCommandQuickPickItem(remotes, {
+                    type: 'revision',
+                    fileName: commit.fileName,
+                    commit
                 } as RemoteResource, currentCommand));
             }
         }

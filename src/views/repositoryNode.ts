@@ -4,12 +4,13 @@ import { BranchesNode } from './branchesNode';
 import { GlyphChars } from '../constants';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitService, GitUri } from '../gitService';
-// import { StatusNode } from './statusNode';
+import { RemotesNode } from './remotesNode';
+import { StatusNode } from './statusNode';
+import { StashesNode } from './stashesNode';
 
 export class RepositoryNode extends ExplorerNode {
 
-    static readonly rootType: ResourceType = 'repository';
-    readonly resourceType: ResourceType = 'repository';
+    readonly resourceType: ResourceType = 'gitlens:repository';
 
     constructor(uri: GitUri, protected readonly context: ExtensionContext, protected readonly git: GitService) {
         super(uri);
@@ -17,8 +18,10 @@ export class RepositoryNode extends ExplorerNode {
 
     async getChildren(): Promise<ExplorerNode[]> {
         return [
-            // new StatusNode(this.uri, this.context, this.git),
-            new BranchesNode(this.uri, this.context, this.git)
+            new StatusNode(this.uri, this.context, this.git),
+            new BranchesNode(this.uri, this.context, this.git),
+            new RemotesNode(this.uri, this.context, this.git),
+            new StashesNode(this.uri, this.context, this.git)
         ];
     }
 

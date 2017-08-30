@@ -1,7 +1,7 @@
 'use strict';
 import { Iterables } from '../system';
 import { TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { copy } from 'copy-paste';
@@ -14,6 +14,16 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 
     constructor(private git: GitService) {
         super(Commands.CopyShaToClipboard);
+    }
+
+    protected async preExecute(context: CommandContext, args: CopyShaToClipboardCommandArgs = {}): Promise<any> {
+        if (isCommandViewContextWithCommit(context)) {
+            args = { ...args };
+            args.sha = context.node.commit.sha;
+            return this.execute(context.editor, context.node.commit.uri, args);
+        }
+
+        return this.execute(context.editor, context.uri, args);
     }
 
     async execute(editor?: TextEditor, uri?: Uri, args: CopyShaToClipboardCommandArgs = {}): Promise<any> {
@@ -45,7 +55,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 
                 try {
                     const blame = await this.git.getBlameForLine(gitUri, blameline);
-                    if (!blame) return undefined;
+                    if (blame === undefined) return undefined;
 
                     args.sha = blame.commit.sha;
                 }

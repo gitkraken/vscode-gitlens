@@ -1,7 +1,7 @@
 'use strict';
 import { Arrays } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithBranch } from './common';
 import { GlyphChars } from '../constants';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
@@ -16,6 +16,16 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
 
     constructor(private git: GitService) {
         super(Commands.OpenBranchInRemote);
+    }
+
+    protected async preExecute(context: CommandContext, args: OpenBranchInRemoteCommandArgs = {}): Promise<any> {
+        if (isCommandViewContextWithBranch(context)) {
+            args = { ...args };
+            args.branch = context.node.branch.name;
+            return this.execute(context.editor, context.uri, args);
+        }
+
+        return this.execute(context.editor, context.uri, args);
     }
 
     async execute(editor?: TextEditor, uri?: Uri, args: OpenBranchInRemoteCommandArgs = {}) {

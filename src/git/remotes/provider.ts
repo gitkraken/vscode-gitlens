@@ -3,12 +3,13 @@ import { commands, Range, Uri } from 'vscode';
 import { BuiltInCommands } from '../../constants';
 import { GitLogCommit } from '../../gitService';
 
-export type RemoteResourceType = 'branch' | 'commit' | 'file' | 'repo' | 'working-file';
-export type RemoteResource = { type: 'branch', branch: string } |
+export type RemoteResourceType = 'branch' | 'commit' | 'file' | 'repo' | 'revision';
+export type RemoteResource =
+    { type: 'branch', branch: string } |
     { type: 'commit', sha: string } |
-    { type: 'file', branch?: string, commit?: GitLogCommit, fileName: string, range?: Range, sha?: string } |
+    { type: 'file', branch?: string, fileName: string, range?: Range } |
     { type: 'repo' } |
-    { type: 'working-file', branch?: string, fileName: string, range?: Range };
+    { type: 'revision', branch?: string, commit?: GitLogCommit, fileName: string, range?: Range, sha?: string };
 
 export function getNameFromRemoteResource(resource: RemoteResource) {
     switch (resource.type) {
@@ -16,7 +17,7 @@ export function getNameFromRemoteResource(resource: RemoteResource) {
         case 'commit': return 'Commit';
         case 'file': return 'File';
         case 'repo': return 'Repository';
-        case 'working-file': return 'Working File';
+        case 'revision': return 'Revision';
         default: return '';
     }
 }
@@ -43,16 +44,11 @@ export abstract class RemoteProvider {
 
     open(resource: RemoteResource): Promise<{} | undefined> {
         switch (resource.type) {
-            case 'branch':
-                return this.openBranch(resource.branch);
-            case 'commit':
-                return this.openCommit(resource.sha);
-            case 'file':
-                return this.openFile(resource.fileName, resource.branch, resource.sha, resource.range);
-            case 'repo':
-                return this.openRepo();
-            case 'working-file':
-                return this.openFile(resource.fileName, resource.branch, undefined, resource.range);
+            case 'branch': return this.openBranch(resource.branch);
+            case 'commit': return this.openCommit(resource.sha);
+            case 'file': return this.openFile(resource.fileName, resource.branch, undefined, resource.range);
+            case 'repo': return this.openRepo();
+            case 'revision': return this.openFile(resource.fileName, resource.branch, resource.sha, resource.range);
         }
     }
 

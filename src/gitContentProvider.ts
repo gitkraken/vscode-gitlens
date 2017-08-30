@@ -1,5 +1,5 @@
 'use strict';
-import { ExtensionContext, TextDocumentContentProvider, Uri, window } from 'vscode';
+import { CancellationToken, ExtensionContext, TextDocumentContentProvider, Uri, window } from 'vscode';
 import { DocumentSchemes } from './constants';
 import { GitService } from './gitService';
 import { Logger } from './logger';
@@ -11,7 +11,7 @@ export class GitContentProvider implements TextDocumentContentProvider {
 
     constructor(context: ExtensionContext, private git: GitService) { }
 
-    async provideTextDocumentContent(uri: Uri): Promise<string> {
+    async provideTextDocumentContent(uri: Uri, token: CancellationToken): Promise<string | undefined> {
         const data = GitService.fromGitContentUri(uri);
         const fileName = data.originalFileName || data.fileName;
         try {
@@ -23,8 +23,8 @@ export class GitContentProvider implements TextDocumentContentProvider {
         }
         catch (ex) {
             Logger.error(ex, 'GitContentProvider', 'getVersionedFileText');
-            await window.showErrorMessage(`Unable to show Git revision ${data.sha.substring(0, 8)} of '${path.relative(data.repoPath, fileName)}'`);
-            return '';
+            window.showErrorMessage(`Unable to show Git revision ${data.sha.substring(0, 8)} of '${path.relative(data.repoPath, fileName)}'`);
+            return undefined;
         }
     }
 }
