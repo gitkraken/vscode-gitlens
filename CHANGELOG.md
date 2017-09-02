@@ -4,17 +4,63 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [4.5.0-beta] - 2017-08-27
+## [5.0.0-alpha] - 2017-09-02
 ### Added
-- Adds an all-new `Git File History` explorer to the Explorer activity -- enabled via `"gitlens.insiders": true`
-  - Shows the commit history of the active file -- automatically tracks the active editor
-  - Provides toolbar buttons to `Refresh`
-  - Provides a context menu with `Open Changes`, `Compare File with Working Tree`, `Open File`, `Open File Revision`, `Open File in Remote`, `Open File Revision in Remote`, and `Show Commit Details` commands
-- Adds a `No stashed changes` message to the `Git Stashes` explorer when there are no stashes
+- Adds an all-new `GitLens` custom view to the Explorer activity
+
+  - `Repository View` - provides a full repository explorer
+
+    ![GitLens Repository view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-repository.png)
+
+    - `Status` node — provides the status of current branch
+      - Indicates whether or not the current branch is up-to-date with its upstream branch
+      - If the branch is out of sync, additional nodes will be shown with the specific commits ahead and/or behind the upstream
+
+    - `Branches` node — provides a list of the local branches
+      - Indicates which branch is the current branch
+      - Expand each branch to easily see its revision (commit) history
+        - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
+           - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, and `Show Commit File Details` commands
+        - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Open Files`, `Open Revisions`, and `Show Commit Details` commands
+      - Provides a context menu on each branch with an `Open Branch in Remote` command
+
+    - `Remotes` node — provides a list of the remote branches
+      - See `Branches` node above for details
+
+    - `Stashes` node — provides a list of stashed changes
+      - Expand each stash to quickly see the set of files stashed, complete with status indicators for adds, changes, renames, and deletes
+      - Provides a context menu on each stash with `Apply Stashed Changes` (confirmation required), `Delete Stashed Changes` (confirmation required), `Copy Commit Message to Clipboard`, `Open Files`, and `Open Revisions` commands
+      - Provides a context menu on each stashed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, and `Show File History` commands
+
+  - `History View` - provides the revision history of the active file
+
+    ![GitLens History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-history.png)
+
+    - Automatically updates to track the active editor
+    - Provides a context menu on each revision (commit) with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, and `Show Commit File Details` commands
+
+  - Quickly switch between views using the `Switch to Repository View` or `Switch to History View` commands
+  - Provides toolbar buttons to `Search Commits`, `Switch to Repository View` or `Switch to History View`, and `Refresh`
+
 - Adds `${filePath}` token to file formatting
 
 ### Changed
-- Changes `gitlens.stashExplorer.stashFileFormat` setting to defaults to `${filePath}` for better separator handling
+- Renames `Compare File with Previous` command (gitlens.diffWithPrevious) to `Compare File with Previous Revision`
+- Renames `Compare File with Next Commit` command (`gitlens.diffWithNext`) to `Compare File with Next Revision`
+- Renames `Compare File with Working Tree` command (`gitlens.diffWithWorking`) to `Compare File with Working Revision`
+- Renames `Compare Line Commit with Previous` command (`gitlens.diffLineWithPrevious`) to `Compare Line Revision with Previous`
+- Renames `Compare Line Commit with Working Tree` command (`gitlens.diffLineWithWorking`) to `Compare Line Revision with Working`
+
+- Renames `gitlens.stashExplorer.stashFormat` setting to `gitlens.gitExplorer.stashFormat`
+- Renames `gitlens.stashExplorer.stashFileFormat` setting to `gitlens.gitExplorer.stashFileFormat`
+- Changes `gitlens.gitExplorer.stashFileFormat` setting to defaults to `${filePath}` for better separator handling
+
+### Removed
+- Removes the `Git Stashes` custom view view - as it's functionality has been folded into the new `GitLens` custom view
+- Removes the seeding of the commit search command from the clipboard
+
+### Fixed
+- Fixes an issue where remote branches couldn't be opened properly in their remote service
 
 ## [4.4.3] - 2017-08-30
 ## Fixed
@@ -63,18 +109,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [4.3.1] - 2017-07-03
 ## Added
-- Adds `gitlens.stashExplorer.enabled` setting to specify whether or not to show the `Git Stashes` explorer
-- Adds `Toggle Git Stashes Explorer` command (`gitlens.stashExplorer.toggle`) - toggles the `Git Stashes` explorer on and off
+- Adds `gitlens.stashExplorer.enabled` setting to specify whether or not to show the `Git Stashes` custom view
+- Adds `Toggle Git Stashes Explorer` command (`gitlens.stashExplorer.toggle`) - toggles the `Git Stashes` custom view on and off
 
 ## Changed
-- Hides the `Git Stashes` explorer by default
+- Hides the `Git Stashes` custom view by default
 
 ## Fixed
 - Fixes [#108](https://github.com/eamodio/vscode-gitlens/issues/108) - Option to remove stash explorer from the main explorer?
 
 ## [4.3.0] - 2017-07-03
 ## Added
-- Adds `Git Stashes` view to the Explorer activity
+- Adds `Git Stashes` custom view to the Explorer activity
 
   ![Git Stashes view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-stashes.png)
 
