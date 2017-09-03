@@ -156,7 +156,7 @@ export class RepoStatusQuickPick {
         }
 
         items.splice(0, 0, new CommandQuickPickItem({
-            label: `$(repo) Show Stashed Changes`,
+            label: `$(inbox) Show Stashed Changes`,
             description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows stashed changes in the repository`
         }, Commands.ShowQuickStashList, [
                 new GitUri(Uri.file(status.repoPath), { fileName: '', repoPath: status.repoPath }),
