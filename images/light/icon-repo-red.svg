@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg width="16" height="22" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <path fill="#424242" d="m6,12l-1,0l0,-1l1,0l0,1l0,0zm0,-3l-1,0l0,1l1,0l0,-1l0,0zm0,-2l-1,0l0,1l1,0l0,-1l0,0zm0,-2l-1,0l0,1l1,0l0,-1l0,0zm8,-1l0,12c0,0.55 -0.45,1 -1,1l-5,0l0,2l-1.5,-1.5l-1.5,1.5l0,-2l-2,0c-0.55,0 -1,-0.45 -1,-1l0,-12c0,-0.55 0.45,-1 1,-1l10,0c0.55,0 1,0.45 1,1l0,0zm-1,10l-10,0l0,2l2,0l0,-1l3,0l0,1l5,0l0,-2l0,0zm0,-10l-9,0l0,9l9,0l0,-9l0,0z" />
+    <ellipse fill="#cd3131" stroke="#424242" stroke-width="0.5" rx="3" ry="3" cx="13" cy="4" />
+</svg>

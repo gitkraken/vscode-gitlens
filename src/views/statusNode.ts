@@ -34,6 +34,7 @@ export class StatusNode extends ExplorerNode {
 
         let hasChildren = false;
         let label = '';
+        let iconSuffix = '';
         if (status.upstream) {
             if (!status.state.ahead && !status.state.behind) {
                 label = `${status.branch} is up-to-date with ${status.upstream}`;
@@ -41,6 +42,15 @@ export class StatusNode extends ExplorerNode {
             else {
                 label = `${status.branch} is not up-to-date with ${status.upstream}`;
                 hasChildren = true;
+                if (status.state.ahead && status.state.behind) {
+                    iconSuffix = '-yellow';
+                }
+                else if (status.state.ahead) {
+                    iconSuffix = '-green';
+                }
+                else if (status.state.behind) {
+                    iconSuffix = '-red';
+                }
             }
         }
         else {
@@ -51,8 +61,8 @@ export class StatusNode extends ExplorerNode {
         item.contextValue = this.resourceType;
 
         item.iconPath = {
-            dark: this.context.asAbsolutePath('images/dark/icon-repo.svg'),
-            light: this.context.asAbsolutePath('images/light/icon-repo.svg')
+            dark: this.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
+            light: this.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`)
         };
 
         return item;
