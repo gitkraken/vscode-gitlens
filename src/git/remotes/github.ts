@@ -12,6 +12,10 @@ export class GitHubService extends RemoteProvider {
         return 'GitHub';
     }
 
+    protected getUrlForBranches(): string {
+        return `${this.baseUrl}/branches`;
+    }
+
     protected getUrlForBranch(branch: string): string {
         return `${this.baseUrl}/commits/${branch}`;
     }

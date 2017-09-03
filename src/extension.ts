@@ -3,7 +3,7 @@
 import { commands, ExtensionContext, extensions, languages, window, workspace } from 'vscode';
 import { AnnotationController } from './annotations/annotationController';
 import { CloseUnchangedFilesCommand, OpenChangedFilesCommand } from './commands';
-import { OpenBranchInRemoteCommand, OpenCommitInRemoteCommand, OpenFileInRemoteCommand, OpenInRemoteCommand, OpenRepoInRemoteCommand } from './commands';
+import { OpenBranchesInRemoteCommand, OpenBranchInRemoteCommand, OpenCommitInRemoteCommand, OpenFileInRemoteCommand, OpenInRemoteCommand, OpenRepoInRemoteCommand } from './commands';
 import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './commands';
 import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithBranchCommand, DiffWithNextCommand, DiffWithPreviousCommand, DiffWithRevisionCommand, DiffWithWorkingCommand } from './commands';
 import { ResetSuppressedWarningsCommand } from './commands';
@@ -108,6 +108,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new DiffWithPreviousCommand(git));
     context.subscriptions.push(new DiffWithRevisionCommand(git));
     context.subscriptions.push(new DiffWithWorkingCommand(git));
+    context.subscriptions.push(new OpenBranchesInRemoteCommand(git));
     context.subscriptions.push(new OpenBranchInRemoteCommand(git));
     context.subscriptions.push(new OpenCommitInRemoteCommand(git));
     context.subscriptions.push(new OpenFileInRemoteCommand(git));

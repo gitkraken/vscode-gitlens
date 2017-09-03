@@ -12,6 +12,10 @@ export class VisualStudioService extends RemoteProvider {
         return 'Visual Studio Team Services';
     }
 
+    protected getUrlForBranches(): string {
+        return `${this.baseUrl}/branches`;
+    }
+
     protected getUrlForBranch(branch: string): string {
         return `${this.baseUrl}/?version=GB${branch}&_a=history`;
     }

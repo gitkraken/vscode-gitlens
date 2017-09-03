@@ -3,9 +3,10 @@ import { commands, Range, Uri } from 'vscode';
 import { BuiltInCommands } from '../../constants';
 import { GitLogCommit } from '../../gitService';
 
-export type RemoteResourceType = 'branch' | 'commit' | 'file' | 'repo' | 'revision';
+export type RemoteResourceType = 'branch' | 'branches' | 'commit' | 'file' | 'repo' | 'revision';
 export type RemoteResource =
     { type: 'branch', branch: string } |
+    { type: 'branches' } |
     { type: 'commit', sha: string } |
     { type: 'file', branch?: string, fileName: string, range?: Range } |
     { type: 'repo' } |
@@ -14,6 +15,7 @@ export type RemoteResource =
 export function getNameFromRemoteResource(resource: RemoteResource) {
     switch (resource.type) {
         case 'branch': return 'Branch';
+        case 'branches': return 'Branches';
         case 'commit': return 'Commit';
         case 'file': return 'File';
         case 'repo': return 'Repository';
@@ -32,6 +34,7 @@ export abstract class RemoteProvider {
         return `https://${this.domain}/${this.path}`;
     }
 
+    protected abstract getUrlForBranches(): string;
     protected abstract getUrlForBranch(branch: string): string;
     protected abstract getUrlForCommit(sha: string): string;
     protected abstract getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string;
@@ -45,6 +48,7 @@ export abstract class RemoteProvider {
     open(resource: RemoteResource): Promise<{} | undefined> {
         switch (resource.type) {
             case 'branch': return this.openBranch(resource.branch);
+            case 'branches': return this.openBranches();
             case 'commit': return this.openCommit(resource.sha);
             case 'file': return this.openFile(resource.fileName, resource.branch, undefined, resource.range);
             case 'repo': return this.openRepo();
@@ -54,6 +58,10 @@ export abstract class RemoteProvider {
 
     openRepo() {
         return this._openUrl(this.baseUrl);
+    }
+
+    openBranches() {
+        return this._openUrl(this.getUrlForBranches());
     }
 
     openBranch(branch: string) {

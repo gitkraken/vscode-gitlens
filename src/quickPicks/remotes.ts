@@ -38,6 +38,10 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                 description = `$(git-branch) ${resource.branch}`;
                 break;
 
+            case 'branches':
+                description = `$(git-branch) Branches`;
+                break;
+
             case 'commit':
                 const shortSha = resource.sha.substring(0, 8);
                 description = `$(git-commit) ${shortSha}`;

@@ -950,6 +950,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.openBranchesInRemote",
+                "title": "Open Branches in Remote",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.openBranchInRemote",
                 "title": "Open Branch in Remote",
                 "category": "GitLens"
@@ -1182,6 +1187,10 @@
                 {
                     "command": "gitlens.openChangedFiles",
                     "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.openBranchesInRemote",
+                    "when": "gitlens:hasRemotes"
                 },
                 {
                     "command": "gitlens.openBranchInRemote",
@@ -1473,6 +1482,11 @@
             ],
             "view/item/context": [
                 {
+                    "command": "gitlens.openBranchesInRemote",
+                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:branches",
+                    "group": "1_gitlens@1"
+                },
+                {
                     "command": "gitlens.openBranchInRemote",
                     "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:branch-history",
                     "group": "1_gitlens@1"
@@ -1616,6 +1630,11 @@
                     "command": "gitlens.showQuickFileHistory",
                     "when": "gitlens:isTracked && view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
                     "group": "5_gitlens@1"
+                },
+                {
+                    "command": "gitlens.openRepoInRemote",
+                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:status",
+                    "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.gitExplorer.refresh",

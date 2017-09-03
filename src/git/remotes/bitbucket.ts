@@ -12,6 +12,10 @@ export class BitbucketService extends RemoteProvider {
         return 'Bitbucket';
     }
 
+    protected getUrlForBranches(): string {
+        return `${this.baseUrl}/branches`;
+    }
+
     protected getUrlForBranch(branch: string): string {
         return `${this.baseUrl}/commits/branch/${branch}`;
     }
