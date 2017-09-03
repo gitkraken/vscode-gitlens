@@ -117,7 +117,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
     ![GitLens Repository view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-repository.png)
 
-    - `Status` node — provides the status of current branch
+    - `Repository Status` node — provides the status of the repository
       - Provides the name of the current branch, its upstream tracking branch (if available), and its upstream status (if available)
       - Provides indicator dots on the repository icon which denote the following:
         - `None` - up-to-date with the upstream
@@ -125,7 +125,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
         - `Red` - behind the upstream
         - `Yellow` - both ahead of and behind the upstream
       - Provides additional nodes, if the current branch is not synchronized with the upstream, to quickly see and explore the specific commits ahead and/or behind the upstream
-      - Provides a context menu with a `Refresh` command
+      - Provides a context menu with `Open Repository in Remote`, and `Refresh` commands
 
     - `Branches` node — provides a list of the local branches
       - Indicates which branch is the current branch
@@ -133,7 +133,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
         - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
            - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
         - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Open Files`, `Open Revisions`, `Show Commit Details`, and `Refresh` commands
-      - Provides a context menu with a `Refresh` command
+      - Provides a context menu with `Open Branches in Remote`, and `Refresh` commands
       - Provides a context menu on each branch with `Open Branch in Remote`, and `Refresh` commands
 
     - `Remotes` node — provides a list of the remote branches
@@ -150,7 +150,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
     ![GitLens History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-history.png)
 
     - Automatically updates to track the active editor
-    - Provides a context menu with a `Refresh` command
+    - Provides a context menu with `Open File`, `Open File in Remote`, and `Refresh` commands
     - Provides a context menu on each revision (commit) with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
 
   - Quickly switch between views using the `Switch to Repository View` or `Switch to History View` commands
@@ -159,6 +159,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 - Adds a `Search Commits` command (`gitlens.showCommitSearch`) with a shortcut of `alt+/` to search for commits by message, author, file(s), or commit id
 
 - Adds commands to open files, commits, branches, and the repository in the supported remote services, currently **BitBucket, GitHub, GitLab, and Visual Studio Team Services** — only available if a Git upstream service is configured in the repository
+  - `Open Branches in Remote` command (`gitlens.openBranchesInRemote`) — opens the branches in the supported remote service
   - `Open Branch in Remote` command (`gitlens.openBranchInRemote`) — opens the current branch commits in the supported remote service
   - `Open Commit in Remote` command (`gitlens.openCommitInRemote`) — opens the commit revision of the active line in the supported remote service
   - `Open File in Remote` command (`gitlens.openFileInRemote`) — opens the active file/revision in the supported remote service

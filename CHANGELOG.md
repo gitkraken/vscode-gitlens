@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
     ![GitLens Repository view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-repository.png)
 
-    - `Status` node — provides the status of current branch
+    - `Repository Status` node — provides the status of the repository
       - Provides the name of the current branch, its upstream tracking branch (if available), and its upstream status (if available)
       - Provides indicator dots on the repository icon which denote the following:
         - `None` - up-to-date with the upstream
@@ -20,7 +20,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
         - `Red` - behind the upstream
         - `Yellow` - both ahead of and behind the upstream
       - Provides additional nodes, if the current branch is not synchronized with the upstream, to quickly see and explore the specific commits ahead and/or behind the upstream
-      - Provides a context menu with a `Refresh` command
+      - Provides a context menu with `Open Repository in Remote`, and `Refresh` commands
 
     - `Branches` node — provides a list of the local branches
       - Indicates which branch is the current branch
@@ -28,7 +28,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
         - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
            - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
         - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Open Files`, `Open Revisions`, `Show Commit Details`, and `Refresh` commands
-      - Provides a context menu with a `Refresh` command
+      - Provides a context menu with `Open Branches in Remote`, and `Refresh` commands
       - Provides a context menu on each branch with `Open Branch in Remote`, and `Refresh` commands
 
     - `Remotes` node — provides a list of the remote branches
@@ -45,12 +45,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     ![GitLens History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-history.png)
 
     - Automatically updates to track the active editor
-    - Provides a context menu with a `Refresh` command
+    - Provides a context menu with `Open File`, `Open File in Remote`, and `Refresh` commands
     - Provides a context menu on each revision (commit) with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
 
   - Quickly switch between views using the `Switch to Repository View` or `Switch to History View` commands
   - Provides toolbar commands to `Search Commits`, `Switch to Repository View` or `Switch to History View`, and `Refresh`
 
+- Adds `Open Branches in Remote` command (`gitlens.openBranchesInRemote`) - opens the branches in the supported remote service
 - Adds `Stash Changes` command (`gitlens.stashSave`) to the source control group context menu -- can now stash a group of files
 - Adds `Stash Changes` command (`gitlens.stashSave`) to the source control resource context menu -- can now stash individual files (works with multi-select too!)
 - Adds `${filePath}` token to file formatting
