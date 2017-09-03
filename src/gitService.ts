@@ -277,6 +277,13 @@ export class GitService extends Disposable {
         }
     }
 
+    checkoutFile(uri: GitUri, sha?: string) {
+        sha = sha || uri.sha;
+        Logger.log(`checkoutFile('${uri.repoPath}', '${uri.fsPath}', ${sha})`);
+
+        return Git.checkout(uri.repoPath!, uri.fsPath, sha!);
+    }
+
     private async _fileExists(repoPath: string, fileName: string): Promise<boolean> {
         return await new Promise<boolean>((resolve, reject) => fs.exists(path.resolve(repoPath, fileName), resolve));
     }
@@ -1014,10 +1021,12 @@ export class GitService extends Disposable {
         return Git.stash_delete(repoPath, stashName);
     }
 
-    stashSave(repoPath: string, message?: string, unstagedOnly: boolean = false) {
-        Logger.log(`stashSave('${repoPath}', ${message}, ${unstagedOnly})`);
+    stashSave(repoPath: string, message?: string, uris?: Uri[]) {
+        Logger.log(`stashSave('${repoPath}', ${message}, ${uris})`);
 
-        return Git.stash_save(repoPath, message, unstagedOnly);
+        if (uris === undefined) return Git.stash_save(repoPath, message);
+        const pathspecs = uris.map(u => Git.splitPath(u.fsPath, repoPath)[0]);
+        return Git.stash_push(repoPath, pathspecs, message);
     }
 
     static getGitPath(gitPath?: string): Promise<IGit> {

@@ -177,6 +177,12 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...params);
     }
 
+    static checkout(repoPath: string, fileName: string, sha: string) {
+        const [file, root] = Git.splitPath(fileName, repoPath);
+
+        return gitCommand({ cwd: root }, `checkout`, sha, `--`, file);
+    }
+
     static async config_get(key: string, repoPath?: string) {
         try {
             return await gitCommand({ cwd: repoPath || '' }, `config`, `--get`, key);
@@ -322,11 +328,18 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...defaultStashParams);
     }
 
-    static stash_save(repoPath: string, message?: string, unstagedOnly: boolean = false) {
-        const params = [`stash`, `save`, `--include-untracked`];
-        if (unstagedOnly) {
-            params.push(`--keep-index`);
+    static stash_push(repoPath: string, pathspecs: string[], message?: string) {
+        const params = [`stash`, `push`];
+        if (message) {
+            params.push(`-m`);
+            params.push(message);
         }
+        params.splice(params.length, 0, `--`, ...pathspecs);
+        return gitCommand({ cwd: repoPath }, ...params);
+    }
+
+    static stash_save(repoPath: string, message?: string) {
+        const params = [`stash`, `save`, `--include-untracked`];
         if (message) {
             params.push(message);
         }

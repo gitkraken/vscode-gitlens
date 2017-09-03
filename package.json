@@ -1054,6 +1054,11 @@
                 "command": "gitlens.gitExplorer.openChangedFileRevisions",
                 "title": "Open Revisions",
                 "category": "GitLens"
+            },
+            {
+                "command": "gitlens.gitExplorer.applyChanges",
+                "title": "Apply Changes",
+                "category": "GitLens"
             }
         ],
         "menus": {
@@ -1245,6 +1250,10 @@
                 {
                     "command": "gitlens.gitExplorer.openChangedFileRevisions",
                     "when": "false"
+                },
+                {
+                    "command": "gitlens.gitExplorer.applyChanges",
+                    "when": "false"
                 }
             ],
             "editor/context": [
@@ -1411,6 +1420,11 @@
                     "command": "gitlens.closeUnchangedFiles",
                     "when": "gitlens:enabled",
                     "group": "1_gitlens@2"
+                },
+                {
+                    "command": "gitlens.stashSave",
+                    "when": "gitlens:enabled",
+                    "group": "2_gitlens@1"
                 }
             ],
             "scm/resourceState/context": [
@@ -1428,6 +1442,11 @@
                     "command": "gitlens.showQuickFileHistory",
                     "when": "gitlens:enabled",
                     "group": "1_gitlens_1@1"
+                },
+                {
+                    "command": "gitlens.stashSave",
+                    "when": "gitlens:enabled",
+                    "group": "2_gitlens@1"
                 }
             ],
             "view/title": [
@@ -1519,14 +1538,19 @@
                     "group": "3_gitlens@2"
                 },
                 {
+                    "command": "gitlens.gitExplorer.applyChanges",
+                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
+                    "group": "4_gitlens@1"
+                },
+                {
                     "command": "gitlens.showQuickFileHistory",
                     "when": "gitlens:isTracked && view == gitlens.gitExplorer && viewItem == gitlens:commit-file && gitlens:gitExplorer:view == repository",
-                    "group": "4_gitlens@1"
+                    "group": "5_gitlens@1"
                 },
                 {
                     "command": "gitlens.showQuickCommitFileDetails",
                     "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
-                    "group": "4_gitlens@2"
+                    "group": "5_gitlens@2"
                 },
                 {
                     "command": "gitlens.stashApply",
@@ -1579,9 +1603,14 @@
                     "group": "3_gitlens@1"
                 },
                 {
+                    "command": "gitlens.gitExplorer.applyChanges",
+                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
+                    "group": "4_gitlens@1"
+                },
+                {
                     "command": "gitlens.showQuickFileHistory",
                     "when": "gitlens:isTracked && view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
-                    "group": "4_gitlens@1"
+                    "group": "5_gitlens@1"
                 }
             ]
         },

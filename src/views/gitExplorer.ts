@@ -43,6 +43,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         commands.registerCommand('gitlens.gitExplorer.openFileRevisionInRemote', this.openFileRevisionInRemote, this);
         commands.registerCommand('gitlens.gitExplorer.openChangedFiles', this.openChangedFiles, this);
         commands.registerCommand('gitlens.gitExplorer.openChangedFileRevisions', this.openChangedFileRevisions, this);
+        commands.registerCommand('gitlens.gitExplorer.applyChanges', this.applyChanges, this);
 
         const fn = Functions.debounce(this.onActiveEditorChanged, 500);
         context.subscriptions.push(window.onDidChangeActiveTextEditor(fn, this));
@@ -108,6 +109,11 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
         this._root = undefined;
         this.refresh();
+    }
+
+    private async applyChanges(node: CommitNode | StashNode) {
+        await this.git.checkoutFile(node.uri);
+        return this.openFile(node);
     }
 
     private openChanges(node: CommitNode | StashNode) {
