@@ -118,34 +118,43 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
     ![GitLens Repository view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-repository.png)
 
     - `Status` node — provides the status of current branch
-      - Indicates whether or not the current branch is up-to-date with its upstream branch
-      - If the branch is out of sync, additional nodes will be shown with the specific commits ahead and/or behind the upstream
+      - Provides the name of the current branch, its upstream tracking branch (if available), and its upstream status (if available)
+      - Provides indicator dots on the repository icon which denote the following:
+        - `None` - up-to-date with the upstream
+        - `Green` - ahead of the upstream
+        - `Red` - behind the upstream
+        - `Yellow` - both ahead of and behind the upstream
+      - Provides additional nodes, if the current branch is not synchronized with the upstream, to quickly see and explore the specific commits ahead and/or behind the upstream
+      - Provides a context menu with a `Refresh` command
 
     - `Branches` node — provides a list of the local branches
       - Indicates which branch is the current branch
       - Expand each branch to easily see its revision (commit) history
         - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-           - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, and `Show Commit File Details` commands
-        - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Open Files`, `Open Revisions`, and `Show Commit Details` commands
-      - Provides a context menu on each branch with an `Open Branch in Remote` command
+           - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
+        - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Open Files`, `Open Revisions`, `Show Commit Details`, and `Refresh` commands
+      - Provides a context menu with a `Refresh` command
+      - Provides a context menu on each branch with `Open Branch in Remote`, and `Refresh` commands
 
     - `Remotes` node — provides a list of the remote branches
       - See `Branches` node above for details
 
     - `Stashes` node — provides a list of stashed changes
       - Expand each stash to quickly see the set of files stashed, complete with status indicators for adds, changes, renames, and deletes
-      - Provides a context menu on each stash with `Apply Stashed Changes` (confirmation required), `Delete Stashed Changes` (confirmation required), `Copy Commit Message to Clipboard`, `Open Files`, and `Open Revisions` commands
-      - Provides a context menu on each stashed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, and `Show File History` commands
+      - Provides a context menu with `Stash Changes`, and `Refresh` commands
+      - Provides a context menu on each stash with `Apply Stashed Changes` (confirmation required), `Delete Stashed Changes` (confirmation required), `Copy Commit Message to Clipboard`, `Open Files`, `Open Revisions`, and `Refresh` commands
+      - Provides a context menu on each stashed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Apply Changes`, and `Show File History` commands
 
   - `History View` - provides the revision history of the active file
 
     ![GitLens History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-history.png)
 
     - Automatically updates to track the active editor
-    - Provides a context menu on each revision (commit) with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, and `Show Commit File Details` commands
+    - Provides a context menu with a `Refresh` command
+    - Provides a context menu on each revision (commit) with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
 
   - Quickly switch between views using the `Switch to Repository View` or `Switch to History View` commands
-  - Provides toolbar buttons to `Search Commits`, `Switch to Repository View` or `Switch to History View`, and `Refresh`
+  - Provides toolbar commands to `Search Commits`, `Switch to Repository View` or `Switch to History View`, and `Refresh`
 
 - Adds a `Search Commits` command (`gitlens.showCommitSearch`) with a shortcut of `alt+/` to search for commits by message, author, file(s), or commit id
 
@@ -243,6 +252,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 - Adds a `Apply Stashed Changes` command (`gitlens.stashApply`) to chose a stash entry to apply to the working tree from a quick pick menu
 
 - Adds a `Stash Changes` command (`gitlens.stashSave`) to save any working tree changes to the stash — can optionally provide a stash message
+  - Also adds the command to the Source Control items context menu to stash an individual or group of files, works with multi-select too!
 
 ## Insiders
 

@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [5.0.0-alpha] - 2017-09-02
+## [5.0.0-alpha.2] - 2017-09-03
 ### Added
 - Adds an all-new `GitLens` custom view to the Explorer activity
 
@@ -13,39 +13,50 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     ![GitLens Repository view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-repository.png)
 
     - `Status` node — provides the status of current branch
-      - Indicates whether or not the current branch is up-to-date with its upstream branch
-      - If the branch is out of sync, additional nodes will be shown with the specific commits ahead and/or behind the upstream
+      - Provides the name of the current branch, its upstream tracking branch (if available), and its upstream status (if available)
+      - Provides indicator dots on the repository icon which denote the following:
+        - `None` - up-to-date with the upstream
+        - `Green` - ahead of the upstream
+        - `Red` - behind the upstream
+        - `Yellow` - both ahead of and behind the upstream
+      - Provides additional nodes, if the current branch is not synchronized with the upstream, to quickly see and explore the specific commits ahead and/or behind the upstream
+      - Provides a context menu with a `Refresh` command
 
     - `Branches` node — provides a list of the local branches
       - Indicates which branch is the current branch
       - Expand each branch to easily see its revision (commit) history
         - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-           - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, and `Show Commit File Details` commands
-        - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Open Files`, `Open Revisions`, and `Show Commit Details` commands
-      - Provides a context menu on each branch with an `Open Branch in Remote` command
+           - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
+        - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Open Files`, `Open Revisions`, `Show Commit Details`, and `Refresh` commands
+      - Provides a context menu with a `Refresh` command
+      - Provides a context menu on each branch with `Open Branch in Remote`, and `Refresh` commands
 
     - `Remotes` node — provides a list of the remote branches
       - See `Branches` node above for details
 
     - `Stashes` node — provides a list of stashed changes
       - Expand each stash to quickly see the set of files stashed, complete with status indicators for adds, changes, renames, and deletes
-      - Provides a context menu on each stash with `Apply Stashed Changes` (confirmation required), `Delete Stashed Changes` (confirmation required), `Copy Commit Message to Clipboard`, `Open Files`, and `Open Revisions` commands
-      - Provides a context menu on each stashed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, and `Show File History` commands
+      - Provides a context menu with `Stash Changes`, and `Refresh` commands
+      - Provides a context menu on each stash with `Apply Stashed Changes` (confirmation required), `Delete Stashed Changes` (confirmation required), `Copy Commit Message to Clipboard`, `Open Files`, `Open Revisions`, and `Refresh` commands
+      - Provides a context menu on each stashed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Apply Changes`, and `Show File History` commands
 
   - `History View` - provides the revision history of the active file
 
     ![GitLens History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-history.png)
 
     - Automatically updates to track the active editor
-    - Provides a context menu on each revision (commit) with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, and `Show Commit File Details` commands
+    - Provides a context menu with a `Refresh` command
+    - Provides a context menu on each revision (commit) with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
 
   - Quickly switch between views using the `Switch to Repository View` or `Switch to History View` commands
-  - Provides toolbar buttons to `Search Commits`, `Switch to Repository View` or `Switch to History View`, and `Refresh`
+  - Provides toolbar commands to `Search Commits`, `Switch to Repository View` or `Switch to History View`, and `Refresh`
 
+- Adds `Stash Changes` command (`gitlens.stashSave`) to the source control group context menu -- can now stash a group of files
+- Adds `Stash Changes` command (`gitlens.stashSave`) to the source control resource context menu -- can now stash individual files (works with multi-select too!)
 - Adds `${filePath}` token to file formatting
 
 ### Changed
-- Renames `Compare File with Previous` command (gitlens.diffWithPrevious) to `Compare File with Previous Revision`
+- Renames `Compare File with Previous` command (`gitlens.diffWithPrevious`) to `Compare File with Previous Revision`
 - Renames `Compare File with Next Commit` command (`gitlens.diffWithNext`) to `Compare File with Next Revision`
 - Renames `Compare File with Working Tree` command (`gitlens.diffWithWorking`) to `Compare File with Working Revision`
 - Renames `Compare Line Commit with Previous` command (`gitlens.diffLineWithPrevious`) to `Compare Line Revision with Previous`
@@ -53,10 +64,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Renames `gitlens.stashExplorer.stashFormat` setting to `gitlens.gitExplorer.stashFormat`
 - Renames `gitlens.stashExplorer.stashFileFormat` setting to `gitlens.gitExplorer.stashFileFormat`
-- Changes `gitlens.gitExplorer.stashFileFormat` setting to defaults to `${filePath}` for better separator handling
+- Changes `gitlens.gitExplorer.stashFileFormat` setting to default to `${filePath}` for better separator handling
+- Changes `Show Stashed Changes` option icon in repository status quick pick menu to match the `GitLens` custom view
+- Changes `Stash Changes` option icon in stashed changes quick pick menu to a plus (+)
 
 ### Removed
 - Removes the `Git Stashes` custom view view - as it's functionality has been folded into the new `GitLens` custom view
+- Removes `Stash Unstaged Changes` option from stashed changes quick pick menu -- didn't work as intended
 - Removes the seeding of the commit search command from the clipboard
 
 ### Fixed
