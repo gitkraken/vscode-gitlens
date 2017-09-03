@@ -1553,6 +1553,11 @@
                     "group": "5_gitlens@2"
                 },
                 {
+                    "command": "gitlens.stashSave",
+                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:stashes",
+                    "group": "1_gitlens@1"
+                },
+                {
                     "command": "gitlens.stashApply",
                     "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:stash",
                     "group": "1_gitlens@1"
