@@ -8,7 +8,6 @@ import { CommandQuickPickItem } from '../quickPicks';
 
 export interface StashSaveCommandArgs {
     message?: string;
-    unstagedOnly?: boolean;
     uris?: Uri[];
 
     goBackCommand?: CommandQuickPickItem;
@@ -36,16 +35,12 @@ export class StashSaveCommand extends Command {
         return this.execute(args);
     }
 
-    async execute(args: StashSaveCommandArgs = { unstagedOnly: false }) {
+    async execute(args: StashSaveCommandArgs = { }) {
         if (!this.git.repoPath) return undefined;
-
-        args = { ...args };
-        if (args.unstagedOnly === undefined) {
-            args.unstagedOnly = false;
-        }
 
         try {
             if (args.message == null) {
+                args = { ...args };
                 args.message = await window.showInputBox({
                     prompt: `Please provide a stash message`,
                     placeHolder: `Stash message`

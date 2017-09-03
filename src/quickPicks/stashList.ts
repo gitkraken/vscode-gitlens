@@ -14,21 +14,10 @@ export class StashListQuickPick {
 
         if (mode === 'list') {
             items.splice(0, 0, new CommandQuickPickItem({
-                label: `$(repo-push) Stash Unstaged Changes`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} stashes only unstaged changes`
-            }, Commands.StashSave, [
-                    {
-                        unstagedOnly: true,
-                        goBackCommand: currentCommand
-                    } as StashSaveCommandArgs
-                ]));
-
-            items.splice(0, 0, new CommandQuickPickItem({
-                label: `$(repo-force-push) Stash Changes`,
+                label: `$(plus) Stash Changes`,
                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} stashes all changes`
             }, Commands.StashSave, [
                     {
-                        unstagedOnly: false,
                         goBackCommand: currentCommand
                     } as StashSaveCommandArgs
                 ]));
