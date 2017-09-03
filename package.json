@@ -1567,6 +1567,16 @@
                     "group": "5_gitlens@2"
                 },
                 {
+                    "command": "gitlens.gitExplorer.openFile",
+                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:file-history",
+                    "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.openFileInRemote",
+                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:file-history",
+                    "group": "1_gitlens@2"
+                },
+                {
                     "command": "gitlens.stashSave",
                     "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:stashes",
                     "group": "1_gitlens@1"
