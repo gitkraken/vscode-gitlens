@@ -64,7 +64,11 @@ export const GitRepoSearchBy = {
     Sha: 'sha' as GitRepoSearchBy
 };
 
-type RepoChangedReasons = 'stash' | 'unknown';
+export type RepoChangedReasons = 'stash' | 'unknown';
+export const RepoChangedReasons = {
+    Stash: 'stash' as RepoChangedReasons,
+    Unknown: 'unknown' as RepoChangedReasons
+};
 
 export class GitService extends Disposable {
 

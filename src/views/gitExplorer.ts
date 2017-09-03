@@ -5,7 +5,7 @@ import { Commands, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, open
 import { UriComparer } from '../comparers';
 import { CommandContext, setCommandContext } from '../constants';
 import { CommitFileNode, CommitNode, ExplorerNode, HistoryNode, MessageNode, RepositoryNode, StashNode } from './explorerNodes';
-import { GitService, GitUri } from '../gitService';
+import { GitService, GitUri, RepoChangedReasons } from '../gitService';
 
 export * from './explorerNodes';
 
@@ -44,6 +44,8 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         commands.registerCommand('gitlens.gitExplorer.openChangedFiles', this.openChangedFiles, this);
         commands.registerCommand('gitlens.gitExplorer.openChangedFileRevisions', this.openChangedFileRevisions, this);
         commands.registerCommand('gitlens.gitExplorer.applyChanges', this.applyChanges, this);
+
+        context.subscriptions.push(this.git.onDidChangeRepo(this.onRepoChanged, this));
 
         const fn = Functions.debounce(this.onActiveEditorChanged, 500);
         context.subscriptions.push(window.onDidChangeActiveTextEditor(fn, this));
@@ -90,15 +92,26 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
     private onActiveEditorChanged(editor: TextEditor | undefined) {
         if (this._view !== GitExplorerView.History) return;
+
         const root = this.getRootNode(editor);
         if (root === this._root) return;
 
-        this.refresh(root);
+        this._root = root;
+        this.refresh(undefined, root);
     }
 
-    refresh(root?: ExplorerNode) {
-        this._root = root || this.getRootNode();
-        this._onDidChangeTreeData.fire();
+    private onRepoChanged(reasons: RepoChangedReasons[]) {
+        if (this._view !== GitExplorerView.Repository) return;
+
+        this.refresh();
+    }
+
+    refresh(node?: ExplorerNode, root?: ExplorerNode) {
+        if (root === undefined && this._view === GitExplorerView.History) {
+            this._root = this.getRootNode(window.activeTextEditor);
+        }
+
+        this._onDidChangeTreeData.fire(node);
     }
 
     switchTo(view: GitExplorerView) {
@@ -107,7 +120,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         this._view = view;
         setCommandContext(CommandContext.GitExplorerView, this._view);
 
-        this._root = undefined;
+        this._root = this.getRootNode(window.activeTextEditor);
         this.refresh();
     }
 

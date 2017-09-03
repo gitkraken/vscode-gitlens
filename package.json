@@ -1611,6 +1611,11 @@
                     "command": "gitlens.showQuickFileHistory",
                     "when": "gitlens:isTracked && view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
                     "group": "5_gitlens@1"
+                },
+                {
+                    "command": "gitlens.gitExplorer.refresh",
+                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem != gitlens:commit-file && viewItem != gitlens:stash-file",
+                    "group": "9_gitlens@1"
                 }
             ]
         },
