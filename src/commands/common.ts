@@ -1,7 +1,7 @@
 'use strict';
 import { commands, Disposable, SourceControlResourceGroup, SourceControlResourceState, TextDocumentShowOptions, TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
 import { ExplorerNode } from '../views/explorerNodes';
-import { GitBranch, GitCommit } from '../gitService';
+import { GitBranch, GitCommit, GitRemote } from '../gitService';
 import { Logger } from '../logger';
 import { Telemetry } from '../telemetry';
 
@@ -138,6 +138,10 @@ interface ICommandViewContextWithCommit<T extends GitCommit> extends CommandView
 
 export function isCommandViewContextWithCommit<T extends GitCommit>(context: CommandContext): context is ICommandViewContextWithCommit<T> {
     return context.type === 'view' && (context.node as any).commit && (context.node as any).commit instanceof GitCommit;
+}
+
+export function isCommandViewContextWithRemote(context: CommandContext): context is CommandViewContext & { node: (ExplorerNode & { remote: GitRemote }) } {
+    return context.type === 'view' && (context.node as any).remote && (context.node as any).remote instanceof GitRemote;
 }
 
 export type CommandContext = CommandScmGroupsContext | CommandScmStatesContext | CommandUnknownContext | CommandUriContext | CommandViewContext;

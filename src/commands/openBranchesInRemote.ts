@@ -1,10 +1,14 @@
 'use strict';
 import { Arrays } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithRemote } from './common';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { OpenInRemoteCommandArgs } from './openInRemote';
+
+export interface OpenBranchesInRemoteCommandArgs {
+    remote?: string;
+}
 
 export class OpenBranchesInRemoteCommand extends ActiveEditorCommand {
 
@@ -12,7 +16,17 @@ export class OpenBranchesInRemoteCommand extends ActiveEditorCommand {
         super(Commands.OpenBranchesInRemote);
     }
 
-    async execute(editor?: TextEditor, uri?: Uri) {
+    protected async preExecute(context: CommandContext, args: OpenBranchesInRemoteCommandArgs = {}): Promise<any> {
+        if (isCommandViewContextWithRemote(context)) {
+            args = { ...args };
+            args.remote = context.node.remote.name;
+            return this.execute(context.editor, context.uri, args);
+        }
+
+        return this.execute(context.editor, context.uri, args);
+    }
+
+    async execute(editor?: TextEditor, uri?: Uri, args: OpenBranchesInRemoteCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
         const gitUri = uri && await GitUri.fromUri(uri, this.git);
@@ -21,7 +35,11 @@ export class OpenBranchesInRemoteCommand extends ActiveEditorCommand {
         if (!repoPath) return undefined;
 
         try {
-            const remotes = Arrays.uniqueBy(await this.git.getRemotes(repoPath), _ => _.url, _ => !!_.provider);
+            let remotes = Arrays.uniqueBy(await this.git.getRemotes(repoPath), r => r.url, r => !!r.provider);
+            if (args.remote !== undefined) {
+                remotes = remotes.filter(r => r.name === args.remote);
+            }
+
             return commands.executeCommand(Commands.OpenInRemote, uri, {
                 resource: {
                     type: 'branches'

@@ -28,11 +28,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
         - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
            - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
         - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Open Files`, `Open Revisions`, `Show Commit Details`, and `Refresh` commands
+        - Provides a context menu on each branch with `Open Branch in Remote`, and `Refresh` commands
       - Provides a context menu with `Open Branches in Remote`, and `Refresh` commands
-      - Provides a context menu on each branch with `Open Branch in Remote`, and `Refresh` commands
 
-    - `Remotes` node — provides a list of the remote branches
-      - See `Branches` node above for details
+    - `Remotes` node — provides a list of remotes
+      - Expand each remote to see its list of branches
+        - Expand each branch to easily see its revision (commit) history
+          - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
+            - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
+          - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Open Files`, `Open Revisions`, `Show Commit Details`, and `Refresh` commands
+        - Provides a context menu on each remote with `Open Branches in Remote`, `Open Repository in Remote`, and `Refresh` commands
+      - Provides a context menu with a `Refresh` command
 
     - `Stashes` node — provides a list of stashed changes
       - Expand each stash to quickly see the set of files stashed, complete with status indicators for adds, changes, renames, and deletes
