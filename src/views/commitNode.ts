@@ -4,7 +4,8 @@ import { Command, ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'v
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { CommitFileNode } from './commitFileNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { CommitFormatter, GitLogCommit, GitService, GitUri } from '../gitService';
+import { CommitFormatter, getGitStatusIcon, GitLogCommit, GitService, GitUri } from '../gitService';
+import * as path from 'path';
 
 export class CommitNode extends ExplorerNode {
 
@@ -33,16 +34,22 @@ export class CommitNode extends ExplorerNode {
             item.command = this.getCommand();
             const resourceType: ResourceType = 'gitlens:commit-file';
             item.contextValue = resourceType;
+
+            const icon = getGitStatusIcon(this.commit.status!);
+            item.iconPath = {
+                dark: this.context.asAbsolutePath(path.join('images', 'dark', icon)),
+                light: this.context.asAbsolutePath(path.join('images', 'light', icon))
+            };
         }
         else {
             item.collapsibleState = TreeItemCollapsibleState.Collapsed;
             item.contextValue = this.resourceType;
-        }
 
-        item.iconPath = {
-            dark: this.context.asAbsolutePath('images/dark/icon-commit.svg'),
-            light: this.context.asAbsolutePath('images/light/icon-commit.svg')
-        };
+            item.iconPath = {
+                dark: this.context.asAbsolutePath('images/dark/icon-commit.svg'),
+                light: this.context.asAbsolutePath('images/light/icon-commit.svg')
+            };
+        }
 
         return item;
     }
