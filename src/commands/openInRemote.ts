@@ -8,6 +8,7 @@ import { Logger } from '../logger';
 import { CommandQuickPickItem, OpenRemoteCommandQuickPickItem, RemotesQuickPick } from '../quickPicks';
 
 export interface OpenInRemoteCommandArgs {
+    remote?: string;
     remotes?: GitRemote[];
     resource?: RemoteResource;
 
@@ -25,6 +26,14 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
 
         args = { ...args };
         if (args.remotes === undefined || args.resource === undefined) return undefined;
+
+        if (args.remote !== undefined) {
+            const remotes = args.remotes.filter(r => r.name === args.remote);
+            // Only filter if we get some results
+            if (remotes.length > 0) {
+                args.remotes = remotes;
+            }
+        }
 
         try {
             if (args.remotes.length === 1) {

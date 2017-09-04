@@ -10,6 +10,7 @@ import { OpenInRemoteCommandArgs } from './openInRemote';
 
 export interface OpenBranchInRemoteCommandArgs {
     branch?: string;
+    remote?: string;
 }
 
 export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
@@ -21,7 +22,9 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
     protected async preExecute(context: CommandContext, args: OpenBranchInRemoteCommandArgs = {}): Promise<any> {
         if (isCommandViewContextWithBranch(context)) {
             args = { ...args };
+
             args.branch = context.node.branch.name;
+            args.remote = context.node.branch.getRemote();
             return this.execute(context.editor, context.uri, args);
         }
 
@@ -57,6 +60,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
                     type: 'branch',
                     branch: args.branch
                 },
+                remote: args.remote,
                 remotes
             } as OpenInRemoteCommandArgs);
         }

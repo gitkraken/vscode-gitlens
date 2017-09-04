@@ -35,15 +35,13 @@ export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
         if (!repoPath) return undefined;
 
         try {
-            let remotes = Arrays.uniqueBy(await this.git.getRemotes(repoPath), r => r.url, r => !!r.provider);
-            if (args.remote !== undefined) {
-                remotes = remotes.filter(r => r.name === args.remote);
-            }
+            const remotes = Arrays.uniqueBy(await this.git.getRemotes(repoPath), r => r.url, r => !!r.provider);
 
             return commands.executeCommand(Commands.OpenInRemote, uri, {
                 resource: {
                     type: 'repo'
                 },
+                remote: args.remote,
                 remotes
             } as OpenInRemoteCommandArgs);
         }
