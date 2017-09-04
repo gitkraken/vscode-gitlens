@@ -348,7 +348,7 @@ export class Git {
     }
 
     static stash_push(repoPath: string, pathspecs: string[], message?: string) {
-        const params = [`stash`, `push`];
+        const params = [`stash`, `push`, `-u`];
         if (message) {
             params.push(`-m`);
             params.push(message);
@@ -358,7 +358,7 @@ export class Git {
     }
 
     static stash_save(repoPath: string, message?: string) {
-        const params = [`stash`, `save`, `--include-untracked`];
+        const params = [`stash`, `save`, `-u`];
         if (message) {
             params.push(message);
         }
