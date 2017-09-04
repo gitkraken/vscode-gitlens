@@ -11,7 +11,8 @@ export type SuppressedKeys = 'suppressCommitHasNoPreviousCommitWarning' |
     'suppressGitVersionWarning' |
     'suppressLineUncommittedWarning' |
     'suppressNoRepositoryWarning' |
-    'suppressUpdateNotice';
+    'suppressUpdateNotice' |
+    'suppressWelcomeNotice';
 export const SuppressedKeys = {
     CommitHasNoPreviousCommitWarning: 'suppressCommitHasNoPreviousCommitWarning' as SuppressedKeys,
     CommitNotFoundWarning: 'suppressCommitNotFoundWarning' as SuppressedKeys,
@@ -19,7 +20,8 @@ export const SuppressedKeys = {
     GitVersionWarning: 'suppressGitVersionWarning' as SuppressedKeys,
     LineUncommittedWarning: 'suppressLineUncommittedWarning' as SuppressedKeys,
     NoRepositoryWarning: 'suppressNoRepositoryWarning' as SuppressedKeys,
-    UpdateNotice: 'suppressUpdateNotice' as SuppressedKeys
+    UpdateNotice: 'suppressUpdateNotice' as SuppressedKeys,
+    WelcomeNotice: 'suppressWelcomeNotice' as SuppressedKeys
 };
 
 export class Messages {
@@ -65,7 +67,7 @@ export class Messages {
 
     static async showWelcomeMessage(): Promise<string | undefined> {
         const viewDocs = 'View Docs';
-        const result = await window.showInformationMessage(`Thank you for choosing GitLens! GitLens is powerful, feature rich, and highly configurable, so please be sure to view the docs and tailor it to suit your needs.`, viewDocs);
+        const result = await Messages._showMessage('info', `Thank you for choosing GitLens! GitLens is powerful, feature rich, and highly configurable, so please be sure to view the docs and tailor it to suit your needs.`, SuppressedKeys.WelcomeNotice, null, viewDocs);
         if (result === viewDocs) {
             commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://marketplace.visualstudio.com/items/eamodio.gitlens'));
         }
@@ -73,7 +75,7 @@ export class Messages {
     }
 
     private static async _showMessage(type: 'info' | 'warn' | 'error', message: string, suppressionKey: SuppressedKeys, dontShowAgain: string | null = 'Don\'t Show Again', ...actions: any[]): Promise<string | undefined> {
-        Logger.log(`ShowMessage(${type}, "${message}", ${suppressionKey}, ${dontShowAgain})`);
+        Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain})`);
 
         if (Messages.context.globalState.get(suppressionKey, false)) {
             Logger.log(`ShowMessage(${type}, ${message}, ${suppressionKey}, ${dontShowAgain}) skipped`);
@@ -100,12 +102,13 @@ export class Messages {
         }
 
         if (dontShowAgain === null || result === dontShowAgain) {
-            Logger.log(`ShowMessage(${type}, ${message}, ${suppressionKey}, ${dontShowAgain}) don't show again requested`);
+            Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) don't show again requested`);
             await Messages.context.globalState.update(suppressionKey, true);
-            return undefined;
+
+            if (result === dontShowAgain) return undefined;
         }
 
-        Logger.log(`ShowMessage(${type}, ${message}, ${suppressionKey}, ${dontShowAgain}) returned ${result}`);
+        Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) returned ${result}`);
         return result;
     }
 }

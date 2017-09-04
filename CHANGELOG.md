@@ -86,6 +86,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes an issue where remote branches couldn't be opened properly in their remote service
+- Fixes [#130](https://github.com/eamodio/vscode-gitlens/issues/130) - First-run "Thank you for choosing GitLens! [...]" info message shown on every start up
 
 ## [4.4.3] - 2017-08-30
 ## Fixed
