@@ -23,7 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
       - Provides a context menu with `Open Repository in Remote`, and `Refresh` commands
 
     - `Branches` node — provides a list of the local branches
-      - Indicates which branch is the current branch
+      - Indicates which branch is the current branch and optionally shows the remote tracking branch
       - Expand each branch to easily see its revision (commit) history
         - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
            - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
@@ -60,23 +60,27 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `Open Branches in Remote` command (`gitlens.openBranchesInRemote`) - opens the branches in the supported remote service
 - Adds `Stash Changes` command (`gitlens.stashSave`) to the source control group context menu -- can now stash a group of files
 - Adds `Stash Changes` command (`gitlens.stashSave`) to the source control resource context menu -- can now stash individual files (works with multi-select too!)
-- Adds `${filePath}` token to file formatting
+- Adds `gitlens.gitExplorer.view` setting to specify the starting view (mode) of the `GitLens` custom view
+- Adds `gitlens.gitExplorer.showTrackingBranch` setting to specify whether or not to show the tracking branch when displaying local branches in the `GitLens` custom view
+- Adds `gitlens.gitExplorer.commitFormat` setting to specify the format of committed changes in the `GitLens` custom view
+- Adds `gitlens.gitExplorer.commitFileFormat` setting to specify the format of a committed file in the `GitLens` custom view
+- Adds `gitlens.gitExplorer.stashFormat` setting to specify the format of stashed changes in the `GitLens` custom view
+- Adds `gitlens.gitExplorer.stashFileFormat` setting to specify the format of a stashed file in the `GitLens` custom view
+- Adds `${filePath}` token to file formatting settings
 
 ### Changed
+- Changes `Show Stashed Changes` option icon in repository status quick pick menu to match the `GitLens` custom view
+- Changes `Stash Changes` option icon in stashed changes quick pick menu to a plus (+)
 - Renames `Compare File with Previous` command (`gitlens.diffWithPrevious`) to `Compare File with Previous Revision`
 - Renames `Compare File with Next Commit` command (`gitlens.diffWithNext`) to `Compare File with Next Revision`
 - Renames `Compare File with Working Tree` command (`gitlens.diffWithWorking`) to `Compare File with Working Revision`
 - Renames `Compare Line Commit with Previous` command (`gitlens.diffLineWithPrevious`) to `Compare Line Revision with Previous`
 - Renames `Compare Line Commit with Working Tree` command (`gitlens.diffLineWithWorking`) to `Compare Line Revision with Working`
 
-- Renames `gitlens.stashExplorer.stashFormat` setting to `gitlens.gitExplorer.stashFormat`
-- Renames `gitlens.stashExplorer.stashFileFormat` setting to `gitlens.gitExplorer.stashFileFormat`
-- Changes `gitlens.gitExplorer.stashFileFormat` setting to default to `${filePath}` for better separator handling
-- Changes `Show Stashed Changes` option icon in repository status quick pick menu to match the `GitLens` custom view
-- Changes `Stash Changes` option icon in stashed changes quick pick menu to a plus (+)
-
 ### Removed
-- Removes the `Git Stashes` custom view view - as it's functionality has been folded into the new `GitLens` custom view
+- Removes `Git Stashes` custom view view - as it's functionality has been folded into the new `GitLens` custom view
+- Removes `gitlens.stashExplorer.stashFormat` setting
+- Removes `gitlens.stashExplorer.stashFileFormat` setting
 - Removes `Stash Unstaged Changes` option from stashed changes quick pick menu -- didn't work as intended
 - Removes the seeding of the commit search command from the clipboard
 
