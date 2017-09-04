@@ -299,6 +299,7 @@ export interface IConfig {
 
     gitExplorer: {
         view: GitExplorerView;
+        showTrackingBranch: boolean;
         commitFormat: string;
         commitFileFormat: string;
         stashFormat: string;

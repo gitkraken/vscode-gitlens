@@ -18,7 +18,7 @@ export class RemoteNode extends ExplorerNode {
             if (branches === undefined) return [];
 
             branches.sort((a, b) => a.name.localeCompare(b.name));
-            return [...Iterables.filterMap(branches, b => !b.remote || !b.name.startsWith(this.remote.name) ? undefined : new BranchHistoryNode(b, this.remote, this.uri, this.git.config.gitExplorer.commitFormat, this.context, this.git))];
+            return [...Iterables.filterMap(branches, b => !b.remote || !b.name.startsWith(this.remote.name) ? undefined : new BranchHistoryNode(b, this.uri, this.git.config.gitExplorer.commitFormat, this.context, this.git))];
         }
 
         getTreeItem(): TreeItem {

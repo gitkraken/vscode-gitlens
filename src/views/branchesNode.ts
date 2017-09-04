@@ -18,7 +18,7 @@ export class BranchesNode extends ExplorerNode {
             if (branches === undefined) return [];
 
             branches.sort((a, b) => (a.current ? -1 : 1) - (b.current ? -1 : 1) || a.name.localeCompare(b.name));
-            return [...Iterables.filterMap(branches, b => b.remote ? undefined : new BranchHistoryNode(b, undefined, this.uri, this.git.config.gitExplorer.commitFormat, this.context, this.git))];
+            return [...Iterables.filterMap(branches, b => b.remote ? undefined : new BranchHistoryNode(b, this.uri, this.git.config.gitExplorer.commitFormat, this.context, this.git))];
         }
 
         getTreeItem(): TreeItem {
