@@ -3,7 +3,7 @@ import { Functions, Iterables, Objects } from './system';
 import { Disposable, Event, EventEmitter, FileSystemWatcher, Location, Position, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, workspace } from 'vscode';
 import { IConfig } from './configuration';
 import { DocumentSchemes, ExtensionKey, GlyphChars } from './constants';
-import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitCommit, GitDiff, GitDiffChunkLine, GitDiffParser, GitLog, GitLogCommit, GitLogParser, GitRemote, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
+import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitDiff, GitDiffChunkLine, GitDiffParser, GitLog, GitLogCommit, GitLogParser, GitRemote, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { Logger } from './logger';
 import * as fs from 'fs';
@@ -572,17 +572,16 @@ export class GitService extends Disposable {
     async getBranch(repoPath: string): Promise<GitBranch | undefined> {
         Logger.log(`getBranch('${repoPath}')`);
 
-        const data = await Git.branch(repoPath, false);
-        const branches = data.split('\n').filter(_ => !!_).map(_ => new GitBranch(_));
-        return branches.find(_ => _.current);
+        const data = await Git.branch_current(repoPath);
+        const branch = data.split('\n');
+        return new GitBranch(repoPath, branch[0], true, branch[1]);
     }
 
     async getBranches(repoPath: string): Promise<GitBranch[]> {
         Logger.log(`getBranches('${repoPath}')`);
 
-        const data = await Git.branch(repoPath, true);
-        const branches = data.split('\n').filter(_ => !!_).map(_ => new GitBranch(_));
-        return branches;
+        const data = await Git.branch(repoPath, { all: true });
+        return GitBranchParser.parse(data, repoPath) || [];
     }
 
     getCacheEntryKey(fileName: string): string;

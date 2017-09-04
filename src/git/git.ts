@@ -10,6 +10,7 @@ import * as iconv from 'iconv-lite';
 export { IGit };
 export * from './models/models';
 export * from './parsers/blameParser';
+export * from './parsers/branchParser';
 export * from './parsers/diffParser';
 export * from './parsers/logParser';
 export * from './parsers/stashParser';
@@ -33,10 +34,11 @@ const GitWarnings = [
     /no such path/,
     /does not have any commits/,
     /Path \'.*?\' does not exist in/,
-    /Path \'.*?\' exists on disk, but not in/
+    /Path \'.*?\' exists on disk, but not in/,
+    /no upstream configured for branch/
 ];
 
-async function gitCommand(options: { cwd: string, encoding?: string }, ...args: any[]) {
+async function gitCommand(options: { cwd: string, encoding?: string, onError?: (ex: Error) => string | undefined }, ...args: any[]) {
     try {
         // Fixes https://github.com/eamodio/vscode-gitlens/issues/73
         // See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
@@ -50,6 +52,11 @@ async function gitCommand(options: { cwd: string, encoding?: string }, ...args: 
         return iconv.decode(Buffer.from(s, 'binary'), opts.encoding);
     }
     catch (ex) {
+        if (options.onError !== undefined) {
+            const result = options.onError(ex);
+            if (result !== undefined) return result;
+        }
+
         const msg = ex && ex.toString();
         if (msg) {
             for (const warning of GitWarnings) {
@@ -168,13 +175,25 @@ export class Git {
         return gitCommand({ cwd: root }, ...params, `--`, file);
     }
 
-    static branch(repoPath: string, all: boolean) {
-        const params = [`branch`];
-        if (all) {
+    static branch(repoPath: string, options: { all: boolean } = { all: false }) {
+        const params = [`branch`, `-vv`];
+        if (options.all) {
             params.push(`-a`);
         }
 
         return gitCommand({ cwd: repoPath }, ...params);
+    }
+
+    static branch_current(repoPath: string) {
+        const params = [`rev-parse`, `--abbrev-ref`, `--symbolic-full-name`, `@`, `@{u}`];
+        const onError = (ex: Error) => {
+            if (/no upstream configured for branch/.test(ex && ex.toString())) {
+                return ex.message.split('\n')[0];
+            }
+
+            return undefined;
+        };
+        return gitCommand({ cwd: repoPath, onError: onError }, ...params);
     }
 
     static checkout(repoPath: string, fileName: string, sha: string) {

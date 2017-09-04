@@ -4,7 +4,7 @@ import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem } from './common';
 import { GlyphChars } from '../constants';
-import { GitBranch, GitLog, GitLogCommit, GitService, GitUri, RemoteResource } from '../gitService';
+import { GitLog, GitLogCommit, GitService, GitUri, RemoteResource } from '../gitService';
 import { Keyboard, KeyCommand, KeyNoopCommand } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as moment from 'moment';
@@ -128,11 +128,11 @@ export class CommitFileDetailsQuickPick {
         const remotes = Arrays.uniqueBy(await git.getRemotes(commit.repoPath), _ => _.url, _ => !!_.provider);
         if (remotes.length) {
             if (commit.workingFileName && commit.status !== 'D') {
-                const branch = await git.getBranch(commit.repoPath || git.repoPath) as GitBranch;
+                const branch = await git.getBranch(commit.repoPath || git.repoPath);
                 items.push(new OpenRemotesCommandQuickPickItem(remotes, {
                     type: 'file',
                     fileName: commit.workingFileName,
-                    branch: branch.name
+                    branch: branch!.name
                 } as RemoteResource, currentCommand));
             }
             if (!stash) {
