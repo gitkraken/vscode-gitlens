@@ -1,8 +1,9 @@
 'use strict';
-import { Functions } from '../system';
-import { commands, Event, EventEmitter, ExtensionContext, TextDocumentShowOptions, TextEditor, TreeDataProvider, TreeItem, Uri, window } from 'vscode';
+import { Functions, Objects } from '../system';
+import { commands, Event, EventEmitter, ExtensionContext, TextDocumentShowOptions, TextEditor, TreeDataProvider, TreeItem, Uri, window, workspace } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, OpenFileInRemoteCommandArgs } from '../commands';
 import { UriComparer } from '../comparers';
+import { ExtensionKey, IConfig } from '../configuration';
 import { CommandContext, setCommandContext } from '../constants';
 import { CommitFileNode, CommitNode, ExplorerNode, HistoryNode, MessageNode, RepositoryNode, StashNode } from './explorerNodes';
 import { GitService, GitUri, RepoChangedReasons } from '../gitService';
@@ -24,6 +25,7 @@ export interface OpenFileRevisionCommandArgs {
 
 export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
+    private _config: IConfig;
     private _root?: ExplorerNode;
     private _view: GitExplorerView = GitExplorerView.Repository;
 
@@ -49,8 +51,11 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
         const fn = Functions.debounce(this.onActiveEditorChanged, 500);
         context.subscriptions.push(window.onDidChangeActiveTextEditor(fn, this));
+        context.subscriptions.push(workspace.onDidChangeConfiguration(this.onConfigurationChanged, this));
 
-        this._view = this.git.config.gitExplorer.view;
+        this.onConfigurationChanged();
+
+        this._view = this._config.gitExplorer.view;
         setCommandContext(CommandContext.GitExplorerView, this._view);
         this._root = this.getRootNode();
     }
@@ -98,6 +103,19 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
         this._root = root;
         this.refresh(undefined, root);
+    }
+
+    private onConfigurationChanged() {
+        const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
+
+        if (!Objects.areEquivalent(cfg.gitExplorer, this._config && this._config.gitExplorer)) {
+            setTimeout(() => {
+                this._root = this.getRootNode(window.activeTextEditor);
+                this.refresh();
+            }, 1);
+        }
+
+        this._config = cfg;
     }
 
     private onRepoChanged(reasons: RepoChangedReasons[]) {
