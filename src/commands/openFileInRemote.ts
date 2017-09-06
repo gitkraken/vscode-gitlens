@@ -16,7 +16,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
         super(Commands.OpenFileInRemote);
     }
 
-    protected async preExecute(context: CommandContext, args: OpenFileInRemoteCommandArgs = {}): Promise<any> {
+    protected async preExecute(context: CommandContext, args: OpenFileInRemoteCommandArgs = { range: true }): Promise<any> {
         if (isCommandViewContextWithCommit(context)) {
             args = { ...args };
             args.range = false;
