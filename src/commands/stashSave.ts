@@ -35,7 +35,7 @@ export class StashSaveCommand extends Command {
         return this.execute(args);
     }
 
-    async execute(args: StashSaveCommandArgs = { }) {
+    async execute(args: StashSaveCommandArgs = {}) {
         if (!this.git.repoPath) return undefined;
 
         try {

@@ -24,16 +24,16 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         super(Commands.ShowQuickCommitDetails);
     }
 
-    protected async preExecute(context: CommandContext, ...args: any[]): Promise<any> {
+    protected async preExecute(context: CommandContext, args: ShowQuickCommitDetailsCommandArgs = {}): Promise<any> {
         if (context.type === 'view') {
+            args = { ...args };
+            args.sha = context.node.uri.sha;
+
             if (isCommandViewContextWithCommit(context)) {
-                args = [{ sha: context.node.uri.sha, commit: context.node.commit }];
-            }
-            else {
-                args = [{ sha: context.node.uri.sha }];
+                args.commit = context.node.commit;
             }
         }
-        return this.execute(context.editor, context.uri, ...args);
+        return this.execute(context.editor, context.uri, args);
     }
 
     async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickCommitDetailsCommandArgs = {}) {

@@ -26,7 +26,7 @@ export class StashDeleteCommand extends Command {
             return this.execute(args);
         }
 
-        return super.preExecute(context, args);
+        return this.execute(args);
     }
 
     async execute(args: StashDeleteCommandArgs = { confirm: true }) {

@@ -20,7 +20,6 @@ export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
         if (isCommandViewContextWithRemote(context)) {
             args = { ...args };
             args.remote = context.node.remote.name;
-            return this.execute(context.editor, context.uri, args);
         }
 
         return this.execute(context.editor, context.uri, args);
