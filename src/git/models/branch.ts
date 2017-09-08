@@ -13,11 +13,6 @@ export class GitBranch {
             this.remote = true;
         }
 
-        const index = branch.indexOf(' ');
-        if (index !== -1) {
-            branch = branch.substring(0, index);
-        }
-
         this.current = current;
         this.name = branch;
         this.tracking = tracking;
