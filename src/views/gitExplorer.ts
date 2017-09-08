@@ -47,10 +47,11 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         commands.registerCommand('gitlens.gitExplorer.openChangedFileRevisions', this.openChangedFileRevisions, this);
         commands.registerCommand('gitlens.gitExplorer.applyChanges', this.applyChanges, this);
 
-        context.subscriptions.push(this.git.onDidChangeRepo(this.onRepoChanged, this));
+        const repoChangedFn = Functions.debounce(this.onRepoChanged, 250);
+        context.subscriptions.push(this.git.onDidChangeRepo(repoChangedFn, this));
 
-        const fn = Functions.debounce(this.onActiveEditorChanged, 500);
-        context.subscriptions.push(window.onDidChangeActiveTextEditor(fn, this));
+        const editorChangedFn = Functions.debounce(this.onActiveEditorChanged, 500);
+        context.subscriptions.push(window.onDidChangeActiveTextEditor(editorChangedFn, this));
         context.subscriptions.push(workspace.onDidChangeConfiguration(this.onConfigurationChanged, this));
 
         this.onConfigurationChanged();

@@ -96,7 +96,6 @@ export class GitService extends Disposable {
     private _disposable: Disposable | undefined;
     private _gitignore: Promise<ignore.Ignore | undefined>;
     private _repoWatcher: FileSystemWatcher | undefined;
-    private _stashWatcher: FileSystemWatcher | undefined;
 
     static EmptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
 
@@ -125,9 +124,6 @@ export class GitService extends Disposable {
         this._repoWatcher && this._repoWatcher.dispose();
         this._repoWatcher = undefined;
 
-        this._stashWatcher && this._stashWatcher.dispose();
-        this._stashWatcher = undefined;
-
         this._gitCache.clear();
         this._remotesCache.clear();
         this._uriCache.clear();
@@ -147,8 +143,7 @@ export class GitService extends Disposable {
             if (cfg.advanced.caching.enabled) {
                 this._cacheDisposable && this._cacheDisposable.dispose();
 
-                this._repoWatcher = this._repoWatcher || workspace.createFileSystemWatcher('**/.git/index', true, false, true);
-                this._stashWatcher = this._stashWatcher || workspace.createFileSystemWatcher('**/.git/refs/stash', true, false, true);
+                this._repoWatcher = this._repoWatcher || workspace.createFileSystemWatcher('**/.git/{index,HEAD,refs/stash}', true, false, true);
 
                 const disposables: Disposable[] = [];
 
@@ -156,7 +151,6 @@ export class GitService extends Disposable {
                 disposables.push(workspace.onDidChangeTextDocument(this._onTextDocumentChanged, this));
                 disposables.push(workspace.onDidSaveTextDocument(d => this._removeCachedEntry(d, RemoveCacheReason.DocumentSaved)));
                 disposables.push(this._repoWatcher.onDidChange(this._onRepoChanged, this));
-                disposables.push(this._stashWatcher.onDidChange(this._onStashChanged, this));
 
                 this._cacheDisposable = Disposable.from(...disposables);
             }
@@ -166,9 +160,6 @@ export class GitService extends Disposable {
 
                 this._repoWatcher && this._repoWatcher.dispose();
                 this._repoWatcher = undefined;
-
-                this._stashWatcher && this._stashWatcher.dispose();
-                this._stashWatcher = undefined;
 
                 this._gitCache.clear();
                 this._remotesCache.clear();
@@ -216,15 +207,17 @@ export class GitService extends Disposable {
         }, 1);
     }
 
-    private _onRepoChanged() {
+    private _onRepoChanged(uri: Uri) {
+        if (uri !== undefined && uri.path.endsWith('ref/stash')) {
+            this._fireRepoChange('stash');
+
+            return;
+        }
+
         this._gitCache.clear();
 
         this._fireRepoChange();
         this._fireGitCacheChange();
-    }
-
-    private _onStashChanged() {
-        this._fireRepoChange('stash');
     }
 
     private _fireGitCacheChangeDebounced: (() => void) | undefined = undefined;
