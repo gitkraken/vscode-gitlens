@@ -7,7 +7,7 @@
     },
     "publisher": "eamodio",
     "engines": {
-        "vscode": "^1.15.0"
+        "vscode": "^1.16.0"
     },
     "license": "SEE LICENSE IN LICENSE",
     "displayName": "Git Lens \u2014 git blame annotations, code lens, and more",
@@ -1801,8 +1801,8 @@
     "devDependencies": {
         "@types/copy-paste": "1.1.30",
         "@types/iconv-lite": "0.0.1",
-        "@types/mocha": "2.2.42",
-        "@types/node": "8.0.26",
+        "@types/mocha": "2.2.43",
+        "@types/node": "8.0.28",
         "@types/tmp": "0.0.33",
         "mocha": "3.5.0",
         "tslint": "5.7.0",
