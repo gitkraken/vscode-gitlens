@@ -3,7 +3,7 @@ import { Strings } from '../system';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
-import { GitLogCommit, GitRemote, RemoteResource } from '../gitService';
+import { GitLogCommit, GitRemote, GitService, RemoteResource } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, OpenRemoteCommandQuickPickItem, RemotesQuickPick } from '../quickPicks';
 
@@ -50,7 +50,7 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
                     break;
 
                 case 'commit':
-                    const shortSha = args.resource.sha.substring(0, 8);
+                    const shortSha = GitService.shortenSha(args.resource.sha);
                     placeHolder = `open commit ${shortSha} in${GlyphChars.Ellipsis}`;
                     break;
 
@@ -70,7 +70,7 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
                         }
                     }
                     else {
-                        const shortFileSha = args.resource.sha === undefined ? '' : args.resource.sha.substring(0, 8);
+                        const shortFileSha = args.resource.sha === undefined ? '' : GitService.shortenSha(args.resource.sha);
                         const shaSuffix = shortFileSha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${shortFileSha}` : '';
 
                         placeHolder = `open ${args.resource.fileName}${shaSuffix} in${GlyphChars.Ellipsis}`;

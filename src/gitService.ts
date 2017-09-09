@@ -1061,6 +1061,10 @@ export class GitService extends Disposable {
         return Git.normalizePath(fileName, repoPath);
     }
 
+    static shortenSha(sha: string) {
+        return Git.shortenSha(sha);
+    }
+
     static toGitContentUri(sha: string, shortSha: string, fileName: string, repoPath: string, originalFileName?: string): Uri;
     static toGitContentUri(commit: GitCommit): Uri;
     static toGitContentUri(uri: GitUri): Uri;

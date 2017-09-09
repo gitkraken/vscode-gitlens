@@ -95,7 +95,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
             args.commit.workingFileName = workingFileName;
             args.commit.workingFileName = await this.git.findWorkingFileName(args.commit);
 
-            const shortSha = args.sha!.substring(0, 8);
+            const shortSha = GitService.shortenSha(args.sha!);
 
             if (args.goBackCommand === undefined) {
                 // Create a command to get back to the commit details

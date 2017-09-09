@@ -4,7 +4,7 @@ import { QuickPickOptions, window } from 'vscode';
 import { Commands, OpenInRemoteCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './common';
 import { GlyphChars } from '../constants';
-import { getNameFromRemoteResource, GitLogCommit, GitRemote, RemoteResource } from '../gitService';
+import { getNameFromRemoteResource, GitLogCommit, GitRemote, GitService, RemoteResource } from '../gitService';
 import * as path from 'path';
 
 export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
@@ -43,7 +43,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                 break;
 
             case 'commit':
-                const shortSha = resource.sha.substring(0, 8);
+                const shortSha = GitService.shortenSha(resource.sha);
                 description = `$(git-commit) ${shortSha}`;
                 break;
 
@@ -67,7 +67,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                     }
                 }
                 else {
-                    const shortFileSha = resource.sha === undefined ? '' : resource.sha.substring(0, 8);
+                    const shortFileSha = resource.sha === undefined ? '' : GitService.shortenSha(resource.sha);
                     description = `$(file-text) ${path.basename(resource.fileName)}${shortFileSha ? ` in ${GlyphChars.Space}$(git-commit) ${shortFileSha}` : ''}`;
                 }
                 break;

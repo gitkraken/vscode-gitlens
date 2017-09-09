@@ -51,7 +51,7 @@ export class GitCommit {
     }
 
     get shortSha() {
-        return this.sha.substring(0, 8);
+        return Git.shortenSha(this.sha);
     }
 
     get isUncommitted(): boolean {
@@ -62,7 +62,7 @@ export class GitCommit {
     }
 
     get previousShortSha() {
-        return this.previousSha && this.previousSha.substring(0, 8);
+        return this.previousSha && Git.shortenSha(this.previousSha);
     }
 
     get previousUri(): Uri {

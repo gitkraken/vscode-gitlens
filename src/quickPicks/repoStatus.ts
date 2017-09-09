@@ -4,7 +4,7 @@ import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from
 import { Commands, DiffWithWorkingCommandArgs, OpenChangedFilesCommandArgs, ShowQuickBranchHistoryCommandArgs, ShowQuickRepoStatusCommandArgs, ShowQuickStashListCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem, QuickPickItem } from './common';
 import { GlyphChars } from '../constants';
-import { GitStatus, GitStatusFile, GitUri } from '../gitService';
+import { GitService, GitStatus, GitStatusFile, GitUri } from '../gitService';
 import { Keyboard, Keys } from '../keyboard';
 import * as path from 'path';
 
@@ -182,7 +182,7 @@ export class RepoStatusQuickPick {
         if (status.upstream && status.state.behind) {
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `$(cloud-download)${GlyphChars.Space} ${status.state.behind} Commit${status.state.behind > 1 ? 's' : ''} behind ${GlyphChars.Space}$(git-branch) ${status.upstream}`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows commits in ${GlyphChars.Space}$(git-branch) ${status.upstream} but not ${GlyphChars.Space}$(git-branch) ${status.branch}${status.sha ? ` (since ${GlyphChars.Space}$(git-commit) ${status.sha.substring(0, 8)})` : ''}`
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows commits in ${GlyphChars.Space}$(git-branch) ${status.upstream} but not ${GlyphChars.Space}$(git-branch) ${status.branch}${status.sha ? ` (since ${GlyphChars.Space}$(git-commit) ${GitService.shortenSha(status.sha)})` : ''}`
             }, Commands.ShowQuickBranchHistory, [
                     new GitUri(Uri.file(status.repoPath), { fileName: '', repoPath: status.repoPath, sha: `${status.branch}..${status.upstream}` }),
                     {

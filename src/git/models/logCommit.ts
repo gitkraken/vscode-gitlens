@@ -1,6 +1,7 @@
 'use strict';
 import { Uri } from 'vscode';
 import { GitCommit, GitCommitType } from './commit';
+import { Git } from '../git';
 import { GitStatusFileStatus, IGitStatusFile } from './status';
 import * as path from 'path';
 
@@ -49,7 +50,7 @@ export class GitLogCommit extends GitCommit {
     }
 
     get nextShortSha() {
-        return this.nextSha && this.nextSha.substring(0, 8);
+        return this.nextSha && Git.shortenSha(this.nextSha);
     }
 
     get nextUri(): Uri {

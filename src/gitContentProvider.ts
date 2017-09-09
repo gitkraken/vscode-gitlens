@@ -23,7 +23,7 @@ export class GitContentProvider implements TextDocumentContentProvider {
         }
         catch (ex) {
             Logger.error(ex, 'GitContentProvider', 'getVersionedFileText');
-            window.showErrorMessage(`Unable to show Git revision ${data.sha.substring(0, 8)} of '${path.relative(data.repoPath, fileName)}'`);
+            window.showErrorMessage(`Unable to show Git revision ${GitService.shortenSha(data.sha)} of '${path.relative(data.repoPath, fileName)}'`);
             return undefined;
         }
     }
