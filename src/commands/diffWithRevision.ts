@@ -1,12 +1,11 @@
 'use strict';
-import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
-import { BuiltInCommands, GlyphChars } from '../constants';
+import { DiffWithCommandArgs } from './diffWith';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, FileHistoryQuickPick } from '../quickPicks';
-import * as path from 'path';
 
 export interface DiffWithRevisionCommandArgs {
     line?: number;
@@ -46,20 +45,20 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 
             if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-            const compare = await this.git.getVersionedFile(gitUri.repoPath, gitUri.fsPath, pick.commit.sha);
-
-            if (args.line !== undefined && args.line !== 0) {
-                if (args.showOptions === undefined) {
-                    args.showOptions = {};
-                }
-                args.showOptions.selection = new Range(args.line, 0, args.line, 0);
-            }
-
-            await commands.executeCommand(BuiltInCommands.Diff,
-                Uri.file(compare),
-                gitUri.fileUri(),
-                `${path.basename(gitUri.fsPath)} (${pick.commit.shortSha}) ${GlyphChars.ArrowLeftRight} ${path.basename(gitUri.fsPath)}`,
-                args.showOptions);
+            const diffArgs: DiffWithCommandArgs = {
+                repoPath: gitUri.repoPath,
+                lhs: {
+                    sha: pick.commit.sha,
+                    uri: gitUri as Uri
+                },
+                rhs: {
+                    sha: 'HEAD',
+                    uri: gitUri as Uri
+                },
+                line: args.line,
+                showOptions: args.showOptions
+            };
+            await commands.executeCommand(Commands.DiffWith, diffArgs);
         }
         catch (ex) {
             Logger.error(ex, 'DiffWithRevisionCommand', 'getVersionedFile');

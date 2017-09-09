@@ -1,7 +1,8 @@
 'use strict';
-import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
-import { BuiltInCommands, GlyphChars } from '../constants';
+import { GlyphChars } from '../constants';
+import { DiffWithCommandArgs } from './diffWith';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
@@ -43,20 +44,21 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
         if (branch === undefined) return undefined;
 
         try {
-            const compare = await this.git.getVersionedFile(gitUri.repoPath, gitUri.fsPath, branch);
-
-            if (args.line !== undefined && args.line !== 0) {
-                if (args.showOptions === undefined) {
-                    args.showOptions = {};
-                }
-                args.showOptions.selection = new Range(args.line, 0, args.line, 0);
-            }
-
-            await commands.executeCommand(BuiltInCommands.Diff,
-                Uri.file(compare),
-                gitUri.fileUri(),
-                `${path.basename(gitUri.fsPath)} (${branch}) ${GlyphChars.ArrowLeftRight} ${path.basename(gitUri.fsPath)}`,
-                args.showOptions);
+            const diffArgs: DiffWithCommandArgs = {
+                repoPath: gitUri.repoPath,
+                lhs: {
+                    sha: pick.branch.remote ? `remotes/${branch}` : branch,
+                    uri: gitUri as Uri,
+                    title: `${path.basename(gitUri.fsPath)} (${branch})`
+                },
+                rhs: {
+                    sha: 'HEAD',
+                    uri: gitUri as Uri
+                },
+                line: args.line,
+                showOptions: args.showOptions
+            };
+            await commands.executeCommand(Commands.DiffWith, diffArgs);
         }
         catch (ex) {
             Logger.error(ex, 'DiffWithBranchCommand', 'getVersionedFile');

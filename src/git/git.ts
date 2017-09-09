@@ -99,7 +99,8 @@ export class Git {
     static async getVersionedFile(repoPath: string | undefined, fileName: string, branchOrSha: string) {
         const data = await Git.show(repoPath, fileName, branchOrSha, 'binary');
 
-        const suffix = Git.isSha(branchOrSha) ? Git.shortenSha(branchOrSha) : branchOrSha;
+        // TODO: Sanitize the filename
+        const suffix = Git.isSha(branchOrSha) ? Git.shortenSha(branchOrSha) : branchOrSha.replace(/\\/g, '_').replace(/\//g, '_');
         const ext = path.extname(fileName);
         return new Promise<string>((resolve, reject) => {
             tmp.file({ prefix: `${path.basename(fileName, ext)}-${suffix}__`, postfix: ext },
