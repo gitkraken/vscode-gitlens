@@ -20,6 +20,15 @@ export interface ShowQuickCommitDetailsCommandArgs {
 
 export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 
+    static getMarkdownCommandArgs(sha: string): string;
+    static getMarkdownCommandArgs(args: ShowQuickCommitDetailsCommandArgs): string;
+    static getMarkdownCommandArgs(argsOrSha: ShowQuickCommitDetailsCommandArgs | string): string {
+        const args = typeof argsOrSha === 'string'
+            ? { sha: argsOrSha }
+            : argsOrSha;
+        return super.getMarkdownCommandArgsCore<ShowQuickCommitDetailsCommandArgs>(Commands.ShowQuickCommitDetails, args);
+    }
+
     constructor(private git: GitService) {
         super(Commands.ShowQuickCommitDetails);
     }

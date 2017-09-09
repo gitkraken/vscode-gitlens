@@ -1,5 +1,6 @@
 import { Strings } from '../system';
-import { DecorationInstanceRenderOptions, DecorationOptions, ThemableDecorationRenderOptions } from 'vscode';
+import { DecorationInstanceRenderOptions, DecorationOptions, MarkdownString, ThemableDecorationRenderOptions } from 'vscode';
+import { DiffWithCommand, ShowQuickCommitDetailsCommand } from '../commands';
 import { IThemeConfig, themeDefaults } from '../configuration';
 import { GlyphChars } from '../constants';
 import { CommitFormatter, GitCommit, GitDiffChunkLine, GitService, GitUri, ICommitFormatOptions } from '../gitService';
@@ -47,7 +48,7 @@ export class Annotations {
         return '#793738';
     }
 
-    static getHoverMessage(commit: GitCommit, dateFormat: string | null): string | string[] {
+    static getHoverMessage(commit: GitCommit, dateFormat: string | null): MarkdownString {
         if (dateFormat === null) {
             dateFormat = 'MMMM Do, YYYY h:MMa';
         }
@@ -63,16 +64,21 @@ export class Annotations {
                 .replace(/\n/g, '  \n');
             message = `\n\n> ${message}`;
         }
-        return `\`${commit.shortSha}\` &nbsp; __${commit.author}__, ${moment(commit.date).fromNow()} &nbsp; _(${moment(commit.date).format(dateFormat)})_${message}`;
+
+        const markdown = new MarkdownString(`[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)}) &nbsp; __${commit.author}__, ${moment(commit.date).fromNow()} &nbsp; _(${moment(commit.date).format(dateFormat)})_${message}`);
+        markdown.isTrusted = true;
+        return markdown;
     }
 
-    static getHoverDiffMessage(commit: GitCommit, chunkLine: GitDiffChunkLine | undefined): string | undefined {
+    static getHoverDiffMessage(commit: GitCommit, chunkLine: GitDiffChunkLine | undefined): MarkdownString | undefined {
         if (chunkLine === undefined) return undefined;
 
         const codeDiff = this._getCodeDiff(chunkLine);
-        return commit.isUncommitted
-            ? `\`Changes\` &nbsp; ${GlyphChars.Dash} &nbsp; _uncommitted_\n${codeDiff}`
-            : `\`Changes\` &nbsp; ${GlyphChars.Dash} &nbsp; \`${commit.previousShortSha}\` ${GlyphChars.ArrowLeftRight} \`${commit.shortSha}\`\n${codeDiff}`;
+        const markdown = new MarkdownString(commit.isUncommitted
+            ? `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)}) &nbsp; ${GlyphChars.Dash} &nbsp; _uncommitted_\n${codeDiff}`
+            : `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)}) &nbsp; ${GlyphChars.Dash} &nbsp; [\`${commit.previousShortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.previousSha!)}) ${GlyphChars.ArrowLeftRight} [\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)})\n${codeDiff}`);
+        markdown.isTrusted = true;
+        return markdown;
     }
 
     private static _getCodeDiff(chunkLine: GitDiffChunkLine): string {

@@ -8,6 +8,7 @@ export * from './commands/copyShaToClipboard';
 export * from './commands/diffDirectory';
 export * from './commands/diffLineWithPrevious';
 export * from './commands/diffLineWithWorking';
+export * from './commands/diffWith';
 export * from './commands/diffWithBranch';
 export * from './commands/diffWithNext';
 export * from './commands/diffWithPrevious';

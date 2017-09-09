@@ -11,6 +11,7 @@ export type Commands =
     'gitlens.copyMessageToClipboard' |
     'gitlens.copyShaToClipboard' |
     'gitlens.diffDirectory' |
+    'gitlens.diffWith' |
     'gitlens.diffWithBranch' |
     'gitlens.diffWithNext' |
     'gitlens.diffWithPrevious' |
@@ -52,6 +53,7 @@ export const Commands = {
     CopyMessageToClipboard: 'gitlens.copyMessageToClipboard' as Commands,
     CopyShaToClipboard: 'gitlens.copyShaToClipboard' as Commands,
     DiffDirectory: 'gitlens.diffDirectory' as Commands,
+    DiffWith: 'gitlens.diffWith' as Commands,
     DiffWithBranch: 'gitlens.diffWithBranch' as Commands,
     DiffWithNext: 'gitlens.diffWithNext' as Commands,
     DiffWithPrevious: 'gitlens.diffWithPrevious' as Commands,
@@ -165,6 +167,10 @@ function isTextEditor(editor: any): editor is TextEditor {
 }
 
 export abstract class Command extends Disposable {
+
+    static getMarkdownCommandArgsCore<T>(command: Commands, args: T): string {
+        return `command:${command}?${encodeURIComponent(JSON.stringify(args))}`;
+    }
 
     protected readonly contextParsingOptions: CommandContextParsingOptions = { editor: false, uri: false };
 

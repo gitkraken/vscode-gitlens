@@ -785,6 +785,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.diffWith",
+                "title": "Compare File Revisions",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.diffWithBranch",
                 "title": "Compare File with Branch...",
                 "category": "GitLens"
@@ -1076,6 +1081,10 @@
                 {
                     "command": "gitlens.diffDirectory",
                     "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.diffWith",
+                    "when": "false"
                 },
                 {
                     "command": "gitlens.diffWithBranch",

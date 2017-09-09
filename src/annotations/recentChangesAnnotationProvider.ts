@@ -1,5 +1,5 @@
 'use strict';
-import { DecorationOptions, ExtensionContext, Position, Range, TextEditor, TextEditorDecorationType } from 'vscode';
+import { DecorationOptions, ExtensionContext, MarkdownString, Position, Range, TextEditor, TextEditorDecorationType } from 'vscode';
 import { Annotations, endOfLineIndex } from './annotations';
 import { FileAnnotationType } from './annotationController';
 import { AnnotationProviderBase } from './annotationProvider';
@@ -48,7 +48,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
                     } as DecorationOptions);
                 }
 
-                let message: string | undefined = undefined;
+                let message: MarkdownString | undefined = undefined;
                 if (cfg.hover.changes) {
                     message = Annotations.getHoverDiffMessage(commit, line);
                 }
