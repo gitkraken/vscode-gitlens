@@ -101,12 +101,20 @@ export namespace Strings {
         return s;
     }
 
-    export function truncate(s: string, truncateTo?: number) {
-        if (!s || truncateTo === undefined) return s;
+    // Removes \ / : * ? " < > | and C0 and C1 control codes
+    const illegalCharsForFSRegEx = /[\\/:*?"<>|\x00-\x1f\x80-\x9f]/g;
+
+    export function sanitizeForFS(s: string, replacement: string = '_') {
+        if (!s) return s;
+        return s.replace(illegalCharsForFSRegEx, replacement);
+    }
+
+    export function truncate(s: string, truncateTo: number, ellipsis: string = '\u2026') {
+        if (!s) return s;
 
         const len = getWidth(s);
         if (len <= truncateTo) return s;
-        if (len === s.length) return `${s.substring(0, truncateTo - 1)}\u2026`;
+        if (len === s.length) return `${s.substring(0, truncateTo - 1)}${ellipsis}`;
 
         // Skip ahead to start as far as we can by assuming all the double-width characters won't be truncated
         let chars = Math.floor(truncateTo / (len / s.length));
@@ -119,6 +127,6 @@ export namespace Strings {
             chars--;
         }
 
-        return `${s.substring(0, chars)}\u2026`;
+        return `${s.substring(0, chars)}${ellipsis}`;
     }
 }

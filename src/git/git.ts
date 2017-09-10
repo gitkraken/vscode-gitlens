@@ -1,4 +1,5 @@
 'use strict';
+import { Strings } from '../system';
 import { findGitPath, IGit } from './gitLocator';
 import { Logger } from '../logger';
 import { spawnPromise } from 'spawn-rx';
@@ -99,8 +100,7 @@ export class Git {
     static async getVersionedFile(repoPath: string | undefined, fileName: string, branchOrSha: string) {
         const data = await Git.show(repoPath, fileName, branchOrSha, 'binary');
 
-        // TODO: Sanitize the filename
-        const suffix = Git.isSha(branchOrSha) ? Git.shortenSha(branchOrSha) : branchOrSha.replace(/\\/g, '_').replace(/\//g, '_');
+        const suffix = Strings.truncate(Strings.sanitizeForFS(Git.isSha(branchOrSha) ? Git.shortenSha(branchOrSha) : branchOrSha), 50, '');
         const ext = path.extname(fileName);
         return new Promise<string>((resolve, reject) => {
             tmp.file({ prefix: `${path.basename(fileName, ext)}-${suffix}__`, postfix: ext },
