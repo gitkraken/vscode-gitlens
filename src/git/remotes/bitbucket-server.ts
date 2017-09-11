@@ -2,14 +2,19 @@
 import { Range } from 'vscode';
 import { RemoteProvider } from './provider';
 
-export class GitHubService extends RemoteProvider {
+export class BitbucketServerService extends RemoteProvider {
 
     constructor(public domain: string, public path: string, public custom: boolean = false) {
         super(domain, path);
     }
 
     get name() {
-        return this.formatName('GitHub');
+        return this.formatName('Bitbucket Server');
+    }
+
+    protected get baseUrl() {
+        const [project, repo] = super.splitPath();
+        return `https://${this.domain}/projects/${project}/repos/${repo}`;
     }
 
     protected getUrlForBranches(): string {
@@ -17,26 +22,26 @@ export class GitHubService extends RemoteProvider {
     }
 
     protected getUrlForBranch(branch: string): string {
-        return `${this.baseUrl}/commits/${branch}`;
+        return `${this.baseUrl}/commits?until=${branch}`;
     }
 
     protected getUrlForCommit(sha: string): string {
-        return `${this.baseUrl}/commit/${sha}`;
+        return `${this.baseUrl}/commits/${sha}`;
     }
 
     protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
         let line = '';
         if (range) {
             if (range.start.line === range.end.line) {
-                line = `#L${range.start.line}`;
+                line = `#${range.start.line}`;
             }
             else {
-                line = `#L${range.start.line}-L${range.end.line}`;
+                line = `#${range.start.line}-${range.end.line}`;
             }
         }
 
-        if (sha) return `${this.baseUrl}/blob/${sha}/${fileName}${line}`;
-        if (branch) return `${this.baseUrl}/blob/${branch}/${fileName}${line}`;
-        return `${this.baseUrl}?path=${fileName}${line}`;
+        if (sha) return `${this.baseUrl}/browse/${fileName}?at=${sha}${line}`;
+        if (branch) return `${this.baseUrl}/browse/${fileName}?at=${branch}${line}`;
+        return `${this.baseUrl}/browse/${fileName}${line}`;
     }
 }

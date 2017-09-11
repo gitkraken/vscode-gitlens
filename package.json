@@ -461,10 +461,11 @@
                                 "type": "string",
                                 "enum": [
                                     "Bitbucket",
+                                    "BitbucketServer",
                                     "GitHub",
                                     "GitLab"
                                 ],
-                                "description": "Specifies the type of the custom remote service\n `Bitbucket`, `GitHub`, or `GitLab`"
+                                "description": "Specifies the type of the custom remote service\n `Bitbucket`, `BitbucketServer`, `GitHub`, or `GitLab`"
                             },
                             "domain": {
                                 "type": "string",

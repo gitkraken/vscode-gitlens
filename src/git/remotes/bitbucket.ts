@@ -4,12 +4,12 @@ import { RemoteProvider } from './provider';
 
 export class BitbucketService extends RemoteProvider {
 
-    constructor(public domain: string, public path: string) {
+    constructor(public domain: string, public path: string, public custom: boolean = false) {
         super(domain, path);
     }
 
     get name() {
-        return 'Bitbucket';
+        return this.formatName('Bitbucket');
     }
 
     protected getUrlForBranches(): string {

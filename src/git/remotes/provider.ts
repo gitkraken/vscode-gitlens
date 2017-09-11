@@ -26,12 +26,21 @@ export function getNameFromRemoteResource(resource: RemoteResource) {
 
 export abstract class RemoteProvider {
 
-    constructor(public domain: string, public path: string) { }
+    constructor(public domain: string, public path: string, public custom: boolean = false) { }
 
     abstract get name(): string;
 
     protected get baseUrl() {
         return `https://${this.domain}/${this.path}`;
+    }
+
+    protected formatName(name: string) {
+        return `${name}${this.custom ? ` (${this.domain})` : ''}`;
+    }
+
+    protected splitPath(): [string, string] {
+        const index = this.path.indexOf('/');
+        return [ this.path.substring(0, index), this.path.substring(index + 1) ];
     }
 
     protected abstract getUrlForBranches(): string;

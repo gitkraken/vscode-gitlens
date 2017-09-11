@@ -48,6 +48,7 @@ export type CustomRemoteType =
     'GitLab';
 export const CustomRemoteType = {
     Bitbucket: 'Bitbucket' as CustomRemoteType,
+    BitbucketServer: 'BitbucketServer' as CustomRemoteType,
     GitHub: 'GitHub' as CustomRemoteType,
     GitLab: 'GitLab' as CustomRemoteType
 };

@@ -1,6 +1,7 @@
 'use strict';
 import { ExtensionContext, workspace } from 'vscode';
 import { BitbucketService } from './bitbucket';
+import { BitbucketServerService } from './bitbucket-server';
 import { CustomRemoteType, IConfig, IRemotesConfig } from '../../configuration';
 import { ExtensionKey } from '../../constants';
 import { GitHubService } from './github';
@@ -14,11 +15,12 @@ export { RemoteProvider };
 
 const UrlRegex = /^(?:git:\/\/(.*?)\/|https:\/\/(.*?)\/|http:\/\/(.*?)\/|git@(.*):|ssh:\/\/(?:.*@)?(.*?)(?::.*?)?\/)(.*)$/;
 
-function getProviderKey(type: CustomRemoteType) {
+function getCustomProvider(type: CustomRemoteType) {
     switch (type) {
-        case CustomRemoteType.Bitbucket: return 'bitbucket.org';
-        case CustomRemoteType.GitHub: return 'github.com';
-        case CustomRemoteType.GitLab: return 'gitlab.com';
+        case CustomRemoteType.Bitbucket: return (domain: string, path: string) => new BitbucketService(domain, path, true);
+        case CustomRemoteType.BitbucketServer: return (domain: string, path: string) => new BitbucketServerService(domain, path, true);
+        case CustomRemoteType.GitHub: return (domain: string, path: string) => new GitHubService(domain, path, true);
+        case CustomRemoteType.GitLab: return (domain: string, path: string) => new GitLabService(domain, path, true);
     }
     return undefined;
 }
@@ -43,10 +45,10 @@ function onConfigurationChanged() {
         remotesCfg = cfg.remotes;
         if (remotesCfg != null && remotesCfg.length > 0) {
             for (const svc of remotesCfg) {
-                const key = getProviderKey(svc.type);
-                if (key === undefined) continue;
+                const provider = getCustomProvider(svc.type);
+                if (provider === undefined) continue;
 
-                providerMap.set(svc.domain.toLowerCase(), providerMap.get(key)!);
+                providerMap.set(svc.domain.toLowerCase(), provider);
             }
         }
     }

@@ -172,6 +172,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 - Adds a `Search Commits` command (`gitlens.showCommitSearch`) with a shortcut of `alt+/` to search for commits by message, author, file(s), or commit id
 
 - Adds commands to open files, commits, branches, and the repository in the supported remote services, currently **BitBucket, GitHub, GitLab, and Visual Studio Team Services** — only available if a Git upstream service is configured in the repository
+  - Also supports [custom](#custom-remote-settings) remote services, such as **BitBucket, Bitbucket Server (previously called Stash), GitHub, GitLab**
   - `Open Branches in Remote` command (`gitlens.openBranchesInRemote`) — opens the branches in the supported remote service
   - `Open Branch in Remote` command (`gitlens.openBranchInRemote`) — opens the current branch commits in the supported remote service
   - `Open Commit in Remote` command (`gitlens.openCommitInRemote`) — opens the commit revision of the active line in the supported remote service
@@ -350,7 +351,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.gitExplorer.stashFormat`|Specifies the format of stashed changes in the `GitLens` custom view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
 |`gitlens.gitExplorer.stashFileFormat`|Specifies the format of a stashed file in the `GitLens` custom view<br />Available tokens<br /> ${file} - file name<br /> ${filePath} - file name and path<br /> ${path} - file path
 
-### GitLens Custom Remotes Settings
+### Custom Remotes Settings
 
 |Name | Description
 |-----|------------
