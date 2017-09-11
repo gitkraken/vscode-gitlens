@@ -1,13 +1,14 @@
 'use strict';
 import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
-import { DiffWithWorkingCommandArgs } from './diffWithWorking';
+import { DiffWithCommandArgs } from './diffWith';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Messages } from '../messages';
 import { Logger } from '../logger';
 
 export interface DiffLineWithWorkingCommandArgs {
     commit?: GitCommit;
+
     line?: number;
     showOptions?: TextDocumentShowOptions;
 }
@@ -52,6 +53,19 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
             }
         }
 
-        return commands.executeCommand(Commands.DiffWithWorking, uri, args as DiffWithWorkingCommandArgs);
+        const diffArgs: DiffWithCommandArgs = {
+            repoPath: args.commit.repoPath,
+            lhs: {
+                sha: args.commit.sha,
+                uri: args.commit.uri
+            },
+            rhs: {
+                sha: '',
+                uri: args.commit.uri
+            },
+            line: args.line,
+            showOptions: args.showOptions
+        };
+        return commands.executeCommand(Commands.DiffWith, diffArgs);
     }
 }

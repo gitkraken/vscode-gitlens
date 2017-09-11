@@ -35,11 +35,11 @@ export class DiffWithCommand extends ActiveEditorCommand {
                     args = {
                         repoPath: commit1.repoPath,
                         lhs: {
-                            sha: commit1.sha,
+                            sha: 'HEAD',
                             uri: commit1.uri
                         },
                         rhs: {
-                            sha: 'HEAD',
+                            sha: '',
                             uri: commit1.uri
                         }
                     };
@@ -81,25 +81,15 @@ export class DiffWithCommand extends ActiveEditorCommand {
     }
 
     async execute(editor?: TextEditor, uri?: Uri, args: DiffWithCommandArgs = {}): Promise<any> {
+        args = { ...args };
         if (args.repoPath === undefined || args.lhs === undefined || args.rhs === undefined) return undefined;
-
-        if (args.lhs.title === undefined) {
-            args.lhs.title = (args.lhs.sha === 'HEAD')
-                ? `${path.basename(args.lhs.uri.fsPath)}`
-                : `${path.basename(args.lhs.uri.fsPath)} (${GitService.shortenSha(args.lhs.sha)})`;
-        }
-        if (args.rhs.title === undefined) {
-            args.rhs.title = (args.rhs.sha === 'HEAD')
-            ? `${path.basename(args.rhs.uri.fsPath)}`
-            : `${path.basename(args.rhs.uri.fsPath)} (${GitService.shortenSha(args.rhs.sha)})`;
-        }
 
         try {
             const [lhs, rhs] = await Promise.all([
-                args.lhs.sha !== 'HEAD'
+                args.lhs.sha !== '' && !GitService.isUncommitted(args.lhs.sha)
                     ? this.git.getVersionedFile(args.repoPath, args.lhs.uri.fsPath, args.lhs.sha)
                     : args.lhs.uri.fsPath,
-                args.rhs.sha !== 'HEAD'
+                args.rhs.sha !== '' && !GitService.isUncommitted(args.rhs.sha)
                     ? this.git.getVersionedFile(args.repoPath, args.rhs.uri.fsPath, args.rhs.sha)
                     : args.rhs.uri.fsPath
             ]);
@@ -111,10 +101,45 @@ export class DiffWithCommand extends ActiveEditorCommand {
                 args.showOptions.selection = new Range(args.line, 0, args.line, 0);
             }
 
-            await commands.executeCommand(BuiltInCommands.Diff,
-                Uri.file(lhs),
-                Uri.file(rhs),
-                `${args.lhs.title} ${GlyphChars.ArrowLeftRight} ${args.rhs.title}`,
+            let lhsPrefix = '';
+            if (lhs === undefined) {
+                lhsPrefix = 'deleted in ';
+            }
+            else if (args.rhs.sha === GitService.fakeSha) {
+                lhsPrefix = 'added in ';
+            }
+
+            let rhsPrefix = '';
+            if (rhs === undefined) {
+                rhsPrefix = 'deleted in ';
+            }
+            else if (args.lhs.sha === GitService.fakeSha) {
+                rhsPrefix = 'added in ';
+            }
+
+            if (args.lhs.title === undefined && args.lhs.sha !== GitService.fakeSha) {
+                args.lhs.title = (args.lhs.sha === '' || GitService.isUncommitted(args.lhs.sha))
+                    ? `${path.basename(args.lhs.uri.fsPath)}`
+                    : `${path.basename(args.lhs.uri.fsPath)} (${lhsPrefix}${GitService.shortenSha(args.lhs.sha)})`;
+            }
+            if (args.rhs.title === undefined && args.rhs.sha !== GitService.fakeSha) {
+                args.rhs.title = (args.rhs.sha === '' || GitService.isUncommitted(args.rhs.sha))
+                ? `${path.basename(args.rhs.uri.fsPath)}`
+                : `${path.basename(args.rhs.uri.fsPath)} (${rhsPrefix}${GitService.shortenSha(args.rhs.sha)})`;
+            }
+
+            const title = (args.lhs.title !== undefined && args.rhs.title !== undefined)
+                ? `${args.lhs.title} ${GlyphChars.ArrowLeftRight} ${args.rhs.title}`
+                : args.lhs.title || args.rhs.title;
+
+            return await commands.executeCommand(BuiltInCommands.Diff,
+                lhs === undefined
+                    ? GitService.toGitContentUri(GitService.fakeSha, args.lhs.uri.fsPath, args.repoPath)
+                    : Uri.file(lhs),
+                rhs === undefined
+                    ? GitService.toGitContentUri(GitService.fakeSha, args.rhs.uri.fsPath, args.repoPath)
+                    : Uri.file(rhs),
+                title,
                 args.showOptions);
         }
         catch (ex) {

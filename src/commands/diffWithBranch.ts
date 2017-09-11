@@ -1,10 +1,9 @@
 'use strict';
-import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { commands, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
 import { DiffWithCommandArgs } from './diffWith';
 import { GitService, GitUri } from '../gitService';
-import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { BranchesQuickPick, CommandQuickPickItem } from '../quickPicks';
 import * as path from 'path';
@@ -43,26 +42,20 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
         const branch = pick.branch.name;
         if (branch === undefined) return undefined;
 
-        try {
-            const diffArgs: DiffWithCommandArgs = {
-                repoPath: gitUri.repoPath,
-                lhs: {
-                    sha: pick.branch.remote ? `remotes/${branch}` : branch,
-                    uri: gitUri as Uri,
-                    title: `${path.basename(gitUri.fsPath)} (${branch})`
-                },
-                rhs: {
-                    sha: 'HEAD',
-                    uri: gitUri as Uri
-                },
-                line: args.line,
-                showOptions: args.showOptions
-            };
-            await commands.executeCommand(Commands.DiffWith, diffArgs);
-        }
-        catch (ex) {
-            Logger.error(ex, 'DiffWithBranchCommand', 'getVersionedFile');
-            return window.showErrorMessage(`Unable to open branch compare. See output channel for more details`);
-        }
+        const diffArgs: DiffWithCommandArgs = {
+            repoPath: gitUri.repoPath,
+            lhs: {
+                sha: pick.branch.remote ? `remotes/${branch}` : branch,
+                uri: gitUri as Uri,
+                title: `${path.basename(gitUri.fsPath)} (${branch})`
+            },
+            rhs: {
+                sha: '',
+                uri: gitUri as Uri
+            },
+            line: args.line,
+            showOptions: args.showOptions
+        };
+        return commands.executeCommand(Commands.DiffWith, diffArgs);
     }
 }

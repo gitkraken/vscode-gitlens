@@ -8,8 +8,9 @@ import { Messages } from '../messages';
 import { CommandQuickPickItem, FileHistoryQuickPick } from '../quickPicks';
 
 export interface DiffWithRevisionCommandArgs {
-    line?: number;
     maxCount?: number;
+
+    line?: number;
     showOptions?: TextDocumentShowOptions;
 }
 
@@ -52,17 +53,17 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
                     uri: gitUri as Uri
                 },
                 rhs: {
-                    sha: 'HEAD',
+                    sha: '',
                     uri: gitUri as Uri
                 },
                 line: args.line,
                 showOptions: args.showOptions
             };
-            await commands.executeCommand(Commands.DiffWith, diffArgs);
+            return await commands.executeCommand(Commands.DiffWith, diffArgs);
         }
         catch (ex) {
-            Logger.error(ex, 'DiffWithRevisionCommand', 'getVersionedFile');
-            return window.showErrorMessage(`Unable to open history compare. See output channel for more details`);
+            Logger.error(ex, 'DiffWithRevisionCommand');
+            return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
         }
     }
 }

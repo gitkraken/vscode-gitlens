@@ -40,16 +40,6 @@ export class CommitFileNode extends ExplorerNode {
     }
 
     getCommand(): Command | undefined {
-        let allowMissingPrevious = false;
-        let prefix = undefined;
-        if (this.status.status === 'A') {
-            allowMissingPrevious = true;
-            prefix = 'added in ';
-        }
-        else if (this.status.status === 'D') {
-            prefix = 'deleted in ';
-        }
-
         return {
             title: 'Compare File with Previous Revision',
             command: Commands.DiffWithPrevious,
@@ -61,9 +51,7 @@ export class CommitFileNode extends ExplorerNode {
                     showOptions: {
                         preserveFocus: true,
                         preview: true
-                    },
-                    allowMissingPrevious: allowMissingPrevious,
-                    rightTitlePrefix: prefix
+                    }
                 } as DiffWithPreviousCommandArgs
             ]
         };

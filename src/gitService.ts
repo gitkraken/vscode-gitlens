@@ -72,6 +72,8 @@ export const RepoChangedReasons = {
 
 export class GitService extends Disposable {
 
+    static fakeSha = 'ffffffffffffffffffffffffffffffffffffffff';
+
     private _onDidBlameFail = new EventEmitter<string>();
     get onDidBlameFail(): Event<string> {
         return this._onDidBlameFail.event;
@@ -954,6 +956,8 @@ export class GitService extends Disposable {
         Logger.log(`getVersionedFile('${repoPath}', '${fileName}', ${sha})`);
 
         const file = await Git.getVersionedFile(repoPath, fileName, sha);
+        if (file === undefined) return undefined;
+
         const cacheKey = this.getCacheEntryKey(file);
         const entry = new UriCacheEntry(new GitUri(Uri.file(fileName), { sha, repoPath: repoPath!, fileName }));
         this._uriCache.set(cacheKey, entry);

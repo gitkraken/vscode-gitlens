@@ -1,14 +1,14 @@
 'use strict';
-import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
-import { BuiltInCommands, GlyphChars } from '../constants';
+import { DiffWithCommandArgs } from './diffWith';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import * as path from 'path';
 
 export interface DiffWithWorkingCommandArgs {
     commit?: GitCommit;
+
     line?: number;
     showOptions?: TextDocumentShowOptions;
 }
@@ -48,25 +48,19 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
         const workingFileName = await this.git.findWorkingFileName(gitUri.repoPath, gitUri.fsPath);
         if (workingFileName === undefined) return undefined;
 
-        try {
-            const compare = await this.git.getVersionedFile(args.commit.repoPath, args.commit.uri.fsPath, args.commit.sha);
-
-            if (args.line !== undefined && args.line !== 0) {
-                if (args.showOptions === undefined) {
-                    args.showOptions = {};
-                }
-                args.showOptions.selection = new Range(args.line, 0, args.line, 0);
-            }
-
-            await commands.executeCommand(BuiltInCommands.Diff,
-                Uri.file(compare),
-                Uri.file(path.resolve(gitUri.repoPath, workingFileName)),
-                `${path.basename(args.commit.uri.fsPath)} (${args.commit.shortSha}) ${GlyphChars.ArrowLeftRight} ${path.basename(workingFileName)}`,
-                args.showOptions);
-        }
-        catch (ex) {
-            Logger.error(ex, 'DiffWithWorkingCommand', 'getVersionedFile');
-            return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
-        }
+        const diffArgs: DiffWithCommandArgs = {
+            repoPath: args.commit.repoPath,
+            lhs: {
+                sha: args.commit.sha,
+                uri: args.commit.uri
+            },
+            rhs: {
+                sha: '',
+                uri: args.commit.uri
+            },
+            line: args.line,
+            showOptions: args.showOptions
+        };
+        return commands.executeCommand(Commands.DiffWith, diffArgs);
     }
 }

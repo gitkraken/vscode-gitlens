@@ -39,38 +39,49 @@ const GitWarnings = [
     /no upstream configured for branch/
 ];
 
-async function gitCommand(options: { cwd: string, encoding?: string, onError?: (ex: Error) => string | undefined }, ...args: any[]) {
+interface GitCommandOptions {
+    cwd: string;
+    encoding?: string;
+    overrideErrorHandling?: boolean;
+}
+
+async function gitCommand(options: GitCommandOptions, ...args: any[]): Promise<string> {
+    if (options.overrideErrorHandling) return gitCommandCore(options, ...args);
+
     try {
-        // Fixes https://github.com/eamodio/vscode-gitlens/issues/73
-        // See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
-        args.splice(0, 0, '-c', 'core.quotepath=false');
-
-        const opts = { encoding: 'utf8', ...options };
-        const s = await spawnPromise(git.path, args, { cwd: options.cwd, encoding: (opts.encoding === 'utf8') ? 'utf8' : 'binary' });
-        Logger.log('git', ...args, `  cwd='${options.cwd}'`);
-        if (opts.encoding === 'utf8' || opts.encoding === 'binary') return s;
-
-        return iconv.decode(Buffer.from(s, 'binary'), opts.encoding);
+        return await gitCommandCore(options, ...args);
     }
     catch (ex) {
-        if (options.onError !== undefined) {
-            const result = options.onError(ex);
-            if (result !== undefined) return result;
-        }
+        return gitCommandDefaultErrorHandler(ex, options, ...args);
+    }
+}
 
-        const msg = ex && ex.toString();
-        if (msg) {
-            for (const warning of GitWarnings) {
-                if (warning.test(msg)) {
-                    Logger.warn('git', ...args, `  cwd='${options.cwd}'`, msg && `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
-                    return '';
-                }
+async function gitCommandCore(options: GitCommandOptions, ...args: any[]): Promise<string> {
+    // Fixes https://github.com/eamodio/vscode-gitlens/issues/73
+    // See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
+    args.splice(0, 0, '-c', 'core.quotepath=false');
+
+    const opts = { encoding: 'utf8', ...options };
+    const s = await spawnPromise(git.path, args, { cwd: options.cwd, encoding: (opts.encoding === 'utf8') ? 'utf8' : 'binary' });
+    Logger.log('git', ...args, `  cwd='${options.cwd}'`);
+    if (opts.encoding === 'utf8' || opts.encoding === 'binary') return s;
+
+    return iconv.decode(Buffer.from(s, 'binary'), opts.encoding);
+}
+
+function gitCommandDefaultErrorHandler(ex: Error, options: GitCommandOptions, ...args: any[]): string {
+    const msg = ex && ex.toString();
+    if (msg) {
+        for (const warning of GitWarnings) {
+            if (warning.test(msg)) {
+                Logger.warn('git', ...args, `  cwd='${options.cwd}'`, msg && `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
+                return '';
             }
         }
-
-        Logger.error(ex, 'git', ...args, `  cwd='${options.cwd}'`, msg && `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
-        throw ex;
     }
+
+    Logger.error(ex, 'git', ...args, `  cwd='${options.cwd}'`, msg && `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
+    throw ex;
 }
 
 export class Git {
@@ -99,6 +110,7 @@ export class Git {
 
     static async getVersionedFile(repoPath: string | undefined, fileName: string, branchOrSha: string) {
         const data = await Git.show(repoPath, fileName, branchOrSha, 'binary');
+        if (data === undefined) return undefined;
 
         const suffix = Strings.truncate(Strings.sanitizeForFS(Git.isSha(branchOrSha) ? Git.shortenSha(branchOrSha) : branchOrSha), 50, '');
         const ext = path.extname(fileName);
@@ -189,16 +201,20 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...params);
     }
 
-    static branch_current(repoPath: string) {
+    static async branch_current(repoPath: string) {
         const params = [`rev-parse`, `--abbrev-ref`, `--symbolic-full-name`, `@`, `@{u}`];
-        const onError = (ex: Error) => {
+
+        const opts = { cwd: repoPath, overrideErrorHandling: true };
+        try {
+            return await gitCommand(opts, ...params);
+        }
+        catch (ex) {
             if (/no upstream configured for branch/.test(ex && ex.toString())) {
                 return ex.message.split('\n')[0];
             }
 
-            return undefined;
-        };
-        return gitCommand({ cwd: repoPath, onError: onError }, ...params);
+            return gitCommandDefaultErrorHandler(ex, opts, ...params);
+        }
     }
 
     static checkout(repoPath: string, fileName: string, sha: string) {
@@ -209,9 +225,9 @@ export class Git {
 
     static async config_get(key: string, repoPath?: string) {
         try {
-            return await gitCommand({ cwd: repoPath || '' }, `config`, `--get`, key);
+            return await gitCommand({ cwd: repoPath || '', overrideErrorHandling: true }, `config`, `--get`, key);
         }
-        catch (ex) {
+        catch {
             return '';
         }
     }
@@ -315,9 +331,9 @@ export class Git {
 
     static async ls_files(repoPath: string, fileName: string): Promise<string> {
         try {
-            return await gitCommand({ cwd: repoPath }, 'ls-files', fileName);
+            return await gitCommand({ cwd: repoPath, overrideErrorHandling: true }, 'ls-files', fileName);
         }
-        catch (ex) {
+        catch {
             return '';
         }
     }
@@ -330,12 +346,24 @@ export class Git {
         return gitCommand({ cwd: repoPath }, 'remote', 'get-url', remote);
     }
 
-    static show(repoPath: string | undefined, fileName: string, branchOrSha: string, encoding?: string) {
+    static async show(repoPath: string | undefined, fileName: string, branchOrSha: string, encoding?: string) {
         const [file, root] = Git.splitPath(fileName, repoPath);
         branchOrSha = branchOrSha.replace('^', '');
 
-        if (Git.isUncommitted(branchOrSha)) return Promise.reject(new Error(`sha=${branchOrSha} is uncommitted`));
-        return gitCommand({ cwd: root, encoding: encoding || defaultEncoding }, 'show', `${branchOrSha}:./${file}`);
+        if (Git.isUncommitted(branchOrSha)) throw new Error(`sha=${branchOrSha} is uncommitted`);
+
+        const opts = { cwd: root, encoding: encoding || defaultEncoding, overrideErrorHandling: true };
+        const args = `${branchOrSha}:./${file}`;
+        try {
+            return await gitCommand(opts, 'show', args);
+        }
+        catch (ex) {
+            if (/Path \'.*?\' does not exist in/.test(ex && ex.toString())) {
+                return undefined;
+            }
+
+            return gitCommandDefaultErrorHandler(ex, opts, args);
+        }
     }
 
     static stash_apply(repoPath: string, stashName: string, deleteAfter: boolean) {

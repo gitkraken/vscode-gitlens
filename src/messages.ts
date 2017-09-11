@@ -32,7 +32,8 @@ export class Messages {
         this.context = context;
     }
 
-    static showCommitHasNoPreviousCommitWarningMessage(commit: GitCommit): Promise<string | undefined> {
+    static showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<string | undefined> {
+        if (commit === undefined) return Messages._showMessage('info', `Commit has no previous commit`, SuppressedKeys.CommitHasNoPreviousCommitWarning);
         return Messages._showMessage('info', `Commit ${commit.shortSha} (${commit.author}, ${moment(commit.date).fromNow()}) has no previous commit`, SuppressedKeys.CommitHasNoPreviousCommitWarning);
     }
 

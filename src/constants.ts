@@ -8,8 +8,6 @@ export const QualifiedExtensionId = `eamodio.${ExtensionId}`;
 
 export const ApplicationInsightsKey = 'a9c302f8-6483-4d01-b92c-c159c799c679';
 
-export const FakeSha = 'ffffffffffffffffffffffffffffffffffffffff';
-
 export type BuiltInCommands = 'cursorMove' |
     'editor.action.showReferences' |
     'editor.action.toggleRenderWhitespace' |

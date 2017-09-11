@@ -2,16 +2,16 @@
 import { Iterables } from '../system';
 import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
-import { BuiltInCommands, GlyphChars } from '../constants';
+import { DiffWithCommandArgs } from './diffWith';
 import { GitLogCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import * as path from 'path';
 
 export interface DiffWithNextCommandArgs {
     commit?: GitLogCommit;
-    line?: number;
     range?: Range;
+
+    line?: number;
     showOptions?: TextDocumentShowOptions;
 }
 
@@ -54,28 +54,19 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 
         if (args.commit.nextSha === undefined) return commands.executeCommand(Commands.DiffWithWorking, uri);
 
-        try {
-            const [rhs, lhs] = await Promise.all([
-                this.git.getVersionedFile(args.commit.repoPath, args.commit.nextUri.fsPath, args.commit.nextSha),
-                this.git.getVersionedFile(args.commit.repoPath, args.commit.uri.fsPath, args.commit.sha)
-            ]);
-
-            if (args.line !== undefined && args.line !== 0) {
-                if (args.showOptions === undefined) {
-                    args.showOptions = {};
-                }
-                args.showOptions.selection = new Range(args.line, 0, args.line, 0);
-            }
-
-            await commands.executeCommand(BuiltInCommands.Diff,
-                Uri.file(lhs),
-                Uri.file(rhs),
-                `${path.basename(args.commit.uri.fsPath)} (${args.commit.shortSha}) ${GlyphChars.ArrowLeftRight} ${path.basename(args.commit.nextUri.fsPath)} (${args.commit.nextShortSha})`,
-                args.showOptions);
-        }
-        catch (ex) {
-            Logger.error(ex, 'DiffWithNextCommand', 'getVersionedFile');
-            return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
-        }
+        const diffArgs: DiffWithCommandArgs = {
+            repoPath: args.commit.repoPath,
+            lhs: {
+                sha: args.commit.sha,
+                uri: args.commit.uri
+            },
+            rhs: {
+                sha: args.commit.nextSha,
+                uri: args.commit.nextUri
+            },
+            line: args.line,
+            showOptions: args.showOptions
+        };
+        return commands.executeCommand(Commands.DiffWith, diffArgs);
     }
 }
