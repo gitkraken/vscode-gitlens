@@ -17,7 +17,7 @@ export class StatusUpstreamNode extends ExplorerNode {
         const range = this.direction === 'ahead'
             ? `${this.status.upstream}..${this.status.branch}`
             : `${this.status.branch}..${this.status.upstream}`;
-        let log = await this.git.getLogForRepo(this.uri.repoPath!, range);
+        let log = await this.git.getLogForRepo(this.uri.repoPath!, range, 0);
         if (log === undefined) return [];
 
         if (this.direction !== 'ahead') return [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.template, this.context, this.git))];

@@ -15,7 +15,7 @@ export class BranchHistoryNode extends ExplorerNode {
         }
 
         async getChildren(): Promise<ExplorerNode[]> {
-            const log = await this.git.getLogForRepo(this.uri.repoPath!, this.branch.name);
+            const log = await this.git.getLogForRepo(this.uri.repoPath!, this.branch.name, 0);
             if (log === undefined) return [];
 
             return [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.template, this.context, this.git))];
