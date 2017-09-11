@@ -19,6 +19,7 @@ import { CodeLensLocations, IConfig, LineHighlightLocations } from './configurat
 import { ApplicationInsightsKey, CommandContext, ExtensionKey, QualifiedExtensionId, setCommandContext, WorkspaceState } from './constants';
 import { CodeLensController } from './codeLensController';
 import { CurrentLineController, LineAnnotationType } from './currentLineController';
+import { RemoteProviderFactory } from './git/remotes/factory';
 import { GitContentProvider } from './gitContentProvider';
 import { GitExplorer } from './views/gitExplorer';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
@@ -33,6 +34,7 @@ export async function activate(context: ExtensionContext) {
     Logger.configure(context);
     Messages.configure(context);
     Telemetry.configure(ApplicationInsightsKey);
+    RemoteProviderFactory.configure(context);
 
     const gitlens = extensions.getExtension(QualifiedExtensionId)!;
     const gitlensVersion = gitlens.packageJSON.version;

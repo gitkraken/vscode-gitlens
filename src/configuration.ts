@@ -7,7 +7,8 @@ import { OutputLevel } from './logger';
 
 export { ExtensionKey } from './constants';
 
-export type CodeLensCommand = 'gitlens.toggleFileBlame' |
+export type CodeLensCommand =
+    'gitlens.toggleFileBlame' |
     'gitlens.showBlameHistory' |
     'gitlens.showFileHistory' |
     'gitlens.diffWithPrevious' |
@@ -41,7 +42,18 @@ export const LineHighlightLocations = {
     OverviewRuler: 'overviewRuler' as LineHighlightLocations
 };
 
-export type StatusBarCommand = 'gitlens.toggleFileBlame' |
+export type CustomRemoteType =
+    'Bitbucket' |
+    'GitHub' |
+    'GitLab';
+export const CustomRemoteType = {
+    Bitbucket: 'Bitbucket' as CustomRemoteType,
+    GitHub: 'GitHub' as CustomRemoteType,
+    GitLab: 'GitLab' as CustomRemoteType
+};
+
+export type StatusBarCommand =
+    'gitlens.toggleFileBlame' |
     'gitlens.showBlameHistory' |
     'gitlens.showFileHistory' |
     'gitlens.toggleCodeLens' |
@@ -117,6 +129,11 @@ export interface ICodeLensLanguageLocation {
     language: string | undefined;
     locations: CodeLensLocations[];
     customSymbols?: string[];
+}
+
+export interface IRemotesConfig {
+    type: CustomRemoteType;
+    domain: string;
 }
 
 export interface IThemeConfig {
@@ -306,6 +323,8 @@ export interface IConfig {
         stashFileFormat: string;
         // dateFormat: string | null;
     };
+
+    remotes: IRemotesConfig[];
 
     statusBar: {
         enabled: boolean;

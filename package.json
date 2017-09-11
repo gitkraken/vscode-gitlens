@@ -447,6 +447,34 @@
                     ],
                     "description": "Specifies the starting view (mode) of the `GitLens` custom view\n `history` - shows the commit history of the active file\n `repository` - shows a repository explorer"
                 },
+                "gitlens.remotes": {
+                    "type": "array",
+                    "default": null,
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "type",
+                            "domain"
+                        ],
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": [
+                                    "Bitbucket",
+                                    "GitHub",
+                                    "GitLab"
+                                ],
+                                "description": "Specifies the type of the custom remote service\n `Bitbucket`, `GitHub`, or `GitLab`"
+                            },
+                            "domain": {
+                                "type": "string",
+                                "description": "Specifies the domain name of the custom remote service"
+                            }
+                        }
+                    },
+                    "uniqueItems": true,
+                    "description": "Specifies the custom remote services (code-hosting)"
+                },
                 "gitlens.statusBar.enabled": {
                     "type": "boolean",
                     "default": true,
