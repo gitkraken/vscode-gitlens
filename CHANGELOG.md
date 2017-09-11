@@ -93,6 +93,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes the seeding of the commit search command from the clipboard
 
 ### Fixed
+- Fixes an issue where double hover annotations could be shown on blank lines
 - Fixes an issue where remote branches couldn't be opened properly in their remote service
 - Fixes [#130](https://github.com/eamodio/vscode-gitlens/issues/130) - First-run "Thank you for choosing GitLens! [...]" info message shown on every start up
 - Fixes [#120](https://github.com/eamodio/vscode-gitlens/issues/120) - Feature Request: "Open in Remote" support for custom repositories

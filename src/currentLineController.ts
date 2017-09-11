@@ -432,7 +432,7 @@ export class CurrentLineController extends Disposable {
                 decoration.range = editor.document.validateRange(new Range(line, showDetailsStartIndex, line, endOfLineIndex));
                 decorationOptions.push(decoration);
 
-                if (showDetailsInStartingWhitespace && showDetailsStartIndex !== 0) {
+                if (showDetailsInStartingWhitespace && showDetailsStartIndex !== 0 && decoration.range.end.character !== 0) {
                     decorationOptions.push(Annotations.withRange(decoration, 0, firstNonWhitespace));
                 }
             }
@@ -446,7 +446,7 @@ export class CurrentLineController extends Disposable {
                 decoration.range = editor.document.validateRange(new Range(line, showChangesStartIndex, line, endOfLineIndex));
                 decorationOptions.push(decoration);
 
-                if (showChangesInStartingWhitespace && showChangesStartIndex !== 0) {
+                if (showChangesInStartingWhitespace && showChangesStartIndex !== 0 && decoration.range.end.character !== 0) {
                     decorationOptions.push(Annotations.withRange(decoration, 0, firstNonWhitespace));
                 }
             }
