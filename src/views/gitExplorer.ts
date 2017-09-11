@@ -188,7 +188,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     private async openChangedFileRevisions(node: CommitNode | StashNode, options: TextDocumentShowOptions = { preserveFocus: false, preview: false }) {
         const uris = node.commit.fileStatuses
             .filter(s => s.status !== 'D')
-            .map(s => GitService.toGitContentUri(node.commit.sha, node.commit.shortSha, s.fileName, node.commit.repoPath, s.originalFileName));
+            .map(s => GitService.toGitContentUri(node.commit.sha, s.fileName, node.commit.repoPath, s.originalFileName));
         for (const uri of uris) {
             await openEditor(uri, options);
         }

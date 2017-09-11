@@ -24,17 +24,14 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
         const description = GitStatusFile.getFormattedDirectory(status, true);
 
         let sha;
-        let shortSha;
         if (status.status === 'D') {
             sha = commit.previousSha!;
-            shortSha = commit.previousShortSha!;
         }
         else {
             sha = commit.sha;
-            shortSha = commit.shortSha;
         }
 
-        super(GitService.toGitContentUri(sha, shortSha, status.fileName, commit.repoPath, status.originalFileName), {
+        super(GitService.toGitContentUri(sha, status.fileName, commit.repoPath, status.originalFileName), {
             label: `${Strings.pad(octicon, 4, 2)} ${path.basename(status.fileName)}`,
             description: description
         });
@@ -48,7 +45,7 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
             originalFileName: status.originalFileName
         } as IGitCommitInfo);
         this.sha = sha;
-        this.shortSha = shortSha;
+        this.shortSha = GitService.shortenSha(sha)!;
         this.status = status.status;
     }
 
@@ -88,7 +85,7 @@ export class OpenCommitFileRevisionsCommandQuickPickItem extends OpenFilesComman
     constructor(commit: GitLogCommit, item?: QuickPickItem) {
         const uris = commit.fileStatuses
             .filter(s => s.status !== 'D')
-            .map(s => GitService.toGitContentUri(commit.sha, commit.shortSha, s.fileName, commit.repoPath, s.originalFileName));
+            .map(s => GitService.toGitContentUri(commit.sha, s.fileName, commit.repoPath, s.originalFileName));
 
         super(uris, item || {
             label: `$(file-symlink-file) Open Changed Revisions`,

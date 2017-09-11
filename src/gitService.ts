@@ -1061,15 +1061,17 @@ export class GitService extends Disposable {
         return Git.normalizePath(fileName, repoPath);
     }
 
-    static shortenSha(sha: string) {
+    static shortenSha(sha: string | undefined) {
+        if (sha === undefined) return undefined;
         return Git.shortenSha(sha);
     }
 
-    static toGitContentUri(sha: string, shortSha: string, fileName: string, repoPath: string, originalFileName?: string): Uri;
+    static toGitContentUri(sha: string, fileName: string, repoPath: string, originalFileName?: string): Uri;
     static toGitContentUri(commit: GitCommit): Uri;
     static toGitContentUri(uri: GitUri): Uri;
-    static toGitContentUri(shaOrcommitOrUri: string | GitCommit | GitUri, shortSha?: string, fileName?: string, repoPath?: string, originalFileName?: string): Uri {
+    static toGitContentUri(shaOrcommitOrUri: string | GitCommit | GitUri, fileName?: string, repoPath?: string, originalFileName?: string): Uri {
         let data: IGitUriData;
+        let shortSha: string | undefined;
         if (typeof shaOrcommitOrUri === 'string') {
             data = GitService._toGitUriData({
                 sha: shaOrcommitOrUri,
@@ -1077,6 +1079,7 @@ export class GitService extends Disposable {
                 repoPath: repoPath!,
                 originalFileName: originalFileName
             });
+            shortSha = GitService.shortenSha(shaOrcommitOrUri);
         }
         else if (shaOrcommitOrUri instanceof GitCommit) {
             data = GitService._toGitUriData(shaOrcommitOrUri, undefined, shaOrcommitOrUri.originalFileName);

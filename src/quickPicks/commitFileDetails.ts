@@ -27,7 +27,7 @@ export class OpenCommitFileRevisionCommandQuickPickItem extends OpenFileCommandQ
         let description: string;
         let uri: Uri;
         if (commit.status === 'D') {
-            uri = GitService.toGitContentUri(commit.previousSha!, commit.previousShortSha!, commit.previousFileName!, commit.repoPath, undefined);
+            uri = GitService.toGitContentUri(commit.previousSha!, commit.previousFileName!, commit.repoPath, undefined);
             description = `${Strings.pad(GlyphChars.Dash, 2, 3)} ${path.basename(commit.fileName)} in ${GlyphChars.Space}$(git-commit) ${commit.previousShortSha} (deleted in ${GlyphChars.Space}$(git-commit) ${commit.shortSha})`;
         }
         else {
