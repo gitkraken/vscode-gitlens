@@ -187,7 +187,10 @@ export class Annotations {
     }
 
     static trailing(commit: GitCommit, format: string, dateFormat: string | null, cfgTheme: IThemeConfig): DecorationOptions {
-        const message = CommitFormatter.fromTemplate(format, commit, dateFormat);
+        const message = CommitFormatter.fromTemplate(format, commit, {
+            truncateMessageAtNewLine: true,
+            dateFormat: dateFormat
+        } as ICommitFormatOptions);
         return {
             renderOptions: {
                 after: {

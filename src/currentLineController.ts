@@ -7,7 +7,7 @@ import { Commands } from './commands';
 import { TextEditorComparer } from './comparers';
 import { IConfig, StatusBarCommand } from './configuration';
 import { DocumentSchemes, ExtensionKey } from './constants';
-import { BlameabilityChangeEvent, CommitFormatter, GitCommit, GitCommitLine, GitContextTracker, GitService, GitUri } from './gitService';
+import { BlameabilityChangeEvent, CommitFormatter, GitCommit, GitCommitLine, GitContextTracker, GitService, GitUri, ICommitFormatOptions } from './gitService';
 import { Logger } from './logger';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
@@ -462,7 +462,10 @@ export class CurrentLineController extends Disposable {
         const cfg = this._config.statusBar;
         if (!cfg.enabled || this._statusBarItem === undefined) return;
 
-        this._statusBarItem.text = `$(git-commit) ${CommitFormatter.fromTemplate(cfg.format, commit, cfg.dateFormat === null ? this._config.defaultDateFormat : cfg.dateFormat)}`;
+        this._statusBarItem.text = `$(git-commit) ${CommitFormatter.fromTemplate(cfg.format, commit, {
+            truncateMessageAtNewLine: true,
+            dateFormat: cfg.dateFormat === null ? this._config.defaultDateFormat : cfg.dateFormat
+        } as ICommitFormatOptions)}`;
 
         switch (cfg.command) {
             case StatusBarCommand.BlameAnnotate:

@@ -1,7 +1,7 @@
 'use strict';
 import { Event, EventEmitter, ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { CommitFormatter, GitService, GitStashCommit, GitUri } from '../gitService';
+import { CommitFormatter, GitService, GitStashCommit, GitUri, ICommitFormatOptions } from '../gitService';
 import { StashFileNode } from './stashFileNode';
 
 export class StashNode extends ExplorerNode {
@@ -22,9 +22,10 @@ export class StashNode extends ExplorerNode {
     }
 
     getTreeItem(): TreeItem {
-        const label = CommitFormatter.fromTemplate(this.git.config.gitExplorer.stashFormat, this.commit, this.git.config.defaultDateFormat);
-
-        const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
+        const item = new TreeItem(CommitFormatter.fromTemplate(this.git.config.gitExplorer.stashFormat, this.commit, {
+            truncateMessageAtNewLine: true,
+            dataFormat: this.git.config.defaultDateFormat
+        } as ICommitFormatOptions), TreeItemCollapsibleState.Collapsed);
         item.contextValue = this.resourceType;
         return item;
     }
