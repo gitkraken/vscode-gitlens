@@ -1824,7 +1824,7 @@
     "dependencies": {
         "applicationinsights": "0.21.0",
         "copy-paste": "1.3.0",
-        "iconv-lite": "0.4.18",
+        "iconv-lite": "0.4.19",
         "ignore": "3.3.5",
         "lodash.debounce": "4.0.8",
         "lodash.escaperegexp": "4.1.2",
@@ -1841,7 +1841,7 @@
         "@types/mocha": "2.2.43",
         "@types/node": "8.0.28",
         "@types/tmp": "0.0.33",
-        "mocha": "3.5.0",
+        "mocha": "3.5.2",
         "tslint": "5.7.0",
         "typescript": "2.5.2",
         "vscode": "1.1.5"
