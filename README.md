@@ -21,7 +21,10 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
   ![Line Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/screenshot-line-blame-annotation.png)
   - Contains the author, date, and message of the line's most recent commit, by [default](#line-blame-annotation-settings)
   - Adds a `details` hover annotation to the current line annotation, which provides more commit details ([optional](#line-blame-annotation-settings), on by default)
+    - Clicking the commit id will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
   - Adds a `changes` (diff) hover annotation to the current line annotation, which provides **instant** access to the line's previous version ([optional](#line-blame-annotation-settings), on by default)
+    - Clicking on `Changes` will run the `Compare File Revisions` command (`gitlens.diffWith`)
+    - Clicking the current and previous commit ids will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
 
     ![Line Blame Annotations](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/screenshot-line-blame-annotations.png)
 
@@ -31,6 +34,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
   - Choose between `gutter` (default) and `hover` [annotation styles](#file-blame-annotation-settings)
   - Contains the commit message and date, by [default](#file-blame-annotation-settings)
   - Adds a `details` hover annotation to the line's annotation, which provides more commit details ([optional](#file-blame-annotation-settings), on by default)
+    - Clicking the commit id will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
   - Adds a `heatmap` (age) indicator to the gutter annotations (on right edge by [default](#file-blame-annotation-settings)), which provides an easy, at-a-glance way to tell the age of a line ([optional](#file-blame-annotation-settings), on by default)
     - Indicator ranges from bright yellow (newer) to dark brown (older)
   - Press `Escape` to quickly toggle the annotations off
@@ -61,7 +65,10 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 - Adds on-demand, [customizable](#file-recent-changes-annotation-settings) and [themeable](#theme-settings), **recent changes annotations** of the whole file
   - Highlights all of lines changed in the most recent commit
   - Adds a `details` hover annotation to each line, which provides more commit details ([optional](#file-blame-annotation-settings), on by default)
+    - Clicking the commit id will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
   - Adds a `changes` (diff) hover annotation to each line, which provides **instant** access to the line's previous version ([optional](#file-recent-changes-annotation-settings), on by default)
+    - Clicking on `Changes` will run the `Compare File Revisions` command (`gitlens.diffWith`)
+    - Clicking the current and previous commit ids will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
   - Press `Escape` to quickly toggle the annotations off
 
 - Adds `Toggle Recent File Changes Annotations` command (`gitlens.toggleFileRecentChanges`) to toggle the recent changes annotations on and off
@@ -342,6 +349,12 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.gitExplorer.commitFileFormat`|Specifies the format of a committed file in the `GitLens` custom view<br />Available tokens<br /> ${file} - file name<br /> ${filePath} - file name and path<br /> ${path} - file path
 |`gitlens.gitExplorer.stashFormat`|Specifies the format of stashed changes in the `GitLens` custom view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
 |`gitlens.gitExplorer.stashFileFormat`|Specifies the format of a stashed file in the `GitLens` custom view<br />Available tokens<br /> ${file} - file name<br /> ${filePath} - file name and path<br /> ${path} - file path
+
+### GitLens Custom Remotes Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.remotes`|Specifies the custom remote services (code-hosting)"
 
 ### Status Bar Settings
 

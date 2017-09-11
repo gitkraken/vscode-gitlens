@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [5.0.0-alpha.2] - 2017-09-03
+## [5.0.0-beta] - 2017-09-11
 ### Added
 - Adds an all-new `GitLens` custom view to the Explorer activity
 
@@ -57,6 +57,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Quickly switch between views using the `Switch to Repository View` or `Switch to History View` commands
   - Provides toolbar commands to `Search Commits`, `Switch to Repository View` or `Switch to History View`, and `Refresh`
 
+- Adds command-links to the `details` hover annotation
+  - Clicking the commit id will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
+- Adds command-links to the `changes` hover annotation
+  - Clicking on `Changes` will run the `Compare File Revisions` command (`gitlens.diffWith`)
+  - Clicking the current and previous commit ids will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
+- Adds support for custom remote services - see [#120](https://github.com/eamodio/vscode-gitlens/issues/120)
+- Adds `Compare File Revisions` command (`gitlens.diffWith`) - compares the specified file revisions
 - Adds `Open Branches in Remote` command (`gitlens.openBranchesInRemote`) - opens the branches in the supported remote service
 - Adds `Stash Changes` command (`gitlens.stashSave`) to the source control group context menu -- can now stash a group of files
 - Adds `Stash Changes` command (`gitlens.stashSave`) to the source control resource context menu -- can now stash individual files (works with multi-select too!)
@@ -87,6 +94,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 - Fixes an issue where remote branches couldn't be opened properly in their remote service
 - Fixes [#130](https://github.com/eamodio/vscode-gitlens/issues/130) - First-run "Thank you for choosing GitLens! [...]" info message shown on every start up
+- Fixes [#120](https://github.com/eamodio/vscode-gitlens/issues/120) - Feature Request: "Open in Remote" support for custom repositories
+- Fixes an issue where sometimes diffs (via branch name) wouldn't open properly
 
 ## [4.4.3] - 2017-08-30
 ## Fixed
@@ -158,7 +167,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [4.2.0] - 2017-06-27
 ## Added
-- Adds `Compare File with Revision...` command (`gitlens.diffWithRevision`) - compare the active file with the selected revision of the same file
+- Adds `Compare File with Revision...` command (`gitlens.diffWithRevision`) - compares the active file with the selected revision of the same file
 - Adds `Open Changed Files` command (`gitlens.openChangedFiles`) to the source control group context menu
 - Adds `Close Unchanged Files` command (`gitlens.closeUnchangedFiles`) to the source control group context menu
 - Adds `Open File in Remote` command (`gitlens.openFileInRemote`) to the source control resource context menu
