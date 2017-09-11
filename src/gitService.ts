@@ -145,7 +145,7 @@ export class GitService extends Disposable {
             if (cfg.advanced.caching.enabled) {
                 this._cacheDisposable && this._cacheDisposable.dispose();
 
-                this._repoWatcher = this._repoWatcher || workspace.createFileSystemWatcher('**/.git/{index,HEAD,refs/stash}', true, false, true);
+                this._repoWatcher = this._repoWatcher || workspace.createFileSystemWatcher('**/.git/{index,HEAD,refs/stash,refs/heads/**,refs/remotes/**}');
 
                 const disposables: Disposable[] = [];
 
