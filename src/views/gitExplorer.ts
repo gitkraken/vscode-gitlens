@@ -1,7 +1,7 @@
 'use strict';
 import { Functions, Objects } from '../system';
 import { commands, Event, EventEmitter, ExtensionContext, TextDocumentShowOptions, TextEditor, TreeDataProvider, TreeItem, Uri, window, workspace } from 'vscode';
-import { Commands, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, OpenFileInRemoteCommandArgs } from '../commands';
+import { Commands, DiffWithCommandArgs, DiffWithCommandArgsRevision, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, OpenFileInRemoteCommandArgs } from '../commands';
 import { UriComparer } from '../comparers';
 import { ExtensionKey, IConfig } from '../configuration';
 import { CommandContext, setCommandContext } from '../constants';
@@ -49,6 +49,8 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         commands.registerCommand('gitlens.gitExplorer.openFileRevision', this.openFileRevision, this);
         commands.registerCommand('gitlens.gitExplorer.openFileRevisionInRemote', this.openFileRevisionInRemote, this);
         commands.registerCommand('gitlens.gitExplorer.openChangedFiles', this.openChangedFiles, this);
+        commands.registerCommand('gitlens.gitExplorer.openChangedFileChanges', this.openChangedFileChanges, this);
+        commands.registerCommand('gitlens.gitExplorer.openChangedFileChangesWithWorking', this.openChangedFileChangesWithWorking, this);
         commands.registerCommand('gitlens.gitExplorer.openChangedFileRevisions', this.openChangedFileRevisions, this);
         commands.registerCommand('gitlens.gitExplorer.applyChanges', this.applyChanges, this);
 
@@ -190,6 +192,29 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         return openEditor(options.uri || GitService.toGitContentUri(node.uri), options.showOptions || { preserveFocus: true, preview: false });
     }
 
+    private async openChangedFileChanges(node: CommitNode | StashNode, options: TextDocumentShowOptions = { preserveFocus: false, preview: false }) {
+        const repoPath = node.commit.repoPath;
+        const uris = node.commit.fileStatuses
+            .map(s => GitUri.fromFileStatus(s, repoPath));
+        for (const uri of uris) {
+            await this.openDiffWith(repoPath,
+                { uri: uri, sha: node.commit.previousSha !== undefined ? node.commit.previousSha : GitService.fakeSha },
+                { uri: uri, sha: node.commit.sha }, options);
+        }
+    }
+
+    private async openChangedFileChangesWithWorking(node: CommitNode | StashNode, options: TextDocumentShowOptions = { preserveFocus: false, preview: false }) {
+        const repoPath = node.commit.repoPath;
+        const uris = node.commit.fileStatuses
+            .filter(s => s.status !== 'D')
+            .map(s => GitUri.fromFileStatus(s, repoPath));
+        for (const uri of uris) {
+            await this.openDiffWith(repoPath,
+                { uri: uri, sha: node.commit.sha },
+                { uri: uri, sha: '' }, options);
+        }
+    }
+
     private async openChangedFiles(node: CommitNode | StashNode, options: TextDocumentShowOptions = { preserveFocus: false, preview: false }) {
         const repoPath = node.commit.repoPath;
         const uris = node.commit.fileStatuses.filter(s => s.status !== 'D').map(s => GitUri.fromFileStatus(s, repoPath));
@@ -205,6 +230,16 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         for (const uri of uris) {
             await openEditor(uri, options);
         }
+    }
+
+    private async openDiffWith(repoPath: string, lhs: DiffWithCommandArgsRevision, rhs: DiffWithCommandArgsRevision, options: TextDocumentShowOptions = { preserveFocus: false, preview: false }) {
+        const diffArgs: DiffWithCommandArgs = {
+            repoPath: repoPath,
+            lhs: lhs,
+            rhs: rhs,
+            showOptions: options
+        };
+        return commands.executeCommand(Commands.DiffWith, diffArgs);
     }
 
     private async openFileRevisionInRemote(node: CommitNode | StashNode) {

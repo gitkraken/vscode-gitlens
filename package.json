@@ -1095,6 +1095,16 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.gitExplorer.openChangedFileChanges",
+                "title": "Open All Changes",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.gitExplorer.openChangedFileChangesWithWorking",
+                "title": "Open All Changes with Working Tree",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.gitExplorer.openChangedFileRevisions",
                 "title": "Open Revisions",
                 "category": "GitLens"
@@ -1297,6 +1307,14 @@
                 },
                 {
                     "command": "gitlens.gitExplorer.openChangedFiles",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.gitExplorer.openChangedFileChanges",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.gitExplorer.openChangedFileChangesWithWorking",
                     "when": "false"
                 },
                 {
@@ -1504,204 +1522,224 @@
             "view/title": [
                 {
                     "command": "gitlens.showCommitSearch",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer",
+                    "when": "view == gitlens.gitExplorer",
                     "group": "navigation@1"
                 },
                 {
                     "command": "gitlens.gitExplorer.switchToHistoryView",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && gitlens:gitExplorer:view == repository",
+                    "when": "view == gitlens.gitExplorer && gitlens:gitExplorer:view == repository",
                     "group": "navigation@2"
                 },
                 {
                     "command": "gitlens.gitExplorer.switchToRepositoryView",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && gitlens:gitExplorer:view == history",
+                    "when": "view == gitlens.gitExplorer && gitlens:gitExplorer:view == history",
                     "group": "navigation@3"
                 },
                 {
                     "command": "gitlens.gitExplorer.refresh",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer",
+                    "when": "view == gitlens.gitExplorer",
                     "group": "navigation@4"
                 }
             ],
             "view/item/context": [
                 {
                     "command": "gitlens.openBranchesInRemote",
-                    "when": "gitlens:enabled && gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:branches:remote",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:branches:remote",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.openBranchInRemote",
-                    "when": "gitlens:enabled && gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:branch-history:remote",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:branch-history:remote",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.openCommitInRemote",
-                    "when": "gitlens:enabled && gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:commit",
+                    "when": "gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:commit",
                     "group": "1_gitlens@1"
                 },
                 {
-                    "command": "gitlens.copyShaToClipboard",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:commit",
+                    "command": "gitlens.gitExplorer.openChangedFileChanges",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:commit",
                     "group": "2_gitlens@1"
                 },
                 {
-                    "command": "gitlens.copyMessageToClipboard",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:commit",
-                    "group": "2_gitlens@2"
+                    "command": "gitlens.gitExplorer.openChangedFileChangesWithWorking",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:commit",
+                    "group": "2_gitlens@1"
                 },
                 {
                     "command": "gitlens.gitExplorer.openChangedFiles",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:commit",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:commit",
                     "group": "3_gitlens@1"
                 },
                 {
                     "command": "gitlens.gitExplorer.openChangedFileRevisions",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:commit",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:commit",
                     "group": "3_gitlens@2"
                 },
                 {
-                    "command": "gitlens.showQuickCommitDetails",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:commit",
+                    "command": "gitlens.copyShaToClipboard",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:commit",
                     "group": "4_gitlens@1"
                 },
                 {
+                    "command": "gitlens.copyMessageToClipboard",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:commit",
+                    "group": "4_gitlens@2"
+                },
+                {
+                    "command": "gitlens.showQuickCommitDetails",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:commit",
+                    "group": "5_gitlens@1"
+                },
+                {
                     "command": "gitlens.gitExplorer.openChanges",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.gitExplorer.openChangesWithWorking",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
                     "group": "1_gitlens@2"
                 },
                 {
                     "command": "gitlens.gitExplorer.openFile",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
                     "group": "2_gitlens@1"
                 },
                 {
                     "command": "gitlens.gitExplorer.openFileRevision",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
                     "group": "2_gitlens@2"
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
+                    "when": "gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
                     "group": "3_gitlens@1"
                 },
                 {
                     "command": "gitlens.gitExplorer.openFileRevisionInRemote",
-                    "when": "gitlens:enabled && gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
+                    "when": "gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
                     "group": "3_gitlens@2"
                 },
                 {
                     "command": "gitlens.gitExplorer.applyChanges",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
                     "group": "4_gitlens@1"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
-                    "when": "gitlens:isTracked && view == gitlens.gitExplorer && viewItem == gitlens:commit-file && gitlens:gitExplorer:view == repository",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:commit-file && gitlens:gitExplorer:view == repository",
                     "group": "5_gitlens@1"
                 },
                 {
                     "command": "gitlens.showQuickCommitFileDetails",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:commit-file",
                     "group": "5_gitlens@2"
                 },
                 {
                     "command": "gitlens.gitExplorer.openFile",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:file-history",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:file-history",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:file-history",
+                    "when": "gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:file-history",
                     "group": "1_gitlens@2"
                 },
                 {
                     "command": "gitlens.openBranchesInRemote",
-                    "when": "gitlens:enabled && gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:remote",
+                    "when": "gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:remote",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.openRepoInRemote",
-                    "when": "gitlens:enabled && gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:remote",
+                    "when": "gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:remote",
                     "group": "1_gitlens@2"
                 },
                 {
                     "command": "gitlens.stashSave",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:stashes",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:stashes",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.stashApply",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:stash",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:stash",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.stashDelete",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:stash",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:stash",
                     "group": "1_gitlens@2"
                 },
                 {
-                    "command": "gitlens.copyMessageToClipboard",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:stash",
+                    "command": "gitlens.gitExplorer.openChangedFileChanges",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:stash",
+                    "group": "2_gitlens@1"
+                },
+                {
+                    "command": "gitlens.gitExplorer.openChangedFileChangesWithWorking",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:stash",
                     "group": "2_gitlens@1"
                 },
                 {
                     "command": "gitlens.gitExplorer.openChangedFiles",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:stash",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:stash",
                     "group": "3_gitlens@1"
                 },
                 {
                     "command": "gitlens.gitExplorer.openChangedFileRevisions",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:stash",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:stash",
                     "group": "3_gitlens@2"
                 },
                 {
-                    "command": "gitlens.gitExplorer.openChanges",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
-                    "group": "1_gitlens@1"
-                },
-                {
-                    "command": "gitlens.gitExplorer.openChangesWithWorking",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
-                    "group": "1_gitlens@2"
-                },
-                {
-                    "command": "gitlens.gitExplorer.openFile",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
-                    "group": "2_gitlens@1"
-                },
-                {
-                    "command": "gitlens.gitExplorer.openFileRevision",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
-                    "group": "2_gitlens@2"
-                },
-                {
-                    "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
-                    "group": "3_gitlens@1"
+                    "command": "gitlens.copyMessageToClipboard",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:stash",
+                    "group": "4_gitlens@1"
                 },
                 {
                     "command": "gitlens.gitExplorer.applyChanges",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
+                    "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.gitExplorer.openChanges",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
+                    "group": "2_gitlens@1"
+                },
+                {
+                    "command": "gitlens.gitExplorer.openChangesWithWorking",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
+                    "group": "2_gitlens@2"
+                },
+                {
+                    "command": "gitlens.gitExplorer.openFile",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
+                    "group": "3_gitlens@1"
+                },
+                {
+                    "command": "gitlens.gitExplorer.openFileRevision",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
+                    "group": "3_gitlens@2"
+                },
+                {
+                    "command": "gitlens.openFileInRemote",
+                    "when": "gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
                     "group": "4_gitlens@1"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
-                    "when": "gitlens:isTracked && view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:stash-file",
                     "group": "5_gitlens@1"
                 },
                 {
                     "command": "gitlens.openRepoInRemote",
-                    "when": "gitlens:enabled && gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:status",
+                    "when": "gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:status",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.gitExplorer.refresh",
-                    "when": "gitlens:enabled && view == gitlens.gitExplorer && viewItem != gitlens:commit-file && viewItem != gitlens:stash-file",
+                    "when": "view == gitlens.gitExplorer && viewItem != gitlens:commit-file && viewItem != gitlens:stash-file",
                     "group": "9_gitlens@1"
                 }
             ]

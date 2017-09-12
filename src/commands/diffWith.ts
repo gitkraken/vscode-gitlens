@@ -101,26 +101,18 @@ export class DiffWithCommand extends ActiveEditorCommand {
                 args.showOptions.selection = new Range(args.line, 0, args.line, 0);
             }
 
-            let lhsPrefix = '';
-            if (lhs === undefined) {
-                lhsPrefix = 'deleted in ';
-            }
-            else if (args.rhs.sha === GitService.fakeSha) {
-                lhsPrefix = 'added in ';
-            }
-
             let rhsPrefix = '';
             if (rhs === undefined) {
                 rhsPrefix = 'deleted in ';
             }
-            else if (args.lhs.sha === GitService.fakeSha) {
+            else if (lhs === undefined || args.lhs.sha === GitService.fakeSha) {
                 rhsPrefix = 'added in ';
             }
 
-            if (args.lhs.title === undefined && args.lhs.sha !== GitService.fakeSha) {
+            if (args.lhs.title === undefined && lhs !== undefined && args.lhs.sha !== GitService.fakeSha) {
                 args.lhs.title = (args.lhs.sha === '' || GitService.isUncommitted(args.lhs.sha))
                     ? `${path.basename(args.lhs.uri.fsPath)}`
-                    : `${path.basename(args.lhs.uri.fsPath)} (${lhsPrefix}${GitService.shortenSha(args.lhs.sha)})`;
+                    : `${path.basename(args.lhs.uri.fsPath)} (${GitService.shortenSha(args.lhs.sha)})`;
             }
             if (args.rhs.title === undefined && args.rhs.sha !== GitService.fakeSha) {
                 args.rhs.title = (args.rhs.sha === '' || GitService.isUncommitted(args.rhs.sha))

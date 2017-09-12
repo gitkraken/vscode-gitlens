@@ -358,7 +358,8 @@ export class Git {
             return await gitCommand(opts, 'show', args);
         }
         catch (ex) {
-            if (/Path \'.*?\' does not exist in/.test(ex && ex.toString())) {
+            const msg = ex && ex.toString();
+            if (/Path \'.*?\' does not exist in/.test(msg) || /Path \'.*?\' exists on disk, but not in /.test(msg)) {
                 return undefined;
             }
 
