@@ -1,5 +1,4 @@
 'use strict';
-import { Arrays } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
 import { GitBlameCommit, GitService, GitUri } from '../gitService';
@@ -53,7 +52,8 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
                 args.sha = commit.sha;
             }
 
-            const remotes = Arrays.uniqueBy(await this.git.getRemotes(gitUri.repoPath), _ => _.url, _ => !!_.provider);
+            const remotes = (await this.git.getRemotes(gitUri.repoPath)).filter(r => r.provider !== undefined);
+
             return commands.executeCommand(Commands.OpenInRemote, uri, {
                 resource: {
                     type: 'commit',

@@ -1,5 +1,4 @@
 'use strict';
-import { Arrays } from '../system';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithBranch, isCommandViewContextWithCommit } from './common';
 import { GitService, GitUri } from '../gitService';
@@ -45,7 +44,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
         }
 
         try {
-            const remotes = Arrays.uniqueBy(await this.git.getRemotes(gitUri.repoPath), _ => _.url, _ => !!_.provider);
+            const remotes = (await this.git.getRemotes(gitUri.repoPath)).filter(r => r.provider !== undefined);
             const range = (args.range && editor !== undefined)
                 ? new Range(editor.selection.start.with({ line: editor.selection.start.line + 1 }), editor.selection.end.with({ line: editor.selection.end.line + 1 }))
                 : undefined;

@@ -2,7 +2,7 @@
 import { Disposable, Event, EventEmitter, TextDocument, TextDocumentChangeEvent, TextEditor, window, workspace } from 'vscode';
 import { TextDocumentComparer } from '../comparers';
 import { CommandContext, setCommandContext } from '../constants';
-import { GitService, GitUri } from '../gitService';
+import { GitService, GitUri, RepoChangedReasons } from '../gitService';
 import { Logger } from '../logger';
 
 export interface BlameabilityChangeEvent {
@@ -32,6 +32,7 @@ export class GitContextTracker extends Disposable {
         subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigurationChanged, this));
         subscriptions.push(workspace.onDidSaveTextDocument(this._onTextDocumentSaved, this));
         subscriptions.push(this.git.onDidBlameFail(this._onBlameFailed, this));
+        subscriptions.push(this.git.onDidChangeRepo(this._onRepoChanged, this));
 
         this._disposable = Disposable.from(...subscriptions);
 
@@ -52,6 +53,13 @@ export class GitContextTracker extends Disposable {
             setCommandContext(CommandContext.Enabled, gitEnabled);
             this._onActiveTextEditorChanged(window.activeTextEditor);
         }
+    }
+
+    async _onRepoChanged(reasons: RepoChangedReasons[]) {
+        if (!reasons.includes(RepoChangedReasons.Remotes)) return;
+
+        const gitUri = this._editor === undefined ? undefined : await GitUri.fromUri(this._editor.document.uri, this.git);
+        this._updateContextHasRemotes(gitUri);
     }
 
     private _onActiveTextEditorChanged(editor: TextEditor | undefined) {

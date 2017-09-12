@@ -3,7 +3,8 @@ import { Functions, Iterables, Objects } from './system';
 import { Disposable, Event, EventEmitter, FileSystemWatcher, Location, Position, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, workspace } from 'vscode';
 import { IConfig } from './configuration';
 import { DocumentSchemes, ExtensionKey, GlyphChars } from './constants';
-import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitDiff, GitDiffChunkLine, GitDiffParser, GitLog, GitLogCommit, GitLogParser, GitRemote, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
+import { RemoteProviderFactory } from './git/remotes/factory';
+import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitDiff, GitDiffChunkLine, GitDiffParser, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { Logger } from './logger';
 import * as fs from 'fs';
@@ -64,8 +65,9 @@ export const GitRepoSearchBy = {
     Sha: 'sha' as GitRepoSearchBy
 };
 
-export type RepoChangedReasons = 'stash' | 'unknown';
+export type RepoChangedReasons = 'remotes' | 'stash' | 'unknown';
 export const RepoChangedReasons = {
+    Remotes: 'remotes' as RepoChangedReasons,
     Stash: 'stash' as RepoChangedReasons,
     Unknown: 'unknown' as RepoChangedReasons
 };
@@ -113,6 +115,7 @@ export class GitService extends Disposable {
         const subscriptions: Disposable[] = [];
 
         subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigurationChanged, this));
+        subscriptions.push(RemoteProviderFactory.onDidChange(this._onRemoteProviderChanged, this));
 
         this._disposable = Disposable.from(...subscriptions);
     }
@@ -191,6 +194,11 @@ export class GitService extends Disposable {
         }
 
         this.config = cfg;
+    }
+
+    private _onRemoteProviderChanged() {
+        this._remotesCache.clear();
+        this._fireRepoChange(RepoChangedReasons.Remotes);
     }
 
     private _onTextDocumentChanged(e: TextDocumentChangeEvent) {
@@ -895,7 +903,7 @@ export class GitService extends Disposable {
         }
 
         const data = await Git.remote(repoPath);
-        const remotes = data.split('\n').filter(_ => !!_).map(_ => new GitRemote(_));
+        const remotes = GitRemoteParser.parse(data, repoPath);
         if (this.UseCaching) {
             this._remotesCache.set(repoPath, remotes);
         }

@@ -1,5 +1,5 @@
 'use strict';
-import { Arrays, Iterables, Strings } from '../system';
+import { Iterables, Strings } from '../system';
 import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, ShowQuickCurrentBranchHistoryCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
 import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './common';
@@ -136,7 +136,7 @@ export class FileHistoryQuickPick {
                     ]));
             }
 
-            const remotes = Arrays.uniqueBy(await git.getRemotes(uri.repoPath!), _ => _.url, _ => !!_.provider);
+            const remotes = (await git.getRemotes(uri.repoPath!)).filter(r => r.provider !== undefined);
             if (remotes.length) {
                 items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, {
                     type: 'revision',

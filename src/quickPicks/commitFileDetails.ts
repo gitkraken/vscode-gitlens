@@ -1,5 +1,5 @@
 'use strict';
-import { Arrays, Iterables, Strings } from '../system';
+import { Iterables, Strings } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem } from './common';
@@ -125,7 +125,7 @@ export class CommitFileDetailsQuickPick {
         }
         items.push(new OpenCommitFileRevisionCommandQuickPickItem(commit));
 
-        const remotes = Arrays.uniqueBy(await git.getRemotes(commit.repoPath), _ => _.url, _ => !!_.provider);
+        const remotes = (await git.getRemotes(commit.repoPath)).filter(r => r.provider !== undefined);
         if (remotes.length) {
             if (commit.workingFileName && commit.status !== 'D') {
                 const branch = await git.getBranch(commit.repoPath || git.repoPath);

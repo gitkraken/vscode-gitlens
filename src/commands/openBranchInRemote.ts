@@ -1,5 +1,4 @@
 'use strict';
-import { Arrays } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithBranch } from './common';
 import { GlyphChars } from '../constants';
@@ -52,7 +51,8 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
                 if (args.branch === undefined) return undefined;
             }
 
-            const remotes = Arrays.uniqueBy(await this.git.getRemotes(repoPath), _ => _.url, _ => !!_.provider);
+            const remotes = (await this.git.getRemotes(repoPath)).filter(r => r.provider !== undefined);
+
             return commands.executeCommand(Commands.OpenInRemote, uri, {
                 resource: {
                     type: 'branch',
