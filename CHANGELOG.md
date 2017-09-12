@@ -98,6 +98,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#130](https://github.com/eamodio/vscode-gitlens/issues/130) - First-run "Thank you for choosing GitLens! [...]" info message shown on every start up
 - Fixes [#120](https://github.com/eamodio/vscode-gitlens/issues/120) - Feature Request: "Open in Remote" support for custom repositories
 - Fixes an issue where sometimes diffs (via branch name) wouldn't open properly
+- Fixes an issue where remotes are queried more than once on startup
 
 ## [4.4.3] - 2017-08-30
 ## Fixed

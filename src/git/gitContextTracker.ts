@@ -38,7 +38,6 @@ export class GitContextTracker extends Disposable {
         setCommandContext(CommandContext.IsRepository, !!this.git.repoPath);
 
         this._onConfigurationChanged();
-        this._onActiveTextEditorChanged(window.activeTextEditor);
     }
 
     dispose() {
