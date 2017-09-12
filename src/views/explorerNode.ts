@@ -73,8 +73,8 @@ export class PagerNode extends ExplorerNode {
         item.contextValue = this.resourceType;
         item.command = this.getCommand();
         item.iconPath = {
-            dark: this.context.asAbsolutePath('images/dark/icon-sync.svg'),
-            light: this.context.asAbsolutePath('images/light/icon-sync.svg')
+            dark: this.context.asAbsolutePath('images/dark/icon-unfold.svg'),
+            light: this.context.asAbsolutePath('images/light/icon-unfold.svg')
         };
         return item;
     }
