@@ -62,7 +62,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds command-links to the `changes` hover annotation
   - Clicking on `Changes` will run the `Compare File Revisions` command (`gitlens.diffWith`)
   - Clicking the current and previous commit ids will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
-- Adds support for custom remote services - see [#120](https://github.com/eamodio/vscode-gitlens/issues/120)
+- Adds support for remote services with custom domains - see [#120](https://github.com/eamodio/vscode-gitlens/issues/120)
 - Adds support for the Bitbucket Server (previously called Stash) remote service - see [#120](https://github.com/eamodio/vscode-gitlens/issues/120)
 - Adds `Compare File Revisions` command (`gitlens.diffWith`) - compares the specified file revisions
 - Adds `Open Branches in Remote` command (`gitlens.openBranchesInRemote`) - opens the branches in the supported remote service
@@ -224,7 +224,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes excessive memory usage when parsing diffs
-- Fixes extra newline in multiline commit messages
+- Fixes extra newline in multi-line commit messages
 - Fixes (again) [#33](https://github.com/eamodio/vscode-gitlens/issues/33) - Commit messages can causes markdown formatting in hovers
 
 ## [4.0.1] - 2017-06-09
@@ -308,7 +308,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Improves performance
   - Reduces the number of git calls on known "untrackables"
-  - Caches many more git commands to reduce git command roundtrips and parsing
+  - Caches many more git commands to reduce git command round-trips and parsing
   - Increases the debounce (delay) on cursor movement to reduce lag when navigating around a file
 - Adds diff information (the line's previous version) into the active line hover when the current line is uncommitted
 - Adds `gitlens.statusBar.alignment` settings to control the alignment of the status bar -- thanks to [PR #72](https://github.com/eamodio/vscode-gitlens/pull/72) by Zack Schuster ([@zackschuster](https://github.com/zackschuster))!
@@ -499,7 +499,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 - Fixes issue with `gitlens.diffWithPrevious` command execution via code lens when the code lens was not at the document/file level
 - Fixes issue where full shas were displayed on the file/blame history explorers
-- Fixes [#30](https://github.com/eamodio/vscode-gitlens/issues/30) - Diff with Working Tree fails from repo/commit quickpick list if file was renamed (and the commit was before the rename)
+- Fixes [#30](https://github.com/eamodio/vscode-gitlens/issues/30) - Diff with Working Tree fails from repo/commit quick pick list if file was renamed (and the commit was before the rename)
 - Fixes various other quick pick menu command issues when a file was renamed
 - Fixes various issues when caching is disabled
 - Fixes issues with parsing commits history
@@ -602,7 +602,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [2.9.0]
 ### Changed
-- To accomodate the realization that blame information is invalid when a file has unsaved changes, the following behavior changes have been made
+- To accommodate the realization that blame information is invalid when a file has unsaved changes, the following behavior changes have been made
   - Status bar blame information will hide
   - Code lens change to a `Cannot determine...` message and become unclickable
   - Many menu choices and commands will hide
@@ -640,7 +640,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes [#34](https://github.com/eamodio/vscode-gitlens/issues/34) - Open file should open the selected version of the file
-- Fixes some issue where some editors opened by the quickpick would not be opened in preview tabs
+- Fixes some issue where some editors opened by the quick pick would not be opened in preview tabs
 - Fixes issue where copy to clipboard commands would fail if there was no active editor
 - Fixes issue where active line annotations would show for opened versioned files
 - Fixes issue where code lens compare commands on opened versioned files would fail

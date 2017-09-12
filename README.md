@@ -173,7 +173,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 - Adds a `Search Commits` command (`gitlens.showCommitSearch`) with a shortcut of `alt+/` to search for commits by message, author, file(s), or commit id
 
 - Adds commands to open files, commits, branches, and the repository in the supported remote services, currently **BitBucket, GitHub, GitLab, and Visual Studio Team Services** — only available if a Git upstream service is configured in the repository
-  - Also supports [custom](#custom-remote-settings) remote services, such as **BitBucket, Bitbucket Server (previously called Stash), GitHub, GitLab**
+  - Also supports [remote services with custom domains](#custom-remotes-settings), such as **BitBucket, Bitbucket Server (previously called Stash), GitHub, GitHub Enterprise, GitLab**
   - `Open Branches in Remote` command (`gitlens.openBranchesInRemote`) — opens the branches in the supported remote service
   - `Open Branch in Remote` command (`gitlens.openBranchInRemote`) — opens the current branch commits in the supported remote service
   - `Open Commit in Remote` command (`gitlens.openCommitInRemote`) — opens the commit revision of the active line in the supported remote service
@@ -356,7 +356,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 
 |Name | Description
 |-----|------------
-|`gitlens.remotes`|Specifies the custom remote services (code-hosting)"
+|`gitlens.remotes`|Specifies any custom domains for remote (code-hosting) services<br />Example: ```"gitlens.remotes": [{ "domain": "git.corporate-url.com", "type": "GitHub" }]```
 
 ### Status Bar Settings
 

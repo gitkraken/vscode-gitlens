@@ -474,7 +474,7 @@
                         }
                     },
                     "uniqueItems": true,
-                    "description": "Specifies the custom remote services (code-hosting)"
+                    "description": "Specifies any custom domains for remote (code-hosting) services"
                 },
                 "gitlens.statusBar.enabled": {
                     "type": "boolean",
