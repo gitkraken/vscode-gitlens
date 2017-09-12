@@ -58,13 +58,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Quickly switch between views using the `Switch to Repository View` or `Switch to History View` commands
   - Provides toolbar commands to `Search Commits`, `Switch to Repository View` or `Switch to History View`, and `Refresh`
 
-- Adds command-links to the `details` hover annotation
-  - Clicking the commit id will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
-- Adds command-links to the `changes` hover annotation
-  - Clicking on `Changes` will run the `Compare File Revisions` command (`gitlens.diffWith`)
-  - Clicking the current and previous commit ids will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
-- Adds support for remote services with custom domains - see [#120](https://github.com/eamodio/vscode-gitlens/issues/120)
-- Adds support for the Bitbucket Server (previously called Stash) remote service - see [#120](https://github.com/eamodio/vscode-gitlens/issues/120)
+- Adds all-new interactivity to the hover annotations
+
+  ![Hover Annotations](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/screenshot-line-blame-annotations.png)
+
+  - Adds the following command-links to the `details` hover annotation
+    - Clicking the commit id will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
+  - Adds the following command-links to the `changes` hover annotation
+    - Clicking on `Changes` will run the `Compare File Revisions` command (`gitlens.diffWith`)
+    - Clicking the current and previous commit ids will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
+
+- Adds support for remote services with custom domains -- closes [#120](https://github.com/eamodio/vscode-gitlens/issues/120)
+- Adds support for the Bitbucket Server (previously called Stash) remote service -- closes [#120](https://github.com/eamodio/vscode-gitlens/issues/120)
+- Adds `gitlens.blame.ignoreWhitespace` setting to specify whether or not to ignore whitespace when comparing revisions during blame operations -- closes [#138](https://github.com/eamodio/vscode-gitlens/issues/138)
 - Adds `Compare File Revisions` command (`gitlens.diffWith`) - compares the specified file revisions
 - Adds `Open Branches in Remote` command (`gitlens.openBranchesInRemote`) - opens the branches in the supported remote service
 - Adds `Stash Changes` command (`gitlens.stashSave`) to the source control group context menu -- can now stash a group of files
@@ -97,7 +103,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes an issue where double hover annotations could be shown on blank lines
 - Fixes an issue where remote branches couldn't be opened properly in their remote service
 - Fixes [#130](https://github.com/eamodio/vscode-gitlens/issues/130) - First-run "Thank you for choosing GitLens! [...]" info message shown on every start up
-- Fixes [#120](https://github.com/eamodio/vscode-gitlens/issues/120) - Feature Request: "Open in Remote" support for custom repositories
 - Fixes an issue where sometimes diffs (via branch name) wouldn't open properly
 - Fixes an issue where remotes are queried more than once on startup
 

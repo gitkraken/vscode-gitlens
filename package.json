@@ -172,6 +172,11 @@
                     "default": false,
                     "description": "Specifies whether or not to trigger hover annotations over the whole line"
                 },
+                "gitlens.blame.ignoreWhitespace": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Specifies whether or not to ignore whitespace when comparing revisions during blame operations"
+                },
                 "gitlens.blame.file.annotationType": {
                     "type": "string",
                     "default": "gutter",

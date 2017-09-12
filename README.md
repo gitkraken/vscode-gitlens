@@ -287,7 +287,11 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.insiders`|Opts into the insiders channel -- provides access to upcoming features
 |`gitlens.outputLevel`|Specifies how much (if any) output will be sent to the GitLens output channel
 
-### Blame Annotation Settings
+### Blame Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.blame.ignoreWhitespace`|Specifies whether or not to ignore whitespace when comparing revisions during blame operations
 
 #### File Blame Annotation Settings
 

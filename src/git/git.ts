@@ -177,15 +177,17 @@ export class Git {
 
     // Git commands
 
-    static blame(repoPath: string | undefined, fileName: string, sha?: string, startLine?: number, endLine?: number) {
+    static blame(repoPath: string | undefined, fileName: string, sha?: string, options: { ignoreWhitespace?: boolean, startLine?: number, endLine?: number } = {}) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const params = [`blame`, `--root`, `--incremental`];
 
-        if (startLine != null && endLine != null) {
-            params.push(`-L ${startLine},${endLine}`);
+        if (options.ignoreWhitespace) {
+            params.push('-w');
         }
-
+        if (options.startLine != null && options.endLine != null) {
+            params.push(`-L ${options.startLine},${options.endLine}`);
+        }
         if (sha) {
             params.push(sha);
         }

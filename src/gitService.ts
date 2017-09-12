@@ -193,7 +193,14 @@ export class GitService extends Disposable {
             });
         }
 
+        const ignoreWhitespace = this.config && this.config.blame.ignoreWhitespace;
+
         this.config = cfg;
+
+        if (this.config.blame.ignoreWhitespace !== ignoreWhitespace) {
+            this._gitCache.clear();
+            this._fireGitCacheChange();
+        }
     }
 
     private _onRemoteProviderChanged() {
@@ -428,7 +435,7 @@ export class GitService extends Disposable {
         }
 
         try {
-            const data = await Git.blame(root, file, uri.sha);
+            const data = await Git.blame(root, file, uri.sha, { ignoreWhitespace: this.config.blame.ignoreWhitespace });
             const blame = GitBlameParser.parse(data, root, file);
             return blame;
         }
@@ -477,7 +484,7 @@ export class GitService extends Disposable {
         const fileName = uri.fsPath;
 
         try {
-            const data = await Git.blame(uri.repoPath, fileName, uri.sha, line + 1, line + 1);
+            const data = await Git.blame(uri.repoPath, fileName, uri.sha, { ignoreWhitespace: this.config.blame.ignoreWhitespace, startLine: line + 1, endLine: line + 1 });
             const blame = GitBlameParser.parse(data, uri.repoPath, fileName);
             if (blame === undefined) return undefined;
 

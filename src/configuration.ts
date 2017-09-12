@@ -275,6 +275,8 @@ export interface IConfig {
     };
 
     blame: {
+        ignoreWhitespace: boolean;
+
         file: {
             annotationType: FileAnnotationType;
             lineHighlight: {
