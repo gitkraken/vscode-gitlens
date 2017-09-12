@@ -4,13 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [5.0.0-beta.2] - 2017-09-12
+## [5.0.0] - 2017-09-12
 ### Added
 - Adds an all-new `GitLens` custom view to the Explorer activity
 
   - `Repository View` - provides a full repository explorer
 
-    ![GitLens Repository view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/screenshot-git-custom-view-repository.png)
+    ![GitLens Repository view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-repository.png)
 
     - `Repository Status` node — provides the status of the repository
       - Provides the name of the current branch, its upstream tracking branch (if available), and its upstream status (if available)
@@ -49,7 +49,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
   - `History View` - provides the revision history of the active file
 
-    ![GitLens History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/screenshot-git-custom-view-history.png)
+    ![GitLens History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-history.png)
 
     - Automatically updates to track the active editor
     - Provides a context menu with `Open File`, `Open File in Remote`, and `Refresh` commands
@@ -60,7 +60,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds all-new interactivity to the hover annotations
 
-  ![Hover Annotations](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/screenshot-line-blame-annotations.png)
+  ![Hover Annotations](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotations.png)
 
   - Adds the following command-links to the `details` hover annotation
     - Clicking the commit id will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
@@ -165,9 +165,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [4.3.0] - 2017-07-03
 ## Added
 - Adds `Git Stashes` custom view to the Explorer activity
-
-  ![Git Stashes view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/screenshot-git-stashes.png)
-
   - Shows all of the stashed changes in the repository
   - Provides toolbar buttons to `Stash Changes` and `Refresh`
   - Provides a context menu with `Apply Stashed Changes` and `Delete Stashed Changes` commands - both require a confirmation
