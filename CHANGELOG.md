@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [5.0.0-beta] - 2017-09-11
+## [5.0.0-beta.2] - 2017-09-12
 ### Added
 - Adds an all-new `GitLens` custom view to the Explorer activity
 
@@ -63,7 +63,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Clicking on `Changes` will run the `Compare File Revisions` command (`gitlens.diffWith`)
   - Clicking the current and previous commit ids will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
 - Adds support for custom remote services - see [#120](https://github.com/eamodio/vscode-gitlens/issues/120)
-- Adds support for Bitbucket Server (previously called Stash) remote services - see [#120](https://github.com/eamodio/vscode-gitlens/issues/120)
+- Adds support for the Bitbucket Server (previously called Stash) remote service - see [#120](https://github.com/eamodio/vscode-gitlens/issues/120)
 - Adds `Compare File Revisions` command (`gitlens.diffWith`) - compares the specified file revisions
 - Adds `Open Branches in Remote` command (`gitlens.openBranchesInRemote`) - opens the branches in the supported remote service
 - Adds `Stash Changes` command (`gitlens.stashSave`) to the source control group context menu -- can now stash a group of files
