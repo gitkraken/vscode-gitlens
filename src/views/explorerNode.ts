@@ -1,6 +1,8 @@
 'use strict';
-import { Command, Event, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Command, ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { GlyphChars } from '../constants';
 import { GitUri } from '../gitService';
+import { RefreshNodeCommandArgs } from './gitExplorer';
 
 export declare type ResourceType =
     'gitlens:branches' |
@@ -10,6 +12,7 @@ export declare type ResourceType =
     'gitlens:file-history' |
     'gitlens:history' |
     'gitlens:message' |
+    'gitlens:pager' |
     'gitlens:remote' |
     'gitlens:remotes' |
     'gitlens:repository' |
@@ -31,10 +34,6 @@ export abstract class ExplorerNode {
     getCommand(): Command | undefined {
         return undefined;
     }
-
-    onDidChangeTreeData?: Event<ExplorerNode>;
-
-    refresh?(): void;
 }
 
 export class MessageNode extends ExplorerNode {
@@ -53,5 +52,47 @@ export class MessageNode extends ExplorerNode {
         const item = new TreeItem(this.message, TreeItemCollapsibleState.None);
         item.contextValue = this.resourceType;
         return item;
+    }
+}
+
+export class PagerNode extends ExplorerNode {
+
+    readonly resourceType: ResourceType = 'gitlens:pager';
+    args: RefreshNodeCommandArgs = {};
+
+    constructor(private message: string, private node: ExplorerNode, protected readonly context: ExtensionContext) {
+        super(new GitUri());
+    }
+
+    getChildren(): ExplorerNode[] | Promise<ExplorerNode[]> {
+        return [];
+    }
+
+    getTreeItem(): TreeItem | Promise<TreeItem> {
+        const item = new TreeItem(this.message, TreeItemCollapsibleState.None);
+        item.contextValue = this.resourceType;
+        item.command = this.getCommand();
+        item.iconPath = {
+            dark: this.context.asAbsolutePath('images/dark/icon-sync.svg'),
+            light: this.context.asAbsolutePath('images/light/icon-sync.svg')
+        };
+        return item;
+    }
+
+    getCommand(): Command | undefined {
+        return {
+            title: 'Refresh',
+            command: 'gitlens.gitExplorer.refreshNode',
+            arguments: [this.node, this.args]
+        } as Command;
+    }
+}
+
+export class ShowAllCommitsNode extends PagerNode {
+
+    args: RefreshNodeCommandArgs = { maxCount: 0 };
+
+    constructor(node: ExplorerNode, context: ExtensionContext) {
+        super(`Show All Commits ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`, node, context);
     }
 }

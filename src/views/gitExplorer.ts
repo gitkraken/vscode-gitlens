@@ -5,7 +5,7 @@ import { Commands, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, open
 import { UriComparer } from '../comparers';
 import { ExtensionKey, IConfig } from '../configuration';
 import { CommandContext, setCommandContext } from '../constants';
-import { CommitFileNode, CommitNode, ExplorerNode, HistoryNode, MessageNode, RepositoryNode, StashNode } from './explorerNodes';
+import { BranchHistoryNode, CommitFileNode, CommitNode, ExplorerNode, HistoryNode, MessageNode, RepositoryNode, StashNode } from './explorerNodes';
 import { GitService, GitUri, RepoChangedReasons } from '../gitService';
 
 export * from './explorerNodes';
@@ -23,6 +23,10 @@ export interface OpenFileRevisionCommandArgs {
     showOptions?: TextDocumentShowOptions;
 }
 
+export interface RefreshNodeCommandArgs {
+    maxCount?: number;
+}
+
 export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
     private _config: IConfig;
@@ -38,6 +42,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         commands.registerCommand('gitlens.gitExplorer.switchToHistoryView', () => this.switchTo(GitExplorerView.History), this);
         commands.registerCommand('gitlens.gitExplorer.switchToRepositoryView', () => this.switchTo(GitExplorerView.Repository), this);
         commands.registerCommand('gitlens.gitExplorer.refresh', this.refresh, this);
+        commands.registerCommand('gitlens.gitExplorer.refreshNode', this.refreshNode, this);
         commands.registerCommand('gitlens.gitExplorer.openChanges', this.openChanges, this);
         commands.registerCommand('gitlens.gitExplorer.openChangesWithWorking', this.openChangesWithWorking, this);
         commands.registerCommand('gitlens.gitExplorer.openFile', this.openFile, this);
@@ -131,6 +136,14 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         }
 
         this._onDidChangeTreeData.fire(node);
+    }
+
+    refreshNode(node: ExplorerNode, args: RefreshNodeCommandArgs) {
+        if (node instanceof BranchHistoryNode) {
+            node.maxCount = args.maxCount;
+        }
+
+        this.refresh(node);
     }
 
     switchTo(view: GitExplorerView) {
