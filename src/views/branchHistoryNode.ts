@@ -27,7 +27,7 @@ export class BranchHistoryNode extends ExplorerNode {
                 name += ` ${GlyphChars.Space}${GlyphChars.ArrowLeftRight}${GlyphChars.Space} ${this.branch.tracking}`;
             }
             const item = new TreeItem(`${this.branch!.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`, TreeItemCollapsibleState.Collapsed);
-            item.contextValue = this.resourceType;
+            item.contextValue = this.branch.tracking ? `${this.resourceType}:remote` : this.resourceType;
 
             item.iconPath = {
                 dark: this.context.asAbsolutePath('images/dark/icon-branch.svg'),

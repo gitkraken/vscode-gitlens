@@ -21,9 +21,13 @@ export class BranchesNode extends ExplorerNode {
             return [...Iterables.filterMap(branches, b => b.remote ? undefined : new BranchHistoryNode(b, this.uri, this.git.config.gitExplorer.commitFormat, this.context, this.git))];
         }
 
-        getTreeItem(): TreeItem {
+        async getTreeItem(): Promise<TreeItem> {
             const item = new TreeItem(`Branches`, TreeItemCollapsibleState.Expanded);
-            item.contextValue = this.resourceType;
+
+            const remotes = await this.git.getRemotes(this.uri.repoPath!);
+            item.contextValue = (remotes !== undefined && remotes.length > 0)
+                ? `${this.resourceType}:remote`
+                : this.resourceType;
 
             item.iconPath = {
                 dark: this.context.asAbsolutePath('images/dark/icon-branch.svg'),
