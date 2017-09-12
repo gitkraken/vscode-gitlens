@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
       - Provides a context menu with `Open Branches in Remote`, and `Refresh` commands
 
     - `Remotes` node — provides a list of remotes
+      - Indicates the direction of the remote (fetch, push, both), remote service (if applicable), and repository path
       - Expand each remote to see its list of branches
         - Expand each branch to easily see its revision (commit) history
           - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes

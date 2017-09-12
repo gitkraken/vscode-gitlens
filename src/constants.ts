@@ -77,6 +77,7 @@ export type GlyphChars = '\u21a9' |
     '\u2937' |
     '\u2190' |
     '\u2194' |
+    '\u2192' |
     '\u21e8' |
     '\u2191' |
     '\u2713' |
@@ -91,6 +92,7 @@ export const GlyphChars = {
     ArrowDropRight: '\u2937' as GlyphChars,
     ArrowLeft: '\u2190' as GlyphChars,
     ArrowLeftRight: '\u2194' as GlyphChars,
+    ArrowRight: '\u2192' as GlyphChars,
     ArrowRightHollow: '\u21e8' as GlyphChars,
     ArrowUp: '\u2191' as GlyphChars,
     Check: '\u2713' as GlyphChars,
