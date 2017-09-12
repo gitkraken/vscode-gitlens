@@ -2,14 +2,14 @@
 import { Command, ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { getGitStatusIcon, GitCommit, GitService, GitUri, IGitStatusFile, StatusFileFormatter } from '../gitService';
+import { getGitStatusIcon, GitBranch, GitCommit, GitService, GitUri, IGitStatusFile, StatusFileFormatter } from '../gitService';
 import * as path from 'path';
 
 export class CommitFileNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'gitlens:commit-file';
 
-    constructor(public readonly status: IGitStatusFile, public commit: GitCommit, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+    constructor(public readonly status: IGitStatusFile, public commit: GitCommit, protected readonly context: ExtensionContext, protected readonly git: GitService, public readonly branch?: GitBranch) {
         super(new GitUri(Uri.file(path.resolve(commit.repoPath, status.fileName)), { repoPath: commit.repoPath, fileName: status.fileName, sha: commit.sha }));
     }
 

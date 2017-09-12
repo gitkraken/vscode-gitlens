@@ -20,7 +20,7 @@ export class BranchHistoryNode extends ExplorerNode {
             const log = await this.git.getLogForRepo(this.uri.repoPath!, this.branch.name, this.maxCount);
             if (log === undefined) return [];
 
-            const children = Iterables.map(log.commits.values(), c => new CommitNode(c, this.template, this.context, this.git));
+            const children = Iterables.map(log.commits.values(), c => new CommitNode(c, this.template, this.context, this.git, this.branch));
             if (!log.truncated) return [...children];
 
             return [...children, new ShowAllCommitsNode(this, this.context)];

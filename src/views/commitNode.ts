@@ -4,14 +4,14 @@ import { Command, ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'v
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { CommitFileNode } from './commitFileNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { CommitFormatter, getGitStatusIcon, GitLogCommit, GitService, GitUri, ICommitFormatOptions } from '../gitService';
+import { CommitFormatter, getGitStatusIcon, GitBranch, GitLogCommit, GitService, GitUri, ICommitFormatOptions } from '../gitService';
 import * as path from 'path';
 
 export class CommitNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'gitlens:commit';
 
-    constructor(public readonly commit: GitLogCommit, private readonly template: string, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+    constructor(public readonly commit: GitLogCommit, private readonly template: string, protected readonly context: ExtensionContext, protected readonly git: GitService, public readonly branch?: GitBranch) {
         super(new GitUri(commit.uri, commit));
     }
 
@@ -24,7 +24,7 @@ export class CommitNode extends ExplorerNode {
         const commit = Iterables.first(log.commits.values());
         if (commit === undefined) return [];
 
-        return [...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit, this.context, this.git))];
+        return [...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit, this.context, this.git, this.branch))];
     }
 
     getTreeItem(): TreeItem {

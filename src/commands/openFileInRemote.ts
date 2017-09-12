@@ -1,12 +1,13 @@
 'use strict';
 import { Arrays } from '../system';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
+import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithBranch, isCommandViewContextWithCommit } from './common';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { OpenInRemoteCommandArgs } from './openInRemote';
 
 export interface OpenFileInRemoteCommandArgs {
+    branch?: string;
     range?: boolean;
 }
 
@@ -20,6 +21,9 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
         if (isCommandViewContextWithCommit(context)) {
             args = { ...args };
             args.range = false;
+            if (isCommandViewContextWithBranch(context)) {
+                args.branch = context.node.branch !== undefined ? context.node.branch.name : undefined;
+            }
             return this.execute(context.editor, context.node.commit.uri, args);
         }
 
@@ -33,7 +37,12 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
         const gitUri = await GitUri.fromUri(uri, this.git);
         if (!gitUri.repoPath) return undefined;
 
-        const branch = await this.git.getBranch(gitUri.repoPath);
+        if (args.branch === undefined) {
+            const branch = await this.git.getBranch(gitUri.repoPath);
+            if (branch !== undefined) {
+                args.branch = branch.name;
+            }
+        }
 
         try {
             const remotes = Arrays.uniqueBy(await this.git.getRemotes(gitUri.repoPath), _ => _.url, _ => !!_.provider);
@@ -43,8 +52,8 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 
             return commands.executeCommand(Commands.OpenInRemote, uri, {
                 resource: {
-                    type: 'file',
-                    branch: branch === undefined ? 'Current' : branch.name,
+                    type: gitUri.sha === undefined ? 'file' : 'revision',
+                    branch: args.branch === undefined ? 'Current' : args.branch,
                     fileName: gitUri.getRelativePath(),
                     range: range,
                     sha: gitUri.sha
