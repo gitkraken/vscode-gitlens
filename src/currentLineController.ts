@@ -428,7 +428,7 @@ export class CurrentLineController extends Disposable {
                 // I have no idea why I need this protection -- but it happens
                 if (editor.document === undefined) return;
 
-                const decoration = Annotations.detailsHover(logCommit || commit, this._config.defaultDateFormat);
+                const decoration = Annotations.detailsHover(logCommit || commit, this._config.defaultDateFormat, this.git.hasRemotes((logCommit || commit).repoPath));
                 decoration.range = editor.document.validateRange(new Range(line, showDetailsStartIndex, line, endOfLineIndex));
                 decorationOptions.push(decoration);
 

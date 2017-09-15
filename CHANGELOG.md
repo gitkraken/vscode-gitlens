@@ -6,9 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [5.0.1] - 2017-09-14
 ### Added
+- Adds an external link icon to the `details` hover annotation to run the `Open Commit in Remote` command (`gitlens.openCommitInRemote`)
 
 ### Changed
-- Optimizes date handling (parsing and formatting) to increase blame annotation performance and reduce memory consumption
+- Optimizes performance of the providing blame annotations, especially for large files (saw a ~61% improvement on some files)
+- Optimizes date handling (parsing and formatting) for better performance and reduced memory consumption
 
 ### Fixed
 

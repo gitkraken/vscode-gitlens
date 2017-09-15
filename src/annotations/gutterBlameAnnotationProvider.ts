@@ -39,18 +39,17 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         const separateLines = this._config.theme.annotations.file.gutter.separateLines;
 
         const decorations: DecorationOptions[] = [];
+        const decorationsMap: { [sha: string]: DecorationOptions } = Object.create(null);
         const document = this.document;
 
         let commit: GitBlameCommit | undefined;
         let compacted = false;
         let details: DecorationOptions | undefined;
         let gutter: DecorationOptions | undefined;
+        let hasRemotes: boolean | undefined;
         let previousSha: string | undefined;
 
         for (const l of blame.lines) {
-            commit = blame.commits.get(l.sha);
-            if (commit === undefined) continue;
-
             const line = l.line + offset;
 
             if (previousSha === l.sha) {
@@ -76,6 +75,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
                 const endIndex = document.lineAt(line).firstNonWhitespaceCharacterIndex;
                 gutter.range = new Range(line, 0, line, endIndex);
+
                 decorations.push(gutter);
 
                 if (details !== undefined) {
@@ -83,6 +83,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
                     details.range = cfg.hover.wholeLine
                         ? document.validateRange(new Range(line, 0, line, endOfLineIndex))
                         : gutter.range;
+
                     decorations.push(details);
                 }
 
@@ -92,6 +93,31 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             compacted = false;
             previousSha = l.sha;
 
+            gutter = decorationsMap[l.sha];
+
+            if (gutter !== undefined) {
+                gutter = { ...gutter } as DecorationOptions;
+
+                const endIndex = document.lineAt(line).firstNonWhitespaceCharacterIndex;
+                gutter.range = new Range(line, 0, line, endIndex);
+
+                decorations.push(gutter);
+
+                if (details !== undefined) {
+                    details = { ...details } as DecorationOptions;
+                    details.range = cfg.hover.wholeLine
+                        ? document.validateRange(new Range(line, 0, line, endOfLineIndex))
+                        : gutter.range;
+
+                    decorations.push(details);
+                }
+
+                continue;
+            }
+
+            commit = blame.commits.get(l.sha);
+            if (commit === undefined) continue;
+
             gutter = Annotations.gutter(commit, cfg.format, options, renderOptions);
 
             if (cfg.heatmap.enabled) {
@@ -100,13 +126,20 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
             const endIndex = document.lineAt(line).firstNonWhitespaceCharacterIndex;
             gutter.range = new Range(line, 0, line, endIndex);
+
             decorations.push(gutter);
+            decorationsMap[l.sha] = gutter;
 
             if (cfg.hover.details) {
-                details = Annotations.detailsHover(commit, dateFormat);
+                if (hasRemotes === undefined) {
+                    hasRemotes = this.git.hasRemotes(commit.repoPath);
+                }
+
+                details = Annotations.detailsHover(commit, dateFormat, hasRemotes);
                 details.range = cfg.hover.wholeLine
                     ? document.validateRange(new Range(line, 0, line, endOfLineIndex))
                     : gutter.range;
+
                 decorations.push(details);
             }
         }

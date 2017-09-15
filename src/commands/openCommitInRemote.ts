@@ -12,6 +12,15 @@ export interface OpenCommitInRemoteCommandArgs {
 
 export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
 
+    static getMarkdownCommandArgs(sha: string): string;
+    static getMarkdownCommandArgs(args: OpenCommitInRemoteCommandArgs): string;
+    static getMarkdownCommandArgs(argsOrSha: OpenCommitInRemoteCommandArgs | string): string {
+        const args = typeof argsOrSha === 'string'
+            ? { sha: argsOrSha }
+            : argsOrSha;
+        return super.getMarkdownCommandArgsCore<OpenCommitInRemoteCommandArgs>(Commands.OpenCommitInRemote, args);
+    }
+
     constructor(private git: GitService) {
         super(Commands.OpenCommitInRemote);
     }

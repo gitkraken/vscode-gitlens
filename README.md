@@ -25,6 +25,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
   - Adds a `changes` (diff) hover annotation to the current line annotation, which provides **instant** access to the line's previous version ([optional](#line-blame-annotation-settings), on by default)
     - Clicking on `Changes` will run the `Compare File Revisions` command (`gitlens.diffWith`)
     - Clicking the current and previous commit ids will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
+    - Clicking on external link icon will run the the `Open Commit in Remote` command (`gitlens.openCommitInRemote`)
 
     ![Line Blame Annotations](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotations.png)
 

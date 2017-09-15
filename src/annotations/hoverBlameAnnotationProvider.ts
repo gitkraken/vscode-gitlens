@@ -24,18 +24,42 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
         const dateFormat = this._config.defaultDateFormat;
 
         const decorations: DecorationOptions[] = [];
+        const decorationsMap: { [sha: string]: DecorationOptions } = Object.create(null);
         const document = this.document;
 
         let commit: GitBlameCommit | undefined;
+        let hasRemotes: boolean | undefined;
         let hover: DecorationOptions | undefined;
 
         for (const l of blame.lines) {
+            const line = l.line + offset;
+
+            hover = decorationsMap[l.sha];
+
+            if (hover !== undefined) {
+                hover = { ...hover } as DecorationOptions;
+
+                if (cfg.wholeLine) {
+                    hover.range = document.validateRange(new Range(line, 0, line, endOfLineIndex));
+                }
+                else {
+                    const endIndex = document.lineAt(line).firstNonWhitespaceCharacterIndex;
+                    hover.range = new Range(line, 0, line, endIndex);
+                }
+
+                decorations.push(hover);
+
+                continue;
+            }
+
             commit = blame.commits.get(l.sha);
             if (commit === undefined) continue;
 
-            const line = l.line + offset;
+            if (hasRemotes === undefined) {
+                hasRemotes = this.git.hasRemotes(commit.repoPath);
+            }
 
-            hover = Annotations.hover(commit, renderOptions, cfg.heatmap.enabled, dateFormat);
+            hover = Annotations.hover(commit, renderOptions, cfg.heatmap.enabled, dateFormat, hasRemotes);
 
             if (cfg.wholeLine) {
                 hover.range = document.validateRange(new Range(line, 0, line, endOfLineIndex));
@@ -50,6 +74,8 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
             }
 
             decorations.push(hover);
+            decorationsMap[l.sha] = hover;
+
         }
 
         if (decorations.length) {

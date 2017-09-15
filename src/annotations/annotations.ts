@@ -1,9 +1,10 @@
 import { Dates, Strings } from '../system';
 import { DecorationInstanceRenderOptions, DecorationOptions, MarkdownString, ThemableDecorationRenderOptions } from 'vscode';
-import { DiffWithCommand, ShowQuickCommitDetailsCommand } from '../commands';
+import { DiffWithCommand, OpenCommitInRemoteCommand, ShowQuickCommitDetailsCommand } from '../commands';
 import { IThemeConfig, themeDefaults } from '../configuration';
 import { GlyphChars } from '../constants';
 import { CommitFormatter, GitCommit, GitDiffChunkLine, GitService, GitUri, ICommitFormatOptions } from '../gitService';
+const Datauri = require('datauri');
 
 interface IHeatmapConfig {
     enabled: boolean;
@@ -24,6 +25,25 @@ interface IRenderOptions {
 export const endOfLineIndex = 1000000;
 const escapeMarkdownRegEx = /[`\>\#\*\_\-\+\.]/g;
 // const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
+
+const linkIconSvg = `<?xml version="1.0" encoding="utf-8"?>
+<svg width="12" height="18" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <path fill="\${color}" d="m11,14l1,0l0,3c0,0.55 -0.45,1 -1,1l-10,0c-0.55,0 -1,-0.45 -1,-1l0,-10c0,-0.55 0.45,-1 1,-1l3,0l0,1l-3,0l0,10l10,0l0,-3l0,0zm-5,-8l2.25,2.25l-3.25,3.25l1.5,1.5l3.25,-3.25l2.25,2.25l0,-6l-6,0l0,0z" />
+</svg>`;
+
+const themeForegroundColor = '#a0a0a0';
+let linkIconDataUri: string | undefined;
+
+function getLinkIconDataUri(foregroundColor: string): string {
+    if (linkIconDataUri === undefined || foregroundColor !== themeForegroundColor) {
+        const datauri = new Datauri();
+        datauri.format('.svg', Strings.interpolate(linkIconSvg, { color: foregroundColor }));
+        linkIconDataUri = datauri.content;
+        foregroundColor = themeForegroundColor;
+    }
+
+    return linkIconDataUri!;
+}
 
 export class Annotations {
 
@@ -47,7 +67,7 @@ export class Annotations {
         return '#793738';
     }
 
-    static getHoverMessage(commit: GitCommit, dateFormat: string | null): MarkdownString {
+    static getHoverMessage(commit: GitCommit, dateFormat: string | null, hasRemotes: boolean): MarkdownString {
         if (dateFormat === null) {
             dateFormat = 'MMMM Do, YYYY h:MMa';
         }
@@ -64,7 +84,11 @@ export class Annotations {
             message = `\n\n> ${message}`;
         }
 
-        const markdown = new MarkdownString(`[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)}) &nbsp; __${commit.author}__, ${commit.fromNow()} &nbsp; _(${commit.formatDate(dateFormat)})_${message}`);
+        const openInRemoteCommand = hasRemotes
+            ? `${'&nbsp;'.repeat(3)} [![](${getLinkIconDataUri(themeForegroundColor)})](${OpenCommitInRemoteCommand.getMarkdownCommandArgs(commit.sha)} "Open in Remote")`
+            : '';
+
+        const markdown = new MarkdownString(`[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show Commit Details") &nbsp; __${commit.author}__, ${commit.fromNow()} &nbsp; _(${commit.formatDate(dateFormat)})_ ${openInRemoteCommand} &nbsp; ${message}`);
         markdown.isTrusted = true;
         return markdown;
     }
@@ -74,8 +98,8 @@ export class Annotations {
 
         const codeDiff = this._getCodeDiff(chunkLine);
         const markdown = new MarkdownString(commit.isUncommitted
-            ? `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)}) &nbsp; ${GlyphChars.Dash} &nbsp; _uncommitted_\n${codeDiff}`
-            : `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)}) &nbsp; ${GlyphChars.Dash} &nbsp; [\`${commit.previousShortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.previousSha!)}) ${GlyphChars.ArrowLeftRight} [\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)})\n${codeDiff}`);
+            ? `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; _uncommitted_\n${codeDiff}`
+            : `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; [\`${commit.previousShortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.previousSha!)} "Show Commit Details") ${GlyphChars.ArrowLeftRight} [\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show Commit Details")\n${codeDiff}`);
         markdown.isTrusted = true;
         return markdown;
     }
@@ -97,8 +121,8 @@ export class Annotations {
         } as DecorationOptions;
     }
 
-    static detailsHover(commit: GitCommit, dateFormat: string | null): DecorationOptions {
-        const message = this.getHoverMessage(commit, dateFormat);
+    static detailsHover(commit: GitCommit, dateFormat: string | null, hasRemotes: boolean): DecorationOptions {
+        const message = this.getHoverMessage(commit, dateFormat, hasRemotes);
         return {
             hoverMessage: message
         } as DecorationOptions;
@@ -163,9 +187,9 @@ export class Annotations {
         } as IRenderOptions;
     }
 
-    static hover(commit: GitCommit, renderOptions: IRenderOptions, heatmap: boolean, dateFormat: string | null): DecorationOptions {
+    static hover(commit: GitCommit, renderOptions: IRenderOptions, heatmap: boolean, dateFormat: string | null, hasRemotes: boolean): DecorationOptions {
         return {
-            hoverMessage: this.getHoverMessage(commit, dateFormat),
+            hoverMessage: this.getHoverMessage(commit, dateFormat, hasRemotes),
             renderOptions: heatmap ? { before: { ...renderOptions.before } } : undefined
         } as DecorationOptions;
     }
