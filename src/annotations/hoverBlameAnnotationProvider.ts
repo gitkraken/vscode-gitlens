@@ -4,6 +4,7 @@ import { FileAnnotationType } from './annotationController';
 import { Annotations, endOfLineIndex } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { GitBlameCommit } from '../gitService';
+import { Logger } from '../logger';
 
 export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
@@ -13,7 +14,7 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
         const blame = await this.getBlame(this._config.annotations.file.hover.heatmap.enabled);
         if (blame === undefined) return false;
 
-        // console.time('Computing blame annotations...');
+        const start = process.hrtime();
 
         const cfg = this._config.annotations.file.hover;
 
@@ -55,7 +56,8 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
             this.editor.setDecorations(this.decoration!, decorations);
         }
 
-        // console.timeEnd('Computing blame annotations...');
+        const duration = process.hrtime(start);
+        Logger.log(`${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms to compute hover blame annotations`);
 
         this.selection(shaOrLine, blame);
         return true;

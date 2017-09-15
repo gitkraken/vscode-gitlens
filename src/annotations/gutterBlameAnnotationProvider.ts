@@ -6,6 +6,7 @@ import { Annotations, endOfLineIndex } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { GlyphChars } from '../constants';
 import { GitBlameCommit, ICommitFormatOptions } from '../gitService';
+import { Logger } from '../logger';
 
 export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
@@ -15,7 +16,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         const blame = await this.getBlame(true);
         if (blame === undefined) return false;
 
-        // console.time('Computing blame annotations...');
+        const start = process.hrtime();
 
         const cfg = this._config.annotations.file.gutter;
 
@@ -114,7 +115,8 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             this.editor.setDecorations(this.decoration!, decorations);
         }
 
-        // console.timeEnd('Computing blame annotations...');
+        const duration = process.hrtime(start);
+        Logger.log(`${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms to compute gutter blame annotations`);
 
         this.selection(shaOrLine, blame);
         return true;

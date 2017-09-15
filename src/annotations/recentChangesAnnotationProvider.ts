@@ -4,6 +4,7 @@ import { Annotations, endOfLineIndex } from './annotations';
 import { FileAnnotationType } from './annotationController';
 import { AnnotationProviderBase } from './annotationProvider';
 import { GitService, GitUri } from '../gitService';
+import { Logger } from '../logger';
 
 export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
@@ -19,6 +20,8 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
         const diff = await this.git.getDiffForFile(this.uri, commit.previousSha);
         if (diff === undefined) return false;
+
+        const start = process.hrtime();
 
         const cfg = this._config.annotations.file.recentChanges;
         const dateFormat = this._config.defaultDateFormat;
@@ -61,6 +64,9 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
         }
 
         this.editor.setDecorations(this.highlightDecoration!, decorators);
+
+        const duration = process.hrtime(start);
+        Logger.log(`${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms to compute recent changes annotations`);
 
         return true;
     }
