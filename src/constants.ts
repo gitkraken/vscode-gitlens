@@ -80,6 +80,7 @@ export type GlyphChars = '\u21a9' |
     '\u2192' |
     '\u21e8' |
     '\u2191' |
+    '\u2197' |
     '\u2713' |
     '\u2014' |
     '\u2022' |
@@ -95,6 +96,7 @@ export const GlyphChars = {
     ArrowRight: '\u2192' as GlyphChars,
     ArrowRightHollow: '\u21e8' as GlyphChars,
     ArrowUp: '\u2191' as GlyphChars,
+    ArrowUpRight: '\u2197' as GlyphChars,
     Check: '\u2713' as GlyphChars,
     Dash: '\u2014' as GlyphChars,
     Dot: '\u2022' as GlyphChars,

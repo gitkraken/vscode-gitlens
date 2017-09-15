@@ -6,8 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [5.1.0-beta] - 2017-09-15
 ### Added
-- Adds an external link icon to the `details` hover annotations to run the `Open Commit in Remote` command (`gitlens.openCommitInRemote`)
 - Adds full (multi-line) commit message to the `details` hover annotations
+- Adds an external link icon to the `details` hover annotations to run the `Open Commit in Remote` command (`gitlens.openCommitInRemote`)
 
 ### Changed
 - Optimizes performance of the providing blame annotations, especially for large files (saw a ~78% improvement on some files)
