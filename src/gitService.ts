@@ -166,7 +166,6 @@ export class GitService extends Disposable {
                 this._repoWatcher = undefined;
 
                 this._gitCache.clear();
-                this._remotesCache.clear();
             }
 
             this._gitignore = new Promise<ignore.Ignore | undefined>((resolve, reject) => {
@@ -898,21 +897,26 @@ export class GitService extends Disposable {
         return locations;
     }
 
+    hasRemotes(repoPath: string): boolean {
+        const remotes = this._remotesCache.get(repoPath);
+        return remotes !== undefined && remotes.length > 0;
+    }
+
     async getRemotes(repoPath: string): Promise<GitRemote[]> {
         if (!repoPath) return [];
 
         Logger.log(`getRemotes('${repoPath}')`);
 
-        if (this.UseCaching) {
-            const remotes = this._remotesCache.get(repoPath);
-            if (remotes !== undefined) return remotes;
-        }
+        let remotes = this._remotesCache.get(repoPath);
+        if (remotes !== undefined) return remotes;
 
         const data = await Git.remote(repoPath);
-        const remotes = GitRemoteParser.parse(data, repoPath);
-        if (this.UseCaching) {
+        remotes = GitRemoteParser.parse(data, repoPath);
+
+        if (remotes !== undefined) {
             this._remotesCache.set(repoPath, remotes);
         }
+
         return remotes;
     }
 
