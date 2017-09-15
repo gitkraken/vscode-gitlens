@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes an issue where stashes with only untracked files would not show in the `Stashes` node of the GitLens custom view
+- Fixes an issue where stashes with untracked files would not show its untracked files in the GitLens custom view
 
 ## [5.0.0] - 2017-09-12
 ### Added

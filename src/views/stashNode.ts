@@ -1,4 +1,5 @@
 'use strict';
+import { Iterables } from '../system';
 import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { CommitFormatter, GitService, GitStashCommit, GitUri, ICommitFormatOptions } from '../gitService';
@@ -13,7 +14,20 @@ export class StashNode extends ExplorerNode {
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        return Promise.resolve((this.commit as GitStashCommit).fileStatuses.map(s => new StashFileNode(s, this.commit, this.context, this.git)));
+        const statuses = (this.commit as GitStashCommit).fileStatuses;
+
+        // Check for any untracked files -- since git doesn't return them via `git stash list` :(
+        const log = await this.git.getLogForRepo(this.commit.repoPath, `${(this.commit as GitStashCommit).stashName}^3`, 1);
+        if (log !== undefined) {
+            const commit = Iterables.first(log.commits.values());
+            if (commit !== undefined && commit.fileStatuses.length !== 0) {
+                // Since these files are untracked -- make them look that way
+                commit.fileStatuses.forEach(s => s.status = '?');
+                statuses.splice(statuses.length, 0, ...commit.fileStatuses);
+            }
+        }
+
+        return Promise.resolve(statuses.map(s => new StashFileNode(s, this.commit, this.context, this.git)));
     }
 
     getTreeItem(): TreeItem {

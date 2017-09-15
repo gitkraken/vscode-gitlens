@@ -19,7 +19,7 @@ export interface GitStatus {
     files: GitStatusFile[];
 }
 
-export declare type GitStatusFileStatus = '!' | '?' | 'A' | 'C' | 'D' | 'M' | 'R' | 'U';
+export declare type GitStatusFileStatus = '!' | '?' | 'A' | 'C' | 'D' | 'M' | 'R' | 'T' | 'U' | 'X' | 'B';
 
 export interface IGitStatusFile {
     status: GitStatusFileStatus;
@@ -71,7 +71,10 @@ const statusOcticonsMap = {
     D: '$(diff-removed)',
     M: '$(diff-modified)',
     R: '$(diff-renamed)',
-    U: '$(question)'
+    T: '$(diff-modified)',
+    U: '$(alert)',
+    X: '$(question)',
+    B: '$(question)'
 };
 
 export function getGitStatusOcticon(status: GitStatusFileStatus, missing: string = GlyphChars.Space.repeat(4)): string {
@@ -86,7 +89,10 @@ const statusIconsMap = {
     D: 'icon-status-deleted.svg',
     M: 'icon-status-modified.svg',
     R: 'icon-status-renamed.svg',
-    U: 'icon-status-conflict.svg'
+    T: 'icon-status-modified.svg',
+    U: 'icon-status-conflict.svg',
+    X: 'icon-status-unknown.svg',
+    B: 'icon-status-unknown.svg'
 };
 
 export function getGitStatusIcon(status: GitStatusFileStatus): string {
