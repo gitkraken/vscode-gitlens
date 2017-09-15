@@ -187,11 +187,12 @@ export class Annotations {
         } as IRenderOptions;
     }
 
-    static hover(commit: GitCommit, renderOptions: IRenderOptions, heatmap: boolean, dateFormat: string | null, hasRemotes: boolean): DecorationOptions {
-        return {
-            hoverMessage: this.getHoverMessage(commit, dateFormat, hasRemotes),
-            renderOptions: heatmap ? { before: { ...renderOptions.before } } : undefined
+    static hover(commit: GitCommit, renderOptions: IRenderOptions, now: number): DecorationOptions {
+        const decoration = {
+            renderOptions: { before: { ...renderOptions.before } }
         } as DecorationOptions;
+        this.applyHeatmap(decoration, commit.date, now);
+        return decoration;
     }
 
     static hoverRenderOptions(cfgTheme: IThemeConfig, heatmap: IHeatmapConfig): IRenderOptions {

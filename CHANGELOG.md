@@ -6,11 +6,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [5.0.1] - 2017-09-14
 ### Added
-- Adds an external link icon to the `details` hover annotation to run the `Open Commit in Remote` command (`gitlens.openCommitInRemote`)
+- Adds an external link icon to the `details` hover annotations to run the `Open Commit in Remote` command (`gitlens.openCommitInRemote`)
+- Adds full (multi-line) commit message to the `details` hover annotations
 
 ### Changed
 - Optimizes performance of the providing blame annotations, especially for large files (saw a ~61% improvement on some files)
 - Optimizes date handling (parsing and formatting) for better performance and reduced memory consumption
+
+### Removed
+- Removes `gitlens.annotations.file.recentChanges.hover.wholeLine` setting as it didn't really make sense
 
 ### Fixed
 

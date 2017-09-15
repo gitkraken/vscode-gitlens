@@ -295,12 +295,10 @@ export class CurrentLineController extends Disposable {
         const decorationOptions: DecorationOptions[] = [];
 
         let showChanges = false;
-        let showChangesStartIndex = 0;
-        let showChangesInStartingWhitespace = false;
-
         let showDetails = false;
-        let showDetailsStartIndex = 0;
-        let showDetailsInStartingWhitespace = false;
+
+        let showAtStart = false;
+        let showStartIndex = 0;
 
         switch (state.annotationType) {
             case LineAnnotationType.Trailing: {
@@ -308,21 +306,7 @@ export class CurrentLineController extends Disposable {
 
                 showChanges = cfgAnnotations.hover.changes;
                 showDetails = cfgAnnotations.hover.details;
-
-                if (cfgAnnotations.hover.wholeLine) {
-                    showChangesStartIndex = 0;
-                    showChangesInStartingWhitespace = false;
-
-                    showDetailsStartIndex = 0;
-                    showDetailsInStartingWhitespace = false;
-                }
-                else {
-                    showChangesStartIndex = endOfLineIndex;
-                    showChangesInStartingWhitespace = true;
-
-                    showDetailsStartIndex = endOfLineIndex;
-                    showDetailsInStartingWhitespace = true;
-                }
+                showStartIndex = cfgAnnotations.hover.wholeLine ? 0 : endOfLineIndex;
 
                 const decoration = Annotations.trailing(commit, cfgAnnotations.format, cfgAnnotations.dateFormat === null ? this._config.defaultDateFormat : cfgAnnotations.dateFormat, this._config.theme);
                 decoration.range = editor.document.validateRange(new Range(line, endOfLineIndex, line, endOfLineIndex));
@@ -334,12 +318,8 @@ export class CurrentLineController extends Disposable {
                 const cfgAnnotations = this._config.annotations.line.hover;
 
                 showChanges = cfgAnnotations.changes;
-                showChangesStartIndex = 0;
-                showChangesInStartingWhitespace = false;
-
                 showDetails = cfgAnnotations.details;
-                showDetailsStartIndex = 0;
-                showDetailsInStartingWhitespace = false;
+                showStartIndex = 0;
 
                 break;
             }
@@ -348,25 +328,15 @@ export class CurrentLineController extends Disposable {
         if (showDetails || showChanges) {
             const annotationType = this.annotationController.getAnnotationType(editor);
 
-            const firstNonWhitespace = editor.document.lineAt(line).firstNonWhitespaceCharacterIndex;
-
             switch (annotationType) {
                 case FileAnnotationType.Gutter: {
                     const cfgHover = this._config.annotations.file.gutter.hover;
                     if (cfgHover.details) {
-                        showDetailsInStartingWhitespace = false;
                         if (cfgHover.wholeLine) {
-                            // Avoid double annotations if we are showing the whole-file hover blame annotations
-                            showDetails = false;
+                            showStartIndex = 0;
                         }
-                        else {
-                            if (showDetailsStartIndex === 0) {
-                                showDetailsStartIndex = firstNonWhitespace === 0 ? 1 : firstNonWhitespace;
-                            }
-                            if (showChangesStartIndex === 0) {
-                                showChangesInStartingWhitespace = true;
-                                showChangesStartIndex = firstNonWhitespace === 0 ? 1 : firstNonWhitespace;
-                            }
+                        else if (showStartIndex !== 0) {
+                            showAtStart = true;
                         }
                     }
 
@@ -374,20 +344,11 @@ export class CurrentLineController extends Disposable {
                 }
                 case FileAnnotationType.Hover: {
                     const cfgHover = this._config.annotations.file.hover;
-                    showDetailsInStartingWhitespace = false;
                     if (cfgHover.wholeLine) {
-                        // Avoid double annotations if we are showing the whole-file hover blame annotations
-                        showDetails = false;
-                        showChangesStartIndex = 0;
+                        showStartIndex = 0;
                     }
-                    else {
-                        if (showDetailsStartIndex === 0) {
-                            showDetailsStartIndex = firstNonWhitespace === 0 ? 1 : firstNonWhitespace;
-                        }
-                        if (showChangesStartIndex === 0) {
-                            showChangesInStartingWhitespace = true;
-                            showChangesStartIndex = firstNonWhitespace === 0 ? 1 : firstNonWhitespace;
-                        }
+                    else if (showStartIndex !== 0) {
+                        showAtStart = true;
                     }
 
                     break;
@@ -395,28 +356,20 @@ export class CurrentLineController extends Disposable {
                 case FileAnnotationType.RecentChanges: {
                     const cfgChanges = this._config.annotations.file.recentChanges.hover;
                     if (cfgChanges.details) {
-                        if (cfgChanges.wholeLine) {
-                            // Avoid double annotations if we are showing the whole-file hover blame annotations
-                            showDetails = false;
-                        }
-                        else {
-                            showDetailsInStartingWhitespace = false;
-                        }
+                        // Avoid double annotations if we are showing the whole-file hover blame annotations
+                        showDetails = false;
                     }
 
                     if (cfgChanges.changes) {
-                        if (cfgChanges.wholeLine) {
-                            // Avoid double annotations if we are showing the whole-file hover blame annotations
-                            showChanges = false;
-                        }
-                        else {
-                            showChangesInStartingWhitespace = false;
-                        }
+                        // Avoid double annotations if we are showing the whole-file hover blame annotations
+                        showChanges = false;
                     }
 
                     break;
                 }
             }
+
+            const range = editor.document.validateRange(new Range(line, showStartIndex, line, endOfLineIndex));
 
             if (showDetails) {
                 // Get the full commit message -- since blame only returns the summary
@@ -425,29 +378,22 @@ export class CurrentLineController extends Disposable {
                     logCommit = await this.git.getLogCommit(this._uri.repoPath, this._uri.fsPath, commit.sha);
                 }
 
-                // I have no idea why I need this protection -- but it happens
-                if (editor.document === undefined) return;
-
                 const decoration = Annotations.detailsHover(logCommit || commit, this._config.defaultDateFormat, this.git.hasRemotes((logCommit || commit).repoPath));
-                decoration.range = editor.document.validateRange(new Range(line, showDetailsStartIndex, line, endOfLineIndex));
+                decoration.range = range;
                 decorationOptions.push(decoration);
 
-                if (showDetailsInStartingWhitespace && showDetailsStartIndex !== 0 && decoration.range.end.character !== 0) {
-                    decorationOptions.push(Annotations.withRange(decoration, 0, firstNonWhitespace));
+                if (showAtStart) {
+                    decorationOptions.push(Annotations.withRange(decoration, 0, 0));
                 }
             }
 
             if (showChanges) {
                 const decoration = await Annotations.changesHover(commit, line, this._uri, this.git);
-
-                // I have no idea why I need this protection -- but it happens
-                if (editor.document === undefined) return;
-
-                decoration.range = editor.document.validateRange(new Range(line, showChangesStartIndex, line, endOfLineIndex));
+                decoration.range = range;
                 decorationOptions.push(decoration);
 
-                if (showChangesInStartingWhitespace && showChangesStartIndex !== 0 && decoration.range.end.character !== 0) {
-                    decorationOptions.push(Annotations.withRange(decoration, 0, firstNonWhitespace));
+                if (showAtStart) {
+                    decorationOptions.push(Annotations.withRange(decoration, 0, 0));
                 }
             }
         }
