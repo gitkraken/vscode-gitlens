@@ -3,7 +3,6 @@ import { commands, ExtensionContext, Uri, window } from 'vscode';
 import { BuiltInCommands } from './constants';
 import { GitCommit } from './gitService';
 import { Logger } from './logger';
-import * as moment from 'moment';
 
 export type SuppressedKeys = 'suppressCommitHasNoPreviousCommitWarning' |
     'suppressCommitNotFoundWarning' |
@@ -34,7 +33,7 @@ export class Messages {
 
     static showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<string | undefined> {
         if (commit === undefined) return Messages._showMessage('info', `Commit has no previous commit`, SuppressedKeys.CommitHasNoPreviousCommitWarning);
-        return Messages._showMessage('info', `Commit ${commit.shortSha} (${commit.author}, ${moment(commit.date).fromNow()}) has no previous commit`, SuppressedKeys.CommitHasNoPreviousCommitWarning);
+        return Messages._showMessage('info', `Commit ${commit.shortSha} (${commit.author}, ${commit.fromNow()}) has no previous commit`, SuppressedKeys.CommitHasNoPreviousCommitWarning);
     }
 
     static showCommitNotFoundWarningMessage(message: string): Promise<string | undefined> {

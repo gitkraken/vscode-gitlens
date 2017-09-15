@@ -7,7 +7,6 @@ import { GlyphChars } from '../constants';
 import { getGitStatusOcticon, GitCommit, GitLog, GitLogCommit, GitService, GitStashCommit, GitStatusFile, GitStatusFileStatus, GitUri, IGitCommitInfo, IGitStatusFile, RemoteResource } from '../gitService';
 import { Keyboard, KeyCommand, KeyNoopCommand, Keys } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
-import * as moment from 'moment';
 import * as path from 'path';
 
 export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickItem {
@@ -299,7 +298,7 @@ export class CommitDetailsQuickPick {
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: `${commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.author ? `${commit.author}, ` : ''}${moment(commit.date).fromNow()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.message}`,
+            placeHolder: `${commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.author ? `${commit.author}, ` : ''}${commit.fromNow()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.message}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
                 scope.setKeyCommand('right', item);

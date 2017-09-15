@@ -2,7 +2,6 @@
 import { Strings } from '../../system';
 import { GitCommit } from '../models/commit';
 import { Formatter, IFormatOptions } from './formatter';
-import * as moment from 'moment';
 import { GlyphChars } from '../../constants';
 
 export interface ICommitFormatOptions extends IFormatOptions {
@@ -20,7 +19,7 @@ export interface ICommitFormatOptions extends IFormatOptions {
 export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> {
 
     get ago() {
-        const ago = moment(this._item.date).fromNow();
+        const ago = this._item.fromNow();
         return this._padOrTruncate(ago, this._options.tokenOptions!.ago);
     }
 
@@ -30,12 +29,12 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
     }
 
     get authorAgo() {
-        const authorAgo = `${this._item.author}, ${moment(this._item.date).fromNow()}`;
+        const authorAgo = `${this._item.author}, ${this._item.fromNow()}`;
         return this._padOrTruncate(authorAgo, this._options.tokenOptions!.authorAgo);
     }
 
     get date() {
-        const date = moment(this._item.date).format(this._options.dateFormat!);
+        const date = this._item.formatDate(this._options.dateFormat!);
         return this._padOrTruncate(date, this._options.tokenOptions!.date);
     }
 

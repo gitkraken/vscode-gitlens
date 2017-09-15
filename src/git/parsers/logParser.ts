@@ -3,7 +3,6 @@ import { Strings } from '../../system';
 import { Range } from 'vscode';
 import { Git, GitAuthor, GitCommitType, GitLog, GitLogCommit, GitStatusFileStatus, IGitStatusFile } from './../git';
 // import { Logger } from '../../logger';
-import * as moment from 'moment';
 import * as path from 'path';
 
 interface LogEntry {
@@ -87,7 +86,7 @@ export class GitLogParser {
                     break;
 
                 case 'author-date':
-                    entry.authorDate = `${lineParts[1]}T${lineParts[2]}${lineParts[3]}`;
+                    entry.authorDate = lineParts[1];
                     break;
 
                 case 'parents':
@@ -231,7 +230,7 @@ export class GitLogParser {
                 }
             }
 
-            commit = new GitLogCommit(type, repoPath!, entry.sha, relativeFileName, entry.author, moment(entry.authorDate).toDate(), entry.summary!, entry.status, entry.fileStatuses, undefined, entry.originalFileName);
+            commit = new GitLogCommit(type, repoPath!, entry.sha, relativeFileName, entry.author, new Date(entry.authorDate! as any * 1000), entry.summary!, entry.status, entry.fileStatuses, undefined, entry.originalFileName);
             commit.parentShas = entry.parentShas!;
 
             if (relativeFileName !== entry.fileName) {

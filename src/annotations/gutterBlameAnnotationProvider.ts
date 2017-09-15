@@ -6,7 +6,6 @@ import { Annotations, endOfLineIndex } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { GlyphChars } from '../constants';
 import { GitBlameCommit, ICommitFormatOptions } from '../gitService';
-import * as moment from 'moment';
 
 export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
@@ -32,7 +31,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             tokenOptions: tokenOptions
         };
 
-        const now = moment();
+        const now = Date.now();
         const offset = this.uri.offset;
         const renderOptions = Annotations.gutterRenderOptions(this._config.theme, cfg.heatmap);
         const dateFormat = this._config.defaultDateFormat;

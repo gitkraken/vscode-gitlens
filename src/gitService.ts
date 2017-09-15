@@ -9,7 +9,6 @@ import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { Logger } from './logger';
 import * as fs from 'fs';
 import * as ignore from 'ignore';
-import * as moment from 'moment';
 import * as path from 'path';
 
 export { GitUri, IGitCommitInfo };
@@ -568,7 +567,7 @@ export class GitService extends Disposable {
         Iterables.forEach(blame.commits.values(), (c, i) => {
             if (c.isUncommitted) return;
 
-            const decoration = `${GlyphChars.ArrowDropRight} ${c.author}, ${moment(c.date).format(dateFormat)}`;
+            const decoration = `${GlyphChars.ArrowDropRight} ${c.author}, ${c.formatDate(dateFormat)}`;
             const uri = GitService.toReferenceGitContentUri(c, i + 1, commitCount, c.originalFileName, decoration, dateFormat);
             locations.push(new Location(uri, new Position(0, 0)));
             if (c.sha === selectedSha) {
@@ -888,7 +887,7 @@ export class GitService extends Disposable {
         Iterables.forEach(log.commits.values(), (c, i) => {
             if (c.isUncommitted) return;
 
-            const decoration = `${GlyphChars.ArrowDropRight} ${c.author}, ${moment(c.date).format(dateFormat)}`;
+            const decoration = `${GlyphChars.ArrowDropRight} ${c.author}, ${c.formatDate(dateFormat)}`;
             const uri = GitService.toReferenceGitContentUri(c, i + 1, commitCount, c.originalFileName, decoration, dateFormat);
             locations.push(new Location(uri, new Position(0, 0)));
             if (c.sha === selectedSha) {
@@ -1138,7 +1137,7 @@ export class GitService extends Disposable {
         }
 
         // NOTE: Need to specify an index here, since I can't control the sort order -- just alphabetic or by file location
-        return Uri.parse(`${scheme}:${pad(data.index || 0)} ${GlyphChars.Dot} ${encodeURIComponent(message)} ${GlyphChars.Dot} ${moment(commit.date).format(dateFormat)} ${GlyphChars.Dot} ${encodeURIComponent(uriPath)}?${JSON.stringify(data)}`);
+        return Uri.parse(`${scheme}:${pad(data.index || 0)} ${GlyphChars.Dot} ${encodeURIComponent(message)} ${GlyphChars.Dot} ${commit.formatDate(dateFormat)} ${GlyphChars.Dot} ${encodeURIComponent(uriPath)}?${JSON.stringify(data)}`);
     }
 
     private static _toGitUriData<T extends IGitUriData>(commit: IGitUriData, index?: number, originalFileName?: string, decoration?: string): T {

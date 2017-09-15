@@ -7,7 +7,6 @@ import { GlyphChars } from '../constants';
 import { GitLog, GitLogCommit, GitService, GitUri, RemoteResource } from '../gitService';
 import { Keyboard, KeyCommand, KeyNoopCommand } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
-import * as moment from 'moment';
 import * as path from 'path';
 
 export class OpenCommitFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
@@ -275,7 +274,7 @@ export class CommitFileDetailsQuickPick {
 
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
-            placeHolder: `${commit.getFormattedPath()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${isUncommitted ? `Uncommitted ${GlyphChars.ArrowRightHollow} ` : '' }${commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.author}, ${moment(commit.date).fromNow()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.message}`,
+            placeHolder: `${commit.getFormattedPath()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${isUncommitted ? `Uncommitted ${GlyphChars.ArrowRightHollow} ` : '' }${commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.author}, ${commit.fromNow()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.message}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
                 scope.setKeyCommand('right', item as KeyCommand);

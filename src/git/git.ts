@@ -21,9 +21,9 @@ export * from './remotes/provider';
 
 let git: IGit;
 
-// `--format=%H -%nauthor %an%nauthor-date %ai%ncommitter %cn%ncommitter-date %ci%nparents %P%nsummary %B%nfilename ?`
-const defaultLogParams = [`log`, `--name-status`, `--full-history`, `-M`, `--date=iso8601`, `--format=%H -%nauthor %an%nauthor-date %ai%nparents %P%nsummary %B%nfilename ?`];
-const defaultStashParams = [`stash`, `list`, `--name-status`, `--full-history`, `-M`, `--format=%H -%nauthor-date %ai%nreflog-selector %gd%nsummary %B%nfilename ?`];
+const defaultBlameParams = [`blame`, `--root`, `--incremental`];
+const defaultLogParams = [`log`, `--name-status`, `--full-history`, `-M`, `--format=%H -%nauthor %an%nauthor-date %at%nparents %P%nsummary %B%nfilename ?`];
+const defaultStashParams = [`stash`, `list`, `--name-status`, `--full-history`, `-M`, `--format=%H -%nauthor-date %at%nreflog-selector %gd%nsummary %B%nfilename ?`];
 
 let defaultEncoding = 'utf8';
 export function setDefaultEncoding(encoding: string) {
@@ -180,7 +180,7 @@ export class Git {
     static blame(repoPath: string | undefined, fileName: string, sha?: string, options: { ignoreWhitespace?: boolean, startLine?: number, endLine?: number } = {}) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
-        const params = [`blame`, `--root`, `--incremental`];
+        const params = [...defaultBlameParams];
 
         if (options.ignoreWhitespace) {
             params.push('-w');

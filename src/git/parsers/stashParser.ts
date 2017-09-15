@@ -1,7 +1,6 @@
 'use strict';
 import { Git, GitStash, GitStashCommit, GitStatusFileStatus, IGitStatusFile } from './../git';
 // import { Logger } from '../../logger';
-import * as moment from 'moment';
 
 interface StashEntry {
     sha: string;
@@ -42,7 +41,7 @@ export class GitStashParser {
 
             switch (lineParts[0]) {
                 case 'author-date':
-                    entry.date = `${lineParts[1]}T${lineParts[2]}${lineParts[3]}`;
+                    entry.date = lineParts[1];
                     break;
 
                 case 'summary':
@@ -120,7 +119,7 @@ export class GitStashParser {
 
             let commit = commits.get(entry.sha);
             if (commit === undefined) {
-                commit = new GitStashCommit(entry.stashName, repoPath, entry.sha, entry.fileNames, moment(entry.date).toDate(), entry.summary, undefined, entry.fileStatuses) as GitStashCommit;
+                commit = new GitStashCommit(entry.stashName, repoPath, entry.sha, entry.fileNames, new Date(entry.date! as any * 1000), entry.summary, undefined, entry.fileStatuses) as GitStashCommit;
                 commits.set(entry.sha, commit);
             }
         }

@@ -1,7 +1,6 @@
 'use strict';
 import { Strings } from '../../system';
 import { Git, GitAuthor, GitBlame, GitBlameCommit, GitCommitLine } from './../git';
-import * as moment from 'moment';
 import * as path from 'path';
 
 interface BlameEntry {
@@ -134,7 +133,7 @@ export class GitBlameParser {
                 }
             }
 
-            commit = new GitBlameCommit(repoPath!, entry.sha, fileName!, entry.author, moment(`${entry.authorDate} ${entry.authorTimeZone}`, 'X +-HHmm').toDate(), entry.summary!, []);
+            commit = new GitBlameCommit(repoPath!, entry.sha, fileName!, entry.author, new Date(entry.authorDate as any * 1000), entry.summary!, []);
 
             if (fileName !== entry.fileName) {
                 commit.originalFileName = entry.fileName;

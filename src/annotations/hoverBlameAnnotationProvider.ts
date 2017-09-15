@@ -4,7 +4,6 @@ import { FileAnnotationType } from './annotationController';
 import { Annotations, endOfLineIndex } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { GitBlameCommit } from '../gitService';
-import * as moment from 'moment';
 
 export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
@@ -18,7 +17,7 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
         const cfg = this._config.annotations.file.hover;
 
-        const now = moment();
+        const now = Date.now();
         const offset = this.uri.offset;
         const renderOptions = Annotations.hoverRenderOptions(this._config.theme, cfg.heatmap);
         const dateFormat = this._config.defaultDateFormat;

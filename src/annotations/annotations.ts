@@ -1,10 +1,9 @@
-import { Strings } from '../system';
+import { Dates, Strings } from '../system';
 import { DecorationInstanceRenderOptions, DecorationOptions, MarkdownString, ThemableDecorationRenderOptions } from 'vscode';
 import { DiffWithCommand, ShowQuickCommitDetailsCommand } from '../commands';
 import { IThemeConfig, themeDefaults } from '../configuration';
 import { GlyphChars } from '../constants';
 import { CommitFormatter, GitCommit, GitDiffChunkLine, GitService, GitUri, ICommitFormatOptions } from '../gitService';
-import * as moment from 'moment';
 
 interface IHeatmapConfig {
     enabled: boolean;
@@ -28,13 +27,13 @@ const escapeMarkdownRegEx = /[`\>\#\*\_\-\+\.]/g;
 
 export class Annotations {
 
-    static applyHeatmap(decoration: DecorationOptions, date: Date, now: moment.Moment) {
+    static applyHeatmap(decoration: DecorationOptions, date: Date, now: number) {
         const color = this._getHeatmapColor(now, date);
         (decoration.renderOptions!.before! as any).borderColor = color;
     }
 
-    private static _getHeatmapColor(now: moment.Moment, date: Date) {
-        const days = now.diff(moment(date), 'days');
+    private static _getHeatmapColor(now: number, date: Date) {
+        const days = Dates.dateDaysFromNow(date, now);
 
         if (days <= 2) return '#ffeca7';
         if (days <= 7) return '#ffdd8c';
@@ -65,7 +64,7 @@ export class Annotations {
             message = `\n\n> ${message}`;
         }
 
-        const markdown = new MarkdownString(`[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)}) &nbsp; __${commit.author}__, ${moment(commit.date).fromNow()} &nbsp; _(${moment(commit.date).format(dateFormat)})_${message}`);
+        const markdown = new MarkdownString(`[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)}) &nbsp; __${commit.author}__, ${commit.fromNow()} &nbsp; _(${commit.formatDate(dateFormat)})_${message}`);
         markdown.isTrusted = true;
         return markdown;
     }

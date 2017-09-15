@@ -7,7 +7,6 @@ import { GlyphChars } from '../constants';
 import { GitCommit, GitLogCommit, GitStashCommit } from '../gitService';
 import { Keyboard, KeyboardScope, KeyMapping, Keys } from '../keyboard';
 // import { Logger } from '../logger';
-import * as moment from 'moment';
 
 export function getQuickPickIgnoreFocusOut() {
     const cfg = workspace.getConfiguration(ExtensionKey).get<IAdvancedConfig>('advanced')!;
@@ -174,12 +173,12 @@ export class CommitQuickPickItem implements QuickPickItem {
         if (commit instanceof GitStashCommit) {
             this.label = message;
             this.description = '';
-            this.detail = `${GlyphChars.Space} ${commit.stashName} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${moment(commit.date).fromNow()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`;
+            this.detail = `${GlyphChars.Space} ${commit.stashName} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.fromNow()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`;
         }
         else {
             this.label = message;
             this.description = `${Strings.pad('$(git-commit)', 1, 1)} ${commit.shortSha}`;
-            this.detail = `${GlyphChars.Space} ${commit.author}, ${moment(commit.date).fromNow()}${(commit.type === 'branch') ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${(commit as GitLogCommit).getDiffStatus()}` : ''}`;
+            this.detail = `${GlyphChars.Space} ${commit.author}, ${commit.fromNow()}${(commit.type === 'branch') ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${(commit as GitLogCommit).getDiffStatus()}` : ''}`;
         }
     }
 }

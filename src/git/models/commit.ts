@@ -1,5 +1,5 @@
 'use strict';
-import { Strings } from '../../system';
+import { Dates, Strings } from '../../system';
 import { Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Git } from '../git';
@@ -71,6 +71,22 @@ export class GitCommit {
 
     get uri(): Uri {
         return Uri.file(path.resolve(this.repoPath, this.originalFileName || this.fileName));
+    }
+
+    private _dateFormatter?: Dates.IDateFormatter;
+
+    formatDate(format: string) {
+        if (this._dateFormatter === undefined) {
+            this._dateFormatter = Dates.toFormatter(this.date);
+        }
+        return this._dateFormatter.format(format);
+    }
+
+    fromNow() {
+        if (this._dateFormatter === undefined) {
+            this._dateFormatter = Dates.toFormatter(this.date);
+        }
+        return this._dateFormatter.fromNow();
     }
 
     getFormattedPath(separator: string = Strings.pad(GlyphChars.Dot, 2, 2)): string {
