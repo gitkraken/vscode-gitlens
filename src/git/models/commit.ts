@@ -70,7 +70,7 @@ export class GitCommit {
     }
 
     get uri(): Uri {
-        return Uri.file(path.resolve(this.repoPath, this.originalFileName || this.fileName));
+        return Uri.file(path.resolve(this.repoPath, this.originalFileName || this.fileName || ''));
     }
 
     private _dateFormatter?: Dates.IDateFormatter;

@@ -17,7 +17,7 @@ export class GitStatusParser {
         if (!data) return undefined;
 
         const lines = data.split('\n').filter(_ => !!_);
-        if (!lines.length) return undefined;
+        if (lines.length === 0) return undefined;
 
         const status = {
             branch: '',

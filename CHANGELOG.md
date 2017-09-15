@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes `gitlens.annotations.file.recentChanges.hover.wholeLine` setting as it didn't really make sense
 
 ### Fixed
+- Fixes an issue where stashes with only untracked files would not show in the `Stashes` node of the GitLens custom view
 
 ## [5.0.0] - 2017-09-12
 ### Added

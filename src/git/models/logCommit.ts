@@ -40,7 +40,12 @@ export class GitLogCommit extends GitCommit {
             this.status = fileStatus.status;
         }
         else {
-            this.fileStatuses = [{ status: status, fileName: fileName, originalFileName: originalFileName } as IGitStatusFile];
+            if (fileName === undefined) {
+                this.fileStatuses = [];
+            }
+            else {
+                this.fileStatuses = [{ status: status, fileName: fileName, originalFileName: originalFileName } as IGitStatusFile];
+            }
             this.status = status;
         }
     }
