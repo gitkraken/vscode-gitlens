@@ -222,7 +222,7 @@ export class AnnotationController extends Disposable {
     }
 
     getProvider(editor: TextEditor | undefined): AnnotationProviderBase | undefined {
-        if (!editor || !editor.document || !this.git.isEditorBlameable(editor)) return undefined;
+        if (editor === undefined || editor.document === undefined || !this.git.isEditorBlameable(editor)) return undefined;
 
         return this._annotationProviders.get(editor.viewColumn || -1);
     }
@@ -233,7 +233,7 @@ export class AnnotationController extends Disposable {
         if (!editor || !editor.document || !this.git.isEditorBlameable(editor)) return false;
 
         const currentProvider = this._annotationProviders.get(editor.viewColumn || -1);
-        if (currentProvider && TextEditorComparer.equals(currentProvider.editor, editor)) {
+        if (currentProvider !== undefined && TextEditorComparer.equals(currentProvider.editor, editor)) {
             await currentProvider.selection(shaOrLine);
             return true;
         }

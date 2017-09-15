@@ -251,7 +251,6 @@ export interface IConfig {
                 hover: {
                     details: boolean;
                     changes: boolean;
-                    wholeLine: boolean;
                 };
             };
         };

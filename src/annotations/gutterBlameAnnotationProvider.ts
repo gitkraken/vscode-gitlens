@@ -2,7 +2,7 @@
 import { Strings } from '../system';
 import { DecorationOptions, Range } from 'vscode';
 import { FileAnnotationType } from './annotationController';
-import { Annotations, endOfLineIndex } from './annotations';
+import { Annotations } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { GlyphChars } from '../constants';
 import { GitBlameCommit, ICommitFormatOptions } from '../gitService';
@@ -35,18 +35,14 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         const now = Date.now();
         const offset = this.uri.offset;
         const renderOptions = Annotations.gutterRenderOptions(this._config.theme, cfg.heatmap);
-        const dateFormat = this._config.defaultDateFormat;
         const separateLines = this._config.theme.annotations.file.gutter.separateLines;
 
         const decorations: DecorationOptions[] = [];
-        const decorationsMap: { [sha: string]: DecorationOptions } = Object.create(null);
-        const document = this.document;
+        const decorationsMap: { [sha: string]: DecorationOptions | undefined } = Object.create(null);
 
         let commit: GitBlameCommit | undefined;
         let compacted = false;
-        let details: DecorationOptions | undefined;
         let gutter: DecorationOptions | undefined;
-        let hasRemotes: boolean | undefined;
         let previousSha: string | undefined;
 
         for (const l of blame.lines) {
@@ -55,37 +51,34 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             if (previousSha === l.sha) {
                 // Use a shallow copy of the previous decoration options
                 gutter = { ...gutter } as DecorationOptions;
+
                 if (cfg.compact && !compacted) {
                     // Since we are wiping out the contextText make sure to copy the objects
-                    gutter.renderOptions = { ...gutter.renderOptions };
-                    gutter.renderOptions.before = {
-                        ...gutter.renderOptions.before,
-                        ...{ contentText: GlyphChars.Space.repeat(Strings.getWidth(gutter.renderOptions!.before!.contentText!)) }
+                    gutter.renderOptions = {
+                        ...gutter.renderOptions,
+                        before: {
+                            ...gutter.renderOptions!.before,
+                            contentText: GlyphChars.Space.repeat(Strings.getWidth(gutter.renderOptions!.before!.contentText!))
+                        }
                     };
 
                     if (separateLines) {
-                        gutter.renderOptions.dark = { ...gutter.renderOptions.dark };
-                        gutter.renderOptions.dark.before = { ...gutter.renderOptions.dark.before, ...{ textDecoration: 'none' } };
-                        gutter.renderOptions.light = { ...gutter.renderOptions.light };
-                        gutter.renderOptions.light.before = { ...gutter.renderOptions.light.before, ...{ textDecoration: 'none' } };
+                        gutter.renderOptions.dark = {
+                            ...gutter.renderOptions.dark,
+                            before: { ...gutter.renderOptions.dark!.before, textDecoration: 'none' }
+                        };
+                        gutter.renderOptions.light = {
+                            ...gutter.renderOptions.light,
+                            before: { ...gutter.renderOptions.light!.before, textDecoration: 'none' }
+                        };
                     }
 
                     compacted = true;
                 }
 
-                const endIndex = document.lineAt(line).firstNonWhitespaceCharacterIndex;
-                gutter.range = new Range(line, 0, line, endIndex);
+                gutter.range = new Range(line, 0, line, 0);
 
                 decorations.push(gutter);
-
-                if (details !== undefined) {
-                    details = { ...details } as DecorationOptions;
-                    details.range = cfg.hover.wholeLine
-                        ? document.validateRange(new Range(line, 0, line, endOfLineIndex))
-                        : gutter.range;
-
-                    decorations.push(details);
-                }
 
                 continue;
             }
@@ -94,23 +87,13 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             previousSha = l.sha;
 
             gutter = decorationsMap[l.sha];
-
             if (gutter !== undefined) {
-                gutter = { ...gutter } as DecorationOptions;
-
-                const endIndex = document.lineAt(line).firstNonWhitespaceCharacterIndex;
-                gutter.range = new Range(line, 0, line, endIndex);
+                gutter = {
+                    ...gutter,
+                    range: new Range(line, 0, line, 0)
+                } as DecorationOptions;
 
                 decorations.push(gutter);
-
-                if (details !== undefined) {
-                    details = { ...details } as DecorationOptions;
-                    details.range = cfg.hover.wholeLine
-                        ? document.validateRange(new Range(line, 0, line, endOfLineIndex))
-                        : gutter.range;
-
-                    decorations.push(details);
-                }
 
                 continue;
             }
@@ -124,24 +107,10 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
                 Annotations.applyHeatmap(gutter, commit.date, now);
             }
 
-            const endIndex = document.lineAt(line).firstNonWhitespaceCharacterIndex;
-            gutter.range = new Range(line, 0, line, endIndex);
+            gutter.range = new Range(line, 0, line, 0);
 
             decorations.push(gutter);
             decorationsMap[l.sha] = gutter;
-
-            if (cfg.hover.details) {
-                if (hasRemotes === undefined) {
-                    hasRemotes = this.git.hasRemotes(commit.repoPath);
-                }
-
-                details = Annotations.detailsHover(commit, dateFormat, hasRemotes);
-                details.range = cfg.hover.wholeLine
-                    ? document.validateRange(new Range(line, 0, line, endOfLineIndex))
-                    : gutter.range;
-
-                decorations.push(details);
-            }
         }
 
         if (decorations.length) {
@@ -150,6 +119,10 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
         const duration = process.hrtime(start);
         Logger.log(`${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms to compute gutter blame annotations`);
+
+        if (cfg.hover.details) {
+            this.registerHoverProvider();
+        }
 
         this.selection(shaOrLine, blame);
         return true;

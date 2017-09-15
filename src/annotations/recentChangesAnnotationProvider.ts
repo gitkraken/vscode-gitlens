@@ -37,12 +37,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
                 if (line.state === 'unchanged') continue;
 
-                let endingIndex = 0;
-                if (cfg.hover.details || cfg.hover.changes) {
-                    endingIndex = cfg.hover.wholeLine ? endOfLineIndex : this.editor.document.lineAt(count).firstNonWhitespaceCharacterIndex;
-                }
-
-                const range = this.editor.document.validateRange(new Range(new Position(count, 0), new Position(count, endingIndex)));
+                const range = this.editor.document.validateRange(new Range(new Position(count, 0), new Position(count, endOfLineIndex)));
 
                 if (cfg.hover.details) {
                     decorators.push({

@@ -332,7 +332,6 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.recentChanges.file.lineHighlight.locations`|Specifies where the highlights of the recently changed lines will be shown<br />`gutter` - adds a gutter glyph<br />`line` - adds a full-line highlight background color<br />`overviewRuler` - adds a decoration to the overviewRuler (scroll bar)
 |`gitlens.annotations.file.recentChanges.hover.details`|Specifies whether or not to provide a commit details hover annotation
 |`gitlens.annotations.file.recentChanges.hover.changes`|Specifies whether or not to provide a changes (diff) hover annotation
-|`gitlens.annotations.file.recentChanges.hover.wholeLine`|Specifies whether or not to trigger hover annotations over the whole line
 
 ### Code Lens Settings
 
