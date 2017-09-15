@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [5.1.0-beta] - 2017-09-15
 ### Added
-- Adds full (multi-line) commit message to the `details` hover annotations
+- Adds full (multi-line) commit message to the `details` hover annotations -- closes [#116](https://github.com/eamodio/vscode-gitlens/issues/116)
 - Adds an external link icon to the `details` hover annotations to run the `Open Commit in Remote` command (`gitlens.openCommitInRemote`)
 
 ### Changed
