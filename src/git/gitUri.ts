@@ -42,7 +42,7 @@ export class GitUri extends Uri {
             }
             else {
                 const commit = commitOrRepoPath;
-                base._fsPath = path.resolve(commit.repoPath, commit.originalFileName || commit.fileName);
+                base._fsPath = path.resolve(commit.repoPath, commit.originalFileName || commit.fileName || '');
 
                 if (commit.repoPath !== undefined) {
                     this.repoPath = commit.repoPath;
