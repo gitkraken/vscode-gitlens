@@ -415,7 +415,7 @@
                 },
                 "gitlens.gitExplorer.commitFormat": {
                     "type": "string",
-                    "default": "${message} \u00a0\u2022\u00a0 ${authorAgo} \u00a0\u2022\u00a0 ${id}",
+                    "default": "${message} \u00a0\u2022\u00a0 ${authorAgo} \u00a0 (${id})",
                     "description": "Specifies the format of committed changes in the `GitLens` custom view\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)\n ${authorAgo} - commit author, relative commit date\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting"
                 },
                 "gitlens.gitExplorer.commitFileFormat": {
