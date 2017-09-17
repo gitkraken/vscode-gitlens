@@ -1402,12 +1402,12 @@
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.advanced.menus.editorTitleContext.remote",
+                    "when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.advanced.menus.editorTitle.remote",
                     "group": "1_gitlens"
                 },
                 {
                     "command": "gitlens.openRepoInRemote",
-                    "when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.advanced.menus.editorTitleContext.remote",
+                    "when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.advanced.menus.editorTitle.remote",
                     "group": "1_gitlens"
                 },
                 {
