@@ -651,16 +651,16 @@
                         },
                         "editorTitle": {
                             "blame": true,
-                            "fileDiff": true,
-                            "history": true,
-                            "remote": true,
-                            "status": true
+                            "fileDiff": false,
+                            "history": false,
+                            "remote": false,
+                            "status": false
                         },
                         "editorTitleContext": {
-                            "blame": true,
-                            "fileDiff": true,
-                            "history": true,
-                            "remote": true
+                            "blame": false,
+                            "fileDiff": false,
+                            "history": false,
+                            "remote": false
                         },
                         "explorerContext": {
                             "fileDiff": true,
