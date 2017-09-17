@@ -1,8 +1,8 @@
 'use strict';
 import { Range } from 'vscode';
-import { GitHubService } from './github';
+import { RemoteProvider } from './provider';
 
-export class GitLabService extends GitHubService {
+export class GitLabService extends RemoteProvider {
 
     constructor(public domain: string, public path: string, public custom: boolean = false) {
         super(domain, path);
@@ -10,6 +10,18 @@ export class GitLabService extends GitHubService {
 
     get name() {
         return this.formatName('GitLab');
+    }
+
+    protected getUrlForBranches(): string {
+        return `${this.baseUrl}/branches`;
+    }
+
+    protected getUrlForBranch(branch: string): string {
+        return `${this.baseUrl}/commits/${branch}`;
+    }
+
+    protected getUrlForCommit(sha: string): string {
+        return `${this.baseUrl}/commit/${sha}`;
     }
 
     protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
