@@ -10,6 +10,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Provides a file-based view of all the changed files in the working tree and/or files in commits that haven't yet been pushed upstream
 - Adds `gitlens.gitExplorer.enabled` setting to specify whether or not to show the `GitLens` custom view - closes [#144](https://github.com/eamodio/vscode-gitlens/issues/144)
 
+### Fixed
+- Fixed an issue when running `Open File in Remote` with a multi-line selection wasn't properly opening the selection in GitLab -- thanks to [PR #145](https://github.com/eamodio/vscode-gitlens/pull/145) by Amanda Cameron ([@AmandaCameron](https://github.com/AmandaCameron))!
+
 ## [5.1.0] - 2017-09-15
 ### Added
 - Adds full (multi-line) commit message to the `details` hover annotations -- closes [#116](https://github.com/eamodio/vscode-gitlens/issues/116)
