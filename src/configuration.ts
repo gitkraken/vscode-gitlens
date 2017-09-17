@@ -317,6 +317,7 @@ export interface IConfig {
     defaultDateFormat: string | null;
 
     gitExplorer: {
+        enabled: boolean;
         view: GitExplorerView;
         showTrackingBranch: boolean;
         commitFormat: string;

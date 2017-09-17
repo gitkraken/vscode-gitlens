@@ -350,6 +350,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 
 |Name | Description
 |-----|------------
+|`gitlens.gitExplorer.enabled`|Specifies whether or not to show the `GitLens` custom view"
 |`gitlens.gitExplorer.view`|Specifies the starting view (mode) of the `GitLens` custom view<br />`history` - shows the commit history of the active file<br />`repository` - shows a repository explorer"
 |`gitlens.gitExplorer.showTrackingBranch`|Specifies whether or not to show the tracking branch when displaying local branches in the `GitLens` custom view"
 |`gitlens.gitExplorer.commitFormat`|Specifies the format of committed changes in the `GitLens` custom view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting

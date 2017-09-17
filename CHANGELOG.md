@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Added
+- Adds `gitlens.gitExplorer.enabled` setting to specify whether or not to show the `GitLens` custom view - closes [#144](https://github.com/eamodio/vscode-gitlens/issues/144)
+
 ## [5.1.0] - 2017-09-15
 ### Added
 - Adds full (multi-line) commit message to the `details` hover annotations -- closes [#116](https://github.com/eamodio/vscode-gitlens/issues/116)
