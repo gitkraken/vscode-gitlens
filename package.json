@@ -15,8 +15,8 @@
     "badges": [
         {
             "url": "https://img.shields.io/badge/chat-on%20slack-brightgreen.svg",
-            "href": "https://join.slack.com/t/vscode-gitlens/shared_invite/MjIxOTgxNDE3NzM0LTE1MDE2Nzk1MTgtMjkwMmZjMzcxNQ",
-            "description": "Chat at https://vscode-gitlens.slack.com/"
+            "href": "https://join.slack.com/t/vscode-dev-community/shared_invite/enQtMjIxOTgxNDE3NzM0LWU5M2ZiZDU1YjBlMzdlZjA2YjBjYzRhYTM5NTgzMTAxMjdiNWU0ZmQzYWI3MWU5N2Q1YjBiYmQ4MzY0NDE1MzY",
+            "description": "Chat at https://vscode-dev-community.slack.com/"
         }
     ],
     "categories": [
