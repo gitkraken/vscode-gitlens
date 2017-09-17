@@ -1,28 +1,40 @@
 import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitService, GitUri } from '../gitService';
+import { StatusFilesNode } from './statusFilesNode';
 import { StatusUpstreamNode } from './statusUpstreamNode';
 
 export class StatusNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'gitlens:status';
 
-    constructor(uri: GitUri, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+    constructor(
+        uri: GitUri,
+        protected readonly context: ExtensionContext,
+        protected readonly git: GitService
+    ) {
         super(uri);
-     }
+    }
 
     async getChildren(): Promise<ExplorerNode[]> {
         const status = await this.git.getStatusForRepo(this.uri.repoPath!);
         if (status === undefined) return [];
 
-        const children = [];
+        const children: ExplorerNode[] = [];
 
         if (status.state.behind) {
-            children.push(new StatusUpstreamNode(status, 'behind', this.git.config.gitExplorer.commitFormat, this.context, this.git));
+            children.push(new StatusUpstreamNode(status, 'behind', this.context, this.git));
         }
 
         if (status.state.ahead) {
-            children.push(new StatusUpstreamNode(status, 'ahead', this.git.config.gitExplorer.commitFormat, this.context, this.git));
+            children.push(new StatusUpstreamNode(status, 'ahead', this.context, this.git));
+        }
+
+        if (status.files.length !== 0 || status.state.ahead && this.git.config.insiders) {
+            const range = status.state.ahead
+                ? `${status.upstream}..${status.branch}`
+                : undefined;
+            children.splice(0, 0, new StatusFilesNode(status, range, this.context, this.git));
         }
 
         return children;
@@ -55,6 +67,10 @@ export class StatusNode extends ExplorerNode {
         }
         else {
             label = `${status.branch} is up-to-date`;
+        }
+
+        if (this.git.config.insiders) {
+            hasChildren = hasChildren || status.files.length !== 0;
         }
 
         const item = new TreeItem(label, hasChildren ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.None);

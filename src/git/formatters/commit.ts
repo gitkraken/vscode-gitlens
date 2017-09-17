@@ -39,7 +39,7 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
     }
 
     get id() {
-        return this._item.shortSha;
+        return this._item.isUncommitted ? 'index' : this._item.shortSha;
     }
 
     get message() {

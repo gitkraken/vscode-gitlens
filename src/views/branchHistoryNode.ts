@@ -3,7 +3,7 @@ import { Iterables } from '../system';
 import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitNode } from './commitNode';
 import { GlyphChars } from '../constants';
-import { ExplorerNode, ResourceType, ShowAllCommitsNode } from './explorerNode';
+import { ExplorerNode, ResourceType, ShowAllNode } from './explorerNode';
 import { GitBranch, GitService, GitUri } from '../gitService';
 
 export class BranchHistoryNode extends ExplorerNode {
@@ -12,7 +12,12 @@ export class BranchHistoryNode extends ExplorerNode {
 
         maxCount: number | undefined = undefined;
 
-        constructor(public readonly branch: GitBranch, uri: GitUri, private readonly template: string, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+        constructor(
+            public readonly branch: GitBranch,
+            uri: GitUri,
+            protected readonly context: ExtensionContext,
+            protected readonly git: GitService
+        ) {
             super(uri);
         }
 
@@ -20,10 +25,11 @@ export class BranchHistoryNode extends ExplorerNode {
             const log = await this.git.getLogForRepo(this.uri.repoPath!, this.branch.name, this.maxCount);
             if (log === undefined) return [];
 
-            const children = Iterables.map(log.commits.values(), c => new CommitNode(c, this.template, this.context, this.git, this.branch));
-            if (!log.truncated) return [...children];
-
-            return [...children, new ShowAllCommitsNode(this, this.context)];
+            const children: (CommitNode | ShowAllNode)[] = [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.context, this.git, this.branch))];
+            if (log.truncated) {
+                children.push(new ShowAllNode('Show All Commits', this, this.context));
+            }
+            return children;
         }
 
         async getTreeItem(): Promise<TreeItem> {

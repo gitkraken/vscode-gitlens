@@ -8,9 +8,13 @@ export class HistoryNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'gitlens:history';
 
-    constructor(uri: GitUri, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+    constructor(
+        uri: GitUri,
+        protected readonly context: ExtensionContext,
+        protected readonly git: GitService
+    ) {
         super(uri);
-     }
+    }
 
     async getChildren(): Promise<ExplorerNode[]> {
         return [new FileHistoryNode(this.uri, this.context, this.git)];

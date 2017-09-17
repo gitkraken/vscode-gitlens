@@ -9,7 +9,11 @@ export class StashNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'gitlens:stash';
 
-    constructor(public readonly commit: GitStashCommit, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+    constructor(
+        public readonly commit: GitStashCommit,
+        protected readonly context: ExtensionContext,
+        protected readonly git: GitService
+    ) {
         super(new GitUri(commit.uri, commit));
     }
 
@@ -27,7 +31,7 @@ export class StashNode extends ExplorerNode {
             }
         }
 
-        return Promise.resolve(statuses.map(s => new StashFileNode(s, this.commit, this.context, this.git)));
+        return statuses.map(s => new StashFileNode(s, this.commit, this.context, this.git));
     }
 
     getTreeItem(): TreeItem {

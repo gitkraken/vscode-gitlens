@@ -2,19 +2,36 @@
 import { Command, ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { getGitStatusIcon, GitBranch, GitCommit, GitService, GitUri, IGitStatusFile, StatusFileFormatter } from '../gitService';
+import { CommitFormatter, getGitStatusIcon, GitBranch, GitCommit, GitService, GitUri, ICommitFormatOptions, IGitStatusFile, StatusFileFormatter } from '../gitService';
 import * as path from 'path';
+
+export enum CommitFileNodeDisplayAs {
+    CommitLabel = 1 << 0,
+    CommitIcon = 1 << 1,
+    FileLabel = 1 << 2,
+    StatusIcon = 1 << 3,
+
+    Commit = CommitLabel | CommitIcon,
+    File = FileLabel | StatusIcon
+}
 
 export class CommitFileNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'gitlens:commit-file';
 
-    constructor(public readonly status: IGitStatusFile, public commit: GitCommit, protected readonly context: ExtensionContext, protected readonly git: GitService, public readonly branch?: GitBranch) {
+    constructor(
+        public readonly status: IGitStatusFile,
+        public commit: GitCommit,
+        protected readonly context: ExtensionContext,
+        protected readonly git: GitService,
+        private displayAs: CommitFileNodeDisplayAs = CommitFileNodeDisplayAs.Commit,
+        public readonly branch?: GitBranch
+    ) {
         super(new GitUri(Uri.file(path.resolve(commit.repoPath, status.fileName)), { repoPath: commit.repoPath, fileName: status.fileName, sha: commit.sha }));
     }
 
-    getChildren(): Promise<ExplorerNode[]> {
-        return Promise.resolve([]);
+    async getChildren(): Promise<ExplorerNode[]> {
+        return [];
     }
 
     async getTreeItem(): Promise<TreeItem> {
@@ -25,10 +42,20 @@ export class CommitFileNode extends ExplorerNode {
             }
         }
 
-        const item = new TreeItem(StatusFileFormatter.fromTemplate(this.git.config.gitExplorer.commitFileFormat, this.status), TreeItemCollapsibleState.None);
+        const label = (this.displayAs & CommitFileNodeDisplayAs.CommitLabel)
+            ? CommitFormatter.fromTemplate(this.getCommitTemplate(), this.commit, {
+                truncateMessageAtNewLine: true,
+                dataFormat: this.git.config.defaultDateFormat
+            } as ICommitFormatOptions)
+            : StatusFileFormatter.fromTemplate(this.getCommitFileTemplate(), this.status);
+
+        const item = new TreeItem(label, TreeItemCollapsibleState.None);
         item.contextValue = this.resourceType;
 
-        const icon = getGitStatusIcon(this.status.status);
+        const icon = (this.displayAs & CommitFileNodeDisplayAs.CommitIcon)
+            ? 'icon-commit.svg'
+            : getGitStatusIcon(this.status.status);
+
         item.iconPath = {
             dark: this.context.asAbsolutePath(path.join('images', 'dark', icon)),
             light: this.context.asAbsolutePath(path.join('images', 'light', icon))
@@ -37,6 +64,14 @@ export class CommitFileNode extends ExplorerNode {
         item.command = this.getCommand();
 
         return item;
+    }
+
+    protected getCommitTemplate() {
+        return this.git.config.gitExplorer.commitFormat;
+    }
+
+    protected getCommitFileTemplate() {
+        return this.git.config.gitExplorer.commitFileFormat;
     }
 
     getCommand(): Command | undefined {

@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 ### Added
+- Adds new `Changed Files` node to the `Repository Status` node of the `GitLens` custom view's `Repository View` -- closes [#139](https://github.com/eamodio/vscode-gitlens/issues/139)
+  - Provides a file-based view of all the changed files in the working tree and/or files in commits that haven't yet been pushed upstream
 - Adds `gitlens.gitExplorer.enabled` setting to specify whether or not to show the `GitLens` custom view - closes [#144](https://github.com/eamodio/vscode-gitlens/issues/144)
 
 ## [5.1.0] - 2017-09-15

@@ -9,7 +9,11 @@ export class RemotesNode extends ExplorerNode {
 
         readonly resourceType: ResourceType = 'gitlens:remotes';
 
-        constructor(uri: GitUri, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+        constructor(
+            uri: GitUri,
+            protected readonly context: ExtensionContext,
+            protected readonly git: GitService
+        ) {
             super(uri);
         }
 

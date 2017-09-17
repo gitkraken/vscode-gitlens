@@ -12,9 +12,13 @@ export class RepositoryNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'gitlens:repository';
 
-    constructor(uri: GitUri, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+    constructor(
+        uri: GitUri,
+        protected readonly context: ExtensionContext,
+        protected readonly git: GitService
+    ) {
         super(uri);
-     }
+    }
 
     async getChildren(): Promise<ExplorerNode[]> {
         return [

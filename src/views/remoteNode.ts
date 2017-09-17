@@ -10,7 +10,12 @@ export class RemoteNode extends ExplorerNode {
 
         readonly resourceType: ResourceType = 'gitlens:remote';
 
-        constructor(public readonly remote: GitRemote, uri: GitUri, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+        constructor(
+            public readonly remote: GitRemote,
+            uri: GitUri,
+            protected readonly context: ExtensionContext,
+            protected readonly git: GitService
+        ) {
             super(uri);
         }
 
@@ -19,7 +24,7 @@ export class RemoteNode extends ExplorerNode {
             if (branches === undefined) return [];
 
             branches.sort((a, b) => a.name.localeCompare(b.name));
-            return [...Iterables.filterMap(branches, b => !b.remote || !b.name.startsWith(this.remote.name) ? undefined : new BranchHistoryNode(b, this.uri, this.git.config.gitExplorer.commitFormat, this.context, this.git))];
+            return [...Iterables.filterMap(branches, b => !b.remote || !b.name.startsWith(this.remote.name) ? undefined : new BranchHistoryNode(b, this.uri, this.context, this.git))];
         }
 
         getTreeItem(): TreeItem {

@@ -1,15 +1,20 @@
 'use strict';
 import { Iterables } from '../system';
 import { ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { CommitNode } from './commitNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitService, GitStatus, GitUri } from '../gitService';
-import { CommitNode } from './commitNode';
 
 export class StatusUpstreamNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'gitlens:status-upstream';
 
-    constructor(public readonly status: GitStatus, public readonly direction: 'ahead' | 'behind', private readonly template: string, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+    constructor(
+        public readonly status: GitStatus,
+        public readonly direction: 'ahead' | 'behind',
+        protected readonly context: ExtensionContext,
+        protected readonly git: GitService
+    ) {
         super(new GitUri(Uri.file(status.repoPath), { repoPath: status.repoPath, fileName: status.repoPath }));
     }
 
@@ -17,10 +22,11 @@ export class StatusUpstreamNode extends ExplorerNode {
         const range = this.direction === 'ahead'
             ? `${this.status.upstream}..${this.status.branch}`
             : `${this.status.branch}..${this.status.upstream}`;
+
         let log = await this.git.getLogForRepo(this.uri.repoPath!, range, 0);
         if (log === undefined) return [];
 
-        if (this.direction !== 'ahead') return [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.template, this.context, this.git))];
+        if (this.direction !== 'ahead') return [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.context, this.git))];
 
         // Since the last commit when we are looking 'ahead' can have no previous (because of the range given) -- look it up
         const commits = Array.from(log.commits.values());
@@ -32,8 +38,8 @@ export class StatusUpstreamNode extends ExplorerNode {
             }
         }
 
-        return [...Iterables.map(commits, c => new CommitNode(c, this.template, this.context, this.git))];
-}
+        return [...Iterables.map(commits, c => new CommitNode(c, this.context, this.git))];
+    }
 
     async getTreeItem(): Promise<TreeItem> {
         const label = this.direction === 'ahead'

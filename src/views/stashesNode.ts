@@ -9,9 +9,13 @@ export class StashesNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'gitlens:stashes';
 
-    constructor(uri: GitUri, protected readonly context: ExtensionContext, protected readonly git: GitService) {
+    constructor(
+        uri: GitUri,
+        protected readonly context: ExtensionContext,
+        protected readonly git: GitService
+    ) {
         super(uri);
-     }
+    }
 
     async getChildren(): Promise<ExplorerNode[]> {
         const stash = await this.git.getStashList(this.uri.repoPath!);

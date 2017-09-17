@@ -74,6 +74,7 @@ export const RepoChangedReasons = {
 export class GitService extends Disposable {
 
     static fakeSha = 'ffffffffffffffffffffffffffffffffffffffff';
+    static uncommittedSha = '0000000000000000000000000000000000000000';
 
     private _onDidBlameFail = new EventEmitter<string>();
     get onDidBlameFail(): Event<string> {

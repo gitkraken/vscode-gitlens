@@ -20,6 +20,9 @@ export declare type ResourceType =
     'gitlens:stash-file' |
     'gitlens:stashes' |
     'gitlens:status' |
+    'gitlens:status-file' |
+    'gitlens:status-files' |
+    'gitlens:status-file-commits' |
     'gitlens:status-upstream';
 
 export abstract class ExplorerNode {
@@ -88,11 +91,11 @@ export class PagerNode extends ExplorerNode {
     }
 }
 
-export class ShowAllCommitsNode extends PagerNode {
+export class ShowAllNode extends PagerNode {
 
     args: RefreshNodeCommandArgs = { maxCount: 0 };
 
-    constructor(node: ExplorerNode, context: ExtensionContext) {
-        super(`Show All Commits ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`, node, context);
+    constructor(message: string, node: ExplorerNode, context: ExtensionContext) {
+        super(`${message} ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`, node, context);
     }
 }

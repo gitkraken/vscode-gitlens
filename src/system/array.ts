@@ -1,7 +1,7 @@
 'use strict';
 
 export namespace Arrays {
-    export function groupBy<T>(array: T[], accessor: (item: T) => any): T[] {
+    export function groupBy<T>(array: T[], accessor: (item: T) => string): { [key: string]: T[] } {
         return array.reduce((previous, current) => {
             const value = accessor(current);
             previous[value] = previous[value] || [];
