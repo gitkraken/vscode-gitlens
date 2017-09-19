@@ -34,7 +34,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
         const now = Date.now();
         const offset = this.uri.offset;
-        const renderOptions = Annotations.gutterRenderOptions(this._config.theme, cfg.heatmap);
+        const renderOptions = Annotations.gutterRenderOptions(this._config.theme, cfg.heatmap, options);
         const separateLines = this._config.theme.annotations.file.gutter.separateLines;
 
         const decorations: DecorationOptions[] = [];
@@ -58,7 +58,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
                         ...gutter.renderOptions,
                         before: {
                             ...gutter.renderOptions!.before,
-                            contentText: GlyphChars.Space.repeat(Strings.getWidth(gutter.renderOptions!.before!.contentText!))
+                            contentText: GlyphChars.Space.repeat(Strings.width(gutter.renderOptions!.before!.contentText!))
                         }
                     };
 

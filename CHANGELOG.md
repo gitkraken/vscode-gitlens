@@ -6,17 +6,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
-## [5.1.1-beta]
+## [5.2.0-beta]
 ### Added
-- Adds new `Changed Files` node to the `Repository Status` node of the `GitLens` custom view's `Repository View` (enabled via `"gitlens.insiders": true`) -- closes [#139](https://github.com/eamodio/vscode-gitlens/issues/139)
-  - Provides a file-based view of all the changed files in the working tree and/or files in commits that haven't yet been pushed upstream
+- Adds new `Changed Files` node to the `Repository Status` node of the `GitLens` custom view's `Repository View` -- closes [#139](https://github.com/eamodio/vscode-gitlens/issues/139)
+  - Provides a file-based view of all the changed files in the working tree (enabled via `"gitlens.insiders": true`) and/or files in commits that haven't yet been pushed upstream
 - Adds `gitlens.gitExplorer.enabled` setting to specify whether or not to show the `GitLens` custom view - closes [#144](https://github.com/eamodio/vscode-gitlens/issues/144)
 
 ### Changed
-- Chnages the default of the `gitlens.gitExplorer.commitFormat` setting to add parentheses around the commit id
+- Changes the default of the `gitlens.gitExplorer.commitFormat` setting to add parentheses around the commit id
 - Removes many menu items from `editor/title` & `editor/title/context` by default -- can be re-enabled via the `gitlens.advanced.menus` setting
 
 ### Fixed
+- Fixes [#146](https://github.com/eamodio/vscode-gitlens/issues/146) - Blame gutter annotation issue when commit contains emoji
 - Fixes an issue when running `Open File in Remote` with a multi-line selection wasn't properly opening the selection in GitLab -- thanks to [PR #145](https://github.com/eamodio/vscode-gitlens/pull/145) by Amanda Cameron ([@AmandaCameron](https://github.com/AmandaCameron))!
 - Fixes an issue where the `gitlens.advanced.menus` setting wasn't controlling all the menu items properly
 

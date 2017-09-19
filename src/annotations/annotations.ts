@@ -1,4 +1,4 @@
-import { Dates, Strings } from '../system';
+import { Dates, Objects, Strings } from '../system';
 import { DecorationInstanceRenderOptions, DecorationOptions, MarkdownString, ThemableDecorationRenderOptions } from 'vscode';
 import { DiffWithCommand, OpenCommitInRemoteCommand, ShowQuickCommitDetailsCommand } from '../commands';
 import { IThemeConfig, themeDefaults } from '../configuration';
@@ -133,8 +133,22 @@ export class Annotations {
         } as DecorationOptions;
     }
 
-    static gutterRenderOptions(cfgTheme: IThemeConfig, heatmap: IHeatmapConfig): IRenderOptions {
+    static gutterRenderOptions(cfgTheme: IThemeConfig, heatmap: IHeatmapConfig, options: ICommitFormatOptions): IRenderOptions {
         const cfgFileTheme = cfgTheme.annotations.file.gutter;
+
+        // Try to get the width of the string, if there is a cap
+        let width = 4; // Start with a padding
+        for (const token of Objects.values<Strings.ITokenOptions | undefined>(options.tokenOptions)) {
+            if (token === undefined) continue;
+
+            // If any token is uncapped, kick out and set no max
+            if (token.truncateTo == null) {
+                width = 0;
+                break;
+            }
+
+            width += token.truncateTo;
+        }
 
         let borderStyle = undefined;
         let borderWidth = undefined;
@@ -152,7 +166,8 @@ export class Annotations {
                 borderStyle: borderStyle,
                 borderWidth: borderWidth,
                 height: '100%',
-                margin: '0 26px -1px 0'
+                margin: '0 26px -1px 0',
+                width: (width > 4) ? `${width}ch` : undefined
             },
             dark: {
                 backgroundColor: cfgFileTheme.dark.backgroundColor || undefined,
