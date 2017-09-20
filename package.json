@@ -443,6 +443,11 @@
                     "default": "${filePath}",
                     "description": "Specifies the format of a stashed file in the `GitLens` custom view\nAvailable tokens\n ${file} - file name\n ${filePath} - file name and path\n ${path} - file path"
                 },
+                "gitlens.gitExplorer.statusFileFormat": {
+                    "type": "string",
+                    "default": "${working}${filePath}",
+                    "description": "Specifies the format of the status of a working or committed file in the `GitLens` custom view\nAvailable tokens\n ${file} - file name\n ${filePath} - file name and path\n ${path} - file path\n ${working} - optional indicator if the file is uncommitted"
+                },
                 "gitlens.gitExplorer.view": {
                     "type": "string",
                     "default": "repository",

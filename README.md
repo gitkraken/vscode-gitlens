@@ -126,13 +126,17 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
     ![GitLens Repository view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-repository.png)
 
     - `Repository Status` node — provides the status of the repository
-      - Provides the name of the current branch, its upstream tracking branch (if available), and its upstream status (if available)
+      - Provides the name of the current branch, its working tree status (enabled via `"gitlens.insiders": true`), and its upstream tracking branch and status (if available)
       - Provides indicator dots on the repository icon which denote the following:
         - `None` - up-to-date with the upstream
         - `Green` - ahead of the upstream
         - `Red` - behind the upstream
         - `Yellow` - both ahead of and behind the upstream
-      - Provides additional nodes, if the current branch is not synchronized with the upstream, to quickly see and explore the specific commits ahead and/or behind the upstream
+      - Provides additional upstream status nodes, if the current branch is tracking a remote branch and
+        - is behind the upstream — quickly see and explore the specific commits behind the upstream (i.e. commits that haven't been pulled)
+        - is ahead of the upstream — quickly see and explore the specific commits ahead of the upstream (i.e. commits that haven't been pushed)
+      - `Changed Files` node — provides a at-a-glance view of all "working" changes
+        - Expands to a file-based view of all changed files in the working tree (enabled via `"gitlens.insiders": true`) and/or all files in all commits ahead of the upstream
       - Provides a context menu with `Open Repository in Remote`, and `Refresh` commands
 
     - `Branches` node — provides a list of the local branches
@@ -357,6 +361,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.gitExplorer.commitFileFormat`|Specifies the format of a committed file in the `GitLens` custom view<br />Available tokens<br /> ${file} - file name<br /> ${filePath} - file name and path<br /> ${path} - file path
 |`gitlens.gitExplorer.stashFormat`|Specifies the format of stashed changes in the `GitLens` custom view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
 |`gitlens.gitExplorer.stashFileFormat`|Specifies the format of a stashed file in the `GitLens` custom view<br />Available tokens<br /> ${file} - file name<br /> ${filePath} - file name and path<br /> ${path} - file path
+|`gitlens.gitExplorer.statusFileFormat`|Specifies the format of the status of a working or committed file in the `GitLens` custom view<br />Available tokens<br /> ${file} - file name<br /> ${filePath} - file name and path<br /> ${path} - file path<br />${working} - optional indicator if the file is uncommitted
 
 ### Custom Remotes Settings
 

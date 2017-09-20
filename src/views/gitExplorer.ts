@@ -116,7 +116,8 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     private onConfigurationChanged() {
         const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
 
-        if (!Objects.areEquivalent(cfg.gitExplorer, this._config && this._config.gitExplorer)) {
+        if (!Objects.areEquivalent(cfg.gitExplorer, this._config && this._config.gitExplorer) ||
+            !Objects.areEquivalent(cfg.insiders, this._config && this._config.insiders)) {
             setTimeout(() => {
                 this._root = this.getRootNode(window.activeTextEditor);
                 this.refresh();

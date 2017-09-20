@@ -324,6 +324,7 @@ export interface IConfig {
         commitFileFormat: string;
         stashFormat: string;
         stashFileFormat: string;
+        statusFileFormat: string;
         // dateFormat: string | null;
     };
 

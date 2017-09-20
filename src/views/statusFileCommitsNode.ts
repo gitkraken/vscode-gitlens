@@ -3,7 +3,7 @@ import { Command, ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } fr
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { getGitStatusIcon, GitBranch, GitLogCommit, GitService, GitUri, IGitStatusFile, StatusFileFormatter } from '../gitService';
+import { getGitStatusIcon, GitBranch, GitLogCommit, GitService, GitUri, IGitStatusFile, IGitStatusFileWithCommit, StatusFileFormatter } from '../gitService';
 import * as path from 'path';
 
 export class StatusFileCommitsNode extends ExplorerNode {
@@ -26,7 +26,7 @@ export class StatusFileCommitsNode extends ExplorerNode {
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        const item = new TreeItem(StatusFileFormatter.fromTemplate(this.git.config.gitExplorer.commitFileFormat, this.status), TreeItemCollapsibleState.Collapsed);
+        const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
         item.contextValue = this.resourceType;
 
         const icon = getGitStatusIcon(this.status.status);
@@ -41,7 +41,18 @@ export class StatusFileCommitsNode extends ExplorerNode {
             item.command = this.getCommand();
         }
 
+        // Only cache the label for a single refresh
+        this._label = undefined;
+
         return item;
+    }
+
+    private _label: string | undefined;
+    get label() {
+        if (this._label === undefined) {
+            this._label = StatusFileFormatter.fromTemplate(this.git.config.gitExplorer.statusFileFormat, { ...this.status, commit: this.commit } as IGitStatusFileWithCommit);
+        }
+        return this._label;
     }
 
     get commit() {

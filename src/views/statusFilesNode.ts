@@ -2,12 +2,8 @@
 import { Arrays, Iterables, Objects } from '../system';
 import { ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { ExplorerNode, ResourceType, ShowAllNode } from './explorerNode';
-import { GitBranch, GitLog, GitLogCommit, GitService, GitStatus, GitUri, IGitStatusFile } from '../gitService';
+import { GitBranch, GitLog, GitLogCommit, GitService, GitStatus, GitUri, IGitStatusFileWithCommit } from '../gitService';
 import { StatusFileCommitsNode } from './statusFileCommitsNode';
-
-interface IGitStatusFileWithCommit extends IGitStatusFile {
-    commit: GitLogCommit;
-}
 
 export class StatusFilesNode extends ExplorerNode {
 
@@ -42,7 +38,7 @@ export class StatusFilesNode extends ExplorerNode {
             statuses = [];
         }
 
-        if (this.status.files.length !== 0) {
+        if (this.status.files.length !== 0 && this.git.config.insiders) {
             statuses.splice(0, 0, ...this.status.files.map(s => {
                 return { ...s, commit: new GitLogCommit('file', this.status.repoPath, GitService.uncommittedSha, s.fileName, 'You', new Date(), '', s.status, [s], s.originalFileName, 'HEAD', s.fileName) } as IGitStatusFileWithCommit;
             }));
@@ -56,6 +52,8 @@ export class StatusFilesNode extends ExplorerNode {
                 statuses => new StatusFileCommitsNode(this.uri.repoPath!, statuses[statuses.length - 1], statuses.map(s => s.commit), this.context, this.git, this.branch))
         ];
 
+        children.sort((a: StatusFileCommitsNode, b: StatusFileCommitsNode) => (a.commit.isUncommitted ? -1 : 1) - (b.commit.isUncommitted ? -1 : 1) || a.label!.localeCompare(b.label!));
+
         if (log !== undefined && log.truncated) {
             children.push(new ShowAllNode('Show All Changes', this, this.context));
         }
@@ -63,8 +61,17 @@ export class StatusFilesNode extends ExplorerNode {
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        const item = new TreeItem(`Changed Files`, TreeItemCollapsibleState.Collapsed);
+        const stats = await this.git.getChangedFilesCount(this.status.repoPath, this.git.config.insiders ? this.status.upstream : this.range);
+        const files = (stats === undefined) ? 0 : stats.files;
+
+        const label = `${files} file${files > 1 ? 's' : ''} changed`; // ${this.status.upstream === undefined ? '' : ` (ahead of ${this.status.upstream})`}`;
+        const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
         item.contextValue = this.resourceType;
+        item.iconPath = {
+            dark: this.context.asAbsolutePath(`images/dark/icon-diff.svg`),
+            light: this.context.asAbsolutePath(`images/light/icon-diff.svg`)
+        };
+
         return item;
     }
 }

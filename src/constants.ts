@@ -81,10 +81,12 @@ export type GlyphChars = '\u21a9' |
     '\u21e8' |
     '\u2191' |
     '\u2197' |
+    '\u2217' |
     '\u2713' |
     '\u2014' |
     '\u2022' |
     '\u2026' |
+    '\u270E' |
     '\u00a0' |
     '\u200b';
 export const GlyphChars = {
@@ -97,10 +99,12 @@ export const GlyphChars = {
     ArrowRightHollow: '\u21e8' as GlyphChars,
     ArrowUp: '\u2191' as GlyphChars,
     ArrowUpRight: '\u2197' as GlyphChars,
+    Asterisk: '\u2217' as GlyphChars,
     Check: '\u2713' as GlyphChars,
     Dash: '\u2014' as GlyphChars,
     Dot: '\u2022' as GlyphChars,
     Ellipsis: '\u2026' as GlyphChars,
+    Pensil: '\u270E' as GlyphChars,
     Space: '\u00a0' as GlyphChars,
     ZeroWidthSpace: '\u200b' as GlyphChars
 };

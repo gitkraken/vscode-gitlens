@@ -1,7 +1,8 @@
 'use strict';
 import { Strings } from '../../system';
+import { GlyphChars } from '../../constants';
 import { Formatter, IFormatOptions } from './formatter';
-import { GitStatusFile, IGitStatusFile } from '../models/status';
+import { GitStatusFile, IGitStatusFile, IGitStatusFileWithCommit } from '../models/status';
 import * as path from 'path';
 
 export interface IStatusFormatOptions extends IFormatOptions {
@@ -27,6 +28,11 @@ export class StatusFileFormatter extends Formatter<IGitStatusFile, IStatusFormat
     get path() {
         const directory = GitStatusFile.getFormattedDirectory(this._item, false);
         return this._padOrTruncate(directory, this._options.tokenOptions!.file);
+    }
+
+    get working() {
+        const commit = (this._item as IGitStatusFileWithCommit).commit;
+        return (commit !== undefined && commit.isUncommitted) ? `${GlyphChars.Pensil} ${GlyphChars.Space}` : '';
     }
 
     static fromTemplate(template: string, status: IGitStatusFile, dateFormat: string | null): string;

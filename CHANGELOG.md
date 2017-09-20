@@ -6,11 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
-## [5.2.0-beta]
+## [5.2.0-beta] - 2017-09-20
 ### Added
+- Adds working tree status (enabled via `"gitlens.insiders": true`) to the `Repository Status` node in the `GitLens` custom view
 - Adds new `Changed Files` node to the `Repository Status` node of the `GitLens` custom view's `Repository View` -- closes [#139](https://github.com/eamodio/vscode-gitlens/issues/139)
-  - Provides a file-based view of all the changed files in the working tree (enabled via `"gitlens.insiders": true`) and/or files in commits that haven't yet been pushed upstream
+  - Provides a at-a-glance view of all "working" changes
+  - Expands to a file-based view of all changed files in the working tree (enabled via `"gitlens.insiders": true`) and/or all files in all commits ahead of the upstream
 - Adds `gitlens.gitExplorer.enabled` setting to specify whether or not to show the `GitLens` custom view - closes [#144](https://github.com/eamodio/vscode-gitlens/issues/144)
+- Adds `gitlens.gitExplorer.statusFileFormat` setting to the format of the status of a working or committed file in the `GitLens` custom view
 
 ### Changed
 - Changes the sorting (now alphabetical) of files shown in the `GitLens` custom view

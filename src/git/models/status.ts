@@ -3,6 +3,7 @@ import { Strings } from '../../system';
 import { Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../gitUri';
+import { GitLogCommit } from './logCommit';
 import * as path from 'path';
 
 export interface GitStatus {
@@ -25,6 +26,10 @@ export interface IGitStatusFile {
     status: GitStatusFileStatus;
     fileName: string;
     originalFileName?: string;
+}
+
+export interface IGitStatusFileWithCommit extends IGitStatusFile {
+    commit: GitLogCommit;
 }
 
 export class GitStatusFile implements IGitStatusFile {
