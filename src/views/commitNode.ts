@@ -26,7 +26,9 @@ export class CommitNode extends ExplorerNode {
         const commit = Iterables.first(log.commits.values());
         if (commit === undefined) return [];
 
-        return [...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit, this.context, this.git, CommitFileNodeDisplayAs.File, this.branch))];
+        const children = [...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit, this.context, this.git, CommitFileNodeDisplayAs.File, this.branch))];
+        children.sort((a, b) => a.label!.localeCompare(b.label!));
+        return children;
     }
 
     getTreeItem(): TreeItem {

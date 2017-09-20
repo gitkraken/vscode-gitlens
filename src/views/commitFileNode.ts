@@ -42,14 +42,7 @@ export class CommitFileNode extends ExplorerNode {
             }
         }
 
-        const label = (this.displayAs & CommitFileNodeDisplayAs.CommitLabel)
-            ? CommitFormatter.fromTemplate(this.getCommitTemplate(), this.commit, {
-                truncateMessageAtNewLine: true,
-                dataFormat: this.git.config.defaultDateFormat
-            } as ICommitFormatOptions)
-            : StatusFileFormatter.fromTemplate(this.getCommitFileTemplate(), this.status);
-
-        const item = new TreeItem(label, TreeItemCollapsibleState.None);
+        const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
         item.contextValue = this.resourceType;
 
         const icon = (this.displayAs & CommitFileNodeDisplayAs.CommitIcon)
@@ -63,7 +56,23 @@ export class CommitFileNode extends ExplorerNode {
 
         item.command = this.getCommand();
 
+        // Only cache the label for a single refresh
+        this._label = undefined;
+
         return item;
+    }
+
+    private _label: string | undefined;
+    get label() {
+        if (this._label === undefined) {
+            this._label = (this.displayAs & CommitFileNodeDisplayAs.CommitLabel)
+                ? CommitFormatter.fromTemplate(this.getCommitTemplate(), this.commit, {
+                    truncateMessageAtNewLine: true,
+                    dataFormat: this.git.config.defaultDateFormat
+                } as ICommitFormatOptions)
+                : StatusFileFormatter.fromTemplate(this.getCommitFileTemplate(), this.status);
+        }
+        return this._label;
     }
 
     protected getCommitTemplate() {

@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `gitlens.gitExplorer.enabled` setting to specify whether or not to show the `GitLens` custom view - closes [#144](https://github.com/eamodio/vscode-gitlens/issues/144)
 
 ### Changed
+- Changes the sorting (now alphabetical) of files shown in the `GitLens` custom view
 - Changes the default of the `gitlens.gitExplorer.commitFormat` setting to add parentheses around the commit id
 - Removes many menu items from `editor/title` & `editor/title/context` by default -- can be re-enabled via the `gitlens.advanced.menus` setting
 
