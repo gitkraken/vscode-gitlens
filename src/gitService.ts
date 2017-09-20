@@ -4,7 +4,7 @@ import { Disposable, Event, EventEmitter, FileSystemWatcher, Location, Position,
 import { IConfig } from './configuration';
 import { DocumentSchemes, ExtensionKey, GlyphChars } from './constants';
 import { RemoteProviderFactory } from './git/remotes/factory';
-import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitDiff, GitDiffChunkLine, GitDiffParser, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
+import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitDiff, GitDiffChunkLine, GitDiffParser, GitDiffShortStat, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { Logger } from './logger';
 import * as fs from 'fs';
@@ -597,6 +597,10 @@ export class GitService extends Disposable {
     getCacheEntryKey(uri: Uri): string;
     getCacheEntryKey(fileNameOrUri: string | Uri): string {
         return Git.normalizePath(typeof fileNameOrUri === 'string' ? fileNameOrUri : fileNameOrUri.fsPath).toLowerCase();
+    }
+
+    async getChangedFilesCount(repoPath: string, sha?: string): Promise<GitDiffShortStat | undefined> {
+        return GitDiffParser.parseShortStat(await Git.diff_shortstat(repoPath, sha));
     }
 
     async getConfig(key: string, repoPath?: string): Promise<string> {

@@ -1,8 +1,9 @@
 'use strict';
 import { Iterables, Strings } from '../../system';
-import { GitDiff, GitDiffChunk, GitDiffChunkLine, GitDiffLine } from './../git';
+import { GitDiff, GitDiffChunk, GitDiffChunkLine, GitDiffLine, GitDiffShortStat } from './../git';
 
 const unifiedDiffRegex = /^@@ -([\d]+),([\d]+) [+]([\d]+),([\d]+) @@([\s\S]*?)(?=^@@)/gm;
+const shortStatDiffRegex = /^\s*(\d+)\sfiles? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
 
 export class GitDiffParser {
 
@@ -115,5 +116,21 @@ export class GitDiffParser {
         }
 
         return chunkLines;
+    }
+
+    static parseShortStat(data: string): GitDiffShortStat | undefined {
+        if (!data) return undefined;
+
+        const match = shortStatDiffRegex.exec(data);
+        if (match == null) return undefined;
+
+        const files = match[1];
+        const insertions = match[2];
+        const deletions = match[3];
+        return {
+            files: files == null ? 0 : parseInt(files, 10),
+            insertions: insertions == null ? 0 : parseInt(insertions, 10),
+            deletions: deletions == null ? 0 : parseInt(deletions, 10)
+        } as GitDiffShortStat;
     }
 }

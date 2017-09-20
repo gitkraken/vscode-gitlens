@@ -259,6 +259,14 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...params);
     }
 
+    static diff_shortstat(repoPath: string, sha?: string) {
+        const params = [`diff`, `--shortstat`, `--no-ext-diff`];
+        if (sha) {
+            params.push(sha);
+        }
+        return gitCommand({ cwd: repoPath }, ...params);
+    }
+
     static difftool_dirDiff(repoPath: string, sha1: string, sha2?: string) {
         const params = [`difftool`, `--dir-diff`, sha1];
         if (sha2) {

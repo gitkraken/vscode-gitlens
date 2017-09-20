@@ -34,3 +34,9 @@ export interface GitDiff {
 
     diff?: string;
 }
+
+export interface GitDiffShortStat {
+    files: number;
+    insertions: number;
+    deletions: number;
+}
