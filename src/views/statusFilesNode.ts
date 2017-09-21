@@ -61,8 +61,13 @@ export class StatusFilesNode extends ExplorerNode {
     }
 
     async getTreeItem(): Promise<TreeItem> {
+        // Start with any untracked files, since they won't be included in the next call
+        let files = (this.status.files === undefined) ? 0 : this.status.files.filter(s => s.status === '?').length;
+
         const stats = await this.git.getChangedFilesCount(this.status.repoPath, this.git.config.insiders ? this.status.upstream : this.range);
-        const files = (stats === undefined) ? 0 : stats.files;
+        if (stats !== undefined) {
+            files += stats.files;
+        }
 
         const label = `${files} file${files > 1 ? 's' : ''} changed`; // ${this.status.upstream === undefined ? '' : ` (ahead of ${this.status.upstream})`}`;
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
