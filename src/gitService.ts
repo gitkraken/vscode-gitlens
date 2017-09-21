@@ -156,6 +156,8 @@ export class GitService extends Disposable {
                 disposables.push(workspace.onDidChangeTextDocument(this._onTextDocumentChanged, this));
                 disposables.push(workspace.onDidSaveTextDocument(d => this._removeCachedEntry(d, RemoveCacheReason.DocumentSaved)));
                 disposables.push(this._repoWatcher.onDidChange(this._onRepoChanged, this));
+                disposables.push(this._repoWatcher.onDidCreate(this._onRepoChanged, this));
+                disposables.push(this._repoWatcher.onDidDelete(this._onRepoChanged, this));
 
                 this._cacheDisposable = Disposable.from(...disposables);
             }
