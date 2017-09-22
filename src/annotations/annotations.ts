@@ -109,14 +109,14 @@ export class Annotations {
     }
 
     static gutter(commit: GitCommit, format: string, dateFormatOrFormatOptions: string | null | ICommitFormatOptions, renderOptions: IRenderOptions): DecorationOptions {
-        const content = Strings.pad(CommitFormatter.fromTemplate(format, commit, dateFormatOrFormatOptions), 1, 1);
+        const message = CommitFormatter.fromTemplate(format, commit, dateFormatOrFormatOptions);
 
         return {
             renderOptions: {
                 before: {
                     ...renderOptions.before,
                     ...{
-                        contentText: content
+                        contentText: Strings.pad(message.replace(/ /g, GlyphChars.Space), 1, 1)
                     }
                 },
                 dark: {
@@ -210,10 +210,11 @@ export class Annotations {
             truncateMessageAtNewLine: true,
             dateFormat: dateFormat
         } as ICommitFormatOptions);
+
         return {
             renderOptions: {
                 after: {
-                    contentText: Strings.pad(message, 1, 1)
+                    contentText: Strings.pad(message.replace(/ /g, GlyphChars.Space), 1, 1)
                 },
                 dark: {
                     after: {
