@@ -16,7 +16,7 @@ import { ShowQuickRepoStatusCommand, ShowQuickStashListCommand } from './command
 import { StashApplyCommand, StashDeleteCommand, StashSaveCommand } from './commands';
 import { ToggleCodeLensCommand } from './commands';
 import { CodeLensLocations, IConfig, LineHighlightLocations } from './configuration';
-import { ApplicationInsightsKey, CommandContext, ExtensionKey, QualifiedExtensionId, setCommandContext, WorkspaceState } from './constants';
+import { ApplicationInsightsKey, CommandContext, ExtensionKey, GlobalState, QualifiedExtensionId, setCommandContext } from './constants';
 import { CodeLensController } from './codeLensController';
 import { CurrentLineController, LineAnnotationType } from './currentLineController';
 import { RemoteProviderFactory } from './git/remotes/factory';
@@ -71,7 +71,7 @@ export async function activate(context: ExtensionContext) {
     notifyOnUnsupportedGitVersion(context, gitVersion);
     notifyOnNewGitLensVersion(context, gitlensVersion);
 
-    await context.globalState.update(WorkspaceState.GitLensVersion, gitlensVersion);
+    await context.globalState.update(GlobalState.GitLensVersion, gitlensVersion);
 
     const git = new GitService(repoPath);
     context.subscriptions.push(git);
@@ -148,7 +148,7 @@ export async function activate(context: ExtensionContext) {
 export function deactivate() { }
 
 async function migrateSettings(context: ExtensionContext) {
-    const previousVersion = context.globalState.get<string>(WorkspaceState.GitLensVersion);
+    const previousVersion = context.globalState.get<string>(GlobalState.GitLensVersion);
     if (previousVersion === undefined) return;
 
     const [major] = previousVersion.split('.');
@@ -274,7 +274,7 @@ async function migrateSettings(context: ExtensionContext) {
 async function notifyOnNewGitLensVersion(context: ExtensionContext, version: string) {
     if (context.globalState.get(SuppressedKeys.UpdateNotice, false)) return;
 
-    const previousVersion = context.globalState.get<string>(WorkspaceState.GitLensVersion);
+    const previousVersion = context.globalState.get<string>(GlobalState.GitLensVersion);
 
     if (previousVersion === undefined) {
         Logger.log(`GitLens first-time install`);

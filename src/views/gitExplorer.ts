@@ -4,16 +4,18 @@ import { commands, Event, EventEmitter, ExtensionContext, TextDocumentShowOption
 import { Commands, DiffWithCommandArgs, DiffWithCommandArgsRevision, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, OpenFileInRemoteCommandArgs } from '../commands';
 import { UriComparer } from '../comparers';
 import { ExtensionKey, IConfig } from '../configuration';
-import { CommandContext, setCommandContext } from '../constants';
+import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { BranchHistoryNode, CommitFileNode, CommitNode, ExplorerNode, HistoryNode, MessageNode, RepositoryNode, StashNode } from './explorerNodes';
 import { GitService, GitUri, RepoChangedReasons } from '../gitService';
 
 export * from './explorerNodes';
 
 export type GitExplorerView =
+    'auto' |
     'history' |
     'repository';
 export const GitExplorerView = {
+    Auto: 'auto' as GitExplorerView,
     History: 'history' as GitExplorerView,
     Repository: 'repository' as GitExplorerView
 };
@@ -31,7 +33,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
     private _config: IConfig;
     private _root?: ExplorerNode;
-    private _view: GitExplorerView = GitExplorerView.Repository;
+    private _view: GitExplorerView | undefined;
 
     private _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
     public get onDidChangeTreeData(): Event<ExplorerNode> {
@@ -62,10 +64,6 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         context.subscriptions.push(workspace.onDidChangeConfiguration(this.onConfigurationChanged, this));
 
         this.onConfigurationChanged();
-
-        this._view = this._config.gitExplorer.view;
-        setCommandContext(CommandContext.GitExplorerView, this._view);
-        this._root = this.getRootNode();
     }
 
     async getTreeItem(node: ExplorerNode): Promise<TreeItem> {
@@ -116,16 +114,25 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     private onConfigurationChanged() {
         const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
 
+        let changed = false;
         if (!Objects.areEquivalent(cfg.gitExplorer, this._config && this._config.gitExplorer) ||
             !Objects.areEquivalent(cfg.insiders, this._config && this._config.insiders)) {
-            setTimeout(() => {
-                this._root = this.getRootNode(window.activeTextEditor);
-                this.refresh();
-            }, 1);
+            changed = true;
         }
 
         this._config = cfg;
-    }
+
+        if (changed) {
+            let view = cfg.gitExplorer.view;
+            if (view === GitExplorerView.Auto) {
+                view = this.context.workspaceState.get<GitExplorerView>(WorkspaceState.GitExplorerView, GitExplorerView.Repository);
+            }
+
+            this.setView(view);
+            this._root = this.getRootNode(window.activeTextEditor);
+            this.refresh();
+        }
+}
 
     private onRepoChanged(reasons: RepoChangedReasons[]) {
         if (this._view !== GitExplorerView.Repository) return;
@@ -149,11 +156,21 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         this.refresh(node);
     }
 
-    switchTo(view: GitExplorerView) {
+    setView(view: GitExplorerView) {
         if (this._view === view) return;
+
+        if (this._config.gitExplorer.view === GitExplorerView.Auto) {
+            this.context.workspaceState.update(WorkspaceState.GitExplorerView, view);
+        }
 
         this._view = view;
         setCommandContext(CommandContext.GitExplorerView, this._view);
+    }
+
+    switchTo(view: GitExplorerView) {
+        if (this._view === view) return;
+
+        this.setView(view);
 
         this._root = this.getRootNode(window.activeTextEditor);
         this.refresh();

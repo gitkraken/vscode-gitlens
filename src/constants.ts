@@ -109,7 +109,12 @@ export const GlyphChars = {
     ZeroWidthSpace: '\u200b' as GlyphChars
 };
 
-export type WorkspaceState = 'gitlensVersion';
+export type GlobalState = 'gitlensVersion';
+export const GlobalState = {
+    GitLensVersion: 'gitlensVersion' as GlobalState
+};
+
+export type WorkspaceState = 'gitlens:gitExplorer:view';
 export const WorkspaceState = {
-    GitLensVersion: 'gitlensVersion' as WorkspaceState
+    GitExplorerView: 'gitlens:gitExplorer:view' as WorkspaceState
 };

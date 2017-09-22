@@ -303,7 +303,7 @@
                     "minItems": 1,
                     "maxItems": 4,
                     "uniqueItems": true,
-                    "description": "Specifies where Git code lens will be shown in the document\n `document` - adds code lens at the top of the document\n `containers` -  adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)\n `blocks` -  adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines\n `custom` - adds code lens at the start of symbols contained in `gitlens.codeLens.locationCustomSymbols`"
+                    "description": "Specifies where Git code lens will be shown in the document\n `document` - adds code lens at the top of the document\n `containers` - adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)\n `blocks` - adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines\n `custom` - adds code lens at the start of symbols contained in `gitlens.codeLens.locationCustomSymbols`"
                 },
                 "gitlens.codeLens.customLocationSymbols": {
                     "type": "array",
@@ -388,7 +388,7 @@
                                 "minItems": 1,
                                 "maxItems": 4,
                                 "uniqueItems": true,
-                                "description": "Specifies where Git code lens will be shown in the document for the specified language\n `document` - adds code lens at the top of the document\n `containers` -  adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)\n `blocks` -  adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines\n `custom` - adds code lens at the start of symbols contained in `customSymbols`"
+                                "description": "Specifies where Git code lens will be shown in the document for the specified language\n `document` - adds code lens at the top of the document\n `containers` - adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)\n `blocks` - adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines\n `custom` - adds code lens at the start of symbols contained in `customSymbols`"
                             },
                             "customSymbols": {
                                 "type": "array",
@@ -450,12 +450,13 @@
                 },
                 "gitlens.gitExplorer.view": {
                     "type": "string",
-                    "default": "repository",
+                    "default": "auto",
                     "enum": [
+                        "auto",
                         "history",
                         "repository"
                     ],
-                    "description": "Specifies the starting view (mode) of the `GitLens` custom view\n `history` - shows the commit history of the active file\n `repository` - shows a repository explorer"
+                    "description": "Specifies the starting view (mode) of the `GitLens` custom view\n `auto` - shows the last selected view, defaults to `repository`\n `history` - shows the commit history of the active file\n `repository` - shows a repository explorer"
                 },
                 "gitlens.remotes": {
                     "type": "array",
