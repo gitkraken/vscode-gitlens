@@ -428,6 +428,11 @@
                     "default": true,
                     "description": "Specifies whether or not to show the `GitLens` custom view"
                 },
+                "gitlens.gitExplorer.includeWorkingTree": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to include working tree files inside the `Repository Status` node of the `GitLens` custom view"
+                },
                 "gitlens.gitExplorer.showTrackingBranch": {
                     "type": "boolean",
                     "default": true,

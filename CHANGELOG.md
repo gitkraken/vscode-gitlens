@@ -8,13 +8,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [5.2.0-beta] - 2017-09-20
 ### Added
-- Adds working tree status (enabled via `"gitlens.insiders": true`) to the `Repository Status` node in the `GitLens` custom view
 - Adds new `Changed Files` node to the `Repository Status` node of the `GitLens` custom view's `Repository View` -- closes [#139](https://github.com/eamodio/vscode-gitlens/issues/139)
   - Provides a at-a-glance view of all "working" changes
   - Expands to a file-based view of all changed files in the working tree (enabled via `"gitlens.insiders": true`) and/or all files in all commits ahead of the upstream
-- Adds `gitlens.gitExplorer.enabled` setting to specify whether or not to show the `GitLens` custom view - closes [#144](https://github.com/eamodio/vscode-gitlens/issues/144)
-- Adds `gitlens.gitExplorer.statusFileFormat` setting to the format of the status of a working or committed file in the `GitLens` custom view
+- Adds optional (on by default) working tree status information to the `Repository Status` node in the `GitLens` custom view
 - Adds `auto` value to `gitlens.gitExplorer.view` setting - closes [#150](https://github.com/eamodio/vscode-gitlens/issues/150)
+- Adds `gitlens.gitExplorer.enabled` setting to specify whether or not to show the `GitLens` custom view - closes [#144](https://github.com/eamodio/vscode-gitlens/issues/144)
+- Adds `gitlens.gitExplorer.includeWorkingTree` setting to specify whether or not to include working tree files inside the `Repository Status` node of the `GitLens` custom view
+- Adds `gitlens.gitExplorer.statusFileFormat` setting to the format of the status of a working or committed file in the `GitLens` custom view
 
 ### Changed
 - Changes the sorting (now alphabetical) of files shown in the `GitLens` custom view

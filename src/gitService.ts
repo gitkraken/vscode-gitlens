@@ -86,6 +86,11 @@ export class GitService extends Disposable {
         return this._onDidChangeGitCache.event;
     }
 
+    private _onDidChangeFileSystem = new EventEmitter<Uri>();
+    get onDidChangeFileSystem(): Event<Uri> {
+        return this._onDidChangeFileSystem.event;
+    }
+
     private _onDidChangeRepo = new EventEmitter<RepoChangedReasons[]>();
     get onDidChangeRepo(): Event<RepoChangedReasons[]> {
         return this._onDidChangeRepo.event;
@@ -121,13 +126,15 @@ export class GitService extends Disposable {
     }
 
     dispose() {
+        this.stopWatchingFileSystem();
+
+        this._repoWatcher && this._repoWatcher.dispose();
+        this._repoWatcher = undefined;
+
         this._disposable && this._disposable.dispose();
 
         this._cacheDisposable && this._cacheDisposable.dispose();
         this._cacheDisposable = undefined;
-
-        this._repoWatcher && this._repoWatcher.dispose();
-        this._repoWatcher = undefined;
 
         this._gitCache.clear();
         this._remotesCache.clear();
@@ -602,7 +609,8 @@ export class GitService extends Disposable {
     }
 
     async getChangedFilesCount(repoPath: string, sha?: string): Promise<GitDiffShortStat | undefined> {
-        return GitDiffParser.parseShortStat(await Git.diff_shortstat(repoPath, sha));
+        const data = await Git.diff_shortstat(repoPath, sha);
+        return GitDiffParser.parseShortStat(data);
     }
 
     async getConfig(key: string, repoPath?: string): Promise<string> {
@@ -1032,6 +1040,33 @@ export class GitService extends Disposable {
         Logger.log(`openDirectoryDiff('${repoPath}', ${sha1}, ${sha2})`);
 
         return Git.difftool_dirDiff(repoPath, sha1, sha2);
+    }
+
+    private _fsWatcherDisposable: Disposable | undefined;
+
+    startWatchingFileSystem() {
+        if (this._fsWatcherDisposable !== undefined) return;
+
+        const debouncedFn = Functions.debounce((uri: Uri) => this._onDidChangeFileSystem.fire(uri), 2500);
+        const fn = (uri: Uri) => {
+            // Ignore .git changes
+            if (/\.git/.test(uri.fsPath)) return;
+
+            debouncedFn(uri);
+        };
+
+        const watcher = workspace.createFileSystemWatcher(`**`);
+        this._fsWatcherDisposable = Disposable.from(
+            watcher,
+            watcher.onDidChange(fn),
+            watcher.onDidCreate(fn),
+            watcher.onDidDelete(fn)
+        );
+    }
+
+    stopWatchingFileSystem() {
+        this._fsWatcherDisposable && this._fsWatcherDisposable.dispose();
+        this._fsWatcherDisposable = undefined;
     }
 
     stashApply(repoPath: string, stashName: string, deleteAfter: boolean = false) {

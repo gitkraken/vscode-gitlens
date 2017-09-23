@@ -126,7 +126,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
     ![GitLens Repository view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-repository.png)
 
     - `Repository Status` node — provides the status of the repository
-      - Provides the name of the current branch, its working tree status (enabled via `"gitlens.insiders": true`), and its upstream tracking branch and status (if available)
+      - Provides the name of the current branch, [optionally](#gitlens-custom-view-settings) its working tree status, and its upstream tracking branch and status (if available)
       - Provides indicator dots on the repository icon which denote the following:
         - `None` - up-to-date with the upstream
         - `Green` - ahead of the upstream
@@ -136,7 +136,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
         - is behind the upstream — quickly see and explore the specific commits behind the upstream (i.e. commits that haven't been pulled)
         - is ahead of the upstream — quickly see and explore the specific commits ahead of the upstream (i.e. commits that haven't been pushed)
       - `Changed Files` node — provides a at-a-glance view of all "working" changes
-        - Expands to a file-based view of all changed files in the working tree (enabled via `"gitlens.insiders": true`) and/or all files in all commits ahead of the upstream
+        - Expands to a file-based view of all changed files in the working tree ([optionally](#gitlens-custom-view-settings)) and/or all files in all commits ahead of the upstream
       - Provides a context menu with `Open Repository in Remote`, and `Refresh` commands
 
     - `Branches` node — provides a list of the local branches
@@ -356,6 +356,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 |-----|------------
 |`gitlens.gitExplorer.enabled`|Specifies whether or not to show the `GitLens` custom view"
 |`gitlens.gitExplorer.view`|Specifies the starting view (mode) of the `GitLens` custom view<br /> `auto` - shows the last selected view, defaults to `repository`<br />`history` - shows the commit history of the active file<br />`repository` - shows a repository explorer"
+|`gitlens.gitExplorer.includeWorkingTree`|Specifies whether or not to include working tree files inside the `Repository Status` node of the `GitLens` custom view
 |`gitlens.gitExplorer.showTrackingBranch`|Specifies whether or not to show the tracking branch when displaying local branches in the `GitLens` custom view"
 |`gitlens.gitExplorer.commitFormat`|Specifies the format of committed changes in the `GitLens` custom view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
 |`gitlens.gitExplorer.commitFileFormat`|Specifies the format of a committed file in the `GitLens` custom view<br />Available tokens<br /> ${file} - file name<br /> ${filePath} - file name and path<br /> ${path} - file path

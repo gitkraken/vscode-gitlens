@@ -340,6 +340,14 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...params, ...search);
     }
 
+    static log_shortstat(repoPath: string, sha?: string) {
+        const params = [`log`, `--shortstat`, `--oneline`];
+        if (sha) {
+            params.push(sha);
+        }
+        return gitCommand({ cwd: repoPath }, ...params);
+    }
+
     static async ls_files(repoPath: string, fileName: string): Promise<string> {
         try {
             return await gitCommand({ cwd: repoPath, overrideErrorHandling: true }, 'ls-files', fileName);

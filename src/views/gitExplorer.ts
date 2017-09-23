@@ -81,14 +81,14 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     }
 
     private getRootNode(editor?: TextEditor): ExplorerNode | undefined {
-        const uri = new GitUri(Uri.file(this.git.repoPath), { repoPath: this.git.repoPath, fileName: this.git.repoPath });
-
         switch (this._view) {
-            case GitExplorerView.History: return this.getHistoryNode(editor || window.activeTextEditor);
-            case GitExplorerView.Repository: return new RepositoryNode(uri, this.context, this.git);
-        }
+            case GitExplorerView.History:
+                return this.getHistoryNode(editor || window.activeTextEditor);
 
-        return undefined;
+            default:
+                const uri = new GitUri(Uri.file(this.git.repoPath), { repoPath: this.git.repoPath, fileName: this.git.repoPath });
+                return new RepositoryNode(uri, this.context, this.git);
+        }
     }
 
     private getHistoryNode(editor: TextEditor | undefined): ExplorerNode | undefined {
@@ -114,11 +114,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     private onConfigurationChanged() {
         const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
 
-        let changed = false;
-        if (!Objects.areEquivalent(cfg.gitExplorer, this._config && this._config.gitExplorer) ||
-            !Objects.areEquivalent(cfg.insiders, this._config && this._config.insiders)) {
-            changed = true;
-        }
+        const changed = !Objects.areEquivalent(cfg.gitExplorer, this._config && this._config.gitExplorer);
 
         this._config = cfg;
 
@@ -165,6 +161,10 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
         this._view = view;
         setCommandContext(CommandContext.GitExplorerView, this._view);
+
+        if (view !== GitExplorerView.Repository) {
+            this.git.stopWatchingFileSystem();
+        }
     }
 
     switchTo(view: GitExplorerView) {

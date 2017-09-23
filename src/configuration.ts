@@ -319,6 +319,7 @@ export interface IConfig {
     gitExplorer: {
         enabled: boolean;
         view: GitExplorerView;
+        includeWorkingTree: boolean;
         showTrackingBranch: boolean;
         commitFormat: string;
         commitFileFormat: string;
