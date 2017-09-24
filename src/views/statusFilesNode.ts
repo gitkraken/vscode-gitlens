@@ -22,20 +22,18 @@ export class StatusFilesNode extends ExplorerNode {
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        let statuses: IGitStatusFileWithCommit[];
+        let statuses: IGitStatusFileWithCommit[] = [];
+
         let log: GitLog | undefined;
         if (this.range !== undefined) {
             log = await this.git.getLogForRepo(this.status.repoPath, this.range, this.maxCount);
-            if (log === undefined) return [];
-
-            statuses = Array.from(Iterables.flatMap(log.commits.values(), c => {
-                return c.fileStatuses.map(s => {
-                    return { ...s, commit: c } as IGitStatusFileWithCommit;
-                });
-            }));
-        }
-        else {
-            statuses = [];
+            if (log !== undefined) {
+                statuses = Array.from(Iterables.flatMap(log.commits.values(), c => {
+                    return c.fileStatuses.map(s => {
+                        return { ...s, commit: c } as IGitStatusFileWithCommit;
+                    });
+                }));
+            }
         }
 
         if (this.status.files.length !== 0 && this.includeWorkingTree) {
