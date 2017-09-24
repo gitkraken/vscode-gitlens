@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
-## [5.2.0-beta] - 2017-09-20
+## [5.2.0] - 2017-09-23
 ### Added
 - Adds new `Changed Files` node to the `Repository Status` node of the `GitLens` custom view's `Repository View` -- closes [#139](https://github.com/eamodio/vscode-gitlens/issues/139)
   - Provides a at-a-glance view of all "working" changes
