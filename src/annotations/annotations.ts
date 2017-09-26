@@ -138,7 +138,7 @@ export class Annotations {
 
         // Try to get the width of the string, if there is a cap
         let width = 4; // Start with a padding
-        for (const token of Objects.values<Strings.ITokenOptions | undefined>(options.tokenOptions)) {
+        for (const token of Objects.values(options.tokenOptions!)) {
             if (token === undefined) continue;
 
             // If any token is uncapped, kick out and set no max
