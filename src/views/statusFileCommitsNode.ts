@@ -3,7 +3,7 @@ import { Command, ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } fr
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { getGitStatusIcon, GitBranch, GitLogCommit, GitService, GitUri, IGitStatusFile, IGitStatusFileWithCommit, StatusFileFormatter } from '../gitService';
+import { getGitStatusIcon, GitBranch, GitLogCommit, GitService, GitUri, IGitStatusFile, IGitStatusFileWithCommit, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
 import * as path from 'path';
 
 export class StatusFileCommitsNode extends ExplorerNode {
@@ -11,7 +11,7 @@ export class StatusFileCommitsNode extends ExplorerNode {
     readonly resourceType: ResourceType = 'gitlens:status-file-commits';
 
     constructor(
-        repoPath: string,
+        public readonly repoPath: string,
         public readonly status: IGitStatusFile,
         public commits: GitLogCommit[],
         protected readonly context: ExtensionContext,
@@ -47,10 +47,20 @@ export class StatusFileCommitsNode extends ExplorerNode {
         return item;
     }
 
+    private _folderName: string | undefined;
+    get folderName() {
+        if (this._folderName === undefined) {
+            this._folderName = path.dirname(this.uri.getRelativePath());
+        }
+        return this._folderName;
+    }
+
     private _label: string | undefined;
     get label() {
         if (this._label === undefined) {
-            this._label = StatusFileFormatter.fromTemplate(this.git.config.gitExplorer.statusFileFormat, { ...this.status, commit: this.commit } as IGitStatusFileWithCommit);
+            this._label = StatusFileFormatter.fromTemplate(this.git.config.gitExplorer.statusFileFormat,
+                { ...this.status, commit: this.commit } as IGitStatusFileWithCommit,
+                { relativePath: this.relativePath } as IStatusFormatOptions);
         }
         return this._label;
     }
@@ -59,12 +69,25 @@ export class StatusFileCommitsNode extends ExplorerNode {
         return this.commits[0];
     }
 
+    get priority(): boolean {
+        return this.commit.isUncommitted;
+    }
+
+    private _relativePath: string | undefined;
+    get relativePath(): string | undefined {
+        return this._relativePath;
+    }
+    set relativePath(value: string | undefined) {
+        this._relativePath = value;
+        this._label = undefined;
+    }
+
     getCommand(): Command | undefined {
         return {
             title: 'Compare File with Previous Revision',
             command: Commands.DiffWithPrevious,
             arguments: [
-                GitUri.fromFileStatus(this.status, this.uri.repoPath!),
+                GitUri.fromFileStatus(this.status, this.repoPath),
                 {
                     commit: this.commit,
                     line: 0,

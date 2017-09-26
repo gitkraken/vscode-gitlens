@@ -53,6 +53,16 @@ export const CustomRemoteType = {
     GitLab: 'GitLab' as CustomRemoteType
 };
 
+export type GitExplorerFilesLayout =
+    'auto' |
+    'list' |
+    'tree';
+export const GitExplorerFilesLayout = {
+    Auto: 'auto' as GitExplorerFilesLayout,
+    List: 'list' as GitExplorerFilesLayout,
+    Tree: 'tree' as GitExplorerFilesLayout
+};
+
 export type StatusBarCommand =
     'gitlens.toggleFileBlame' |
     'gitlens.showBlameHistory' |
@@ -130,6 +140,24 @@ export interface ICodeLensLanguageLocation {
     language: string | undefined;
     locations: CodeLensLocations[];
     customSymbols?: string[];
+}
+
+export interface IGitExplorerConfig {
+    enabled: boolean;
+    view: GitExplorerView;
+    files: {
+        layout: GitExplorerFilesLayout;
+        compact: boolean;
+        threshold: number;
+    };
+    includeWorkingTree: boolean;
+    showTrackingBranch: boolean;
+    commitFormat: string;
+    commitFileFormat: string;
+    stashFormat: string;
+    stashFileFormat: string;
+    statusFileFormat: string;
+    // dateFormat: string | null;
 }
 
 export interface IRemotesConfig {
@@ -316,18 +344,7 @@ export interface IConfig {
 
     defaultDateFormat: string | null;
 
-    gitExplorer: {
-        enabled: boolean;
-        view: GitExplorerView;
-        includeWorkingTree: boolean;
-        showTrackingBranch: boolean;
-        commitFormat: string;
-        commitFileFormat: string;
-        stashFormat: string;
-        stashFileFormat: string;
-        statusFileFormat: string;
-        // dateFormat: string | null;
-    };
+    gitExplorer: IGitExplorerConfig;
 
     remotes: IRemotesConfig[];
 

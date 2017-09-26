@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 ### Added
+- Adds new file layouts to the `GitLens` custom view
+  - `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level
+  - `list` - displays files as a list
+  - `tree` - displays files as a tree
+- Adds `gitlens.gitExplorer.files.layout` setting to specify how the `GitLens` custom view will display files
+- Adds `gitlens.gitExplorer.files.compact` setting to specify whether or not to compact (flatten) unnecessary file nesting in the `GitLens` custom view
+- Adds `gitlens.gitExplorer.files.threshold` setting to specify when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens` custom view
 - Adds `${directory}` token to the file formatting settings
 
 ### Changed

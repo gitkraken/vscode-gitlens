@@ -10,6 +10,7 @@ export declare type ResourceType =
     'gitlens:commit' |
     'gitlens:commit-file' |
     'gitlens:file-history' |
+    'gitlens:folder' |
     'gitlens:history' |
     'gitlens:message' |
     'gitlens:pager' |

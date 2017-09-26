@@ -1,13 +1,17 @@
 'use strict';
-import { Iterables } from '../system';
+import { Arrays, Iterables } from '../system';
 import { Command, ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
+import { GitExplorerFilesLayout } from '../configuration';
+import { FolderNode, IFileExplorerNode } from './folderNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { CommitFormatter, GitBranch, GitLogCommit, GitService, GitUri, ICommitFormatOptions } from '../gitService';
+import * as path from 'path';
 
 export class CommitNode extends ExplorerNode {
 
+    readonly repoPath: string;
     readonly resourceType: ResourceType = 'gitlens:commit';
 
     constructor(
@@ -17,17 +21,32 @@ export class CommitNode extends ExplorerNode {
         public readonly branch?: GitBranch
     ) {
         super(new GitUri(commit.uri, commit));
+        this.repoPath = commit.repoPath;
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        const log = await this.git.getLogForRepo(this.commit.repoPath, this.commit.sha, 1);
+        const repoPath = this.repoPath;
+
+        const log = await this.git.getLogForRepo(repoPath, this.commit.sha, 1);
         if (log === undefined) return [];
 
         const commit = Iterables.first(log.commits.values());
         if (commit === undefined) return [];
 
-        const children = [...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit, this.context, this.git, CommitFileNodeDisplayAs.File, this.branch))];
-        children.sort((a, b) => a.label!.localeCompare(b.label!));
+        let children: IFileExplorerNode[] = [
+            ...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit, this.context, this.git, CommitFileNodeDisplayAs.File, this.branch))
+        ];
+
+        if (this.git.config.gitExplorer.files.layout !== GitExplorerFilesLayout.List) {
+            const hierarchy = Arrays.makeHierarchical(children, n => n.uri.getRelativePath().split('/'),
+            (...paths: string[]) => GitService.normalizePath(path.join(...paths)), this.git.config.gitExplorer.files.compact);
+
+            const root = new FolderNode(repoPath, '', undefined, hierarchy, this.git.config.gitExplorer);
+            children = await root.getChildren() as IFileExplorerNode[];
+        }
+        else {
+            children.sort((a, b) => a.label!.localeCompare(b.label!));
+        }
         return children;
     }
 

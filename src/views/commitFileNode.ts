@@ -2,7 +2,7 @@
 import { Command, ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { CommitFormatter, getGitStatusIcon, GitBranch, GitCommit, GitService, GitUri, ICommitFormatOptions, IGitStatusFile, StatusFileFormatter } from '../gitService';
+import { CommitFormatter, getGitStatusIcon, GitBranch, GitCommit, GitService, GitUri, ICommitFormatOptions, IGitStatusFile, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
 import * as path from 'path';
 
 export enum CommitFileNodeDisplayAs {
@@ -17,6 +17,8 @@ export enum CommitFileNodeDisplayAs {
 
 export class CommitFileNode extends ExplorerNode {
 
+    readonly priority: boolean = false;
+    readonly repoPath: string;
     readonly resourceType: ResourceType = 'gitlens:commit-file';
 
     constructor(
@@ -28,6 +30,7 @@ export class CommitFileNode extends ExplorerNode {
         public readonly branch?: GitBranch
     ) {
         super(new GitUri(Uri.file(path.resolve(commit.repoPath, status.fileName)), { repoPath: commit.repoPath, fileName: status.fileName, sha: commit.sha }));
+        this.repoPath = commit.repoPath;
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
@@ -36,7 +39,7 @@ export class CommitFileNode extends ExplorerNode {
 
     async getTreeItem(): Promise<TreeItem> {
         if (this.commit.type !== 'file') {
-            const log = await this.git.getLogForFile(this.commit.repoPath, this.status.fileName, this.commit.sha, { maxCount: 2 });
+            const log = await this.git.getLogForFile(this.repoPath, this.status.fileName, this.commit.sha, { maxCount: 2 });
             if (log !== undefined) {
                 this.commit = log.commits.get(this.commit.sha) || this.commit;
             }
@@ -62,6 +65,14 @@ export class CommitFileNode extends ExplorerNode {
         return item;
     }
 
+    private _folderName: string | undefined;
+    get folderName() {
+        if (this._folderName === undefined) {
+            this._folderName = path.dirname(this.uri.getRelativePath());
+        }
+        return this._folderName;
+    }
+
     private _label: string | undefined;
     get label() {
         if (this._label === undefined) {
@@ -70,9 +81,20 @@ export class CommitFileNode extends ExplorerNode {
                     truncateMessageAtNewLine: true,
                     dataFormat: this.git.config.defaultDateFormat
                 } as ICommitFormatOptions)
-                : StatusFileFormatter.fromTemplate(this.getCommitFileTemplate(), this.status);
+                : StatusFileFormatter.fromTemplate(this.getCommitFileTemplate(),
+                    this.status,
+                    { relativePath: this.relativePath } as IStatusFormatOptions);
         }
         return this._label;
+    }
+
+    private _relativePath: string | undefined;
+    get relativePath(): string | undefined {
+        return this._relativePath;
+    }
+    set relativePath(value: string | undefined) {
+        this._relativePath = value;
+        this._label = undefined;
     }
 
     protected getCommitTemplate() {
