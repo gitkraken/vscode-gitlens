@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### Added
+- Adds `${directory}` token to the file formatting settings
+
+### Changed
+- Changes `${path}` token to be the full file path in the file formatting settings
 
 ## [5.2.0] - 2017-09-23
 ### Added

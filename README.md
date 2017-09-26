@@ -288,7 +288,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 
 |Name | Description
 |-----|------------
-|`gitlens.defaultDateFormat`|Specifies how all absolute dates will be formatted by default\nSee https://momentjs.com/docs/#/displaying/format/ for valid formats
+|`gitlens.defaultDateFormat`|Specifies how all absolute dates will be formatted by default<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
 |`gitlens.insiders`|Opts into the insiders channel -- provides access to upcoming features
 |`gitlens.outputLevel`|Specifies how much (if any) output will be sent to the GitLens output channel
 
@@ -359,10 +359,10 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.gitExplorer.includeWorkingTree`|Specifies whether or not to include working tree files inside the `Repository Status` node of the `GitLens` custom view
 |`gitlens.gitExplorer.showTrackingBranch`|Specifies whether or not to show the tracking branch when displaying local branches in the `GitLens` custom view"
 |`gitlens.gitExplorer.commitFormat`|Specifies the format of committed changes in the `GitLens` custom view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
-|`gitlens.gitExplorer.commitFileFormat`|Specifies the format of a committed file in the `GitLens` custom view<br />Available tokens<br /> ${file} - file name<br /> ${filePath} - file name and path<br /> ${path} - file path
+|`gitlens.gitExplorer.commitFileFormat`|Specifies the format of a committed file in the `GitLens` custom view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
 |`gitlens.gitExplorer.stashFormat`|Specifies the format of stashed changes in the `GitLens` custom view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
-|`gitlens.gitExplorer.stashFileFormat`|Specifies the format of a stashed file in the `GitLens` custom view<br />Available tokens<br /> ${file} - file name<br /> ${filePath} - file name and path<br /> ${path} - file path
-|`gitlens.gitExplorer.statusFileFormat`|Specifies the format of the status of a working or committed file in the `GitLens` custom view<br />Available tokens<br /> ${file} - file name<br /> ${filePath} - file name and path<br /> ${path} - file path<br />${working} - optional indicator if the file is uncommitted
+|`gitlens.gitExplorer.stashFileFormat`|Specifies the format of a stashed file in the `GitLens` custom view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
+|`gitlens.gitExplorer.statusFileFormat`|Specifies the format of the status of a working or committed file in the `GitLens` custom view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path<br />${working} - optional indicator if the file is uncommitted
 
 ### Custom Remotes Settings
 

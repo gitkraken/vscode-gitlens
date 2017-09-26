@@ -63,10 +63,13 @@ export class GitUri extends Uri {
         return Uri.file(this.sha ? this.path : this.fsPath);
     }
 
-    getFormattedPath(separator: string = Strings.pad(GlyphChars.Dot, 2, 2)): string {
+    getFormattedPath(separator: string = Strings.pad(GlyphChars.Dot, 2, 2), relativeTo?: string): string {
         let directory = path.dirname(this.fsPath);
         if (this.repoPath) {
             directory = path.relative(this.repoPath, directory);
+        }
+        if (relativeTo !== undefined) {
+            directory = path.relative(relativeTo, directory);
         }
         directory = GitService.normalizePath(directory);
 
@@ -75,8 +78,12 @@ export class GitUri extends Uri {
             : `${path.basename(this.fsPath)}${separator}${directory}`;
     }
 
-    getRelativePath(): string {
-        return GitService.normalizePath(path.relative(this.repoPath || '', this.fsPath));
+    getRelativePath(relativeTo?: string): string {
+        let relativePath = path.relative(this.repoPath || '', this.fsPath);
+        if (relativeTo !== undefined) {
+            relativePath = path.relative(relativeTo, relativePath);
+        }
+        return GitService.normalizePath(relativePath);
     }
 
     static async fromUri(uri: Uri, git: GitService) {
@@ -104,15 +111,19 @@ export class GitUri extends Uri {
         return new GitUri(uri, repoPathOrCommit);
     }
 
-    static getDirectory(fileName: string): string {
-        const directory: string | undefined = GitService.normalizePath(path.dirname(fileName));
+    static getDirectory(fileName: string, relativeTo?: string): string {
+        let directory: string | undefined = path.dirname(fileName);
+        if (relativeTo !== undefined) {
+            directory = path.relative(relativeTo, directory);
+        }
+        directory = GitService.normalizePath(directory);
         return (!directory || directory === '.') ? '' : directory;
     }
 
-    static getFormattedPath(fileNameOrUri: string | Uri, separator: string = Strings.pad(GlyphChars.Dot, 2, 2)): string {
+    static getFormattedPath(fileNameOrUri: string | Uri, separator: string = Strings.pad(GlyphChars.Dot, 2, 2), relativeTo?: string): string {
         let fileName: string;
         if (fileNameOrUri instanceof Uri) {
-            if (fileNameOrUri instanceof GitUri) return fileNameOrUri.getFormattedPath(separator);
+            if (fileNameOrUri instanceof GitUri) return fileNameOrUri.getFormattedPath(separator, relativeTo);
 
             fileName = fileNameOrUri.fsPath;
         }
@@ -120,10 +131,28 @@ export class GitUri extends Uri {
             fileName = fileNameOrUri;
         }
 
-        const directory = GitUri.getDirectory(fileName);
+        const directory = GitUri.getDirectory(fileName, relativeTo);
         return !directory
             ? path.basename(fileName)
             : `${path.basename(fileName)}${separator}${directory}`;
+    }
+
+    static getRelativePath(fileNameOrUri: string | Uri, relativeTo?: string, repoPath?: string): string {
+        let fileName: string;
+        if (fileNameOrUri instanceof Uri) {
+            if (fileNameOrUri instanceof GitUri) return fileNameOrUri.getRelativePath(relativeTo);
+
+            fileName = fileNameOrUri.fsPath;
+        }
+        else {
+            fileName = fileNameOrUri;
+        }
+
+        let relativePath = path.relative(repoPath || '', fileName);
+        if (relativeTo !== undefined) {
+            relativePath = path.relative(relativeTo, relativePath);
+        }
+        return GitService.normalizePath(relativePath);
     }
 }
 

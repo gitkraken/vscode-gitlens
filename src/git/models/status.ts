@@ -56,15 +56,19 @@ export class GitStatusFile implements IGitStatusFile {
         return Uri.file(path.resolve(this.repoPath, this.fileName));
     }
 
-    static getFormattedDirectory(status: IGitStatusFile, includeOriginal: boolean = false): string {
-        const directory = GitUri.getDirectory(status.fileName);
+    static getFormattedDirectory(status: IGitStatusFile, includeOriginal: boolean = false, relativeTo?: string): string {
+        const directory = GitUri.getDirectory(status.fileName, relativeTo);
         return (includeOriginal && status.status === 'R' && status.originalFileName)
             ? `${directory} ${Strings.pad(GlyphChars.ArrowLeft, 1, 1)} ${status.originalFileName}`
             : directory;
     }
 
-    static getFormattedPath(status: IGitStatusFile, separator: string = Strings.pad(GlyphChars.Dot, 2, 2)): string {
-        return GitUri.getFormattedPath(status.fileName, separator);
+    static getFormattedPath(status: IGitStatusFile, separator: string = Strings.pad(GlyphChars.Dot, 2, 2), relativeTo?: string): string {
+        return GitUri.getFormattedPath(status.fileName, separator, relativeTo);
+    }
+
+    static getRelativePath(status: IGitStatusFile, relativeTo?: string): string {
+        return GitUri.getRelativePath(status.fileName, relativeTo);
     }
 }
 
