@@ -6,6 +6,8 @@ interface FileStatusEntry {
     status: GitStatusFileStatus;
     fileName: string;
     originalFileName: string;
+    workTreeStatus: GitStatusFileStatus;
+    indexStatus: GitStatusFileStatus;
 }
 
 const aheadStatusV1Regex = /(?:ahead ([0-9]+))/;
@@ -69,7 +71,7 @@ export class GitStatusParser {
                 else {
                     entry = this._parseFileEntry(rawStatus, fileName);
                 }
-                status.files.push(new GitStatusFile(repoPath, entry.status, entry.fileName, entry.staged, entry.originalFileName));
+                status.files.push(new GitStatusFile(repoPath, entry.status, entry.workTreeStatus, entry.indexStatus, entry.fileName, entry.staged, entry.originalFileName));
             }
         }
     }
@@ -117,7 +119,7 @@ export class GitStatusParser {
                 }
 
                 if (entry !== undefined) {
-                    status.files.push(new GitStatusFile(repoPath, entry.status, entry.fileName, entry.staged, entry.originalFileName));
+                    status.files.push(new GitStatusFile(repoPath, entry.status, entry.workTreeStatus, entry.indexStatus, entry.fileName, entry.staged, entry.originalFileName));
                 }
             }
         }
@@ -131,7 +133,9 @@ export class GitStatusParser {
             status: (indexStatus || workTreeStatus || '?') as GitStatusFileStatus,
             fileName: fileName,
             originalFileName: originalFileName,
-            staged: !!indexStatus
+            staged: !!indexStatus,
+            indexStatus: indexStatus,
+            workTreeStatus: workTreeStatus
         } as FileStatusEntry;
     }
 }

@@ -3,6 +3,7 @@
 import { commands, ExtensionContext, extensions, languages, window, workspace } from 'vscode';
 import { AnnotationController } from './annotations/annotationController';
 import { CloseUnchangedFilesCommand, OpenChangedFilesCommand } from './commands';
+import { ExternalDiffCommand } from './commands';
 import { OpenBranchesInRemoteCommand, OpenBranchInRemoteCommand, OpenCommitInRemoteCommand, OpenFileInRemoteCommand, OpenInRemoteCommand, OpenRepoInRemoteCommand } from './commands';
 import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './commands';
 import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithBranchCommand, DiffWithCommand, DiffWithNextCommand, DiffWithPreviousCommand, DiffWithRevisionCommand, DiffWithWorkingCommand } from './commands';
@@ -99,6 +100,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(commands.registerTextEditorCommand('gitlens.computingFileAnnotations', () => { }));
 
     context.subscriptions.push(new CloseUnchangedFilesCommand(git));
+    context.subscriptions.push(new ExternalDiffCommand(git));
     context.subscriptions.push(new OpenChangedFilesCommand(git));
     context.subscriptions.push(new CopyMessageToClipboardCommand(git));
     context.subscriptions.push(new CopyShaToClipboardCommand(git));

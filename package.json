@@ -1069,6 +1069,11 @@
                 }
             },
             {
+                "command": "gitlens.externalDiff",
+                "title": "Open Changes (with difftool)",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.resetSuppressedWarnings",
                 "title": "Reset Suppressed Warnings",
                 "category": "GitLens"
@@ -1520,23 +1525,33 @@
                 {
                     "command": "gitlens.openChangedFiles",
                     "when": "gitlens:enabled",
-                    "group": "1_gitlens@1"
+                    "group": "2_gitlens@1"
                 },
                 {
                     "command": "gitlens.closeUnchangedFiles",
                     "when": "gitlens:enabled",
-                    "group": "1_gitlens@2"
+                    "group": "2_gitlens@2"
+                },
+                {
+                    "command": "gitlens.externalDiff",
+                    "when": "gitlens:enabled",
+                    "group": "2_gitlens@3"
                 },
                 {
                     "command": "gitlens.stashSave",
                     "when": "gitlens:enabled",
-                    "group": "2_gitlens@1"
+                    "group": "3_gitlens@1"
                 }
             ],
             "scm/resourceState/context": [
                 {
                     "command": "gitlens.openFileInRemote",
                     "when": "gitlens:enabled && gitlens:hasRemotes",
+                    "group": "navigation"
+                },
+                {
+                    "command": "gitlens.externalDiff",
+                    "when": "gitlens:enabled",
                     "group": "navigation"
                 },
                 {
