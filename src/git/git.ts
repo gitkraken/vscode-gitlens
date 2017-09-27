@@ -276,6 +276,17 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...params);
     }
 
+    static difftool_fileDiff(repoPath: string, fileName: string, staged: boolean) {
+        const params = [`difftool`, `--no-prompt`];
+        if (staged) {
+            params.push('--staged');
+        }
+        params.push('--');
+        params.push(fileName);
+
+        return gitCommand({ cwd: repoPath }, ...params);
+    }
+
     static log(repoPath: string, sha?: string, maxCount?: number, reverse: boolean = false) {
         const params = [...defaultLogParams, `-m`];
         if (maxCount && !reverse) {

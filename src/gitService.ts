@@ -1036,6 +1036,12 @@ export class GitService extends Disposable {
         return !!result;
     }
 
+    openDiffTool(repoPath: string, uri: Uri, staged: boolean) {
+        Logger.log(`openDiffTool('${repoPath}', '${uri}', ${staged})`);
+
+        return Git.difftool_fileDiff(repoPath, uri.fsPath, staged);
+    }
+
     openDirectoryDiff(repoPath: string, sha1: string, sha2?: string) {
         Logger.log(`openDirectoryDiff('${repoPath}', ${sha1}, ${sha2})`);
 

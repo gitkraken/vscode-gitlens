@@ -19,6 +19,7 @@ export type Commands =
     'gitlens.diffWithRevision' |
     'gitlens.diffWithWorking' |
     'gitlens.diffLineWithWorking' |
+    'gitlens.externalDiff' |
     'gitlens.openChangedFiles' |
     'gitlens.openBranchesInRemote' |
     'gitlens.openBranchInRemote' |
@@ -61,6 +62,7 @@ export const Commands = {
     DiffWithRevision: 'gitlens.diffWithRevision' as Commands,
     DiffWithWorking: 'gitlens.diffWithWorking' as Commands,
     DiffLineWithWorking: 'gitlens.diffLineWithWorking' as Commands,
+    ExternalDiff: 'gitlens.externalDiff' as Commands,
     OpenChangedFiles: 'gitlens.openChangedFiles' as Commands,
     OpenBranchesInRemote: 'gitlens.openBranchesInRemote' as Commands,
     OpenBranchInRemote: 'gitlens.openBranchInRemote' as Commands,

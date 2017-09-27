@@ -14,6 +14,7 @@ export * from './commands/diffWithNext';
 export * from './commands/diffWithPrevious';
 export * from './commands/diffWithRevision';
 export * from './commands/diffWithWorking';
+export * from './commands/externalDiff';
 export * from './commands/openChangedFiles';
 export * from './commands/openBranchesInRemote';
 export * from './commands/openBranchInRemote';
