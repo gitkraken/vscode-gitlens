@@ -420,7 +420,7 @@ export class Git {
 
     static status(repoPath: string, porcelainVersion: number = 1): Promise<string> {
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
-        return gitCommand({ cwd: repoPath }, 'status', porcelain, '--branch');
+        return gitCommand({ cwd: repoPath }, 'status', porcelain, '--branch', '-u');
     }
 
     static status_file(repoPath: string, fileName: string, porcelainVersion: number = 1): Promise<string> {

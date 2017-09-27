@@ -18,6 +18,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 - Changes `${path}` token to be the full file path in the file formatting settings
 
+### Fixed
+- Fixes [#153](https://github.com/eamodio/vscode-gitlens/issues/153) - New folders treated as files in "Changed Files" section of the sidebar component
+
 ## [5.2.0] - 2017-09-23
 ### Added
 - Adds new `Changed Files` node to the `Repository Status` node of the `GitLens` custom view's `Repository View` -- closes [#139](https://github.com/eamodio/vscode-gitlens/issues/139)
