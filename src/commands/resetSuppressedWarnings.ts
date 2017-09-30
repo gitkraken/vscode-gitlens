@@ -12,7 +12,7 @@ export class ResetSuppressedWarningsCommand extends Command {
 
     async execute() {
         for (const key of Objects.values(SuppressedKeys)) {
-            await this.context.globalState.update(key, false);
+            await this.context.globalState.update(key, undefined);
         }
     }
 }
