@@ -40,8 +40,8 @@ interface Resource extends SourceControlResourceState {
 }
 
 class ExternalDiffFile {
-    constructor(public uri: Uri, public staged: boolean) {
-    }
+
+    constructor(public uri: Uri, public staged: boolean) { }
 }
 
 export interface ExternalDiffCommandArgs {
@@ -49,6 +49,7 @@ export interface ExternalDiffCommandArgs {
 }
 
 export class ExternalDiffCommand extends Command {
+
     constructor(private git: GitService) {
         super(Commands.ExternalDiff);
     }
@@ -56,14 +57,17 @@ export class ExternalDiffCommand extends Command {
     protected async preExecute(context: CommandContext, args: ExternalDiffCommandArgs = {}): Promise<any> {
         if (context.type === 'scm-states') {
             args = { ...args };
-            args.files = context.scmResourceStates.map<ExternalDiffFile>((_: Resource) => new ExternalDiffFile(_.resourceUri, _.resourceGroupType === ResourceGroupType.Index));
+            args.files = context.scmResourceStates
+                .map<ExternalDiffFile>((r: Resource) => new ExternalDiffFile(r.resourceUri, r.resourceGroupType === ResourceGroupType.Index));
 
             return this.execute(args);
         } else if (context.type === 'scm-groups') {
             const isModified = (status: Status): boolean => status === Status.BOTH_MODIFIED || status === Status.INDEX_MODIFIED || status === Status.MODIFIED;
 
             args = { ...args };
-            args.files = context.scmResourceGroups[0].resourceStates.filter((_: Resource) => isModified(_.type)).map<ExternalDiffFile>((_: Resource) => new ExternalDiffFile(_.resourceUri, _.resourceGroupType === ResourceGroupType.Index));
+            args.files = context.scmResourceGroups[0].resourceStates
+                .filter((r: Resource) => isModified(r.type))
+                .map<ExternalDiffFile>((r: Resource) => new ExternalDiffFile(r.resourceUri, r.resourceGroupType === ResourceGroupType.Index));
 
             return this.execute(args);
         }
@@ -84,7 +88,7 @@ export class ExternalDiffCommand extends Command {
             const repoPath = await this.git.getRepoPathFromUri(undefined);
             if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open changed files`);
 
-            if (!args.files) {
+            if (args.files === undefined) {
                 const status = await this.git.getStatusForRepo(repoPath);
                 if (status === undefined) return window.showWarningMessage(`Unable to open changed files`);
 
