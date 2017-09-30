@@ -26,7 +26,16 @@ export function getNameFromRemoteResource(resource: RemoteResource) {
 
 export abstract class RemoteProvider {
 
-    constructor(public domain: string, public path: string, public custom: boolean = false) { }
+    private _name: string | undefined;
+
+    constructor(
+        public readonly domain: string,
+        public readonly path: string,
+        name?: string,
+        public readonly custom: boolean = false
+    ) {
+        this._name = name;
+    }
 
     abstract get name(): string;
 
@@ -35,6 +44,7 @@ export abstract class RemoteProvider {
     }
 
     protected formatName(name: string) {
+        if (this._name !== undefined) return this._name;
         return `${name}${this.custom ? ` (${this.domain})` : ''}`;
     }
 
@@ -43,6 +53,9 @@ export abstract class RemoteProvider {
         return [ this.path.substring(0, index), this.path.substring(index + 1) ];
     }
 
+    protected getUrlForRepository(): string {
+        return this.baseUrl;
+    }
     protected abstract getUrlForBranches(): string;
     protected abstract getUrlForBranch(branch: string): string;
     protected abstract getUrlForCommit(sha: string): string;
@@ -66,7 +79,7 @@ export abstract class RemoteProvider {
     }
 
     openRepo() {
-        return this._openUrl(this.baseUrl);
+        return this._openUrl(this.getUrlForRepository());
     }
 
     openBranches() {

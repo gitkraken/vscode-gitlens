@@ -5,6 +5,7 @@ import { BitbucketService } from './bitbucket';
 import { BitbucketServerService } from './bitbucket-server';
 import { CustomRemoteType, IConfig, IRemotesConfig } from '../../configuration';
 import { ExtensionKey } from '../../constants';
+import { CustomService } from './custom';
 import { GitHubService } from './github';
 import { GitLabService } from './gitlab';
 import { Logger } from '../../logger';
@@ -62,11 +63,11 @@ export class RemoteProviderFactory {
 
             this._remotesCfg = cfg.remotes;
             if (this._remotesCfg != null && this._remotesCfg.length > 0) {
-                for (const svc of this._remotesCfg) {
-                    const provider = this.getCustomProvider(svc.type);
+                for (const remoteCfg of this._remotesCfg) {
+                    const provider = this.getCustomProvider(remoteCfg);
                     if (provider === undefined) continue;
 
-                    this._providerMap.set(svc.domain.toLowerCase(), provider);
+                    this._providerMap.set(remoteCfg.domain.toLowerCase(), provider);
                 }
 
                 if (!silent) {
@@ -76,12 +77,13 @@ export class RemoteProviderFactory {
         }
     }
 
-    private static getCustomProvider(type: CustomRemoteType) {
-        switch (type) {
-            case CustomRemoteType.Bitbucket: return (domain: string, path: string) => new BitbucketService(domain, path, true);
-            case CustomRemoteType.BitbucketServer: return (domain: string, path: string) => new BitbucketServerService(domain, path, true);
-            case CustomRemoteType.GitHub: return (domain: string, path: string) => new GitHubService(domain, path, true);
-            case CustomRemoteType.GitLab: return (domain: string, path: string) => new GitLabService(domain, path, true);
+    private static getCustomProvider(cfg: IRemotesConfig) {
+        switch (cfg.type) {
+            case CustomRemoteType.Bitbucket: return (domain: string, path: string) => new BitbucketService(domain, path, cfg.name, true);
+            case CustomRemoteType.BitbucketServer: return (domain: string, path: string) => new BitbucketServerService(domain, path, cfg.name, true);
+            case CustomRemoteType.Custom: return (domain: string, path: string) => new CustomService(domain, path, cfg);
+            case CustomRemoteType.GitHub: return (domain: string, path: string) => new GitHubService(domain, path, cfg.name, true);
+            case CustomRemoteType.GitLab: return (domain: string, path: string) => new GitLabService(domain, path, cfg.name, true);
         }
         return undefined;
     }

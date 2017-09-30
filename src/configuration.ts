@@ -44,11 +44,13 @@ export const LineHighlightLocations = {
 
 export type CustomRemoteType =
     'Bitbucket' |
+    'Custom' |
     'GitHub' |
     'GitLab';
 export const CustomRemoteType = {
     Bitbucket: 'Bitbucket' as CustomRemoteType,
     BitbucketServer: 'BitbucketServer' as CustomRemoteType,
+    Custom: 'Custom' as CustomRemoteType,
     GitHub: 'GitHub' as CustomRemoteType,
     GitLab: 'GitLab' as CustomRemoteType
 };
@@ -163,6 +165,18 @@ export interface IGitExplorerConfig {
 export interface IRemotesConfig {
     type: CustomRemoteType;
     domain: string;
+    name?: string;
+    urls?: {
+        repository: string;
+        branches: string;
+        branch: string;
+        commit: string;
+        file: string;
+        fileInBranch: string;
+        fileInCommit: string;
+        fileLine: string;
+        fileRange: string;
+    };
 }
 
 export interface IThemeConfig {

@@ -4,8 +4,8 @@ import { RemoteProvider } from './provider';
 
 export class VisualStudioService extends RemoteProvider {
 
-    constructor(public domain: string, public path: string) {
-        super(domain, path);
+    constructor(domain: string, path: string, name?: string) {
+        super(domain, path, name);
     }
 
     get name() {

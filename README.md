@@ -178,7 +178,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 - Adds a `Search Commits` command (`gitlens.showCommitSearch`) with a shortcut of `alt+/` to search for commits by message, author, file(s), or commit id
 
-- Adds commands to open files, commits, branches, and the repository in the supported remote services, currently **BitBucket, GitHub, GitLab, and Visual Studio Team Services** — only available if a Git upstream service is configured in the repository
+- Adds commands to open files, commits, branches, and the repository in the supported remote services, **BitBucket, GitHub, GitLab, and Visual Studio Team Services** or a [**user-defined** remote services](#custom-remotes-settings) — only available if a Git upstream service is configured in the repository
   - Also supports [remote services with custom domains](#custom-remotes-settings), such as **BitBucket, Bitbucket Server (previously called Stash), GitHub, GitHub Enterprise, GitLab**
   - `Open Branches in Remote` command (`gitlens.openBranchesInRemote`) — opens the branches in the supported remote service
   - `Open Branch in Remote` command (`gitlens.openBranchInRemote`) — opens the current branch commits in the supported remote service
@@ -371,7 +371,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 
 |Name | Description
 |-----|------------
-|`gitlens.remotes`|Specifies any custom domains for remote (code-hosting) services<br />Example: ```"gitlens.remotes": [{ "domain": "git.corporate-url.com", "type": "GitHub" }]```
+|`gitlens.remotes`|Specifies user-defined remote (code-hosting) services or custom domains for built-in remote services<br /><br />Example:<br />```"gitlens.remotes": [{ "domain": "git.corporate-url.com", "type": "GitHub" }]```<br /><br />Example:<br />```"gitlens.remotes": [{ "domain": "git.corporate-url.com", "type": "Custom", "name": "My Company", "urls": { "repository": "https://git.corporate-url.com/${repo}", "branches": "https://git.corporate-url.com/${repo}/branches", "branch": "https://git.corporate-url.com/${repo}/commits/${branch}", "commit": "https://git.corporate-url.com/${repo}/commit/${id}", "file": "https://git.corporate-url.com/${repo}?path=${file}${line}", "fileInBranch": "https://git.corporate-url.com/${repo}/blob/${branch}/${file}${line}", "fileInCommit": "https://git.corporate-url.com/${repo}/blob/${id}/${file}${line}", "fileLine": "#L${line}", "fileRange": "#L${start}-L${end}" } }```
 
 ### Status Bar Settings
 

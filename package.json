@@ -498,6 +498,7 @@
                                 "enum": [
                                     "Bitbucket",
                                     "BitbucketServer",
+                                    "Custom",
                                     "GitHub",
                                     "GitLab"
                                 ],
@@ -506,11 +507,68 @@
                             "domain": {
                                 "type": "string",
                                 "description": "Specifies the domain name of the custom remote service"
-                            }
+                            },
+                            "name": {
+                                "type": "string",
+                                "description": "Specifies an optional friendly name for the custom remote service"
+                            },
+                            "urls": {
+                                "type": "object",
+                                "required": [
+                                    "repository",
+                                    "branches",
+                                    "branch",
+                                    "commit",
+                                    "file",
+                                    "fileInCommit",
+                                    "fileInBranch",
+                                    "fileLine",
+                                    "fileRange"
+                                ],
+                                "properties": {
+                                    "repository": {
+                                        "type": "string",
+                                        "description": "Specifies the format of a respository url for the custom remote service\nAvailable tokens\n ${repo} - repository path"
+                                    },
+                                    "branches": {
+                                        "type": "string",
+                                        "description": "Specifies the format of a branches url for the custom remote service\nAvailable tokens\n ${repo} - repository path\n ${branch} - branch"
+                                    },
+                                    "branch": {
+                                        "type": "string",
+                                        "description": "Specifies the format of a branch url for the custom remote service\nAvailable tokens\n ${repo} - repository path\n ${branch} - branch"
+                                    },
+                                    "commit": {
+                                        "type": "string",
+                                        "description": "Specifies the format of a commit url for the custom remote service\nAvailable tokens\n ${repo} - repository path\n ${id} - commit id"
+                                    },
+                                    "file": {
+                                        "type": "string",
+                                        "description": "Specifies the format of a file url for the custom remote service\nAvailable tokens\n ${repo} - repository path\n ${file} - file name\n ${line} - formatted line information"
+                                    },
+                                    "fileInBranch": {
+                                        "type": "string",
+                                        "description": "Specifies the format of a branch file url for the custom remote service\nAvailable tokens\n ${repo} - repository path\n ${file} - file name\n ${branch} - branch\n ${line} - formatted line information"
+                                    },
+                                    "fileInCommit": {
+                                        "type": "string",
+                                        "description": "Specifies the format of a commit file url for the custom remote service\nAvailable tokens\n ${repo} - repository path\n ${file} - file name\n ${id} - commit id\n ${line} - formatted line information"
+                                    },
+                                    "fileLine": {
+                                        "type": "string",
+                                        "description": "Specifies the format of a line in a file url for the custom remote service\nAvailable tokens\n ${line} - line"
+                                    },
+                                    "fileRange": {
+                                        "type": "string",
+                                        "description": "Specifies the format of a range in a file url for the custom remote service\nAvailable tokens\n ${start} - starting line\n ${end} - ending line"
+                                    }
+                                }
+                            },
+                            "description": "Specifies the url formats of the custom remote service"
                         }
                     },
                     "uniqueItems": true,
-                    "description": "Specifies any custom domains for remote (code-hosting) services"
+                    "description": "Specifies user-defined remote (code-hosting) services or custom domains for built-in remote services"
                 },
                 "gitlens.statusBar.enabled": {
                     "type": "boolean",
