@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [5.4.0] - 2017-09-30
+### Added
+- Adds support for user-defined remote services via `gitlens.remotes` setting -- closes [#148](https://github.com/eamodio/vscode-gitlens/issues/148)
+- Adds `Open Changes (with difftool)` command (`gitlens.externalDiff`) - opens the changes of a file or set of files with the configured git difftool -- thanks to [PR #154](https://github.com/eamodio/vscode-gitlens/pull/154) by Chris Kaczor ([@ckaczor](https://github.com/ckaczor))!
+  - Adds to the source control group and source control resource context menus
+
 ## [5.3.0] - 2017-09-26
 ### Added
 - Adds new file layouts to the `GitLens` custom view
