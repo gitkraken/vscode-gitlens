@@ -53,7 +53,11 @@ export class Annotations {
         }
 
         let message = '';
+        let openInRemoteCommand = '';
+        let showCommitDetailsCommand = '';
         if (!commit.isUncommitted) {
+            if (hasRemotes) openInRemoteCommand = `${'&nbsp;'.repeat(3)} [\`${GlyphChars.ArrowUpRight}\`](${OpenCommitInRemoteCommand.getMarkdownCommandArgs(commit.sha)} "Open in Remote") &nbsp; `;
+            showCommitDetailsCommand = `[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show Commit Details") &nbsp; `;
             message = commit.message
                 // Escape markdown
                 .replace(escapeMarkdownRegEx, '\\$&')
@@ -64,17 +68,13 @@ export class Annotations {
             message = `\n\n> ${message}`;
         }
 
-        const openInRemoteCommand = hasRemotes
-            ? `${'&nbsp;'.repeat(3)} [\`${GlyphChars.ArrowUpRight}\`](${OpenCommitInRemoteCommand.getMarkdownCommandArgs(commit.sha)} "Open in Remote")`
-            : '';
-
-        const markdown = new MarkdownString(`[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show Commit Details") &nbsp; __${commit.author}__, ${commit.fromNow()} &nbsp; _(${commit.formatDate(dateFormat)})_ ${openInRemoteCommand} &nbsp; ${message}`);
+        const markdown = new MarkdownString(`${showCommitDetailsCommand}__${commit.author}__, ${commit.fromNow()} &nbsp; _(${commit.formatDate(dateFormat)})_ ${openInRemoteCommand}${message}`);
         markdown.isTrusted = true;
         return markdown;
     }
 
     static getHoverDiffMessage(commit: GitCommit, chunkLine: GitDiffChunkLine | undefined): MarkdownString | undefined {
-        if (chunkLine === undefined) return undefined;
+        if (chunkLine === undefined || commit.previousSha === undefined) return undefined;
 
         const codeDiff = this._getCodeDiff(chunkLine);
         const markdown = new MarkdownString(commit.isUncommitted
