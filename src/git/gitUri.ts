@@ -5,7 +5,12 @@ import { DocumentSchemes, GlyphChars } from '../constants';
 import { GitService, IGitStatusFile } from '../gitService';
 import * as path from 'path';
 
-export class GitUri extends Uri {
+interface UriEx {
+    new(): Uri;
+    new(scheme: string, authority: string, path: string, query: string, fragment: string): Uri;
+}
+
+export class GitUri extends (Uri as UriEx) {
 
     offset: number;
     repoPath?: string | undefined;
@@ -15,20 +20,14 @@ export class GitUri extends Uri {
     constructor(uri?: Uri, repoPath?: string);
     constructor(uri?: Uri, commitOrRepoPath?: IGitCommitInfo | string);
     constructor(uri?: Uri, commitOrRepoPath?: IGitCommitInfo | string) {
-        super();
-        if (!uri) return;
-
-        const base = this as any;
-        for (const key in uri) {
-            if (uri.hasOwnProperty(key)) {
-                base[key] = (uri as any)[key];
-            }
+        if (uri === undefined) {
+            super();
+            return;
         }
 
-        this.offset = 0;
         if (uri.scheme === DocumentSchemes.GitLensGit) {
             const data = GitService.fromGitContentUri(uri);
-            base._fsPath = path.resolve(data.repoPath, data.originalFileName || data.fileName);
+            super(uri.scheme, uri.authority, path.resolve(data.repoPath, data.originalFileName || data.fileName), uri.query, uri.fragment);
 
             this.offset = (data.decoration && data.decoration.split('\n').length) || 0;
             if (!GitService.isUncommitted(data.sha)) {
@@ -38,12 +37,16 @@ export class GitUri extends Uri {
         }
         else if (commitOrRepoPath) {
             if (typeof commitOrRepoPath === 'string') {
+                super(uri.scheme, uri.authority, uri.path, uri.query, uri.fragment);
+
+                this.offset = 0;
                 this.repoPath = commitOrRepoPath;
             }
             else {
                 const commit = commitOrRepoPath;
-                base._fsPath = path.resolve(commit.repoPath, commit.originalFileName || commit.fileName || '');
+                super(uri.scheme, uri.authority, path.resolve(commit.repoPath, commit.originalFileName || commit.fileName || ''), uri.query, uri.fragment);
 
+                this.offset = 0;
                 if (commit.repoPath !== undefined) {
                     this.repoPath = commit.repoPath;
                 }
@@ -90,6 +93,8 @@ export class GitUri extends Uri {
         if (uri instanceof GitUri) return uri;
 
         if (!git.isTrackable(uri)) return new GitUri(uri, git.repoPath);
+
+        if (uri.scheme === DocumentSchemes.GitLensGit) return new GitUri(uri);
 
         // If this is a git uri, assume it is showing the most recent commit
         if (uri.scheme === DocumentSchemes.Git) {
