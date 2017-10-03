@@ -48,7 +48,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
                     args = {
                         repoPath: commit1.repoPath,
                         lhs: {
-                            sha: commit1.previousSha!,
+                            sha: commit1.previousSha !== undefined ? commit1.previousSha : GitService.fakeSha,
                             uri: commit1.previousUri!
                         },
                         rhs: {
