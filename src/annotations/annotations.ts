@@ -56,8 +56,11 @@ export class Annotations {
         let openInRemoteCommand = '';
         let showCommitDetailsCommand = '';
         if (!commit.isUncommitted) {
-            if (hasRemotes) openInRemoteCommand = `${'&nbsp;'.repeat(3)} [\`${GlyphChars.ArrowUpRight}\`](${OpenCommitInRemoteCommand.getMarkdownCommandArgs(commit.sha)} "Open in Remote") &nbsp; `;
-            showCommitDetailsCommand = `[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show Commit Details") &nbsp; `;
+            if (hasRemotes) {
+                openInRemoteCommand = `${'&nbsp;'.repeat(2)} [\`${GlyphChars.ArrowUpRight}\`](${OpenCommitInRemoteCommand.getMarkdownCommandArgs(commit.sha)} "Open in Remote") `;
+            }
+            showCommitDetailsCommand = `[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show Commit Details")`;
+
             message = commit.message
                 // Escape markdown
                 .replace(escapeMarkdownRegEx, '\\$&')
@@ -67,8 +70,11 @@ export class Annotations {
                 .replace(/\n/g, '  \n');
             message = `\n\n> ${message}`;
         }
+        else {
+            showCommitDetailsCommand = `\`${commit.shortSha}\``;
+        }
 
-        const markdown = new MarkdownString(`${showCommitDetailsCommand}__${commit.author}__, ${commit.fromNow()} &nbsp; _(${commit.formatDate(dateFormat)})_ ${openInRemoteCommand}${message}`);
+        const markdown = new MarkdownString(`${showCommitDetailsCommand} &nbsp; __${commit.author}__, ${commit.fromNow()} &nbsp; _(${commit.formatDate(dateFormat)})_ ${openInRemoteCommand}${message}`);
         markdown.isTrusted = true;
         return markdown;
     }
