@@ -913,8 +913,12 @@ export class GitService extends Disposable {
     }
 
     hasRemotes(repoPath: string): boolean {
-        const remotes = this._remotesCache.get(repoPath);
+        const remotes = this._remotesCache.get(this.normalizeRepoPath(repoPath));
         return remotes !== undefined && remotes.length > 0;
+    }
+
+    private normalizeRepoPath(repoPath: string) {
+        return (repoPath.endsWith('/') ? repoPath : `${repoPath}/`).toLowerCase();
     }
 
     async getRemotes(repoPath: string): Promise<GitRemote[]> {
@@ -922,14 +926,16 @@ export class GitService extends Disposable {
 
         Logger.log(`getRemotes('${repoPath}')`);
 
-        let remotes = this._remotesCache.get(repoPath);
+        const normalizedRepoPath = this.normalizeRepoPath(repoPath);
+
+        let remotes = this._remotesCache.get(normalizedRepoPath);
         if (remotes !== undefined) return remotes;
 
         const data = await Git.remote(repoPath);
         remotes = GitRemoteParser.parse(data, repoPath);
 
         if (remotes !== undefined) {
-            this._remotesCache.set(repoPath, remotes);
+            this._remotesCache.set(normalizedRepoPath, remotes);
         }
 
         return remotes;
