@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Changed
+- Changes annotation hovers to only add `Open in Remote` and `Show Commit Details` commands when applicable -- thanks to [PR #158](https://github.com/eamodio/vscode-gitlens/pull/158) by SpaceEEC ([@SpaceEEC](https://github.com/SpaceEEC))!
+
+### Fixed
+- Fixes issue where `Changes` hover annotation displayed incorrect info when there was no previous commit -- thanks to [PR #158](https://github.com/eamodio/vscode-gitlens/pull/158) by SpaceEEC ([@SpaceEEC](https://github.com/SpaceEEC))!
+- Fixes issue when checking for remotes could return no remotes even if remotes are configured
+
 ## [5.4.0] - 2017-09-30
 ### Added
 - Adds support for user-defined remote services via `gitlens.remotes` setting -- closes [#148](https://github.com/eamodio/vscode-gitlens/issues/148)
