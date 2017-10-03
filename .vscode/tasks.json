@@ -23,19 +23,16 @@
             "group": "build",
             "problemMatcher": [
                 "$tsc",
-                {
-                    "base": "$tslint5",
-                    "fileLocation": "relative"
-                }
+                "$tslint5"
             ]
         },
         {
+            "label": "lint",
             "type": "npm",
             "script": "lint",
-            "problemMatcher": {
-                "base": "$tslint5",
-                "fileLocation": "relative"
-            }
+            "problemMatcher": [
+                "$tslint5"
+            ]
         },
         {
             "type": "npm",

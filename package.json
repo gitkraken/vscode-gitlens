@@ -2005,14 +2005,15 @@
     ],
     "scripts": {
         "clean": "git clean -xdf",
-        "compile": "tslint --project tslint.json && tsc -p ./",
+        "compile": "npm run lint && tsc -p ./",
         "watch": "tsc -watch -p ./",
         "lint": "tslint --project tslint.json",
-        "pack": "git clean -xdf && vsce package",
+        "pack": "npm run clean && vsce package",
         "postinstall": "node ./node_modules/vscode/bin/install",
-        "pub": "git clean -xdf && vsce publish",
-        "reset": "git clean -xdf && npm install",
-        "vscode:prepublish": "npm install --no-save && npm run compile"
+        "pub": "npm run clean && vsce publish",
+        "reset": "npm run clean && npm install",
+        "vscode:prepublish": "npm install --no-save && npm run compile",
+        "precommit": "npm run compile"
     },
     "dependencies": {
         "applicationinsights": "0.21.0",
@@ -2033,6 +2034,7 @@
         "@types/mocha": "2.2.43",
         "@types/node": "8.0.31",
         "@types/tmp": "0.0.33",
+        "husky": "^0.14.3",
         "mocha": "3.5.3",
         "tslint": "5.7.0",
         "typescript": "2.5.3",
