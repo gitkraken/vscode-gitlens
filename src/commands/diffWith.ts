@@ -26,7 +26,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
     static getMarkdownCommandArgs(args: DiffWithCommandArgs): string;
     static getMarkdownCommandArgs(commit1: GitCommit, commit2: GitCommit): string;
     static getMarkdownCommandArgs(argsOrCommit1: DiffWithCommandArgs | GitCommit, commit2?: GitCommit): string {
-        let args = argsOrCommit1;
+        let args: DiffWithCommandArgs | GitCommit;
         if (argsOrCommit1 instanceof GitCommit) {
             const commit1 = argsOrCommit1;
 
@@ -71,6 +71,9 @@ export class DiffWithCommand extends ActiveEditorCommand {
                     }
                 };
             }
+        }
+        else {
+            args = argsOrCommit1;
         }
 
         return super.getMarkdownCommandArgsCore<DiffWithCommandArgs>(Commands.DiffWith, args);

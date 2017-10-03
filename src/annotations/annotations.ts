@@ -1,6 +1,7 @@
 import { Dates, Objects, Strings } from '../system';
-import { DecorationInstanceRenderOptions, DecorationOptions, MarkdownString, ThemableDecorationRenderOptions } from 'vscode';
-import { DiffWithCommand, OpenCommitInRemoteCommand, ShowQuickCommitDetailsCommand } from '../commands';
+import { DecorationInstanceRenderOptions, DecorationOptions, MarkdownString, ThemableDecorationRenderOptions, window } from 'vscode';
+import { FileAnnotationType } from './annotationController';
+import { DiffWithCommand, OpenCommitInRemoteCommand, OpenFileRevisionCommand, ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand } from '../commands';
 import { IThemeConfig, themeDefaults } from '../configuration';
 import { GlyphChars } from '../constants';
 import { CommitFormatter, GitCommit, GitDiffChunkLine, GitService, GitUri, ICommitFormatOptions } from '../gitService';
@@ -47,18 +48,39 @@ export class Annotations {
         return '#793738';
     }
 
-    static getHoverMessage(commit: GitCommit, dateFormat: string | null, hasRemotes: boolean): MarkdownString {
+    private static getHoverCommandBar(commit: GitCommit, hasRemotes: boolean, annotationType?: FileAnnotationType) {
+        let commandBar = `[\`${GlyphChars.DoubleArrowLeft}\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") `;
+
+        if (commit.previousSha !== undefined) {
+            if (annotationType === FileAnnotationType.RecentChanges) {
+                annotationType = FileAnnotationType.Gutter;
+            }
+
+            const uri = GitService.toGitContentUri(commit.previousSha, commit.previousUri.fsPath, commit.repoPath);
+            const line = window.activeTextEditor!.selection.active.line;
+
+            commandBar += `[\`${GlyphChars.SquareWithTopShadow}\`](${OpenFileRevisionCommand.getMarkdownCommandArgs(uri, annotationType || FileAnnotationType.Gutter, line)} "Blame Previous Revision") `;
+        }
+
+        if (hasRemotes) {
+            commandBar += `[\`${GlyphChars.ArrowUpRight}\`](${OpenCommitInRemoteCommand.getMarkdownCommandArgs(commit.sha)} "Open in Remote") `;
+        }
+
+        commandBar += `[\`${GlyphChars.MiddleEllipsis}\`](${ShowQuickCommitFileDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show More Actions")`;
+
+        return commandBar;
+    }
+
+    static getHoverMessage(commit: GitCommit, dateFormat: string | null, hasRemotes: boolean, annotationType?: FileAnnotationType): MarkdownString {
         if (dateFormat === null) {
             dateFormat = 'MMMM Do, YYYY h:MMa';
         }
 
         let message = '';
-        let openInRemoteCommand = '';
+        let commandBar = '';
         let showCommitDetailsCommand = '';
         if (!commit.isUncommitted) {
-            if (hasRemotes) {
-                openInRemoteCommand = `${'&nbsp;'.repeat(2)} [\`${GlyphChars.ArrowUpRight}\`](${OpenCommitInRemoteCommand.getMarkdownCommandArgs(commit.sha)} "Open in Remote") `;
-            }
+            commandBar = `\n\n${this.getHoverCommandBar(commit, hasRemotes, annotationType)}`;
             showCommitDetailsCommand = `[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show Commit Details")`;
 
             message = commit.message
@@ -74,7 +96,7 @@ export class Annotations {
             showCommitDetailsCommand = `\`${commit.shortSha}\``;
         }
 
-        const markdown = new MarkdownString(`${showCommitDetailsCommand} &nbsp; __${commit.author}__, ${commit.fromNow()} &nbsp; _(${commit.formatDate(dateFormat)})_ ${openInRemoteCommand}${message}`);
+        const markdown = new MarkdownString(`${showCommitDetailsCommand} &nbsp; __${commit.author}__, ${commit.fromNow()} &nbsp; _(${commit.formatDate(dateFormat)})_ ${message}${commandBar}`);
         markdown.isTrusted = true;
         return markdown;
     }
@@ -107,8 +129,8 @@ export class Annotations {
         } as DecorationOptions;
     }
 
-    static detailsHover(commit: GitCommit, dateFormat: string | null, hasRemotes: boolean): DecorationOptions {
-        const message = this.getHoverMessage(commit, dateFormat, hasRemotes);
+    static detailsHover(commit: GitCommit, dateFormat: string | null, hasRemotes: boolean, annotationType?: FileAnnotationType): DecorationOptions {
+        const message = this.getHoverMessage(commit, dateFormat, hasRemotes, annotationType);
         return {
             hoverMessage: message
         } as DecorationOptions;

@@ -376,9 +376,14 @@ export class CurrentLineController extends Disposable {
                 let logCommit: GitCommit | undefined = undefined;
                 if (!commit.isUncommitted) {
                     logCommit = await this.git.getLogCommit(this._uri.repoPath, this._uri.fsPath, commit.sha);
+                    if (logCommit !== undefined) {
+                        // Preserve the previous commit from the blame commit
+                        logCommit.previousFileName = commit.previousFileName;
+                        logCommit.previousSha = commit.previousSha;
+                    }
                 }
 
-                const decoration = Annotations.detailsHover(logCommit || commit, this._config.defaultDateFormat, this.git.hasRemotes((logCommit || commit).repoPath));
+                const decoration = Annotations.detailsHover(logCommit || commit, this._config.defaultDateFormat, this.git.hasRemotes((logCommit || commit).repoPath), this._config.blame.file.annotationType);
                 decoration.range = range;
                 decorationOptions.push(decoration);
 

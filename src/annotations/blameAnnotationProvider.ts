@@ -110,9 +110,14 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         let logCommit: GitCommit | undefined = undefined;
         if (!commit.isUncommitted) {
             logCommit = await this.git.getLogCommit(commit.repoPath, commit.uri.fsPath, commit.sha);
+            if (logCommit !== undefined) {
+                // Preserve the previous commit from the blame commit
+                logCommit.previousFileName = commit.previousFileName;
+                logCommit.previousSha = commit.previousSha;
+            }
         }
 
-        const message = Annotations.getHoverMessage(logCommit || commit, this._config.defaultDateFormat, this.git.hasRemotes(commit.repoPath));
+        const message = Annotations.getHoverMessage(logCommit || commit, this._config.defaultDateFormat, this.git.hasRemotes(commit.repoPath), this._config.blame.file.annotationType);
         return new Hover(message, document.validateRange(new Range(position.line, 0, position.line, endOfLineIndex)));
     }
 }

@@ -72,7 +72,8 @@ export const DocumentSchemes = {
     GitLensGit: 'gitlens-git' as DocumentSchemes
 };
 
-export type GlyphChars = '\u21a9' |
+export type GlyphChars =
+    '\u21a9' |
     '\u2193' |
     '\u2937' |
     '\u2190' |
@@ -85,9 +86,14 @@ export type GlyphChars = '\u21a9' |
     '\u2713' |
     '\u2014' |
     '\u2022' |
+    '\u226A' |
+    '\u22D8' |
     '\u2026' |
+    '\u22EF' |
     '\u270E' |
     '\u00a0' |
+    '\u274F' |
+    '\u2750' |
     '\u200b';
 export const GlyphChars = {
     ArrowBack: '\u21a9' as GlyphChars,
@@ -103,9 +109,14 @@ export const GlyphChars = {
     Check: '\u2713' as GlyphChars,
     Dash: '\u2014' as GlyphChars,
     Dot: '\u2022' as GlyphChars,
+    DoubleArrowLeft: '\u226A' as GlyphChars,
+    DoubleArrowRight: '\u22D8' as GlyphChars,
     Ellipsis: '\u2026' as GlyphChars,
+    MiddleEllipsis: '\u22EF' as GlyphChars,
     Pensil: '\u270E' as GlyphChars,
     Space: '\u00a0' as GlyphChars,
+    SquareWithBottomShadow: '\u274F' as GlyphChars,
+    SquareWithTopShadow: '\u2750' as GlyphChars,
     ZeroWidthSpace: '\u200b' as GlyphChars
 };
 

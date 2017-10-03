@@ -4,7 +4,7 @@ import { commands, ExtensionContext, extensions, languages, window, workspace } 
 import { AnnotationController } from './annotations/annotationController';
 import { CloseUnchangedFilesCommand, OpenChangedFilesCommand } from './commands';
 import { ExternalDiffCommand } from './commands';
-import { OpenBranchesInRemoteCommand, OpenBranchInRemoteCommand, OpenCommitInRemoteCommand, OpenFileInRemoteCommand, OpenInRemoteCommand, OpenRepoInRemoteCommand } from './commands';
+import { OpenBranchesInRemoteCommand, OpenBranchInRemoteCommand, OpenCommitInRemoteCommand, OpenFileInRemoteCommand, OpenFileRevisionCommand, OpenInRemoteCommand, OpenRepoInRemoteCommand } from './commands';
 import { CopyMessageToClipboardCommand, CopyShaToClipboardCommand } from './commands';
 import { DiffDirectoryCommand, DiffLineWithPreviousCommand, DiffLineWithWorkingCommand, DiffWithBranchCommand, DiffWithCommand, DiffWithNextCommand, DiffWithPreviousCommand, DiffWithRevisionCommand, DiffWithWorkingCommand } from './commands';
 import { ResetSuppressedWarningsCommand } from './commands';
@@ -80,10 +80,6 @@ export async function activate(context: ExtensionContext) {
     const gitContextTracker = new GitContextTracker(git);
     context.subscriptions.push(gitContextTracker);
 
-    context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider(context, git)));
-
-    context.subscriptions.push(languages.registerCodeLensProvider(GitRevisionCodeLensProvider.selector, new GitRevisionCodeLensProvider(context, git)));
-
     const annotationController = new AnnotationController(context, git, gitContextTracker);
     context.subscriptions.push(annotationController);
 
@@ -95,8 +91,9 @@ export async function activate(context: ExtensionContext) {
 
     context.subscriptions.push(new Keyboard());
 
+    context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider(context, git)));
+    context.subscriptions.push(languages.registerCodeLensProvider(GitRevisionCodeLensProvider.selector, new GitRevisionCodeLensProvider(context, git)));
     context.subscriptions.push(window.registerTreeDataProvider('gitlens.gitExplorer', new GitExplorer(context, git)));
-
     context.subscriptions.push(commands.registerTextEditorCommand('gitlens.computingFileAnnotations', () => { }));
 
     context.subscriptions.push(new CloseUnchangedFilesCommand(git));
@@ -117,6 +114,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(new OpenBranchInRemoteCommand(git));
     context.subscriptions.push(new OpenCommitInRemoteCommand(git));
     context.subscriptions.push(new OpenFileInRemoteCommand(git));
+    context.subscriptions.push(new OpenFileRevisionCommand(annotationController));
     context.subscriptions.push(new OpenInRemoteCommand());
     context.subscriptions.push(new OpenRepoInRemoteCommand(git));
     context.subscriptions.push(new ClearFileAnnotationsCommand(annotationController));

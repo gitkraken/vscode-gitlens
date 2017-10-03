@@ -25,6 +25,7 @@ export type Commands =
     'gitlens.openBranchInRemote' |
     'gitlens.openCommitInRemote' |
     'gitlens.openFileInRemote' |
+    'gitlens.openFileRevision' |
     'gitlens.openInRemote' |
     'gitlens.openRepoInRemote' |
     'gitlens.resetSuppressedWarnings' |
@@ -68,6 +69,7 @@ export const Commands = {
     OpenBranchInRemote: 'gitlens.openBranchInRemote' as Commands,
     OpenCommitInRemote: 'gitlens.openCommitInRemote' as Commands,
     OpenFileInRemote: 'gitlens.openFileInRemote' as Commands,
+    OpenFileRevision: 'gitlens.openFileRevision' as Commands,
     OpenInRemote: 'gitlens.openInRemote' as Commands,
     OpenRepoInRemote: 'gitlens.openRepoInRemote' as Commands,
     ResetSuppressedWarnings: 'gitlens.resetSuppressedWarnings' as Commands,
