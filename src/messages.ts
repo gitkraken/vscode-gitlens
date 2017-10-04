@@ -4,24 +4,16 @@ import { BuiltInCommands } from './constants';
 import { GitCommit } from './gitService';
 import { Logger } from './logger';
 
-export type SuppressedKeys = 'suppressCommitHasNoPreviousCommitWarning' |
-    'suppressCommitNotFoundWarning' |
-    'suppressFileNotUnderSourceControlWarning' |
-    'suppressGitVersionWarning' |
-    'suppressLineUncommittedWarning' |
-    'suppressNoRepositoryWarning' |
-    'suppressUpdateNotice' |
-    'suppressWelcomeNotice';
-export const SuppressedKeys = {
-    CommitHasNoPreviousCommitWarning: 'suppressCommitHasNoPreviousCommitWarning' as SuppressedKeys,
-    CommitNotFoundWarning: 'suppressCommitNotFoundWarning' as SuppressedKeys,
-    FileNotUnderSourceControlWarning: 'suppressFileNotUnderSourceControlWarning' as SuppressedKeys,
-    GitVersionWarning: 'suppressGitVersionWarning' as SuppressedKeys,
-    LineUncommittedWarning: 'suppressLineUncommittedWarning' as SuppressedKeys,
-    NoRepositoryWarning: 'suppressNoRepositoryWarning' as SuppressedKeys,
-    UpdateNotice: 'suppressUpdateNotice' as SuppressedKeys,
-    WelcomeNotice: 'suppressWelcomeNotice' as SuppressedKeys
-};
+export enum SuppressedKeys {
+    CommitHasNoPreviousCommitWarning = 'suppressCommitHasNoPreviousCommitWarning',
+    CommitNotFoundWarning = 'suppressCommitNotFoundWarning',
+    FileNotUnderSourceControlWarning = 'suppressFileNotUnderSourceControlWarning',
+    GitVersionWarning = 'suppressGitVersionWarning',
+    LineUncommittedWarning = 'suppressLineUncommittedWarning',
+    NoRepositoryWarning = 'suppressNoRepositoryWarning',
+    UpdateNotice = 'suppressUpdateNotice',
+    WelcomeNotice = 'suppressWelcomeNotice'
+}
 
 export class Messages {
 

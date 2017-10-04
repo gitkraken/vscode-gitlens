@@ -19,7 +19,12 @@ export interface GitCommitLine {
     code?: string;
 }
 
-export type GitCommitType = 'blame' | 'branch' | 'file'  | 'stash';
+export enum GitCommitType {
+    Blame = 'blame',
+    Branch = 'branch',
+    File = 'file',
+    Stash = 'stash'
+}
 
 export class GitCommit {
 

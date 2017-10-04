@@ -45,8 +45,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
 
         try {
             if (args.sha === undefined) {
-                const line = editor === undefined ? gitUri.offset : editor.selection.active.line;
-                const blameline = line - gitUri.offset;
+                const blameline = editor === undefined ? 0 : editor.selection.active.line;
                 if (blameline < 0) return undefined;
 
                 const blame = await this.git.getBlameForLine(gitUri, blameline);

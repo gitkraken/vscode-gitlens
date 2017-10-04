@@ -1,5 +1,5 @@
 'use strict';
-import { GitCommit, GitCommitLine } from './commit';
+import { GitCommit, GitCommitLine, GitCommitType } from './commit';
 
 export class GitBlameCommit extends GitCommit {
 
@@ -15,6 +15,6 @@ export class GitBlameCommit extends GitCommit {
         previousSha?: string,
         previousFileName?: string
     ) {
-        super('blame', repoPath, sha, fileName, author, date, message, originalFileName, previousSha, previousFileName);
+        super(GitCommitType.Blame, repoPath, sha, fileName, author, date, message, originalFileName, previousSha, previousFileName);
     }
 }

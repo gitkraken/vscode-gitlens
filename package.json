@@ -255,15 +255,13 @@
                     "default": "gitlens.showQuickCommitFileDetails",
                     "enum": [
                         "gitlens.toggleFileBlame",
-                        "gitlens.showBlameHistory",
-                        "gitlens.showFileHistory",
                         "gitlens.diffWithPrevious",
                         "gitlens.showQuickCommitDetails",
                         "gitlens.showQuickCommitFileDetails",
                         "gitlens.showQuickFileHistory",
                         "gitlens.showQuickRepoHistory"
                     ],
-                    "description": "Specifies the command to be executed when the `recent change` code lens is clicked\n `gitlens.toggleFileBlame` - toggles file blame annotations\n `gitlens.showBlameHistory` - opens the blame history explorer\n `gitlens.showFileHistory` - opens the file history explorer\n `gitlens.diffWithPrevious` - compares the current committed file with the previous commit\n `gitlens.showQuickCommitDetails` - shows a commit details quick pick\n `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick\n `gitlens.showQuickFileHistory` - shows a file history quick pick\n `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
+                    "description": "Specifies the command to be executed when the `recent change` code lens is clicked\n `gitlens.toggleFileBlame` - toggles file blame annotations\n `gitlens.diffWithPrevious` - compares the current committed file with the previous commit\n `gitlens.showQuickCommitDetails` - shows a commit details quick pick\n `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick\n `gitlens.showQuickFileHistory` - shows a file history quick pick\n `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
                 },
                 "gitlens.codeLens.authors.enabled": {
                     "type": "boolean",
@@ -275,15 +273,13 @@
                     "default": "gitlens.toggleFileBlame",
                     "enum": [
                         "gitlens.toggleFileBlame",
-                        "gitlens.showBlameHistory",
-                        "gitlens.showFileHistory",
                         "gitlens.diffWithPrevious",
                         "gitlens.showQuickCommitDetails",
                         "gitlens.showQuickCommitFileDetails",
                         "gitlens.showQuickFileHistory",
                         "gitlens.showQuickRepoHistory"
                     ],
-                    "description": "Specifies the command to be executed when the `authors` code lens is clicked\n `gitlens.toggleFileBlame` - toggles file blame annotations\n `gitlens.showBlameHistory` - opens the blame history explorer\n `gitlens.showFileHistory` - opens the file history explorer\n `gitlens.diffWithPrevious` - compares the current committed file with the previous commit\n `gitlens.showQuickCommitDetails` - shows a commit details quick pick\n `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick\n `gitlens.showQuickFileHistory` - shows a file history quick pick\n `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
+                    "description": "Specifies the command to be executed when the `authors` code lens is clicked\n `gitlens.toggleFileBlame` - toggles file blame annotations\n `gitlens.diffWithPrevious` - compares the current committed file with the previous commit\n `gitlens.showQuickCommitDetails` - shows a commit details quick pick\n `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick\n `gitlens.showQuickFileHistory` - shows a file history quick pick\n `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
                 },
                 "gitlens.codeLens.locations": {
                     "type": "array",
@@ -589,8 +585,6 @@
                     "default": "gitlens.showQuickCommitDetails",
                     "enum": [
                         "gitlens.toggleFileBlame",
-                        "gitlens.showBlameHistory",
-                        "gitlens.showFileHistory",
                         "gitlens.diffWithPrevious",
                         "gitlens.diffWithWorking",
                         "gitlens.toggleCodeLens",
@@ -599,7 +593,7 @@
                         "gitlens.showQuickFileHistory",
                         "gitlens.showQuickRepoHistory"
                     ],
-                    "description": "Specifies the command to be executed when the blame status bar item is clicked\n `gitlens.toggleFileBlame` - toggles file blame annotations\n `gitlens.showBlameHistory` - opens the blame history explorer\n `gitlens.showFileHistory` - opens the file history explorer\n `gitlens.diffWithPrevious` - compares the current line commit with the previous\n `gitlens.diffWithWorking` - compares the current line commit with the working tree\n `gitlens.toggleCodeLens` - toggles Git code lens\n `gitlens.showQuickCommitDetails` - shows a commit details quick pick\n `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick\n `gitlens.showQuickFileHistory` - shows a file history quick pick\n `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
+                    "description": "Specifies the command to be executed when the blame status bar item is clicked\n `gitlens.toggleFileBlame` - toggles file blame annotations\n `gitlens.diffWithPrevious` - compares the current line commit with the previous\n `gitlens.diffWithWorking` - compares the current line commit with the working tree\n `gitlens.toggleCodeLens` - toggles Git code lens\n `gitlens.showQuickCommitDetails` - shows a commit details quick pick\n `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick\n `gitlens.showQuickFileHistory` - shows a file history quick pick\n `gitlens.showQuickRepoHistory` - shows a branch history quick pick"
                 },
                 "gitlens.statusBar.format": {
                     "type": "string",
@@ -1004,11 +998,6 @@
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.showBlameHistory",
-                "title": "Open Blame History Explorer",
-                "category": "GitLens"
-            },
-            {
                 "command": "gitlens.showCommitSearch",
                 "title": "Search Commits",
                 "category": "GitLens",
@@ -1016,11 +1005,6 @@
                     "dark": "images/dark/icon-search.svg",
                     "light": "images/light/icon-search.svg"
                 }
-            },
-            {
-                "command": "gitlens.showFileHistory",
-                "title": "Open File History Explorer",
-                "category": "GitLens"
             },
             {
                 "command": "gitlens.showLastQuickPick",
@@ -1283,14 +1267,6 @@
                 {
                     "command": "gitlens.toggleCodeLens",
                     "when": "gitlens:isTracked && gitlens:canToggleCodeLens"
-                },
-                {
-                    "command": "gitlens.showBlameHistory",
-                    "when": "gitlens:isBlameable"
-                },
-                {
-                    "command": "gitlens.showFileHistory",
-                    "when": "gitlens:isTracked"
                 },
                 {
                     "command": "gitlens.showLastQuickPick",

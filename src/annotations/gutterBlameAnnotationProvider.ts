@@ -33,7 +33,6 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         };
 
         const now = Date.now();
-        const offset = this.uri.offset;
         const renderOptions = Annotations.gutterRenderOptions(this._config.theme, cfg.heatmap, options);
         const separateLines = this._config.theme.annotations.file.gutter.separateLines;
 
@@ -46,7 +45,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         let previousSha: string | undefined;
 
         for (const l of blame.lines) {
-            const line = l.line + offset;
+            const line = l.line;
 
             if (previousSha === l.sha) {
                 // Use a shallow copy of the previous decoration options

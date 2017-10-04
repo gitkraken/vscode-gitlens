@@ -1,4 +1,5 @@
 'use strict';
+import { GitCommitType } from './commit';
 import { GitLogCommit } from './logCommit';
 import { GitStatusFileStatus, IGitStatusFile } from './status';
 
@@ -17,7 +18,7 @@ export class GitStashCommit extends GitLogCommit {
         previousSha?: string,
         previousFileName?: string
     ) {
-        super('stash', repoPath, sha, fileName, 'You', date, message, status, fileStatuses, originalFileName, previousSha, previousFileName);
+        super(GitCommitType.Stash, repoPath, sha, fileName, 'You', date, message, status, fileStatuses, originalFileName, previousSha, previousFileName);
     }
 
     get shortSha() {

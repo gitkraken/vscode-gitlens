@@ -20,7 +20,6 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
             const start = process.hrtime();
 
             const now = Date.now();
-            const offset = this.uri.offset;
             const renderOptions = Annotations.hoverRenderOptions(this._config.theme, cfg.heatmap);
 
             const decorations: DecorationOptions[] = [];
@@ -30,7 +29,7 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
             let hover: DecorationOptions | undefined;
 
             for (const l of blame.lines) {
-                const line = l.line + offset;
+                const line = l.line;
 
                 hover = decorationsMap[l.sha];
 

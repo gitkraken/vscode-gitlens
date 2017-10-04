@@ -12,7 +12,6 @@ interface UriEx {
 
 export class GitUri extends (Uri as UriEx) {
 
-    offset: number;
     repoPath?: string | undefined;
     sha?: string | undefined;
 
@@ -29,32 +28,33 @@ export class GitUri extends (Uri as UriEx) {
             const data = GitService.fromGitContentUri(uri);
             super(uri.scheme, uri.authority, path.resolve(data.repoPath, data.originalFileName || data.fileName), uri.query, uri.fragment);
 
-            this.offset = (data.decoration && data.decoration.split('\n').length) || 0;
             if (!GitService.isUncommitted(data.sha)) {
                 this.sha = data.sha;
                 this.repoPath = data.repoPath;
             }
+
+            return;
         }
-        else if (commitOrRepoPath) {
-            if (typeof commitOrRepoPath === 'string') {
-                super(uri.scheme, uri.authority, uri.path, uri.query, uri.fragment);
 
-                this.offset = 0;
-                this.repoPath = commitOrRepoPath;
-            }
-            else {
-                const commit = commitOrRepoPath;
-                super(uri.scheme, uri.authority, path.resolve(commit.repoPath, commit.originalFileName || commit.fileName || ''), uri.query, uri.fragment);
+        if (!commitOrRepoPath) return;
 
-                this.offset = 0;
-                if (commit.repoPath !== undefined) {
-                    this.repoPath = commit.repoPath;
-                }
+        if (typeof commitOrRepoPath === 'string') {
+            super(uri.scheme, uri.authority, uri.path, uri.query, uri.fragment);
 
-                if (commit.sha !== undefined && !GitService.isUncommitted(commit.sha)) {
-                    this.sha = commit.sha;
-                }
-            }
+            this.repoPath = commitOrRepoPath;
+
+            return;
+        }
+
+        const commit = commitOrRepoPath;
+        super(uri.scheme, uri.authority, path.resolve(commit.repoPath, commit.originalFileName || commit.fileName || ''), uri.query, uri.fragment);
+
+        if (commit.repoPath !== undefined) {
+            this.repoPath = commit.repoPath;
+        }
+
+        if (commit.sha !== undefined && !GitService.isUncommitted(commit.sha)) {
+            this.sha = commit.sha;
         }
     }
 
@@ -173,6 +173,4 @@ export interface IGitUriData {
     fileName: string;
     repoPath: string;
     originalFileName?: string;
-    index?: number;
-    decoration?: string;
 }

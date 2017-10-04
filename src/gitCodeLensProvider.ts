@@ -1,7 +1,7 @@
 'use strict';
 import { Functions, Iterables } from './system';
 import { CancellationToken, CodeLens, CodeLensProvider, Command, commands, DocumentSelector, Event, EventEmitter, ExtensionContext, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri, workspace } from 'vscode';
-import { Commands, DiffWithPreviousCommandArgs, ShowBlameHistoryCommandArgs, ShowFileHistoryCommandArgs, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from './commands';
+import { Commands, DiffWithPreviousCommandArgs, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from './commands';
 import { BuiltInCommands, DocumentSchemes, ExtensionKey } from './constants';
 import { CodeLensCommand, CodeLensLocations, ICodeLensLanguageLocation, IConfig } from './configuration';
 import { GitBlame, GitBlameCommit, GitBlameLines, GitService, GitUri } from './gitService';
@@ -259,14 +259,12 @@ export class GitCodeLensProvider implements CodeLensProvider {
         }
 
         switch (this._config.codeLens.recentChange.command) {
-            case CodeLensCommand.BlameAnnotate: return this._applyBlameAnnotateCommand<GitRecentChangeCodeLens>(title, lens, blame);
-            case CodeLensCommand.ShowBlameHistory: return this._applyShowBlameHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
-            case CodeLensCommand.ShowFileHistory: return this._applyShowFileHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
             case CodeLensCommand.DiffWithPrevious: return this._applyDiffWithPreviousCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
             case CodeLensCommand.ShowQuickCommitDetails: return this._applyShowQuickCommitDetailsCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
             case CodeLensCommand.ShowQuickCommitFileDetails: return this._applyShowQuickCommitFileDetailsCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
+            case CodeLensCommand.ShowQuickCurrentBranchHistory: return this._applyShowQuickCurrentBranchHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
             case CodeLensCommand.ShowQuickFileHistory: return this._applyShowQuickFileHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
-            case CodeLensCommand.ShowQuickCurrentBranchHistory: return this._applyShowQuickBranchHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
+            case CodeLensCommand.ToggleFileBlame: return this._applyToggleFileBlameCommand<GitRecentChangeCodeLens>(title, lens, blame);
             default: return lens;
         }
     }
@@ -282,76 +280,14 @@ export class GitCodeLensProvider implements CodeLensProvider {
         }
 
         switch (this._config.codeLens.authors.command) {
-            case CodeLensCommand.BlameAnnotate: return this._applyBlameAnnotateCommand<GitAuthorsCodeLens>(title, lens, blame);
-            case CodeLensCommand.ShowBlameHistory: return this._applyShowBlameHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
-            case CodeLensCommand.ShowFileHistory: return this._applyShowFileHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
             case CodeLensCommand.DiffWithPrevious: return this._applyDiffWithPreviousCommand<GitAuthorsCodeLens>(title, lens, blame);
             case CodeLensCommand.ShowQuickCommitDetails: return this._applyShowQuickCommitDetailsCommand<GitAuthorsCodeLens>(title, lens, blame);
             case CodeLensCommand.ShowQuickCommitFileDetails: return this._applyShowQuickCommitFileDetailsCommand<GitAuthorsCodeLens>(title, lens, blame);
+            case CodeLensCommand.ShowQuickCurrentBranchHistory: return this._applyShowQuickCurrentBranchHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
             case CodeLensCommand.ShowQuickFileHistory: return this._applyShowQuickFileHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
-            case CodeLensCommand.ShowQuickCurrentBranchHistory: return this._applyShowQuickBranchHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
+            case CodeLensCommand.ToggleFileBlame: return this._applyToggleFileBlameCommand<GitAuthorsCodeLens>(title, lens, blame);
             default: return lens;
         }
-    }
-
-    _applyBlameAnnotateCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines): T {
-        lens.command = {
-            title: title,
-            command: Commands.ToggleFileBlame,
-            arguments: [Uri.file(lens.uri.fsPath)]
-        };
-        return lens;
-    }
-
-    _applyShowBlameHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitBlameCommit): T {
-        let line = lens.range.start.line;
-        if (commit) {
-            const blameLine = commit.lines.find(_ => _.line === line);
-            if (blameLine) {
-                line = blameLine.originalLine;
-            }
-        }
-
-        const position = lens.isFullRange ? new Position(1, 0) : lens.range.start;
-        lens.command = {
-            title: title,
-            command: Commands.ShowBlameHistory,
-            arguments: [
-                Uri.file(lens.uri.fsPath),
-                {
-                    line,
-                    position,
-                    range: lens.blameRange,
-                    sha: commit && commit.sha
-                } as ShowBlameHistoryCommandArgs
-            ]
-        };
-        return lens;
-    }
-
-    _applyShowFileHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitBlameCommit): T {
-        let line = lens.range.start.line;
-        if (commit) {
-            const blameLine = commit.lines.find(_ => _.line === line);
-            if (blameLine) {
-                line = blameLine.originalLine;
-            }
-        }
-
-        const position = lens.isFullRange ? new Position(1, 0) : lens.range.start;
-        lens.command = {
-            title: title,
-            command: Commands.ShowFileHistory,
-            arguments: [
-                Uri.file(lens.uri.fsPath),
-                {
-                    line,
-                    position,
-                    sha: commit && commit.sha
-                } as ShowFileHistoryCommandArgs
-            ]
-        };
-        return lens;
     }
 
     _applyDiffWithPreviousCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitBlameCommit): T {
@@ -402,6 +338,15 @@ export class GitCodeLensProvider implements CodeLensProvider {
         return lens;
     }
 
+    _applyShowQuickCurrentBranchHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitBlameCommit): T {
+        lens.command = {
+            title: title,
+            command: CodeLensCommand.ShowQuickCurrentBranchHistory,
+            arguments: [Uri.file(lens.uri.fsPath)]
+        };
+        return lens;
+    }
+
     _applyShowQuickFileHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitBlameCommit): T {
         lens.command = {
             title: title,
@@ -416,10 +361,10 @@ export class GitCodeLensProvider implements CodeLensProvider {
         return lens;
     }
 
-    _applyShowQuickBranchHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines, commit?: GitBlameCommit): T {
+    _applyToggleFileBlameCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(title: string, lens: T, blame: GitBlameLines): T {
         lens.command = {
             title: title,
-            command: CodeLensCommand.ShowQuickCurrentBranchHistory,
+            command: Commands.ToggleFileBlame,
             arguments: [Uri.file(lens.uri.fsPath)]
         };
         return lens;

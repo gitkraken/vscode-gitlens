@@ -14,12 +14,11 @@ import { RecentChangesAnnotationProvider } from './recentChangesAnnotationProvid
 import { WhitespaceController } from './whitespaceController';
 import * as path from 'path';
 
-export type FileAnnotationType = 'gutter' | 'hover' | 'recentChanges';
-export const FileAnnotationType = {
-    Gutter: 'gutter' as FileAnnotationType,
-    Hover: 'hover' as FileAnnotationType,
-    RecentChanges: 'recentChanges' as FileAnnotationType
-};
+export enum FileAnnotationType {
+    Gutter = 'gutter',
+    Hover = 'hover',
+    RecentChanges = 'recentChanges'
+}
 
 export const Decorations = {
     blameAnnotation: window.createTextEditorDecorationType({

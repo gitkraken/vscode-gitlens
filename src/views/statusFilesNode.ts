@@ -4,7 +4,7 @@ import { ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } from 'vscod
 import { GitExplorerFilesLayout } from '../configuration';
 import { ExplorerNode, ResourceType, ShowAllNode } from './explorerNode';
 import { FolderNode, IFileExplorerNode } from './folderNode';
-import { GitBranch, GitLog, GitLogCommit, GitService, GitStatus, GitUri, IGitStatusFileWithCommit } from '../gitService';
+import { GitBranch, GitCommitType, GitLog, GitLogCommit, GitService, GitStatus, GitUri, IGitStatusFileWithCommit } from '../gitService';
 import { StatusFileCommitsNode } from './statusFileCommitsNode';
 import * as path from 'path';
 
@@ -47,7 +47,7 @@ export class StatusFilesNode extends ExplorerNode {
             statuses.splice(0, 0, ...this.status.files.map(s => {
                 return {
                     ...s,
-                    commit: new GitLogCommit('file', repoPath, GitService.uncommittedSha, s.fileName, 'You', new Date(), '', s.status, [s], s.originalFileName, 'HEAD', s.fileName)
+                    commit: new GitLogCommit(GitCommitType.File, repoPath, GitService.uncommittedSha, s.fileName, 'You', new Date(), '', s.status, [s], s.originalFileName, 'HEAD', s.fileName)
                 } as IGitStatusFileWithCommit;
             }));
         }

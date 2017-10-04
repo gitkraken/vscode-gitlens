@@ -3,7 +3,7 @@ import { Strings } from '../system';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
-import { GitLogCommit, GitRemote, GitService, RemoteResource } from '../gitService';
+import { GitLogCommit, GitRemote, GitService, RemoteResource, RemoteResourceType } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, OpenRemoteCommandQuickPickItem, RemotesQuickPick } from '../quickPicks';
 
@@ -44,21 +44,21 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
 
             let placeHolder = '';
             switch (args.resource.type) {
-                case 'branch':
+                case RemoteResourceType.Branch:
                     this.ensureRemoteBranchName(args);
                     placeHolder = `open ${args.resource.branch} branch in${GlyphChars.Ellipsis}`;
                     break;
 
-                case 'commit':
+                case RemoteResourceType.Commit:
                     const shortSha = GitService.shortenSha(args.resource.sha);
                     placeHolder = `open commit ${shortSha} in${GlyphChars.Ellipsis}`;
                     break;
 
-                case 'file':
+                case RemoteResourceType.File:
                     placeHolder = `open ${args.resource.fileName} in${GlyphChars.Ellipsis}`;
                     break;
 
-                case 'revision':
+                case RemoteResourceType.Revision:
                     if (args.resource.commit !== undefined && args.resource.commit instanceof GitLogCommit) {
                         if (args.resource.commit.status === 'D') {
                             args.resource.sha = args.resource.commit.previousSha;

@@ -10,15 +10,11 @@ import { GitService, GitUri, RepoChangedReasons } from '../gitService';
 
 export * from './explorerNodes';
 
-export type GitExplorerView =
-    'auto' |
-    'history' |
-    'repository';
-export const GitExplorerView = {
-    Auto: 'auto' as GitExplorerView,
-    History: 'history' as GitExplorerView,
-    Repository: 'repository' as GitExplorerView
-};
+export enum GitExplorerView {
+    Auto = 'auto',
+    History = 'history',
+    Repository = 'repository'
+}
 
 export interface OpenFileRevisionCommandArgs {
     uri?: Uri;

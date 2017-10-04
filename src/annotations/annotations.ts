@@ -121,7 +121,7 @@ export class Annotations {
     }
 
     static async changesHover(commit: GitCommit, line: number, uri: GitUri, git: GitService): Promise<DecorationOptions> {
-        const chunkLine = await git.getDiffForLine(uri, line + uri.offset, commit.isUncommitted ? undefined : commit.previousSha);
+        const chunkLine = await git.getDiffForLine(uri, line, commit.isUncommitted ? undefined : commit.previousSha);
         const message = this.getHoverDiffMessage(commit, chunkLine);
 
         return {

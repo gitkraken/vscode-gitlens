@@ -1,7 +1,10 @@
 'use strict';
 import { RemoteProvider, RemoteProviderFactory } from '../remotes/factory';
 
-export type GitRemoteType = 'fetch' | 'push';
+export enum GitRemoteType {
+    Fetch = 'fetch',
+    Push = 'push'
+}
 
 export class GitRemote {
 

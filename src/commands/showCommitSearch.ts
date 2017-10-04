@@ -42,8 +42,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
             try {
                 if (!args.search) {
                     if (editor !== undefined && gitUri !== undefined) {
-                        const line = editor.selection.active.line - gitUri.offset;
-                        const blameLine = await this.git.getBlameForLine(gitUri, line);
+                        const blameLine = await this.git.getBlameForLine(gitUri, editor.selection.active.line);
                         if (blameLine !== undefined) {
                             args.search = `#${blameLine.commit.shortSha}`;
                         }

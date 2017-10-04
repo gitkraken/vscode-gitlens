@@ -3,23 +3,31 @@ import { commands, Range, Uri } from 'vscode';
 import { BuiltInCommands } from '../../constants';
 import { GitLogCommit } from '../../gitService';
 
-export type RemoteResourceType = 'branch' | 'branches' | 'commit' | 'file' | 'repo' | 'revision';
+export enum RemoteResourceType {
+    Branch = 'branch',
+    Branches = 'branches',
+    Commit = 'commit',
+    File = 'file',
+    Repo = 'repo',
+    Revision = 'revision'
+}
+
 export type RemoteResource =
-    { type: 'branch', branch: string } |
-    { type: 'branches' } |
-    { type: 'commit', sha: string } |
-    { type: 'file', branch?: string, fileName: string, range?: Range } |
-    { type: 'repo' } |
-    { type: 'revision', branch?: string, commit?: GitLogCommit, fileName: string, range?: Range, sha?: string };
+    { type: RemoteResourceType.Branch, branch: string } |
+    { type: RemoteResourceType.Branches } |
+    { type: RemoteResourceType.Commit, sha: string } |
+    { type: RemoteResourceType.File, branch?: string, fileName: string, range?: Range } |
+    { type: RemoteResourceType.Repo } |
+    { type: RemoteResourceType.Revision, branch?: string, commit?: GitLogCommit, fileName: string, range?: Range, sha?: string };
 
 export function getNameFromRemoteResource(resource: RemoteResource) {
     switch (resource.type) {
-        case 'branch': return 'Branch';
-        case 'branches': return 'Branches';
-        case 'commit': return 'Commit';
-        case 'file': return 'File';
-        case 'repo': return 'Repository';
-        case 'revision': return 'Revision';
+        case RemoteResourceType.Branch: return 'Branch';
+        case RemoteResourceType.Branches: return 'Branches';
+        case RemoteResourceType.Commit: return 'Commit';
+        case RemoteResourceType.File: return 'File';
+        case RemoteResourceType.Repo: return 'Repository';
+        case RemoteResourceType.Revision: return 'Revision';
         default: return '';
     }
 }
@@ -69,12 +77,12 @@ export abstract class RemoteProvider {
 
     open(resource: RemoteResource): Promise<{} | undefined> {
         switch (resource.type) {
-            case 'branch': return this.openBranch(resource.branch);
-            case 'branches': return this.openBranches();
-            case 'commit': return this.openCommit(resource.sha);
-            case 'file': return this.openFile(resource.fileName, resource.branch, undefined, resource.range);
-            case 'repo': return this.openRepo();
-            case 'revision': return this.openFile(resource.fileName, resource.branch, resource.sha, resource.range);
+            case RemoteResourceType.Branch: return this.openBranch(resource.branch);
+            case RemoteResourceType.Branches: return this.openBranches();
+            case RemoteResourceType.Commit: return this.openCommit(resource.sha);
+            case RemoteResourceType.File: return this.openFile(resource.fileName, resource.branch, undefined, resource.range);
+            case RemoteResourceType.Repo: return this.openRepo();
+            case RemoteResourceType.Revision: return this.openFile(resource.fileName, resource.branch, resource.sha, resource.range);
         }
     }
 

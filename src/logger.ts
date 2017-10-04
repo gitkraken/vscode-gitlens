@@ -6,12 +6,11 @@ import { Telemetry } from './telemetry';
 
 const ConsolePrefix = `[${ExtensionOutputChannelName}]`;
 
-export type OutputLevel = 'silent' | 'errors' | 'verbose';
-export const OutputLevel = {
-    Silent: 'silent' as OutputLevel,
-    Errors: 'errors' as OutputLevel,
-    Verbose: 'verbose' as OutputLevel
-};
+export enum OutputLevel {
+    Silent = 'silent',
+    Errors = 'errors',
+    Verbose = 'verbose'
+}
 
 let debug = false;
 let level: OutputLevel = OutputLevel.Silent;

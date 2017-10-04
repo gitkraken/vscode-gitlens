@@ -13,15 +13,12 @@ export class GitContentProvider implements TextDocumentContentProvider {
 
     async provideTextDocumentContent(uri: Uri, token: CancellationToken): Promise<string | undefined> {
         const data = GitService.fromGitContentUri(uri);
+        if (data.sha === GitService.fakeSha) return '';
+
         const fileName = data.originalFileName || data.fileName;
+
         try {
-            let text = data.sha !== GitService.fakeSha
-                ? await this.git.getVersionedFileText(data.repoPath, fileName, data.sha)
-                : '';
-            if (data.decoration) {
-                text = `${data.decoration}\n${text}`;
-            }
-            return text;
+            return await this.git.getVersionedFileText(data.repoPath, fileName, data.sha);
         }
         catch (ex) {
             Logger.error(ex, 'GitContentProvider', 'getVersionedFileText');

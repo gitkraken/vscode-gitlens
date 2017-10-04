@@ -4,7 +4,7 @@ import { QuickPickOptions, window } from 'vscode';
 import { Commands, OpenInRemoteCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './common';
 import { GlyphChars } from '../constants';
-import { getNameFromRemoteResource, GitLogCommit, GitRemote, GitService, RemoteResource } from '../gitService';
+import { getNameFromRemoteResource, GitLogCommit, GitRemote, GitService, RemoteResource, RemoteResourceType } from '../gitService';
 import * as path from 'path';
 
 export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
@@ -34,28 +34,28 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
 
         let description = '';
         switch (resource.type) {
-            case 'branch':
+            case RemoteResourceType.Branch:
                 description = `$(git-branch) ${resource.branch}`;
                 break;
 
-            case 'branches':
+            case RemoteResourceType.Branches:
                 description = `$(git-branch) Branches`;
                 break;
 
-            case 'commit':
+            case RemoteResourceType.Commit:
                 const shortSha = GitService.shortenSha(resource.sha);
                 description = `$(git-commit) ${shortSha}`;
                 break;
 
-            case 'file':
+            case RemoteResourceType.File:
                 description = `$(file-text) ${path.basename(resource.fileName)}`;
                 break;
 
-            case 'repo':
+            case RemoteResourceType.Repo:
                 description = `$(repo) Repository`;
                 break;
 
-            case 'revision':
+            case RemoteResourceType.Revision:
                 if (resource.commit !== undefined && resource.commit instanceof GitLogCommit) {
                     if (resource.commit.status === 'D') {
                         resource.sha = resource.commit.previousSha;

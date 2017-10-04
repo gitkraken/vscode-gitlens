@@ -1,10 +1,10 @@
 'use strict';
 import { Functions, Iterables, Objects } from './system';
-import { Disposable, Event, EventEmitter, FileSystemWatcher, Location, Position, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, workspace } from 'vscode';
+import { Disposable, Event, EventEmitter, FileSystemWatcher, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, workspace } from 'vscode';
 import { IConfig } from './configuration';
-import { DocumentSchemes, ExtensionKey, GlyphChars } from './constants';
+import { DocumentSchemes, ExtensionKey } from './constants';
 import { RemoteProviderFactory } from './git/remotes/factory';
-import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitDiff, GitDiffChunkLine, GitDiffParser, GitDiffShortStat, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
+import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitCommitType, GitDiff, GitDiffChunkLine, GitDiffParser, GitDiffShortStat, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { Logger } from './logger';
 import * as fs from 'fs';
@@ -15,7 +15,8 @@ export { GitUri, IGitCommitInfo };
 export * from './git/models/models';
 export * from './git/formatters/commit';
 export * from './git/formatters/status';
-export { getNameFromRemoteResource, RemoteResource, RemoteProvider } from './git/remotes/provider';
+export { getNameFromRemoteResource, RemoteProvider, RemoteResource, RemoteResourceType } from './git/remotes/provider';
+export { RemoteProviderFactory } from './git/remotes/factory';
 export * from './git/gitContextTracker';
 
 class UriCacheEntry {
@@ -56,20 +57,18 @@ enum RemoveCacheReason {
     DocumentSaved
 }
 
-export type GitRepoSearchBy = 'author' | 'files' | 'message' | 'sha';
-export const GitRepoSearchBy = {
-    Author: 'author' as GitRepoSearchBy,
-    Files: 'files' as GitRepoSearchBy,
-    Message: 'message' as GitRepoSearchBy,
-    Sha: 'sha' as GitRepoSearchBy
-};
+export enum GitRepoSearchBy {
+    Author = 'author',
+    Files = 'files',
+    Message = 'message',
+    Sha = 'sha'
+}
 
-export type RepoChangedReasons = 'remotes' | 'stash' | 'unknown';
-export const RepoChangedReasons = {
-    Remotes: 'remotes' as RepoChangedReasons,
-    Stash: 'stash' as RepoChangedReasons,
-    Unknown: 'unknown' as RepoChangedReasons
-};
+export enum RepoChangedReasons {
+    Remotes = 'remotes',
+    Stash = 'stash',
+    Unknown = ''
+}
 
 export class GitService extends Disposable {
 
@@ -234,7 +233,7 @@ export class GitService extends Disposable {
 
     private _onRepoChanged(uri: Uri) {
         if (uri !== undefined && uri.path.endsWith('ref/stash')) {
-            this._fireRepoChange('stash');
+            this._fireRepoChange(RepoChangedReasons.Stash);
 
             return;
         }
@@ -262,7 +261,7 @@ export class GitService extends Disposable {
     private _fireRepoChangeDebounced: (() => void) | undefined = undefined;
     private _repoChangedReasons: RepoChangedReasons[] = [];
 
-    private _fireRepoChange(reason: RepoChangedReasons = 'unknown') {
+    private _fireRepoChange(reason: RepoChangedReasons = RepoChangedReasons.Unknown) {
         if (this._fireRepoChangeDebounced === undefined) {
             this._fireRepoChangeDebounced = Functions.debounce(this._fireRepoChangeCore, 50);
         }
@@ -563,30 +562,6 @@ export class GitService extends Disposable {
         } as GitBlameLines;
     }
 
-    async getBlameLocations(uri: GitUri, range: Range, selectedSha?: string, line?: number): Promise<Location[] | undefined> {
-        Logger.log(`getBlameLocations('${uri.repoPath}', '${uri.fsPath}', [${range.start.line}, ${range.end.line}], ${uri.sha})`);
-
-        const blame = await this.getBlameForRange(uri, range);
-        if (blame === undefined) return undefined;
-
-        const commitCount = blame.commits.size;
-        const dateFormat = this.config.defaultDateFormat === null ? 'MMMM Do, YYYY h:MMa' : this.config.defaultDateFormat;
-
-        const locations: Location[] = [];
-        Iterables.forEach(blame.commits.values(), (c, i) => {
-            if (c.isUncommitted) return;
-
-            const decoration = `${GlyphChars.ArrowDropRight} ${c.author}, ${c.formatDate(dateFormat)}`;
-            const uri = GitService.toReferenceGitContentUri(c, i + 1, commitCount, c.originalFileName, decoration, dateFormat);
-            locations.push(new Location(uri, new Position(0, 0)));
-            if (c.sha === selectedSha) {
-                locations.push(new Location(uri, new Position((line || 0) + 1, 0)));
-            }
-        });
-
-        return locations;
-    }
-
     async getBranch(repoPath: string): Promise<GitBranch | undefined> {
         Logger.log(`getBranch('${repoPath}')`);
 
@@ -747,7 +722,7 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.log(repoPath, sha, maxCount, reverse);
-            const log = GitLogParser.parse(data, 'branch', repoPath, undefined, sha, maxCount, reverse, undefined);
+            const log = GitLogParser.parse(data, GitCommitType.Branch, repoPath, undefined, sha, maxCount, reverse, undefined);
             return log;
         }
         catch (ex) {
@@ -781,7 +756,7 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.log_search(repoPath, searchArgs, maxCount);
-            const log = GitLogParser.parse(data, 'branch', repoPath, undefined, undefined, maxCount, false, undefined);
+            const log = GitLogParser.parse(data, GitCommitType.Branch, repoPath, undefined, undefined, maxCount, false, undefined);
             return log;
         }
         catch (ex) {
@@ -867,7 +842,7 @@ export class GitService extends Disposable {
         try {
             const { range, ...opts } = options;
             const data = await Git.log_file(root, file, sha, { ...opts, ...{ startLine: range && range.start.line + 1, endLine: range && range.end.line + 1 } });
-            const log = GitLogParser.parse(data, 'file', root, file, sha, options.maxCount, options.reverse!, range);
+            const log = GitLogParser.parse(data, GitCommitType.File, root, file, sha, options.maxCount, options.reverse!, range);
             return log;
         }
         catch (ex) {
@@ -886,30 +861,6 @@ export class GitService extends Disposable {
 
             return undefined;
         }
-    }
-
-    async getLogLocations(uri: GitUri, selectedSha?: string, line?: number): Promise<Location[] | undefined> {
-        Logger.log(`getLogLocations('${uri.repoPath}', '${uri.fsPath}', ${uri.sha}, ${selectedSha}, ${line})`);
-
-        const log = await this.getLogForFile(uri.repoPath, uri.fsPath, uri.sha);
-        if (log === undefined) return undefined;
-
-        const commitCount = log.commits.size;
-        const dateFormat = this.config.defaultDateFormat === null ? 'MMMM Do, YYYY h:MMa' : this.config.defaultDateFormat;
-
-        const locations: Location[] = [];
-        Iterables.forEach(log.commits.values(), (c, i) => {
-            if (c.isUncommitted) return;
-
-            const decoration = `${GlyphChars.ArrowDropRight} ${c.author}, ${c.formatDate(dateFormat)}`;
-            const uri = GitService.toReferenceGitContentUri(c, i + 1, commitCount, c.originalFileName, decoration, dateFormat);
-            locations.push(new Location(uri, new Position(0, 0)));
-            if (c.sha === selectedSha) {
-                locations.push(new Location(uri, new Position((line || 0) + 1, 0)));
-            }
-        });
-
-        return locations;
     }
 
     hasRemotes(repoPath: string): boolean {
@@ -1158,7 +1109,7 @@ export class GitService extends Disposable {
             shortSha = GitService.shortenSha(shaOrcommitOrUri);
         }
         else if (shaOrcommitOrUri instanceof GitCommit) {
-            data = GitService._toGitUriData(shaOrcommitOrUri, undefined, shaOrcommitOrUri.originalFileName);
+            data = GitService._toGitUriData(shaOrcommitOrUri, shaOrcommitOrUri.originalFileName);
             fileName = shaOrcommitOrUri.fileName;
             shortSha = shaOrcommitOrUri.shortSha;
         }
@@ -1176,36 +1127,11 @@ export class GitService extends Disposable {
         return Uri.parse(`${DocumentSchemes.GitLensGit}:${path.basename(fileName!, extension)}:${shortSha}${extension}?${JSON.stringify(data)}`);
     }
 
-    static toReferenceGitContentUri(commit: GitCommit, index: number, commitCount: number, originalFileName: string | undefined, decoration: string, dateFormat: string | null): Uri {
-        return GitService._toReferenceGitContentUri(commit, DocumentSchemes.GitLensGit, commitCount, GitService._toGitUriData(commit, index, originalFileName, decoration), dateFormat);
-    }
-
-    private static _toReferenceGitContentUri(commit: GitCommit, scheme: DocumentSchemes, commitCount: number, data: IGitUriData, dateFormat: string | null) {
-        const pad = (n: number) => ('0000000' + n).slice(-('' + commitCount).length);
-        const ext = path.extname(data.fileName);
-        const uriPath = `${path.relative(commit.repoPath, data.fileName.slice(0, -ext.length))}/${commit.shortSha}${ext}`;
-
-        let message = commit.message;
-        if (message.length > 50) {
-            message = message.substring(0, 49) + GlyphChars.Ellipsis;
-        }
-
-        if (dateFormat === null) {
-            dateFormat = 'MMMM Do, YYYY h:MMa';
-        }
-
-        // NOTE: Need to specify an index here, since I can't control the sort order -- just alphabetic or by file location
-        return Uri.parse(`${scheme}:${pad(data.index || 0)} ${GlyphChars.Dot} ${encodeURIComponent(message)} ${GlyphChars.Dot} ${commit.formatDate(dateFormat)} ${GlyphChars.Dot} ${encodeURIComponent(uriPath)}?${JSON.stringify(data)}`);
-    }
-
-    private static _toGitUriData<T extends IGitUriData>(commit: IGitUriData, index?: number, originalFileName?: string, decoration?: string): T {
+    private static _toGitUriData<T extends IGitUriData>(commit: IGitUriData, originalFileName?: string): T {
         const fileName = Git.normalizePath(path.resolve(commit.repoPath, commit.fileName));
-        const data = { repoPath: commit.repoPath, fileName: fileName, sha: commit.sha, index: index } as T;
+        const data = { repoPath: commit.repoPath, fileName: fileName, sha: commit.sha } as T;
         if (originalFileName) {
             data.originalFileName = Git.normalizePath(path.resolve(commit.repoPath, originalFileName));
-        }
-        if (decoration) {
-            data.decoration = decoration;
         }
         return data;
     }

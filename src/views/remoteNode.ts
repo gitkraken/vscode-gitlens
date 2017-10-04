@@ -4,7 +4,7 @@ import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchHistoryNode } from './branchHistoryNode';
 import { GlyphChars } from '../constants';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { GitRemote, GitService, GitUri } from '../gitService';
+import { GitRemote, GitRemoteType, GitService, GitUri } from '../gitService';
 
 export class RemoteNode extends ExplorerNode {
 
@@ -28,8 +28,8 @@ export class RemoteNode extends ExplorerNode {
         }
 
         getTreeItem(): TreeItem {
-            const fetch = this.remote.types.includes('push');
-            const push = this.remote.types.includes('push');
+            const fetch = this.remote.types.includes(GitRemoteType.Push);
+            const push = this.remote.types.includes(GitRemoteType.Push);
 
             let separator;
             if (fetch && push) {

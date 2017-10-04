@@ -1,93 +1,57 @@
 'use strict';
 import { FileAnnotationType } from './annotations/annotationController';
-import { Commands } from './commands';
 import { LineAnnotationType } from './currentLineController';
 import { GitExplorerView } from './views/gitExplorer';
 import { OutputLevel } from './logger';
 
 export { ExtensionKey } from './constants';
 
-export type CodeLensCommand =
-    'gitlens.toggleFileBlame' |
-    'gitlens.showBlameHistory' |
-    'gitlens.showFileHistory' |
-    'gitlens.diffWithPrevious' |
-    'gitlens.showQuickCommitDetails' |
-    'gitlens.showQuickCommitFileDetails' |
-    'gitlens.showQuickFileHistory' |
-    'gitlens.showQuickRepoHistory';
-export const CodeLensCommand = {
-    BlameAnnotate: Commands.ToggleFileBlame as CodeLensCommand,
-    ShowBlameHistory: Commands.ShowBlameHistory as CodeLensCommand,
-    ShowFileHistory: Commands.ShowFileHistory as CodeLensCommand,
-    DiffWithPrevious: Commands.DiffWithPrevious as CodeLensCommand,
-    ShowQuickCommitDetails: Commands.ShowQuickCommitDetails as CodeLensCommand,
-    ShowQuickCommitFileDetails: Commands.ShowQuickCommitFileDetails as CodeLensCommand,
-    ShowQuickFileHistory: Commands.ShowQuickFileHistory as CodeLensCommand,
-    ShowQuickCurrentBranchHistory: Commands.ShowQuickCurrentBranchHistory as CodeLensCommand
-};
+export enum CodeLensCommand {
+    DiffWithPrevious = 'gitlens.diffWithPrevious',
+    ShowQuickCommitDetails = 'gitlens.showQuickCommitDetails',
+    ShowQuickCommitFileDetails = 'gitlens.showQuickCommitFileDetails',
+    ShowQuickCurrentBranchHistory = 'gitlens.showQuickRepoHistory',
+    ShowQuickFileHistory = 'gitlens.showQuickFileHistory',
+    ToggleFileBlame = 'gitlens.toggleFileBlame'
+}
 
-export type CodeLensLocations = 'document' | 'containers' | 'blocks' | 'custom';
-export const CodeLensLocations = {
-    Document: 'document' as CodeLensLocations,
-    Containers: 'containers' as CodeLensLocations,
-    Blocks: 'blocks' as CodeLensLocations,
-    Custom: 'custom' as CodeLensLocations
-};
+export enum CodeLensLocations {
+    Document = 'document',
+    Containers = 'containers',
+    Blocks = 'blocks',
+    Custom = 'custom'
+}
 
-export type LineHighlightLocations = 'gutter' | 'line' | 'overviewRuler';
-export const LineHighlightLocations = {
-    Gutter: 'gutter' as LineHighlightLocations,
-    Line: 'line' as LineHighlightLocations,
-    OverviewRuler: 'overviewRuler' as LineHighlightLocations
-};
+export enum LineHighlightLocations {
+    Gutter = 'gutter',
+    Line = 'line',
+    OverviewRuler = 'overviewRuler'
+}
 
-export type CustomRemoteType =
-    'Bitbucket' |
-    'Custom' |
-    'GitHub' |
-    'GitLab';
-export const CustomRemoteType = {
-    Bitbucket: 'Bitbucket' as CustomRemoteType,
-    BitbucketServer: 'BitbucketServer' as CustomRemoteType,
-    Custom: 'Custom' as CustomRemoteType,
-    GitHub: 'GitHub' as CustomRemoteType,
-    GitLab: 'GitLab' as CustomRemoteType
-};
+export enum CustomRemoteType {
+    Bitbucket = 'Bitbucket',
+    BitbucketServer = 'BitbucketServer',
+    Custom = 'Custom',
+    GitHub = 'GitHub',
+    GitLab = 'GitLab'
+}
 
-export type GitExplorerFilesLayout =
-    'auto' |
-    'list' |
-    'tree';
-export const GitExplorerFilesLayout = {
-    Auto: 'auto' as GitExplorerFilesLayout,
-    List: 'list' as GitExplorerFilesLayout,
-    Tree: 'tree' as GitExplorerFilesLayout
-};
+export enum GitExplorerFilesLayout {
+    Auto = 'auto',
+    List = 'list',
+    Tree = 'tree'
+}
 
-export type StatusBarCommand =
-    'gitlens.toggleFileBlame' |
-    'gitlens.showBlameHistory' |
-    'gitlens.showFileHistory' |
-    'gitlens.toggleCodeLens' |
-    'gitlens.diffWithPrevious' |
-    'gitlens.diffWithWorking' |
-    'gitlens.showQuickCommitDetails' |
-    'gitlens.showQuickCommitFileDetails' |
-    'gitlens.showQuickFileHistory' |
-    'gitlens.showQuickRepoHistory';
-export const StatusBarCommand = {
-    BlameAnnotate: Commands.ToggleFileBlame as StatusBarCommand,
-    ShowBlameHistory: Commands.ShowBlameHistory as StatusBarCommand,
-    ShowFileHistory: Commands.ShowFileHistory as CodeLensCommand,
-    DiffWithPrevious: Commands.DiffWithPrevious as StatusBarCommand,
-    DiffWithWorking: Commands.DiffWithWorking as StatusBarCommand,
-    ToggleCodeLens: Commands.ToggleCodeLens as StatusBarCommand,
-    ShowQuickCommitDetails: Commands.ShowQuickCommitDetails as StatusBarCommand,
-    ShowQuickCommitFileDetails: Commands.ShowQuickCommitFileDetails as StatusBarCommand,
-    ShowQuickFileHistory: Commands.ShowQuickFileHistory as StatusBarCommand,
-    ShowQuickCurrentBranchHistory: Commands.ShowQuickCurrentBranchHistory as StatusBarCommand
-};
+export enum StatusBarCommand {
+    DiffWithPrevious = 'gitlens.diffWithPrevious',
+    DiffWithWorking = 'gitlens.diffWithWorking',
+    ShowQuickCommitDetails = 'gitlens.showQuickCommitDetails',
+    ShowQuickCommitFileDetails = 'gitlens.showQuickCommitFileDetails',
+    ShowQuickCurrentBranchHistory = 'gitlens.showQuickRepoHistory',
+    ShowQuickFileHistory = 'gitlens.showQuickFileHistory',
+    ToggleCodeLens = 'gitlens.toggleCodeLens',
+    ToggleFileBlame = 'gitlens.toggleFileBlame'
+}
 
 export interface IAdvancedConfig {
     caching: {

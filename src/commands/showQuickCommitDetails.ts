@@ -58,7 +58,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         if (args.sha === undefined) {
             if (editor === undefined) return undefined;
 
-            const blameline = editor.selection.active.line - gitUri.offset;
+            const blameline = editor.selection.active.line;
             if (blameline < 0) return undefined;
 
             try {

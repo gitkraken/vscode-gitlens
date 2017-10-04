@@ -27,13 +27,13 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 
         args = { ...args };
         if (args.line === undefined) {
-            args.line = editor === undefined ? gitUri.offset : editor.selection.active.line;
+            args.line = editor === undefined ? 0 : editor.selection.active.line;
         }
 
         if (args.commit === undefined || GitService.isUncommitted(args.commit.sha)) {
             if (editor !== undefined && editor.document !== undefined && editor.document.isDirty) return undefined;
 
-            const blameline = args.line - gitUri.offset;
+            const blameline = args.line;
             if (blameline < 0) return undefined;
 
             try {

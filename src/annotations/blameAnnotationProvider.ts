@@ -30,16 +30,13 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
             if (!blame || !blame.lines.length) return;
         }
 
-        const offset = this.uri.offset;
-
         let sha: string | undefined = undefined;
         if (typeof shaOrLine === 'string') {
             sha = shaOrLine;
         }
         else if (typeof shaOrLine === 'number') {
-            const line = shaOrLine - offset;
-            if (line >= 0) {
-                const commitLine = blame.lines[line];
+            if (shaOrLine >= 0) {
+                const commitLine = blame.lines[shaOrLine];
                 sha = commitLine && commitLine.sha;
             }
         }
@@ -54,7 +51,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 
         const highlightDecorationRanges = blame.lines
             .filter(l => l.sha === sha)
-            .map(l => this.editor.document.validateRange(new Range(l.line + offset, 0, l.line + offset, 1000000)));
+            .map(l => this.editor.document.validateRange(new Range(l.line, 0, l.line, 1000000)));
 
         this.editor.setDecorations(this.highlightDecoration, highlightDecorationRanges);
     }
@@ -101,7 +98,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         const blame = await this.getBlame(true);
         if (blame === undefined) return undefined;
 
-        const line = blame.lines[position.line - this.uri.offset];
+        const line = blame.lines[position.line];
 
         const commit = blame.commits.get(line.sha);
         if (commit === undefined) return undefined;

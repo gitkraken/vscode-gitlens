@@ -17,11 +17,10 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
     }
 } as DecorationRenderOptions);
 
-export type LineAnnotationType = 'trailing' | 'hover';
-export const LineAnnotationType = {
-    Trailing: 'trailing' as LineAnnotationType,
-    Hover: 'hover' as LineAnnotationType
-};
+export enum LineAnnotationType {
+    Trailing = 'trailing',
+    Hover = 'hover'
+}
 
 export class CurrentLineController extends Disposable {
 
@@ -193,8 +192,6 @@ export class CurrentLineController extends Disposable {
     }
 
     private async _updateBlame(line: number, editor: TextEditor) {
-        line = line - this._uri.offset;
-
         let commit: GitCommit | undefined = undefined;
         let commitLine: GitCommitLine | undefined = undefined;
         // Since blame information isn't valid when there are unsaved changes -- don't show any status
@@ -290,7 +287,7 @@ export class CurrentLineController extends Disposable {
         const state = this._blameLineAnnotationState !== undefined ? this._blameLineAnnotationState : cfg;
         if (!state.enabled) return;
 
-        line = line === undefined ? blameLine.line + this._uri.offset : line;
+        line = line === undefined ? blameLine.line : line;
 
         const decorationOptions: DecorationOptions[] = [];
 
@@ -419,14 +416,8 @@ export class CurrentLineController extends Disposable {
         } as ICommitFormatOptions)}`;
 
         switch (cfg.command) {
-            case StatusBarCommand.BlameAnnotate:
+            case StatusBarCommand.ToggleFileBlame:
                 this._statusBarItem.tooltip = 'Toggle Blame Annotations';
-                break;
-            case StatusBarCommand.ShowBlameHistory:
-                this._statusBarItem.tooltip = 'Open Blame History Explorer';
-                break;
-            case StatusBarCommand.ShowFileHistory:
-                this._statusBarItem.tooltip = 'Open File History Explorer';
                 break;
             case StatusBarCommand.DiffWithPrevious:
                 this._statusBarItem.command = Commands.DiffLineWithPrevious;

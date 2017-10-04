@@ -5,95 +5,49 @@ import { GitBranch, GitCommit, GitRemote } from '../gitService';
 import { Logger } from '../logger';
 import { Telemetry } from '../telemetry';
 
-export type Commands =
-    'gitlens.clearFileAnnotations' |
-    'gitlens.closeUnchangedFiles' |
-    'gitlens.copyMessageToClipboard' |
-    'gitlens.copyShaToClipboard' |
-    'gitlens.diffDirectory' |
-    'gitlens.diffWith' |
-    'gitlens.diffWithBranch' |
-    'gitlens.diffWithNext' |
-    'gitlens.diffWithPrevious' |
-    'gitlens.diffLineWithPrevious' |
-    'gitlens.diffWithRevision' |
-    'gitlens.diffWithWorking' |
-    'gitlens.diffLineWithWorking' |
-    'gitlens.externalDiff' |
-    'gitlens.openChangedFiles' |
-    'gitlens.openBranchesInRemote' |
-    'gitlens.openBranchInRemote' |
-    'gitlens.openCommitInRemote' |
-    'gitlens.openFileInRemote' |
-    'gitlens.openFileRevision' |
-    'gitlens.openInRemote' |
-    'gitlens.openRepoInRemote' |
-    'gitlens.resetSuppressedWarnings' |
-    'gitlens.showBlameHistory' |
-    'gitlens.showCommitSearch' |
-    'gitlens.showFileBlame' |
-    'gitlens.showFileHistory' |
-    'gitlens.showLastQuickPick' |
-    'gitlens.showLineBlame' |
-    'gitlens.showQuickBranchHistory' |
-    'gitlens.showQuickCommitDetails' |
-    'gitlens.showQuickCommitFileDetails' |
-    'gitlens.showQuickFileHistory' |
-    'gitlens.showQuickRepoHistory' |
-    'gitlens.showQuickRepoStatus' |
-    'gitlens.showQuickStashList' |
-    'gitlens.stashApply' |
-    'gitlens.stashDelete' |
-    'gitlens.stashSave' |
-    'gitlens.toggleCodeLens' |
-    'gitlens.toggleFileBlame' |
-    'gitlens.toggleFileRecentChanges' |
-    'gitlens.toggleLineBlame';
-export const Commands = {
-    ClearFileAnnotations: 'gitlens.clearFileAnnotations' as Commands,
-    CloseUnchangedFiles: 'gitlens.closeUnchangedFiles' as Commands,
-    CopyMessageToClipboard: 'gitlens.copyMessageToClipboard' as Commands,
-    CopyShaToClipboard: 'gitlens.copyShaToClipboard' as Commands,
-    DiffDirectory: 'gitlens.diffDirectory' as Commands,
-    DiffWith: 'gitlens.diffWith' as Commands,
-    DiffWithBranch: 'gitlens.diffWithBranch' as Commands,
-    DiffWithNext: 'gitlens.diffWithNext' as Commands,
-    DiffWithPrevious: 'gitlens.diffWithPrevious' as Commands,
-    DiffLineWithPrevious: 'gitlens.diffLineWithPrevious' as Commands,
-    DiffWithRevision: 'gitlens.diffWithRevision' as Commands,
-    DiffWithWorking: 'gitlens.diffWithWorking' as Commands,
-    DiffLineWithWorking: 'gitlens.diffLineWithWorking' as Commands,
-    ExternalDiff: 'gitlens.externalDiff' as Commands,
-    OpenChangedFiles: 'gitlens.openChangedFiles' as Commands,
-    OpenBranchesInRemote: 'gitlens.openBranchesInRemote' as Commands,
-    OpenBranchInRemote: 'gitlens.openBranchInRemote' as Commands,
-    OpenCommitInRemote: 'gitlens.openCommitInRemote' as Commands,
-    OpenFileInRemote: 'gitlens.openFileInRemote' as Commands,
-    OpenFileRevision: 'gitlens.openFileRevision' as Commands,
-    OpenInRemote: 'gitlens.openInRemote' as Commands,
-    OpenRepoInRemote: 'gitlens.openRepoInRemote' as Commands,
-    ResetSuppressedWarnings: 'gitlens.resetSuppressedWarnings' as Commands,
-    ShowBlameHistory: 'gitlens.showBlameHistory' as Commands,
-    ShowCommitSearch: 'gitlens.showCommitSearch' as Commands,
-    ShowFileBlame: 'gitlens.showFileBlame' as Commands,
-    ShowFileHistory: 'gitlens.showFileHistory' as Commands,
-    ShowLastQuickPick: 'gitlens.showLastQuickPick' as Commands,
-    ShowLineBlame: 'gitlens.showLineBlame' as Commands,
-    ShowQuickCommitDetails: 'gitlens.showQuickCommitDetails' as Commands,
-    ShowQuickCommitFileDetails: 'gitlens.showQuickCommitFileDetails' as Commands,
-    ShowQuickFileHistory: 'gitlens.showQuickFileHistory' as Commands,
-    ShowQuickBranchHistory: 'gitlens.showQuickBranchHistory' as Commands,
-    ShowQuickCurrentBranchHistory: 'gitlens.showQuickRepoHistory' as Commands,
-    ShowQuickRepoStatus: 'gitlens.showQuickRepoStatus' as Commands,
-    ShowQuickStashList: 'gitlens.showQuickStashList' as Commands,
-    StashApply: 'gitlens.stashApply' as Commands,
-    StashDelete: 'gitlens.stashDelete' as Commands,
-    StashSave: 'gitlens.stashSave' as Commands,
-    ToggleCodeLens: 'gitlens.toggleCodeLens' as Commands,
-    ToggleFileBlame: 'gitlens.toggleFileBlame' as Commands,
-    ToggleFileRecentChanges: 'gitlens.toggleFileRecentChanges' as Commands,
-    ToggleLineBlame: 'gitlens.toggleLineBlame' as Commands
-};
+export enum Commands {
+    ClearFileAnnotations = 'gitlens.clearFileAnnotations',
+    CloseUnchangedFiles = 'gitlens.closeUnchangedFiles',
+    CopyMessageToClipboard = 'gitlens.copyMessageToClipboard',
+    CopyShaToClipboard = 'gitlens.copyShaToClipboard',
+    DiffDirectory = 'gitlens.diffDirectory',
+    DiffWith = 'gitlens.diffWith',
+    DiffWithBranch = 'gitlens.diffWithBranch',
+    DiffWithNext = 'gitlens.diffWithNext',
+    DiffWithPrevious = 'gitlens.diffWithPrevious',
+    DiffLineWithPrevious = 'gitlens.diffLineWithPrevious',
+    DiffWithRevision = 'gitlens.diffWithRevision',
+    DiffWithWorking = 'gitlens.diffWithWorking',
+    DiffLineWithWorking = 'gitlens.diffLineWithWorking',
+    ExternalDiff = 'gitlens.externalDiff',
+    OpenChangedFiles = 'gitlens.openChangedFiles',
+    OpenBranchesInRemote = 'gitlens.openBranchesInRemote',
+    OpenBranchInRemote = 'gitlens.openBranchInRemote',
+    OpenCommitInRemote = 'gitlens.openCommitInRemote',
+    OpenFileInRemote = 'gitlens.openFileInRemote',
+    OpenFileRevision = 'gitlens.openFileRevision',
+    OpenInRemote = 'gitlens.openInRemote',
+    OpenRepoInRemote = 'gitlens.openRepoInRemote',
+    ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',
+    ShowCommitSearch = 'gitlens.showCommitSearch',
+    ShowFileBlame = 'gitlens.showFileBlame',
+    ShowLastQuickPick = 'gitlens.showLastQuickPick',
+    ShowLineBlame = 'gitlens.showLineBlame',
+    ShowQuickCommitDetails = 'gitlens.showQuickCommitDetails',
+    ShowQuickCommitFileDetails = 'gitlens.showQuickCommitFileDetails',
+    ShowQuickFileHistory = 'gitlens.showQuickFileHistory',
+    ShowQuickBranchHistory = 'gitlens.showQuickBranchHistory',
+    ShowQuickCurrentBranchHistory = 'gitlens.showQuickRepoHistory',
+    ShowQuickRepoStatus = 'gitlens.showQuickRepoStatus',
+    ShowQuickStashList = 'gitlens.showQuickStashList',
+    StashApply = 'gitlens.stashApply',
+    StashDelete = 'gitlens.stashDelete',
+    StashSave = 'gitlens.stashSave',
+    ToggleCodeLens = 'gitlens.toggleCodeLens',
+    ToggleFileBlame = 'gitlens.toggleFileBlame',
+    ToggleFileRecentChanges = 'gitlens.toggleFileRecentChanges',
+    ToggleLineBlame = 'gitlens.toggleLineBlame'
+}
 
 export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
     if (uri instanceof Uri) return uri;
