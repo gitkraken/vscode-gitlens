@@ -1,10 +1,8 @@
 'use strict';
-// import { Functions } from '../system';
 import { Disposable, ExtensionContext, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
 import { FileAnnotationType } from '../annotations/annotationController';
 import { TextDocumentComparer } from '../comparers';
 import { ExtensionKey, IConfig } from '../configuration';
-import { WhitespaceController } from './whitespaceController';
 
  export abstract class AnnotationProviderBase extends Disposable {
 
@@ -14,7 +12,12 @@ import { WhitespaceController } from './whitespaceController';
     protected _config: IConfig;
     protected _disposable: Disposable;
 
-    constructor(context: ExtensionContext, public editor: TextEditor, protected decoration: TextEditorDecorationType | undefined, protected highlightDecoration: TextEditorDecorationType | undefined, protected whitespaceController: WhitespaceController | undefined) {
+    constructor(
+        context: ExtensionContext,
+        public editor: TextEditor,
+        protected decoration: TextEditorDecorationType | undefined,
+        protected highlightDecoration: TextEditorDecorationType | undefined
+    ) {
         super(() => this.dispose());
 
         this.document = this.editor.document;
@@ -53,18 +56,14 @@ import { WhitespaceController } from './whitespaceController';
             }
             catch (ex) { }
         }
-
-        // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- restore whitespace
-        this.whitespaceController && await this.whitespaceController.restore();
     }
 
-    async reset(decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined, whitespaceController?: WhitespaceController) {
+    async reset(decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined) {
         await this.clear();
 
         this._config = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
         this.decoration = decoration;
         this.highlightDecoration = highlightDecoration;
-        this.whitespaceController = whitespaceController;
 
         await this.provideAnnotation(this.editor === undefined ? undefined : this.editor.selection.active.line);
     }

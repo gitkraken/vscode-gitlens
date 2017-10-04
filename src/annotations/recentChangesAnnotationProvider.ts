@@ -8,8 +8,15 @@ import { Logger } from '../logger';
 
 export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
-    constructor(context: ExtensionContext, editor: TextEditor, decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined, private git: GitService, private uri: GitUri) {
-        super(context, editor, decoration, highlightDecoration, undefined);
+    constructor(
+        context: ExtensionContext,
+        editor: TextEditor,
+        decoration: TextEditorDecorationType | undefined,
+        highlightDecoration: TextEditorDecorationType | undefined,
+        private git: GitService,
+        private uri: GitUri
+    ) {
+        super(context, editor, decoration, highlightDecoration);
     }
 
     async provideAnnotation(shaOrLine?: string | number): Promise<boolean> {

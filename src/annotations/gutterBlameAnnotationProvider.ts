@@ -13,7 +13,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
     async provideAnnotation(shaOrLine?: string | number, type?: FileAnnotationType): Promise<boolean> {
         this.annotationType = FileAnnotationType.Gutter;
 
-        const blame = await this.getBlame(true);
+        const blame = await this.getBlame();
         if (blame === undefined) return false;
 
         const start = process.hrtime();

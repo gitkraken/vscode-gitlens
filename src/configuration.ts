@@ -97,9 +97,6 @@ export interface IAdvancedConfig {
     telemetry: {
         enabled: boolean;
     };
-    toggleWhitespace: {
-        enabled: boolean;
-    };
 }
 
 export interface ICodeLensLanguageLocation {

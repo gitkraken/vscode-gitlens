@@ -13,7 +13,7 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
         const cfg = this._config.annotations.file.hover;
 
-        const blame = await this.getBlame(cfg.heatmap.enabled);
+        const blame = await this.getBlame();
         if (blame === undefined) return false;
 
         if (cfg.heatmap.enabled) {

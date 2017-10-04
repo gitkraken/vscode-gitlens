@@ -21,8 +21,7 @@ export enum BuiltInCommands {
     PreviewHtml = 'vscode.previewHtml',
     RevealLine = 'revealLine',
     SetContext = 'setContext',
-    ShowReferences = 'editor.action.showReferences',
-    ToggleRenderWhitespace = 'editor.action.toggleRenderWhitespace'
+    ShowReferences = 'editor.action.showReferences'
 }
 
 export enum CommandContext {

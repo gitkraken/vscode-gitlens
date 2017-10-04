@@ -4,15 +4,21 @@ import { CancellationToken, Disposable, ExtensionContext, Hover, HoverProvider, 
 import { AnnotationProviderBase } from './annotationProvider';
 import { Annotations, endOfLineIndex } from './annotations';
 import { GitBlame, GitCommit, GitService, GitUri } from '../gitService';
-import { WhitespaceController } from './whitespaceController';
 
 export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase implements HoverProvider {
 
     protected _blame: Promise<GitBlame | undefined>;
     protected _hoverProviderDisposable: Disposable;
 
-    constructor(context: ExtensionContext, editor: TextEditor, decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined, whitespaceController: WhitespaceController | undefined, protected git: GitService, protected uri: GitUri) {
-        super(context, editor, decoration, highlightDecoration, whitespaceController);
+    constructor(
+        context: ExtensionContext,
+        editor: TextEditor,
+        decoration: TextEditorDecorationType | undefined,
+        highlightDecoration: TextEditorDecorationType | undefined,
+        protected git: GitService,
+        protected uri: GitUri
+    ) {
+        super(context, editor, decoration, highlightDecoration);
 
         this._blame = this.git.getBlameForFile(this.uri);
     }
@@ -61,25 +67,9 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         return blame !== undefined && blame.lines.length !== 0;
     }
 
-    protected async getBlame(requiresWhitespaceHack: boolean): Promise<GitBlame | undefined> {
-        let whitespacePromise: Promise<void> | undefined;
-        // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- override whitespace (turn off)
-        if (requiresWhitespaceHack) {
-            whitespacePromise = this.whitespaceController && this.whitespaceController.override();
-        }
-
-        let blame: GitBlame | undefined;
-        if (whitespacePromise !== undefined) {
-            [blame] = await Promise.all([this._blame, whitespacePromise]);
-        }
-        else {
-            blame = await this._blame;
-        }
-
-        if (blame === undefined || blame.lines.length === 0) {
-            this.whitespaceController && await this.whitespaceController.restore();
-            return undefined;
-        }
+    protected async getBlame(): Promise<GitBlame | undefined> {
+        const blame = await this._blame;
+        if (blame === undefined || blame.lines.length === 0) return undefined;
 
         return blame;
     }
@@ -95,7 +85,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         const cfg = this._config.annotations.file.gutter;
         if (!cfg.hover.wholeLine && position.character !== 0) return undefined;
 
-        const blame = await this.getBlame(true);
+        const blame = await this.getBlame();
         if (blame === undefined) return undefined;
 
         const line = blame.lines[position.line];

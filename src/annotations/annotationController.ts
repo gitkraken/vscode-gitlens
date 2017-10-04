@@ -11,7 +11,6 @@ import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
 import { HoverBlameAnnotationProvider } from './hoverBlameAnnotationProvider';
 import { Logger } from '../logger';
 import { RecentChangesAnnotationProvider } from './recentChangesAnnotationProvider';
-import { WhitespaceController } from './whitespaceController';
 import * as path from 'path';
 
 export enum FileAnnotationType {
@@ -41,7 +40,6 @@ export class AnnotationController extends Disposable {
     private _annotationProviders: Map<number, AnnotationProviderBase> = new Map();
     private _config: IConfig;
     private _disposable: Disposable;
-    private _whitespaceController: WhitespaceController | undefined;
 
     constructor(private context: ExtensionContext, private git: GitService, private gitContextTracker: GitContextTracker) {
         super(() => this.dispose());
@@ -62,36 +60,11 @@ export class AnnotationController extends Disposable {
         Decorations.blameHighlight && Decorations.blameHighlight.dispose();
 
         this._annotationsDisposable && this._annotationsDisposable.dispose();
-        this._whitespaceController && this._whitespaceController.dispose();
         this._disposable && this._disposable.dispose();
     }
 
     private _onConfigurationChanged() {
-        let toggleWhitespace = workspace.getConfiguration(`${ExtensionKey}.advanced.toggleWhitespace`).get<boolean>('enabled');
-        // Until https://github.com/Microsoft/vscode/issues/11485 is fixed we need to toggle whitespace for non-monospace fonts and ligatures
-        // TODO: detect monospace vs non-monospace font
-
-        // if (!toggleWhitespace) {
-        //     // Since we know ligatures will break the whitespace rendering -- turn it back on
-        //     toggleWhitespace = workspace.getConfiguration('editor').get<boolean>('fontLigatures', false);
-        // }
-
-        // If the setting is on and we aren't showing any annotations, make sure it is necessary (i.e. only when rendering whitespace)
-        if (toggleWhitespace && this._annotationProviders.size === 0) {
-            toggleWhitespace = (workspace.getConfiguration('editor').get<string>('renderWhitespace') !== 'none');
-        }
-
         let changed = false;
-
-        if (toggleWhitespace && this._whitespaceController === undefined) {
-            changed = true;
-            this._whitespaceController = new WhitespaceController();
-        }
-        else if (!toggleWhitespace && this._whitespaceController !== undefined) {
-            changed = true;
-            this._whitespaceController.dispose();
-            this._whitespaceController = undefined;
-        }
 
         const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
         const cfgBlameHighlight = cfg.blame.file.lineHighlight;
@@ -187,7 +160,7 @@ export class AnnotationController extends Disposable {
                     provider.reset(Decorations.recentChangesAnnotation, Decorations.recentChangesHighlight);
                 }
                 else {
-                    provider.reset(Decorations.blameAnnotation, Decorations.blameHighlight, this._whitespaceController);
+                    provider.reset(Decorations.blameAnnotation, Decorations.blameHighlight);
                 }
             }
         }
@@ -286,11 +259,11 @@ export class AnnotationController extends Disposable {
         let provider: AnnotationProviderBase | undefined = undefined;
         switch (type) {
             case FileAnnotationType.Gutter:
-                provider = new GutterBlameAnnotationProvider(this.context, editor, Decorations.blameAnnotation, Decorations.blameHighlight, this._whitespaceController, this.git, gitUri);
+                provider = new GutterBlameAnnotationProvider(this.context, editor, Decorations.blameAnnotation, Decorations.blameHighlight, this.git, gitUri);
                 break;
 
             case FileAnnotationType.Hover:
-                provider = new HoverBlameAnnotationProvider(this.context, editor, Decorations.blameAnnotation, Decorations.blameHighlight, this._whitespaceController, this.git, gitUri);
+                provider = new HoverBlameAnnotationProvider(this.context, editor, Decorations.blameAnnotation, Decorations.blameHighlight, this.git, gitUri);
                 break;
 
             case FileAnnotationType.RecentChanges:
