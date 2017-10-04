@@ -14,7 +14,7 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
         if (editor === undefined || editor.document === undefined || editor.document.isDirty) return undefined;
 
         try {
-            return this.annotationController.clear(editor.viewColumn || -1);
+            return this.annotationController.clear(editor);
         }
         catch (ex) {
             Logger.error(ex, 'ClearFileAnnotationsCommand');

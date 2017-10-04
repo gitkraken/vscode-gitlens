@@ -34,7 +34,7 @@ class TextEditorComparer extends Comparer<TextEditor> {
         if (options.usePosition && (lhs.viewColumn !== rhs.viewColumn)) return false;
 
         if (options.useId && (!lhs.document || !rhs.document)) {
-            if ((lhs as any)._id !== (rhs as any)._id) return false;
+            if ((lhs as any).id !== (rhs as any).id) return false;
 
             return true;
         }

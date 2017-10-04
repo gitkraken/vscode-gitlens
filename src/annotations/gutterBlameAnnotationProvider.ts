@@ -36,7 +36,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         const renderOptions = Annotations.gutterRenderOptions(this._config.theme, cfg.heatmap, options);
         const separateLines = this._config.theme.annotations.file.gutter.separateLines;
 
-        const decorations: DecorationOptions[] = [];
+        this._decorations = [];
         const decorationsMap: { [sha: string]: DecorationOptions | undefined } = Object.create(null);
 
         let commit: GitBlameCommit | undefined;
@@ -77,7 +77,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
                 gutter.range = new Range(line, 0, line, 0);
 
-                decorations.push(gutter);
+                this._decorations.push(gutter);
 
                 continue;
             }
@@ -92,7 +92,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
                     range: new Range(line, 0, line, 0)
                 } as DecorationOptions;
 
-                decorations.push(gutter);
+                this._decorations.push(gutter);
 
                 continue;
             }
@@ -108,12 +108,12 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
             gutter.range = new Range(line, 0, line, 0);
 
-            decorations.push(gutter);
+            this._decorations.push(gutter);
             decorationsMap[l.sha] = gutter;
         }
 
-        if (decorations.length) {
-            this.editor.setDecorations(this.decoration!, decorations);
+        if (this._decorations.length) {
+            this.editor.setDecorations(this.decoration!, this._decorations);
         }
 
         const duration = process.hrtime(start);

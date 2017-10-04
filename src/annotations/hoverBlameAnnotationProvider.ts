@@ -22,7 +22,7 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
             const now = Date.now();
             const renderOptions = Annotations.hoverRenderOptions(this._config.theme, cfg.heatmap);
 
-            const decorations: DecorationOptions[] = [];
+            this._decorations = [];
             const decorationsMap: { [sha: string]: DecorationOptions } = Object.create(null);
 
             let commit: GitBlameCommit | undefined;
@@ -39,7 +39,7 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
                         range: new Range(line, 0, line, 0)
                     } as DecorationOptions;
 
-                    decorations.push(hover);
+                    this._decorations.push(hover);
 
                     continue;
                 }
@@ -50,13 +50,13 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
                 hover = Annotations.hover(commit, renderOptions, now);
                 hover.range = new Range(line, 0, line, 0);
 
-                decorations.push(hover);
+                this._decorations.push(hover);
                 decorationsMap[l.sha] = hover;
 
             }
 
-            if (decorations.length) {
-                this.editor.setDecorations(this.decoration!, decorations);
+            if (this._decorations.length) {
+                this.editor.setDecorations(this.decoration!, this._decorations);
             }
 
             const duration = process.hrtime(start);

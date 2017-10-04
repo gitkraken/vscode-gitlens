@@ -33,7 +33,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
         const cfg = this._config.annotations.file.recentChanges;
         const dateFormat = this._config.defaultDateFormat;
 
-        const decorators: DecorationOptions[] = [];
+        this._decorations = [];
 
         for (const chunk of diff.chunks) {
             let count = chunk.currentPosition.start - 2;
@@ -47,7 +47,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
                 const range = this.editor.document.validateRange(new Range(new Position(count, 0), new Position(count, endOfLineIndex)));
 
                 if (cfg.hover.details) {
-                    decorators.push({
+                    this._decorations.push({
                         hoverMessage: Annotations.getHoverMessage(commit, dateFormat, this.git.hasRemotes(commit.repoPath), this._config.blame.file.annotationType),
                         range: range
                     } as DecorationOptions);
@@ -58,14 +58,14 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
                     message = Annotations.getHoverDiffMessage(commit, line);
                 }
 
-                decorators.push({
+                this._decorations.push({
                     hoverMessage: message,
                     range: range
                 } as DecorationOptions);
             }
         }
 
-        this.editor.setDecorations(this.highlightDecoration!, decorators);
+        this.editor.setDecorations(this.highlightDecoration!, this._decorations);
 
         const duration = process.hrtime(start);
         Logger.log(`${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms to compute recent changes annotations`);
