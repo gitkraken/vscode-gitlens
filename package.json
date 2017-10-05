@@ -109,7 +109,7 @@
                 },
                 "gitlens.annotations.file.gutter.hover.wholeLine": {
                     "type": "boolean",
-                    "default": false,
+                    "default": true,
                     "description": "Specifies whether or not to trigger hover annotations over the whole line"
                 },
                 "gitlens.annotations.file.hover.heatmap.enabled": {
