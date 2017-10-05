@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### Added
+- Adds a command button bar to the bottom of the details hover annotations
+  - Provides `Open Changes`, `Blame Previous Revision`, `Open in Remote`, and `Show More Actions` command buttons
+- Adds support for remembering file annotations when switching tabs
+- Adds full GitLens support for file revisions -- file & line annotations, commands, etc
+
+### Changed
+- Changes `gitlens.annotations.file.gutter.hover.wholeLine` setting to default to `true`
+
+### Removed
+- Removes peek-style file & blame history explorers - see [#66](https://github.com/eamodio/vscode-gitlens/issues/66) for more details
+  - Removes `Open Blame History Explorer` command (`gitlens.showBlameHistory`)
+  - Removes `Open File History Explorer` command (`gitlens.showFileHistory`)
+  - Removes `"gitlens.showBlameHistory"` & `"gitlens.showFileHistory"` option from `gitlens.codeLens.recentChange.command` setting
+  - Removes `"gitlens.showBlameHistory"` & `"gitlens.showFileHistory"` option from `gitlens.codeLens.authors.command` setting
+  - Removes `"gitlens.showBlameHistory"` & `"gitlens.showFileHistory"` option from `gitlens.statusBar.command` setting
+- Removes `gitlens.advanced.toggleWhitespace.enabled` setting -- as it is no longer required
 
 ## [5.4.1] - 2017-10-03
 ### Changed
