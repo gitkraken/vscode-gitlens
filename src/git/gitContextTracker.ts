@@ -26,14 +26,13 @@ export class GitContextTracker extends Disposable {
     constructor(private git: GitService) {
         super(() => this.dispose());
 
-        const subscriptions: Disposable[] = [];
-
-        subscriptions.push(window.onDidChangeActiveTextEditor(this._onActiveTextEditorChanged, this));
-        subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigurationChanged, this));
-        subscriptions.push(workspace.onDidSaveTextDocument(this._onTextDocumentSaved, this));
-        subscriptions.push(this.git.onDidBlameFail(this._onBlameFailed, this));
-        subscriptions.push(this.git.onDidChangeRepo(this._onRepoChanged, this));
-
+        const subscriptions: Disposable[] = [
+            window.onDidChangeActiveTextEditor(this._onActiveTextEditorChanged, this),
+            workspace.onDidChangeConfiguration(this._onConfigurationChanged, this),
+            workspace.onDidSaveTextDocument(this._onTextDocumentSaved, this),
+            this.git.onDidBlameFail(this._onBlameFailed, this),
+            this.git.onDidChangeRepo(this._onRepoChanged, this)
+        ];
         this._disposable = Disposable.from(...subscriptions);
 
         setCommandContext(CommandContext.IsRepository, !!this.git.repoPath);

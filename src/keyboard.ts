@@ -99,12 +99,7 @@ export class Keyboard extends Disposable {
     constructor() {
         super(() => this.dispose());
 
-        const subscriptions: Disposable[] = [];
-
-        for (const key of keys) {
-            subscriptions.push(commands.registerCommand(`${ExtensionKey}.key.${key}`, () => this.execute(key), this));
-        }
-
+        const subscriptions = keys.map(key => commands.registerCommand(`${ExtensionKey}.key.${key}`, () => this.execute(key), this));
         this._disposable = Disposable.from(...subscriptions);
 
         _instance = this;

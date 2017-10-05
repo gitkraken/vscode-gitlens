@@ -44,13 +44,12 @@ export class CurrentLineController extends Disposable {
 
         this._onConfigurationChanged();
 
-        const subscriptions: Disposable[] = [];
-
-        subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigurationChanged, this));
-        subscriptions.push(git.onDidChangeGitCache(this._onGitCacheChanged, this));
-        subscriptions.push(annotationController.onDidToggleAnnotations(this._onFileAnnotationsToggled, this));
-        subscriptions.push(debug.onDidStartDebugSession(this._onDebugSessionStarted, this));
-
+        const subscriptions: Disposable[] = [
+            workspace.onDidChangeConfiguration(this._onConfigurationChanged, this),
+            git.onDidChangeGitCache(this._onGitCacheChanged, this),
+            annotationController.onDidToggleAnnotations(this._onFileAnnotationsToggled, this),
+            debug.onDidStartDebugSession(this._onDebugSessionStarted, this)
+        ];
         this._disposable = Disposable.from(...subscriptions);
     }
 
@@ -106,12 +105,11 @@ export class CurrentLineController extends Disposable {
 
         const trackCurrentLine = cfg.statusBar.enabled || cfg.blame.line.enabled || (this._blameLineAnnotationState && this._blameLineAnnotationState.enabled);
         if (trackCurrentLine && !this._trackCurrentLineDisposable) {
-            const subscriptions: Disposable[] = [];
-
-            subscriptions.push(window.onDidChangeActiveTextEditor(this._onActiveTextEditorChanged, this));
-            subscriptions.push(window.onDidChangeTextEditorSelection(this._onTextEditorSelectionChanged, this));
-            subscriptions.push(this.gitContextTracker.onDidChangeBlameability(this._onBlameabilityChanged, this));
-
+            const subscriptions: Disposable[] = [
+                window.onDidChangeActiveTextEditor(this._onActiveTextEditorChanged, this),
+                window.onDidChangeTextEditorSelection(this._onTextEditorSelectionChanged, this),
+                this.gitContextTracker.onDidChangeBlameability(this._onBlameabilityChanged, this)
+            ];
             this._trackCurrentLineDisposable = Disposable.from(...subscriptions);
         }
         else if (!trackCurrentLine && this._trackCurrentLineDisposable) {

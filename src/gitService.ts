@@ -116,11 +116,10 @@ export class GitService extends Disposable {
 
         this._onConfigurationChanged();
 
-        const subscriptions: Disposable[] = [];
-
-        subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigurationChanged, this));
-        subscriptions.push(RemoteProviderFactory.onDidChange(this._onRemoteProviderChanged, this));
-
+        const subscriptions: Disposable[] = [
+            workspace.onDidChangeConfiguration(this._onConfigurationChanged, this),
+            RemoteProviderFactory.onDidChange(this._onRemoteProviderChanged, this)
+        ];
         this._disposable = Disposable.from(...subscriptions);
     }
 
@@ -156,16 +155,15 @@ export class GitService extends Disposable {
 
                 this._repoWatcher = this._repoWatcher || workspace.createFileSystemWatcher('**/.git/{index,HEAD,refs/stash,refs/heads/**,refs/remotes/**}');
 
-                const disposables: Disposable[] = [];
-
-                disposables.push(workspace.onDidCloseTextDocument(d => this._removeCachedEntry(d, RemoveCacheReason.DocumentClosed)));
-                disposables.push(workspace.onDidChangeTextDocument(this._onTextDocumentChanged, this));
-                disposables.push(workspace.onDidSaveTextDocument(d => this._removeCachedEntry(d, RemoveCacheReason.DocumentSaved)));
-                disposables.push(this._repoWatcher.onDidChange(this._onRepoChanged, this));
-                disposables.push(this._repoWatcher.onDidCreate(this._onRepoChanged, this));
-                disposables.push(this._repoWatcher.onDidDelete(this._onRepoChanged, this));
-
-                this._cacheDisposable = Disposable.from(...disposables);
+                const subscriptions: Disposable[] = [
+                    workspace.onDidCloseTextDocument(d => this._removeCachedEntry(d, RemoveCacheReason.DocumentClosed)),
+                    workspace.onDidChangeTextDocument(this._onTextDocumentChanged, this),
+                    workspace.onDidSaveTextDocument(d => this._removeCachedEntry(d, RemoveCacheReason.DocumentSaved)),
+                    this._repoWatcher.onDidChange(this._onRepoChanged, this),
+                    this._repoWatcher.onDidCreate(this._onRepoChanged, this),
+                    this._repoWatcher.onDidDelete(this._onRepoChanged, this)
+                ];
+                this._cacheDisposable = Disposable.from(...subscriptions);
             }
             else {
                 this._cacheDisposable && this._cacheDisposable.dispose();

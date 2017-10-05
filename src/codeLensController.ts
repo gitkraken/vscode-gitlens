@@ -19,11 +19,10 @@ export class CodeLensController extends Disposable {
 
         this._onConfigurationChanged();
 
-        const subscriptions: Disposable[] = [];
-
-        subscriptions.push(workspace.onDidChangeConfiguration(this._onConfigurationChanged, this));
-        subscriptions.push(git.onDidChangeGitCache(this._onGitCacheChanged, this));
-
+        const subscriptions: Disposable[] = [
+            workspace.onDidChangeConfiguration(this._onConfigurationChanged, this),
+            git.onDidChangeGitCache(this._onGitCacheChanged, this)
+        ];
         this._disposable = Disposable.from(...subscriptions);
     }
 
