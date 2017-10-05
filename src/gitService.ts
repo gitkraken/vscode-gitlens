@@ -1121,8 +1121,8 @@ export class GitService extends Disposable {
             shortSha = shaOrcommitOrUri.shortSha;
         }
 
-        const extension = path.extname(fileName!);
-        return Uri.parse(`${DocumentSchemes.GitLensGit}:${path.basename(fileName!, extension)}:${shortSha}${extension}?${JSON.stringify(data)}`);
+        const parsed = path.parse(fileName!);
+        return Uri.parse(`${DocumentSchemes.GitLensGit}:${parsed.dir}${parsed.name}:${shortSha}${parsed.ext}?${JSON.stringify(data)}`);
     }
 
     private static _toGitUriData<T extends IGitUriData>(commit: IGitUriData, originalFileName?: string): T {

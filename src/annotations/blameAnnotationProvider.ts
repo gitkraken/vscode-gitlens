@@ -75,7 +75,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
     }
 
     registerHoverProvider() {
-        this._hoverProviderDisposable = languages.registerHoverProvider({ pattern: this.uri.fsPath }, this);
+        this._hoverProviderDisposable = languages.registerHoverProvider({ pattern: this.document.uri.fsPath }, this);
     }
 
     async provideHover(document: TextDocument, position: Position, token: CancellationToken): Promise<Hover | undefined> {
