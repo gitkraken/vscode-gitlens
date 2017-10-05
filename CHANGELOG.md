@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+
+## [5.5.0-beta] - 2017-10-05
 ### Added
 - Adds a command button bar to the bottom of the details hover annotations
   - Provides `Open Changes`, `Blame Previous Revision`, `Open in Remote`, and `Show More Actions` command buttons
