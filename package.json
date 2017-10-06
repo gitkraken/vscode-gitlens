@@ -1898,7 +1898,7 @@
             {
                 "command": "gitlens.toggleFileBlame",
                 "key": "alt+b",
-                "when": "editorTextFocus && gitlens:isTracked"
+                "when": "editorTextFocus && gitlens:isBlameable"
             },
             {
                 "command": "gitlens.toggleCodeLens",
