@@ -6,9 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
-## [5.5.0-beta] - 2017-10-05
+## [5.5.0] - 2017-10-09
 ### Added
-- Adds a command button bar to the bottom of the details hover annotations
+- Adds a **quick-access** command bar to the bottom of the `details` hover annotations
+
+  ![Details Blame Annotation (hover)](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotations-details.png)
+
   - Provides `Open Changes`, `Blame Previous Revision`, `Open in Remote`, and `Show More Actions` command buttons
 - Adds support for remembering file annotations when switching tabs
 - Adds full GitLens support for file revisions -- file & line annotations, commands, etc
@@ -24,6 +27,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Removes `"gitlens.showBlameHistory"` & `"gitlens.showFileHistory"` option from `gitlens.codeLens.authors.command` setting
   - Removes `"gitlens.showBlameHistory"` & `"gitlens.showFileHistory"` option from `gitlens.statusBar.command` setting
 - Removes `gitlens.advanced.toggleWhitespace.enabled` setting -- as it is no longer required
+
+### Fixed
+- Fixes [#161](https://github.com/eamodio/vscode-gitlens/issues/161) - Remove colors from output of git command calls
 
 ## [5.4.1] - 2017-10-03
 ### Changed

@@ -19,22 +19,33 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 - Adds an unobtrusive, highly [customizable](#line-blame-annotation-settings) and [themeable](#theme-settings), **Git blame annotation** to the end of the current line ([optional](#line-blame-annotation-settings), on by default)
 
   ![Line Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotation.png)
+  ![Line Blame Annotations (hover)](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotations.png)
   - Contains the author, date, and message of the line's most recent commit, by [default](#line-blame-annotation-settings)
   - Adds a `details` hover annotation to the current line annotation, which provides more commit details ([optional](#line-blame-annotation-settings), on by default)
+
+    ![Details Blame Annotation (hover)](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotations-details.png)
+
+    - Provides a **quick-access command bar** with `Open Changes`, `Blame Previous Revision`, `Open in Remote`, and `Show More Actions` command buttons
     - Clicking the commit id will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
-  - Adds a `changes` (diff) hover annotation to the current line annotation, which provides **instant** access to the line's previous version ([optional](#line-blame-annotation-settings), on by default)
+
+  - Adds a `changes` (diff) hover annotation to the current line annotation, which provides **instant access** to the line's previous version ([optional](#line-blame-annotation-settings), on by default)
+
+    ![Changes Blame Annotation (hover)](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotations-changes.png)
+
     - Clicking on `Changes` will run the `Compare File Revisions` command (`gitlens.diffWith`)
     - Clicking the current and previous commit ids will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
-    - Clicking on external link icon will run the the `Open Commit in Remote` command (`gitlens.openCommitInRemote`)
-
-    ![Line Blame Annotations](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotations.png)
 
 - Adds on-demand, beautiful, highly [customizable](#file-blame-annotation-settings) and [themeable](#theme-settings), **Git blame annotations** of the whole file
 
-  ![File Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-file-blame-annotations.png)
+  ![File Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-file-blame-annotation.png)
+
   - Choose between `gutter` (default) and `hover` [annotation styles](#file-blame-annotation-settings)
   - Contains the commit message and date, by [default](#file-blame-annotation-settings)
   - Adds a `details` hover annotation to the line's annotation, which provides more commit details ([optional](#file-blame-annotation-settings), on by default)
+
+    ![File Blame Annotations (hover)](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-file-blame-annotations.png)
+
+    - Provides a **quick-access command bar** with `Open Changes`, `Blame Previous Revision`, `Open in Remote`, and `Show More Actions` command buttons
     - Clicking the commit id will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
   - Adds a `heatmap` (age) indicator to the gutter annotations (on right edge by [default](#file-blame-annotation-settings)), which provides an easy, at-a-glance way to tell the age of a line ([optional](#file-blame-annotation-settings), on by default)
     - Indicator ranges from bright yellow (newer) to dark brown (older)
