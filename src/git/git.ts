@@ -58,9 +58,9 @@ async function gitCommand(options: GitCommandOptions, ...args: any[]): Promise<s
 }
 
 async function gitCommandCore(options: GitCommandOptions, ...args: any[]): Promise<string> {
-    // Fixes https://github.com/eamodio/vscode-gitlens/issues/73
+    // Fixes https://github.com/eamodio/vscode-gitlens/issues/73 & https://github.com/eamodio/vscode-gitlens/issues/161
     // See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
-    args.splice(0, 0, '-c', 'core.quotepath=false');
+    args.splice(0, 0, '-c', 'core.quotepath=false', '-c', 'color.ui=false');
 
     const opts = { encoding: 'utf8', ...options };
     const s = await spawnPromise(git.path, args, { cwd: options.cwd, encoding: (opts.encoding === 'utf8') ? 'utf8' : 'binary' });
