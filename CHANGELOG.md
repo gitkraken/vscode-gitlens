@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+
+## [5.6.0] - 2017-10-11
 ### Added
 - Adds `changes` (diff) hover annotation support to both the `gutter` and `hover` file blame annotations
 - Adds `gitlens.annotations.file.gutter.hover.changes` setting to specify whether or not to provide a changes (diff) hover annotation over the gutter blame annotations
