@@ -24,7 +24,7 @@ export class GitStashParser {
 
             let commit = commits.get(entry.sha);
             if (commit === undefined) {
-                commit = new GitStashCommit(entry.stashName, repoPath, entry.sha, entry.fileNames, new Date(entry.date! as any * 1000), entry.summary, undefined, entry.fileStatuses) as GitStashCommit;
+                commit = new GitStashCommit(entry.stashName, repoPath, entry.sha, entry.fileNames, new Date(entry.date! as any * 1000), entry.summary, undefined, entry.fileStatuses, undefined, `${entry.sha}^1`) as GitStashCommit;
                 commits.set(entry.sha, commit);
             }
         }

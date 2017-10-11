@@ -43,7 +43,13 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
                 args.commit = blame.commit;
                 // If the line is uncommitted, find the previous commit
                 if (args.commit.isUncommitted) {
-                    args.commit = new GitCommit(args.commit.type, args.commit.repoPath, args.commit.previousSha!, args.commit.previousFileName!, args.commit.author, args.commit.date, args.commit.message);
+                    args.commit = args.commit.with({
+                        sha: args.commit.previousSha!,
+                        fileName: args.commit.previousFileName!,
+                        originalFileName: null,
+                        previousSha: null,
+                        previousFileName: null
+                    });
                     args.line = blame.line.line + 1;
                 }
             }

@@ -94,8 +94,8 @@ function gitCommandDefaultErrorHandler(ex: Error, options: GitCommandOptions, ..
 
 export class Git {
 
-    static shaRegex = /^[0-9a-f]{40}( -)?$/;
-    static uncommittedRegex = /^[0]+$/;
+    static shaRegex = /^[0-9a-f]{40}(\^[0-9]*?)??( -)?$/;
+    static uncommittedRegex = /^[0]{40}(\^[0-9]*?)??$/;
 
     static gitInfo(): IGit {
         return git;
@@ -156,6 +156,9 @@ export class Git {
     }
 
     static shortenSha(sha: string) {
+        const index = sha.indexOf('^');
+        // This is lame, but assume there is only 1 character after the ^
+        if (index > 6) return `${sha.substring(0, 6)}${sha.substring(index)}`;
         return sha.substring(0, 8);
     }
 
@@ -385,8 +388,6 @@ export class Git {
 
     static async show(repoPath: string | undefined, fileName: string, branchOrSha: string, encoding?: string) {
         const [file, root] = Git.splitPath(fileName, repoPath);
-        branchOrSha = branchOrSha.replace('^', '');
-
         if (Git.isUncommitted(branchOrSha)) throw new Error(`sha=${branchOrSha} is uncommitted`);
 
         const opts = { cwd: root, encoding: encoding || defaultEncoding, overrideErrorHandling: true };

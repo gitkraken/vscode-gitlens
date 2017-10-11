@@ -98,11 +98,21 @@ export class GitCommit {
         return GitUri.getFormattedPath(this.fileName, separator);
     }
 
-    with(changes: { type?: GitCommitType, fileName?: string, sha?: string, originalFileName?: string, previousFileName?: string, previousSha?: string }) {
-        return new GitCommit(changes.type || this.type, this.repoPath,
-            changes.sha || this.sha, changes.fileName || this.fileName,
-            this.author, this.date, this.message,
-            changes.originalFileName || this.originalFileName,
-            changes.previousSha || this.previousSha, changes.previousFileName || this.previousFileName);
+    with(changes: { type?: GitCommitType, sha?: string, fileName?: string, originalFileName?: string | null, previousFileName?: string | null, previousSha?: string | null }): GitCommit {
+        return new GitCommit(changes.type || this.type,
+            this.repoPath,
+            changes.sha || this.sha,
+            changes.fileName || this.fileName,
+            this.author,
+            this.date,
+            this.message,
+            this.getChangedValue(changes.originalFileName, this.originalFileName),
+            this.getChangedValue(changes.previousSha, this.previousSha),
+            this.getChangedValue(changes.previousFileName, this.previousFileName));
+    }
+
+    protected getChangedValue<T>(change: T | null | undefined, original: T | undefined): T | undefined {
+        if (change === undefined) return original;
+        return change !== null ? change : undefined;
     }
 }

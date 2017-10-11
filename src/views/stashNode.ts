@@ -31,7 +31,7 @@ export class StashNode extends ExplorerNode {
             }
         }
 
-        const children = statuses.map(s => new StashFileNode(s, this.commit, this.context, this.git));
+        const children = statuses.map(s => new StashFileNode(s, this.commit.toFileCommit(s), this.context, this.git));
         children.sort((a, b) => a.label!.localeCompare(b.label!));
         return children;
     }
