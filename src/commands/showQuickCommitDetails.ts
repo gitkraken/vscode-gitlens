@@ -3,7 +3,7 @@ import { Strings } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
 import { GlyphChars } from '../constants';
-import { GitCommit, GitLog, GitLogCommit, GitService, GitUri } from '../gitService';
+import { GitCommit, GitCommitType, GitLog, GitLogCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitDetailsQuickPick, CommitWithFileStatusQuickPickItem } from '../quickPicks';
 import { ShowQuickCommitFileDetailsCommandArgs } from './showQuickCommitFileDetails';
@@ -81,7 +81,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         }
 
         try {
-            if (args.commit === undefined || (args.commit.type !== 'branch' && args.commit.type !== 'stash')) {
+            if (args.commit === undefined || (args.commit.type !== GitCommitType.Branch && args.commit.type !== GitCommitType.Stash)) {
                 if (args.repoLog !== undefined) {
                     args.commit = args.repoLog.commits.get(args.sha!);
                     // If we can't find the commit, kill the repoLog

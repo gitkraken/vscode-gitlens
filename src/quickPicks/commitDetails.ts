@@ -4,7 +4,7 @@ import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from
 import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandCommandArgs, DiffWithPreviousCommandArgs, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, QuickPickItem } from './common';
 import { GlyphChars } from '../constants';
-import { getGitStatusOcticon, GitCommit, GitLog, GitLogCommit, GitService, GitStashCommit, GitStatusFile, GitStatusFileStatus, GitUri, IGitCommitInfo, IGitStatusFile, RemoteResource } from '../gitService';
+import { getGitStatusOcticon, GitCommit, GitCommitType, GitLog, GitLogCommit, GitService, GitStashCommit, GitStatusFile, GitStatusFileStatus, GitUri, IGitCommitInfo, IGitStatusFile, RemoteResource } from '../gitService';
 import { Keyboard, KeyCommand, KeyNoopCommand, Keys } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as path from 'path';
@@ -99,7 +99,7 @@ export class CommitDetailsQuickPick {
     static async show(git: GitService, commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, repoLog?: GitLog): Promise<CommitWithFileStatusQuickPickItem | CommandQuickPickItem | undefined> {
         const items: (CommitWithFileStatusQuickPickItem | CommandQuickPickItem)[] = commit.fileStatuses.map(fs => new CommitWithFileStatusQuickPickItem(commit, fs));
 
-        const stash = commit.type === 'stash';
+        const stash = commit.type === GitCommitType.Stash;
 
         let index = 0;
 

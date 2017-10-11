@@ -4,7 +4,7 @@ import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem } from './common';
 import { GlyphChars } from '../constants';
-import { GitLog, GitLogCommit, GitService, GitUri, RemoteResource } from '../gitService';
+import { GitCommitType, GitLog, GitLogCommit, GitService, GitUri, RemoteResource } from '../gitService';
 import { Keyboard, KeyCommand, KeyNoopCommand } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as path from 'path';
@@ -45,7 +45,7 @@ export class CommitFileDetailsQuickPick {
     static async show(git: GitService, commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, fileLog?: GitLog): Promise<CommandQuickPickItem | undefined> {
         const items: CommandQuickPickItem[] = [];
 
-        const stash = commit.type === 'stash';
+        const stash = commit.type === GitCommitType.Stash;
 
         const workingName = (commit.workingFileName && path.basename(commit.workingFileName)) || path.basename(commit.fileName);
 

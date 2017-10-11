@@ -4,7 +4,7 @@ import { CancellationTokenSource, commands, Disposable, QuickPickItem, QuickPick
 import { Commands, openEditor } from '../commands';
 import { ExtensionKey, IAdvancedConfig } from '../configuration';
 import { GlyphChars } from '../constants';
-import { GitCommit, GitLogCommit, GitStashCommit } from '../gitService';
+import { GitCommit, GitCommitType, GitLogCommit, GitStashCommit } from '../gitService';
 import { Keyboard, KeyboardScope, KeyMapping, Keys } from '../keyboard';
 // import { Logger } from '../logger';
 
@@ -178,7 +178,7 @@ export class CommitQuickPickItem implements QuickPickItem {
         else {
             this.label = message;
             this.description = `${Strings.pad('$(git-commit)', 1, 1)} ${commit.shortSha}`;
-            this.detail = `${GlyphChars.Space} ${commit.author}, ${commit.fromNow()}${(commit.type === 'branch') ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${(commit as GitLogCommit).getDiffStatus()}` : ''}`;
+            this.detail = `${GlyphChars.Space} ${commit.author}, ${commit.fromNow()}${(commit.type === GitCommitType.Branch) ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${(commit as GitLogCommit).getDiffStatus()}` : ''}`;
         }
     }
 }

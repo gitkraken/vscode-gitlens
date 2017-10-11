@@ -3,7 +3,7 @@ import { Strings } from '../system';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
 import { GlyphChars } from '../constants';
-import { GitCommit, GitLog, GitLogCommit, GitService, GitUri } from '../gitService';
+import { GitCommit, GitCommitType, GitLog, GitLogCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitFileDetailsQuickPick } from '../quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
@@ -79,7 +79,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
         }
 
         try {
-            if (args.commit === undefined || args.commit.type !== 'file') {
+            if (args.commit === undefined || args.commit.type !== GitCommitType.File) {
                 if (args.commit !== undefined) {
                     workingFileName = undefined;
                 }

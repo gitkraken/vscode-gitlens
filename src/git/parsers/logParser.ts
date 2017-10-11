@@ -113,7 +113,7 @@ export class GitLogParser {
                     break;
 
                 case 'filename':
-                    if (type === 'branch') {
+                    if (type === GitCommitType.Branch) {
                         next = lines.next();
                         if (next.done) break;
 
@@ -185,7 +185,7 @@ export class GitLogParser {
                         this._parseFileName(entry);
                     }
 
-                    if (first && repoPath === undefined && type === 'file' && fileName !== undefined) {
+                    if (first && repoPath === undefined && type === GitCommitType.File && fileName !== undefined) {
                         // Try to get the repoPath from the most recent commit
                         repoPath = Git.normalizePath(fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName!, ''));
                         relativeFileName = Git.normalizePath(path.relative(repoPath, fileName));
@@ -250,7 +250,7 @@ export class GitLogParser {
             commit.nextSha = commit.sha !== recentCommit.sha ? recentCommit.sha : recentCommit.nextSha;
 
             // Only add a filename if this is a file log
-            if (type === 'file') {
+            if (type === GitCommitType.File) {
                 recentCommit.previousFileName = commit.originalFileName || commit.fileName;
                 commit.nextFileName = recentCommit.originalFileName || recentCommit.fileName;
             }

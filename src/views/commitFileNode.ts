@@ -2,7 +2,7 @@
 import { Command, ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { CommitFormatter, getGitStatusIcon, GitBranch, GitCommit, GitService, GitUri, ICommitFormatOptions, IGitStatusFile, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
+import { CommitFormatter, getGitStatusIcon, GitBranch, GitCommit, GitCommitType, GitService, GitUri, ICommitFormatOptions, IGitStatusFile, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
 import * as path from 'path';
 
 export enum CommitFileNodeDisplayAs {
@@ -38,7 +38,7 @@ export class CommitFileNode extends ExplorerNode {
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        if (this.commit.type !== 'file') {
+        if (this.commit.type !== GitCommitType.File) {
             const log = await this.git.getLogForFile(this.repoPath, this.status.fileName, this.commit.sha, { maxCount: 2 });
             if (log !== undefined) {
                 this.commit = log.commits.get(this.commit.sha) || this.commit;
