@@ -10,7 +10,7 @@ interface UriEx {
     new(scheme: string, authority: string, path: string, query: string, fragment: string): Uri;
 }
 
-export class GitUri extends (Uri as UriEx) {
+export class GitUri extends ((Uri as any) as UriEx) {
 
     repoPath?: string | undefined;
     sha?: string | undefined;
