@@ -1,5 +1,6 @@
 'use strict';
 import { Strings } from '../system';
+import { SpawnOptions } from 'child_process';
 import { findGitPath, IGit } from './gitLocator';
 import { Logger } from '../logger';
 import { spawnPromise } from 'spawn-rx';
@@ -42,6 +43,7 @@ const GitWarnings = [
 
 interface GitCommandOptions {
     cwd: string;
+    env?: any;
     encoding?: string;
     overrideErrorHandling?: boolean;
 }
@@ -63,7 +65,12 @@ async function gitCommandCore(options: GitCommandOptions, ...args: any[]): Promi
     args.splice(0, 0, '-c', 'core.quotepath=false', '-c', 'color.ui=false');
 
     const opts = { encoding: 'utf8', ...options };
-    const s = await spawnPromise(git.path, args, { cwd: options.cwd, encoding: (opts.encoding === 'utf8') ? 'utf8' : 'binary' });
+    const s = await spawnPromise(git.path, args, {
+        cwd: options.cwd,
+        env: options.env,
+        encoding: (opts.encoding === 'utf8') ? 'utf8' : 'binary'
+    } as SpawnOptions);
+
     Logger.log('git', ...args, `  cwd='${options.cwd}'`);
     if (opts.encoding === 'utf8' || opts.encoding === 'binary') return s;
 
@@ -431,13 +438,13 @@ export class Git {
 
     static status(repoPath: string, porcelainVersion: number = 1): Promise<string> {
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
-        return gitCommand({ cwd: repoPath }, 'status', porcelain, '--branch', '-u');
+        return gitCommand({ cwd: repoPath, env: { GIT_OPTIONAL_LOCKS: '0' } }, 'status', porcelain, '--branch', '-u');
     }
 
     static status_file(repoPath: string, fileName: string, porcelainVersion: number = 1): Promise<string> {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
-        return gitCommand({ cwd: root }, 'status', porcelain, file);
+        return gitCommand({ cwd: root, env: { GIT_OPTIONAL_LOCKS: '0' } }, 'status', porcelain, file);
     }
 }
