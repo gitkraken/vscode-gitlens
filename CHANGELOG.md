@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes properties (symbol `Property`) from being included in the `Blocks` option of the `gitlens.codeLens.locations` setting -- can be easily re-added by setting `"gitlens.codeLens.customLocationSymbols": [ "Property" ]` if desired
 
 ### Fixed
+- Fixes issue where changing `gitlens.blame.file.annotationType` wouldn't correctly update the blame annotations if they were currently active
 - Fixes issue where `isBlameable` context could be set incorrectly leading to blame icon showing up on invalid documents
 
 ## [5.5.0] - 2017-10-09

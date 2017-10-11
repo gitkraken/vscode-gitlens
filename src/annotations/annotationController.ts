@@ -178,7 +178,12 @@ export class AnnotationController extends Disposable {
                     provider.reset(Decorations.recentChangesAnnotation, Decorations.recentChangesHighlight);
                 }
                 else {
-                    provider.reset(Decorations.blameAnnotation, Decorations.blameHighlight);
+                    if (provider.annotationType === this._config.blame.file.annotationType) {
+                        provider.reset(Decorations.blameAnnotation, Decorations.blameHighlight);
+                    }
+                    else {
+                        this.showAnnotations(provider.editor, cfg.blame.file.annotationType);
+                    }
                 }
             }
         }
