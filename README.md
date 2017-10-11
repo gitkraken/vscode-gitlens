@@ -43,10 +43,13 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
   - Contains the commit message and date, by [default](#file-blame-annotation-settings)
   - Adds a `details` hover annotation to the line's annotation, which provides more commit details ([optional](#file-blame-annotation-settings), on by default)
 
-    ![File Blame Annotations (hover)](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-file-blame-annotations.png)
+    ![File Details Blame Annotations (hover)](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-file-blame-annotations.png)
 
     - Provides a **quick-access command bar** with `Open Changes`, `Blame Previous Revision`, `Open in Remote`, and `Show More Actions` command buttons
     - Clicking the commit id will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
+  - Adds a `changes` (diff) hover annotation to the line's annotation, which provides **instant access** to the line's previous version ([optional](#file-blame-annotation-settings), on by default)
+    - Clicking on `Changes` will run the `Compare File Revisions` command (`gitlens.diffWith`)
+    - Clicking the current and previous commit ids will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
   - Adds a `heatmap` (age) indicator to the gutter annotations (on right edge by [default](#file-blame-annotation-settings)), which provides an easy, at-a-glance way to tell the age of a line ([optional](#file-blame-annotation-settings), on by default)
     - Indicator ranges from bright yellow (newer) to dark brown (older)
   - Press `Escape` to quickly toggle the annotations off
@@ -76,7 +79,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 - Adds on-demand, [customizable](#file-recent-changes-annotation-settings) and [themeable](#theme-settings), **recent changes annotations** of the whole file
   - Highlights all of lines changed in the most recent commit
-  - Adds a `details` hover annotation to each line, which provides more commit details ([optional](#file-blame-annotation-settings), on by default)
+  - Adds a `details` hover annotation to each line, which provides more commit details ([optional](#file-recent-changes-annotation-settings), on by default)
     - Clicking the commit id will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
   - Adds a `changes` (diff) hover annotation to each line, which provides **instant** access to the line's previous version ([optional](#file-recent-changes-annotation-settings), on by default)
     - Clicking on `Changes` will run the `Compare File Revisions` command (`gitlens.diffWith`)
@@ -316,9 +319,11 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.annotations.file.gutter.heatmap.enabled`|Specifies whether or not to provide a heatmap indicator in the gutter blame annotations
 |`gitlens.annotations.file.gutter.heatmap.location`|Specifies where the heatmap indicators will be shown in the gutter blame annotations<br />`left` - adds a heatmap indicator on the left edge of the gutter blame annotations<br />`right` - adds a heatmap indicator on the right edge of the gutter blame annotations
 |`gitlens.annotations.file.gutter.hover.details`|Specifies whether or not to provide a commit details hover annotation over the gutter blame annotations
+|`gitlens.annotations.file.gutter.hover.changes`|Specifies whether or not to provide a changes (diff) hover annotation over the gutter blame annotations
 |`gitlens.annotations.file.gutter.hover.wholeLine`|Specifies whether or not to trigger hover annotations over the whole line
+|`gitlens.annotations.file.hover.details`|Specifies whether or not to provide a commit details hover annotation over each line
+|`gitlens.annotations.file.hover.changes`|Specifies whether or not to provide a changes (diff) hover annotation over each line
 |`gitlens.annotations.file.hover.heatmap.enabled`|Specifies whether or not to provide heatmap indicators on the left edge of each line
-|`gitlens.annotations.file.hover.wholeLine`|Specifies whether or not to trigger hover annotations over the whole line
 
 #### Line Blame Annotation Settings
 

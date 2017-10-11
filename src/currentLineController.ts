@@ -338,13 +338,7 @@ export class CurrentLineController extends Disposable {
                     break;
                 }
                 case FileAnnotationType.Hover: {
-                    const cfgHover = this._config.annotations.file.hover;
-                    if (cfgHover.wholeLine) {
-                        showStartIndex = 0;
-                    }
-                    else if (showStartIndex !== 0) {
-                        showAtStart = true;
-                    }
+                    showStartIndex = 0;
 
                     break;
                 }

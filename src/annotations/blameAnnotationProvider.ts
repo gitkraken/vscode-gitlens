@@ -5,7 +5,7 @@ import { AnnotationProviderBase } from './annotationProvider';
 import { Annotations, endOfLineIndex } from './annotations';
 import { GitBlame, GitCommit, GitService, GitUri } from '../gitService';
 
-export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase implements HoverProvider {
+export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase {
 
     protected _blame: Promise<GitBlame | undefined>;
     protected _hoverProviderDisposable: Disposable;
@@ -74,23 +74,22 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         return blame;
     }
 
-    registerHoverProvider() {
-        this._hoverProviderDisposable = languages.registerHoverProvider({ pattern: this.document.uri.fsPath }, this);
+    registerHoverProviders(providers: { details: boolean, changes: boolean }) {
+        if (!providers.details && !providers.changes) return;
+
+        const subscriptions: Disposable[] = [];
+        if (providers.changes) {
+            subscriptions.push(languages.registerHoverProvider({ pattern: this.document.uri.fsPath }, { provideHover: this.provideChangesHover.bind(this) } as HoverProvider));
+        }
+        if (providers.details) {
+            subscriptions.push(languages.registerHoverProvider({ pattern: this.document.uri.fsPath }, { provideHover: this.provideDetailsHover.bind(this) } as HoverProvider));
+        }
+
+        this._hoverProviderDisposable = Disposable.from(...subscriptions);
     }
 
-    async provideHover(document: TextDocument, position: Position, token: CancellationToken): Promise<Hover | undefined> {
-        // Avoid double annotations if we are showing the whole-file hover blame annotations
-        if (this._config.blame.line.enabled && this.editor.selection.start.line === position.line) return undefined;
-
-        const cfg = this._config.annotations.file.gutter;
-        if (!cfg.hover.wholeLine && position.character !== 0) return undefined;
-
-        const blame = await this.getBlame();
-        if (blame === undefined) return undefined;
-
-        const line = blame.lines[position.line];
-
-        const commit = blame.commits.get(line.sha);
+    async provideDetailsHover(document: TextDocument, position: Position, token: CancellationToken): Promise<Hover | undefined> {
+        const commit = await this.getCommitForHover(position);
         if (commit === undefined) return undefined;
 
         // Get the full commit message -- since blame only returns the summary
@@ -106,5 +105,28 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 
         const message = Annotations.getHoverMessage(logCommit || commit, this._config.defaultDateFormat, this.git.hasRemotes(commit.repoPath), this._config.blame.file.annotationType);
         return new Hover(message, document.validateRange(new Range(position.line, 0, position.line, endOfLineIndex)));
+    }
+
+    async provideChangesHover(document: TextDocument, position: Position, token: CancellationToken): Promise<Hover | undefined> {
+        const commit = await this.getCommitForHover(position);
+        if (commit === undefined) return undefined;
+
+        const hover = await Annotations.changesHover(commit, position.line, await GitUri.fromUri(document.uri, this.git), this.git);
+        return new Hover(hover.hoverMessage!, document.validateRange(new Range(position.line, 0, position.line, endOfLineIndex)));
+    }
+
+    private async getCommitForHover(position: Position): Promise<GitCommit | undefined> {
+        // Avoid double annotations if we are showing the whole-file hover blame annotations
+        if (this._config.blame.line.enabled && this.editor.selection.start.line === position.line) return undefined;
+
+        const cfg = this._config.annotations.file.gutter;
+        if (!cfg.hover.wholeLine && position.character !== 0) return undefined;
+
+        const blame = await this.getBlame();
+        if (blame === undefined) return undefined;
+
+        const line = blame.lines[position.line];
+
+        return blame.commits.get(line.sha);
     }
 }

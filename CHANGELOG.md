@@ -5,12 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### Added
+- Adds `changes` (diff) hover annotation support to both the `gutter` and `hover` file blame annotations
+- Adds `gitlens.annotations.file.gutter.hover.changes` setting to specify whether or not to provide a changes (diff) hover annotation over the gutter blame annotations
+- Adds `gitlens.annotations.file.hover.details` setting to specify whether or not to provide a commit details hover annotation over each line
+- Adds `gitlens.annotations.file.hover.changes` setting to specify whether or not to provide a changes (diff) hover annotation over each line
+
 ### Changed
 - Changes `gitlens.codeLens.customLocationSymbols` setting to both include and exclude (using a `!` prefix) symbols and therefore is always applied
 
 ### Removed
 - Removes `Custom` from the `gitlens.codeLens.locations` setting as it wasn't really required
 - Removes properties (symbol `Property`) from being included in the `Blocks` option of the `gitlens.codeLens.locations` setting -- can be easily re-added by setting `"gitlens.codeLens.customLocationSymbols": [ "Property" ]` if desired
+- Removes `gitlens.annotations.file.hover.wholeLine` setting as it didn't really make sense
 
 ### Fixed
 - Fixes issue where changing `gitlens.blame.file.annotationType` wouldn't correctly update the blame annotations if they were currently active

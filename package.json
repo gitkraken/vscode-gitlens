@@ -107,20 +107,30 @@
                     "default": true,
                     "description": "Specifies whether or not to provide a commit details hover annotation over the gutter blame annotations"
                 },
+                "gitlens.annotations.file.gutter.hover.changes": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to provide a changes (diff) hover annotation over the gutter blame annotations"
+                },
                 "gitlens.annotations.file.gutter.hover.wholeLine": {
                     "type": "boolean",
                     "default": true,
                     "description": "Specifies whether or not to trigger hover annotations over the whole line"
                 },
+                "gitlens.annotations.file.hover.details": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to provide a commit details hover annotation over each line"
+                },
+                "gitlens.annotations.file.hover.changes": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to provide a changes (diff) hover annotation over each line"
+                },
                 "gitlens.annotations.file.hover.heatmap.enabled": {
                     "type": "boolean",
                     "default": true,
                     "description": "Specifies whether or not to provide heatmap indicators on the left edge of each line"
-                },
-                "gitlens.annotations.file.hover.wholeLine": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Specifies whether or not to trigger hover annotations over the whole line"
                 },
                 "gitlens.annotations.file.recentChanges.hover.details": {
                     "type": "boolean",

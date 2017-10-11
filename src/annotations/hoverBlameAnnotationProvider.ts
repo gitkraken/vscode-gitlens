@@ -63,7 +63,7 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
             Logger.log(`${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms to compute hover blame annotations`);
         }
 
-        this.registerHoverProvider();
+        this.registerHoverProviders(cfg);
         this.selection(shaOrLine, blame);
         return true;
     }

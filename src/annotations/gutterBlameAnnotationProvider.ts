@@ -119,10 +119,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         const duration = process.hrtime(start);
         Logger.log(`${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms to compute gutter blame annotations`);
 
-        if (cfg.hover.details) {
-            this.registerHoverProvider();
-        }
-
+        this.registerHoverProviders(cfg.hover);
         this.selection(shaOrLine, blame);
         return true;
     }

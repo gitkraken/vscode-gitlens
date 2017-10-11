@@ -238,15 +238,17 @@ export interface IConfig {
                 };
                 hover: {
                     details: boolean;
+                    changes: boolean;
                     wholeLine: boolean;
                 };
             };
 
             hover: {
+                details: boolean;
+                changes: boolean;
                 heatmap: {
                     enabled: boolean;
                 };
-                wholeLine: boolean;
             };
 
             recentChanges: {
@@ -267,8 +269,8 @@ export interface IConfig {
                 format: string;
                 dateFormat: string | null;
                 hover: {
-                    changes: boolean;
                     details: boolean;
+                    changes: boolean;
                     wholeLine: boolean;
                 };
             };
