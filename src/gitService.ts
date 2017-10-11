@@ -264,7 +264,10 @@ export class GitService extends Disposable {
             this._fireRepoChangeDebounced = Functions.debounce(this._fireRepoChangeCore, 50);
         }
 
-        this._repoChangedReasons.push(reason);
+        if (!this._repoChangedReasons.includes(reason)) {
+            this._repoChangedReasons.push(reason);
+        }
+
         return this._fireRepoChangeDebounced();
     }
 
