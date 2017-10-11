@@ -1995,18 +1995,18 @@
         "lodash.escaperegexp": "4.1.2",
         "lodash.isequal": "4.5.0",
         "lodash.once": "4.1.1",
-        "moment": "2.18.1",
-        "spawn-rx": "2.0.11",
+        "moment": "2.19.0",
+        "spawn-rx": "2.0.12",
         "tmp": "0.0.33"
     },
     "devDependencies": {
         "@types/copy-paste": "1.1.30",
         "@types/iconv-lite": "0.0.1",
         "@types/mocha": "2.2.43",
-        "@types/node": "8.0.31",
+        "@types/node": "8.0.34",
         "@types/tmp": "0.0.33",
         "husky": "^0.14.3",
-        "mocha": "3.5.3",
+        "mocha": "4.0.1",
         "tslint": "5.7.0",
         "typescript": "2.5.3",
         "vscode": "1.1.5"
