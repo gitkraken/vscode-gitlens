@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### Changed
+- Changes `gitlens.codeLens.customLocationSymbols` setting to both include and exclude (using a `!` prefix) symbols and therefore is always applied
+
+### Removed
+- Removes `Custom` from the `gitlens.codeLens.locations` setting as it wasn't really required
+- Removes properties (symbol `Property`) from being included in the `Blocks` option of the `gitlens.codeLens.locations` setting -- can be easily re-added by setting `"gitlens.codeLens.customLocationSymbols": [ "Property" ]` if desired
 
 ## [5.5.0] - 2017-10-09
 ### Added

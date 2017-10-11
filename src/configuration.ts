@@ -18,8 +18,7 @@ export enum CodeLensCommand {
 export enum CodeLensLocations {
     Document = 'document',
     Containers = 'containers',
-    Blocks = 'blocks',
-    Custom = 'custom'
+    Blocks = 'blocks'
 }
 
 export enum LineHighlightLocations {

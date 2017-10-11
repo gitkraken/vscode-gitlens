@@ -292,14 +292,13 @@
                         "enum": [
                             "document",
                             "containers",
-                            "blocks",
-                            "custom"
+                            "blocks"
                         ]
                     },
                     "minItems": 1,
                     "maxItems": 4,
                     "uniqueItems": true,
-                    "description": "Specifies where Git code lens will be shown in the document\n `document` - adds code lens at the top of the document\n `containers` - adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)\n `blocks` - adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines\n `custom` - adds code lens at the start of symbols contained in `gitlens.codeLens.locationCustomSymbols`"
+                    "description": "Specifies where Git code lens will be shown in the document\n `document` - adds code lens at the top of the document\n `containers` - adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)\n `blocks` - adds code lens at the start of block-like symbols (functions, methods, etc) lines"
                 },
                 "gitlens.codeLens.customLocationSymbols": {
                     "type": "array",
@@ -307,7 +306,7 @@
                         "type": "string"
                     },
                     "uniqueItems": true,
-                    "description": "Specifies the set of document symbols where Git code lens will be shown in the document\nMust be a member of `SymbolKind`"
+                    "description": "Specifies a set of document symbols where Git code lens will or will not be shown in the document\nPrefix with `!` to not show Git code lens for the symbol\nMust be a member of `SymbolKind`"
                 },
                 "gitlens.codeLens.perLanguageLocations": {
                     "type": "array",

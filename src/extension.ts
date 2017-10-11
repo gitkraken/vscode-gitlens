@@ -156,9 +156,6 @@ async function migrateSettings(context: ExtensionContext) {
                 case 'document':
                     await cfg.update('codeLens.locations', [CodeLensLocations.Document], true);
                     break;
-                case 'custom':
-                    await cfg.update('codeLens.locations', [CodeLensLocations.Custom], true);
-                    break;
             }
 
             if (prevCfg.codeLens.locationCustomSymbols != null) {

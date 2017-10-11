@@ -64,6 +64,10 @@ export class GitCodeLensProvider implements CodeLensProvider {
             } as ICodeLensLanguageLocation;
         }
 
+        languageLocations.customSymbols = languageLocations.customSymbols != null
+            ? languageLocations.customSymbols = languageLocations.customSymbols.map(_ => _.toLowerCase())
+            : [];
+
         const lenses: CodeLens[] = [];
 
         const gitUri = await GitUri.fromUri(document.uri, this.git);
@@ -88,8 +92,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
             symbols.forEach(sym => this._provideCodeLens(gitUri, document, sym, languageLocations!, blame!, lenses));
         }
 
-        if (languageLocations.locations.includes(CodeLensLocations.Document) ||
-            (languageLocations.locations.includes(CodeLensLocations.Custom) && (languageLocations.customSymbols || []).find(_ => _.toLowerCase() === 'file'))) {
+        if ((languageLocations.locations.includes(CodeLensLocations.Document) || languageLocations.customSymbols.includes('file')) && !languageLocations.customSymbols.includes('!file')) {
             // Check if we have a lens for the whole document -- if not add one
             if (!lenses.find(l => l.range.start.line === 0 && l.range.end.line === 0)) {
                 const blameRange = document.validateRange(new Range(0, 1000000, 1000000, 1000000));
@@ -116,13 +119,11 @@ export class GitCodeLensProvider implements CodeLensProvider {
         let valid = false;
         let range: Range | undefined;
 
+        const symbolName = SymbolKind[symbol.kind].toLowerCase();
         switch (symbol.kind) {
             case SymbolKind.File:
-                if (languageLocation.locations.includes(CodeLensLocations.Containers)) {
-                    valid = true;
-                }
-                else if (languageLocation.locations.includes(CodeLensLocations.Custom)) {
-                    valid = !!(languageLocation.customSymbols || []).find(_ => _.toLowerCase() === SymbolKind[symbol.kind].toLowerCase());
+                if (languageLocation.locations.includes(CodeLensLocations.Containers) || languageLocation.customSymbols!.includes(symbolName)) {
+                    valid = !languageLocation.customSymbols!.includes(`!${symbolName}`);
                 }
 
                 if (valid) {
@@ -132,11 +133,8 @@ export class GitCodeLensProvider implements CodeLensProvider {
                 break;
 
             case SymbolKind.Package:
-                if (languageLocation.locations.includes(CodeLensLocations.Containers)) {
-                    valid = true;
-                }
-                else if (languageLocation.locations.includes(CodeLensLocations.Custom)) {
-                    valid = !!(languageLocation.customSymbols || []).find(_ => _.toLowerCase() === SymbolKind[symbol.kind].toLowerCase());
+                if (languageLocation.locations.includes(CodeLensLocations.Containers) || languageLocation.customSymbols!.includes(symbolName)) {
+                    valid = !languageLocation.customSymbols!.includes(`!${symbolName}`);
                 }
 
                 if (valid) {
@@ -152,8 +150,8 @@ export class GitCodeLensProvider implements CodeLensProvider {
             case SymbolKind.Module:
             case SymbolKind.Namespace:
             case SymbolKind.Struct:
-                if (languageLocation.locations.includes(CodeLensLocations.Containers)) {
-                    valid = true;
+                if (languageLocation.locations.includes(CodeLensLocations.Containers) || languageLocation.customSymbols!.includes(symbolName)) {
+                    valid = !languageLocation.customSymbols!.includes(`!${symbolName}`);
                 }
                 break;
 
@@ -161,15 +159,16 @@ export class GitCodeLensProvider implements CodeLensProvider {
             case SymbolKind.Enum:
             case SymbolKind.Function:
             case SymbolKind.Method:
-            case SymbolKind.Property:
-                if (languageLocation.locations.includes(CodeLensLocations.Blocks)) {
-                    valid = true;
+                if (languageLocation.locations.includes(CodeLensLocations.Blocks) || languageLocation.customSymbols!.includes(symbolName)) {
+                    valid = !languageLocation.customSymbols!.includes(`!${symbolName}`);
                 }
                 break;
-        }
 
-        if (!valid && languageLocation.locations.includes(CodeLensLocations.Custom)) {
-            valid = !!(languageLocation.customSymbols || []).find(_ => _.toLowerCase() === SymbolKind[symbol.kind].toLowerCase());
+            default:
+                if (languageLocation.customSymbols!.includes(symbolName)) {
+                    valid = !languageLocation.customSymbols!.includes(`!${symbolName}`);
+                }
+                break;
         }
 
         return valid ? range || symbol.location.range : undefined;
