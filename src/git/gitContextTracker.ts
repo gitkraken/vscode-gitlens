@@ -83,15 +83,26 @@ export class GitContextTracker extends Disposable {
 
         // TODO: Rework this once https://github.com/Microsoft/vscode/issues/27231 is released in v1.13
         // We have to defer because isDirty is not reliable inside this event
-        setTimeout(() => this._updateBlameability(!e.document.isDirty), 1);
+        setTimeout(async () => {
+            let blameable = !e.document.isDirty;
+            if (blameable) {
+                blameable = await this.git.getBlameability(new GitUri(e.document.uri));
+            }
+            this._updateBlameability(blameable);
+        }, 1);
     }
 
-    private _onTextDocumentSaved(e: TextDocument) {
+    private async _onTextDocumentSaved(e: TextDocument) {
         if (!TextDocumentComparer.equals(this._editor && this._editor.document, e)) return;
 
         // Don't need to resubscribe as we aren't unsubscribing on document changes anymore
         // this._subscribeToDocumentChanges();
-        this._updateBlameability(!e.isDirty);
+
+        let blameable = !e.isDirty;
+        if (blameable) {
+            blameable = await this.git.getBlameability(new GitUri(e.uri));
+        }
+        this._updateBlameability(blameable);
     }
 
     private _subscribeToDocumentChanges() {

@@ -12,6 +12,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes `Custom` from the `gitlens.codeLens.locations` setting as it wasn't really required
 - Removes properties (symbol `Property`) from being included in the `Blocks` option of the `gitlens.codeLens.locations` setting -- can be easily re-added by setting `"gitlens.codeLens.customLocationSymbols": [ "Property" ]` if desired
 
+### Fixed
+- Fixes issue where `isBlameable` context could be set incorrectly leading to blame icon showing up on invalid documents
+
 ## [5.5.0] - 2017-10-09
 ### Added
 - Adds a **quick-access** command bar to the bottom of the `details` hover annotations

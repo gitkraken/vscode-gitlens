@@ -325,12 +325,15 @@ export class AnnotationController extends Disposable {
         }
 
         return window.withProgress({ location: ProgressLocation.Window }, async (progress: Progress<{ message: string }>) => {
-            await setCommandContext(CommandContext.AnnotationStatus, AnnotationStatus.Computing);
+            const active = editor === window.activeTextEditor;
+            await setCommandContext(CommandContext.AnnotationStatus, active ? AnnotationStatus.Computing : undefined);
 
             const computingAnnotations = this.showAnnotationsCore(currentProvider, editor, type, shaOrLine, progress);
             const result = await computingAnnotations;
 
-            await setCommandContext(CommandContext.AnnotationStatus, result ? AnnotationStatus.Computed : undefined);
+            if (active) {
+                await setCommandContext(CommandContext.AnnotationStatus, result ? AnnotationStatus.Computed : undefined);
+            }
 
             return computingAnnotations;
         });
