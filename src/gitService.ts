@@ -217,8 +217,8 @@ export class GitService extends Disposable {
         if (!this.UseCaching) return;
         if (e.document.uri.scheme !== DocumentSchemes.File) return;
 
-        // TODO: Rework this once https://github.com/Microsoft/vscode/issues/27231 is released in v1.13
         // We have to defer because isDirty is not reliable inside this event
+        // https://github.com/Microsoft/vscode/issues/27231
         setTimeout(() => {
             // If the document is dirty all is fine, we'll just wait for the save before clearing our cache
             if (e.document.isDirty) return;

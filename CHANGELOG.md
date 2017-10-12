@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 - Swaps out Moment.js for date-fns to improve blame annotation performance and to reduce the GitLen bundle size (saves ~400kb)
 
+### Fixed
+- Fixes issue where the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) wasn't available after a file was saved
+
 ## [5.6.2] - 2017-10-11
 ### Fixed
 - Fixes issue where `Open File` command failed for in many instances (for GitUri resources)

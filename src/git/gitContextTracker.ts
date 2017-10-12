@@ -81,12 +81,12 @@ export class GitContextTracker extends Disposable {
         // this._unsubscribeToDocumentChanges();
         // this.updateBlameability(false);
 
-        // TODO: Rework this once https://github.com/Microsoft/vscode/issues/27231 is released in v1.13
         // We have to defer because isDirty is not reliable inside this event
+        // https://github.com/Microsoft/vscode/issues/27231
         setTimeout(async () => {
             let blameable = !e.document.isDirty;
             if (blameable) {
-                blameable = await this.git.getBlameability(new GitUri(e.document.uri));
+                blameable = await this.git.getBlameability(await GitUri.fromUri(e.document.uri, this.git));
             }
             this._updateBlameability(blameable);
         }, 1);
@@ -100,7 +100,7 @@ export class GitContextTracker extends Disposable {
 
         let blameable = !e.isDirty;
         if (blameable) {
-            blameable = await this.git.getBlameability(new GitUri(e.uri));
+            blameable = await this.git.getBlameability(await GitUri.fromUri(e.uri, this.git));
         }
         this._updateBlameability(blameable);
     }

@@ -21,6 +21,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
     constructor(uri?: Uri, commitOrRepoPath?: IGitCommitInfo | string) {
         if (uri === undefined) {
             super();
+
             return;
         }
 
@@ -36,7 +37,11 @@ export class GitUri extends ((Uri as any) as UriEx) {
             return;
         }
 
-        if (!commitOrRepoPath) return;
+        if (commitOrRepoPath === undefined) {
+            super(uri.scheme, uri.authority, uri.path, uri.query, uri.fragment);
+
+            return;
+        }
 
         if (typeof commitOrRepoPath === 'string') {
             super(uri.scheme, uri.authority, uri.path, uri.query, uri.fragment);
