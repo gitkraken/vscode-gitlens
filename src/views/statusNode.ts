@@ -102,7 +102,7 @@ export class StatusNode extends ExplorerNode {
         return this.git.config.gitExplorer.includeWorkingTree;
     }
 
-    private async onFileSystemChanged(uri: Uri) {
+    private async onFileSystemChanged(uri?: Uri) {
         const status = await this.git.getStatusForRepo(this.uri.repoPath!);
 
         // If we haven't changed from having some working changes to none or vice versa then just refresh the node

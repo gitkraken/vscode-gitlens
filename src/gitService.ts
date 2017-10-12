@@ -1,6 +1,6 @@
 'use strict';
 import { Functions, Iterables, Objects } from './system';
-import { Disposable, Event, EventEmitter, FileSystemWatcher, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, workspace } from 'vscode';
+import { Disposable, Event, EventEmitter, FileSystemWatcher, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, window, WindowState, workspace } from 'vscode';
 import { IConfig } from './configuration';
 import { DocumentSchemes, ExtensionKey } from './constants';
 import { RemoteProviderFactory } from './git/remotes/factory';
@@ -84,8 +84,8 @@ export class GitService extends Disposable {
         return this._onDidChangeGitCache.event;
     }
 
-    private _onDidChangeFileSystem = new EventEmitter<Uri>();
-    get onDidChangeFileSystem(): Event<Uri> {
+    private _onDidChangeFileSystem = new EventEmitter<Uri | undefined>();
+    get onDidChangeFileSystem(): Event<Uri | undefined> {
         return this._onDidChangeFileSystem.event;
     }
 
@@ -93,6 +93,9 @@ export class GitService extends Disposable {
     get onDidChangeRepo(): Event<RepoChangedReasons[]> {
         return this._onDidChangeRepo.event;
     }
+
+    private _focused: boolean = true;
+    private _unfocusedChanges: { repo: boolean, fs: boolean } = { repo: false, fs: false };
 
     private _gitCache: Map<string, GitCacheEntry>;
     private _remotesCache: Map<string, GitRemote[]>;
@@ -117,6 +120,7 @@ export class GitService extends Disposable {
         this._onConfigurationChanged();
 
         const subscriptions: Disposable[] = [
+            window.onDidChangeWindowState(this._onWindowStateChanged, this),
             workspace.onDidChangeConfiguration(this._onConfigurationChanged, this),
             RemoteProviderFactory.onDidChange(this._onRemoteProviderChanged, this)
         ];
@@ -192,6 +196,24 @@ export class GitService extends Disposable {
         this._fireRepoChange(RepoChangedReasons.Remotes);
     }
 
+    private _onWindowStateChanged(e: WindowState) {
+        const focusChanged = e.focused !== this._focused;
+        this._focused = e.focused;
+
+        if (!focusChanged || !e.focused) return;
+
+        // If we've come back into focus and we are dirty, fire the change events
+        if (this._unfocusedChanges.fs) {
+            this._unfocusedChanges.fs = false;
+            this._onDidChangeFileSystem.fire();
+        }
+
+        if (this._unfocusedChanges.repo) {
+            this._unfocusedChanges.repo = false;
+            this._fireRepoChangeDebounced!();
+        }
+    }
+
     private _onTextDocumentChanged(e: TextDocumentChangeEvent) {
         if (!this.UseCaching) return;
         if (e.document.uri.scheme !== DocumentSchemes.File) return;
@@ -246,6 +268,11 @@ export class GitService extends Disposable {
 
         if (!this._repoChangedReasons.includes(reason)) {
             this._repoChangedReasons.push(reason);
+        }
+
+        if (!this._focused) {
+            this._unfocusedChanges.repo = true;
+            return;
         }
 
         return this._fireRepoChangeDebounced();
@@ -1021,6 +1048,11 @@ export class GitService extends Disposable {
         const fn = (uri: Uri) => {
             // Ignore .git changes
             if (/\.git/.test(uri.fsPath)) return;
+
+            if (!this._focused) {
+                this._unfocusedChanges.fs = true;
+                return;
+            }
 
             debouncedFn(uri);
         };
