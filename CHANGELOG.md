@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### Fixed
+- Fixes issue where `Open File` command failed for in many instances (for GitUri resources)
 
 ## [5.6.1] - 2017-10-11
 ### Fixed
