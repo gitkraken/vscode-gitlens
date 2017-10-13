@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [5.6.4] - 2017-10-12
+### Fixed
+- Fixes [#168](https://github.com/eamodio/vscode-gitlens/issues/168) - Git environment context was missing
+
 ## [5.6.3] - 2017-10-12
 ### Changed
 - Swaps out Moment.js for date-fns to improve blame annotation performance and to reduce the GitLen bundle size (saves ~400kb)
