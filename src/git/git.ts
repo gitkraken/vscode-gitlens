@@ -67,7 +67,7 @@ async function gitCommandCore(options: GitCommandOptions, ...args: any[]): Promi
     const opts = { encoding: 'utf8', ...options };
     const s = await spawnPromise(git.path, args, {
         cwd: options.cwd,
-        env: options.env,
+        env: options.env || process.env,
         encoding: (opts.encoding === 'utf8') ? 'utf8' : 'binary'
     } as SpawnOptions);
 
@@ -439,13 +439,13 @@ export class Git {
 
     static status(repoPath: string, porcelainVersion: number = 1): Promise<string> {
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
-        return gitCommand({ cwd: repoPath, env: { GIT_OPTIONAL_LOCKS: '0' } }, 'status', porcelain, '--branch', '-u');
+        return gitCommand({ cwd: repoPath, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }, 'status', porcelain, '--branch', '-u');
     }
 
     static status_file(repoPath: string, fileName: string, porcelainVersion: number = 1): Promise<string> {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
-        return gitCommand({ cwd: root, env: { GIT_OPTIONAL_LOCKS: '0' } }, 'status', porcelain, file);
+        return gitCommand({ cwd: root, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }, 'status', porcelain, file);
     }
 }
