@@ -20,11 +20,14 @@
             "label": "compile",
             "type": "npm",
             "script": "compile",
-            "group": "build",
             "problemMatcher": [
                 "$tsc",
                 "$tslint5"
-            ]
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         },
         {
             "label": "lint",
@@ -32,7 +35,8 @@
             "script": "lint",
             "problemMatcher": [
                 "$tslint5"
-            ]
+            ],
+            "group": "build"
         },
         {
             "type": "npm",
