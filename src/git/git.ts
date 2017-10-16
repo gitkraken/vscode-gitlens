@@ -64,6 +64,8 @@ async function gitCommandCore(options: GitCommandOptions, ...args: any[]): Promi
     // See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
     args.splice(0, 0, '-c', 'core.quotepath=false', '-c', 'color.ui=false');
 
+    Logger.log('git', ...args, `  cwd='${options.cwd}'`);
+
     const opts = { encoding: 'utf8', ...options };
     const s = await spawnPromise(git.path, args, {
         cwd: options.cwd,
@@ -71,7 +73,6 @@ async function gitCommandCore(options: GitCommandOptions, ...args: any[]): Promi
         encoding: (opts.encoding === 'utf8') ? 'utf8' : 'binary'
     } as SpawnOptions);
 
-    Logger.log('git', ...args, `  cwd='${options.cwd}'`);
     if (opts.encoding === 'utf8' || opts.encoding === 'binary') return s;
 
     return iconv.decode(Buffer.from(s, 'binary'), opts.encoding);
