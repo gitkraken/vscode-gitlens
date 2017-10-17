@@ -8,7 +8,6 @@ import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, 
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { Logger } from './logger';
 import * as fs from 'fs';
-import * as ignore from 'ignore';
 import * as path from 'path';
 
 export { GitUri, IGitCommitInfo };
@@ -21,14 +20,14 @@ export * from './git/gitContextTracker';
 
 class UriCacheEntry {
 
-    constructor(public uri: GitUri) { }
+    constructor(public readonly uri: GitUri) { }
 }
 
 class GitCacheEntry {
 
     private cache: Map<string, CachedBlame | CachedDiff | CachedLog> = new Map();
 
-    constructor(public key: string) { }
+    constructor(public readonly key: string) { }
 
     get hasErrors(): boolean {
         return Iterables.every(this.cache.values(), _ => _.errorMessage !== undefined);
@@ -98,11 +97,11 @@ export class GitService extends Disposable {
     private _gitCache: Map<string, GitCacheEntry>;
     private _remotesCache: Map<string, GitRemote[]>;
     private _cacheDisposable: Disposable | undefined;
-    private _uriCache: Map<string, UriCacheEntry>;
+    private _trackedCache: Map<string, boolean>;
+    private _versionedUriCache: Map<string, UriCacheEntry>;
 
     config: IConfig;
     private _disposable: Disposable | undefined;
-    private _gitignore: Promise<ignore.Ignore | undefined>;
     private _repoWatcher: FileSystemWatcher | undefined;
 
     static EmptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
@@ -112,7 +111,8 @@ export class GitService extends Disposable {
 
         this._gitCache = new Map();
         this._remotesCache = new Map();
-        this._uriCache = new Map();
+        this._trackedCache = new Map();
+        this._versionedUriCache = new Map();
 
         this._onConfigurationChanged();
 
@@ -136,7 +136,8 @@ export class GitService extends Disposable {
 
         this._gitCache.clear();
         this._remotesCache.clear();
-        this._uriCache.clear();
+        this._trackedCache.clear();
+        this._versionedUriCache.clear();
     }
 
     public get UseCaching() {
@@ -174,28 +175,6 @@ export class GitService extends Disposable {
 
                 this._gitCache.clear();
             }
-
-            this._gitignore = new Promise<ignore.Ignore | undefined>((resolve, reject) => {
-                if (!cfg.advanced.gitignore.enabled) {
-                    resolve(undefined);
-                    return;
-                }
-
-                const gitignorePath = path.join(this.repoPath, '.gitignore');
-                fs.exists(gitignorePath, e => {
-                    if (e) {
-                        fs.readFile(gitignorePath, 'utf8', (err, data) => {
-                            if (!err) {
-                                resolve(ignore().add(data));
-                                return;
-                            }
-                            resolve(undefined);
-                        });
-                        return;
-                    }
-                    resolve(undefined);
-                });
-            });
         }
 
         const ignoreWhitespace = this.config && this.config.blame.ignoreWhitespace;
@@ -237,6 +216,7 @@ export class GitService extends Disposable {
         }
 
         this._gitCache.clear();
+        this._trackedCache.clear();
 
         this._fireRepoChange();
         this._fireGitCacheChange();
@@ -431,16 +411,15 @@ export class GitService extends Disposable {
     }
 
     private async _getBlameForFile(uri: GitUri, entry: GitCacheEntry | undefined, key: string): Promise<GitBlame | undefined> {
-        const [file, root] = Git.splitPath(uri.fsPath, uri.repoPath, false);
-
-        const ignore = await this._gitignore;
-        if (ignore && !ignore.filter([file]).length) {
-            Logger.log(`Skipping blame; '${uri.fsPath}' is gitignored`);
+        if (!(await this.isTracked(uri))) {
+            Logger.log(`Skipping blame; '${uri.fsPath}' is not tracked`);
             if (entry && entry.key) {
                 this._onDidBlameFail.fire(entry.key);
             }
             return await GitService.EmptyPromise as GitBlame;
         }
+
+        const [file, root] = Git.splitPath(uri.fsPath, uri.repoPath, false);
 
         try {
             const data = await Git.blame(root, file, uri.sha, { ignoreWhitespace: this.config.blame.ignoreWhitespace });
@@ -597,7 +576,7 @@ export class GitService extends Disposable {
 
     getGitUriForFile(uri: Uri) {
         const cacheKey = this.getCacheEntryKey(uri);
-        const entry = this._uriCache.get(cacheKey);
+        const entry = this._versionedUriCache.get(cacheKey);
         return entry && entry.uri;
     }
 
@@ -832,13 +811,12 @@ export class GitService extends Disposable {
     }
 
     private async _getLogForFile(repoPath: string | undefined, fileName: string, sha: string | undefined, options: { maxCount?: number, range?: Range, reverse?: boolean, skipMerges?: boolean }, entry: GitCacheEntry | undefined, key: string): Promise<GitLog | undefined> {
-        const [file, root] = Git.splitPath(fileName, repoPath, false);
-
-        const ignore = await this._gitignore;
-        if (ignore && !ignore.filter([file]).length) {
-            Logger.log(`Skipping log; '${fileName}' is gitignored`);
+        if (!(await this.isTracked(fileName, repoPath))) {
+            Logger.log(`Skipping log; '${fileName}' is not tracked`);
             return await GitService.EmptyPromise as GitLog;
         }
+
+        const [file, root] = Git.splitPath(fileName, repoPath, false);
 
         try {
             const { range, ...opts } = options;
@@ -951,7 +929,7 @@ export class GitService extends Disposable {
 
         const cacheKey = this.getCacheEntryKey(file);
         const entry = new UriCacheEntry(new GitUri(Uri.file(fileName), { sha, repoPath: repoPath!, fileName }));
-        this._uriCache.set(cacheKey, entry);
+        this._versionedUriCache.set(cacheKey, entry);
         return file;
     }
 
@@ -965,7 +943,7 @@ export class GitService extends Disposable {
         if (editor === undefined || editor.document === undefined || editor.document.uri === undefined) return false;
 
         const cacheKey = this.getCacheEntryKey(editor.document.uri);
-        return this._uriCache.has(cacheKey);
+        return this._versionedUriCache.has(cacheKey);
     }
 
     isEditorBlameable(editor: TextEditor): boolean {
@@ -979,19 +957,47 @@ export class GitService extends Disposable {
         return !!status;
     }
 
-    isTrackable(uri: Uri): boolean {
-        // Logger.log(`isTrackable('${uri.scheme}', '${uri.fsPath}')`);
+    isTrackable(scheme: string): boolean;
+    isTrackable(uri: Uri): boolean;
+    isTrackable(schemeOruri: string | Uri): boolean {
+        let scheme: string;
+        if (typeof schemeOruri === 'string') {
+            scheme = schemeOruri;
+        }
+        else {
+            scheme = schemeOruri.scheme;
+        }
 
-        return uri.scheme === DocumentSchemes.File || uri.scheme === DocumentSchemes.Git || uri.scheme === DocumentSchemes.GitLensGit;
+        return scheme === DocumentSchemes.File || scheme === DocumentSchemes.Git || scheme === DocumentSchemes.GitLensGit;
     }
 
-    async isTracked(uri: GitUri): Promise<boolean> {
-        if (!this.isTrackable(uri)) return false;
+    async isTracked(fileName: string, repoPath: string | undefined): Promise<boolean>;
+    async isTracked(uri: GitUri): Promise<boolean>;
+    async isTracked(fileNameOrUri: string | GitUri, repoPath?: string | undefined): Promise<boolean> {
+        let cacheKey: string;
+        let fileName: string;
+        if (typeof fileNameOrUri === 'string') {
+            [fileName, repoPath] = Git.splitPath(fileNameOrUri, repoPath);
+            cacheKey = this.getCacheEntryKey(fileNameOrUri);
+        }
+        else {
+            if (!this.isTrackable(fileNameOrUri)) return false;
 
-        Logger.log(`isTracked('${uri.fsPath}', '${uri.repoPath}')`);
+            fileName = fileNameOrUri.fsPath;
+            repoPath = fileNameOrUri.repoPath;
+            cacheKey = this.getCacheEntryKey(fileNameOrUri);
+        }
 
-        const result = await Git.ls_files(uri.repoPath === undefined ? '' : uri.repoPath, uri.fsPath);
-        return !!result;
+        Logger.log(`isTracked('${fileName}', '${repoPath}')`);
+
+        let tracked = this._trackedCache.get(cacheKey);
+        if (tracked !== undefined) return tracked;
+
+        const result = await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName);
+        tracked = !!result;
+        this._trackedCache.set(cacheKey, tracked);
+
+        return tracked;
     }
 
     openDiffTool(repoPath: string, uri: Uri, staged: boolean) {

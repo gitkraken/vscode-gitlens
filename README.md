@@ -430,7 +430,6 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.advanced.caching.enabled`|Specifies whether git output will be cached
 |`gitlens.advanced.caching.maxLines`|Specifies the threshold for caching larger documents
 |`gitlens.advanced.git`|Specifies the git path to use
-|`gitlens.advanced.gitignore.enabled`|Specifies whether or not to parse the root .gitignore file for better performance (i.e. avoids blaming excluded files)
 |`gitlens.advanced.maxQuickHistory`|Specifies the maximum number of QuickPick history entries to show
 |`gitlens.advanced.quickPick.closeOnFocusOut`|Specifies whether or not to close the QuickPick menu when focus is lost
 

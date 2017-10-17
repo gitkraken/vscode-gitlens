@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### Removed
+- Removes `gitlens.advanced.gitignore.enabled` setting since it usage has been replaced by a tracked file cache
+
+### Fixed
+- Fixes issues with tracked files which are ignored via `.gitignore` not working properly
 
 ## [5.6.4] - 2017-10-12
 ### Fixed

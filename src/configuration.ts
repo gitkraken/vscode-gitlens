@@ -58,9 +58,6 @@ export interface IAdvancedConfig {
         maxLines: number;
     };
     git: string;
-    gitignore: {
-        enabled: boolean;
-    };
     maxQuickHistory: number;
     menus: {
         explorerContext: {
