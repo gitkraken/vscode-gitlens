@@ -24,14 +24,13 @@
     ],
     "keywords": [
         "git",
-        "code lens",
+        "gitlens",
         "blame",
-        "history",
-        "annotation",
         "log",
-        "inline blame",
-        "compare",
-        "diff"
+        "annotation",
+        "diff",
+        "lens",
+        "history"
     ],
     "galleryBanner": {
         "color": "#56098c",
