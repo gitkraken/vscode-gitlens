@@ -161,7 +161,7 @@ export class CommitDetailsQuickPick {
             }
 
             items.splice(index++, 0, new CommandQuickPickItem({
-                label: `$(git-compare) Directory Compare with Previous Commit`,
+                label: `$(git-compare) Compare Directory with Previous Commit`,
                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.previousShortSha || `${commit.shortSha}^`} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`
             }, Commands.DiffDirectory, [
                     commit.uri,
@@ -173,7 +173,7 @@ export class CommitDetailsQuickPick {
         }
 
         items.splice(index++, 0, new CommandQuickPickItem({
-            label: `$(git-compare) Directory Compare with Working Tree`,
+            label: `$(git-compare) Compare Directory with Working Tree`,
             description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(file-directory) Working Tree`
         }, Commands.DiffDirectory, [
                 uri,

@@ -115,7 +115,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 - Provides easy access to the following comparison commands via the `Command Palette` as well as in context via the many provided quick pick menus
 
-- Adds a `Directory Compare` command (`gitlens.diffDirectory`) to open the configured Git difftool to compare directories between branches
+- Adds a `Compare Directory with Branch...` command (`gitlens.diffDirectory`) to open the configured Git difftool to compare directories between branches
 
 - Adds a `Compare File with Branch...` command (`gitlens.diffWithBranch`) to compare the active file with the same file on the selected branch
 
@@ -224,7 +224,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
   ![Commit Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-commit-details.png)
 
   - Quickly see the set of files changed in the commit, complete with status indicators for adds, changes, renames, and deletes
-  - Provides entries to `Copy to Clipboard`, `Directory Compare`, `Open Changed Files`, `Open File in <remote-service>` when available, and more
+  - Provides entries to `Copy to Clipboard`, `Compare Directory with...`, `Open Changed Files`, `Open File in <remote-service>` when available, and more
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
   - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the comparison of the current revision with the previous one
@@ -261,19 +261,24 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
     ![Stash Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-stash-details.png)
 
     - Quickly see the set of files changed in the stash, complete with status indicators for adds, changes, renames, and deletes
-    - Provides entries to `Copy Message to Clipboard`, `Directory Compare`, and `Open Changed Files`
+    - Provides entries to `Copy Message to Clipboard`, `Compare Directory with...`, and `Open Changed Files`
     - Provides entries to `Apply Stashed Changes` and `Delete Stashed Changes` — both require a confirmation
     - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
     - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
     - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to  preview the comparison of the current revision with the previous one
 
 - Adds a `Show Last Opened Quick Pick` command (`gitlens.showLastQuickPick`) with a shortcut of `alt+-` to quickly get back to where you were when the last GitLens quick pick menu closed
-
+7
 ### And More
 
 - Adds a `Copy Commit ID to Clipboard` command (`gitlens.copyShaToClipboard`) to copy the commit id (sha) of the active line to the clipboard or from the most recent commit to the current branch, if there is no active editor
 
 - Adds a `Copy Commit Message to Clipboard` command (`gitlens.copyMessageToClipboard`) to copy the commit message of the active line to the clipboard or from the most recent commit to the current branch, if there is no active editor
+
+- Adds a `Open Changes (with difftool)` command (`gitlens.externalDiff`) to the source control group and source control resource context menus to open the changes of a file or set of files with the configured git difftool
+
+- Adds a `Open All Changes (with difftool)` command (`gitlens.externalDiffAll`) to open all working changes with the configured git difftool
+  - Also adds the command to the Source Control group context menu
 
 - Adds a `Open Changed Files` command (`gitlens.openChangedFiles`) to open any files with working tree changes
 

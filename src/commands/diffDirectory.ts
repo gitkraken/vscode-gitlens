@@ -2,6 +2,7 @@
 import { Iterables } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { CommandContext } from '../commands';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
@@ -16,7 +17,16 @@ export interface DiffDirectoryCommandCommandArgs {
 export class DiffDirectoryCommand extends ActiveEditorCommand {
 
     constructor(private git: GitService) {
-        super(Commands.DiffDirectory);
+        super([Commands.DiffDirectory, Commands.ExternalDiffAll]);
+    }
+
+    protected async preExecute(context: CommandContext, args: DiffDirectoryCommandCommandArgs = {}): Promise<any> {
+        if (context.command === Commands.ExternalDiffAll) {
+            args.shaOrBranch1 = 'HEAD';
+            args.shaOrBranch2 = undefined;
+        }
+
+        return this.execute(context.editor, context.uri, args);
     }
 
     async execute(editor?: TextEditor, uri?: Uri, args: DiffDirectoryCommandCommandArgs = {}): Promise<any> {

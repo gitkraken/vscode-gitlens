@@ -896,7 +896,7 @@
         "commands": [
             {
                 "command": "gitlens.diffDirectory",
-                "title": "Directory Compare",
+                "title": "Compare Directory with Branch...",
                 "category": "GitLens"
             },
             {
@@ -1114,6 +1114,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.externalDiffAll",
+                "title": "Open All Changes (with difftool)",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.resetSuppressedWarnings",
                 "title": "Reset Suppressed Warnings",
                 "category": "GitLens"
@@ -1233,6 +1238,10 @@
                 {
                     "command": "gitlens.diffLineWithWorking",
                     "when": "gitlens:isBlameable"
+                },
+                {
+                    "command": "gitlens.externalDiffAll",
+                    "when": "gitlens:enabled"
                 },
                 {
                     "command": "gitlens.showFileBlame",
@@ -1568,6 +1577,11 @@
                     "command": "gitlens.externalDiff",
                     "when": "gitlens:enabled",
                     "group": "2_gitlens@3"
+                },
+                {
+                    "command": "gitlens.externalDiffAll",
+                    "when": "gitlens:enabled",
+                    "group": "2_gitlens@4"
                 },
                 {
                     "command": "gitlens.stashSave",

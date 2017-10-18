@@ -11,6 +11,7 @@ export enum Commands {
     CopyMessageToClipboard = 'gitlens.copyMessageToClipboard',
     CopyShaToClipboard = 'gitlens.copyShaToClipboard',
     DiffDirectory = 'gitlens.diffDirectory',
+    ExternalDiffAll = 'gitlens.externalDiffAll',
     DiffWith = 'gitlens.diffWith',
     DiffWithBranch = 'gitlens.diffWithBranch',
     DiffWithNext = 'gitlens.diffWithNext',
@@ -61,6 +62,7 @@ export interface CommandContextParsingOptions {
 }
 
 export interface CommandBaseContext {
+    command: string;
     editor?: TextEditor;
     uri?: Uri;
 }
@@ -134,10 +136,18 @@ export abstract class Command extends Disposable {
 
     private _disposable: Disposable;
 
-    constructor(protected command: Commands) {
+    constructor(command: Commands | Commands[]) {
         super(() => this.dispose());
 
-        this._disposable = commands.registerCommand(command, this._execute, this);
+        if (!Array.isArray(command)) {
+            command = [command];
+        }
+
+        const subscriptions = [];
+        for (const cmd of command) {
+            subscriptions.push(commands.registerCommand(cmd, (...args: any[]) => this._execute(cmd, ...args), this));
+        }
+        this._disposable = Disposable.from(...subscriptions);
     }
 
     dispose() {
@@ -150,14 +160,14 @@ export abstract class Command extends Disposable {
 
     abstract execute(...args: any[]): any;
 
-    protected _execute(...args: any[]): any {
-        Telemetry.trackEvent(this.command);
+    protected _execute(command: string, ...args: any[]): any {
+        Telemetry.trackEvent(command);
 
-        const [context, rest] = Command._parseContext(this.contextParsingOptions, ...args);
+        const [context, rest] = Command._parseContext(command, this.contextParsingOptions, ...args);
         return this.preExecute(context, ...rest);
     }
 
-    private static _parseContext(options: CommandContextParsingOptions, ...args: any[]): [CommandContext, any[]] {
+    private static _parseContext(command: string, options: CommandContextParsingOptions, ...args: any[]): [CommandContext, any[]] {
         let editor: TextEditor | undefined = undefined;
 
         let firstArg = args[0];
@@ -169,12 +179,12 @@ export abstract class Command extends Disposable {
 
         if (options.uri && (firstArg === undefined || firstArg instanceof Uri)) {
             const [uri, ...rest] = args as [Uri, any];
-            return [{ type: 'uri', editor: editor, uri: uri }, rest];
+            return [{ command: command, type: 'uri', editor: editor, uri: uri }, rest];
         }
 
         if (firstArg instanceof ExplorerNode) {
             const [node, ...rest] = args as [ExplorerNode, any];
-            return [{ type: 'view', node: node, uri: node.uri }, rest];
+            return [{ command: command, type: 'view', node: node, uri: node.uri }, rest];
         }
 
         if (isScmResourceState(firstArg)) {
@@ -187,7 +197,7 @@ export abstract class Command extends Disposable {
                 states.push(arg);
             }
 
-            return [{ type: 'scm-states', scmResourceStates: states, uri: states[0].resourceUri }, args.slice(count)];
+            return [{ command: command, type: 'scm-states', scmResourceStates: states, uri: states[0].resourceUri }, args.slice(count)];
         }
 
         if (isScmResourceGroup(firstArg)) {
@@ -200,10 +210,10 @@ export abstract class Command extends Disposable {
                 groups.push(arg);
             }
 
-            return [{ type: 'scm-groups', scmResourceGroups: groups }, args.slice(count)];
+            return [{ command: command, type: 'scm-groups', scmResourceGroups: groups }, args.slice(count)];
         }
 
-        return [{ type: 'unknown', editor: editor }, args];
+        return [{ command: command, type: 'unknown', editor: editor }, args];
     }
 }
 
@@ -211,7 +221,7 @@ export abstract class ActiveEditorCommand extends Command {
 
     protected readonly contextParsingOptions: CommandContextParsingOptions = { editor: true, uri: true };
 
-    constructor(public readonly command: Commands) {
+    constructor(command: Commands | Commands[]) {
         super(command);
     }
 
@@ -219,8 +229,8 @@ export abstract class ActiveEditorCommand extends Command {
         return this.execute(context.editor, context.uri, ...args);
     }
 
-    protected _execute(...args: any[]): any {
-        return super._execute(window.activeTextEditor, ...args);
+    protected _execute(command: string, ...args: any[]): any {
+        return super._execute(command, window.activeTextEditor, ...args);
     }
 
     abstract execute(editor?: TextEditor, ...args: any[]): any;
@@ -233,16 +243,16 @@ export function getLastCommand() {
 
 export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
 
-    constructor(public readonly command: Commands) {
+    constructor(command: Commands | Commands[]) {
         super(command);
     }
 
-    protected _execute(...args: any[]): any {
+    protected _execute(command: string, ...args: any[]): any {
         lastCommand = {
-            command: this.command,
+            command: command,
             args: args
         };
-        return super._execute(...args);
+        return super._execute(command, ...args);
     }
 
     abstract execute(editor: TextEditor, ...args: any[]): any;
@@ -252,17 +262,26 @@ export abstract class EditorCommand extends Disposable {
 
     private _disposable: Disposable;
 
-    constructor(public readonly command: Commands) {
+    constructor(command: Commands | Commands[]) {
         super(() => this.dispose());
-        this._disposable = commands.registerTextEditorCommand(command, this._execute, this);
+
+        if (!Array.isArray(command)) {
+            command = [command];
+        }
+
+        const subscriptions = [];
+        for (const cmd of command) {
+            subscriptions.push(commands.registerCommand(cmd, (editor: TextEditor, edit: TextEditorEdit, ...args: any[]) => this._execute(cmd, editor, edit, ...args), this));
+        }
+        this._disposable = Disposable.from(...subscriptions);
     }
 
     dispose() {
         this._disposable && this._disposable.dispose();
     }
 
-    private _execute(editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any {
-        Telemetry.trackEvent(this.command);
+    private _execute(command: string, editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any {
+        Telemetry.trackEvent(command);
         return this.execute(editor, edit, ...args);
     }
 

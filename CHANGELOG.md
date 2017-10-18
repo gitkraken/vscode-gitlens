@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### Added
+- Adds `Open All Changes (with difftool)` command (`gitlens.externalDiffAll`) - opens all working changes with the configured git difftool -- closes [#164](https://github.com/eamodio/vscode-gitlens/issues/164)
+  - Also adds the command to the Source Control group context menu
+
+### Changed
+- Renames `Directory Compare` command (`gitlens.diffDirectory`) to `Compare Directory with Branch...`
+- Renames `Directory Compare with Previous Commit` in quick pick menus to `Compare Directory with Previous Commit`
+- Renames `Directory Compare with Working Tree` in quick pick menus to `Compare Directory with Working Tree`
+- Changes the marketplace keywords for better discoverability
+
+### Fixed
+- Fixes [#163](https://github.com/eamodio/vscode-gitlens/issues/163) - GitLens can cause git locking in the background
 
 ## [5.6.5] - 2017-10-16
 ### Removed
