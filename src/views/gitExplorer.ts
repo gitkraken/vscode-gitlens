@@ -1,9 +1,9 @@
 'use strict';
 import { Functions, Objects } from '../system';
-import { commands, Event, EventEmitter, ExtensionContext, TextDocumentShowOptions, TextEditor, TreeDataProvider, TreeItem, Uri, window, workspace } from 'vscode';
+import { commands, Disposable, Event, EventEmitter, ExtensionContext, TextDocumentShowOptions, TextEditor, TreeDataProvider, TreeItem, Uri, window, workspace } from 'vscode';
 import { Commands, DiffWithCommandArgs, DiffWithCommandArgsRevision, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, OpenFileInRemoteCommandArgs } from '../commands';
 import { UriComparer } from '../comparers';
-import { ExtensionKey, IConfig } from '../configuration';
+import { ExtensionKey, GitExplorerFilesLayout, IConfig } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { BranchHistoryNode, CommitFileNode, CommitNode, ExplorerNode, HistoryNode, MessageNode, RepositoryNode, StashNode } from './explorerNodes';
 import { GitService, GitUri, RepoChangedReasons } from '../gitService';
@@ -37,6 +37,11 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     }
 
     constructor(private readonly context: ExtensionContext, private readonly git: GitService) {
+        commands.registerCommand('gitlens.gitExplorer.setAutoRefreshToOn', () => this.setAutoRefresh(this.git.config.gitExplorer.autoRefresh, true), this);
+        commands.registerCommand('gitlens.gitExplorer.setAutoRefreshToOff', () => this.setAutoRefresh(this.git.config.gitExplorer.autoRefresh, true), this);
+        commands.registerCommand('gitlens.gitExplorer.setFilesLayoutToAuto', () => this.setFilesLayout(GitExplorerFilesLayout.Auto), this);
+        commands.registerCommand('gitlens.gitExplorer.setFilesLayoutToList', () => this.setFilesLayout(GitExplorerFilesLayout.List), this);
+        commands.registerCommand('gitlens.gitExplorer.setFilesLayoutToTree', () => this.setFilesLayout(GitExplorerFilesLayout.Tree), this);
         commands.registerCommand('gitlens.gitExplorer.switchToHistoryView', () => this.switchTo(GitExplorerView.History), this);
         commands.registerCommand('gitlens.gitExplorer.switchToRepositoryView', () => this.switchTo(GitExplorerView.Repository), this);
         commands.registerCommand('gitlens.gitExplorer.refresh', this.refresh, this);
@@ -51,9 +56,6 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         commands.registerCommand('gitlens.gitExplorer.openChangedFileChangesWithWorking', this.openChangedFileChangesWithWorking, this);
         commands.registerCommand('gitlens.gitExplorer.openChangedFileRevisions', this.openChangedFileRevisions, this);
         commands.registerCommand('gitlens.gitExplorer.applyChanges', this.applyChanges, this);
-
-        const repoChangedFn = Functions.debounce(this.onRepoChanged, 250);
-        context.subscriptions.push(this.git.onDidChangeRepo(repoChangedFn, this));
 
         const editorChangedFn = Functions.debounce(this.onActiveEditorChanged, 500);
         context.subscriptions.push(window.onDidChangeActiveTextEditor(editorChangedFn, this));
@@ -111,6 +113,14 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
 
         const changed = !Objects.areEquivalent(cfg.gitExplorer, this._config && this._config.gitExplorer);
+
+        if (cfg.gitExplorer.autoRefresh !== (this._config && this._config.gitExplorer.autoRefresh)) {
+            this.setAutoRefresh(cfg.gitExplorer.autoRefresh);
+        }
+
+        if (cfg.gitExplorer.files.layout !== (this._config && this._config.gitExplorer.files.layout)) {
+            setCommandContext(CommandContext.GitExplorerFilesLayout, cfg.gitExplorer.files.layout);
+        }
 
         this._config = cfg;
 
@@ -258,5 +268,39 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
     private async openFileRevisionInRemote(node: CommitNode | StashNode) {
         return commands.executeCommand(Commands.OpenFileInRemote, new GitUri(node.commit.uri, node.commit), { range: false } as OpenFileInRemoteCommandArgs);
+    }
+
+    private _autoRefreshDisposable: Disposable | undefined;
+
+    private async setAutoRefresh(enabled: boolean, userToggle: boolean = false) {
+        if (this._autoRefreshDisposable !== undefined) {
+            this._autoRefreshDisposable.dispose();
+            this._autoRefreshDisposable = undefined;
+        }
+
+        if (enabled) {
+            enabled = this.context.workspaceState.get<boolean>(WorkspaceState.GitExplorerAutoRefresh, true);
+
+            if (userToggle) {
+                enabled = !enabled;
+                await this.context.workspaceState.update(WorkspaceState.GitExplorerAutoRefresh, enabled);
+            }
+
+            if (enabled) {
+                const repoChangedFn = Functions.debounce(this.onRepoChanged, 250);
+                this._autoRefreshDisposable = this.git.onDidChangeRepo(repoChangedFn, this);
+                this.context.subscriptions.push(this._autoRefreshDisposable);
+            }
+        }
+
+        setCommandContext(CommandContext.GitExplorerAutoRefresh, enabled);
+
+        if (userToggle) {
+            this.refresh();
+        }
+    }
+
+    private async setFilesLayout(layout: GitExplorerFilesLayout) {
+        await workspace.getConfiguration(ExtensionKey).update('gitExplorer.files.layout', layout, true);
     }
 }

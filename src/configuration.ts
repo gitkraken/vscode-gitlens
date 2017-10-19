@@ -103,6 +103,7 @@ export interface ICodeLensLanguageLocation {
 
 export interface IGitExplorerConfig {
     enabled: boolean;
+    autoRefresh: boolean;
     view: GitExplorerView;
     files: {
         layout: GitExplorerFilesLayout;

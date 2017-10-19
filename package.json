@@ -417,6 +417,11 @@
                     "default": null,
                     "description": "Specifies how all absolute dates will be formatted by default\nSee https://momentjs.com/docs/#/displaying/format/ for valid formats"
                 },
+                "gitlens.gitExplorer.autoRefresh": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to automatically refresh the `GitLens` custom view when the repository or the file system changes"
+                },
                 "gitlens.gitExplorer.commitFormat": {
                     "type": "string",
                     "default": "${message} \u00a0\u2022\u00a0 ${authorAgo} \u00a0 (${id})",
@@ -1124,6 +1129,16 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.gitExplorer.setAutoRefreshToOn",
+                "title": "Enable Automatic Refresh",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.gitExplorer.setAutoRefreshToOff",
+                "title": "Disable Automatic Refresh",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.gitExplorer.refresh",
                 "title": "Refresh",
                 "category": "GitLens",
@@ -1131,6 +1146,21 @@
                     "dark": "images/dark/icon-refresh.svg",
                     "light": "images/light/icon-refresh.svg"
                 }
+            },
+            {
+                "command": "gitlens.gitExplorer.setFilesLayoutToAuto",
+                "title": "Show Files in Automatic View",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.gitExplorer.setFilesLayoutToList",
+                "title": "Show Files in List View",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.gitExplorer.setFilesLayoutToTree",
+                "title": "Show Files in Tree View",
+                "category": "GitLens"
             },
             {
                 "command": "gitlens.gitExplorer.switchToHistoryView",
@@ -1354,6 +1384,26 @@
                 {
                     "command": "gitlens.resetSuppressedWarnings",
                     "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.gitExplorer.setAutoRefreshToOn",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.gitExplorer.setAutoRefreshToOff",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.gitExplorer.setFilesLayoutToAuto",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.gitExplorer.setFilesLayoutToList",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.gitExplorer.setFilesLayoutToTree",
+                    "when": "false"
                 },
                 {
                     "command": "gitlens.gitExplorer.refresh",
@@ -1636,6 +1686,31 @@
                     "command": "gitlens.gitExplorer.refresh",
                     "when": "view == gitlens.gitExplorer",
                     "group": "navigation@4"
+                },
+                {
+                    "command": "gitlens.gitExplorer.setFilesLayoutToAuto",
+                    "when": "view == gitlens.gitExplorer && gitlens:gitExplorer:view == repository",
+                    "group": "1_gitlens"
+                },
+                {
+                    "command": "gitlens.gitExplorer.setFilesLayoutToList",
+                    "when": "view == gitlens.gitExplorer && gitlens:gitExplorer:view == repository",
+                    "group": "1_gitlens"
+                },
+                {
+                    "command": "gitlens.gitExplorer.setFilesLayoutToTree",
+                    "when": "view == gitlens.gitExplorer && gitlens:gitExplorer:view == repository",
+                    "group": "1_gitlens"
+                },
+                {
+                    "command": "gitlens.gitExplorer.setAutoRefreshToOn",
+                    "when": "view == gitlens.gitExplorer && gitlens:gitExplorer:view == repository && config.gitlens.gitExplorer.autoRefresh && !gitlens:gitExplorer:autoRefresh",
+                    "group": "2_gitlens"
+                },
+                {
+                    "command": "gitlens.gitExplorer.setAutoRefreshToOff",
+                    "when": "view == gitlens.gitExplorer && gitlens:gitExplorer:view == repository && config.gitlens.gitExplorer.autoRefresh && gitlens:gitExplorer:autoRefresh",
+                    "group": "2_gitlens"
                 }
             ],
             "view/item/context": [

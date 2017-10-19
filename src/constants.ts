@@ -28,6 +28,8 @@ export enum CommandContext {
     AnnotationStatus = 'gitlens:annotationStatus',
     CanToggleCodeLens = 'gitlens:canToggleCodeLens',
     Enabled = 'gitlens:enabled',
+    GitExplorerAutoRefresh = 'gitlens:gitExplorer:autoRefresh',
+    GitExplorerFilesLayout = 'gitlens:gitExplorer:files:layout',
     GitExplorerView = 'gitlens:gitExplorer:view',
     HasRemotes = 'gitlens:hasRemotes',
     IsBlameable = 'gitlens:isBlameable',
@@ -76,5 +78,6 @@ export enum GlobalState {
 }
 
 export enum WorkspaceState {
+    GitExplorerAutoRefresh = 'gitlens:gitExplorer:autoRefresh',
     GitExplorerView = 'gitlens:gitExplorer:view'
 }

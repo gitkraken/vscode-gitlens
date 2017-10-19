@@ -1,4 +1,5 @@
 import { commands, Disposable, ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { WorkspaceState } from '../constants';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitService, GitStatus, GitUri } from '../gitService';
 import { StatusFilesNode } from './statusFilesNode';
@@ -56,8 +57,12 @@ export class StatusNode extends ExplorerNode {
         if (this.includeWorkingTree) {
             this._status = status;
 
-            _eventDisposable = this.git.onDidChangeFileSystem(this.onFileSystemChanged, this);
-            this.git.startWatchingFileSystem();
+            if (this.git.config.gitExplorer.autoRefresh && this.context.workspaceState.get<boolean>(WorkspaceState.GitExplorerAutoRefresh, true)) {
+                _eventDisposable = this.git.onDidChangeFileSystem(this.onFileSystemChanged, this);
+                this.context.subscriptions.push(_eventDisposable);
+
+                this.git.startWatchingFileSystem();
+            }
         }
 
         let hasChildren = false;

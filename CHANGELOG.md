@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds `Open All Changes (with difftool)` command (`gitlens.externalDiffAll`) - opens all working changes with the configured git difftool -- closes [#164](https://github.com/eamodio/vscode-gitlens/issues/164)
   - Also adds the command to the Source Control group context menu
+- Adds `gitlens.gitExplorer.autoRefresh` setting to specify whether or not to automatically refresh the `GitLens` custom view when the repository or the file system changes
+- Adds `Enable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOn`) to enable the automatic refresh of the `GitLens` custom view
+- Adds `Disable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOff`) to disable the automatic refresh of the `GitLens` custom view
+- Adds `Show Files in Automatic View` command (`gitlens.gitExplorer.setFilesLayoutToAuto`) to change to an automatic layout for the files in the `GitLens` custom view
+- Adds `Show Files in List View` command (`gitlens.gitExplorer.setFilesLayoutToList`) to change to a list layout for the files in the `GitLens` custom view
+- Adds `Show Files in Tree View` command (`gitlens.gitExplorer.setFilesLayoutToTree`) to change to a tree layout for the files in the `GitLens` custom view
 
 ### Changed
 - Renames `Directory Compare` command (`gitlens.diffDirectory`) to `Compare Directory with Branch...`
@@ -17,6 +23,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes [#163](https://github.com/eamodio/vscode-gitlens/issues/163) - GitLens can cause git locking in the background
+- Fixes issue where the `GitLens` custom view would refresh more than once when a file system change was detected
+- Fixes issue where opening commit search could be filled out with `#00000000`
 
 ## [5.6.5] - 2017-10-16
 ### Removed

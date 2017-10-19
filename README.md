@@ -371,6 +371,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 |-----|------------
 |`gitlens.gitExplorer.enabled`|Specifies whether or not to show the `GitLens` custom view"
 |`gitlens.gitExplorer.view`|Specifies the starting view (mode) of the `GitLens` custom view<br /> `auto` - shows the last selected view, defaults to `repository`<br />`history` - shows the commit history of the active file<br />`repository` - shows a repository explorer"
+|`gitlens.gitExplorer.autoRefresh`|Specifies whether or not to automatically refresh the `GitLens` custom view when the repository or the file system changes
 |`gitlens.gitExplorer.files.layout`|Specifies how the `GitLens` custom view will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
 |`gitlens.gitExplorer.files.compact`|Specifies whether or not to compact (flatten) unnecessary file nesting in the `GitLens` custom view<br />Only applies when displaying files as a `tree` or `auto`
 |`gitlens.gitExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens` custom view<br />Only applies when displaying files as `auto`
