@@ -4,7 +4,7 @@ import { commands, Disposable, Event, EventEmitter, ExtensionContext, TextDocume
 import { Commands, DiffWithCommandArgs, DiffWithCommandArgsRevision, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, OpenFileInRemoteCommandArgs } from '../commands';
 import { UriComparer } from '../comparers';
 import { ExtensionKey, GitExplorerFilesLayout, IConfig } from '../configuration';
-import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
+import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { BranchHistoryNode, CommitFileNode, CommitNode, ExplorerNode, HistoryNode, MessageNode, RepositoryNode, StashNode } from './explorerNodes';
 import { GitService, GitUri, RepoChangedReasons } from '../gitService';
 
@@ -59,6 +59,10 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
         const editorChangedFn = Functions.debounce(this.onActiveEditorChanged, 500);
         context.subscriptions.push(window.onDidChangeActiveTextEditor(editorChangedFn, this));
+
+        const visibleEditorsChangedFn = Functions.debounce(this.onVisibleEditorsChanged, 500);
+        context.subscriptions.push(window.onDidChangeVisibleTextEditors(visibleEditorsChangedFn, this));
+
         context.subscriptions.push(workspace.onDidChangeConfiguration(this.onConfigurationChanged, this));
 
         this.onConfigurationChanged();
@@ -70,7 +74,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
     async getChildren(node?: ExplorerNode): Promise<ExplorerNode[]> {
         if (this._root === undefined) {
-            if (this._view === GitExplorerView.History) return [new MessageNode('No active file; no history to show')];
+            if (this._view === GitExplorerView.History) return [new MessageNode(`No active file ${GlyphChars.Dash} no history to show`)];
             return [];
         }
 
@@ -90,8 +94,10 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     }
 
     private getHistoryNode(editor: TextEditor | undefined): ExplorerNode | undefined {
-        if (window.visibleTextEditors.length === 0) return undefined;
-        if (editor === undefined) return this._root;
+        // If we have no active editor, or no visible editors, or no trackable visible editors reset the view
+        if (editor === undefined || window.visibleTextEditors.length === 0 || !window.visibleTextEditors.some(e => e.document && this.git.isTrackable(e.document.uri))) return undefined;
+        // If we do have a visible trackable editor, don't change from the last state (avoids issues when focus switches to the problems/output/debug console panes)
+        if (editor.document === undefined || !this.git.isTrackable(editor.document.uri)) return this._root;
 
         const uri = this.git.getGitUriForFile(editor.document.uri) || new GitUri(editor.document.uri, { repoPath: this.git.repoPath, fileName: editor.document.uri.fsPath });
         if (UriComparer.equals(uri, this._root && this._root.uri)) return this._root;
@@ -134,12 +140,24 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
             this._root = this.getRootNode(window.activeTextEditor);
             this.refresh();
         }
-}
+    }
 
     private onRepoChanged(reasons: RepoChangedReasons[]) {
         if (this._view !== GitExplorerView.Repository) return;
 
         this.refresh();
+    }
+
+    private onVisibleEditorsChanged(editors: TextEditor[]) {
+        if (this._view !== GitExplorerView.History) return;
+
+        // If we have no visible editors, or no trackable visible editors reset the view
+        if (editors.length === 0 || !editors.some(e => e.document && this.git.isTrackable(e.document.uri))) {
+            if (this._root === undefined) return;
+
+            this._root = undefined;
+            this.refresh();
+        }
     }
 
     refresh(node?: ExplorerNode, root?: ExplorerNode) {
@@ -178,6 +196,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
         this.setView(view);
 
+        this._root = undefined;
         this._root = this.getRootNode(window.activeTextEditor);
         this.refresh();
     }
