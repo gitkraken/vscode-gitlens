@@ -110,6 +110,8 @@ export class StatusNode extends ExplorerNode {
         if (this._status !== undefined && status !== undefined &&
             ((this._status.files.length === status.files.length) || (this._status.files.length > 0 && status.files.length > 0))) {
             commands.executeCommand('gitlens.gitExplorer.refreshNode', this);
+
+            return;
         }
 
         commands.executeCommand('gitlens.gitExplorer.refresh');
