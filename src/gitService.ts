@@ -569,16 +569,18 @@ export class GitService extends Disposable {
         } as GitBlameLines;
     }
 
-    async getBranch(repoPath: string): Promise<GitBranch | undefined> {
+    async getBranch(repoPath: string | undefined): Promise<GitBranch | undefined> {
         Logger.log(`getBranch('${repoPath}')`);
+        if (repoPath === undefined) return undefined;
 
         const data = await Git.branch_current(repoPath);
         const branch = data.split('\n');
         return new GitBranch(repoPath, branch[0], true, branch[1]);
     }
 
-    async getBranches(repoPath: string): Promise<GitBranch[]> {
+    async getBranches(repoPath: string | undefined): Promise<GitBranch[]> {
         Logger.log(`getBranches('${repoPath}')`);
+        if (repoPath === undefined) return [];
 
         const data = await Git.branch(repoPath, { all: true });
         return GitBranchParser.parse(data, repoPath) || [];
@@ -869,7 +871,9 @@ export class GitService extends Disposable {
         }
     }
 
-    hasRemotes(repoPath: string): boolean {
+    hasRemotes(repoPath: string | undefined): boolean {
+        if (repoPath === undefined) return false;
+
         const remotes = this._remotesCache.get(this.normalizeRepoPath(repoPath));
         return remotes !== undefined && remotes.length > 0;
     }
@@ -878,7 +882,7 @@ export class GitService extends Disposable {
         return (repoPath.endsWith('/') ? repoPath : `${repoPath}/`).toLowerCase();
     }
 
-    async getRemotes(repoPath: string): Promise<GitRemote[]> {
+    async getRemotes(repoPath: string | undefined): Promise<GitRemote[]> {
         if (!repoPath) return [];
 
         Logger.log(`getRemotes('${repoPath}')`);
@@ -918,8 +922,9 @@ export class GitService extends Disposable {
         return repoPath;
     }
 
-    async getStashList(repoPath: string): Promise<GitStash | undefined> {
+    async getStashList(repoPath: string | undefined): Promise<GitStash | undefined> {
         Logger.log(`getStash('${repoPath}')`);
+        if (repoPath === undefined) return undefined;
 
         const data = await Git.stash_list(repoPath);
         const stash = GitStashParser.parse(data, repoPath);
@@ -938,8 +943,9 @@ export class GitService extends Disposable {
         return status.files[0];
     }
 
-    async getStatusForRepo(repoPath: string): Promise<GitStatus | undefined> {
+    async getStatusForRepo(repoPath: string | undefined): Promise<GitStatus | undefined> {
         Logger.log(`getStatusForRepo('${repoPath}')`);
+        if (repoPath === undefined) return undefined;
 
         const porcelainVersion = Git.validateVersion(2, 11) ? 2 : 1;
 
