@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [5.7.1] - 2017-10-19
+### Fixed
+- Fixes [#174](https://github.com/eamodio/vscode-gitlens/issues/174) - File Blame Annotations No Longer Working (and some other editor-based commands)
+
 ## [5.7.0] - 2017-10-19
 ### Added
 - Adds `Open All Changes (with difftool)` command (`gitlens.externalDiffAll`) - opens all working changes with the configured git difftool -- closes [#164](https://github.com/eamodio/vscode-gitlens/issues/164)
