@@ -271,7 +271,7 @@ export abstract class EditorCommand extends Disposable {
 
         const subscriptions = [];
         for (const cmd of command) {
-            subscriptions.push(commands.registerCommand(cmd, (editor: TextEditor, edit: TextEditorEdit, ...args: any[]) => this._execute(cmd, editor, edit, ...args), this));
+            subscriptions.push(commands.registerTextEditorCommand(cmd, (editor: TextEditor, edit: TextEditorEdit, ...args: any[]) => this._execute(cmd, editor, edit, ...args), this));
         }
         this._disposable = Disposable.from(...subscriptions);
     }
