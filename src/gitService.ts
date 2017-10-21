@@ -71,8 +71,11 @@ export enum RepoChangedReasons {
 
 export class GitService extends Disposable {
 
+    static emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
     static fakeSha = 'ffffffffffffffffffffffffffffffffffffffff';
     static uncommittedSha = '0000000000000000000000000000000000000000';
+
+    config: IConfig;
 
     private _onDidBlameFail = new EventEmitter<string>();
     get onDidBlameFail(): Event<string> {
@@ -94,20 +97,15 @@ export class GitService extends Disposable {
         return this._onDidChangeRepo.event;
     }
 
+    private _cacheDisposable: Disposable | undefined;
+    private _disposable: Disposable | undefined;
     private _focused: boolean = true;
-    private _unfocusedChanges: { repo: boolean, fs: boolean } = { repo: false, fs: false };
-
     private _gitCache: Map<string, GitCacheEntry>;
     private _remotesCache: Map<string, GitRemote[]>;
-    private _cacheDisposable: Disposable | undefined;
-    private _trackedCache: Map<string, boolean>;
-    private _versionedUriCache: Map<string, UriCacheEntry>;
-
-    config: IConfig;
-    private _disposable: Disposable | undefined;
     private _repoWatcher: FileSystemWatcher | undefined;
-
-    static EmptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
+    private _trackedCache: Map<string, boolean>;
+    private _unfocusedChanges: { repo: boolean, fs: boolean } = { repo: false, fs: false };
+    private _versionedUriCache: Map<string, UriCacheEntry>;
 
     constructor(public repoPath: string) {
         super(() => this.dispose());
@@ -443,7 +441,7 @@ export class GitService extends Disposable {
             if (entry && entry.key) {
                 this._onDidBlameFail.fire(entry.key);
             }
-            return await GitService.EmptyPromise as GitBlame;
+            return await GitService.emptyPromise as GitBlame;
         }
 
         const [file, root] = Git.splitPath(uri.fsPath, uri.repoPath, false);
@@ -460,12 +458,12 @@ export class GitService extends Disposable {
                 Logger.log(`Replace blame cache with empty promise for '${entry.key}:${key}'`);
 
                 entry.set<CachedBlame>(key, {
-                    item: GitService.EmptyPromise,
+                    item: GitService.emptyPromise,
                     errorMessage: msg
                 } as CachedBlame);
 
                 this._onDidBlameFail.fire(entry.key);
-                return await GitService.EmptyPromise as GitBlame;
+                return await GitService.emptyPromise as GitBlame;
             }
 
             return undefined;
@@ -674,11 +672,11 @@ export class GitService extends Disposable {
                 Logger.log(`Replace diff cache with empty promise for '${entry.key}:${key}'`);
 
                 entry.set<CachedDiff>(key, {
-                    item: GitService.EmptyPromise,
+                    item: GitService.emptyPromise,
                     errorMessage: msg
                 } as CachedDiff);
 
-                return await GitService.EmptyPromise as GitDiff;
+                return await GitService.emptyPromise as GitDiff;
             }
 
             return undefined;
@@ -842,7 +840,7 @@ export class GitService extends Disposable {
     private async getLogForFileCore(repoPath: string | undefined, fileName: string, sha: string | undefined, options: { maxCount?: number, range?: Range, reverse?: boolean, skipMerges?: boolean }, entry: GitCacheEntry | undefined, key: string): Promise<GitLog | undefined> {
         if (!(await this.isTracked(fileName, repoPath))) {
             Logger.log(`Skipping log; '${fileName}' is not tracked`);
-            return await GitService.EmptyPromise as GitLog;
+            return await GitService.emptyPromise as GitLog;
         }
 
         const [file, root] = Git.splitPath(fileName, repoPath, false);
@@ -860,11 +858,11 @@ export class GitService extends Disposable {
                 Logger.log(`Replace log cache with empty promise for '${entry.key}:${key}'`);
 
                 entry.set<CachedLog>(key, {
-                    item: GitService.EmptyPromise,
+                    item: GitService.emptyPromise,
                     errorMessage: msg
                 } as CachedLog);
 
-                return await GitService.EmptyPromise as GitLog;
+                return await GitService.emptyPromise as GitLog;
             }
 
             return undefined;
