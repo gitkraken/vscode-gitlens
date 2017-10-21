@@ -85,7 +85,7 @@ export class ExternalDiffCommand extends Command {
                 return commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://git-scm.com/docs/git-config#git-config-difftool'));
             }
 
-            const repoPath = await this.git.getRepoPathFromUri(undefined);
+            const repoPath = await this.git.getRepoPath(undefined);
             if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open changed files`);
 
             if (args.files === undefined) {

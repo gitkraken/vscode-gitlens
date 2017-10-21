@@ -97,7 +97,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
     static async fromUri(uri: Uri, git: GitService) {
         if (uri instanceof GitUri) return uri;
 
-        if (!git.isTrackable(uri)) return new GitUri(uri, git.repoPath);
+        if (!git.isTrackable(uri)) return new GitUri(uri, undefined);
 
         if (uri.scheme === DocumentSchemes.GitLensGit) return new GitUri(uri);
 
@@ -110,7 +110,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
         const gitUri = git.getGitUriForFile(uri);
         if (gitUri) return gitUri;
 
-        return new GitUri(uri, (await git.getRepoPathFromFile(uri.fsPath)) || git.repoPath);
+        return new GitUri(uri, await git.getRepoPath(uri.fsPath));
     }
 
     static fromFileStatus(status: IGitStatusFile, repoPath: string, original?: boolean): GitUri;

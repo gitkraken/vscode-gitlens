@@ -32,8 +32,8 @@ export enum CommandContext {
     GitExplorerFilesLayout = 'gitlens:gitExplorer:files:layout',
     GitExplorerView = 'gitlens:gitExplorer:view',
     HasRemotes = 'gitlens:hasRemotes',
+    HasRepository = 'gitlens:hasRepository',
     IsBlameable = 'gitlens:isBlameable',
-    IsRepository = 'gitlens:isRepository',
     IsTracked = 'gitlens:isTracked',
     Key = 'gitlens:key'
 }

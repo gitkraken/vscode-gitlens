@@ -1,8 +1,8 @@
 'use strict';
 import { Functions, Iterables, Objects } from './system';
-import { Disposable, Event, EventEmitter, FileSystemWatcher, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, window, WindowState, workspace } from 'vscode';
+import { Disposable, Event, EventEmitter, FileSystemWatcher, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, window, WindowState, workspace, WorkspaceFoldersChangeEvent } from 'vscode';
 import { IConfig } from './configuration';
-import { DocumentSchemes, ExtensionKey } from './constants';
+import { CommandContext, DocumentSchemes, ExtensionKey, setCommandContext } from './constants';
 import { RemoteProviderFactory } from './git/remotes/factory';
 import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitCommitType, GitDiff, GitDiffChunkLine, GitDiffParser, GitDiffShortStat, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
@@ -51,6 +51,12 @@ interface CachedBlame extends CachedItem<GitBlame> { }
 interface CachedDiff extends CachedItem<GitDiff> { }
 interface CachedLog extends CachedItem<GitLog> { }
 
+export interface Repository {
+    readonly name: string;
+    readonly index: number;
+    readonly path: string;
+}
+
 enum RemoveCacheReason {
     DocumentClosed,
     DocumentSaved
@@ -65,6 +71,7 @@ export enum GitRepoSearchBy {
 
 export enum RepoChangedReasons {
     Remotes = 'remotes',
+    Repositories = 'Repositories',
     Stash = 'stash',
     Unknown = ''
 }
@@ -102,24 +109,29 @@ export class GitService extends Disposable {
     private _focused: boolean = true;
     private _gitCache: Map<string, GitCacheEntry>;
     private _remotesCache: Map<string, GitRemote[]>;
+    private _repositories: Map<string, Repository | undefined>;
+    private _repositoriesPromise: Promise<void> | undefined;
     private _repoWatcher: FileSystemWatcher | undefined;
     private _trackedCache: Map<string, boolean>;
     private _unfocusedChanges: { repo: boolean, fs: boolean } = { repo: false, fs: false };
     private _versionedUriCache: Map<string, UriCacheEntry>;
 
-    constructor(public repoPath: string) {
+    constructor() {
         super(() => this.dispose());
 
         this._gitCache = new Map();
         this._remotesCache = new Map();
+        this._repositories = new Map();
         this._trackedCache = new Map();
         this._versionedUriCache = new Map();
 
         this.onConfigurationChanged();
+        this._repositoriesPromise = this.onWorkspaceFoldersChanged();
 
         const subscriptions: Disposable[] = [
             window.onDidChangeWindowState(this.onWindowStateChanged, this),
             workspace.onDidChangeConfiguration(this.onConfigurationChanged, this),
+            workspace.onDidChangeWorkspaceFolders(this.onWorkspaceFoldersChanged, this),
             RemoteProviderFactory.onDidChange(this.onRemoteProviderChanged, this)
         ];
         this._disposable = Disposable.from(...subscriptions);
@@ -140,6 +152,22 @@ export class GitService extends Disposable {
         this._remotesCache.clear();
         this._trackedCache.clear();
         this._versionedUriCache.clear();
+    }
+
+    public get repoPath(): string | undefined {
+        if (this._repositories.size !== 1) return undefined;
+
+        const repo = Iterables.first(this._repositories.values());
+        return repo === undefined ? undefined : repo.path;
+    }
+
+    public async getRepositories(): Promise<Repository[]> {
+        if (this._repositoriesPromise !== undefined) {
+            await this._repositoriesPromise;
+            this._repositoriesPromise = undefined;
+        }
+
+        return [...Iterables.filter(this._repositories.values(), r => r !== undefined) as Iterable<Repository>];
     }
 
     public get UseCaching() {
@@ -209,6 +237,43 @@ export class GitService extends Disposable {
         if (this._unfocusedChanges.repo) {
             this._unfocusedChanges.repo = false;
             this._fireRepoChangeDebounced!();
+        }
+    }
+
+    private async onWorkspaceFoldersChanged(e?: WorkspaceFoldersChangeEvent) {
+        let initializing = false;
+        if (e === undefined) {
+            if (workspace.workspaceFolders === undefined) return;
+
+            initializing = true;
+            e = {
+                added: workspace.workspaceFolders,
+                removed: []
+            } as WorkspaceFoldersChangeEvent;
+        }
+
+        for (const f of e.added) {
+            if (f.uri.scheme !== DocumentSchemes.File) continue;
+
+            const fsPath = f.uri.fsPath;
+            const rp = await this.getRepoPathCore(fsPath, true);
+            if (rp === undefined) {
+                Logger.log(`onWorkspaceFoldersChanged(${fsPath})`, 'No repository found');
+            }
+            this._repositories.set(fsPath, { name: f.name, index: f.index, path: rp } as Repository);
+        }
+
+        for (const f of e.removed) {
+            if (f.uri.scheme !== DocumentSchemes.File) continue;
+
+            this._repositories.delete(f.uri.fsPath);
+        }
+
+        const hasRepository = Iterables.some(this._repositories.values(), rp => rp !== undefined);
+        await setCommandContext(CommandContext.HasRepository, hasRepository);
+
+        if (!initializing) {
+            this.fireRepoChange(RepoChangedReasons.Repositories);
         }
     }
 
@@ -571,7 +636,7 @@ export class GitService extends Disposable {
         Logger.log(`getBranch('${repoPath}')`);
         if (repoPath === undefined) return undefined;
 
-        const data = await Git.branch_current(repoPath);
+        const data = await Git.revparse_currentBranch(repoPath);
         const branch = data.split('\n');
         return new GitBranch(repoPath, branch[0], true, branch[1]);
     }
@@ -900,24 +965,27 @@ export class GitService extends Disposable {
         return remotes;
     }
 
-    getRepoPath(cwd: string): Promise<string> {
-        return GitService.getRepoPath(cwd);
+    async getRepoPath(filePath: string): Promise<string | undefined>;
+    async getRepoPath(uri: Uri | undefined): Promise<string | undefined>;
+    async getRepoPath(filePathOrUri: string | Uri | undefined): Promise<string | undefined> {
+        if (filePathOrUri === undefined) return this.repoPath;
+        if (filePathOrUri instanceof GitUri) return filePathOrUri.repoPath;
+
+        if (typeof filePathOrUri === 'string') return this.getRepoPathCore(filePathOrUri, false);
+
+        const folder = workspace.getWorkspaceFolder(filePathOrUri);
+        if (folder !== undefined) {
+            const rp = this._repositories.get(folder.uri.fsPath);
+            if (rp !== undefined) return rp.path;
+        }
+
+        return this.getRepoPathCore(filePathOrUri.fsPath, false);
     }
 
-    async getRepoPathFromFile(fileName: string): Promise<string | undefined> {
-        const log = await this.getLogForFile(undefined, fileName, undefined, { maxCount: 1 });
-        if (log === undefined) return undefined;
-
-        return log.repoPath;
-    }
-
-    async getRepoPathFromUri(uri: Uri | undefined): Promise<string | undefined> {
-        if (!(uri instanceof Uri)) return this.repoPath;
-
-        const repoPath = (await GitUri.fromUri(uri, this)).repoPath;
-        if (!repoPath) return this.repoPath;
-
-        return repoPath;
+    private async getRepoPathCore(filePath: string, isDirectory: boolean): Promise<string | undefined> {
+        const rp = await Git.revparse_toplevel(isDirectory ? filePath : path.dirname(filePath));
+        console.log(filePath, rp);
+        return rp;
     }
 
     async getStashList(repoPath: string | undefined): Promise<GitStash | undefined> {
@@ -1103,12 +1171,12 @@ export class GitService extends Disposable {
         return Git.gitInfo().version;
     }
 
-    static async getRepoPath(cwd: string | undefined): Promise<string> {
-        const repoPath = await Git.getRepoPath(cwd);
-        if (!repoPath) return '';
+    // static async getRepoPath(cwd: string | undefined): Promise<string> {
+    //     const repoPath = await Git.getRepoPath(cwd);
+    //     if (!repoPath) return '';
 
-        return repoPath;
-    }
+    //     return repoPath;
+    // }
 
     static fromGitContentUri(uri: Uri): IGitUriData {
         if (uri.scheme !== DocumentSchemes.GitLensGit) throw new Error(`fromGitUri(uri=${uri}) invalid scheme`);

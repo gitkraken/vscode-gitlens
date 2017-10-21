@@ -16,6 +16,7 @@ export declare type ResourceType =
     'gitlens:pager' |
     'gitlens:remote' |
     'gitlens:remotes' |
+    'gitlens:repositories' |
     'gitlens:repository' |
     'gitlens:stash' |
     'gitlens:stash-file' |

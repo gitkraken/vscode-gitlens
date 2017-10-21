@@ -21,7 +21,7 @@ export class ShowQuickCurrentBranchHistoryCommand extends ActiveEditorCachedComm
         uri = getCommandUri(uri, editor);
 
         try {
-            const repoPath = await this.git.getRepoPathFromUri(uri);
+            const repoPath = await this.git.getRepoPath(uri);
             if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show branch history`);
 
             const branch = await this.git.getBranch(repoPath);

@@ -127,7 +127,7 @@ export class CommitFileDetailsQuickPick {
         const remotes = (await git.getRemotes(commit.repoPath)).filter(r => r.provider !== undefined);
         if (remotes.length) {
             if (commit.workingFileName && commit.status !== 'D') {
-                const branch = await git.getBranch(commit.repoPath || git.repoPath);
+                const branch = await git.getBranch(commit.repoPath);
                 items.push(new OpenRemotesCommandQuickPickItem(remotes, {
                     type: 'file',
                     fileName: commit.workingFileName,

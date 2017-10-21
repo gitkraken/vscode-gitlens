@@ -45,11 +45,11 @@ interface GitCommandOptions {
     cwd: string;
     env?: any;
     encoding?: string;
-    overrideErrorHandling?: boolean;
+    willHandleErrors?: boolean;
 }
 
 async function gitCommand(options: GitCommandOptions, ...args: any[]): Promise<string> {
-    if (options.overrideErrorHandling) return gitCommandCore(options, ...args);
+    if (options.willHandleErrors) return gitCommandCore(options, ...args);
 
     try {
         return await gitCommandCore(options, ...args);
@@ -106,15 +106,6 @@ export class Git {
         git = await findGitPath(gitPath);
         Logger.log(`Git found: ${git.version} @ ${git.path === 'git' ? 'PATH' : git.path}`);
         return git;
-    }
-
-    static async getRepoPath(cwd: string | undefined) {
-        if (cwd === undefined) return '';
-
-        const data = await gitCommand({ cwd }, 'rev-parse', '--show-toplevel');
-        if (!data) return '';
-
-        return data.replace(/\r?\n|\r/g, '').replace(/\\/g, '/');
     }
 
     static async getVersionedFile(repoPath: string | undefined, fileName: string, branchOrSha: string) {
@@ -215,22 +206,6 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...params);
     }
 
-    static async branch_current(repoPath: string) {
-        const params = [`rev-parse`, `--abbrev-ref`, `--symbolic-full-name`, `@`, `@{u}`];
-
-        const opts = { cwd: repoPath, overrideErrorHandling: true };
-        try {
-            return await gitCommand(opts, ...params);
-        }
-        catch (ex) {
-            if (/no upstream configured for branch/.test(ex && ex.toString())) {
-                return ex.message.split('\n')[0];
-            }
-
-            return gitCommandDefaultErrorHandler(ex, opts, ...params);
-        }
-    }
-
     static checkout(repoPath: string, fileName: string, sha: string) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
@@ -239,7 +214,8 @@ export class Git {
 
     static async config_get(key: string, repoPath?: string) {
         try {
-            return await gitCommand({ cwd: repoPath || '', overrideErrorHandling: true }, `config`, `--get`, key);
+            const data = await gitCommand({ cwd: repoPath || '', willHandleErrors: true }, `config`, `--get`, key);
+            return data.trim();
         }
         catch {
             return '';
@@ -372,7 +348,8 @@ export class Git {
 
     static async ls_files(repoPath: string, fileName: string): Promise<string> {
         try {
-            return await gitCommand({ cwd: repoPath, overrideErrorHandling: true }, 'ls-files', fileName);
+            const data = await gitCommand({ cwd: repoPath, willHandleErrors: true }, 'ls-files', fileName);
+            return data.trim();
         }
         catch {
             return '';
@@ -387,14 +364,42 @@ export class Git {
         return gitCommand({ cwd: repoPath }, 'remote', 'get-url', remote);
     }
 
+    static async revparse_currentBranch(repoPath: string) {
+        const params = [`rev-parse`, `--abbrev-ref`, `--symbolic-full-name`, `@`, `@{u}`];
+
+        const opts = { cwd: repoPath, willHandleErrors: true } as GitCommandOptions;
+        try {
+            const data = await gitCommand(opts, ...params);
+            return data;
+        }
+        catch (ex) {
+            if (/no upstream configured for branch/.test(ex && ex.toString())) {
+                return ex.message.split('\n')[0];
+            }
+
+            return gitCommandDefaultErrorHandler(ex, opts, ...params);
+        }
+    }
+
+    static async revparse_toplevel(cwd: string): Promise<string | undefined> {
+        try {
+            const data = await gitCommand({ cwd: cwd, willHandleErrors: true }, 'rev-parse', '--show-toplevel');
+            return data.trim();
+        }
+        catch {
+            return undefined;
+        }
+    }
+
     static async show(repoPath: string | undefined, fileName: string, branchOrSha: string, encoding?: string) {
         const [file, root] = Git.splitPath(fileName, repoPath);
         if (Git.isUncommitted(branchOrSha)) throw new Error(`sha=${branchOrSha} is uncommitted`);
 
-        const opts = { cwd: root, encoding: encoding || defaultEncoding, overrideErrorHandling: true };
+        const opts = { cwd: root, encoding: encoding || defaultEncoding, willHandleErrors: true } as GitCommandOptions;
         const args = `${branchOrSha}:./${file}`;
         try {
-            return await gitCommand(opts, 'show', args);
+            const data = await gitCommand(opts, 'show', args);
+            return data;
         }
         catch (ex) {
             const msg = ex && ex.toString();

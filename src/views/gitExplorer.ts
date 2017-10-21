@@ -5,7 +5,7 @@ import { Commands, DiffWithCommandArgs, DiffWithCommandArgsRevision, DiffWithPre
 import { UriComparer } from '../comparers';
 import { ExtensionKey, GitExplorerFilesLayout, IConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
-import { BranchHistoryNode, CommitFileNode, CommitNode, ExplorerNode, HistoryNode, MessageNode, RepositoryNode, StashNode } from './explorerNodes';
+import { BranchHistoryNode, CommitFileNode, CommitNode, ExplorerNode, HistoryNode, MessageNode, RepositoriesNode, RepositoryNode, StashNode } from './explorerNodes';
 import { GitService, GitUri, RepoChangedReasons } from '../gitService';
 
 export * from './explorerNodes';
@@ -72,43 +72,70 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         return node.getTreeItem();
     }
 
+    private _loading: Promise<void> | undefined;
+
     async getChildren(node?: ExplorerNode): Promise<ExplorerNode[]> {
+        if (this._loading !== undefined) {
+            await this._loading;
+            this._loading = undefined;
+        }
+
         if (this._root === undefined) {
             if (this._view === GitExplorerView.History) return [new MessageNode(`No active file ${GlyphChars.Dash} no history to show`)];
-            return [];
+            return [new MessageNode('No repositories found')];
         }
 
         if (node === undefined) return this._root.getChildren();
         return node.getChildren();
     }
 
-    private getRootNode(editor?: TextEditor): ExplorerNode | undefined {
+    private async getRootNode(editor?: TextEditor): Promise<ExplorerNode | undefined> {
         switch (this._view) {
-            case GitExplorerView.History:
-                return this.getHistoryNode(editor || window.activeTextEditor);
+            case GitExplorerView.History: {
+                const promise = this.getHistoryNode(editor || window.activeTextEditor);
+                this._loading = promise.then(async _ => await Functions.wait(0));
+                return promise;
+            }
+            default: {
+                const promise = this.git.getRepositories();
+                this._loading = promise.then(async _ => await Functions.wait(0));
 
-            default:
-                const uri = new GitUri(Uri.file(this.git.repoPath), { repoPath: this.git.repoPath, fileName: this.git.repoPath });
-                return new RepositoryNode(uri, this.context, this.git);
+                const repositories = await promise;
+                if (repositories.length === 0) return undefined; // new MessageNode('No repositories found');
+
+                if (repositories.length === 1) {
+                    const repo = repositories[0];
+                    return new RepositoryNode(new GitUri(Uri.file(repo.path), { repoPath: repo.path, fileName: repo.path }), repo, this.context, this.git);
+                }
+
+                return new RepositoriesNode(repositories, this.context, this.git);
+            }
         }
     }
 
-    private getHistoryNode(editor: TextEditor | undefined): ExplorerNode | undefined {
+    private async getHistoryNode(editor: TextEditor | undefined): Promise<ExplorerNode | undefined> {
         // If we have no active editor, or no visible editors, or no trackable visible editors reset the view
         if (editor === undefined || window.visibleTextEditors.length === 0 || !window.visibleTextEditors.some(e => e.document && this.git.isTrackable(e.document.uri))) return undefined;
         // If we do have a visible trackable editor, don't change from the last state (avoids issues when focus switches to the problems/output/debug console panes)
         if (editor.document === undefined || !this.git.isTrackable(editor.document.uri)) return this._root;
 
-        const uri = this.git.getGitUriForFile(editor.document.uri) || new GitUri(editor.document.uri, { repoPath: this.git.repoPath, fileName: editor.document.uri.fsPath });
+        let uri = this.git.getGitUriForFile(editor.document.uri);
+        if (uri === undefined) {
+            const repoPath = await this.git.getRepoPath(editor.document.uri);
+            if (repoPath === undefined) return undefined;
+
+            uri = new GitUri(editor.document.uri, { repoPath: repoPath, fileName: editor.document.uri.fsPath });
+        }
+
         if (UriComparer.equals(uri, this._root && this._root.uri)) return this._root;
 
         return new HistoryNode(uri, this.context, this.git);
     }
 
-    private onActiveEditorChanged(editor: TextEditor | undefined) {
+    private async onActiveEditorChanged(editor: TextEditor | undefined) {
         if (this._view !== GitExplorerView.History) return;
 
-        const root = this.getRootNode(editor);
+        const root = await this.getRootNode(editor);
         if (root === this._root) return;
 
         this._root = root;
@@ -136,14 +163,17 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
                 view = this.context.workspaceState.get<GitExplorerView>(WorkspaceState.GitExplorerView, GitExplorerView.Repository);
             }
 
-            this.setView(view);
-            this._root = this.getRootNode(window.activeTextEditor);
-            this.refresh();
+            this.reset(view);
         }
     }
 
     private onRepoChanged(reasons: RepoChangedReasons[]) {
         if (this._view !== GitExplorerView.Repository) return;
+
+        // If we are changing the set of repositories then force a root node reset
+        if (reasons.includes(RepoChangedReasons.Repositories)) {
+            this._root = undefined;
+        }
 
         this.refresh();
     }
@@ -160,9 +190,9 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         }
     }
 
-    refresh(node?: ExplorerNode, root?: ExplorerNode) {
-        if (root === undefined && this._view === GitExplorerView.History) {
-            this._root = this.getRootNode(window.activeTextEditor);
+    async refresh(node?: ExplorerNode, root?: ExplorerNode) {
+        if (this._root === undefined || (root === undefined && this._view === GitExplorerView.History)) {
+            this._root = await this.getRootNode(window.activeTextEditor);
         }
 
         this._onDidChangeTreeData.fire(node);
@@ -174,6 +204,18 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         }
 
         this.refresh(node);
+    }
+
+    async reset(view: GitExplorerView, force: boolean = false) {
+        this.setView(view);
+
+        if (force) {
+            this._root = undefined;
+        }
+        this._root = await this.getRootNode(window.activeTextEditor);
+        if (force) {
+            this.refresh();
+        }
     }
 
     setView(view: GitExplorerView) {
@@ -191,14 +233,10 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         }
     }
 
-    switchTo(view: GitExplorerView) {
+    async switchTo(view: GitExplorerView) {
         if (this._view === view) return;
 
-        this.setView(view);
-
-        this._root = undefined;
-        this._root = this.getRootNode(window.activeTextEditor);
-        this.refresh();
+        this.reset(view, true);
     }
 
     private async applyChanges(node: CommitNode | StashNode) {

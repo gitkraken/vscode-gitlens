@@ -1,9 +1,10 @@
 'use strict';
+import { Strings } from '../system';
 import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchesNode } from './branchesNode';
 import { GlyphChars } from '../constants';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { GitService, GitUri } from '../gitService';
+import { GitService, GitUri, Repository } from '../gitService';
 import { RemotesNode } from './remotesNode';
 import { StatusNode } from './statusNode';
 import { StashesNode } from './stashesNode';
@@ -14,6 +15,7 @@ export class RepositoryNode extends ExplorerNode {
 
     constructor(
         uri: GitUri,
+        private repo: Repository,
         protected readonly context: ExtensionContext,
         protected readonly git: GitService
     ) {
@@ -30,7 +32,7 @@ export class RepositoryNode extends ExplorerNode {
     }
 
     getTreeItem(): TreeItem {
-        const item = new TreeItem(`Repository ${GlyphChars.Dash} ${this.uri.repoPath}`, TreeItemCollapsibleState.Expanded);
+        const item = new TreeItem(`Repository ${Strings.pad(GlyphChars.Dash, 1, 1)} ${this.repo.name || this.uri.repoPath}`, TreeItemCollapsibleState.Expanded);
         item.contextValue = this.resourceType;
         return item;
     }

@@ -26,8 +26,7 @@ export async function activate(context: ExtensionContext) {
     const gitlens = extensions.getExtension(QualifiedExtensionId)!;
     const gitlensVersion = gitlens.packageJSON.version;
 
-    const rootPath = workspace.rootPath && workspace.rootPath.replace(/\\/g, '/');
-    Logger.log(`GitLens(v${gitlensVersion}) active: ${rootPath}`);
+    Logger.log(`GitLens(v${gitlensVersion}) active`);
 
     const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
     const gitPath = cfg.advanced.git;
@@ -44,8 +43,6 @@ export async function activate(context: ExtensionContext) {
         return;
     }
 
-    const repoPath = await GitService.getRepoPath(rootPath);
-
     const gitVersion = GitService.getGitVersion();
     Logger.log(`Git version: ${gitVersion}`);
 
@@ -60,7 +57,7 @@ export async function activate(context: ExtensionContext) {
 
     await context.globalState.update(GlobalState.GitLensVersion, gitlensVersion);
 
-    const git = new GitService(repoPath);
+    const git = new GitService();
     context.subscriptions.push(git);
 
     const gitContextTracker = new GitContextTracker(git);

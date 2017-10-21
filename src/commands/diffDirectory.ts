@@ -41,7 +41,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
         uri = getCommandUri(uri, editor);
 
         try {
-            const repoPath = await this.git.getRepoPathFromUri(uri);
+            const repoPath = await this.git.getRepoPath(uri);
             if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open directory compare`);
 
             if (!args.shaOrBranch1) {

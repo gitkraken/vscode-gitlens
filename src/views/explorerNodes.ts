@@ -9,6 +9,7 @@ export * from './fileHistoryNode';
 export * from './historyNode';
 export * from './remoteNode';
 export * from './remotesNode';
+export * from './repositoriesNode';
 export * from './repositoryNode';
 export * from './stashesNode';
 export * from './stashFileNode';

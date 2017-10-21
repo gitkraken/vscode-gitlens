@@ -35,8 +35,6 @@ export class GitContextTracker extends Disposable {
         ];
         this._disposable = Disposable.from(...subscriptions);
 
-        setCommandContext(CommandContext.IsRepository, !!this.git.repoPath);
-
         this._onConfigurationChanged();
     }
 
