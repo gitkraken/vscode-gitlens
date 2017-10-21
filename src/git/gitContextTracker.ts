@@ -53,7 +53,8 @@ export class GitContextTracker extends Disposable {
     }
 
     async _onRepoChanged(reasons: RepoChangedReasons[]) {
-        if (!reasons.includes(RepoChangedReasons.Remotes)) return;
+        // TODO: Support multi-root
+        if (!reasons.includes(RepoChangedReasons.Remotes) && !reasons.includes(RepoChangedReasons.Repositories)) return;
 
         const gitUri = this._editor === undefined ? undefined : await GitUri.fromUri(this._editor.document.uri, this.git);
         this._updateContextHasRemotes(gitUri);
@@ -129,18 +130,36 @@ export class GitContextTracker extends Disposable {
 
     private async _updateContextHasRemotes(uri: GitUri | undefined) {
         try {
-            let repoPath = this.git.repoPath;
-            if (uri !== undefined && this.git.isTrackable(uri)) {
-                repoPath = uri.repoPath || this.git.repoPath;
-            }
+            const repositories = await this.git.getRepositories();
 
             let hasRemotes = false;
-            if (repoPath) {
-                const remotes = await this.git.getRemotes(repoPath);
-                hasRemotes = remotes.length !== 0;
+            if (uri !== undefined && this.git.isTrackable(uri)) {
+                const remotes = await this.git.getRemotes(uri.repoPath);
+
+                await setCommandContext(CommandContext.ActiveHasRemotes, remotes.length !== 0);
+            }
+            else {
+                if (repositories.length === 1) {
+                    const remotes = await this.git.getRemotes(repositories[0].path);
+                    hasRemotes = remotes.length !== 0;
+
+                    await setCommandContext(CommandContext.ActiveHasRemotes, hasRemotes);
+                }
+                else {
+                    await setCommandContext(CommandContext.ActiveHasRemotes, false);
+                }
             }
 
-            setCommandContext(CommandContext.HasRemotes, hasRemotes);
+            if (!hasRemotes) {
+                for (const repo of repositories) {
+                    const remotes = await this.git.getRemotes(repo.path);
+                    hasRemotes = remotes.length !== 0;
+
+                    if (hasRemotes) break;
+                }
+            }
+
+            await setCommandContext(CommandContext.HasRemotes, hasRemotes);
         }
         catch (ex) {
             Logger.error(ex, 'GitEditorTracker._updateContextHasRemotes');
@@ -150,7 +169,7 @@ export class GitContextTracker extends Disposable {
     private async _updateEditorContext(uri: GitUri | undefined, editor: TextEditor | undefined) {
         try {
             const tracked = uri === undefined ? false : await this.git.isTracked(uri);
-            setCommandContext(CommandContext.IsTracked, tracked);
+            setCommandContext(CommandContext.ActiveFileIsTracked, tracked);
 
             let blameable = tracked && (editor !== undefined && editor.document !== undefined && !editor.document.isDirty);
             if (blameable) {
@@ -168,7 +187,7 @@ export class GitContextTracker extends Disposable {
         if (!force && this._isBlameable === blameable) return;
 
         try {
-            setCommandContext(CommandContext.IsBlameable, blameable);
+            setCommandContext(CommandContext.ActiveIsBlameable, blameable);
             this._onDidChangeBlameability.fire({
                 blameable: blameable,
                 editor: this._editor

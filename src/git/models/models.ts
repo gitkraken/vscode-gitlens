@@ -7,6 +7,7 @@ export * from './diff';
 export * from './log';
 export * from './logCommit';
 export * from './remote';
+export * from './repository';
 export * from './stash';
 export * from './stashCommit';
 export * from './status';

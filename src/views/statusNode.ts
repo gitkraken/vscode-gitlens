@@ -1,11 +1,9 @@
-import { commands, Disposable, ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { commands, ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { WorkspaceState } from '../constants';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { GitService, GitStatus, GitUri } from '../gitService';
+import { GitService, GitStatus, GitUri, Repository, RepositoryStorage } from '../gitService';
 import { StatusFilesNode } from './statusFilesNode';
 import { StatusUpstreamNode } from './statusUpstreamNode';
-
-let _eventDisposable: Disposable | undefined;
 
 export class StatusNode extends ExplorerNode {
 
@@ -13,6 +11,7 @@ export class StatusNode extends ExplorerNode {
 
     constructor(
         uri: GitUri,
+        private repo: Repository,
         protected readonly context: ExtensionContext,
         protected readonly git: GitService
     ) {
@@ -49,19 +48,21 @@ export class StatusNode extends ExplorerNode {
         const status = await this.git.getStatusForRepo(this.uri.repoPath!);
         if (status === undefined) return new TreeItem('No repo status');
 
-        if (_eventDisposable !== undefined) {
-            _eventDisposable.dispose();
-            _eventDisposable = undefined;
+        const subscription = this.repo.storage.get(RepositoryStorage.StatusNode);
+        if (subscription !== undefined) {
+            subscription.dispose();
+            this.repo.storage.delete(RepositoryStorage.StatusNode);
         }
 
         if (this.includeWorkingTree) {
             this._status = status;
 
             if (this.git.config.gitExplorer.autoRefresh && this.context.workspaceState.get<boolean>(WorkspaceState.GitExplorerAutoRefresh, true)) {
-                _eventDisposable = this.git.onDidChangeFileSystem(this.onFileSystemChanged, this);
-                this.context.subscriptions.push(_eventDisposable);
+                const subscription = this.repo.onDidChangeFileSystem(this.onFileSystemChanged, this);
+                this.repo.storage.set(RepositoryStorage.StatusNode, subscription);
+                this.context.subscriptions.push(subscription);
 
-                this.git.startWatchingFileSystem();
+                this.repo.startWatchingFileSystem();
             }
         }
 

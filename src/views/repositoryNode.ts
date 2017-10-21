@@ -24,7 +24,7 @@ export class RepositoryNode extends ExplorerNode {
 
     async getChildren(): Promise<ExplorerNode[]> {
         return [
-            new StatusNode(this.uri, this.context, this.git),
+            new StatusNode(this.uri, this.repo, this.context, this.git),
             new BranchesNode(this.uri, this.context, this.git),
             new RemotesNode(this.uri, this.context, this.git),
             new StashesNode(this.uri, this.context, this.git)

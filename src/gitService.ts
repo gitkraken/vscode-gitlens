@@ -1,10 +1,10 @@
 'use strict';
 import { Functions, Iterables, Objects } from './system';
-import { Disposable, Event, EventEmitter, FileSystemWatcher, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, window, WindowState, workspace, WorkspaceFoldersChangeEvent } from 'vscode';
+import { Disposable, Event, EventEmitter, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, window, WindowState, workspace, WorkspaceFoldersChangeEvent } from 'vscode';
 import { IConfig } from './configuration';
 import { CommandContext, DocumentSchemes, ExtensionKey, setCommandContext } from './constants';
 import { RemoteProviderFactory } from './git/remotes/factory';
-import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitCommitType, GitDiff, GitDiffChunkLine, GitDiffParser, GitDiffShortStat, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, setDefaultEncoding } from './git/git';
+import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitCommitType, GitDiff, GitDiffChunkLine, GitDiffParser, GitDiffShortStat, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, Repository, setDefaultEncoding } from './git/git';
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { Logger } from './logger';
 import * as fs from 'fs';
@@ -51,12 +51,6 @@ interface CachedBlame extends CachedItem<GitBlame> { }
 interface CachedDiff extends CachedItem<GitDiff> { }
 interface CachedLog extends CachedItem<GitLog> { }
 
-export interface Repository {
-    readonly name: string;
-    readonly index: number;
-    readonly path: string;
-}
-
 enum RemoveCacheReason {
     DocumentClosed,
     DocumentSaved
@@ -94,11 +88,7 @@ export class GitService extends Disposable {
         return this._onDidChangeGitCache.event;
     }
 
-    private _onDidChangeFileSystem = new EventEmitter<Uri | undefined>();
-    get onDidChangeFileSystem(): Event<Uri | undefined> {
-        return this._onDidChangeFileSystem.event;
-    }
-
+    // TODO: Support multi-root { repo, reasons }[]?
     private _onDidChangeRepo = new EventEmitter<RepoChangedReasons[]>();
     get onDidChangeRepo(): Event<RepoChangedReasons[]> {
         return this._onDidChangeRepo.event;
@@ -106,14 +96,13 @@ export class GitService extends Disposable {
 
     private _cacheDisposable: Disposable | undefined;
     private _disposable: Disposable | undefined;
-    private _focused: boolean = true;
     private _gitCache: Map<string, GitCacheEntry>;
+    private _pendingChanges: { repo: boolean } = { repo: false };
     private _remotesCache: Map<string, GitRemote[]>;
     private _repositories: Map<string, Repository | undefined>;
     private _repositoriesPromise: Promise<void> | undefined;
-    private _repoWatcher: FileSystemWatcher | undefined;
+    private _suspended: boolean = false;
     private _trackedCache: Map<string, boolean>;
-    private _unfocusedChanges: { repo: boolean, fs: boolean } = { repo: false, fs: false };
     private _versionedUriCache: Map<string, UriCacheEntry>;
 
     constructor() {
@@ -138,10 +127,7 @@ export class GitService extends Disposable {
     }
 
     dispose() {
-        this.stopWatchingFileSystem();
-
-        this._repoWatcher && this._repoWatcher.dispose();
-        this._repoWatcher = undefined;
+        this._repositories.forEach(r => r && r.dispose());
 
         this._disposable && this._disposable.dispose();
 
@@ -161,15 +147,6 @@ export class GitService extends Disposable {
         return repo === undefined ? undefined : repo.path;
     }
 
-    public async getRepositories(): Promise<Repository[]> {
-        if (this._repositoriesPromise !== undefined) {
-            await this._repositoriesPromise;
-            this._repositoriesPromise = undefined;
-        }
-
-        return [...Iterables.filter(this._repositories.values(), r => r !== undefined) as Iterable<Repository>];
-    }
-
     public get UseCaching() {
         return this.config.advanced.caching.enabled;
     }
@@ -184,24 +161,16 @@ export class GitService extends Disposable {
             if (cfg.advanced.caching.enabled) {
                 this._cacheDisposable && this._cacheDisposable.dispose();
 
-                this._repoWatcher = this._repoWatcher || workspace.createFileSystemWatcher('**/.git/{index,HEAD,refs/stash,refs/heads/**,refs/remotes/**}');
-
                 const subscriptions: Disposable[] = [
                     workspace.onDidCloseTextDocument(d => this.removeCachedEntry(d, RemoveCacheReason.DocumentClosed)),
                     workspace.onDidChangeTextDocument(this.onTextDocumentChanged, this),
-                    workspace.onDidSaveTextDocument(d => this.removeCachedEntry(d, RemoveCacheReason.DocumentSaved)),
-                    this._repoWatcher.onDidChange(this.onRepoChanged, this),
-                    this._repoWatcher.onDidCreate(this.onRepoChanged, this),
-                    this._repoWatcher.onDidDelete(this.onRepoChanged, this)
+                    workspace.onDidSaveTextDocument(d => this.removeCachedEntry(d, RemoveCacheReason.DocumentSaved))
                 ];
                 this._cacheDisposable = Disposable.from(...subscriptions);
             }
             else {
                 this._cacheDisposable && this._cacheDisposable.dispose();
                 this._cacheDisposable = undefined;
-
-                this._repoWatcher && this._repoWatcher.dispose();
-                this._repoWatcher = undefined;
 
                 this._gitCache.clear();
             }
@@ -223,19 +192,22 @@ export class GitService extends Disposable {
     }
 
     private onWindowStateChanged(e: WindowState) {
-        const focusChanged = e.focused !== this._focused;
-        this._focused = e.focused;
-
-        if (!focusChanged || !e.focused) return;
-
-        // If we've come back into focus and we are dirty, fire the change events
-        if (this._unfocusedChanges.fs) {
-            this._unfocusedChanges.fs = false;
-            this._onDidChangeFileSystem.fire();
+        if (e.focused) {
+            this._repositories.forEach(r => r && r.resume());
+        }
+        else {
+            this._repositories.forEach(r => r && r.suspend());
         }
 
-        if (this._unfocusedChanges.repo) {
-            this._unfocusedChanges.repo = false;
+        const suspended = !e.focused;
+        const changed = suspended !== this._suspended;
+        this._suspended = suspended;
+
+        if (suspended || !changed) return;
+
+        // If we've come back into focus and we are dirty, fire the change events
+        if (this._pendingChanges.repo) {
+            this._pendingChanges.repo = false;
             this._fireRepoChangeDebounced!();
         }
     }
@@ -243,11 +215,9 @@ export class GitService extends Disposable {
     private async onWorkspaceFoldersChanged(e?: WorkspaceFoldersChangeEvent) {
         let initializing = false;
         if (e === undefined) {
-            if (workspace.workspaceFolders === undefined) return;
-
             initializing = true;
             e = {
-                added: workspace.workspaceFolders,
+                added: workspace.workspaceFolders || [],
                 removed: []
             } as WorkspaceFoldersChangeEvent;
         }
@@ -259,12 +229,20 @@ export class GitService extends Disposable {
             const rp = await this.getRepoPathCore(fsPath, true);
             if (rp === undefined) {
                 Logger.log(`onWorkspaceFoldersChanged(${fsPath})`, 'No repository found');
+                this._repositories.set(fsPath, undefined);
             }
-            this._repositories.set(fsPath, { name: f.name, index: f.index, path: rp } as Repository);
+            else {
+                this._repositories.set(fsPath, new Repository(f, rp, this.onRepoChanged.bind(this), this._suspended));
+            }
         }
 
         for (const f of e.removed) {
             if (f.uri.scheme !== DocumentSchemes.File) continue;
+
+            const repo = this._repositories.get(f.uri.fsPath);
+            if (repo !== undefined) {
+                repo.dispose();
+            }
 
             this._repositories.delete(f.uri.fsPath);
         }
@@ -333,8 +311,8 @@ export class GitService extends Disposable {
             this._repoChangedReasons.push(reason);
         }
 
-        if (!this._focused) {
-            this._unfocusedChanges.repo = true;
+        if (this._suspended) {
+            this._pendingChanges.repo = true;
             return;
         }
 
@@ -367,6 +345,15 @@ export class GitService extends Disposable {
                 this.fireGitCacheChange();
             }
         }
+    }
+
+    public async getRepositories(): Promise<Repository[]> {
+        if (this._repositoriesPromise !== undefined) {
+            await this._repositoriesPromise;
+            this._repositoriesPromise = undefined;
+        }
+
+        return [...Iterables.filter(this._repositories.values(), r => r !== undefined) as Iterable<Repository>];
     }
 
     checkoutFile(uri: GitUri, sha?: string) {
@@ -1111,36 +1098,8 @@ export class GitService extends Disposable {
         return Git.difftool_dirDiff(repoPath, sha1, sha2);
     }
 
-    private _fsWatcherDisposable: Disposable | undefined;
-
-    startWatchingFileSystem() {
-        if (this._fsWatcherDisposable !== undefined) return;
-
-        const debouncedFn = Functions.debounce((uri: Uri) => this._onDidChangeFileSystem.fire(uri), 2500);
-        const fn = (uri: Uri) => {
-            // Ignore .git changes
-            if (/\.git/.test(uri.fsPath)) return;
-
-            if (!this._focused) {
-                this._unfocusedChanges.fs = true;
-                return;
-            }
-
-            debouncedFn(uri);
-        };
-
-        const watcher = workspace.createFileSystemWatcher(`**`);
-        this._fsWatcherDisposable = Disposable.from(
-            watcher,
-            watcher.onDidChange(fn),
-            watcher.onDidCreate(fn),
-            watcher.onDidDelete(fn)
-        );
-    }
-
     stopWatchingFileSystem() {
-        this._fsWatcherDisposable && this._fsWatcherDisposable.dispose();
-        this._fsWatcherDisposable = undefined;
+        this._repositories.forEach(r => r && r.stopWatchingFileSystem());
     }
 
     stashApply(repoPath: string, stashName: string, deleteAfter: boolean = false) {
