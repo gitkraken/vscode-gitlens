@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [Unreleased]
 
 ## [6.0.0-alpha] - 2017-10-21
+
+ATTENTION! To support multi-root workspaces some underlying fundamentals had to change, so please expect and report issues. Thanks!
+
 ### Added
 - Adds multi-root workspace support
 - Adds a progress indicator to the `Search Commits` command (`gitlens.showCommitSearch`)
