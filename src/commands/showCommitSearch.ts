@@ -73,37 +73,40 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
             }
         }
 
-        try {
-            if (args.searchBy === undefined) {
-                args.searchBy = GitRepoSearchBy.Message;
-            }
+        if (args.searchBy === undefined) {
+            args.searchBy = GitRepoSearchBy.Message;
+        }
 
+        let originalSearch: string | undefined = undefined;
+        let placeHolder: string | undefined = undefined;
+        switch (args.searchBy) {
+            case GitRepoSearchBy.Author:
+                originalSearch = `@${args.search}`;
+                placeHolder = `commits with author matching '${args.search}'`;
+                break;
+
+            case GitRepoSearchBy.Files:
+                originalSearch = `:${args.search}`;
+                placeHolder = `commits with files matching '${args.search}'`;
+                break;
+
+            case GitRepoSearchBy.Message:
+                originalSearch = args.search;
+                placeHolder = `commits with message matching '${args.search}'`;
+                break;
+
+            case GitRepoSearchBy.Sha:
+                originalSearch = `#${args.search}`;
+                placeHolder = `commits with id matching '${args.search}'`;
+                break;
+        }
+
+        const progressCancellation = CommitsQuickPick.showProgress(placeHolder!);
+        try {
             const log = await this.git.getLogForRepoSearch(repoPath, args.search, args.searchBy);
             if (log === undefined) return undefined;
 
-            let originalSearch: string | undefined = undefined;
-            let placeHolder: string | undefined = undefined;
-            switch (args.searchBy) {
-                case GitRepoSearchBy.Author:
-                    originalSearch = `@${args.search}`;
-                    placeHolder = `commits with author matching '${args.search}'`;
-                    break;
-
-                case GitRepoSearchBy.Files:
-                    originalSearch = `:${args.search}`;
-                    placeHolder = `commits with files matching '${args.search}'`;
-                    break;
-
-                case GitRepoSearchBy.Message:
-                    originalSearch = args.search;
-                    placeHolder = `commits with message matching '${args.search}'`;
-                    break;
-
-                case GitRepoSearchBy.Sha:
-                    originalSearch = `#${args.search}`;
-                    placeHolder = `commits with id matching '${args.search}'`;
-                    break;
-            }
+            if (progressCancellation.token.isCancellationRequested) return undefined;
 
             // Create a command to get back to here
             const currentCommand = new CommandQuickPickItem({
@@ -117,7 +120,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                     } as ShowCommitSearchCommandArgs
                 ]);
 
-            const pick = await CommitsQuickPick.show(this.git, log, placeHolder!, currentCommand);
+            const pick = await CommitsQuickPick.show(this.git, log, placeHolder!, progressCancellation, currentCommand);
             if (pick === undefined) return undefined;
 
             if (pick instanceof CommandQuickPickItem) return pick.execute();

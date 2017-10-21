@@ -1,20 +1,33 @@
 'use strict';
 import { Iterables } from '../system';
-import { QuickPickOptions, window } from 'vscode';
+import { CancellationTokenSource, QuickPickOptions, window } from 'vscode';
 import { GitLog, GitService } from '../gitService';
-import { Keyboard } from '../keyboard';
-import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut } from '../quickPicks';
+import { Keyboard, KeyNoopCommand } from '../keyboard';
+import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from '../quickPicks';
 
 export class CommitsQuickPick {
 
-    static async show(git: GitService, log: GitLog, placeHolder: string, goBackCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+    static showProgress(message: string) {
+        return showQuickPickProgress(message,
+            {
+                left: KeyNoopCommand,
+                ',': KeyNoopCommand,
+                '.': KeyNoopCommand
+            });
+    }
+
+    static async show(git: GitService, log: GitLog, placeHolder: string, progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         const items = ((log && Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c)))) || []) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
         if (goBackCommand) {
             items.splice(0, 0, goBackCommand);
         }
 
+        if (progressCancellation.token.isCancellationRequested) return undefined;
+
         const scope = await Keyboard.instance.beginScope({ left: goBackCommand });
+
+        progressCancellation.cancel();
 
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
