@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [6.0.0-alpha] - 2017-10-21
+### Added
+- Adds multi-root workspace support
+- Adds a progress indicator to the `Search Commits` command (`gitlens.showCommitSearch`)
+- Adds code search support to the `Search Commits` command (`gitlens.showCommitSearch`) -- closes  [#127](https://github.com/eamodio/vscode-gitlens/issues/127)
+  - Use `~<regex>` to search for commits with differences whose patch text contains added/removed lines that match `<regex>`
+  - Use `=<regex>` to search for commits with differences that change the number of occurrences of the specified string (i.e. addition/deletion) in a file
+
+### Changed
+- `GitLens` custom view will no longer show if there is no Git repository -- closes [#159](https://github.com/eamodio/vscode-gitlens/issues/159)
+
 ## [5.7.1] - 2017-10-19
 ### Fixed
 - Fixes [#174](https://github.com/eamodio/vscode-gitlens/issues/174) - File Blame Annotations No Longer Working (and some other editor-based commands)

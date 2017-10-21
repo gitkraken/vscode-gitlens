@@ -190,7 +190,13 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
   - Quickly switch between views using the `Switch to Repository View` or `Switch to History View` commands
   - Provides toolbar commands to `Search Commits`, `Switch to Repository View` or `Switch to History View`, and `Refresh`
 
-- Adds a `Search Commits` command (`gitlens.showCommitSearch`) with a shortcut of `alt+/` to search for commits by message, author, file(s), or commit id
+- Adds a `Search Commits` command (`gitlens.showCommitSearch`) with a shortcut of `alt+/` to search for commits by message, author, file(s), commit id, or code changes
+  - Use `<message>` to search for commits with messages that match `<message>`
+  - Use `@<name>` to search for commits with authors that match `<name>`
+  - Use `:<pattern>` to search for commits with file names that match `<pattern>`
+  - Use `#<sha>` to search for a commit with id of `<sha>`
+  - Use `~<regex>` to search for commits with differences whose patch text contains added/removed lines that match `<regex>`
+  - Use `=<regex>` to search for commits with differences that change the number of occurrences of the specified string (i.e. addition/deletion) in a file
 
 - Adds commands to open files, commits, branches, and the repository in the supported remote services, **BitBucket, GitHub, GitLab, and Visual Studio Team Services** or a [**user-defined** remote services](#custom-remotes-settings) — only available if a Git upstream service is configured in the repository
   - Also supports [remote services with custom domains](#custom-remotes-settings), such as **BitBucket, Bitbucket Server (previously called Stash), GitHub, GitHub Enterprise, GitLab**
