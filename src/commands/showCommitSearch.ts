@@ -9,9 +9,11 @@ import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitsQuickPick } from '../quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
-const searchByRegex = /^([@:#])/;
+const searchByRegex = /^([@~=:#])/;
 const searchByMap = new Map<string, GitRepoSearchBy>([
     ['@', GitRepoSearchBy.Author],
+    ['~', GitRepoSearchBy.Changes],
+    ['=', GitRepoSearchBy.ChangesOccurrences],
     [':', GitRepoSearchBy.Files],
     ['#', GitRepoSearchBy.Sha]
 ]);
@@ -83,6 +85,16 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
             case GitRepoSearchBy.Author:
                 originalSearch = `@${args.search}`;
                 placeHolder = `commits with author matching '${args.search}'`;
+                break;
+
+            case GitRepoSearchBy.Changes:
+                originalSearch = `~${args.search}`;
+                placeHolder = `commits with changes matching '${args.search}'`;
+                break;
+
+            case GitRepoSearchBy.ChangesOccurrences:
+                originalSearch = `=${args.search}`;
+                placeHolder = `commits with changes (new occurrences) matching '${args.search}'`;
                 break;
 
             case GitRepoSearchBy.Files:
