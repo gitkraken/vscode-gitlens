@@ -2076,7 +2076,7 @@
         "pub": "npm run clean && vsce publish",
         "reset": "npm run clean && npm install",
         "vscode:prepublish": "npm install --no-save && npm run compile",
-        "precommit": "npm run compile"
+        "prepush": "npm run compile"
     },
     "dependencies": {
         "applicationinsights": "0.21.0",
