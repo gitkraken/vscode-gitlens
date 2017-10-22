@@ -1,9 +1,10 @@
 'use strict';
 import { Iterables, Strings } from '../../system';
-import { GitDiff, GitDiffChunk, GitDiffChunkLine, GitDiffLine, GitDiffShortStat } from './../git';
+import { GitDiff, GitDiffChunk, GitDiffChunkLine, GitDiffLine, GitDiffShortStat, GitStatusFile, GitStatusParser } from './../git';
 
-const unifiedDiffRegex = /^@@ -([\d]+),([\d]+) [+]([\d]+),([\d]+) @@([\s\S]*?)(?=^@@)/gm;
+const nameStatusDiffRegex = /^(.*?)\t(.*?)(?:\t(.*?))?$/gm;
 const shortStatDiffRegex = /^\s*(\d+)\sfiles? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
+const unifiedDiffRegex = /^@@ -([\d]+),([\d]+) [+]([\d]+),([\d]+) @@([\s\S]*?)(?=^@@)/gm;
 
 export class GitDiffParser {
 
@@ -116,6 +117,24 @@ export class GitDiffParser {
         }
 
         return chunkLines;
+    }
+
+    static parseNameStatus(data: string, repoPath: string): GitStatusFile[] | undefined {
+        if (!data) return undefined;
+
+        const statuses: GitStatusFile[] = [];
+
+        let match: RegExpExecArray | null = null;
+        do {
+            match = nameStatusDiffRegex.exec(data);
+            if (match == null) break;
+
+            statuses.push(GitStatusParser.parseStatusFile(repoPath, match[1], match[2], match[3]));
+        } while (match != null);
+
+        if (!statuses.length) return undefined;
+
+        return statuses;
     }
 
     static parseShortStat(data: string): GitDiffShortStat | undefined {

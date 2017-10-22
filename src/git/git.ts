@@ -143,7 +143,7 @@ export class Git {
         return Git.uncommittedRegex.test(sha);
     }
 
-    static normalizePath(fileName: string, repoPath?: string) {
+    static normalizePath(fileName: string) {
         return fileName && fileName.replace(/\\/g, '/');
     }
 
@@ -234,8 +234,11 @@ export class Git {
         return gitCommand({ cwd: repoPath, encoding: encoding || defaultEncoding }, ...params, '--', fileName);
     }
 
-    static diff_nameStatus(repoPath: string, sha1?: string, sha2?: string) {
+    static diff_nameStatus(repoPath: string, sha1?: string, sha2?: string, options: { filter?: string } = {}) {
         const params = [`diff`, `--name-status`, `-M`, `--no-ext-diff`];
+        if (options && options.filter) {
+            params.push(`--diff-filter=${options.filter}`);
+        }
         if (sha1) {
             params.push(sha1);
         }

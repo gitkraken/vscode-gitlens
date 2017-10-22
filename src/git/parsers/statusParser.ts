@@ -1,15 +1,6 @@
 'use strict';
 import { Git, GitStatus, GitStatusFile, GitStatusFileStatus } from './../git';
 
-interface FileStatusEntry {
-    staged: boolean;
-    status: GitStatusFileStatus;
-    fileName: string;
-    originalFileName: string;
-    workTreeStatus: GitStatusFileStatus;
-    indexStatus: GitStatusFileStatus;
-}
-
 const aheadStatusV1Regex = /(?:ahead ([0-9]+))/;
 const behindStatusV1Regex = /(?:behind ([0-9]+))/;
 
@@ -61,17 +52,15 @@ export class GitStatusParser {
                 }
             }
             else {
-                let entry: FileStatusEntry;
                 const rawStatus = line.substring(0, 2);
                 const fileName = line.substring(3);
                 if (rawStatus[0] === 'R') {
                     const [file1, file2] = fileName.replace(/\"/g, '').split('->');
-                    entry = this._parseFileEntry(rawStatus, file2.trim(), file1.trim());
+                    status.files.push(this.parseStatusFile(repoPath, rawStatus, file2.trim(), file1.trim()));
                 }
                 else {
-                    entry = this._parseFileEntry(rawStatus, fileName);
+                    status.files.push(this.parseStatusFile(repoPath, rawStatus, fileName));
                 }
-                status.files.push(new GitStatusFile(repoPath, entry.status, entry.workTreeStatus, entry.indexStatus, entry.fileName, entry.staged, entry.originalFileName));
             }
         }
     }
@@ -101,41 +90,36 @@ export class GitStatusParser {
             }
             else {
                 const lineParts = line.split(' ');
-                let entry: FileStatusEntry | undefined = undefined;
                 switch (lineParts[0][0]) {
                     case '1': // normal
-                        entry = this._parseFileEntry(lineParts[1], lineParts.slice(8).join(' '));
+                        status.files.push(this.parseStatusFile(repoPath, lineParts[1], lineParts.slice(8).join(' ')));
                         break;
                     case '2': // rename
                         const file = lineParts.slice(9).join(' ').split('\t');
-                        entry = this._parseFileEntry(lineParts[1], file[0], file[1]);
+                        status.files.push(this.parseStatusFile(repoPath, lineParts[1], file[0], file[1]));
                         break;
                     case 'u': // unmerged
-                        entry = this._parseFileEntry(lineParts[1], lineParts.slice(10).join(' '));
+                        status.files.push(this.parseStatusFile(repoPath, lineParts[1], lineParts.slice(10).join(' ')));
                         break;
                     case '?': // untracked
-                        entry = this._parseFileEntry(' ?', lineParts.slice(1).join(' '));
+                        status.files.push(this.parseStatusFile(repoPath, ' ?', lineParts.slice(1).join(' ')));
                         break;
-                }
-
-                if (entry !== undefined) {
-                    status.files.push(new GitStatusFile(repoPath, entry.status, entry.workTreeStatus, entry.indexStatus, entry.fileName, entry.staged, entry.originalFileName));
                 }
             }
         }
     }
 
-    private static _parseFileEntry(rawStatus: string, fileName: string, originalFileName?: string): FileStatusEntry {
+    static parseStatusFile(repoPath: string, rawStatus: string, fileName: string, originalFileName?: string): GitStatusFile {
         const indexStatus = rawStatus[0] !== '.' ? rawStatus[0].trim() : undefined;
         const workTreeStatus = rawStatus[1] !== '.' ? rawStatus[1].trim() : undefined;
 
-        return {
-            status: (indexStatus || workTreeStatus || '?') as GitStatusFileStatus,
-            fileName: fileName,
-            originalFileName: originalFileName,
-            staged: !!indexStatus,
-            indexStatus: indexStatus,
-            workTreeStatus: workTreeStatus
-        } as FileStatusEntry;
+        return new GitStatusFile(
+            repoPath,
+            (indexStatus || workTreeStatus || '?') as GitStatusFileStatus,
+            workTreeStatus as GitStatusFileStatus,
+            indexStatus as GitStatusFileStatus,
+            fileName,
+            !!indexStatus,
+            originalFileName);
     }
 }

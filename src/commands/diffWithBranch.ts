@@ -42,12 +42,26 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
         const branch = pick.branch.name;
         if (branch === undefined) return undefined;
 
+        let renamedUri: Uri | undefined;
+        let renamedTitle: string | undefined;
+
+        // Check to see if this file has been renamed
+        const statuses = await this.git.getDiffStatus(gitUri.repoPath, 'HEAD', branch, { filter: 'R' });
+        if (statuses !== undefined) {
+            const fileName = GitService.normalizePath(path.relative(gitUri.repoPath, gitUri.fsPath));
+            const rename = statuses.find(s => s.fileName === fileName);
+            if (rename !== undefined && rename.originalFileName !== undefined) {
+                renamedUri = Uri.file(path.join(gitUri.repoPath, rename.originalFileName));
+                renamedTitle = `${path.basename(rename.originalFileName)} (${branch})`;
+            }
+        }
+
         const diffArgs: DiffWithCommandArgs = {
             repoPath: gitUri.repoPath,
             lhs: {
                 sha: pick.branch.remote ? `remotes/${branch}` : branch,
-                uri: gitUri as Uri,
-                title: `${path.basename(gitUri.fsPath)} (${branch})`
+                uri: renamedUri || gitUri as Uri,
+                title: renamedTitle || `${path.basename(gitUri.fsPath)} (${branch})`
             },
             rhs: {
                 sha: '',

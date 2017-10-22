@@ -752,6 +752,17 @@ export class GitService extends Disposable {
         }
     }
 
+    async getDiffStatus(repoPath: string, sha1?: string, sha2?: string, options: { filter?: string } = {}): Promise<GitStatusFile[] | undefined> {
+        try {
+            const data = await Git.diff_nameStatus(repoPath, sha1, sha2, options);
+            const diff = GitDiffParser.parseNameStatus(data, repoPath);
+            return diff;
+        }
+        catch (ex) {
+            return undefined;
+        }
+    }
+
     async getLogCommit(repoPath: string | undefined, fileName: string, options?: { firstIfMissing?: boolean, previous?: boolean }): Promise<GitLogCommit | undefined>;
     async getLogCommit(repoPath: string | undefined, fileName: string, sha: string | undefined, options?: { firstIfMissing?: boolean, previous?: boolean }): Promise<GitLogCommit | undefined>;
     async getLogCommit(repoPath: string | undefined, fileName: string, shaOrOptions?: string | undefined | { firstIfMissing?: boolean, previous?: boolean }, options?: { firstIfMissing?: boolean, previous?: boolean }): Promise<GitLogCommit | undefined> {
@@ -1162,8 +1173,8 @@ export class GitService extends Disposable {
         return Git.isUncommitted(sha);
     }
 
-    static normalizePath(fileName: string, repoPath?: string): string {
-        return Git.normalizePath(fileName, repoPath);
+    static normalizePath(fileName: string): string {
+        return Git.normalizePath(fileName);
     }
 
     static shortenSha(sha: string | undefined) {
