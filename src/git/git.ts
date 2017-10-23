@@ -69,7 +69,9 @@ async function gitCommandCore(options: GitCommandOptions, ...args: any[]): Promi
     const opts = { encoding: 'utf8', ...options };
     const s = await spawnPromise(git.path, args, {
         cwd: options.cwd,
-        env: options.env || process.env,
+        // Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
+        // Shouldn't *really* be needed but better safe than sorry
+        env: { ...(options.env || process.env), GCM_INTERACTIVE: 'NEVER', GCM_PRESERVE_CREDS: 'TRUE' },
         encoding: (opts.encoding === 'utf8') ? 'utf8' : 'binary'
     } as SpawnOptions);
 
