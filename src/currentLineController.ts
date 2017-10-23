@@ -1,6 +1,6 @@
 'use strict';
 import { Functions, Objects } from './system';
-import { debug, DecorationOptions, DecorationRenderOptions, Disposable, ExtensionContext, Range, StatusBarAlignment, StatusBarItem, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
+import { debug, DecorationOptions, DecorationRangeBehavior, DecorationRenderOptions, Disposable, ExtensionContext, Range, StatusBarAlignment, StatusBarItem, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
 import { AnnotationController, FileAnnotationType } from './annotations/annotationController';
 import { Annotations, endOfLineIndex } from './annotations/annotations';
 import { Commands } from './commands';
@@ -14,7 +14,8 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
     after: {
         margin: '0 0 0 3em',
         textDecoration: 'none'
-    }
+    },
+    rangeBehavior: DecorationRangeBehavior.ClosedClosed
 } as DecorationRenderOptions);
 
 export enum LineAnnotationType {

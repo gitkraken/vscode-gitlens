@@ -1,6 +1,6 @@
 'use strict';
 import { Iterables, Objects } from '../system';
-import { DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, Progress, ProgressLocation, TextDocument, TextDocumentChangeEvent, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
+import { DecorationRangeBehavior, DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, Progress, ProgressLocation, TextDocument, TextDocumentChangeEvent, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
 import { AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
 import { Keyboard, KeyboardScope, KeyCommand, Keys } from '../keyboard';
 import { TextDocumentComparer } from '../comparers';
@@ -36,6 +36,7 @@ enum AnnotationStatus {
 export const Decorations = {
     blameAnnotation: window.createTextEditorDecorationType({
         isWholeLine: true,
+        rangeBehavior: DecorationRangeBehavior.ClosedClosed,
         textDecoration: 'none'
     } as DecorationRenderOptions),
     blameHighlight: undefined as TextEditorDecorationType | undefined,
