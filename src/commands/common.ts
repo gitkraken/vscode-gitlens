@@ -163,11 +163,11 @@ export abstract class Command extends Disposable {
     protected _execute(command: string, ...args: any[]): any {
         Telemetry.trackEvent(command);
 
-        const [context, rest] = Command._parseContext(command, this.contextParsingOptions, ...args);
+        const [context, rest] = Command.parseContext(command, this.contextParsingOptions, ...args);
         return this.preExecute(context, ...rest);
     }
 
-    private static _parseContext(command: string, options: CommandContextParsingOptions, ...args: any[]): [CommandContext, any[]] {
+    private static parseContext(command: string, options: CommandContextParsingOptions, ...args: any[]): [CommandContext, any[]] {
         let editor: TextEditor | undefined = undefined;
 
         let firstArg = args[0];
@@ -271,7 +271,7 @@ export abstract class EditorCommand extends Disposable {
 
         const subscriptions = [];
         for (const cmd of command) {
-            subscriptions.push(commands.registerTextEditorCommand(cmd, (editor: TextEditor, edit: TextEditorEdit, ...args: any[]) => this._execute(cmd, editor, edit, ...args), this));
+            subscriptions.push(commands.registerTextEditorCommand(cmd, (editor: TextEditor, edit: TextEditorEdit, ...args: any[]) => this.executeCore(cmd, editor, edit, ...args), this));
         }
         this._disposable = Disposable.from(...subscriptions);
     }
@@ -280,7 +280,7 @@ export abstract class EditorCommand extends Disposable {
         this._disposable && this._disposable.dispose();
     }
 
-    private _execute(command: string, editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any {
+    private executeCore(command: string, editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any {
         Telemetry.trackEvent(command);
         return this.execute(editor, edit, ...args);
     }

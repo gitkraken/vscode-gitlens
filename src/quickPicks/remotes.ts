@@ -90,7 +90,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
             return;
         }
 
-        const provider = remotes.every(_ => _.provider !== undefined && _.provider.name === remote.provider!.name)
+        const provider = remotes.every(r => r.provider !== undefined && r.provider.name === remote.provider!.name)
             ? remote.provider!.name
             : 'Remote';
 
@@ -111,7 +111,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
 export class RemotesQuickPick {
 
     static async show(remotes: GitRemote[], placeHolder: string, resource: RemoteResource, goBackCommand?: CommandQuickPickItem): Promise<OpenRemoteCommandQuickPickItem | CommandQuickPickItem | undefined> {
-        const items = remotes.map(_ => new OpenRemoteCommandQuickPickItem(_, resource)) as (OpenRemoteCommandQuickPickItem | CommandQuickPickItem)[];
+        const items = remotes.map(r => new OpenRemoteCommandQuickPickItem(r, resource)) as (OpenRemoteCommandQuickPickItem | CommandQuickPickItem)[];
 
         if (goBackCommand) {
             items.splice(0, 0, goBackCommand);

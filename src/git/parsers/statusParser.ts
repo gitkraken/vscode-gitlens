@@ -9,7 +9,7 @@ export class GitStatusParser {
     static parse(data: string, repoPath: string, porcelainVersion: number): GitStatus | undefined {
         if (!data) return undefined;
 
-        const lines = data.split('\n').filter(_ => !!_);
+        const lines = data.split('\n').filter(l => !!l);
         if (lines.length === 0) return undefined;
 
         const status = {
@@ -24,16 +24,16 @@ export class GitStatusParser {
         };
 
         if (porcelainVersion >= 2) {
-            this._parseV2(lines, repoPath, status);
+            this.parseV2(lines, repoPath, status);
         }
         else {
-            this._parseV1(lines, repoPath, status);
+            this.parseV1(lines, repoPath, status);
         }
 
         return status;
     }
 
-    private static _parseV1(lines: string[], repoPath: string, status: GitStatus) {
+    private static parseV1(lines: string[], repoPath: string, status: GitStatus) {
         let position = -1;
         while (++position < lines.length) {
             const line = lines[position];
@@ -65,7 +65,7 @@ export class GitStatusParser {
         }
     }
 
-    private static _parseV2(lines: string[], repoPath: string, status: GitStatus) {
+    private static parseV2(lines: string[], repoPath: string, status: GitStatus) {
         let position = -1;
         while (++position < lines.length) {
             const line = lines[position];

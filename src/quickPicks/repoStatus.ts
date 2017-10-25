@@ -35,7 +35,7 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
 export class OpenStatusFilesCommandQuickPickItem extends CommandQuickPickItem {
 
     constructor(statuses: GitStatusFile[], item?: QuickPickItem) {
-        const uris = statuses.map(_ => _.Uri);
+        const uris = statuses.map(f => f.Uri);
 
         super(item || {
             label: `$(file-symlink-file) Open Changed Files`,
@@ -57,18 +57,18 @@ export class RepoStatusQuickPick {
         const files = status.files;
         files.sort((a, b) => (a.staged ? -1 : 1) - (b.staged ? -1 : 1) || a.fileName.localeCompare(b.fileName));
 
-        const added = files.filter(_ => _.status === 'A' || _.status === '?');
-        const deleted = files.filter(_ => _.status === 'D');
-        const changed = files.filter(_ => _.status !== 'A' && _.status !== '?' && _.status !== 'D');
+        const added = files.filter(f => f.status === 'A' || f.status === '?');
+        const deleted = files.filter(f => f.status === 'D');
+        const changed = files.filter(f => f.status !== 'A' && f.status !== '?' && f.status !== 'D');
 
-        const hasStaged = files.some(_ => _.staged);
+        const hasStaged = files.some(f => f.staged);
 
         let stagedStatus = '';
         let unstagedStatus = '';
         if (hasStaged) {
-            const stagedAdded = added.filter(_ => _.staged).length;
-            const stagedChanged = changed.filter(_ => _.staged).length;
-            const stagedDeleted = deleted.filter(_ => _.staged).length;
+            const stagedAdded = added.filter(f => f.staged).length;
+            const stagedChanged = changed.filter(f => f.staged).length;
+            const stagedDeleted = deleted.filter(f => f.staged).length;
 
             stagedStatus = `+${stagedAdded} ~${stagedChanged} -${stagedDeleted}`;
             unstagedStatus = `+${added.length - stagedAdded} ~${changed.length - stagedChanged} -${deleted.length - stagedDeleted}`;
@@ -91,7 +91,7 @@ export class RepoStatusQuickPick {
 
         if (hasStaged) {
             let index = 0;
-            const unstagedIndex = files.findIndex(_ => !_.staged);
+            const unstagedIndex = files.findIndex(f => !f.staged);
             if (unstagedIndex > -1) {
                 items.splice(unstagedIndex, 0, new CommandQuickPickItem({
                     label: `Unstaged Files`,
@@ -103,12 +103,12 @@ export class RepoStatusQuickPick {
                         } as ShowQuickRepoStatusCommandArgs
                     ]));
 
-                items.splice(unstagedIndex, 0, new OpenStatusFilesCommandQuickPickItem(files.filter(_ => _.status !== 'D' && _.staged), {
+                items.splice(unstagedIndex, 0, new OpenStatusFilesCommandQuickPickItem(files.filter(f => f.status !== 'D' && f.staged), {
                     label: `${GlyphChars.Space.repeat(4)} $(file-symlink-file) Open Staged Files`,
                     description: ''
                 }));
 
-                items.push(new OpenStatusFilesCommandQuickPickItem(files.filter(_ => _.status !== 'D' && !_.staged), {
+                items.push(new OpenStatusFilesCommandQuickPickItem(files.filter(f => f.status !== 'D' && !f.staged), {
                     label: `${GlyphChars.Space.repeat(4)} $(file-symlink-file) Open Unstaged Files`,
                     description: ''
                 }));
@@ -124,7 +124,7 @@ export class RepoStatusQuickPick {
                     } as ShowQuickRepoStatusCommandArgs
                 ]));
         }
-        else if (files.some(_ => !_.staged)) {
+        else if (files.some(f => !f.staged)) {
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `Unstaged Files`,
                 description: unstagedStatus
@@ -137,7 +137,7 @@ export class RepoStatusQuickPick {
         }
 
         if (files.length) {
-            items.push(new OpenStatusFilesCommandQuickPickItem(files.filter(_ => _.status !== 'D')));
+            items.push(new OpenStatusFilesCommandQuickPickItem(files.filter(f => f.status !== 'D')));
             items.push(new CommandQuickPickItem({
                 label: '$(x) Close Unchanged Files',
                 description: ''

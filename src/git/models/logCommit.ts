@@ -33,7 +33,7 @@ export class GitLogCommit extends GitCommit {
         this.fileNames = this.fileName;
 
         if (fileStatuses) {
-            this.fileStatuses = fileStatuses.filter(_ => !!_.fileName);
+            this.fileStatuses = fileStatuses.filter(f => !!f.fileName);
 
             const fileStatus = this.fileStatuses[0];
             this.fileName = fileStatus.fileName;
@@ -63,9 +63,9 @@ export class GitLogCommit extends GitCommit {
     }
 
     getDiffStatus(): string {
-        const added = this.fileStatuses.filter(_ => _.status === 'A' || _.status === '?').length;
-        const deleted = this.fileStatuses.filter(_ => _.status === 'D').length;
-        const changed = this.fileStatuses.filter(_ => _.status !== 'A' && _.status !== '?' && _.status !== 'D').length;
+        const added = this.fileStatuses.filter(f => f.status === 'A' || f.status === '?').length;
+        const deleted = this.fileStatuses.filter(f => f.status === 'D').length;
+        const changed = this.fileStatuses.filter(f => f.status !== 'A' && f.status !== '?' && f.status !== 'D').length;
         return `+${added} ~${changed} -${deleted}`;
     }
 

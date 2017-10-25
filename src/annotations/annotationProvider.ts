@@ -34,7 +34,7 @@ export abstract class AnnotationProviderBase extends Disposable {
         this._config = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
 
         const subscriptions: Disposable[] = [
-            window.onDidChangeTextEditorSelection(this._onTextEditorSelectionChanged, this)
+            window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this)
         ];
         this._disposable = Disposable.from(...subscriptions);
     }
@@ -45,7 +45,7 @@ export abstract class AnnotationProviderBase extends Disposable {
         this._disposable && this._disposable.dispose();
     }
 
-    private async _onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent) {
+    private async onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent) {
         if (!TextDocumentComparer.equals(this.document, e.textEditor && e.textEditor.document)) return;
 
         return this.selection(e.selections[0].active.line);

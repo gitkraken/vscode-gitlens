@@ -30,7 +30,7 @@ class GitCacheEntry {
     constructor(public readonly key: string) { }
 
     get hasErrors(): boolean {
-        return Iterables.every(this.cache.values(), _ => _.errorMessage !== undefined);
+        return Iterables.every(this.cache.values(), entry => entry.errorMessage !== undefined);
     }
 
     get<T extends CachedBlame | CachedDiff | CachedLog>(key: string): T | undefined {
@@ -380,7 +380,7 @@ export class GitService extends Disposable {
         if (log === undefined) return undefined;
 
         const c = Iterables.first(log.commits.values());
-        const status = c.fileStatuses.find(_ => _.originalFileName === fileName);
+        const status = c.fileStatuses.find(f => f.originalFileName === fileName);
         if (status === undefined) return undefined;
 
         return status.fileName;
@@ -717,7 +717,7 @@ export class GitService extends Disposable {
             const diff = await this.getDiffForFile(uri, sha1, sha2);
             if (diff === undefined) return undefined;
 
-            const chunk = diff.chunks.find(_ => _.currentPosition.start <= line && _.currentPosition.end >= line);
+            const chunk = diff.chunks.find(c => c.currentPosition.start <= line && c.currentPosition.end >= line);
             if (chunk === undefined) return undefined;
 
             return chunk.lines[line - chunk.currentPosition.start + 1];
@@ -1137,10 +1137,10 @@ export class GitService extends Disposable {
 
     static fromGitContentUri(uri: Uri): IGitUriData {
         if (uri.scheme !== DocumentSchemes.GitLensGit) throw new Error(`fromGitUri(uri=${uri}) invalid scheme`);
-        return GitService._fromGitContentUri<IGitUriData>(uri);
+        return GitService.fromGitContentUriCore<IGitUriData>(uri);
     }
 
-    private static _fromGitContentUri<T extends IGitUriData>(uri: Uri): T {
+    private static fromGitContentUriCore<T extends IGitUriData>(uri: Uri): T {
         return JSON.parse(uri.query) as T;
     }
 
@@ -1168,7 +1168,7 @@ export class GitService extends Disposable {
         let data: IGitUriData;
         let shortSha: string | undefined;
         if (typeof shaOrcommitOrUri === 'string') {
-            data = GitService._toGitUriData({
+            data = GitService.toGitUriData({
                 sha: shaOrcommitOrUri,
                 fileName: fileName!,
                 repoPath: repoPath!,
@@ -1177,12 +1177,12 @@ export class GitService extends Disposable {
             shortSha = GitService.shortenSha(shaOrcommitOrUri);
         }
         else if (shaOrcommitOrUri instanceof GitCommit) {
-            data = GitService._toGitUriData(shaOrcommitOrUri, shaOrcommitOrUri.originalFileName);
+            data = GitService.toGitUriData(shaOrcommitOrUri, shaOrcommitOrUri.originalFileName);
             fileName = shaOrcommitOrUri.fileName;
             shortSha = shaOrcommitOrUri.shortSha;
         }
         else {
-            data = GitService._toGitUriData({
+            data = GitService.toGitUriData({
                 sha: shaOrcommitOrUri.sha!,
                 fileName: shaOrcommitOrUri.fsPath!,
                 repoPath: shaOrcommitOrUri.repoPath!
@@ -1195,7 +1195,7 @@ export class GitService extends Disposable {
         return Uri.parse(`${DocumentSchemes.GitLensGit}:${parsed.dir}${parsed.name}:${shortSha}${parsed.ext}?${JSON.stringify(data)}`);
     }
 
-    private static _toGitUriData<T extends IGitUriData>(commit: IGitUriData, originalFileName?: string): T {
+    private static toGitUriData<T extends IGitUriData>(commit: IGitUriData, originalFileName?: string): T {
         const fileName = Git.normalizePath(path.resolve(commit.repoPath, commit.fileName));
         const data = { repoPath: commit.repoPath, fileName: fileName, sha: commit.sha } as T;
         if (originalFileName) {

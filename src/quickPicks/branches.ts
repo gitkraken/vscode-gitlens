@@ -20,7 +20,7 @@ export class BranchesQuickPick {
 
     static async show(branches: GitBranch[], placeHolder: string, goBackCommand?: CommandQuickPickItem): Promise<BranchQuickPickItem | CommandQuickPickItem | undefined> {
 
-        const items = branches.map(_ => new BranchQuickPickItem(_)) as (BranchQuickPickItem | CommandQuickPickItem)[];
+        const items = branches.map(b => new BranchQuickPickItem(b)) as (BranchQuickPickItem | CommandQuickPickItem)[];
 
         if (goBackCommand) {
             items.splice(0, 0, goBackCommand);

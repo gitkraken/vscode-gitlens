@@ -28,7 +28,7 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
                 const status = await this.git.getStatusForRepo(repoPath);
                 if (status === undefined) return window.showWarningMessage(`Unable to open changed files`);
 
-                args.uris = status.files.filter(_ => _.status !== 'D').map(_ => _.Uri);
+                args.uris = status.files.filter(f => f.status !== 'D').map(f => f.Uri);
             }
 
             for (const uri of args.uris) {

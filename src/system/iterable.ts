@@ -47,7 +47,7 @@ export namespace Iterables {
     }
 
     export function has<T>(source: Iterable<T> | IterableIterator<T>, item: T): boolean {
-        return some(source, _ => _ === item);
+        return some(source, i => i === item);
     }
 
     export function isIterable(source: Iterable<any>): boolean {

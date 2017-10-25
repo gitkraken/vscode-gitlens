@@ -90,7 +90,7 @@ export class GitBlameParser {
                     }
                     first = false;
 
-                    GitBlameParser._parseEntry(entry, repoPath, relativeFileName, commits, authors, lines);
+                    GitBlameParser.parseEntry(entry, repoPath, relativeFileName, commits, authors, lines);
 
                     entry = undefined;
                     break;
@@ -119,7 +119,7 @@ export class GitBlameParser {
         } as GitBlame;
     }
 
-    private static _parseEntry(entry: BlameEntry, repoPath: string | undefined, fileName: string | undefined, commits: Map<string, GitBlameCommit>, authors: Map<string, GitAuthor>, lines: GitCommitLine[]) {
+    private static parseEntry(entry: BlameEntry, repoPath: string | undefined, fileName: string | undefined, commits: Map<string, GitBlameCommit>, authors: Map<string, GitAuthor>, lines: GitCommitLine[]) {
         let commit = commits.get(entry.sha);
         if (commit === undefined) {
             if (entry.author !== undefined) {

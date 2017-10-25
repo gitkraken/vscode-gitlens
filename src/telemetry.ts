@@ -64,7 +64,7 @@ export class TelemetryReporter {
         }
 
         this.setContext();
-        this._stripPII(this._client);
+        this.stripPII(this._client);
     }
 
     setContext(context?: { [key: string]: string }) {
@@ -96,7 +96,7 @@ export class TelemetryReporter {
         this._client.trackException(ex);
     }
 
-    private _stripPII(client: Client) {
+    private stripPII(client: Client) {
         if (client && client.context && client.context.keys && client.context.tags) {
             const machineNameKey = client.context.keys.deviceMachineName;
             client.context.tags[machineNameKey] = '';

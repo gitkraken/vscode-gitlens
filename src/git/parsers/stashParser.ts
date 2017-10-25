@@ -14,7 +14,7 @@ interface StashEntry {
 export class GitStashParser {
 
     static parse(data: string, repoPath: string): GitStash | undefined {
-        const entries = this._parseEntries(data);
+        const entries = this.parseEntries(data);
         if (entries === undefined) return undefined;
 
         const commits: Map<string, GitStashCommit> = new Map();
@@ -35,7 +35,7 @@ export class GitStashParser {
         } as GitStash;
     }
 
-    private static _parseEntries(data: string): StashEntry[] | undefined {
+    private static parseEntries(data: string): StashEntry[] | undefined {
         if (!data) return undefined;
 
         const lines = data.split('\n');
@@ -114,13 +114,13 @@ export class GitStashParser {
                             fileName: line.substring(1),
                             originalFileName: undefined
                         } as IGitStatusFile;
-                        this._parseFileName(status);
+                        this.parseFileName(status);
 
                         entry.fileStatuses.push(status);
                     }
 
                     if (entry.fileStatuses) {
-                        entry.fileNames = entry.fileStatuses.filter(_ => !!_.fileName).map(_ => _.fileName).join(', ');
+                        entry.fileNames = entry.fileStatuses.filter(f => !!f.fileName).map(f => f.fileName).join(', ');
                     }
 
                     entries.push(entry);
@@ -135,7 +135,7 @@ export class GitStashParser {
         return entries;
     }
 
-    private static _parseFileName(entry: { fileName?: string, originalFileName?: string }) {
+    private static parseFileName(entry: { fileName?: string, originalFileName?: string }) {
         if (entry.fileName === undefined) return;
 
         const index = entry.fileName.indexOf('\t') + 1;

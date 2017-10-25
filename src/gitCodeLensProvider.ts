@@ -69,7 +69,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
     async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
         const dirty = document.isDirty;
 
-        let languageLocations = this._config.codeLens.perLanguageLocations.find(_ => _.language !== undefined && _.language.toLowerCase() === document.languageId);
+        let languageLocations = this._config.codeLens.perLanguageLocations.find(ll => ll.language !== undefined && ll.language.toLowerCase() === document.languageId);
         if (languageLocations == null) {
             languageLocations = {
                 language: undefined,
@@ -79,7 +79,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         }
 
         languageLocations.customSymbols = languageLocations.customSymbols != null
-            ? languageLocations.customSymbols = languageLocations.customSymbols.map(_ => _.toLowerCase())
+            ? languageLocations.customSymbols = languageLocations.customSymbols.map(s => s.toLowerCase())
             : [];
 
         const lenses: CodeLens[] = [];
@@ -304,7 +304,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         const count = blame.authors.size;
         let title = `${count} ${count > 1 ? 'authors' : 'author'} (${Iterables.first(blame.authors.values()).name}${count > 1 ? ' and others' : ''})`;
         if (this._config.codeLens.debug) {
-            title += ` [${SymbolKind[lens.symbolKind]}(${lens.range.start.character}-${lens.range.end.character}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Authors (${Iterables.join(Iterables.map(blame.authors.values(), _ => _.name), ', ')})]`;
+            title += ` [${SymbolKind[lens.symbolKind]}(${lens.range.start.character}-${lens.range.end.character}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Authors (${Iterables.join(Iterables.map(blame.authors.values(), a => a.name), ', ')})]`;
         }
 
         switch (this._config.codeLens.authors.command) {

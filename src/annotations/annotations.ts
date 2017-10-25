@@ -29,11 +29,11 @@ const escapeMarkdownRegEx = /[`\>\#\*\_\-\+\.]/g;
 export class Annotations {
 
     static applyHeatmap(decoration: DecorationOptions, date: Date, now: number) {
-        const color = this._getHeatmapColor(now, date);
+        const color = this.getHeatmapColor(now, date);
         (decoration.renderOptions!.before! as any).borderColor = color;
     }
 
-    private static _getHeatmapColor(now: number, date: Date) {
+    private static getHeatmapColor(now: number, date: Date) {
         const days = Dates.dateDaysFromNow(date, now);
 
         if (days <= 2) return '#ffeca7';
@@ -104,7 +104,7 @@ export class Annotations {
     static getHoverDiffMessage(commit: GitCommit, chunkLine: GitDiffChunkLine | undefined): MarkdownString | undefined {
         if (chunkLine === undefined || commit.previousSha === undefined) return undefined;
 
-        const codeDiff = this._getCodeDiff(chunkLine);
+        const codeDiff = this.getCodeDiff(chunkLine);
         const markdown = new MarkdownString(commit.isUncommitted
             ? `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; _uncommitted_\n${codeDiff}`
             : `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; [\`${commit.previousShortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.previousSha!)} "Show Commit Details") ${GlyphChars.ArrowLeftRight} [\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show Commit Details")\n${codeDiff}`);
@@ -112,7 +112,7 @@ export class Annotations {
         return markdown;
     }
 
-    private static _getCodeDiff(chunkLine: GitDiffChunkLine): string {
+    private static getCodeDiff(chunkLine: GitDiffChunkLine): string {
         const previous = chunkLine.previous === undefined ? undefined : chunkLine.previous[0];
         return `\`\`\`
 -  ${previous === undefined || previous.line === undefined ? '' : previous.line.trim()}

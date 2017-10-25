@@ -69,7 +69,7 @@ export abstract class RemoteProvider {
     protected abstract getUrlForCommit(sha: string): string;
     protected abstract getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string;
 
-    private async _openUrl(url: string): Promise<{} | undefined> {
+    private async openUrl(url: string): Promise<{} | undefined> {
         if (url === undefined) return undefined;
 
         return commands.executeCommand(BuiltInCommands.Open, Uri.parse(url));
@@ -87,22 +87,22 @@ export abstract class RemoteProvider {
     }
 
     openRepo() {
-        return this._openUrl(this.getUrlForRepository());
+        return this.openUrl(this.getUrlForRepository());
     }
 
     openBranches() {
-        return this._openUrl(this.getUrlForBranches());
+        return this.openUrl(this.getUrlForBranches());
     }
 
     openBranch(branch: string) {
-        return this._openUrl(this.getUrlForBranch(branch));
+        return this.openUrl(this.getUrlForBranch(branch));
     }
 
     openCommit(sha: string) {
-        return this._openUrl(this.getUrlForCommit(sha));
+        return this.openUrl(this.getUrlForCommit(sha));
     }
 
     openFile(fileName: string, branch?: string, sha?: string, range?: Range) {
-        return this._openUrl(this.getUrlForFile(fileName, branch, sha, range));
+        return this.openUrl(this.getUrlForFile(fileName, branch, sha, range));
     }
 }
