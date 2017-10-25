@@ -1656,6 +1656,11 @@
                     "group": "1_gitlens@1"
                 },
                 {
+                    "command": "gitlens.diffWithBranch",
+                    "when": "gitlens:enabled",
+                    "group": "1_gitlens@2"
+                },
+                {
                     "command": "gitlens.showQuickFileHistory",
                     "when": "gitlens:enabled",
                     "group": "1_gitlens_1@1"
@@ -1828,6 +1833,11 @@
                     "command": "gitlens.openRepoInRemote",
                     "when": "gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:remote",
                     "group": "1_gitlens@2"
+                },
+                {
+                    "command": "gitlens.openRepoInRemote",
+                    "when": "gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:repository",
+                    "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.stashSave",

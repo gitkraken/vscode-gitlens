@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### Added
+- Adds `Compare File with Branch...` command (`gitlens.diffWithBranch`) to source control resource context menu
+- Adds `Open Repository in Remote` command (`gitlens.openRepoInRemote`) to repository node(s) of the `GitLens` custom view
 
 ## [6.0.0-alpha1] - 2017-10-24
 
