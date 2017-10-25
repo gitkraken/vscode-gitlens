@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
-## [6.0.0-alpha.1] - 2017-10-24
+## [6.0.0-alpha1] - 2017-10-24
 
 ATTENTION! To support multi-root workspaces some underlying fundamentals had to change, so please expect and report issues. Thanks!
 
