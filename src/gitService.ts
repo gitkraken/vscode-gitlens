@@ -335,7 +335,7 @@ export class GitService extends Disposable {
 
     checkoutFile(uri: GitUri, sha?: string) {
         sha = sha || uri.sha;
-        Logger.log(`checkoutFile('${uri.repoPath}', '${uri.fsPath}', ${sha})`);
+        Logger.log(`checkoutFile('${uri.repoPath}', '${uri.fsPath}', '${sha}')`);
 
         return Git.checkout(uri.repoPath!, uri.fsPath, sha!);
     }
@@ -435,12 +435,12 @@ export class GitService extends Disposable {
             if (entry !== undefined) {
                 const cachedBlame = entry.get<CachedBlame>(key);
                 if (cachedBlame !== undefined) {
-                    Logger.log(`Cached(${key}): getBlameForFile('${uri.repoPath}', '${uri.fsPath}', ${uri.sha})`);
+                    Logger.log(`getBlameForFile[Cached(${key})]('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}')`);
                     return cachedBlame.item;
                 }
             }
 
-            Logger.log(`Not Cached(${key}): getBlameForFile('${uri.repoPath}', '${uri.fsPath}', ${uri.sha})`);
+            Logger.log(`getBlameForFile[Not Cached(${key})]('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}')`);
 
             if (entry === undefined) {
                 entry = new GitCacheEntry(cacheKey);
@@ -448,7 +448,7 @@ export class GitService extends Disposable {
             }
         }
         else {
-            Logger.log(`getBlameForFile('${uri.repoPath}', '${uri.fsPath}', ${uri.sha})`);
+            Logger.log(`getBlameForFile('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}')`);
         }
 
         const promise = this.getBlameForFileCore(uri, entry, key);
@@ -500,7 +500,7 @@ export class GitService extends Disposable {
     }
 
     async getBlameForLine(uri: GitUri, line: number): Promise<GitBlameLine | undefined> {
-        Logger.log(`getBlameForLine('${uri.repoPath}', '${uri.fsPath}', ${line}, ${uri.sha})`);
+        Logger.log(`getBlameForLine('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}', ${line})`);
 
         if (this.UseCaching) {
             const blame = await this.getBlameForFile(uri);
@@ -545,7 +545,7 @@ export class GitService extends Disposable {
     }
 
     async getBlameForRange(uri: GitUri, range: Range): Promise<GitBlameLines | undefined> {
-        Logger.log(`getBlameForRange('${uri.repoPath}', '${uri.fsPath}', [${range.start.line}, ${range.end.line}], ${uri.sha})`);
+        Logger.log(`getBlameForRange('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}', [${range.start.line}, ${range.end.line}])`);
 
         const blame = await this.getBlameForFile(uri);
         if (blame === undefined) return undefined;
@@ -554,7 +554,7 @@ export class GitService extends Disposable {
     }
 
     getBlameForRangeSync(blame: GitBlame, uri: GitUri, range: Range): GitBlameLines | undefined {
-        Logger.log(`getBlameForRangeSync('${uri.repoPath}', '${uri.fsPath}', [${range.start.line}, ${range.end.line}], ${uri.sha})`);
+        Logger.log(`getBlameForRangeSync('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}', [${range.start.line}, ${range.end.line}])`);
 
         if (blame.lines.length === 0) return Object.assign({ allLines: blame.lines }, blame);
 
@@ -597,8 +597,9 @@ export class GitService extends Disposable {
     }
 
     async getBranch(repoPath: string | undefined): Promise<GitBranch | undefined> {
-        Logger.log(`getBranch('${repoPath}')`);
         if (repoPath === undefined) return undefined;
+
+        Logger.log(`getBranch('${repoPath}')`);
 
         const data = await Git.revparse_currentBranch(repoPath);
         const branch = data.split('\n');
@@ -606,8 +607,9 @@ export class GitService extends Disposable {
     }
 
     async getBranches(repoPath: string | undefined): Promise<GitBranch[]> {
-        Logger.log(`getBranches('${repoPath}')`);
         if (repoPath === undefined) return [];
+
+        Logger.log(`getBranches('${repoPath}')`);
 
         const data = await Git.branch(repoPath, { all: true });
         return GitBranchParser.parse(data, repoPath) || [];
@@ -620,6 +622,8 @@ export class GitService extends Disposable {
     }
 
     async getChangedFilesCount(repoPath: string, sha?: string): Promise<GitDiffShortStat | undefined> {
+        Logger.log(`getChangedFilesCount('${repoPath}', '${sha}')`);
+
         const data = await Git.diff_shortstat(repoPath, sha);
         return GitDiffParser.parseShortStat(data);
     }
@@ -657,12 +661,12 @@ export class GitService extends Disposable {
             if (entry !== undefined) {
                 const cachedDiff = entry.get<CachedDiff>(key);
                 if (cachedDiff !== undefined) {
-                    Logger.log(`Cached(${key}): getDiffForFile('${uri.repoPath}', '${uri.fsPath}', ${sha1}, ${sha2})`);
+                    Logger.log(`getDiffForFile[Cached(${key})]('${uri.repoPath}', '${uri.fsPath}', '${sha1}', '${sha2}')`);
                     return cachedDiff.item;
                 }
             }
 
-            Logger.log(`Not Cached(${key}): getDiffForFile('${uri.repoPath}', '${uri.fsPath}', ${sha1}, ${sha2})`);
+            Logger.log(`getDiffForFile[Not Cached(${key})]('${uri.repoPath}', '${uri.fsPath}', '${sha1}', '${sha2}')`);
 
             if (entry === undefined) {
                 entry = new GitCacheEntry(cacheKey);
@@ -670,7 +674,7 @@ export class GitService extends Disposable {
             }
         }
         else {
-            Logger.log(`getDiffForFile('${uri.repoPath}', '${uri.fsPath}', ${sha1}, ${sha2})`);
+            Logger.log(`getDiffForFile('${uri.repoPath}', '${uri.fsPath}', '${sha1}', '${sha2}')`);
         }
 
         const promise = this.getDiffForFileCore(uri.repoPath, uri.fsPath, sha1, sha2, entry, key);
@@ -713,6 +717,8 @@ export class GitService extends Disposable {
     }
 
     async getDiffForLine(uri: GitUri, line: number, sha1?: string, sha2?: string): Promise<GitDiffChunkLine | undefined> {
+        Logger.log(`getDiffForLine('${uri.repoPath}', '${uri.fsPath}', ${line}, '${sha1}', '${sha2}')`);
+
         try {
             const diff = await this.getDiffForFile(uri, sha1, sha2);
             if (diff === undefined) return undefined;
@@ -728,6 +734,8 @@ export class GitService extends Disposable {
     }
 
     async getDiffStatus(repoPath: string, sha1?: string, sha2?: string, options: { filter?: string } = {}): Promise<GitStatusFile[] | undefined> {
+        Logger.log(`getDiffStatus('${repoPath}', '${sha1}', '${sha2}', ${options.filter})`);
+
         try {
             const data = await Git.diff_nameStatus(repoPath, sha1, sha2, options);
             const diff = GitDiffParser.parseNameStatus(data, repoPath);
@@ -751,6 +759,8 @@ export class GitService extends Disposable {
 
         options = options || {};
 
+        Logger.log(`getLogCommit('${repoPath}', '${fileName}', '${sha}', ${options.firstIfMissing}, ${options.previous})`);
+
         const log = await this.getLogForFile(repoPath, fileName, sha, { maxCount: options.previous ? 2 : 1 });
         if (log === undefined) return undefined;
 
@@ -761,7 +771,7 @@ export class GitService extends Disposable {
     }
 
     async getLogForRepo(repoPath: string, sha?: string, maxCount?: number, reverse: boolean = false): Promise<GitLog | undefined> {
-        Logger.log(`getLogForRepo('${repoPath}', ${sha}, ${maxCount})`);
+        Logger.log(`getLogForRepo('${repoPath}', '${sha}', ${maxCount}, ${reverse})`);
 
         if (maxCount == null) {
             maxCount = this.config.advanced.maxQuickHistory || 0;
@@ -778,7 +788,7 @@ export class GitService extends Disposable {
     }
 
     async getLogForRepoSearch(repoPath: string, search: string, searchBy: GitRepoSearchBy, maxCount?: number): Promise<GitLog | undefined> {
-        Logger.log(`getLogForRepoSearch('${repoPath}', ${search}, ${searchBy}, ${maxCount})`);
+        Logger.log(`getLogForRepoSearch('${repoPath}', '${search}', '${searchBy}', ${maxCount})`);
 
         if (maxCount == null) {
             maxCount = this.config.advanced.maxQuickHistory || 0;
@@ -836,7 +846,7 @@ export class GitService extends Disposable {
             if (entry !== undefined) {
                 const cachedLog = entry.get<CachedLog>(key);
                 if (cachedLog !== undefined) {
-                    Logger.log(`Cached(${key}): getLogForFile('${repoPath}', '${fileName}', ${sha}, ${options.maxCount}, undefined, false)`);
+                    Logger.log(`getLogForFile[Cached(${key})]('${repoPath}', '${fileName}', '${sha}', ${options.maxCount}, undefined, ${options.reverse}, ${options.skipMerges})`);
                     return cachedLog.item;
                 }
 
@@ -845,21 +855,21 @@ export class GitService extends Disposable {
                     const cachedLog = entry.get<CachedLog>('log');
                     if (cachedLog !== undefined) {
                         if (sha === undefined) {
-                            Logger.log(`Cached(~${key}): getLogForFile('${repoPath}', '${fileName}', ${sha}, ${options.maxCount}, undefined, false)`);
+                            Logger.log(`getLogForFile[Cached(~${key})]('${repoPath}', '${fileName}', '${sha}', ${options.maxCount}, undefined, ${options.reverse}, ${options.skipMerges})`);
                             return cachedLog.item;
                         }
 
-                        Logger.log(`? Cache(${key}): getLogForFile('${repoPath}', '${fileName}', ${sha}, ${options.maxCount}, undefined, false)`);
+                        Logger.log(`getLogForFile[? Cache(${key})]('${repoPath}', '${fileName}', '${sha}', ${options.maxCount}, undefined, ${options.reverse}, ${options.skipMerges})`);
                         const log = await cachedLog.item;
                         if (log !== undefined && log.commits.has(sha)) {
-                            Logger.log(`Cached(${key}): getLogForFile('${repoPath}', '${fileName}', ${sha}, ${options.maxCount}, undefined, false)`);
+                            Logger.log(`getLogForFile[Cached(${key})]('${repoPath}', '${fileName}', '${sha}', ${options.maxCount}, undefined, ${options.reverse}, ${options.skipMerges})`);
                             return cachedLog.item;
                         }
                     }
                 }
             }
 
-            Logger.log(`Not Cached(${key}): getLogForFile('${repoPath}', '${fileName}', ${sha}, ${options.maxCount}, undefined, false)`);
+            Logger.log(`getLogForFile[Not Cached(${key})]('${repoPath}', '${fileName}', ${sha}, ${options.maxCount}, undefined, ${options.reverse}, ${options.skipMerges})`);
 
             if (entry === undefined) {
                 entry = new GitCacheEntry(cacheKey);
@@ -867,7 +877,7 @@ export class GitService extends Disposable {
             }
         }
         else {
-            Logger.log(`getLogForFile('${repoPath}', '${fileName}', ${sha}, ${options.maxCount}, ${options.range && `[${options.range.start.line}, ${options.range.end.line}]`}, ${options.reverse})`);
+            Logger.log(`getLogForFile('${repoPath}', '${fileName}', ${sha}, ${options.maxCount}, ${options.range && `[${options.range.start.line}, ${options.range.end.line}]`}, ${options.reverse}, ${options.skipMerges})`);
         }
 
         const promise = this.getLogForFileCore(repoPath, fileName, sha, options, entry, key);
@@ -972,7 +982,7 @@ export class GitService extends Disposable {
     }
 
     async getStashList(repoPath: string | undefined): Promise<GitStash | undefined> {
-        Logger.log(`getStash('${repoPath}')`);
+        Logger.log(`getStashList('${repoPath}')`);
         if (repoPath === undefined) return undefined;
 
         const data = await Git.stash_list(repoPath);
@@ -1004,7 +1014,7 @@ export class GitService extends Disposable {
     }
 
     async getVersionedFile(repoPath: string | undefined, fileName: string, sha: string) {
-        Logger.log(`getVersionedFile('${repoPath}', '${fileName}', ${sha})`);
+        Logger.log(`getVersionedFile('${repoPath}', '${fileName}', '${sha}')`);
 
         const file = await Git.getVersionedFile(repoPath, fileName, sha);
         if (file === undefined) return undefined;
@@ -1092,13 +1102,13 @@ export class GitService extends Disposable {
         return !!result;
     }
     openDiffTool(repoPath: string, uri: Uri, staged: boolean) {
-        Logger.log(`openDiffTool('${repoPath}', '${uri}', ${staged})`);
+        Logger.log(`openDiffTool('${repoPath}', '${uri.fsPath}', ${staged})`);
 
         return Git.difftool_fileDiff(repoPath, uri.fsPath, staged);
     }
 
     openDirectoryDiff(repoPath: string, sha1: string, sha2?: string) {
-        Logger.log(`openDirectoryDiff('${repoPath}', ${sha1}, ${sha2})`);
+        Logger.log(`openDirectoryDiff('${repoPath}', '${sha1}', '${sha2}')`);
 
         return Git.difftool_dirDiff(repoPath, sha1, sha2);
     }
@@ -1108,19 +1118,19 @@ export class GitService extends Disposable {
     }
 
     stashApply(repoPath: string, stashName: string, deleteAfter: boolean = false) {
-        Logger.log(`stashApply('${repoPath}', ${stashName}, ${deleteAfter})`);
+        Logger.log(`stashApply('${repoPath}', '${stashName}', ${deleteAfter})`);
 
         return Git.stash_apply(repoPath, stashName, deleteAfter);
     }
 
     stashDelete(repoPath: string, stashName: string) {
-        Logger.log(`stashDelete('${repoPath}', ${stashName}})`);
+        Logger.log(`stashDelete('${repoPath}', '${stashName}')`);
 
         return Git.stash_delete(repoPath, stashName);
     }
 
     stashSave(repoPath: string, message?: string, uris?: Uri[]) {
-        Logger.log(`stashSave('${repoPath}', ${message}, ${uris})`);
+        Logger.log(`stashSave('${repoPath}', '${message}', ${uris})`);
 
         if (uris === undefined) return Git.stash_save(repoPath, message);
         const pathspecs = uris.map(u => Git.splitPath(u.fsPath, repoPath)[0]);
