@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
-## [6.0.0-alpha] - 2017-10-22
+## [6.0.0-alpha.1] - 2017-10-24
 
 ATTENTION! To support multi-root workspaces some underlying fundamentals had to change, so please expect and report issues. Thanks!
 
@@ -20,6 +20,12 @@ ATTENTION! To support multi-root workspaces some underlying fundamentals had to 
 
 ### Changed
 - `GitLens` custom view will no longer show if there is no Git repository -- closes [#159](https://github.com/eamodio/vscode-gitlens/issues/159)
+- Refactors event handling, executing git commands, and general processing to improve performance and reduce lag
+- Protects credentials from possibly being affected by poor network conditions via Git Credential Manager (GCM) for Windows environment variables
+
+### Fixed
+- Fixes jumpy code lens when deleting characters from a line with a Git code lens
+- Fixes? [#178](https://github.com/eamodio/vscode-gitlens/issues/178) - Slight but noticeable keyboard lag with Gitlens
 
 ## [5.7.1] - 2017-10-19
 ### Fixed

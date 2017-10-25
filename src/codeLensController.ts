@@ -4,7 +4,7 @@ import { Disposable, ExtensionContext, languages, TextEditor, workspace } from '
 import { IConfig } from './configuration';
 import { CommandContext, ExtensionKey, setCommandContext } from './constants';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
-import { GitService } from './gitService';
+import { BlameabilityChangeEvent, BlameabilityChangeReason, GitContextTracker, GitService } from './gitService';
 import { Logger } from './logger';
 
 export class CodeLensController extends Disposable {
@@ -14,14 +14,18 @@ export class CodeLensController extends Disposable {
     private _config: IConfig;
     private _disposable: Disposable | undefined;
 
-    constructor(private context: ExtensionContext, private git: GitService) {
+    constructor(
+        private context: ExtensionContext,
+        private git: GitService,
+        private gitContextTracker: GitContextTracker
+    ) {
         super(() => this.dispose());
 
-        this._onConfigurationChanged();
+        this.onConfigurationChanged();
 
         const subscriptions: Disposable[] = [
-            workspace.onDidChangeConfiguration(this._onConfigurationChanged, this),
-            git.onDidChangeGitCache(this._onGitCacheChanged, this)
+            workspace.onDidChangeConfiguration(this.onConfigurationChanged, this),
+            this.gitContextTracker.onDidChangeBlameability(this.onBlameabilityChanged, this)
         ];
         this._disposable = Disposable.from(...subscriptions);
     }
@@ -34,11 +38,14 @@ export class CodeLensController extends Disposable {
         this._codeLensProvider = undefined;
     }
 
-    private _onConfigurationChanged() {
+    private onConfigurationChanged() {
         const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
 
         if (!Objects.areEquivalent(cfg.codeLens, this._config && this._config.codeLens)) {
-            Logger.log('CodeLens config changed; resetting CodeLens provider');
+            if (this._config !== undefined) {
+                Logger.log('CodeLens config changed; resetting CodeLens provider');
+            }
+
             if (cfg.codeLens.enabled && (cfg.codeLens.recentChange.enabled || cfg.codeLens.authors.enabled)) {
                 if (this._codeLensProvider) {
                     this._codeLensProvider.reset();
@@ -60,9 +67,14 @@ export class CodeLensController extends Disposable {
         this._config = cfg;
     }
 
-    private _onGitCacheChanged() {
-        Logger.log('Git cache changed; resetting CodeLens provider');
-        this._codeLensProvider && this._codeLensProvider.reset();
+    private onBlameabilityChanged(e: BlameabilityChangeEvent) {
+        if (this._codeLensProvider === undefined) return;
+
+        // Don't reset if this was an editor change, because code lens will naturally be re-rendered
+        if (e.blameable && e.reason !== BlameabilityChangeReason.EditorChanged) {
+            Logger.log('Blameability changed; resetting CodeLens provider');
+            this._codeLensProvider.reset();
+        }
     }
 
     toggleCodeLens(editor: TextEditor) {

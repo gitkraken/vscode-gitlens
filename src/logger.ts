@@ -42,21 +42,21 @@ export class Logger {
 
     static log(message?: any, ...params: any[]): void {
         if (debug) {
-            console.log(ConsolePrefix, message, ...params);
+            console.log(this.timestamp, ConsolePrefix, message, ...params);
         }
 
         if (level === OutputLevel.Verbose) {
-            output.appendLine([message, ...params].join(' '));
+            output.appendLine((debug ? [this.timestamp, message, ...params] : [message, ...params]).join(' '));
         }
     }
 
     static error(ex: Error, classOrMethod?: string, ...params: any[]): void {
         if (debug) {
-            console.error(ConsolePrefix, classOrMethod, ex, ...params);
+            console.error(this.timestamp, ConsolePrefix, classOrMethod, ex, ...params);
         }
 
         if (level !== OutputLevel.Silent) {
-            output.appendLine([classOrMethod, ex, ...params].join(' '));
+            output.appendLine((debug ? [this.timestamp, classOrMethod, ex, ...params] : [classOrMethod, ex, ...params]).join(' '));
         }
 
         Telemetry.trackException(ex);
@@ -64,11 +64,16 @@ export class Logger {
 
     static warn(message?: any, ...params: any[]): void {
         if (debug) {
-            console.warn(ConsolePrefix, message, ...params);
+            console.warn(this.timestamp, ConsolePrefix, message, ...params);
         }
 
         if (level !== OutputLevel.Silent) {
-            output.appendLine([message, ...params].join(' '));
+            output.appendLine((debug ? [this.timestamp, message, ...params] : [message, ...params]).join(' '));
         }
+    }
+
+    private static get timestamp(): string {
+        const now = new Date();
+        return `[${now.toISOString().replace(/T/, ' ').replace(/\..+/, '')}:${now.getUTCMilliseconds()}]`;
     }
 }

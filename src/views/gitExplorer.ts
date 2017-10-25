@@ -344,8 +344,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
             }
 
             if (enabled) {
-                const repoChangedFn = Functions.debounce(this.onRepoChanged, 250);
-                this._autoRefreshDisposable = this.git.onDidChangeRepo(repoChangedFn, this);
+                this._autoRefreshDisposable = this.git.onDidChangeRepo(this.onRepoChanged, this);
                 this.context.subscriptions.push(this._autoRefreshDisposable);
             }
         }

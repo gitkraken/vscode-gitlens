@@ -110,7 +110,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
         const gitUri = git.getGitUriForFile(uri);
         if (gitUri) return gitUri;
 
-        return new GitUri(uri, await git.getRepoPath(uri.fsPath));
+        return new GitUri(uri, await git.getRepoPath(uri));
     }
 
     static fromFileStatus(status: IGitStatusFile, repoPath: string, original?: boolean): GitUri;

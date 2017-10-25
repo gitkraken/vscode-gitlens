@@ -11,7 +11,7 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
     }
 
     async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri): Promise<any> {
-        if (editor === undefined || editor.document === undefined || editor.document.isDirty) return undefined;
+        if (editor === undefined) return undefined;
 
         try {
             return this.annotationController.clear(editor);

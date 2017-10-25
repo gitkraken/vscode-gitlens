@@ -59,21 +59,40 @@ async function gitCommand(options: GitCommandOptions, ...args: any[]): Promise<s
     }
 }
 
+// A map of running git commands -- avoids running duplicate overlaping commands
+const pendingCommands: Map<string, Promise<string>> = new Map();
+
 async function gitCommandCore(options: GitCommandOptions, ...args: any[]): Promise<string> {
     // Fixes https://github.com/eamodio/vscode-gitlens/issues/73 & https://github.com/eamodio/vscode-gitlens/issues/161
     // See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
     args.splice(0, 0, '-c', 'core.quotepath=false', '-c', 'color.ui=false');
 
-    Logger.log('git', ...args, `  cwd='${options.cwd}'`);
-
     const opts = { encoding: 'utf8', ...options };
-    const s = await spawnPromise(git.path, args, {
-        cwd: options.cwd,
-        // Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
-        // Shouldn't *really* be needed but better safe than sorry
-        env: { ...(options.env || process.env), GCM_INTERACTIVE: 'NEVER', GCM_PRESERVE_CREDS: 'TRUE' },
-        encoding: (opts.encoding === 'utf8') ? 'utf8' : 'binary'
-    } as SpawnOptions);
+
+    const command = `(${options.cwd}): git ` + args.join(' ');
+
+    let promise = pendingCommands.get(command);
+    if (promise === undefined) {
+        Logger.log(`Spawning${command}`);
+
+        promise = spawnPromise(git.path, args, {
+            cwd: options.cwd,
+            // Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
+            // Shouldn't *really* be needed but better safe than sorry
+            env: { ...(options.env || process.env), GCM_INTERACTIVE: 'NEVER', GCM_PRESERVE_CREDS: 'TRUE' },
+            encoding: (opts.encoding === 'utf8') ? 'utf8' : 'binary'
+        } as SpawnOptions);
+
+        pendingCommands.set(command, promise);
+    }
+    else {
+        Logger.log(`Awaiting${command}`);
+    }
+
+    const s = await promise;
+    pendingCommands.delete(command);
+
+    Logger.log(`Completed${command}`);
 
     if (opts.encoding === 'utf8' || opts.encoding === 'binary') return s;
 

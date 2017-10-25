@@ -1,5 +1,5 @@
 'use strict';
-import { commands } from 'vscode';
+import { commands, TextEditor } from 'vscode';
 
 export const ExtensionId = 'gitlens';
 export const ExtensionKey = ExtensionId;
@@ -44,9 +44,16 @@ export function setCommandContext(key: CommandContext | string, value: any) {
 }
 
 export enum DocumentSchemes {
+    DebugConsole = 'debug',
     File = 'file',
     Git = 'git',
-    GitLensGit = 'gitlens-git'
+    GitLensGit = 'gitlens-git',
+    Output = 'output'
+}
+
+export function isTextEditor(editor: TextEditor): boolean {
+    const scheme = editor.document.uri.scheme;
+    return scheme !== DocumentSchemes.Output && scheme !== DocumentSchemes.DebugConsole;
 }
 
 export enum GlyphChars {

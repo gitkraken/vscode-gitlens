@@ -6,9 +6,9 @@ import { Annotations, endOfLineIndex } from './annotations/annotations';
 import { Commands } from './commands';
 import { TextEditorComparer } from './comparers';
 import { IConfig, StatusBarCommand } from './configuration';
-import { DocumentSchemes, ExtensionKey } from './constants';
+import { DocumentSchemes, ExtensionKey, isTextEditor } from './constants';
 import { BlameabilityChangeEvent, CommitFormatter, GitCommit, GitCommitLine, GitContextTracker, GitService, GitUri, ICommitFormatOptions } from './gitService';
-import { Logger } from './logger';
+// import { Logger } from './logger';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
     after: {
@@ -38,24 +38,28 @@ export class CurrentLineController extends Disposable {
     private _updateBlameDebounced: (line: number, editor: TextEditor) => Promise<void>;
     private _uri: GitUri;
 
-    constructor(context: ExtensionContext, private git: GitService, private gitContextTracker: GitContextTracker, private annotationController: AnnotationController) {
+    constructor(
+        context: ExtensionContext,
+        private git: GitService,
+        private gitContextTracker: GitContextTracker,
+        private annotationController: AnnotationController
+    ) {
         super(() => this.dispose());
 
-        this._updateBlameDebounced = Functions.debounce(this._updateBlame, 250);
+        this._updateBlameDebounced = Functions.debounce(this.updateBlame, 250);
 
-        this._onConfigurationChanged();
+        this.onConfigurationChanged();
 
         const subscriptions: Disposable[] = [
-            workspace.onDidChangeConfiguration(this._onConfigurationChanged, this),
-            git.onDidChangeGitCache(this._onGitCacheChanged, this),
-            annotationController.onDidToggleAnnotations(this._onFileAnnotationsToggled, this),
-            debug.onDidStartDebugSession(this._onDebugSessionStarted, this)
+            workspace.onDidChangeConfiguration(this.onConfigurationChanged, this),
+            annotationController.onDidToggleAnnotations(this.onFileAnnotationsToggled, this),
+            debug.onDidStartDebugSession(this.onDebugSessionStarted, this)
         ];
         this._disposable = Disposable.from(...subscriptions);
     }
 
     dispose() {
-        this._clearAnnotations(this._editor, true);
+        this.clearAnnotations(this._editor, true);
 
         this._trackCurrentLineDisposable && this._trackCurrentLineDisposable.dispose();
         this._statusBarItem && this._statusBarItem.dispose();
@@ -63,7 +67,7 @@ export class CurrentLineController extends Disposable {
         this._disposable && this._disposable.dispose();
     }
 
-    private _onConfigurationChanged() {
+    private onConfigurationChanged() {
         const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
 
         let changed = false;
@@ -72,14 +76,14 @@ export class CurrentLineController extends Disposable {
             changed = true;
             this._blameLineAnnotationState = undefined;
 
-            this._clearAnnotations(this._editor);
+            this.clearAnnotations(this._editor);
         }
 
         if (!Objects.areEquivalent(cfg.annotations.line.trailing, this._config && this._config.annotations.line.trailing) ||
             !Objects.areEquivalent(cfg.annotations.line.hover, this._config && this._config.annotations.line.hover) ||
             !Objects.areEquivalent(cfg.theme.annotations.line.trailing, this._config && this._config.theme.annotations.line.trailing)) {
             changed = true;
-            this._clearAnnotations(this._editor);
+            this.clearAnnotations(this._editor);
         }
 
         if (!Objects.areEquivalent(cfg.statusBar, this._config && this._config.statusBar)) {
@@ -107,9 +111,9 @@ export class CurrentLineController extends Disposable {
         const trackCurrentLine = cfg.statusBar.enabled || cfg.blame.line.enabled || (this._blameLineAnnotationState && this._blameLineAnnotationState.enabled);
         if (trackCurrentLine && !this._trackCurrentLineDisposable) {
             const subscriptions: Disposable[] = [
-                window.onDidChangeActiveTextEditor(this._onActiveTextEditorChanged, this),
-                window.onDidChangeTextEditorSelection(this._onTextEditorSelectionChanged, this),
-                this.gitContextTracker.onDidChangeBlameability(this._onBlameabilityChanged, this)
+                window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 50), this),
+                window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this),
+                this.gitContextTracker.onDidChangeBlameability(this.onBlameabilityChanged, this)
             ];
             this._trackCurrentLineDisposable = Disposable.from(...subscriptions);
         }
@@ -121,13 +125,20 @@ export class CurrentLineController extends Disposable {
         this.refresh(window.activeTextEditor);
     }
 
-    private _onActiveTextEditorChanged(editor?: TextEditor) {
+    private onActiveTextEditorChanged(editor: TextEditor | undefined) {
+        if (this._editor === editor) return;
+        if (editor !== undefined && !isTextEditor(editor)) return;
+
+        // Logger.log('CurrentLineController.onActiveTextEditorChanged', editor && editor.document.uri.fsPath);
+
         this.refresh(editor);
     }
 
-    private _onBlameabilityChanged(e: BlameabilityChangeEvent) {
+    private onBlameabilityChanged(e: BlameabilityChangeEvent) {
+        if (!this._blameable && !e.blameable) return;
+
         this._blameable = e.blameable;
-        if (!e.blameable || !this._editor) {
+        if (!e.blameable || this._editor === undefined) {
             this.clear(e.editor);
             return;
         }
@@ -138,15 +149,15 @@ export class CurrentLineController extends Disposable {
         this._updateBlameDebounced(this._editor.selection.active.line, this._editor);
     }
 
-    private _onDebugSessionStarted() {
+    private onDebugSessionStarted() {
         const state = this._blameLineAnnotationState !== undefined ? this._blameLineAnnotationState : this._config.blame.line;
         if (!state.enabled) return;
 
-        this._debugSessionEndDisposable = debug.onDidTerminateDebugSession(this._onDebugSessionEnded, this);
+        this._debugSessionEndDisposable = debug.onDidTerminateDebugSession(this.onDebugSessionEnded, this);
         this.toggleAnnotations(window.activeTextEditor, state.annotationType, 'debugging');
     }
 
-    private _onDebugSessionEnded() {
+    private onDebugSessionEnded() {
         this._debugSessionEndDisposable && this._debugSessionEndDisposable.dispose();
         this._debugSessionEndDisposable = undefined;
 
@@ -155,16 +166,11 @@ export class CurrentLineController extends Disposable {
         this.toggleAnnotations(window.activeTextEditor, this._blameLineAnnotationState.annotationType);
     }
 
-    private _onFileAnnotationsToggled() {
+    private onFileAnnotationsToggled() {
         this.refresh(window.activeTextEditor);
     }
 
-    private _onGitCacheChanged() {
-        Logger.log('Git cache changed; resetting current line annotations');
-        this.refresh(window.activeTextEditor);
-    }
-
-    private async _onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent): Promise<void> {
+    private async onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent): Promise<void> {
         // Make sure this is for the editor we are tracking
         if (!this._blameable || !TextEditorComparer.equals(this._editor, e.textEditor)) return;
 
@@ -177,11 +183,11 @@ export class CurrentLineController extends Disposable {
             this._uri = await GitUri.fromUri(e.textEditor.document.uri, this.git);
         }
 
-        this._clearAnnotations(e.textEditor);
+        this.clearAnnotations(e.textEditor);
         this._updateBlameDebounced(line, e.textEditor);
     }
 
-    private _isEditorBlameable(editor: TextEditor | undefined): boolean {
+    private isEditorBlameable(editor: TextEditor | undefined): boolean {
         if (editor === undefined || editor.document === undefined) return false;
 
         if (!this.git.isTrackable(editor.document.uri)) return false;
@@ -190,7 +196,7 @@ export class CurrentLineController extends Disposable {
         return this.git.isEditorBlameable(editor);
     }
 
-    private async _updateBlame(line: number, editor: TextEditor) {
+    private async updateBlame(line: number, editor: TextEditor) {
         let commit: GitCommit | undefined = undefined;
         let commitLine: GitCommitLine | undefined = undefined;
         // Since blame information isn't valid when there are unsaved changes -- don't show any status
@@ -209,11 +215,11 @@ export class CurrentLineController extends Disposable {
     }
 
     async clear(editor: TextEditor | undefined) {
-        this._clearAnnotations(editor, true);
+        this.clearAnnotations(editor, true);
         this._statusBarItem && this._statusBarItem.hide();
     }
 
-    private async _clearAnnotations(editor: TextEditor | undefined, force: boolean = false) {
+    private async clearAnnotations(editor: TextEditor | undefined, force: boolean = false) {
         if (editor === undefined || (!this._isAnnotating && !force)) return;
 
         editor.setDecorations(annotationDecoration, []);
@@ -228,9 +234,9 @@ export class CurrentLineController extends Disposable {
 
     async refresh(editor?: TextEditor) {
         this._currentLine = -1;
-        this._clearAnnotations(this._editor);
+        this.clearAnnotations(this._editor);
 
-        if (editor === undefined || !this._isEditorBlameable(editor)) {
+        if (editor === undefined || !this.isEditorBlameable(editor)) {
             this.clear(editor);
             this._editor = undefined;
 
@@ -254,8 +260,8 @@ export class CurrentLineController extends Disposable {
         // I have no idea why I need this protection -- but it happens
         if (editor.document === undefined) return;
 
-        this._updateStatusBar(commit);
-        await this._updateAnnotations(commit, blameLine, editor, line);
+        this.updateStatusBar(commit);
+        await this.updateAnnotations(commit, blameLine, editor, line);
     }
 
     async showAnnotations(editor: TextEditor | undefined, type: LineAnnotationType, reason: 'user' | 'debugging' = 'user') {
@@ -265,8 +271,8 @@ export class CurrentLineController extends Disposable {
         if (!state.enabled || state.annotationType !== type) {
             this._blameLineAnnotationState = { enabled: true, annotationType: type, reason: reason };
 
-            await this._clearAnnotations(editor);
-            await this._updateBlame(editor.selection.active.line, editor);
+            await this.clearAnnotations(editor);
+            await this.updateBlame(editor.selection.active.line, editor);
         }
     }
 
@@ -276,11 +282,11 @@ export class CurrentLineController extends Disposable {
         const state = this._blameLineAnnotationState !== undefined ? this._blameLineAnnotationState : this._config.blame.line;
         this._blameLineAnnotationState = { enabled: !state.enabled, annotationType: type, reason: reason };
 
-        await this._clearAnnotations(editor);
-        await this._updateBlame(editor.selection.active.line, editor);
+        await this.clearAnnotations(editor);
+        await this.updateBlame(editor.selection.active.line, editor);
     }
 
-    private async _updateAnnotations(commit: GitCommit, blameLine: GitCommitLine, editor: TextEditor, line?: number) {
+    private async updateAnnotations(commit: GitCommit, blameLine: GitCommitLine, editor: TextEditor, line?: number) {
         const cfg = this._config.blame.line;
 
         const state = this._blameLineAnnotationState !== undefined ? this._blameLineAnnotationState : cfg;
@@ -399,7 +405,7 @@ export class CurrentLineController extends Disposable {
         }
     }
 
-    private _updateStatusBar(commit: GitCommit) {
+    private updateStatusBar(commit: GitCommit) {
         const cfg = this._config.statusBar;
         if (!cfg.enabled || this._statusBarItem === undefined) return;
 

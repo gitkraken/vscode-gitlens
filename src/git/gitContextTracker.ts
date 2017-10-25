@@ -1,13 +1,22 @@
 'use strict';
-import { Disposable, Event, EventEmitter, TextDocument, TextDocumentChangeEvent, TextEditor, window, workspace } from 'vscode';
+import { Functions } from '../system';
+import { Disposable, Event, EventEmitter, TextDocumentChangeEvent, TextEditor, window, workspace } from 'vscode';
 import { TextDocumentComparer } from '../comparers';
-import { CommandContext, setCommandContext } from '../constants';
+import { CommandContext, isTextEditor, setCommandContext } from '../constants';
 import { GitService, GitUri, RepoChangedReasons } from '../gitService';
-import { Logger } from '../logger';
+// import { Logger } from '../logger';
+
+export enum BlameabilityChangeReason {
+    BlameFailed = 'blame-failed',
+    DocumentChanged = 'document-changed',
+    EditorChanged = 'editor-changed',
+    RepoChanged = 'repo-changed'
+}
 
 export interface BlameabilityChangeEvent {
     blameable: boolean;
     editor: TextEditor | undefined;
+    reason: BlameabilityChangeReason;
 }
 
 export class GitContextTracker extends Disposable {
@@ -17,184 +26,167 @@ export class GitContextTracker extends Disposable {
         return this._onDidChangeBlameability.event;
     }
 
-    private _disposable: Disposable;
-    private _documentChangeDisposable: Disposable | undefined;
-    private _editor: TextEditor | undefined;
+    private _context: { editor?: TextEditor, uri?: GitUri, blameable?: boolean, dirty: boolean, tracked?: boolean } = { dirty: false };
+    private _disposable: Disposable | undefined;
     private _gitEnabled: boolean;
-    private _isBlameable: boolean;
 
     constructor(private git: GitService) {
         super(() => this.dispose());
 
-        const subscriptions: Disposable[] = [
-            window.onDidChangeActiveTextEditor(this._onActiveTextEditorChanged, this),
-            workspace.onDidChangeConfiguration(this._onConfigurationChanged, this),
-            workspace.onDidSaveTextDocument(this._onTextDocumentSaved, this),
-            this.git.onDidBlameFail(this._onBlameFailed, this),
-            this.git.onDidChangeRepo(this._onRepoChanged, this)
-        ];
-        this._disposable = Disposable.from(...subscriptions);
-
-        this._onConfigurationChanged();
+        this.onConfigurationChanged();
     }
 
     dispose() {
         this._disposable && this._disposable.dispose();
-        this._documentChangeDisposable && this._documentChangeDisposable.dispose();
     }
 
-    _onConfigurationChanged() {
+    private onConfigurationChanged() {
         const gitEnabled = workspace.getConfiguration('git').get<boolean>('enabled', true);
         if (this._gitEnabled !== gitEnabled) {
             this._gitEnabled = gitEnabled;
+
+            if (this._disposable !== undefined) {
+                this._disposable.dispose();
+                this._disposable = undefined;
+            }
+
             setCommandContext(CommandContext.Enabled, gitEnabled);
-            this._onActiveTextEditorChanged(window.activeTextEditor);
+
+            if (gitEnabled) {
+                const subscriptions: Disposable[] = [
+                    window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 50), this),
+                    workspace.onDidChangeConfiguration(this.onConfigurationChanged, this),
+                    workspace.onDidChangeTextDocument(Functions.debounce(this.onTextDocumentChanged, 50), this),
+                    this.git.onDidBlameFail(this.onBlameFailed, this),
+                    this.git.onDidChangeRepo(this.onRepoChanged, this)
+                ];
+                this._disposable = Disposable.from(...subscriptions);
+
+                this.onActiveTextEditorChanged(window.activeTextEditor);
+            }
         }
     }
 
-    async _onRepoChanged(reasons: RepoChangedReasons[]) {
+    private onActiveTextEditorChanged(editor: TextEditor | undefined) {
+        if (editor === this._context.editor) return;
+        if (editor !== undefined && !isTextEditor(editor)) return;
+
+        // Logger.log('GitContextTracker.onActiveTextEditorChanged', editor && editor.document.uri.fsPath);
+
+        this.updateContext(BlameabilityChangeReason.EditorChanged, editor, true);
+    }
+
+    private onBlameFailed(key: string) {
+        if (this._context.editor === undefined || key !== this.git.getCacheEntryKey(this._context.editor.document.uri)) return;
+
+        this.updateBlameability(BlameabilityChangeReason.BlameFailed, false);
+    }
+
+    private onRepoChanged(reasons: RepoChangedReasons[]) {
+        if (reasons.includes(RepoChangedReasons.CacheReset) || reasons.includes(RepoChangedReasons.Unknown)) {
+            this.updateContext(BlameabilityChangeReason.RepoChanged, this._context.editor);
+
+            return;
+        }
+
         // TODO: Support multi-root
         if (!reasons.includes(RepoChangedReasons.Remotes) && !reasons.includes(RepoChangedReasons.Repositories)) return;
 
-        const gitUri = this._editor === undefined ? undefined : await GitUri.fromUri(this._editor.document.uri, this.git);
-        this._updateContextHasRemotes(gitUri);
+        this.updateRemotes(this._context.uri);
     }
 
-    private _onActiveTextEditorChanged(editor: TextEditor | undefined) {
-        this._editor = editor;
-        this._updateContext(this._gitEnabled ? editor : undefined);
-        this._subscribeToDocumentChanges();
+    private onTextDocumentChanged(e: TextDocumentChangeEvent) {
+        if (this._context.editor === undefined || !TextDocumentComparer.equals(this._context.editor.document, e.document)) return;
+
+        // If we haven't changed state, kick out
+        if (this._context.dirty === e.document.isDirty) return;
+
+        // Logger.log('GitContextTracker.onTextDocumentChanged', 'Dirty state changed', e);
+
+        this._context.dirty = e.document.isDirty;
+        this.updateBlameability(BlameabilityChangeReason.DocumentChanged);
     }
 
-    private _onBlameFailed(key: string) {
-        if (this._editor === undefined || this._editor.document === undefined || this._editor.document.uri === undefined) return;
-        if (key !== this.git.getCacheEntryKey(this._editor.document.uri)) return;
+    private async updateContext(reason: BlameabilityChangeReason, editor: TextEditor | undefined, force: boolean = false) {
+        let tracked: boolean;
+        if (force || this._context.editor !== editor) {
+            this._context.editor = editor;
 
-        this._updateBlameability(false);
-    }
-
-    private _onTextDocumentChanged(e: TextDocumentChangeEvent) {
-        if (!TextDocumentComparer.equals(this._editor && this._editor.document, e && e.document)) return;
-
-        // Can't unsubscribe here because undo doesn't trigger any other event
-        // this._unsubscribeToDocumentChanges();
-        // this.updateBlameability(false);
-
-        // We have to defer because isDirty is not reliable inside this event
-        // https://github.com/Microsoft/vscode/issues/27231
-        setTimeout(async () => {
-            let blameable = !e.document.isDirty;
-            if (blameable) {
-                blameable = await this.git.getBlameability(await GitUri.fromUri(e.document.uri, this.git));
-            }
-            this._updateBlameability(blameable);
-        }, 1);
-    }
-
-    private async _onTextDocumentSaved(e: TextDocument) {
-        if (!TextDocumentComparer.equals(this._editor && this._editor.document, e)) return;
-
-        // Don't need to resubscribe as we aren't unsubscribing on document changes anymore
-        // this._subscribeToDocumentChanges();
-
-        let blameable = !e.isDirty;
-        if (blameable) {
-            blameable = await this.git.getBlameability(await GitUri.fromUri(e.uri, this.git));
-        }
-        this._updateBlameability(blameable);
-    }
-
-    private _subscribeToDocumentChanges() {
-        this._unsubscribeToDocumentChanges();
-        this._documentChangeDisposable = workspace.onDidChangeTextDocument(this._onTextDocumentChanged, this);
-    }
-
-    private _unsubscribeToDocumentChanges() {
-        this._documentChangeDisposable && this._documentChangeDisposable.dispose();
-        this._documentChangeDisposable = undefined;
-    }
-
-    private async _updateContext(editor: TextEditor | undefined) {
-        try {
-            const gitUri = editor === undefined ? undefined : await GitUri.fromUri(editor.document.uri, this.git);
-
-            await Promise.all([
-                this._updateEditorContext(gitUri, editor),
-                this._updateContextHasRemotes(gitUri)
-            ]);
-        }
-        catch (ex) {
-            Logger.error(ex, 'GitEditorTracker._updateContext');
-        }
-    }
-
-    private async _updateContextHasRemotes(uri: GitUri | undefined) {
-        try {
-            const repositories = await this.git.getRepositories();
-
-            let hasRemotes = false;
-            if (uri !== undefined && this.git.isTrackable(uri)) {
-                const remotes = await this.git.getRemotes(uri.repoPath);
-
-                await setCommandContext(CommandContext.ActiveHasRemotes, remotes.length !== 0);
+            if (editor !== undefined) {
+                this._context.uri = await GitUri.fromUri(editor.document.uri, this.git);
+                this._context.dirty = editor.document.isDirty;
+                tracked = await this.git.isTracked(this._context.uri);
             }
             else {
-                if (repositories.length === 1) {
-                    const remotes = await this.git.getRemotes(repositories[0].path);
-                    hasRemotes = remotes.length !== 0;
-
-                    await setCommandContext(CommandContext.ActiveHasRemotes, hasRemotes);
-                }
-                else {
-                    await setCommandContext(CommandContext.ActiveHasRemotes, false);
-                }
+                this._context.uri = undefined;
+                this._context.dirty = false;
+                this._context.blameable = false;
+                tracked = false;
             }
-
-            if (!hasRemotes) {
-                for (const repo of repositories) {
-                    const remotes = await this.git.getRemotes(repo.path);
-                    hasRemotes = remotes.length !== 0;
-
-                    if (hasRemotes) break;
-                }
-            }
-
-            await setCommandContext(CommandContext.HasRemotes, hasRemotes);
         }
-        catch (ex) {
-            Logger.error(ex, 'GitEditorTracker._updateContextHasRemotes');
+        else {
+            // Since the tracked state could have changed, update it
+            tracked = this._context.uri !== undefined
+                ? await this.git.isTracked(this._context.uri!)
+                : false;
         }
-    }
 
-    private async _updateEditorContext(uri: GitUri | undefined, editor: TextEditor | undefined) {
-        try {
-            const tracked = uri === undefined ? false : await this.git.isTracked(uri);
+        if (this._context.tracked !== tracked) {
+            this._context.tracked = tracked;
             setCommandContext(CommandContext.ActiveFileIsTracked, tracked);
-
-            let blameable = tracked && (editor !== undefined && editor.document !== undefined && !editor.document.isDirty);
-            if (blameable) {
-                blameable =  uri === undefined ? false : await this.git.getBlameability(uri);
-            }
-
-            this._updateBlameability(blameable, true);
         }
-        catch (ex) {
-            Logger.error(ex, 'GitEditorTracker._updateEditorContext');
-        }
+
+        this.updateBlameability(reason, undefined, force);
+        this.updateRemotes(this._context.uri);
     }
 
-    private _updateBlameability(blameable: boolean, force: boolean = false) {
-        if (!force && this._isBlameable === blameable) return;
+    private updateBlameability(reason: BlameabilityChangeReason, blameable?: boolean, force: boolean = false) {
+        if (blameable === undefined) {
+            blameable = this._context.tracked && !this._context.dirty;
+        }
 
-        try {
-            setCommandContext(CommandContext.ActiveIsBlameable, blameable);
-            this._onDidChangeBlameability.fire({
-                blameable: blameable,
-                editor: this._editor
-            });
+        if (!force && this._context.blameable === blameable) return;
+
+        this._context.blameable = blameable;
+
+        setCommandContext(CommandContext.ActiveIsBlameable, blameable);
+        this._onDidChangeBlameability.fire({
+            blameable: blameable!,
+            editor: this._context && this._context.editor,
+            reason: reason
+        });
+    }
+
+    private async updateRemotes(uri: GitUri | undefined) {
+        const repositories = await this.git.getRepositories();
+
+        let hasRemotes = false;
+        if (uri !== undefined && this.git.isTrackable(uri)) {
+            const remotes = await this.git.getRemotes(uri.repoPath);
+
+            setCommandContext(CommandContext.ActiveHasRemotes, remotes.length !== 0);
         }
-        catch (ex) {
-            Logger.error(ex, 'GitEditorTracker._updateBlameability');
+        else {
+            if (repositories.length === 1) {
+                const remotes = await this.git.getRemotes(repositories[0].path);
+                hasRemotes = remotes.length !== 0;
+
+                setCommandContext(CommandContext.ActiveHasRemotes, hasRemotes);
+            }
+            else {
+                setCommandContext(CommandContext.ActiveHasRemotes, false);
+            }
         }
+
+        if (!hasRemotes) {
+            for (const repo of repositories) {
+                const remotes = await this.git.getRemotes(repo.path);
+                hasRemotes = remotes.length !== 0;
+
+                if (hasRemotes) break;
+            }
+        }
+
+        setCommandContext(CommandContext.HasRemotes, hasRemotes);
     }
 }

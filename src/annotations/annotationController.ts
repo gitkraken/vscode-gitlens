@@ -1,14 +1,14 @@
 'use strict';
-import { Iterables, Objects } from '../system';
+import { Functions, Iterables, Objects } from '../system';
 import { DecorationRangeBehavior, DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, Progress, ProgressLocation, TextDocument, TextDocumentChangeEvent, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
 import { AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
-import { Keyboard, KeyboardScope, KeyCommand, Keys } from '../keyboard';
 import { TextDocumentComparer } from '../comparers';
 import { ExtensionKey, IConfig, LineHighlightLocations, themeDefaults } from '../configuration';
-import { CommandContext, setCommandContext } from '../constants';
+import { CommandContext, isTextEditor, setCommandContext } from '../constants';
 import { BlameabilityChangeEvent, GitContextTracker, GitService, GitUri } from '../gitService';
 import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
 import { HoverBlameAnnotationProvider } from './hoverBlameAnnotationProvider';
+import { Keyboard, KeyboardScope, KeyCommand, Keys } from '../keyboard';
 import { Logger } from '../logger';
 import { RecentChangesAnnotationProvider } from './recentChangesAnnotationProvider';
 import * as path from 'path';
@@ -64,10 +64,10 @@ export class AnnotationController extends Disposable {
     ) {
         super(() => this.dispose());
 
-        this._onConfigurationChanged();
+        this.onConfigurationChanged();
 
         const subscriptions: Disposable[] = [
-            workspace.onDidChangeConfiguration(this._onConfigurationChanged, this)
+            workspace.onDidChangeConfiguration(this.onConfigurationChanged, this)
         ];
         this._disposable = Disposable.from(...subscriptions);
     }
@@ -82,7 +82,7 @@ export class AnnotationController extends Disposable {
         this._disposable && this._disposable.dispose();
     }
 
-    private _onConfigurationChanged() {
+    private onConfigurationChanged() {
         let changed = false;
 
         const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
@@ -190,50 +190,49 @@ export class AnnotationController extends Disposable {
         }
     }
 
-    private async _onActiveTextEditorChanged(e: TextEditor) {
-        const provider = this.getProvider(e);
+    private onActiveTextEditorChanged(editor: TextEditor | undefined) {
+        if (editor !== undefined && !isTextEditor(editor)) return;
+
+        // Logger.log('AnnotationController.onActiveTextEditorChanged', editor && editor.document.uri.fsPath);
+
+        const provider = this.getProvider(editor);
         if (provider === undefined) {
-            await setCommandContext(CommandContext.AnnotationStatus, undefined);
-            await this.detachKeyboardHook();
+            setCommandContext(CommandContext.AnnotationStatus, undefined);
+            this.detachKeyboardHook();
         }
         else {
-            await setCommandContext(CommandContext.AnnotationStatus, AnnotationStatus.Computed);
-            await this.attachKeyboardHook();
+            setCommandContext(CommandContext.AnnotationStatus, AnnotationStatus.Computed);
+            this.attachKeyboardHook();
         }
     }
 
-    private _onBlameabilityChanged(e: BlameabilityChangeEvent) {
+    private onBlameabilityChanged(e: BlameabilityChangeEvent) {
         if (e.blameable || e.editor === undefined) return;
 
         this.clear(e.editor, AnnotationClearReason.BlameabilityChanged);
     }
 
-    private _onTextDocumentChanged(e: TextDocumentChangeEvent) {
+    private onTextDocumentChanged(e: TextDocumentChangeEvent) {
+        if (!e.document.isDirty || !this.git.isTrackable(e.document.uri)) return;
+
         for (const [key, p] of this._annotationProviders) {
             if (!TextDocumentComparer.equals(p.document, e.document)) continue;
-
-            // We have to defer because isDirty is not reliable inside this event
-            // https://github.com/Microsoft/vscode/issues/27231
-            setTimeout(() => {
-                // If the document is dirty all is fine, just kick out since the GitContextTracker will handle it
-                if (e.document.isDirty) return;
-
-                // If the document isn't dirty, it is very likely this event was triggered by an outside edit of this document
-                // Which means the document has been reloaded and the annotations have been removed, so we need to update (clear) our state tracking
-                this.clearCore(key, AnnotationClearReason.DocumentChanged);
-            }, 1);
-        }
-    }
-
-    private _onTextDocumentClosed(e: TextDocument) {
-        for (const [key, p] of this._annotationProviders) {
-            if (!TextDocumentComparer.equals(p.document, e)) continue;
 
             this.clearCore(key, AnnotationClearReason.DocumentClosed);
         }
     }
 
-    private _onTextEditorViewColumnChanged(e: TextEditorViewColumnChangeEvent) {
+    private onTextDocumentClosed(document: TextDocument) {
+        if (!this.git.isTrackable(document.uri)) return;
+
+        for (const [key, p] of this._annotationProviders) {
+            if (!TextDocumentComparer.equals(p.document, document)) continue;
+
+            this.clearCore(key, AnnotationClearReason.DocumentClosed);
+        }
+    }
+
+    private onTextEditorViewColumnChanged(e: TextEditorViewColumnChangeEvent) {
         // FYI https://github.com/Microsoft/vscode/issues/35602
         const provider = this.getProvider(e.textEditor);
         if (provider === undefined) {
@@ -249,7 +248,7 @@ export class AnnotationController extends Disposable {
         provider.restore(e.textEditor);
     }
 
-    private async _onVisibleTextEditorsChanged(editors: TextEditor[]) {
+    private async onVisibleTextEditorsChanged(editors: TextEditor[]) {
         let provider: AnnotationProviderBase | undefined;
         for (const e of editors) {
             provider = this.getProvider(e);
@@ -391,12 +390,12 @@ export class AnnotationController extends Disposable {
             Logger.log(`Add listener registrations for annotations`);
 
             const subscriptions: Disposable[] = [
-                window.onDidChangeActiveTextEditor(this._onActiveTextEditorChanged, this),
-                window.onDidChangeTextEditorViewColumn(this._onTextEditorViewColumnChanged, this),
-                window.onDidChangeVisibleTextEditors(this._onVisibleTextEditorsChanged, this),
-                workspace.onDidChangeTextDocument(this._onTextDocumentChanged, this),
-                workspace.onDidCloseTextDocument(this._onTextDocumentClosed, this),
-                this.gitContextTracker.onDidChangeBlameability(this._onBlameabilityChanged, this)
+                window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 50), this),
+                window.onDidChangeTextEditorViewColumn(this.onTextEditorViewColumnChanged, this),
+                window.onDidChangeVisibleTextEditors(this.onVisibleTextEditorsChanged, this),
+                workspace.onDidChangeTextDocument(Functions.debounce(this.onTextDocumentChanged, 50), this),
+                workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
+                this.gitContextTracker.onDidChangeBlameability(this.onBlameabilityChanged, this)
             ];
 
             this._annotationsDisposable = Disposable.from(...subscriptions);

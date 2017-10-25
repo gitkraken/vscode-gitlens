@@ -66,7 +66,7 @@ export async function activate(context: ExtensionContext) {
     const annotationController = new AnnotationController(context, git, gitContextTracker);
     context.subscriptions.push(annotationController);
 
-    const codeLensController = new CodeLensController(context, git);
+    const codeLensController = new CodeLensController(context, git, gitContextTracker);
     context.subscriptions.push(codeLensController);
 
     const currentLineController = new CurrentLineController(context, git, gitContextTracker, annotationController);
@@ -220,7 +220,9 @@ async function notifyOnNewGitLensVersion(context: ExtensionContext, version: str
         return;
     }
 
-    Logger.log(`GitLens upgraded from v${previousVersion} to v${version}`);
+    if (previousVersion !== version) {
+        Logger.log(`GitLens upgraded from v${previousVersion} to v${version}`);
+    }
 
     const [major, minor] = version.split('.');
     const [prevMajor, prevMinor] = previousVersion.split('.');
