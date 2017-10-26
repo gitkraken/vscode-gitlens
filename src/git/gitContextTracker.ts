@@ -62,7 +62,7 @@ export class GitContextTracker extends Disposable {
                 ];
                 this._disposable = Disposable.from(...subscriptions);
 
-                this.onActiveTextEditorChanged(window.activeTextEditor);
+                this.updateContext(BlameabilityChangeReason.EditorChanged, window.activeTextEditor, true);
             }
         }
     }
