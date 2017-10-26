@@ -74,6 +74,6 @@ export class Logger {
 
     private static get timestamp(): string {
         const now = new Date();
-        return `[${now.toISOString().replace(/T/, ' ').replace(/\..+/, '')}:${now.getUTCMilliseconds()}]`;
+        return `[${now.toISOString().replace(/T/, ' ').replace(/\..+/, '')}:${('00' + now.getUTCMilliseconds()).slice(-3)}]`;
     }
 }
