@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `Compare File with Branch...` command (`gitlens.diffWithBranch`) to source control resource context menu
 - Adds `Open Repository in Remote` command (`gitlens.openRepoInRemote`) to repository node(s) of the `GitLens` custom view
 
+### Changed
+- Optimizes current line hover annotations to only be computed on hover (i.e. lazily evaluated) to reduce the compute required when changing lines
+
 ## [6.0.0-alpha1] - 2017-10-24
 
 ATTENTION! To support multi-root workspaces some underlying fundamentals had to change, so please expect and report issues. Thanks!
@@ -23,7 +26,7 @@ ATTENTION! To support multi-root workspaces some underlying fundamentals had to 
 
 ### Changed
 - `GitLens` custom view will no longer show if there is no Git repository -- closes [#159](https://github.com/eamodio/vscode-gitlens/issues/159)
-- Refactors event handling, executing git commands, and general processing to improve performance and reduce lag
+- Optimizes event handling, executing git commands, and general processing to improve performance and reduce any lag
 - Protects credentials from possibly being affected by poor network conditions via Git Credential Manager (GCM) for Windows environment variables
 
 ### Fixed

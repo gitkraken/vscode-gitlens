@@ -1,6 +1,7 @@
 'use strict';
 import { Iterables } from '../system';
 import { CancellationToken, Disposable, ExtensionContext, Hover, HoverProvider, languages, Position, Range, TextDocument, TextEditor, TextEditorDecorationType } from 'vscode';
+import { FileAnnotationType } from './annotationController';
 import { AnnotationProviderBase } from './annotationProvider';
 import { Annotations, endOfLineIndex } from './annotations';
 import { GitBlame, GitCommit, GitService, GitUri } from '../gitService';
@@ -116,11 +117,9 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
     }
 
     private async getCommitForHover(position: Position): Promise<GitCommit | undefined> {
-        // Avoid double annotations if we are showing the whole-file hover blame annotations
-        if (this._config.blame.line.enabled && this.editor.selection.start.line === position.line) return undefined;
-
-        const cfg = this._config.annotations.file.gutter;
-        if (!cfg.hover.wholeLine && position.character !== 0) return undefined;
+        const annotationType = this._config.blame.file.annotationType;
+        const wholeLine = annotationType === FileAnnotationType.Hover || (annotationType === FileAnnotationType.Gutter && this._config.annotations.file.gutter.hover.wholeLine);
+        if (!wholeLine && position.character !== 0) return undefined;
 
         const blame = await this.getBlame();
         if (blame === undefined) return undefined;
