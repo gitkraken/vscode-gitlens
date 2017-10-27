@@ -7,8 +7,19 @@ import { ExtensionKey, GitExplorerFilesLayout, IConfig } from '../configuration'
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { BranchHistoryNode, CommitFileNode, CommitNode, ExplorerNode, HistoryNode, MessageNode, RepositoriesNode, RepositoryNode, StashNode } from './explorerNodes';
 import { GitService, GitUri, RepoChangedReasons } from '../gitService';
+import { Logger } from '../logger';
 
 export * from './explorerNodes';
+
+enum RefreshReason {
+    ActiveEditorChanged = 'active-editor-changed',
+    AutoRefreshChanged = 'auto-refresh-changed',
+    Command = 'command',
+    NodeCommand = 'node-command',
+    RepoChanged = 'repo-changed',
+    ViewChanged = 'view-changed',
+    VisibleEditorsChanged = 'visible-editors-changed'
+}
 
 export enum GitExplorerView {
     Auto = 'auto',
@@ -139,7 +150,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         if (root === this._root) return;
 
         this._root = root;
-        this.refresh(undefined, root);
+        this.refresh(RefreshReason.ActiveEditorChanged, undefined, root);
     }
 
     private onConfigurationChanged() {
@@ -175,7 +186,9 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
             this._root = undefined;
         }
 
-        this.refresh();
+        Logger.log(`GitExplorer[view=${this._view}].onRepoChanged(${reasons.join()})`);
+
+        this.refresh(RefreshReason.RepoChanged);
     }
 
     private onVisibleEditorsChanged(editors: TextEditor[]) {
@@ -186,11 +199,16 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
             if (this._root === undefined) return;
 
             this._root = undefined;
-            this.refresh();
+            this.refresh(RefreshReason.VisibleEditorsChanged);
         }
     }
 
-    async refresh(node?: ExplorerNode, root?: ExplorerNode) {
+    async refresh(reason: RefreshReason | undefined, node?: ExplorerNode, root?: ExplorerNode) {
+        if (reason === undefined) {
+            reason = RefreshReason.Command;
+        }
+        Logger.log(`GitExplorer[view=${this._view}].refresh`, `reason='${reason}'`);
+
         if (this._root === undefined || (root === undefined && this._view === GitExplorerView.History)) {
             this._root = await this.getRootNode(window.activeTextEditor);
         }
@@ -203,7 +221,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
             node.maxCount = args.maxCount;
         }
 
-        this.refresh(node);
+        this.refresh(RefreshReason.NodeCommand, node);
     }
 
     async reset(view: GitExplorerView, force: boolean = false) {
@@ -214,7 +232,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         }
         this._root = await this.getRootNode(window.activeTextEditor);
         if (force) {
-            this.refresh();
+            this.refresh(RefreshReason.ViewChanged);
         }
     }
 
@@ -352,7 +370,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         setCommandContext(CommandContext.GitExplorerAutoRefresh, enabled);
 
         if (userToggle) {
-            this.refresh();
+            this.refresh(RefreshReason.AutoRefreshChanged);
         }
     }
 

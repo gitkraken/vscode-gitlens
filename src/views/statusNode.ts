@@ -2,6 +2,7 @@ import { commands, ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } f
 import { WorkspaceState } from '../constants';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitService, GitStatus, GitUri, Repository, RepositoryStorage } from '../gitService';
+import { Logger } from '../logger';
 import { StatusFilesNode } from './statusFilesNode';
 import { StatusUpstreamNode } from './statusUpstreamNode';
 
@@ -115,11 +116,14 @@ export class StatusNode extends ExplorerNode {
         // This is because of https://github.com/Microsoft/vscode/issues/34789
         if (this._status !== undefined && status !== undefined &&
             ((this._status.files.length === status.files.length) || (this._status.files.length > 0 && status.files.length > 0))) {
+
+            Logger.log(`GitExplorer.StatusNode.onFileSystemChanged(${uri && uri.fsPath}); triggering node refresh`);
             commands.executeCommand('gitlens.gitExplorer.refreshNode', this);
 
             return;
         }
 
+        Logger.log(`GitExplorer.StatusNode.onFileSystemChanged(${uri && uri.fsPath}); triggering refresh`);
         commands.executeCommand('gitlens.gitExplorer.refresh');
     }
 }
