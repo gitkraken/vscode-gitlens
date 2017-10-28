@@ -19,6 +19,8 @@ ATTENTION! To support multi-root workspaces some underlying fundamentals had to 
 - Adds support to the `Compare File with Branch...` command (`gitlens.diffWithBranch`) work with renamed files -- closes [#165](https://github.com/eamodio/vscode-gitlens/issues/165)
 - Adds `Compare File with Branch...` command (`gitlens.diffWithBranch`) to source control resource context menu
 - Adds `Open Repository in Remote` command (`gitlens.openRepoInRemote`) to repository node(s) of the `GitLens` custom view
+- Adds `Enable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOn`) to the `GitLens` custom view regardless of the current view
+- Adds `Disable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOff`) to the `GitLens` custom view regardless of the current view
 
 ### Changed
 - `GitLens` custom view will no longer show if there is no Git repository -- closes [#159](https://github.com/eamodio/vscode-gitlens/issues/159)
@@ -28,7 +30,8 @@ ATTENTION! To support multi-root workspaces some underlying fundamentals had to 
 
 ### Fixed
 - Fixes jumpy code lens when deleting characters from a line with a Git code lens
-- Fixes? [#178](https://github.com/eamodio/vscode-gitlens/issues/178) - Slight but noticeable keyboard lag with Gitlens
+- Fixes [#178](https://github.com/eamodio/vscode-gitlens/issues/178) - Slight but noticeable keyboard lag with Gitlens
+- Fixes issue where using the `Refresh` command on a `GitLens` custom view node refreshed the whole view, rather than just the node
 
 ## [5.7.1] - 2017-10-19
 ### Fixed

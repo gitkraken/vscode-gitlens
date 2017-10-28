@@ -1,7 +1,7 @@
-import { commands, ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
-import { WorkspaceState } from '../constants';
+import { commands, Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { GitService, GitStatus, GitUri, Repository, RepositoryStorage } from '../gitService';
+import { GitExplorer } from './gitExplorer';
+import { GitStatus, GitUri, Repository, RepositoryFileSystemChangeEvent } from '../gitService';
 import { Logger } from '../logger';
 import { StatusFilesNode } from './statusFilesNode';
 import { StatusUpstreamNode } from './statusUpstreamNode';
@@ -13,58 +13,59 @@ export class StatusNode extends ExplorerNode {
     constructor(
         uri: GitUri,
         private repo: Repository,
-        protected readonly context: ExtensionContext,
-        protected readonly git: GitService
+        private parent: ExplorerNode,
+        private readonly explorer: GitExplorer
     ) {
         super(uri);
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        const status = await this.git.getStatusForRepo(this.uri.repoPath!);
-        if (status === undefined) return [];
+        this.resetChildren();
 
-        const children: ExplorerNode[] = [];
+        this.children = [];
+
+        const status = await this.explorer.git.getStatusForRepo(this.uri.repoPath!);
+        if (status === undefined) return this.children;
 
         if (status.state.behind) {
-            children.push(new StatusUpstreamNode(status, 'behind', this.context, this.git));
+            this.children.push(new StatusUpstreamNode(status, 'behind', this.explorer.context, this.explorer.git));
         }
 
         if (status.state.ahead) {
-            children.push(new StatusUpstreamNode(status, 'ahead', this.context, this.git));
+            this.children.push(new StatusUpstreamNode(status, 'ahead', this.explorer.context, this.explorer.git));
         }
 
         if (status.state.ahead || (status.files.length !== 0 && this.includeWorkingTree)) {
             const range = status.upstream
                 ? `${status.upstream}..${status.branch}`
                 : undefined;
-            children.push(new StatusFilesNode(status, range, this.context, this.git));
+            this.children.push(new StatusFilesNode(status, range, this.explorer.context, this.explorer.git));
         }
 
-        return children;
+        return this.children;
     }
 
     private _status: GitStatus | undefined;
 
     async getTreeItem(): Promise < TreeItem > {
-        const status = await this.git.getStatusForRepo(this.uri.repoPath!);
-        if (status === undefined) return new TreeItem('No repo status');
-
-        const subscription = this.repo.storage.get(RepositoryStorage.StatusNode);
-        if (subscription !== undefined) {
-            subscription.dispose();
-            this.repo.storage.delete(RepositoryStorage.StatusNode);
+        if (this.disposable !== undefined) {
+            this.disposable.dispose();
+            this.disposable = undefined;
         }
 
-        if (this.includeWorkingTree) {
+        const status = await this.explorer.git.getStatusForRepo(this.uri.repoPath!);
+        if (status === undefined) return new TreeItem('No repo status');
+
+        if (this.explorer.autoRefresh && this.includeWorkingTree) {
             this._status = status;
 
-            if (this.git.config.gitExplorer.autoRefresh && this.context.workspaceState.get<boolean>(WorkspaceState.GitExplorerAutoRefresh, true)) {
-                const subscription = this.repo.onDidChangeFileSystem(this.onFileSystemChanged, this);
-                this.repo.storage.set(RepositoryStorage.StatusNode, subscription);
-                this.context.subscriptions.push(subscription);
+            this.disposable = Disposable.from(
+                this.explorer.onDidChangeAutoRefresh(this.onAutoRefreshChanged, this),
+                this.repo.onDidChangeFileSystem(this.onFileSystemChanged, this),
+                { dispose: () => this.repo.stopWatchingFileSystem() }
+            );
 
-                this.repo.startWatchingFileSystem();
-            }
+            this.repo.startWatchingFileSystem();
         }
 
         let hasChildren = false;
@@ -98,32 +99,41 @@ export class StatusNode extends ExplorerNode {
         item.contextValue = this.resourceType;
 
         item.iconPath = {
-            dark: this.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
-            light: this.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`)
+            dark: this.explorer.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
+            light: this.explorer.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`)
         };
 
         return item;
     }
 
     private get includeWorkingTree(): boolean {
-        return this.git.config.gitExplorer.includeWorkingTree;
+        return this.explorer.config.includeWorkingTree;
     }
 
-    private async onFileSystemChanged(uri?: Uri) {
-        const status = await this.git.getStatusForRepo(this.uri.repoPath!);
+    private onAutoRefreshChanged() {
+        if (this.disposable === undefined) return;
+
+        // If auto-refresh changes, just kill the subscriptions
+        // (if it was enabled -- we will get refreshed so we don't have to worry about re-hooking it up here)
+        this.disposable.dispose();
+        this.disposable = undefined;
+    }
+
+    private async onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
+        const status = await this.explorer.git.getStatusForRepo(this.uri.repoPath!);
 
         // If we haven't changed from having some working changes to none or vice versa then just refresh the node
         // This is because of https://github.com/Microsoft/vscode/issues/34789
         if (this._status !== undefined && status !== undefined &&
             ((this._status.files.length === status.files.length) || (this._status.files.length > 0 && status.files.length > 0))) {
 
-            Logger.log(`GitExplorer.StatusNode.onFileSystemChanged(${uri && uri.fsPath}); triggering node refresh`);
+            Logger.log(`StatusNode.onFileSystemChanged; triggering node refresh`);
             commands.executeCommand('gitlens.gitExplorer.refreshNode', this);
 
             return;
         }
 
-        Logger.log(`GitExplorer.StatusNode.onFileSystemChanged(${uri && uri.fsPath}); triggering refresh`);
-        commands.executeCommand('gitlens.gitExplorer.refresh');
+        Logger.log(`StatusNode.onFileSystemChanged; triggering parent node refresh`);
+        commands.executeCommand('gitlens.gitExplorer.refreshNode', this.parent);
     }
 }

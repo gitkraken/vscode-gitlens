@@ -1,5 +1,5 @@
 'use strict';
-import { Command, ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Command, Disposable, ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../constants';
 import { GitUri } from '../gitService';
 import { RefreshNodeCommandArgs } from './gitExplorer';
@@ -27,17 +27,38 @@ export declare type ResourceType =
     'gitlens:status-file-commits' |
     'gitlens:status-upstream';
 
-export abstract class ExplorerNode {
+export abstract class ExplorerNode extends Disposable {
 
     abstract readonly resourceType: ResourceType;
 
-    constructor(public readonly uri: GitUri) { }
+    protected children: ExplorerNode[] | undefined;
+    protected disposable: Disposable | undefined;
+
+    constructor(public readonly uri: GitUri) {
+        super(() => this.dispose());
+    }
+
+    dispose() {
+        if (this.disposable !== undefined) {
+            this.disposable.dispose();
+            this.disposable = undefined;
+        }
+
+        this.resetChildren();
+    }
 
     abstract getChildren(): ExplorerNode[] | Promise<ExplorerNode[]>;
     abstract getTreeItem(): TreeItem | Promise<TreeItem>;
 
     getCommand(): Command | undefined {
         return undefined;
+    }
+
+    resetChildren() {
+        if (this.children !== undefined) {
+            this.children.forEach(c => c.dispose());
+            this.children = undefined;
+        }
     }
 }
 

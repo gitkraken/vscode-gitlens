@@ -3,7 +3,7 @@ import { Functions } from '../system';
 import { Disposable, Event, EventEmitter, TextDocumentChangeEvent, TextEditor, window, workspace } from 'vscode';
 import { TextDocumentComparer } from '../comparers';
 import { CommandContext, isTextEditor, setCommandContext } from '../constants';
-import { GitService, GitUri, RepoChangedReasons } from '../gitService';
+import { GitChangeEvent, GitChangeReason, GitService, GitUri, Repository, RepositoryChangeEvent } from '../gitService';
 // import { Logger } from '../logger';
 
 export enum BlameabilityChangeReason {
@@ -19,6 +19,20 @@ export interface BlameabilityChangeEvent {
     reason: BlameabilityChangeReason;
 }
 
+interface Context {
+    editor?: TextEditor;
+    repo?: Repository;
+    repoDisposable?: Disposable;
+    state: ContextState;
+    uri?: GitUri;
+}
+
+interface ContextState {
+    blameable?: boolean;
+    dirty: boolean;
+    tracked?: boolean;
+}
+
 export class GitContextTracker extends Disposable {
 
     private _onDidChangeBlameability = new EventEmitter<BlameabilityChangeEvent>();
@@ -26,7 +40,7 @@ export class GitContextTracker extends Disposable {
         return this._onDidChangeBlameability.event;
     }
 
-    private _context: { editor?: TextEditor, uri?: GitUri, blameable?: boolean, dirty: boolean, tracked?: boolean } = { dirty: false };
+    private _context: Context = { state: { dirty: false } };
     private _disposable: Disposable | undefined;
     private _gitEnabled: boolean;
 
@@ -81,28 +95,26 @@ export class GitContextTracker extends Disposable {
         this.updateBlameability(BlameabilityChangeReason.BlameFailed, false);
     }
 
-    private onRepoChanged(reasons: RepoChangedReasons[]) {
-        if (reasons.includes(RepoChangedReasons.CacheReset) || reasons.includes(RepoChangedReasons.Unknown)) {
-            this.updateContext(BlameabilityChangeReason.RepoChanged, this._context.editor);
-
-            return;
+    private onGitChanged(e: GitChangeEvent) {
+        if (e.reason === GitChangeReason.RemoteCache || e.reason === GitChangeReason.Repositories) {
+            this.updateRemotes();
         }
+    }
 
-        // TODO: Support multi-root
-        if (!reasons.includes(RepoChangedReasons.Remotes) && !reasons.includes(RepoChangedReasons.Repositories)) return;
-
-        this.updateRemotes(this._context.uri);
+    private onRepoChanged(e: RepositoryChangeEvent) {
+        this.updateContext(BlameabilityChangeReason.RepoChanged, this._context.editor);
+        this.updateRemotes();
     }
 
     private onTextDocumentChanged(e: TextDocumentChangeEvent) {
         if (this._context.editor === undefined || !TextDocumentComparer.equals(this._context.editor.document, e.document)) return;
 
         // If we haven't changed state, kick out
-        if (this._context.dirty === e.document.isDirty) return;
+        if (this._context.state.dirty === e.document.isDirty) return;
 
         // Logger.log('GitContextTracker.onTextDocumentChanged', 'Dirty state changed', e);
 
-        this._context.dirty = e.document.isDirty;
+        this._context.state.dirty = e.document.isDirty;
         this.updateBlameability(BlameabilityChangeReason.DocumentChanged);
     }
 
@@ -110,16 +122,29 @@ export class GitContextTracker extends Disposable {
         let tracked: boolean;
         if (force || this._context.editor !== editor) {
             this._context.editor = editor;
+            this._context.repo = undefined;
+            if (this._context.repoDisposable !== undefined) {
+                this._context.repoDisposable.dispose();
+                this._context.repoDisposable = undefined;
+            }
 
             if (editor !== undefined) {
-                this._context.uri = await GitUri.fromUri(editor.document.uri, this.git);
-                this._context.dirty = editor.document.isDirty;
+                const uri = editor.document.uri;
+
+                const repo = await this.git.getRepository(uri);
+                if (repo !== undefined) {
+                    this._context.repo = repo;
+                    this._context.repoDisposable = repo.onDidChange(this.onRepoChanged, this);
+                }
+
+                this._context.uri = await GitUri.fromUri(uri, this.git);
+                this._context.state.dirty = editor.document.isDirty;
                 tracked = await this.git.isTracked(this._context.uri);
             }
             else {
                 this._context.uri = undefined;
-                this._context.dirty = false;
-                this._context.blameable = false;
+                this._context.state.dirty = false;
+                this._context.state.blameable = false;
                 tracked = false;
             }
         }
@@ -130,23 +155,23 @@ export class GitContextTracker extends Disposable {
                 : false;
         }
 
-        if (this._context.tracked !== tracked) {
-            this._context.tracked = tracked;
+        if (this._context.state.tracked !== tracked) {
+            this._context.state.tracked = tracked;
             setCommandContext(CommandContext.ActiveFileIsTracked, tracked);
         }
 
         this.updateBlameability(reason, undefined, force);
-        this.updateRemotes(this._context.uri);
+        this.updateRemotes();
     }
 
     private updateBlameability(reason: BlameabilityChangeReason, blameable?: boolean, force: boolean = false) {
         if (blameable === undefined) {
-            blameable = this._context.tracked && !this._context.dirty;
+            blameable = this._context.state.tracked && !this._context.state.dirty;
         }
 
-        if (!force && this._context.blameable === blameable) return;
+        if (!force && this._context.state.blameable === blameable) return;
 
-        this._context.blameable = blameable;
+        this._context.state.blameable = blameable;
 
         setCommandContext(CommandContext.ActiveIsBlameable, blameable);
         this._onDidChangeBlameability.fire({
@@ -156,29 +181,23 @@ export class GitContextTracker extends Disposable {
         });
     }
 
-    private async updateRemotes(uri: GitUri | undefined) {
-        const repositories = await this.git.getRepositories();
-
+    private async updateRemotes() {
         let hasRemotes = false;
-        if (uri !== undefined && this.git.isTrackable(uri)) {
-            const remotes = await this.git.getRemotes(uri.repoPath);
+        if (this._context.repo !== undefined) {
+            const remotes = await this.git.getRemotes(this._context.repo.path);
 
-            setCommandContext(CommandContext.ActiveHasRemotes, remotes.length !== 0);
+            hasRemotes = remotes.length !== 0;
+            setCommandContext(CommandContext.ActiveHasRemotes, hasRemotes);
         }
         else {
-            if (repositories.length === 1) {
-                const remotes = await this.git.getRemotes(repositories[0].path);
-                hasRemotes = remotes.length !== 0;
-
-                setCommandContext(CommandContext.ActiveHasRemotes, hasRemotes);
-            }
-            else {
-                setCommandContext(CommandContext.ActiveHasRemotes, false);
-            }
+            setCommandContext(CommandContext.ActiveHasRemotes, false);
         }
 
         if (!hasRemotes) {
+            const repositories = await this.git.getRepositories();
             for (const repo of repositories) {
+                if (repo === this._context.repo) continue;
+
                 const remotes = await this.git.getRemotes(repo.path);
                 hasRemotes = remotes.length !== 0;
 

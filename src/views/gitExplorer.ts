@@ -6,7 +6,7 @@ import { UriComparer } from '../comparers';
 import { ExtensionKey, GitExplorerFilesLayout, IConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { BranchHistoryNode, CommitFileNode, CommitNode, ExplorerNode, HistoryNode, MessageNode, RepositoriesNode, RepositoryNode, StashNode } from './explorerNodes';
-import { GitService, GitUri, RepoChangedReasons } from '../gitService';
+import { GitChangeEvent, GitChangeReason, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 
 export * from './explorerNodes';
@@ -42,14 +42,19 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     private _root?: ExplorerNode;
     private _view: GitExplorerView | undefined;
 
+    private _onDidChangeAutoRefresh = new EventEmitter<void>();
+    public get onDidChangeAutoRefresh(): Event<void> {
+        return this._onDidChangeAutoRefresh.event;
+    }
+
     private _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
     public get onDidChangeTreeData(): Event<ExplorerNode> {
         return this._onDidChangeTreeData.event;
     }
 
-    constructor(private readonly context: ExtensionContext, private readonly git: GitService) {
+    constructor(public readonly context: ExtensionContext, public readonly git: GitService) {
         commands.registerCommand('gitlens.gitExplorer.setAutoRefreshToOn', () => this.setAutoRefresh(this.git.config.gitExplorer.autoRefresh, true), this);
-        commands.registerCommand('gitlens.gitExplorer.setAutoRefreshToOff', () => this.setAutoRefresh(this.git.config.gitExplorer.autoRefresh, true), this);
+        commands.registerCommand('gitlens.gitExplorer.setAutoRefreshToOff', () => this.setAutoRefresh(this.git.config.gitExplorer.autoRefresh, false), this);
         commands.registerCommand('gitlens.gitExplorer.setFilesLayoutToAuto', () => this.setFilesLayout(GitExplorerFilesLayout.Auto), this);
         commands.registerCommand('gitlens.gitExplorer.setFilesLayoutToList', () => this.setFilesLayout(GitExplorerFilesLayout.List), this);
         commands.registerCommand('gitlens.gitExplorer.setFilesLayoutToTree', () => this.setFilesLayout(GitExplorerFilesLayout.Tree), this);
@@ -77,6 +82,14 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         context.subscriptions.push(workspace.onDidChangeConfiguration(this.onConfigurationChanged, this));
 
         this.onConfigurationChanged();
+    }
+
+    get autoRefresh() {
+        return this._config.gitExplorer.autoRefresh && this.context.workspaceState.get<boolean>(WorkspaceState.GitExplorerAutoRefresh, true);
+    }
+
+    get config() {
+        return this._config.gitExplorer;
     }
 
     async getTreeItem(node: ExplorerNode): Promise<TreeItem> {
@@ -116,10 +129,10 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
                 if (repositories.length === 1) {
                     const repo = repositories[0];
-                    return new RepositoryNode(new GitUri(Uri.file(repo.path), { repoPath: repo.path, fileName: repo.path }), repo, this.context, this.git);
+                    return new RepositoryNode(new GitUri(Uri.file(repo.path), { repoPath: repo.path, fileName: repo.path }), repo, this);
                 }
 
-                return new RepositoriesNode(repositories, this.context, this.git);
+                return new RepositoriesNode(repositories, this);
             }
         }
     }
@@ -130,27 +143,22 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         // If we do have a visible trackable editor, don't change from the last state (avoids issues when focus switches to the problems/output/debug console panes)
         if (editor.document === undefined || !this.git.isTrackable(editor.document.uri)) return this._root;
 
-        let uri = this.git.getGitUriForFile(editor.document.uri);
-        if (uri === undefined) {
-            const repoPath = await this.git.getRepoPath(editor.document.uri);
-            if (repoPath === undefined) return undefined;
+        const repo = await this.git.getRepository(editor.document.uri);
+        if (repo === undefined) return undefined;
 
-            uri = new GitUri(editor.document.uri, { repoPath: repoPath, fileName: editor.document.uri.fsPath });
-        }
-
+        const uri = this.git.getGitUriForFile(editor.document.uri) || new GitUri(editor.document.uri, { repoPath: repo.path, fileName: editor.document.uri.fsPath });
         if (UriComparer.equals(uri, this._root && this._root.uri)) return this._root;
 
-        return new HistoryNode(uri, this.context, this.git);
+        return new HistoryNode(uri, repo, this);
     }
 
     private async onActiveEditorChanged(editor: TextEditor | undefined) {
         if (this._view !== GitExplorerView.History) return;
 
         const root = await this.getRootNode(editor);
-        if (root === this._root) return;
+        if (!this.setRoot(root)) return;
 
-        this._root = root;
-        this.refresh(RefreshReason.ActiveEditorChanged, undefined, root);
+        this.refresh(RefreshReason.ActiveEditorChanged, root);
     }
 
     private onConfigurationChanged() {
@@ -178,62 +186,81 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         }
     }
 
-    private onRepoChanged(reasons: RepoChangedReasons[]) {
-        if (this._view !== GitExplorerView.Repository) return;
+    private onGitChanged(e: GitChangeEvent) {
+        if (this._root === undefined || this._view !== GitExplorerView.Repository || e.reason !== GitChangeReason.Repositories) return;
 
-        // If we are changing the set of repositories then force a root node reset
-        if (reasons.includes(RepoChangedReasons.Repositories)) {
-            this._root = undefined;
-        }
+        this.clearRoot();
 
-        Logger.log(`GitExplorer[view=${this._view}].onRepoChanged(${reasons.join()})`);
+        Logger.log(`GitExplorer[view=${this._view}].onGitChanged(${e.reason})`);
 
         this.refresh(RefreshReason.RepoChanged);
     }
 
     private onVisibleEditorsChanged(editors: TextEditor[]) {
-        if (this._view !== GitExplorerView.History) return;
+        if (this._root === undefined || this._view !== GitExplorerView.History) return;
 
         // If we have no visible editors, or no trackable visible editors reset the view
         if (editors.length === 0 || !editors.some(e => e.document && this.git.isTrackable(e.document.uri))) {
-            if (this._root === undefined) return;
+            this.clearRoot();
 
-            this._root = undefined;
             this.refresh(RefreshReason.VisibleEditorsChanged);
         }
     }
 
-    async refresh(reason: RefreshReason | undefined, node?: ExplorerNode, root?: ExplorerNode) {
+    async refresh(reason: RefreshReason | undefined, root?: ExplorerNode) {
         if (reason === undefined) {
             reason = RefreshReason.Command;
         }
         Logger.log(`GitExplorer[view=${this._view}].refresh`, `reason='${reason}'`);
 
         if (this._root === undefined || (root === undefined && this._view === GitExplorerView.History)) {
-            this._root = await this.getRootNode(window.activeTextEditor);
+            this.clearRoot();
+            this.setRoot(await this.getRootNode(window.activeTextEditor));
+        }
+
+        this._onDidChangeTreeData.fire();
+    }
+
+    refreshNode(node: ExplorerNode, args?: RefreshNodeCommandArgs) {
+        Logger.log(`GitExplorer[view=${this._view}].refreshNode`);
+
+        if (args !== undefined && node instanceof BranchHistoryNode) {
+            node.maxCount = args.maxCount;
         }
 
         this._onDidChangeTreeData.fire(node);
     }
 
-    refreshNode(node: ExplorerNode, args: RefreshNodeCommandArgs) {
-        if (node instanceof BranchHistoryNode) {
-            node.maxCount = args.maxCount;
-        }
-
-        this.refresh(RefreshReason.NodeCommand, node);
-    }
-
     async reset(view: GitExplorerView, force: boolean = false) {
         this.setView(view);
 
-        if (force) {
-            this._root = undefined;
+        if (force && this._root !== undefined) {
+            this.clearRoot();
         }
-        this._root = await this.getRootNode(window.activeTextEditor);
+
+        this.setRoot(await this.getRootNode(window.activeTextEditor));
+
         if (force) {
             this.refresh(RefreshReason.ViewChanged);
         }
+    }
+
+    private clearRoot() {
+        if (this._root === undefined) return;
+
+        this._root.dispose();
+        this._root = undefined;
+    }
+
+    private setRoot(root: ExplorerNode | undefined): boolean {
+        if (this._root === root) return false;
+
+        if (this._root !== undefined) {
+            this._root.dispose();
+        }
+
+        this._root = root;
+        return true;
     }
 
     setView(view: GitExplorerView) {
@@ -347,29 +374,33 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
     private _autoRefreshDisposable: Disposable | undefined;
 
-    private async setAutoRefresh(enabled: boolean, userToggle: boolean = false) {
+    private async setAutoRefresh(enabled: boolean, workspaceEnabled?: boolean) {
         if (this._autoRefreshDisposable !== undefined) {
             this._autoRefreshDisposable.dispose();
             this._autoRefreshDisposable = undefined;
         }
 
+        let toggled = false;
         if (enabled) {
-            enabled = this.context.workspaceState.get<boolean>(WorkspaceState.GitExplorerAutoRefresh, true);
+            if (workspaceEnabled === undefined) {
+                workspaceEnabled = this.context.workspaceState.get<boolean>(WorkspaceState.GitExplorerAutoRefresh, true);
+            }
+            else {
+                toggled = workspaceEnabled;
+                await this.context.workspaceState.update(WorkspaceState.GitExplorerAutoRefresh, workspaceEnabled);
 
-            if (userToggle) {
-                enabled = !enabled;
-                await this.context.workspaceState.update(WorkspaceState.GitExplorerAutoRefresh, enabled);
+                this._onDidChangeAutoRefresh.fire();
             }
 
-            if (enabled) {
-                this._autoRefreshDisposable = this.git.onDidChangeRepo(this.onRepoChanged, this);
+            if (workspaceEnabled) {
+                this._autoRefreshDisposable = this.git.onDidChange(this.onGitChanged, this);
                 this.context.subscriptions.push(this._autoRefreshDisposable);
             }
         }
 
-        setCommandContext(CommandContext.GitExplorerAutoRefresh, enabled);
+        setCommandContext(CommandContext.GitExplorerAutoRefresh, enabled && workspaceEnabled);
 
-        if (userToggle) {
+        if (toggled) {
             this.refresh(RefreshReason.AutoRefreshChanged);
         }
     }

@@ -1148,6 +1148,11 @@
                 }
             },
             {
+                "command": "gitlens.gitExplorer.refreshNode",
+                "title": "Refresh",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.gitExplorer.setFilesLayoutToAuto",
                 "title": "Show Files in Automatic View",
                 "category": "GitLens"
@@ -1407,6 +1412,10 @@
                 },
                 {
                     "command": "gitlens.gitExplorer.refresh",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.gitExplorer.refreshNode",
                     "when": "false"
                 },
                 {
@@ -1709,12 +1718,12 @@
                 },
                 {
                     "command": "gitlens.gitExplorer.setAutoRefreshToOn",
-                    "when": "view == gitlens.gitExplorer && gitlens:gitExplorer:view == repository && config.gitlens.gitExplorer.autoRefresh && !gitlens:gitExplorer:autoRefresh",
+                    "when": "view == gitlens.gitExplorer && config.gitlens.gitExplorer.autoRefresh && !gitlens:gitExplorer:autoRefresh",
                     "group": "2_gitlens"
                 },
                 {
                     "command": "gitlens.gitExplorer.setAutoRefreshToOff",
-                    "when": "view == gitlens.gitExplorer && gitlens:gitExplorer:view == repository && config.gitlens.gitExplorer.autoRefresh && gitlens:gitExplorer:autoRefresh",
+                    "when": "view == gitlens.gitExplorer && config.gitlens.gitExplorer.autoRefresh && gitlens:gitExplorer:autoRefresh",
                     "group": "2_gitlens"
                 }
             ],
@@ -1965,7 +1974,7 @@
                     "group": "1_gitlens@2"
                 },
                 {
-                    "command": "gitlens.gitExplorer.refresh",
+                    "command": "gitlens.gitExplorer.refreshNode",
                     "when": "view == gitlens.gitExplorer && viewItem != gitlens:commit-file && viewItem != gitlens:stash-file && viewItem != gitlens:status-file",
                     "group": "9_gitlens@1"
                 }

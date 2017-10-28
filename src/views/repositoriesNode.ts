@@ -1,7 +1,8 @@
 'use strict';
-import { ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { GitService, GitUri, Repository } from '../gitService';
+import { GitExplorer } from './gitExplorer';
+import { GitUri, Repository } from '../gitService';
 import { RepositoryNode } from './repositoryNode';
 
 export class RepositoriesNode extends ExplorerNode {
@@ -10,16 +11,18 @@ export class RepositoriesNode extends ExplorerNode {
 
     constructor(
         private readonly repositories: Repository[],
-        protected readonly context: ExtensionContext,
-        protected readonly git: GitService
+        private readonly explorer: GitExplorer
     ) {
         super(undefined!);
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        return this.repositories
+        this.resetChildren();
+
+        this.children = this.repositories
             .sort((a, b) => a.index - b.index)
-            .map(repo => new RepositoryNode(new GitUri(Uri.file(repo.path), { repoPath: repo.path, fileName: repo.path }), repo, this.context, this.git));
+            .map(repo => new RepositoryNode(new GitUri(Uri.file(repo.path), { repoPath: repo.path, fileName: repo.path }), repo, this.explorer));
+        return this.children;
     }
 
     getTreeItem(): TreeItem {

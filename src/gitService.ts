@@ -65,12 +65,14 @@ export enum GitRepoSearchBy {
     Sha = 'sha'
 }
 
-export enum RepoChangedReasons {
-    CacheReset = 'cache-reset',
-    Remotes = 'remotes',
-    Repositories = 'Repositories',
-    Stash = 'stash',
-    Unknown = ''
+export enum GitChangeReason {
+    GitCache = 'git-cache',
+    RemoteCache = 'remote-cache',
+    Repositories = 'repositories'
+}
+
+export interface GitChangeEvent {
+    reason: GitChangeReason;
 }
 
 export class GitService extends Disposable {
@@ -86,17 +88,15 @@ export class GitService extends Disposable {
         return this._onDidBlameFail.event;
     }
 
-    // TODO: Support multi-root { repo, reasons }[]?
-    private _onDidChangeRepo = new EventEmitter<RepoChangedReasons[]>();
-    get onDidChangeRepo(): Event<RepoChangedReasons[]> {
-        return this._onDidChangeRepo.event;
+    private _onDidChange = new EventEmitter<GitChangeEvent>();
+    get onDidChange(): Event<GitChangeEvent> {
+        return this._onDidChange.event;
     }
 
     private _cacheDisposable: Disposable | undefined;
     private _disposable: Disposable | undefined;
     private _documentKeyMap: Map<TextDocument, string>;
     private _gitCache: Map<string, GitCacheEntry>;
-    private _pendingChanges: { repo: boolean } = { repo: false };
     private _remotesCache: Map<string, GitRemote[]>;
     private _repositories: Map<string, Repository | undefined>;
     private _repositoriesPromise: Promise<void> | undefined;
@@ -140,15 +140,20 @@ export class GitService extends Disposable {
         this._versionedUriCache.clear();
     }
 
-    public get repoPath(): string | undefined {
+    get repoPath(): string | undefined {
         if (this._repositories.size !== 1) return undefined;
 
         const repo = Iterables.first(this._repositories.values());
         return repo === undefined ? undefined : repo.path;
     }
 
-    public get UseCaching() {
+    get UseCaching() {
         return this.config.advanced.caching.enabled;
+    }
+
+    private onAnyRepositoryChanged() {
+        this._gitCache.clear();
+        this._trackedCache.clear();
     }
 
     private onConfigurationChanged() {
@@ -184,77 +189,15 @@ export class GitService extends Disposable {
 
         if (this.config.blame.ignoreWhitespace !== ignoreWhitespace) {
             this._gitCache.clear();
-            this.fireRepoChange(RepoChangedReasons.CacheReset);
+
+            this.fireChange(GitChangeReason.GitCache);
         }
     }
 
     private onRemoteProvidersChanged() {
         this._remotesCache.clear();
-        this.fireRepoChange(RepoChangedReasons.Remotes);
-    }
 
-    private onWindowStateChanged(e: WindowState) {
-        if (e.focused) {
-            this._repositories.forEach(r => r && r.resume());
-        }
-        else {
-            this._repositories.forEach(r => r && r.suspend());
-        }
-
-        const suspended = !e.focused;
-        const changed = suspended !== this._suspended;
-        this._suspended = suspended;
-
-        if (suspended || !changed) return;
-
-        // If we've come back into focus and we are dirty, fire the change events
-        if (this._pendingChanges.repo) {
-            this._pendingChanges.repo = false;
-            this._fireRepoChangeDebounced!();
-        }
-    }
-
-    private async onWorkspaceFoldersChanged(e?: WorkspaceFoldersChangeEvent) {
-        let initializing = false;
-        if (e === undefined) {
-            initializing = true;
-            e = {
-                added: workspace.workspaceFolders || [],
-                removed: []
-            } as WorkspaceFoldersChangeEvent;
-        }
-
-        for (const f of e.added) {
-            if (f.uri.scheme !== DocumentSchemes.File) continue;
-
-            const fsPath = f.uri.fsPath;
-            const rp = await this.getRepoPathCore(fsPath, true);
-            if (rp === undefined) {
-                Logger.log(`onWorkspaceFoldersChanged(${fsPath})`, 'No repository found');
-                this._repositories.set(fsPath, undefined);
-            }
-            else {
-                this._repositories.set(fsPath, new Repository(f, rp, this.onRepoChanged.bind(this), this._suspended));
-            }
-        }
-
-        for (const f of e.removed) {
-            if (f.uri.scheme !== DocumentSchemes.File) continue;
-
-            const repo = this._repositories.get(f.uri.fsPath);
-            if (repo !== undefined) {
-                repo.dispose();
-            }
-
-            this._repositories.delete(f.uri.fsPath);
-        }
-
-        const hasRepository = Iterables.some(this._repositories.values(), rp => rp !== undefined);
-        await setCommandContext(CommandContext.HasRepository, hasRepository);
-
-        if (!initializing) {
-            this.fireRepoChange(RepoChangedReasons.Repositories);
-        }
+        this.fireChange(GitChangeReason.RemoteCache);
     }
 
     private onTextDocumentChanged(e: TextDocumentChangeEvent) {
@@ -282,53 +225,62 @@ export class GitService extends Disposable {
         }
     }
 
-    private onRepoChanged(uri: Uri) {
-        if (uri !== undefined && uri.path.endsWith('ref/stash')) {
-            this.fireRepoChange(RepoChangedReasons.Stash);
-
-            return;
+    private onWindowStateChanged(e: WindowState) {
+        if (e.focused) {
+            this._repositories.forEach(r => r && r.resume());
+        }
+        else {
+            this._repositories.forEach(r => r && r.suspend());
         }
 
-        this._gitCache.clear();
-        this._trackedCache.clear();
-
-        this.fireRepoChange();
+        this._suspended = !e.focused;
     }
 
-    private _fireRepoChangeDebounced: (() => void) | undefined = undefined;
-    private _repoChangedReasons: RepoChangedReasons[] = [];
-
-    private fireRepoChange(reason: RepoChangedReasons = RepoChangedReasons.Unknown) {
-        if (this._fireRepoChangeDebounced === undefined) {
-            this._fireRepoChangeDebounced = Functions.debounce(this.fireRepoChangeCore, 250);
+    private async onWorkspaceFoldersChanged(e?: WorkspaceFoldersChangeEvent) {
+        let initializing = false;
+        if (e === undefined) {
+            initializing = true;
+            e = {
+                added: workspace.workspaceFolders || [],
+                removed: []
+            } as WorkspaceFoldersChangeEvent;
         }
 
-        if (!this._repoChangedReasons.includes(reason)) {
-            this._repoChangedReasons.push(reason);
+        for (const f of e.added) {
+            if (f.uri.scheme !== DocumentSchemes.File) continue;
+
+            const fsPath = f.uri.fsPath;
+            const rp = await this.getRepoPathCore(fsPath, true);
+            if (rp === undefined) {
+                Logger.log(`onWorkspaceFoldersChanged(${fsPath})`, 'No repository found');
+                this._repositories.set(fsPath, undefined);
+            }
+            else {
+                this._repositories.set(fsPath, new Repository(f, rp, this.onAnyRepositoryChanged.bind(this), this._suspended));
+            }
         }
 
-        if (this._suspended) {
-            this._pendingChanges.repo = true;
-            return;
+        for (const f of e.removed) {
+            if (f.uri.scheme !== DocumentSchemes.File) continue;
+
+            const repo = this._repositories.get(f.uri.fsPath);
+            if (repo !== undefined) {
+                repo.dispose();
+            }
+
+            this._repositories.delete(f.uri.fsPath);
         }
 
-        return this._fireRepoChangeDebounced();
+        const hasRepository = Iterables.some(this._repositories.values(), rp => rp !== undefined);
+        await setCommandContext(CommandContext.HasRepository, hasRepository);
+
+        if (!initializing) {
+            this.fireChange(GitChangeReason.Repositories);
+        }
     }
 
-    private fireRepoChangeCore() {
-        const reasons = this._repoChangedReasons;
-        this._repoChangedReasons = [];
-
-        this._onDidChangeRepo.fire(reasons);
-    }
-
-    public async getRepositories(): Promise<Repository[]> {
-        if (this._repositoriesPromise !== undefined) {
-            await this._repositoriesPromise;
-            this._repositoriesPromise = undefined;
-        }
-
-        return [...Iterables.filter(this._repositories.values(), r => r !== undefined) as Iterable<Repository>];
+    private fireChange(reason: GitChangeReason) {
+        this._onDidChange.fire({ reason: reason });
     }
 
     checkoutFile(uri: GitUri, sha?: string) {
@@ -962,21 +914,36 @@ export class GitService extends Disposable {
 
         if (typeof filePathOrUri === 'string') return this.getRepoPathCore(filePathOrUri, false);
 
-        const folder = workspace.getWorkspaceFolder(filePathOrUri);
-        if (folder !== undefined) {
-            if (this._repositoriesPromise !== undefined) {
-                await this._repositoriesPromise;
-            }
-
-            const rp = this._repositories.get(folder.uri.fsPath);
-            if (rp !== undefined) return rp.path;
-        }
+        const repo = await this.getRepository(filePathOrUri);
+        if (repo !== undefined) return repo.path;
 
         return this.getRepoPathCore(filePathOrUri.fsPath, false);
     }
 
     private getRepoPathCore(filePath: string, isDirectory: boolean): Promise<string | undefined> {
         return Git.revparse_toplevel(isDirectory ? filePath : path.dirname(filePath));
+    }
+
+    async getRepositories(): Promise<Repository[]> {
+        const repositories = await this.getRepositoriesCore();
+        return [...Iterables.filter(repositories.values(), r => r !== undefined) as Iterable<Repository>];
+    }
+
+    private async getRepositoriesCore(): Promise<Map<string, Repository | undefined>> {
+        if (this._repositoriesPromise !== undefined) {
+            await this._repositoriesPromise;
+            this._repositoriesPromise = undefined;
+        }
+
+        return this._repositories;
+    }
+
+    async getRepository(uri: Uri): Promise<Repository | undefined> {
+        const folder = workspace.getWorkspaceFolder(uri);
+        if (folder === undefined) return undefined;
+
+        const repositories = await this.getRepositoriesCore();
+        return repositories.get(folder.uri.fsPath);
     }
 
     async getStashList(repoPath: string | undefined): Promise<GitStash | undefined> {

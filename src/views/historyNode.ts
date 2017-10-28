@@ -1,8 +1,9 @@
 'use strict';
-import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { FileHistoryNode } from './fileHistoryNode';
-import { GitService, GitUri } from '../gitService';
+import { GitUri, Repository } from '../gitService';
+import { GitExplorer } from './gitExplorer';
 
 export class HistoryNode extends ExplorerNode {
 
@@ -10,14 +11,19 @@ export class HistoryNode extends ExplorerNode {
 
     constructor(
         uri: GitUri,
-        protected readonly context: ExtensionContext,
-        protected readonly git: GitService
+        private repo: Repository,
+        private readonly explorer: GitExplorer
     ) {
         super(uri);
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        return [new FileHistoryNode(this.uri, this.context, this.git)];
+        this.resetChildren();
+
+        this.children = [
+            new FileHistoryNode(this.uri, this.repo, this.explorer)
+        ];
+        return this.children;
     }
 
     getTreeItem(): TreeItem {
@@ -25,8 +31,8 @@ export class HistoryNode extends ExplorerNode {
         item.contextValue = this.resourceType;
 
         item.iconPath = {
-            dark: this.context.asAbsolutePath('images/dark/icon-history.svg'),
-            light: this.context.asAbsolutePath('images/light/icon-history.svg')
+            dark: this.explorer.context.asAbsolutePath('images/dark/icon-history.svg'),
+            light: this.explorer.context.asAbsolutePath('images/light/icon-history.svg')
         };
 
         return item;
