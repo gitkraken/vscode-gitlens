@@ -66,10 +66,9 @@ export class AnnotationController extends Disposable {
 
         this.onConfigurationChanged();
 
-        const subscriptions: Disposable[] = [
+        this._disposable = Disposable.from(
             workspace.onDidChangeConfiguration(this.onConfigurationChanged, this)
-        ];
-        this._disposable = Disposable.from(...subscriptions);
+        );
     }
 
     dispose() {
@@ -389,16 +388,14 @@ export class AnnotationController extends Disposable {
         if (!this._annotationsDisposable && this._annotationProviders.size === 0) {
             Logger.log(`Add listener registrations for annotations`);
 
-            const subscriptions: Disposable[] = [
+            this._annotationsDisposable = Disposable.from(
                 window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 50), this),
                 window.onDidChangeTextEditorViewColumn(this.onTextEditorViewColumnChanged, this),
                 window.onDidChangeVisibleTextEditors(this.onVisibleTextEditorsChanged, this),
                 workspace.onDidChangeTextDocument(Functions.debounce(this.onTextDocumentChanged, 50), this),
                 workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
                 this.gitContextTracker.onDidChangeBlameability(this.onBlameabilityChanged, this)
-            ];
-
-            this._annotationsDisposable = Disposable.from(...subscriptions);
+            );
         }
 
         this._annotationProviders.set(provider.correlationKey, provider);

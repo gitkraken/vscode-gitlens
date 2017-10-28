@@ -53,14 +53,13 @@ export class GitContextTracker extends Disposable {
             setCommandContext(CommandContext.Enabled, gitEnabled);
 
             if (gitEnabled) {
-                const subscriptions: Disposable[] = [
+                this._disposable = Disposable.from(
                     window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 50), this),
                     workspace.onDidChangeConfiguration(this.onConfigurationChanged, this),
                     workspace.onDidChangeTextDocument(Functions.debounce(this.onTextDocumentChanged, 50), this),
                     this.git.onDidBlameFail(this.onBlameFailed, this),
-                    this.git.onDidChangeRepo(this.onRepoChanged, this)
-                ];
-                this._disposable = Disposable.from(...subscriptions);
+                    this.git.onDidChange(this.onGitChanged, this)
+                );
 
                 this.updateContext(BlameabilityChangeReason.EditorChanged, window.activeTextEditor, true);
             }

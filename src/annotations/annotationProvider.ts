@@ -33,10 +33,9 @@ export abstract class AnnotationProviderBase extends Disposable {
 
         this._config = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
 
-        const subscriptions: Disposable[] = [
+        this._disposable = Disposable.from(
             window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this)
-        ];
-        this._disposable = Disposable.from(...subscriptions);
+        );
     }
 
     async dispose() {

@@ -51,12 +51,11 @@ export class CurrentLineController extends Disposable {
 
         this.onConfigurationChanged();
 
-        const subscriptions: Disposable[] = [
+        this._disposable = Disposable.from(
             workspace.onDidChangeConfiguration(this.onConfigurationChanged, this),
             annotationController.onDidToggleAnnotations(this.onFileAnnotationsToggled, this),
             debug.onDidStartDebugSession(this.onDebugSessionStarted, this)
-        ];
-        this._disposable = Disposable.from(...subscriptions);
+        );
     }
 
     dispose() {
@@ -116,12 +115,11 @@ export class CurrentLineController extends Disposable {
 
         const trackCurrentLine = cfg.statusBar.enabled || cfg.blame.line.enabled || (this._blameLineAnnotationState !== undefined && this._blameLineAnnotationState.enabled);
         if (trackCurrentLine && !this._trackCurrentLineDisposable) {
-            const subscriptions: Disposable[] = [
+            this._trackCurrentLineDisposable = Disposable.from(
                 window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 50), this),
                 window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this),
                 this.gitContextTracker.onDidChangeBlameability(this.onBlameabilityChanged, this)
-            ];
-            this._trackCurrentLineDisposable = Disposable.from(...subscriptions);
+            );
         }
         else if (!trackCurrentLine && this._trackCurrentLineDisposable) {
             this._trackCurrentLineDisposable.dispose();

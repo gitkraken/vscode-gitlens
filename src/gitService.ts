@@ -117,13 +117,12 @@ export class GitService extends Disposable {
         this.onConfigurationChanged();
         this._repositoriesPromise = this.onWorkspaceFoldersChanged();
 
-        const subscriptions: Disposable[] = [
+        this._disposable = Disposable.from(
             window.onDidChangeWindowState(this.onWindowStateChanged, this),
             workspace.onDidChangeConfiguration(this.onConfigurationChanged, this),
             workspace.onDidChangeWorkspaceFolders(this.onWorkspaceFoldersChanged, this),
-            RemoteProviderFactory.onDidChange(this.onRemoteProviderChanged, this)
-        ];
-        this._disposable = Disposable.from(...subscriptions);
+            RemoteProviderFactory.onDidChange(this.onRemoteProvidersChanged, this)
+        );
     }
 
     dispose() {
@@ -162,11 +161,10 @@ export class GitService extends Disposable {
             if (cfg.advanced.caching.enabled) {
                 this._cacheDisposable && this._cacheDisposable.dispose();
 
-                const subscriptions: Disposable[] = [
+                this._cacheDisposable = Disposable.from(
                     workspace.onDidChangeTextDocument(Functions.debounce(this.onTextDocumentChanged, 50), this),
                     workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this)
-                ];
-                this._cacheDisposable = Disposable.from(...subscriptions);
+                );
             }
             else {
                 this._cacheDisposable && this._cacheDisposable.dispose();
@@ -190,7 +188,7 @@ export class GitService extends Disposable {
         }
     }
 
-    private onRemoteProviderChanged() {
+    private onRemoteProvidersChanged() {
         this._remotesCache.clear();
         this.fireRepoChange(RepoChangedReasons.Remotes);
     }

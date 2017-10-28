@@ -23,11 +23,10 @@ export class CodeLensController extends Disposable {
 
         this.onConfigurationChanged();
 
-        const subscriptions: Disposable[] = [
+        this._disposable = Disposable.from(
             workspace.onDidChangeConfiguration(this.onConfigurationChanged, this),
             this.gitContextTracker.onDidChangeBlameability(this.onBlameabilityChanged, this)
-        ];
-        this._disposable = Disposable.from(...subscriptions);
+        );
     }
 
     dispose() {
