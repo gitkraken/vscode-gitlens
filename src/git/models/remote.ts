@@ -10,7 +10,13 @@ export class GitRemote {
 
     provider?: RemoteProvider;
 
-    constructor(public readonly repoPath: string, public readonly name: string, public readonly url: string, public readonly domain: string, public readonly path: string, public readonly types: GitRemoteType[]) {
+    constructor(
+        public readonly repoPath: string,
+        public readonly name: string,
+        public readonly domain: string,
+        public readonly path: string,
+        public readonly types: { type: GitRemoteType, url: string }[]
+    ) {
         this.provider = RemoteProviderFactory.getRemoteProvider(this.domain, this.path);
     }
 }

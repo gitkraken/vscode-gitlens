@@ -28,8 +28,8 @@ export class RemoteNode extends ExplorerNode {
         }
 
         getTreeItem(): TreeItem {
-            const fetch = this.remote.types.includes(GitRemoteType.Push);
-            const push = this.remote.types.includes(GitRemoteType.Push);
+            const fetch = this.remote.types.find(rt => rt.type === GitRemoteType.Fetch);
+            const push = this.remote.types.find(rt => rt.type === GitRemoteType.Push);
 
             let separator;
             if (fetch && push) {

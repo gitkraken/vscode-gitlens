@@ -22,14 +22,15 @@ export class GitRemoteParser {
 
             const [domain, path] = this.parseGitUrl(url);
 
-            let remote: GitRemote | undefined = groups[url];
+            const uniqueness = `${domain}/${path}`;
+            let remote: GitRemote | undefined = groups[uniqueness];
             if (remote === undefined) {
-                remote = new GitRemote(repoPath, match[1], url, domain, path, [match[3] as GitRemoteType]);
+                remote = new GitRemote(repoPath, match[1], domain, path, [{ url: url, type: match[3] as GitRemoteType }]);
                 remotes.push(remote);
-                groups[url] = remote;
+                groups[uniqueness] = remote;
             }
             else {
-                remote.types.push(match[3] as GitRemoteType);
+                remote.types.push({ url: url, type: match[3] as GitRemoteType });
             }
         } while (match != null);
 
