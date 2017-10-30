@@ -79,6 +79,11 @@ function buildDistanceInWordsLocale() {
     function localize(token: string, count: number, options: any) {
         options = options || {};
 
+        if (count === 12 && token === 'xMonths') {
+            token = 'aboutXYears';
+            count = 1;
+        }
+
         const result = distanceInWordsLocale[token];
 
         let value: string;
@@ -86,11 +91,6 @@ function buildDistanceInWordsLocale() {
             value = result;
         }
         else {
-            if (count === 12 && token === 'xMonths') {
-                token = 'aboutXYears';
-                count = 1;
-            }
-
             if (count === 1) {
                 value = result.one;
             }
@@ -141,7 +141,9 @@ export namespace Dates {
 
     export function toFormatter(date: Date): IDateFormatter {
         return {
-            fromNow: () => _fromNow(date, formatterOptions),
+            fromNow: () => {
+                return _fromNow(date, formatterOptions);
+            },
             format: (format: string) => _format(date, format)
         };
     }
