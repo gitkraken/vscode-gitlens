@@ -238,9 +238,9 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
             this.clearRoot();
         }
 
-        this.setRoot(await this.getRootNode(window.activeTextEditor));
+        const requiresRefresh = this.setRoot(await this.getRootNode(window.activeTextEditor));
 
-        if (force) {
+        if (requiresRefresh || force) {
             this.refresh(RefreshReason.ViewChanged);
         }
     }
