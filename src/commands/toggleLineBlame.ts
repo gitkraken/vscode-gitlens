@@ -11,7 +11,9 @@ export interface ToggleLineBlameCommandArgs {
 
 export class ToggleLineBlameCommand extends EditorCommand {
 
-    constructor(private currentLineController: CurrentLineController) {
+    constructor(
+        private readonly currentLineController: CurrentLineController
+    ) {
         super(Commands.ToggleLineBlame);
     }
 

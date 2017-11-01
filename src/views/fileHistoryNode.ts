@@ -13,7 +13,7 @@ export class FileHistoryNode extends ExplorerNode {
 
     constructor(
         uri: GitUri,
-        private repo: Repository,
+        private readonly repo: Repository,
         private readonly explorer: GitExplorer
     ) {
         super(uri);

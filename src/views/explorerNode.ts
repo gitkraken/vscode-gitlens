@@ -34,7 +34,9 @@ export abstract class ExplorerNode extends Disposable {
     protected children: ExplorerNode[] | undefined;
     protected disposable: Disposable | undefined;
 
-    constructor(public readonly uri: GitUri) {
+    constructor(
+        public readonly uri: GitUri
+    ) {
         super(() => this.dispose());
     }
 
@@ -66,7 +68,9 @@ export class MessageNode extends ExplorerNode {
 
     readonly resourceType: ResourceType = 'gitlens:message';
 
-    constructor(private message: string) {
+    constructor(
+        private readonly message: string
+    ) {
         super(new GitUri());
     }
 
@@ -86,7 +90,11 @@ export class PagerNode extends ExplorerNode {
     readonly resourceType: ResourceType = 'gitlens:pager';
     args: RefreshNodeCommandArgs = {};
 
-    constructor(private message: string, private node: ExplorerNode, protected readonly context: ExtensionContext) {
+    constructor(
+        private readonly message: string,
+        private readonly node: ExplorerNode,
+        protected readonly context: ExtensionContext
+    ) {
         super(new GitUri());
     }
 
@@ -118,7 +126,11 @@ export class ShowAllNode extends PagerNode {
 
     args: RefreshNodeCommandArgs = { maxCount: 0 };
 
-    constructor(message: string, node: ExplorerNode, context: ExtensionContext) {
+    constructor(
+        message: string,
+        node: ExplorerNode,
+        context: ExtensionContext
+    ) {
         super(`${message} ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`, node, context);
     }
 }

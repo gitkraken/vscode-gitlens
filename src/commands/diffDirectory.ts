@@ -16,7 +16,9 @@ export interface DiffDirectoryCommandCommandArgs {
 
 export class DiffDirectoryCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super([Commands.DiffDirectory, Commands.ExternalDiffAll]);
     }
 

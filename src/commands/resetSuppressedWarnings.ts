@@ -6,7 +6,9 @@ import { SuppressedKeys } from '../messages';
 
 export class ResetSuppressedWarningsCommand extends Command {
 
-    constructor(private context: ExtensionContext) {
+    constructor(
+        private readonly context: ExtensionContext
+    ) {
         super(Commands.ResetSuppressedWarnings);
     }
 

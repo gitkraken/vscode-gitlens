@@ -7,14 +7,24 @@ import { GitCommit, GitService, GitUri } from './gitService';
 
 export class GitDiffWithWorkingCodeLens extends CodeLens {
 
-    constructor(git: GitService, public fileName: string, public commit: GitCommit, range: Range) {
+    constructor(
+        git: GitService,
+        public fileName: string,
+        public commit: GitCommit,
+        range: Range
+    ) {
         super(range);
     }
 }
 
 export class GitDiffWithPreviousCodeLens extends CodeLens {
 
-    constructor(git: GitService, public fileName: string, public commit: GitCommit, range: Range) {
+    constructor(
+        git: GitService,
+        public fileName: string,
+        public commit: GitCommit,
+        range: Range
+    ) {
         super(range);
     }
 }

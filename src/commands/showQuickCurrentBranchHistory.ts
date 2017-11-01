@@ -13,7 +13,9 @@ export interface ShowQuickCurrentBranchHistoryCommandArgs {
 
 export class ShowQuickCurrentBranchHistoryCommand extends ActiveEditorCachedCommand {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.ShowQuickCurrentBranchHistory);
     }
 

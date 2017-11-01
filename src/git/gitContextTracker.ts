@@ -44,7 +44,9 @@ export class GitContextTracker extends Disposable {
     private _disposable: Disposable | undefined;
     private _gitEnabled: boolean;
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(() => this.dispose());
 
         this.onConfigurationChanged();

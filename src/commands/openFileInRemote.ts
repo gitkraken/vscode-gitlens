@@ -12,7 +12,9 @@ export interface OpenFileInRemoteCommandArgs {
 
 export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.OpenFileInRemote);
     }
 

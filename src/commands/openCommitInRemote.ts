@@ -21,7 +21,9 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
         return super.getMarkdownCommandArgsCore<OpenCommitInRemoteCommandArgs>(Commands.OpenCommitInRemote, args);
     }
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.OpenCommitInRemote);
     }
 

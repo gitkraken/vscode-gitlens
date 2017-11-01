@@ -6,7 +6,11 @@ import { RemoteProvider } from './provider';
 
 export class CustomService extends RemoteProvider {
 
-    constructor(domain: string, path: string, private readonly config: IRemotesConfig) {
+    constructor(
+        domain: string,
+        path: string,
+        private readonly config: IRemotesConfig
+    ) {
         super(domain, path, config.name, true);
     }
 

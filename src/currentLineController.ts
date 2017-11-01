@@ -41,9 +41,9 @@ export class CurrentLineController extends Disposable {
 
     constructor(
         context: ExtensionContext,
-        private git: GitService,
-        private gitContextTracker: GitContextTracker,
-        private annotationController: AnnotationController
+        private readonly git: GitService,
+        private readonly gitContextTracker: GitContextTracker,
+        private readonly annotationController: AnnotationController
     ) {
         super(() => this.dispose());
 

@@ -13,7 +13,9 @@ export interface ToggleFileBlameCommandArgs {
 
 export class ToggleFileBlameCommand extends EditorCommand {
 
-    constructor(private annotationController: AnnotationController) {
+    constructor(
+        private readonly annotationController: AnnotationController
+    ) {
         super(Commands.ToggleFileBlame);
     }
 

@@ -10,7 +10,9 @@ export class BranchQuickPickItem implements QuickPickItem {
     description: string;
     detail: string;
 
-    constructor(public branch: GitBranch) {
+    constructor(
+        public readonly branch: GitBranch
+    ) {
         this.label = `${branch.current ? `$(check)${GlyphChars.Space}` : GlyphChars.Space.repeat(4)} ${branch.name}`;
         this.description = branch.remote ? `${GlyphChars.Space.repeat(2)} remote branch` : '';
     }

@@ -27,7 +27,9 @@ export interface ShowCommitSearchCommandArgs {
 
 export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.ShowCommitSearch);
     }
 

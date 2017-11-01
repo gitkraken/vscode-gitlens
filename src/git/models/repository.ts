@@ -12,7 +12,9 @@ export class RepositoryChangeEvent {
 
     readonly changes: RepositoryChange[] = [];
 
-    constructor(public repository?: Repository) { }
+    constructor(
+        public repository?: Repository
+    ) { }
 
     changed(change: RepositoryChange, solely: boolean = false) {
         if (solely) return this.changes.length === 1 && this.changes[0] === change;

@@ -6,7 +6,9 @@ import { Logger } from '../logger';
 
 export class ClearFileAnnotationsCommand extends EditorCommand {
 
-    constructor(private annotationController: AnnotationController) {
+    constructor(
+        private readonly annotationController: AnnotationController
+    ) {
         super(Commands.ClearFileAnnotations);
     }
 

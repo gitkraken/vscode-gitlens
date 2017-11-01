@@ -29,7 +29,9 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
         return super.getMarkdownCommandArgsCore<ShowQuickCommitFileDetailsCommandArgs>(Commands.ShowQuickCommitFileDetails, args);
     }
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.ShowQuickCommitFileDetails);
     }
 

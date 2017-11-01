@@ -5,7 +5,9 @@ import { Commands, EditorCommand } from './common';
 
 export class ToggleCodeLensCommand extends EditorCommand {
 
-    constructor(private codeLensController: CodeLensController) {
+    constructor(
+        private readonly codeLensController: CodeLensController
+    ) {
         super(Commands.ToggleCodeLens);
     }
 

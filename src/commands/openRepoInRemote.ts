@@ -11,7 +11,9 @@ export interface OpenRepoInRemoteCommandArgs {
 
 export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.OpenRepoInRemote);
     }
 

@@ -14,7 +14,9 @@ export interface OpenBranchInRemoteCommandArgs {
 
 export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.OpenBranchInRemote);
     }
 

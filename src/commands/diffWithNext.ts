@@ -17,7 +17,9 @@ export interface DiffWithNextCommandArgs {
 
 export class DiffWithNextCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.DiffWithNext);
     }
 

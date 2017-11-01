@@ -7,7 +7,9 @@ import { Logger } from '../logger';
 
 export class ToggleFileRecentChangesCommand extends EditorCommand {
 
-    constructor(private annotationController: AnnotationController) {
+    constructor(
+        private readonly annotationController: AnnotationController
+    ) {
         super(Commands.ToggleFileRecentChanges);
     }
 

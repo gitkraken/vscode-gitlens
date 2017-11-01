@@ -29,7 +29,9 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         return super.getMarkdownCommandArgsCore<ShowQuickCommitDetailsCommandArgs>(Commands.ShowQuickCommitDetails, args);
     }
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.ShowQuickCommitDetails);
     }
 

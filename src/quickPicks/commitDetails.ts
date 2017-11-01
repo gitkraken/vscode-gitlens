@@ -18,7 +18,10 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
     shortSha: string;
     status: GitStatusFileStatus;
 
-    constructor(commit: GitCommit, status: IGitStatusFile) {
+    constructor(
+        commit: GitCommit,
+        status: IGitStatusFile
+    ) {
         const octicon = getGitStatusOcticon(status.status);
         const description = GitStatusFile.getFormattedDirectory(status, true);
 
@@ -65,7 +68,11 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
 
 export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPickItem {
 
-    constructor(commit: GitLogCommit, versioned: boolean = false, item?: QuickPickItem) {
+    constructor(
+        commit: GitLogCommit,
+        versioned: boolean = false,
+        item?: QuickPickItem
+    ) {
         const repoPath = commit.repoPath;
         const uris = commit.fileStatuses
             .filter(s => s.status !== 'D')
@@ -81,7 +88,10 @@ export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPi
 
 export class OpenCommitFileRevisionsCommandQuickPickItem extends OpenFilesCommandQuickPickItem {
 
-    constructor(commit: GitLogCommit, item?: QuickPickItem) {
+    constructor(
+        commit: GitLogCommit,
+        item?: QuickPickItem
+    ) {
         const uris = commit.fileStatuses
             .filter(s => s.status !== 'D')
             .map(s => GitService.toGitContentUri(commit.sha, s.fileName, commit.repoPath, s.originalFileName));

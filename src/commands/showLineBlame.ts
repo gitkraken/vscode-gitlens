@@ -11,7 +11,9 @@ export interface ShowLineBlameCommandArgs {
 
 export class ShowLineBlameCommand extends EditorCommand {
 
-    constructor(private currentLineController: CurrentLineController) {
+    constructor(
+        private readonly currentLineController: CurrentLineController
+    ) {
         super(Commands.ShowLineBlame);
     }
 

@@ -52,7 +52,10 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         return this._onDidChangeTreeData.event;
     }
 
-    constructor(public readonly context: ExtensionContext, public readonly git: GitService) {
+    constructor(
+        public readonly context: ExtensionContext,
+        public readonly git: GitService
+    ) {
         commands.registerCommand('gitlens.gitExplorer.setAutoRefreshToOn', () => this.setAutoRefresh(this.git.config.gitExplorer.autoRefresh, true), this);
         commands.registerCommand('gitlens.gitExplorer.setAutoRefreshToOff', () => this.setAutoRefresh(this.git.config.gitExplorer.autoRefresh, false), this);
         commands.registerCommand('gitlens.gitExplorer.setFilesLayoutToAuto', () => this.setFilesLayout(GitExplorerFilesLayout.Auto), this);

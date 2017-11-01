@@ -29,7 +29,9 @@ let _instance: Keyboard;
 
 export class KeyboardScope extends Disposable {
 
-    constructor(private mapping: KeyMapping) {
+    constructor(
+        private readonly mapping: KeyMapping
+    ) {
         super(() => this.dispose());
 
         for (const key in mapping) {

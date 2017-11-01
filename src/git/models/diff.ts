@@ -15,7 +15,11 @@ export class GitDiffChunk {
     private _chunk: string | undefined;
     private _lines: GitDiffChunkLine[] | undefined;
 
-    constructor(chunk: string, public currentPosition: { start: number, end: number }, public previousPosition: { start: number, end: number }) {
+    constructor(
+        chunk: string,
+        public currentPosition: { start: number, end: number },
+        public previousPosition: { start: number, end: number }
+    ) {
         this._chunk = chunk;
      }
 

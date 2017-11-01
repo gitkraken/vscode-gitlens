@@ -38,7 +38,15 @@ export class GitStatusFile implements IGitStatusFile {
 
     originalFileName?: string;
 
-    constructor(public repoPath: string, public status: GitStatusFileStatus, public workTreeStatus: GitStatusFileStatus, public indexStatus: GitStatusFileStatus, public fileName: string, public staged: boolean, originalFileName?: string) {
+    constructor(
+        public repoPath: string,
+        public status: GitStatusFileStatus,
+        public workTreeStatus: GitStatusFileStatus,
+        public indexStatus: GitStatusFileStatus,
+        public fileName: string,
+        public staged: boolean,
+        originalFileName?: string
+    ) {
         this.originalFileName = originalFileName;
     }
 

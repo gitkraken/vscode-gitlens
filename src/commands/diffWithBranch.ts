@@ -17,7 +17,9 @@ export interface DiffWithBranchCommandArgs {
 
 export class DiffWithBranchCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.DiffWithBranch);
     }
 

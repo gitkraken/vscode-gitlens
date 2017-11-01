@@ -4,7 +4,12 @@ import { RemoteProvider } from './provider';
 
 export class BitbucketService extends RemoteProvider {
 
-    constructor(domain: string, path: string, name?: string, custom: boolean = false) {
+    constructor(
+        domain: string,
+        path: string,
+        name?: string,
+        custom: boolean = false
+    ) {
         super(domain, path, name, custom);
     }
 

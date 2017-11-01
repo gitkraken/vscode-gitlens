@@ -10,11 +10,11 @@ import { Logger } from './logger';
 export class GitRecentChangeCodeLens extends CodeLens {
 
     constructor(
-        public symbolKind: SymbolKind,
-        public uri: GitUri | undefined,
-        private blame: (() => GitBlameLines | undefined) | undefined,
-        public blameRange: Range,
-        public isFullRange: boolean,
+        public readonly symbolKind: SymbolKind,
+        public readonly uri: GitUri | undefined,
+        private readonly blame: (() => GitBlameLines | undefined) | undefined,
+        public readonly blameRange: Range,
+        public readonly isFullRange: boolean,
         range: Range,
         public dirty: boolean
     ) {
@@ -29,11 +29,11 @@ export class GitRecentChangeCodeLens extends CodeLens {
 export class GitAuthorsCodeLens extends CodeLens {
 
     constructor(
-        public symbolKind: SymbolKind,
-        public uri: GitUri | undefined,
-        private blame: () => GitBlameLines | undefined,
-        public blameRange: Range,
-        public isFullRange: boolean,
+        public readonly symbolKind: SymbolKind,
+        public readonly uri: GitUri | undefined,
+        private readonly blame: () => GitBlameLines | undefined,
+        public readonly blameRange: Range,
+        public readonly isFullRange: boolean,
         range: Range
     ) {
         super(range);
@@ -55,7 +55,10 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
     private _config: IConfig;
 
-    constructor(context: ExtensionContext, private git: GitService) {
+    constructor(
+        context: ExtensionContext,
+        private readonly git: GitService
+    ) {
         this._config = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
     }
 

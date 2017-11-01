@@ -15,7 +15,9 @@ export interface ShowQuickStashListCommandArgs {
 
 export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.ShowQuickStashList);
     }
 

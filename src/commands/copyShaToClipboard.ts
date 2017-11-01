@@ -12,7 +12,9 @@ export interface CopyShaToClipboardCommandArgs {
 
 export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.CopyShaToClipboard);
     }
 

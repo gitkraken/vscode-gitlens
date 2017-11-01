@@ -13,7 +13,9 @@ export interface CopyMessageToClipboardCommandArgs {
 
 export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.CopyMessageToClipboard);
     }
 

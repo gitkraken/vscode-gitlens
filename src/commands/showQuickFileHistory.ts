@@ -21,7 +21,9 @@ export interface ShowQuickFileHistoryCommandArgs {
 
 export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.ShowQuickFileHistory);
     }
 

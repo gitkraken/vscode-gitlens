@@ -15,7 +15,9 @@ export interface DiffWithWorkingCommandArgs {
 
 export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.DiffWithWorking);
     }
 

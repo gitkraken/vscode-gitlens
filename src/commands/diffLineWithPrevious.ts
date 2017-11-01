@@ -15,7 +15,9 @@ export interface DiffLineWithPreviousCommandArgs {
 
 export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.DiffLineWithPrevious);
     }
 

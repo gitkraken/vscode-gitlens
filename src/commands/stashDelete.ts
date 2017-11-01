@@ -15,7 +15,9 @@ export interface StashDeleteCommandArgs {
 
 export class StashDeleteCommand extends Command {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.StashDelete);
     }
 

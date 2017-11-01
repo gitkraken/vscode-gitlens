@@ -11,7 +11,10 @@ import * as path from 'path';
 
 export class OpenCommitFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 
-    constructor(commit: GitLogCommit, item?: QuickPickItem) {
+    constructor(
+        commit: GitLogCommit,
+        item?: QuickPickItem
+    ) {
         const uri = Uri.file(path.resolve(commit.repoPath, commit.fileName));
         super(uri, item || {
             label: `$(file-symlink-file) Open File`,
@@ -22,7 +25,10 @@ export class OpenCommitFileCommandQuickPickItem extends OpenFileCommandQuickPick
 
 export class OpenCommitFileRevisionCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 
-    constructor(commit: GitLogCommit, item?: QuickPickItem) {
+    constructor(
+        commit: GitLogCommit,
+        item?: QuickPickItem
+    ) {
         let description: string;
         let uri: Uri;
         if (commit.status === 'D') {

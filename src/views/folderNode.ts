@@ -20,8 +20,8 @@ export class FolderNode extends ExplorerNode {
 
     constructor(
         public readonly repoPath: string,
-        public folderName: string,
-        public relativePath: string | undefined,
+        public readonly folderName: string,
+        public readonly relativePath: string | undefined,
         public readonly root: Arrays.IHierarchicalItem<IFileExplorerNode>,
         private readonly config: IGitExplorerConfig
     ) {

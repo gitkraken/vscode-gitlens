@@ -13,7 +13,7 @@ export class StatusFileCommitsNode extends ExplorerNode {
     constructor(
         public readonly repoPath: string,
         public readonly status: IGitStatusFile,
-        public commits: GitLogCommit[],
+        public readonly commits: GitLogCommit[],
         protected readonly context: ExtensionContext,
         protected readonly git: GitService,
         public readonly branch?: GitBranch

@@ -15,9 +15,9 @@ export class CodeLensController extends Disposable {
     private _disposable: Disposable | undefined;
 
     constructor(
-        private context: ExtensionContext,
-        private git: GitService,
-        private gitContextTracker: GitContextTracker
+        private readonly context: ExtensionContext,
+        private readonly git: GitService,
+        private readonly gitContextTracker: GitContextTracker
     ) {
         super(() => this.dispose());
 

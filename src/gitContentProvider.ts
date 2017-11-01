@@ -9,7 +9,10 @@ export class GitContentProvider implements TextDocumentContentProvider {
 
     static scheme = DocumentSchemes.GitLensGit;
 
-    constructor(context: ExtensionContext, private git: GitService) { }
+    constructor(
+        context: ExtensionContext,
+        private readonly git: GitService
+    ) { }
 
     async provideTextDocumentContent(uri: Uri, token: CancellationToken): Promise<string | undefined> {
         const data = GitService.fromGitContentUri(uri);

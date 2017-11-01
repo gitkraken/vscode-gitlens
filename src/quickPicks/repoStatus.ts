@@ -10,7 +10,10 @@ import * as path from 'path';
 
 export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 
-    constructor(status: GitStatusFile, item?: QuickPickItem) {
+    constructor(
+        status: GitStatusFile,
+        item?: QuickPickItem
+    ) {
         const octicon = status.getOcticon();
         const description = status.getFormattedDirectory(true);
 
@@ -34,7 +37,10 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
 
 export class OpenStatusFilesCommandQuickPickItem extends CommandQuickPickItem {
 
-    constructor(statuses: GitStatusFile[], item?: QuickPickItem) {
+    constructor(
+        statuses: GitStatusFile[],
+        item?: QuickPickItem
+    ) {
         const uris = statuses.map(f => f.Uri);
 
         super(item || {

@@ -41,7 +41,10 @@ interface Resource extends SourceControlResourceState {
 
 class ExternalDiffFile {
 
-    constructor(public uri: Uri, public staged: boolean) { }
+    constructor(
+        public readonly uri: Uri,
+        public readonly staged: boolean
+    ) { }
 }
 
 export interface ExternalDiffCommandArgs {
@@ -50,7 +53,9 @@ export interface ExternalDiffCommandArgs {
 
 export class ExternalDiffCommand extends Command {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.ExternalDiff);
     }
 

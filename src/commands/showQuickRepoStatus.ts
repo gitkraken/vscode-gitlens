@@ -12,7 +12,9 @@ export interface ShowQuickRepoStatusCommandArgs {
 
 export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.ShowQuickRepoStatus);
     }
 

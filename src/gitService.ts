@@ -20,14 +20,18 @@ export * from './git/gitContextTracker';
 
 class UriCacheEntry {
 
-    constructor(public readonly uri: GitUri) { }
+    constructor(
+        public readonly uri: GitUri
+    ) { }
 }
 
 class GitCacheEntry {
 
     private cache: Map<string, CachedBlame | CachedDiff | CachedLog> = new Map();
 
-    constructor(public readonly key: string) { }
+    constructor(
+        public readonly key: string
+    ) { }
 
     get hasErrors(): boolean {
         return Iterables.every(this.cache.values(), entry => entry.errorMessage !== undefined);

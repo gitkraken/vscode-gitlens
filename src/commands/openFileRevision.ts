@@ -33,7 +33,9 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
         return super.getMarkdownCommandArgsCore<OpenFileRevisionCommandArgs>(Commands.OpenFileRevision, args);
     }
 
-    constructor(private annotationController: AnnotationController) {
+    constructor(
+        private readonly annotationController: AnnotationController
+    ) {
         super(Commands.OpenFileRevision);
     }
 

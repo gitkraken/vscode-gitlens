@@ -12,7 +12,10 @@ export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
     private remote: GitRemote;
     private resource: RemoteResource;
 
-    constructor(remote: GitRemote, resource: RemoteResource) {
+    constructor(
+        remote: GitRemote,
+        resource: RemoteResource
+    ) {
         super({
             label: `$(link-external) Open ${getNameFromRemoteResource(resource)} in ${remote.provider!.name}`,
             description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(repo) ${remote.provider!.path}`
@@ -29,7 +32,11 @@ export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 
 export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
 
-    constructor(remotes: GitRemote[], resource: RemoteResource, goBackCommand?: CommandQuickPickItem) {
+    constructor(
+        remotes: GitRemote[],
+        resource: RemoteResource,
+        goBackCommand?: CommandQuickPickItem
+    ) {
         const name = getNameFromRemoteResource(resource);
 
         let description = '';

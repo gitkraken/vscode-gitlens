@@ -7,7 +7,12 @@ export class GitBranch {
     remote: boolean;
     tracking?: string;
 
-    constructor(public readonly repoPath: string, branch: string, current: boolean = false, tracking?: string) {
+    constructor(
+        public readonly repoPath: string,
+        branch: string,
+        current: boolean = false,
+        tracking?: string
+    ) {
         if (branch.startsWith('remotes/')) {
             branch = branch.substring(8);
             this.remote = true;

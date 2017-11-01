@@ -16,8 +16,8 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         editor: TextEditor,
         decoration: TextEditorDecorationType | undefined,
         highlightDecoration: TextEditorDecorationType | undefined,
-        protected git: GitService,
-        protected uri: GitUri
+        protected readonly git: GitService,
+        protected readonly uri: GitUri
     ) {
         super(context, editor, decoration, highlightDecoration);
 

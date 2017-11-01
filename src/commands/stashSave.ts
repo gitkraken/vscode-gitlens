@@ -15,7 +15,9 @@ export interface StashSaveCommandArgs {
 
 export class StashSaveCommand extends Command {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.StashSave);
     }
 

@@ -13,8 +13,8 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
         editor: TextEditor,
         decoration: TextEditorDecorationType | undefined,
         highlightDecoration: TextEditorDecorationType | undefined,
-        private git: GitService,
-        private uri: GitUri
+        private readonly git: GitService,
+        private readonly uri: GitUri
     ) {
         super(context, editor, decoration, highlightDecoration);
     }

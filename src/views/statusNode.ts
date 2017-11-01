@@ -12,8 +12,8 @@ export class StatusNode extends ExplorerNode {
 
     constructor(
         uri: GitUri,
-        private repo: Repository,
-        private parent: ExplorerNode,
+        private readonly repo: Repository,
+        private readonly parent: ExplorerNode,
         private readonly explorer: GitExplorer
     ) {
         super(uri);

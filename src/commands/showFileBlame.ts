@@ -12,7 +12,9 @@ export interface ShowFileBlameCommandArgs {
 
 export class ShowFileBlameCommand extends EditorCommand {
 
-    constructor(private annotationController: AnnotationController) {
+    constructor(
+        private readonly annotationController: AnnotationController
+    ) {
         super(Commands.ShowFileBlame);
     }
 

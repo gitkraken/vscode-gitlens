@@ -79,7 +79,9 @@ export class DiffWithCommand extends ActiveEditorCommand {
         return super.getMarkdownCommandArgsCore<DiffWithCommandArgs>(Commands.DiffWith, args);
     }
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.DiffWith);
     }
 

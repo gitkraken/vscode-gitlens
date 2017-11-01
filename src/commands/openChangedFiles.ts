@@ -11,7 +11,9 @@ export interface OpenChangedFilesCommandArgs {
 
 export class OpenChangedFilesCommand extends ActiveEditorCommand {
 
-    constructor(private git: GitService) {
+    constructor(
+        private readonly git: GitService
+    ) {
         super(Commands.OpenChangedFiles);
     }
 
