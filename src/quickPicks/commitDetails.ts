@@ -1,5 +1,5 @@
 'use strict';
-import { Iterables, Strings } from '../system';
+import { Arrays, Iterables, Strings } from '../system';
 import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from 'vscode';
 import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandCommandArgs, DiffWithPreviousCommandArgs, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, QuickPickItem } from './common';
@@ -74,9 +74,8 @@ export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPi
         item?: QuickPickItem
     ) {
         const repoPath = commit.repoPath;
-        const uris = commit.fileStatuses
-            .filter(s => s.status !== 'D')
-            .map(s => GitUri.fromFileStatus(s, repoPath));
+        const uris = Arrays.filterMap(commit.fileStatuses,
+            f => f.status !== 'D' ? GitUri.fromFileStatus(f, repoPath) : undefined);
 
         super(uris, item || {
             label: `$(file-symlink-file) Open Changed Files`,
@@ -92,9 +91,8 @@ export class OpenCommitFileRevisionsCommandQuickPickItem extends OpenFilesComman
         commit: GitLogCommit,
         item?: QuickPickItem
     ) {
-        const uris = commit.fileStatuses
-            .filter(s => s.status !== 'D')
-            .map(s => GitService.toGitContentUri(commit.sha, s.fileName, commit.repoPath, s.originalFileName));
+        const uris = Arrays.filterMap(commit.fileStatuses,
+            f => f.status !== 'D' ? GitService.toGitContentUri(commit.sha, f.fileName, commit.repoPath, f.originalFileName) : undefined);
 
         super(uris, item || {
             label: `$(file-symlink-file) Open Changed Revisions`,

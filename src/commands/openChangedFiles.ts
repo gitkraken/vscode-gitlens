@@ -1,4 +1,5 @@
 'use strict';
+import { Arrays } from '../system';
 import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
 import { GitService } from '../gitService';
@@ -30,7 +31,8 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
                 const status = await this.git.getStatusForRepo(repoPath);
                 if (status === undefined) return window.showWarningMessage(`Unable to open changed files`);
 
-                args.uris = status.files.filter(f => f.status !== 'D').map(f => f.Uri);
+                args.uris = Arrays.filterMap(status.files,
+                    f => f.status !== 'D' ? f.Uri : undefined);
             }
 
             for (const uri of args.uris) {

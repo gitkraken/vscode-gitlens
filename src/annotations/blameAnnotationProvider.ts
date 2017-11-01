@@ -1,5 +1,5 @@
 'use strict';
-import { Iterables } from '../system';
+import { Arrays, Iterables } from '../system';
 import { CancellationToken, Disposable, ExtensionContext, Hover, HoverProvider, languages, Position, Range, TextDocument, TextEditor, TextEditorDecorationType } from 'vscode';
 import { FileAnnotationType } from './annotationController';
 import { AnnotationProviderBase } from './annotationProvider';
@@ -56,9 +56,8 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
             return;
         }
 
-        const highlightDecorationRanges = blame.lines
-            .filter(l => l.sha === sha)
-            .map(l => this.editor.document.validateRange(new Range(l.line, 0, l.line, 1000000)));
+        const highlightDecorationRanges = Arrays.filterMap(blame.lines,
+            l => l.sha !== sha ? this.editor.document.validateRange(new Range(l.line, 0, l.line, 1000000)) : undefined);
 
         this.editor.setDecorations(this.highlightDecoration, highlightDecorationRanges);
     }

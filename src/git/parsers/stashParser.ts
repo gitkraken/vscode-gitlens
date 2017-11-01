@@ -1,4 +1,5 @@
 'use strict';
+import { Arrays } from '../../system';
 import { Git, GitStash, GitStashCommit, GitStatusFileStatus, IGitStatusFile } from './../git';
 // import { Logger } from '../../logger';
 
@@ -120,7 +121,8 @@ export class GitStashParser {
                     }
 
                     if (entry.fileStatuses) {
-                        entry.fileNames = entry.fileStatuses.filter(f => !!f.fileName).map(f => f.fileName).join(', ');
+                        entry.fileNames = Arrays.filterMap(entry.fileStatuses,
+                            f => !!f.fileName ? f.fileName : undefined).join(', ');
                     }
 
                     entries.push(entry);

@@ -17,7 +17,7 @@ export namespace Iterables {
     export function* filterMap<T, TMapped>(source: Iterable<T> | IterableIterator<T>, predicateMapper: (item: T) => TMapped | undefined | null): Iterable<TMapped> {
         for (const item of source) {
             const mapped = predicateMapper(item);
-            if (mapped) yield mapped;
+            if (mapped != null) yield mapped;
         }
     }
 

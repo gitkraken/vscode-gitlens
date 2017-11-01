@@ -1,5 +1,5 @@
 'use strict';
-import { Functions, Objects } from '../system';
+import { Arrays, Functions, Objects } from '../system';
 import { commands, Disposable, Event, EventEmitter, ExtensionContext, TextDocumentShowOptions, TextEditor, TreeDataProvider, TreeItem, Uri, window, workspace } from 'vscode';
 import { Commands, DiffWithCommandArgs, DiffWithCommandArgsRevision, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, OpenFileInRemoteCommandArgs } from '../commands';
 import { UriComparer } from '../comparers';
@@ -334,28 +334,25 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
     private async openChangedFileChangesWithWorking(node: CommitNode | StashNode, options: TextDocumentShowOptions = { preserveFocus: false, preview: false }) {
         const repoPath = node.commit.repoPath;
-        const uris = node.commit.fileStatuses
-            .filter(s => s.status !== 'D')
-            .map(s => GitUri.fromFileStatus(s, repoPath));
+        const uris = Arrays.filterMap(node.commit.fileStatuses,
+            f => f.status !== 'D' ? GitUri.fromFileStatus(f, repoPath) : undefined);
         for (const uri of uris) {
-            await this.openDiffWith(repoPath,
-                { uri: uri, sha: node.commit.sha },
-                { uri: uri, sha: '' }, options);
+            await this.openDiffWith(repoPath, { uri: uri, sha: node.commit.sha }, { uri: uri, sha: '' }, options);
         }
     }
 
     private async openChangedFiles(node: CommitNode | StashNode, options: TextDocumentShowOptions = { preserveFocus: false, preview: false }) {
         const repoPath = node.commit.repoPath;
-        const uris = node.commit.fileStatuses.filter(s => s.status !== 'D').map(s => GitUri.fromFileStatus(s, repoPath));
+        const uris = Arrays.filterMap(node.commit.fileStatuses,
+            f => f.status !== 'D' ? GitUri.fromFileStatus(f, repoPath) : undefined);
         for (const uri of uris) {
             await openEditor(uri, options);
         }
     }
 
     private async openChangedFileRevisions(node: CommitNode | StashNode, options: TextDocumentShowOptions = { preserveFocus: false, preview: false }) {
-        const uris = node.commit.fileStatuses
-            .filter(s => s.status !== 'D')
-            .map(s => GitService.toGitContentUri(node.commit.sha, s.fileName, node.commit.repoPath, s.originalFileName));
+        const uris = Arrays.filterMap(node.commit.fileStatuses,
+            f => f.status !== 'D' ? GitService.toGitContentUri(node.commit.sha, f.fileName, node.commit.repoPath, f.originalFileName) : undefined);
         for (const uri of uris) {
             await openEditor(uri, options);
         }

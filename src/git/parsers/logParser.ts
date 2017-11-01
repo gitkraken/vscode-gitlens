@@ -1,5 +1,5 @@
 'use strict';
-import { Strings } from '../../system';
+import { Arrays, Strings } from '../../system';
 import { Range } from 'vscode';
 import { Git, GitAuthor, GitCommitType, GitLog, GitLogCommit, GitStatusFileStatus, IGitStatusFile } from './../git';
 // import { Logger } from '../../logger';
@@ -170,7 +170,8 @@ export class GitLogParser {
                         }
 
                         if (entry.fileStatuses) {
-                            entry.fileName = entry.fileStatuses.filter(f => !!f.fileName).map(f => f.fileName).join(', ');
+                            entry.fileName = Arrays.filterMap(entry.fileStatuses,
+                                f => !!f.fileName ? f.fileName : undefined).join(', ');
                         }
                     }
                     else {

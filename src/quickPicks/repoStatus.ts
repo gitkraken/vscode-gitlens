@@ -56,34 +56,84 @@ export class OpenStatusFilesCommandQuickPickItem extends CommandQuickPickItem {
     }
 }
 
+interface ComputedStatus {
+    staged: number;
+    stagedAddsAndChanges: GitStatusFile[];
+    stagedStatus: string;
+
+    unstaged: number;
+    unstagedAddsAndChanges: GitStatusFile[];
+    unstagedStatus: string;
+}
+
 export class RepoStatusQuickPick {
+
+    private static computeStatus(files: GitStatusFile[]): ComputedStatus {
+        let stagedAdds = 0;
+        let unstagedAdds = 0;
+        let stagedChanges = 0;
+        let unstagedChanges = 0;
+        let stagedDeletes = 0;
+        let unstagedDeletes = 0;
+
+        const stagedAddsAndChanges: GitStatusFile[] = [];
+        const unstagedAddsAndChanges: GitStatusFile[] = [];
+
+        for (const f of files) {
+            switch (f.status) {
+                case 'A':
+                case '?':
+                    if (f.staged) {
+                        stagedAdds++;
+                        stagedAddsAndChanges.push(f);
+                    }
+                    else {
+                        unstagedAdds++;
+                        unstagedAddsAndChanges.push(f);
+                    }
+                    break;
+
+                case 'D':
+                    if (f.staged) {
+                        stagedDeletes++;
+                    }
+                    else {
+                        unstagedDeletes++;
+                    }
+                    break;
+
+                default:
+                    if (f.staged) {
+                        stagedChanges++;
+                        stagedAddsAndChanges.push(f);
+                    }
+                    else {
+                        unstagedChanges++;
+                        unstagedAddsAndChanges.push(f);
+                    }
+                    break;
+            }
+        }
+
+        const staged = stagedAdds + stagedChanges + stagedDeletes;
+        const unstaged = unstagedAdds + unstagedChanges + unstagedDeletes;
+
+        return {
+            staged: staged,
+            stagedStatus: staged > 0 ? `+${stagedAdds} ~${stagedChanges} -${stagedDeletes}` : '',
+            stagedAddsAndChanges: stagedAddsAndChanges,
+            unstaged: unstaged,
+            unstagedStatus: unstaged > 0 ? `+${unstagedAdds} ~${unstagedChanges} -${unstagedDeletes}` : '',
+            unstagedAddsAndChanges: unstagedAddsAndChanges
+        };
+    }
 
     static async show(status: GitStatus, goBackCommand?: CommandQuickPickItem): Promise<OpenStatusFileCommandQuickPickItem | OpenStatusFilesCommandQuickPickItem | CommandQuickPickItem | undefined> {
         // Sort the status by staged and then filename
         const files = status.files;
         files.sort((a, b) => (a.staged ? -1 : 1) - (b.staged ? -1 : 1) || a.fileName.localeCompare(b.fileName));
 
-        const added = files.filter(f => f.status === 'A' || f.status === '?');
-        const deleted = files.filter(f => f.status === 'D');
-        const changed = files.filter(f => f.status !== 'A' && f.status !== '?' && f.status !== 'D');
-
-        const hasStaged = files.some(f => f.staged);
-
-        let stagedStatus = '';
-        let unstagedStatus = '';
-        if (hasStaged) {
-            const stagedAdded = added.filter(f => f.staged).length;
-            const stagedChanged = changed.filter(f => f.staged).length;
-            const stagedDeleted = deleted.filter(f => f.staged).length;
-
-            stagedStatus = `+${stagedAdded} ~${stagedChanged} -${stagedDeleted}`;
-            unstagedStatus = `+${added.length - stagedAdded} ~${changed.length - stagedChanged} -${deleted.length - stagedDeleted}`;
-        }
-        else {
-            unstagedStatus = `+${added.length} ~${changed.length} -${deleted.length}`;
-        }
-
-        const items = Array.from(Iterables.map(files, s => new OpenStatusFileCommandQuickPickItem(s))) as (OpenStatusFileCommandQuickPickItem | OpenStatusFilesCommandQuickPickItem | CommandQuickPickItem)[];
+        const items = [...Iterables.map(files, s => new OpenStatusFileCommandQuickPickItem(s))] as (OpenStatusFileCommandQuickPickItem | OpenStatusFilesCommandQuickPickItem | CommandQuickPickItem)[];
 
         const currentCommand = new CommandQuickPickItem({
             label: `go back ${GlyphChars.ArrowBack}`,
@@ -95,13 +145,14 @@ export class RepoStatusQuickPick {
                 } as ShowQuickRepoStatusCommandArgs
             ]);
 
-        if (hasStaged) {
+        const computed = this.computeStatus(files);
+        if (computed.staged > 0) {
             let index = 0;
-            const unstagedIndex = files.findIndex(f => !f.staged);
+            const unstagedIndex = computed.unstaged > 0 ? files.findIndex(f => !f.staged) : -1;
             if (unstagedIndex > -1) {
                 items.splice(unstagedIndex, 0, new CommandQuickPickItem({
                     label: `Unstaged Files`,
-                    description: unstagedStatus
+                    description: computed.unstagedStatus
                 }, Commands.ShowQuickRepoStatus, [
                         undefined,
                         {
@@ -109,12 +160,12 @@ export class RepoStatusQuickPick {
                         } as ShowQuickRepoStatusCommandArgs
                     ]));
 
-                items.splice(unstagedIndex, 0, new OpenStatusFilesCommandQuickPickItem(files.filter(f => f.status !== 'D' && f.staged), {
+                items.splice(unstagedIndex, 0, new OpenStatusFilesCommandQuickPickItem(computed.stagedAddsAndChanges, {
                     label: `${GlyphChars.Space.repeat(4)} $(file-symlink-file) Open Staged Files`,
                     description: ''
                 }));
 
-                items.push(new OpenStatusFilesCommandQuickPickItem(files.filter(f => f.status !== 'D' && !f.staged), {
+                items.push(new OpenStatusFilesCommandQuickPickItem(computed.unstagedAddsAndChanges, {
                     label: `${GlyphChars.Space.repeat(4)} $(file-symlink-file) Open Unstaged Files`,
                     description: ''
                 }));
@@ -122,7 +173,7 @@ export class RepoStatusQuickPick {
 
             items.splice(index++, 0, new CommandQuickPickItem({
                 label: `Staged Files`,
-                description: stagedStatus
+                description: computed.stagedStatus
             }, Commands.ShowQuickRepoStatus, [
                     undefined,
                     {
@@ -133,7 +184,7 @@ export class RepoStatusQuickPick {
         else if (files.some(f => !f.staged)) {
             items.splice(0, 0, new CommandQuickPickItem({
                 label: `Unstaged Files`,
-                description: unstagedStatus
+                description: computed.unstagedStatus
             }, Commands.ShowQuickRepoStatus, [
                     undefined,
                     {
@@ -143,7 +194,7 @@ export class RepoStatusQuickPick {
         }
 
         if (files.length) {
-            items.push(new OpenStatusFilesCommandQuickPickItem(files.filter(f => f.status !== 'D')));
+            items.push(new OpenStatusFilesCommandQuickPickItem(computed.stagedAddsAndChanges.concat(computed.unstagedAddsAndChanges)));
             items.push(new CommandQuickPickItem({
                 label: '$(x) Close Unchanged Files',
                 description: ''

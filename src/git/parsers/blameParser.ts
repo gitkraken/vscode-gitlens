@@ -37,11 +37,9 @@ export class GitBlameParser {
         let line: string;
         let lineParts: string[];
 
-        let i = -1;
         let first = true;
 
         for (line of Strings.lines(data)) {
-            i++;
             lineParts = line.split(' ');
             if (lineParts.length < 2) continue;
 

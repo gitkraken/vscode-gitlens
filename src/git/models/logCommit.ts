@@ -63,9 +63,25 @@ export class GitLogCommit extends GitCommit {
     }
 
     getDiffStatus(): string {
-        const added = this.fileStatuses.filter(f => f.status === 'A' || f.status === '?').length;
-        const deleted = this.fileStatuses.filter(f => f.status === 'D').length;
-        const changed = this.fileStatuses.filter(f => f.status !== 'A' && f.status !== '?' && f.status !== 'D').length;
+        let added = 0;
+        let deleted = 0;
+        let changed = 0;
+
+        for (const f of this.fileStatuses) {
+            switch (f.status) {
+                case 'A':
+                case '?':
+                    added++;
+                    break;
+                case 'D':
+                    deleted++;
+                    break;
+                default:
+                    changed++;
+                    break;
+            }
+        }
+
         return `+${added} ~${changed} -${deleted}`;
     }
 

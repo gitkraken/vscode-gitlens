@@ -2,21 +2,41 @@
 import { Objects } from './object';
 
 export namespace Arrays {
-    export function countUniques<T>(array: T[], accessor: (item: T) => string): { [key: string]: number } {
+    export function countUniques<T>(source: T[], accessor: (item: T) => string): { [key: string]: number } {
         const uniqueCounts = Object.create(null);
-        for (const item of array) {
+        for (const item of source) {
             const value = accessor(item);
             uniqueCounts[value] = (uniqueCounts[value] || 0) + 1;
         }
         return uniqueCounts;
     }
 
-    export function groupBy<T>(array: T[], accessor: (item: T) => string): { [key: string]: T[] } {
-        return array.reduce((previous, current) => {
+    export function filterMap<T, TMapped>(source: T[], predicateMapper: (item: T) => TMapped | null | undefined): TMapped[] {
+        return source.reduce((accumulator, current) => {
+            const mapped = predicateMapper(current);
+            if (mapped != null) {
+                accumulator.push(mapped);
+            }
+            return accumulator;
+        }, [] as any);
+    }
+
+    export async function filterMapAsync<T, TMapped>(source: T[], predicateMapper: (item: T) => Promise<TMapped | null | undefined>): Promise<TMapped[]> {
+        return source.reduce(async (accumulator, current) => {
+            const mapped = await predicateMapper(current);
+            if (mapped != null) {
+                accumulator.push(mapped);
+            }
+            return accumulator;
+        }, [] as any);
+    }
+
+    export function groupBy<T>(source: T[], accessor: (item: T) => string): { [key: string]: T[] } {
+        return source.reduce((groupings, current) => {
             const value = accessor(current);
-            previous[value] = previous[value] || [];
-            previous[value].push(current);
-            return previous;
+            groupings[value] = groupings[value] || [];
+            groupings[value].push(current);
+            return groupings;
         }, Object.create(null));
     }
 
@@ -110,9 +130,9 @@ export namespace Arrays {
         return root;
     }
 
-    export function uniqueBy<T>(array: T[], accessor: (item: T) => any, predicate?: (item: T) => boolean): T[] {
+    export function uniqueBy<T>(source: T[], accessor: (item: T) => any, predicate?: (item: T) => boolean): T[] {
         const uniqueValues = Object.create(null);
-        return array.filter(item => {
+        return source.filter(item => {
             const value = accessor(item);
             if (uniqueValues[value]) return false;
 

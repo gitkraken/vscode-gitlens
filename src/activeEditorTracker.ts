@@ -7,7 +7,7 @@ import { BuiltInCommands } from './constants';
 export class ActiveEditorTracker extends Disposable {
 
     private _disposable: Disposable;
-    private _resolver: ((value?: TextEditor | PromiseLike<TextEditor>) => void) | undefined;
+    private _resolver: ((editor: TextEditor | undefined) => void) | undefined;
 
     constructor() {
         super(() => this.dispose());
@@ -42,11 +42,11 @@ export class ActiveEditorTracker extends Disposable {
         const editor = await new Promise<TextEditor>((resolve, reject) => {
             let timer: any;
 
-            this._resolver = (e: TextEditor) => {
+            this._resolver = (editor: TextEditor | undefined) => {
                 if (timer) {
                     clearTimeout(timer as any);
                     timer = 0;
-                    resolve(e);
+                    resolve(editor);
                 }
             };
 

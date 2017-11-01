@@ -1,4 +1,5 @@
 'use strict';
+import { Arrays } from '../system';
 import { commands, SourceControlResourceState, Uri, window } from 'vscode';
 import { Command, Commands } from './common';
 import { BuiltInCommands } from '../constants';
@@ -63,21 +64,24 @@ export class ExternalDiffCommand extends Command {
         if (context.type === 'scm-states') {
             args = { ...args };
             args.files = context.scmResourceStates
-                .map<ExternalDiffFile>((r: Resource) => new ExternalDiffFile(r.resourceUri, r.resourceGroupType === ResourceGroupType.Index));
+                .map(r => new ExternalDiffFile(r.resourceUri, (r as Resource).resourceGroupType === ResourceGroupType.Index));
 
             return this.execute(args);
-        } else if (context.type === 'scm-groups') {
-            const isModified = (status: Status): boolean => status === Status.BOTH_MODIFIED || status === Status.INDEX_MODIFIED || status === Status.MODIFIED;
-
+        }
+        else if (context.type === 'scm-groups') {
             args = { ...args };
-            args.files = context.scmResourceGroups[0].resourceStates
-                .filter((r: Resource) => isModified(r.type))
-                .map<ExternalDiffFile>((r: Resource) => new ExternalDiffFile(r.resourceUri, r.resourceGroupType === ResourceGroupType.Index));
+            args.files = Arrays.filterMap(context.scmResourceGroups[0].resourceStates,
+                r => this.isModified(r) ? new ExternalDiffFile(r.resourceUri, (r as Resource).resourceGroupType === ResourceGroupType.Index) : undefined);
 
             return this.execute(args);
         }
 
         return this.execute(args);
+    }
+
+    private isModified(resource: SourceControlResourceState) {
+        const status = (resource as Resource).type;
+        return status === Status.BOTH_MODIFIED || status === Status.INDEX_MODIFIED || status === Status.MODIFIED;
     }
 
     async execute(args: ExternalDiffCommandArgs = {}) {
