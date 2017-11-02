@@ -28,18 +28,18 @@ export class StatusNode extends ExplorerNode {
         if (status === undefined) return this.children;
 
         if (status.state.behind) {
-            this.children.push(new StatusUpstreamNode(status, 'behind', this.explorer.context, this.explorer.git));
+            this.children.push(new StatusUpstreamNode(status, 'behind', this.explorer));
         }
 
         if (status.state.ahead) {
-            this.children.push(new StatusUpstreamNode(status, 'ahead', this.explorer.context, this.explorer.git));
+            this.children.push(new StatusUpstreamNode(status, 'ahead', this.explorer));
         }
 
         if (status.state.ahead || (status.files.length !== 0 && this.includeWorkingTree)) {
             const range = status.upstream
                 ? `${status.upstream}..${status.branch}`
                 : undefined;
-            this.children.push(new StatusFilesNode(status, range, this.explorer.context, this.explorer.git));
+            this.children.push(new StatusFilesNode(status, range, this.explorer));
         }
 
         return this.children;

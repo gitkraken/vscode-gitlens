@@ -1,13 +1,14 @@
 'use strict';
 import { GitRemote } from './../git';
 import { GitRemoteType } from '../models/remote';
+import { RemoteProvider } from '../remotes/factory';
 
 const remoteRegex = /^(.*)\t(.*)\s\((.*)\)$/gm;
 const urlRegex = /^(?:git:\/\/(.*?)\/|https:\/\/(.*?)\/|http:\/\/(.*?)\/|git@(.*):|ssh:\/\/(?:.*@)?(.*?)(?::.*?)?\/)(.*)$/;
 
 export class GitRemoteParser {
 
-    static parse(data: string, repoPath: string): GitRemote[] {
+    static parse(data: string, repoPath: string, providerFactory: (domain: string, path: string) => RemoteProvider | undefined): GitRemote[] {
         if (!data) return [];
 
         const remotes: GitRemote[] = [];
@@ -25,7 +26,7 @@ export class GitRemoteParser {
             const uniqueness = `${domain}/${path}`;
             let remote: GitRemote | undefined = groups[uniqueness];
             if (remote === undefined) {
-                remote = new GitRemote(repoPath, match[1], domain, path, [{ url: url, type: match[3] as GitRemoteType }]);
+                remote = new GitRemote(repoPath, match[1], domain, path, providerFactory(domain, path), [{ url: url, type: match[3] as GitRemoteType }]);
                 remotes.push(remote);
                 groups[uniqueness] = remote;
             }

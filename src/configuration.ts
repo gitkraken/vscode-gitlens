@@ -1,10 +1,13 @@
 'use strict';
+import { ConfigurationChangeEvent, Event, EventEmitter, ExtensionContext, Uri, workspace } from 'vscode';
 import { FileAnnotationType } from './annotations/annotationController';
+import { ExtensionKey } from './constants';
 import { LineAnnotationType } from './currentLineController';
 import { GitExplorerView } from './views/gitExplorer';
 import { OutputLevel } from './logger';
+import { Functions } from './system';
 
-export { ExtensionKey } from './constants';
+export { ExtensionKey };
 
 export enum CodeLensCommand {
     DiffWithPrevious = 'gitlens.diffWithPrevious',
@@ -95,6 +98,22 @@ export interface IAdvancedConfig {
     };
 }
 
+export interface ICodeLensConfig {
+    enabled: boolean;
+    recentChange: {
+        enabled: boolean;
+        command: CodeLensCommand;
+    };
+    authors: {
+        enabled: boolean;
+        command: CodeLensCommand;
+    };
+    locations: CodeLensLocations[];
+    customLocationSymbols: string[];
+    perLanguageLocations: ICodeLensLanguageLocation[];
+    debug: boolean;
+}
+
 export interface ICodeLensLanguageLocation {
     language: string | undefined;
     locations: CodeLensLocations[];
@@ -124,17 +143,19 @@ export interface IRemotesConfig {
     type: CustomRemoteType;
     domain: string;
     name?: string;
-    urls?: {
-        repository: string;
-        branches: string;
-        branch: string;
-        commit: string;
-        file: string;
-        fileInBranch: string;
-        fileInCommit: string;
-        fileLine: string;
-        fileRange: string;
-    };
+    urls?: IRemotesUrlsConfig;
+}
+
+export interface IRemotesUrlsConfig {
+    repository: string;
+    branches: string;
+    branch: string;
+    commit: string;
+    file: string;
+    fileInBranch: string;
+    fileInCommit: string;
+    fileLine: string;
+    fileRange: string;
 }
 
 export interface IThemeConfig {
@@ -300,21 +321,7 @@ export interface IConfig {
         }
     };
 
-    codeLens: {
-        enabled: boolean;
-        recentChange: {
-            enabled: boolean;
-            command: CodeLensCommand;
-        };
-        authors: {
-            enabled: boolean;
-            command: CodeLensCommand;
-        };
-        locations: CodeLensLocations[];
-        customLocationSymbols: string[];
-        perLanguageLocations: ICodeLensLanguageLocation[];
-        debug: boolean;
-    };
+    codeLens: ICodeLensConfig;
 
     defaultDateFormat: string | null;
 
@@ -348,3 +355,211 @@ export interface IConfig {
 
     advanced: IAdvancedConfig;
 }
+
+const emptyConfig: IConfig = {
+    annotations: {
+        file: {
+            gutter: {
+                format: '',
+    dateFormat: null,
+    compact: false,
+    heatmap: {
+                    enabled: false,
+        location: 'left'
+    },
+    hover: {
+                    details: false,
+        changes: false,
+        wholeLine: false
+    }
+            },
+    hover: {
+                details: false,
+        changes: false,
+        heatmap: {
+                    enabled: false
+        }
+            },
+    recentChanges: {
+                hover: {
+                    details: false,
+        changes: false
+    }
+            }
+        },
+    line: {
+            hover: {
+                details: false,
+        changes: false
+    },
+        trailing: {
+                format: '',
+            dateFormat: null,
+            hover: {
+                    details: false,
+                changes: false,
+                wholeLine: false
+            }
+            }
+        }
+    },
+    blame: {
+        ignoreWhitespace: false,
+        file: {
+            annotationType: 'gutter' as FileAnnotationType,
+            lineHighlight: {
+                enabled: false,
+                locations: []
+            }
+        },
+        line: {
+            enabled: false,
+            annotationType: 'trailing' as LineAnnotationType
+        }
+    },
+    recentChanges: {
+        file: {
+            lineHighlight: {
+                locations: []
+            }
+        }
+    },
+    codeLens: {
+        enabled: false,
+        recentChange: {
+            enabled: false,
+            command: CodeLensCommand.DiffWithPrevious
+        },
+        authors: {
+            enabled: false,
+            command: CodeLensCommand.DiffWithPrevious
+        },
+        locations: [],
+        customLocationSymbols: [],
+        perLanguageLocations: [],
+        debug: false
+    },
+    defaultDateFormat: null,
+    gitExplorer: {
+        enabled: false,
+        autoRefresh: false,
+        view: GitExplorerView.Auto,
+        files: {
+            layout: GitExplorerFilesLayout.Auto,
+            compact: false,
+            threshold: 0
+        },
+        includeWorkingTree: false,
+        showTrackingBranch: false,
+        commitFormat: '',
+        commitFileFormat: '',
+        stashFormat: '',
+        stashFileFormat: '',
+        statusFileFormat: ''
+        // dateFormat: string | null;
+    },
+    remotes: [],
+    statusBar: {
+        enabled: false,
+        alignment: 'left',
+        command: StatusBarCommand.DiffWithPrevious,
+        format: '',
+        dateFormat: null
+    },
+    strings: {
+        codeLens: {
+            unsavedChanges: {
+                recentChangeAndAuthors: '',
+        recentChangeOnly: '',
+        authorsOnly: ''
+    }
+        }
+    },
+    theme: themeDefaults,
+    debug: false,
+    insiders: false,
+    outputLevel: 'verbose' as OutputLevel,
+    advanced: {
+        caching: {
+            enabled: false,
+        maxLines: 0
+    },
+        git: '',
+        maxQuickHistory: 0,
+        menus: {
+            explorerContext: {
+                fileDiff: false,
+            history: false,
+            remote: false
+        },
+            editorContext: {
+                blame: false,
+                copy: false,
+                details: false,
+                fileDiff: false,
+                history: false,
+                lineDiff: false,
+                remote: false
+            },
+            editorTitle: {
+                blame: false,
+                fileDiff: false,
+                history: false,
+                status: false
+            },
+            editorTitleContext: {
+                blame: false,
+                fileDiff: false,
+                history: false,
+                remote: false
+            }
+        },
+        quickPick: {
+            closeOnFocusOut: false
+        },
+        telemetry: {
+            enabled: false
+        }
+    }
+};
+
+export class Configuration {
+
+    static configure(context: ExtensionContext) {
+        context.subscriptions.push(workspace.onDidChangeConfiguration(configuration.onConfigurationChanged, configuration));
+    }
+
+    private _onDidChange = new EventEmitter<ConfigurationChangeEvent>();
+    get onDidChange(): Event<ConfigurationChangeEvent> {
+        return this._onDidChange.event;
+    }
+
+    private onConfigurationChanged(e: ConfigurationChangeEvent) {
+        if (!e.affectsConfiguration(ExtensionKey, null!)) return;
+
+        this._onDidChange.fire(e);
+    }
+
+    readonly defaults = { theme: themeDefaults };
+    readonly initializingChangeEvent: ConfigurationChangeEvent = {
+        affectsConfiguration: (section: string, resource?: Uri) => false
+    };
+
+    get<T>(section?: string, resource?: Uri | null) {
+        return workspace.getConfiguration(section === undefined ? undefined : ExtensionKey, resource!).get<T>(section === undefined ? ExtensionKey : section)!;
+    }
+
+    changed(e: ConfigurationChangeEvent, section: string, resource?: Uri | null) {
+        return e.affectsConfiguration(`${ExtensionKey}.${section}`, resource!);
+    }
+
+    initializing(e: ConfigurationChangeEvent) {
+        return e === this.initializingChangeEvent;
+    }
+
+    name<K extends keyof IConfig>(name: K) {
+        return Functions.propOf(emptyConfig, name);
+    }
+}
+
+export const configuration = new Configuration();

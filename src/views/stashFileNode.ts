@@ -1,8 +1,8 @@
 'use strict';
-import { ExtensionContext } from 'vscode';
-import { ResourceType } from './explorerNode';
-import { GitLogCommit, GitService, IGitStatusFile } from '../gitService';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
+import { ResourceType } from './explorerNode';
+import { GitExplorer } from './gitExplorer';
+import { GitLogCommit, IGitStatusFile } from '../gitService';
 
 export class StashFileNode extends CommitFileNode {
 
@@ -11,17 +11,16 @@ export class StashFileNode extends CommitFileNode {
     constructor(
         status: IGitStatusFile,
         commit: GitLogCommit,
-        context: ExtensionContext,
-        git: GitService
+        explorer: GitExplorer
     ) {
-        super(status, commit, context, git, CommitFileNodeDisplayAs.File);
+        super(status, commit, explorer, CommitFileNodeDisplayAs.File);
     }
 
     protected getCommitTemplate() {
-        return this.git.config.gitExplorer.stashFormat;
+        return this.explorer.config.stashFormat;
     }
 
     protected getCommitFileTemplate() {
-        return this.git.config.gitExplorer.stashFileFormat;
+        return this.explorer.config.stashFileFormat;
     }
 }

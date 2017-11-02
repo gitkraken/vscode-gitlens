@@ -26,11 +26,6 @@ const defaultBlameParams = [`blame`, `--root`, `--incremental`];
 const defaultLogParams = [`log`, `--name-status`, `--full-history`, `-M`, `--format=%H -%nauthor %an%nauthor-date %at%nparents %P%nsummary %B%nfilename ?`];
 const defaultStashParams = [`stash`, `list`, `--name-status`, `--full-history`, `-M`, `--format=%H -%nauthor-date %at%nreflog-selector %gd%nsummary %B%nfilename ?`];
 
-let defaultEncoding = 'utf8';
-export function setDefaultEncoding(encoding: string) {
-    defaultEncoding = iconv.encodingExists(encoding) ? encoding : 'utf8';
-}
-
 const GitWarnings = [
     /Not a git repository/,
     /is outside repository/,
@@ -123,6 +118,12 @@ export class Git {
         return git;
     }
 
+    static getEncoding(encoding: string | undefined) {
+        return (encoding !== undefined && iconv.encodingExists(encoding))
+            ? encoding
+            : 'utf8';
+    }
+
     static async getGitPath(gitPath?: string): Promise<IGit> {
         git = await findGitPath(gitPath);
         Logger.log(`Git found: ${git.version} @ ${git.path === 'git' ? 'PATH' : git.path}`);
@@ -130,7 +131,7 @@ export class Git {
     }
 
     static async getVersionedFile(repoPath: string | undefined, fileName: string, branchOrSha: string) {
-        const data = await Git.show(repoPath, fileName, branchOrSha, 'binary');
+        const data = await Git.show(repoPath, fileName, branchOrSha, { encoding: 'binary' });
         if (data === undefined) return undefined;
 
         const suffix = Strings.truncate(Strings.sanitizeForFS(Git.isSha(branchOrSha) ? Git.shortenSha(branchOrSha) : branchOrSha), 50, '');
@@ -243,7 +244,7 @@ export class Git {
         }
     }
 
-    static diff(repoPath: string, fileName: string, sha1?: string, sha2?: string, encoding?: string) {
+    static diff(repoPath: string, fileName: string, sha1?: string, sha2?: string, options: { encoding?: string } = {}) {
         const params = [`diff`, `--diff-filter=M`, `-M`, `--no-ext-diff`];
         if (sha1) {
             params.push(sha1);
@@ -252,7 +253,7 @@ export class Git {
             params.push(sha2);
         }
 
-        return gitCommand({ cwd: repoPath, encoding: encoding || defaultEncoding }, ...params, '--', fileName);
+        return gitCommand({ cwd: repoPath, encoding: options.encoding || 'utf8' }, ...params, '--', fileName);
     }
 
     static diff_nameStatus(repoPath: string, sha1?: string, sha2?: string, options: { filter?: string } = {}) {
@@ -420,11 +421,11 @@ export class Git {
         }
     }
 
-    static async show(repoPath: string | undefined, fileName: string, branchOrSha: string, encoding?: string) {
+    static async show(repoPath: string | undefined, fileName: string, branchOrSha: string, options: { encoding?: string } = {}) {
         const [file, root] = Git.splitPath(fileName, repoPath);
         if (Git.isUncommitted(branchOrSha)) throw new Error(`sha=${branchOrSha} is uncommitted`);
 
-        const opts = { cwd: root, encoding: encoding || defaultEncoding, willHandleErrors: true } as GitCommandOptions;
+        const opts = { cwd: root, encoding: options.encoding || 'utf8', willHandleErrors: true } as GitCommandOptions;
         const args = `${branchOrSha}:./${file}`;
         try {
             const data = await gitCommand(opts, 'show', args);

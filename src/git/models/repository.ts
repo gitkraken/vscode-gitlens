@@ -1,9 +1,14 @@
 'use strict';
 import { Functions } from '../../system';
-import { Disposable, Event, EventEmitter, RelativePattern, Uri, workspace, WorkspaceFolder } from 'vscode';
+import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, RelativePattern, Uri, workspace, WorkspaceFolder } from 'vscode';
+import { configuration, IRemotesConfig } from '../../configuration';
+import { GitBranch, GitDiffShortStat, GitRemote, GitStash, GitStatus } from '../git';
+import { GitService, GitUri } from '../../gitService';
+import { RemoteProviderFactory, RemoteProviderMap } from '../remotes/factory';
 
 export enum RepositoryChange {
     // FileSystem = 'file-system',
+    RemotesCache = 'remotes-cache',
     Repository = 'repository',
     Stashes = 'stashes'
 }
@@ -55,6 +60,7 @@ export class Repository extends Disposable {
 
     readonly index: number;
     readonly name: string;
+    readonly normalizedPath: string;
     readonly storage: Map<string, any> = new Map();
 
     private readonly _disposable: Disposable;
@@ -63,11 +69,14 @@ export class Repository extends Disposable {
     private _fsWatchCounter = 0;
     private _fsWatcherDisposable: Disposable | undefined;
     private _pendingChanges: { repo?: RepositoryChangeEvent, fs?: RepositoryFileSystemChangeEvent } = { };
+    private _providerMap: RemoteProviderMap;
+    private _remotes: GitRemote[] | undefined;
     private _suspended: boolean;
 
     constructor(
         private readonly folder: WorkspaceFolder,
         public readonly path: string,
+        private readonly git: GitService,
         private readonly onAnyRepositoryChanged: () => void,
         suspended: boolean
     ) {
@@ -75,6 +84,8 @@ export class Repository extends Disposable {
 
         this.index = folder.index;
         this.name = folder.name;
+        this.normalizedPath = (this.path.endsWith('/') ? this.path : `${this.path}/`).toLowerCase();
+
         this._suspended = suspended;
 
         const watcher = workspace.createFileSystemWatcher(new RelativePattern(folder, '**/.git/{index,HEAD,refs/stash,refs/heads/**,refs/remotes/**}'));
@@ -82,8 +93,10 @@ export class Repository extends Disposable {
             watcher,
             watcher.onDidChange(this.onRepositoryChanged, this),
             watcher.onDidCreate(this.onRepositoryChanged, this),
-            watcher.onDidDelete(this.onRepositoryChanged, this)
+            watcher.onDidDelete(this.onRepositoryChanged, this),
+            configuration.onDidChange(this.onConfigurationChanged, this)
         );
+        this.onConfigurationChanged(configuration.initializingChangeEvent);
     }
 
     dispose() {
@@ -97,6 +110,20 @@ export class Repository extends Disposable {
         }
 
         this._disposable && this._disposable.dispose();
+    }
+
+    private onConfigurationChanged(e: ConfigurationChangeEvent) {
+        const initializing = configuration.initializing(e);
+
+        const section = configuration.name('remotes').value;
+        if (initializing || configuration.changed(e, section, this.folder.uri)) {
+            this._providerMap = RemoteProviderFactory.createMap(configuration.get<IRemotesConfig[] | null | undefined>(section, this.folder.uri));
+
+            if (!initializing) {
+                this._remotes = undefined;
+                this.fireChange(RepositoryChange.RemotesCache);
+            }
+        }
     }
 
     private onFileSystemChanged(uri: Uri) {
@@ -175,6 +202,39 @@ export class Repository extends Disposable {
         }
 
         return this.folder === workspace.getWorkspaceFolder(uri);
+    }
+
+    async getBranch(): Promise<GitBranch | undefined> {
+        return this.git.getBranch(this.path);
+    }
+
+    async getBranches(): Promise<GitBranch[]> {
+        return this.git.getBranches(this.path);
+    }
+
+    async getChangedFilesCount(sha?: string): Promise<GitDiffShortStat | undefined> {
+        return this.git.getChangedFilesCount(this.path, sha);
+    }
+
+    async getRemotes(): Promise<GitRemote[]> {
+        if (this._remotes === undefined) {
+            this._remotes = await this.git.getRemotesCore(this.path, this._providerMap);
+        }
+
+        return this._remotes;
+    }
+
+    async getStashList(): Promise<GitStash | undefined> {
+        return this.git.getStashList(this.path);
+    }
+
+    async getStatus(): Promise<GitStatus | undefined> {
+        return this.git.getStatusForRepo(this.path);
+    }
+
+    async hasRemotes(): Promise<boolean> {
+        const remotes = await this.getRemotes();
+        return remotes !== undefined && remotes.length > 0;
     }
 
     resume() {

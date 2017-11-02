@@ -1,12 +1,12 @@
 'use strict';
-import { Functions, Objects } from './system';
-import { CancellationToken, debug, DecorationRangeBehavior, DecorationRenderOptions, Disposable, ExtensionContext, Hover, HoverProvider, languages, Position, Range, StatusBarAlignment, StatusBarItem, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
+import { Functions } from './system';
+import { CancellationToken, ConfigurationChangeEvent, debug, DecorationRangeBehavior, DecorationRenderOptions, Disposable, ExtensionContext, Hover, HoverProvider, languages, Position, Range, StatusBarAlignment, StatusBarItem, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window } from 'vscode';
 import { AnnotationController, FileAnnotationType } from './annotations/annotationController';
 import { Annotations, endOfLineIndex } from './annotations/annotations';
 import { Commands } from './commands';
 import { TextEditorComparer } from './comparers';
-import { IConfig, StatusBarCommand } from './configuration';
-import { DocumentSchemes, ExtensionKey, isTextEditor } from './constants';
+import { configuration, IConfig, StatusBarCommand } from './configuration';
+import { DocumentSchemes, isTextEditor } from './constants';
 import { BlameabilityChangeEvent, CommitFormatter, GitCommit, GitCommitLine, GitContextTracker, GitLogCommit, GitService, GitUri, ICommitFormatOptions } from './gitService';
 // import { Logger } from './logger';
 
@@ -26,7 +26,7 @@ export enum LineAnnotationType {
 export class CurrentLineController extends Disposable {
 
     private _blameable: boolean;
-    private _blameLineAnnotationState: { enabled: boolean, annotationType: LineAnnotationType, reason: 'user' | 'debugging' } | undefined = undefined;
+    private _blameLineAnnotationState: { enabled: boolean, annotationType: LineAnnotationType, reason: 'user' | 'debugging' } | undefined;
     private _config: IConfig;
     private _currentLine: { line: number, commit?: GitCommit, logCommit?: GitLogCommit } = { line: -1 };
     private _debugSessionEndDisposable: Disposable | undefined;
@@ -49,13 +49,12 @@ export class CurrentLineController extends Disposable {
 
         this._updateBlameDebounced = Functions.debounce(this.updateBlame, 250);
 
-        this.onConfigurationChanged();
-
         this._disposable = Disposable.from(
-            workspace.onDidChangeConfiguration(this.onConfigurationChanged, this),
+            configuration.onDidChange(this.onConfigurationChanged, this),
             annotationController.onDidToggleAnnotations(this.onFileAnnotationsToggled, this),
             debug.onDidStartDebugSession(this.onDebugSessionStarted, this)
         );
+        this.onConfigurationChanged(configuration.initializingChangeEvent);
     }
 
     dispose() {
@@ -68,27 +67,28 @@ export class CurrentLineController extends Disposable {
         this._disposable && this._disposable.dispose();
     }
 
-    private onConfigurationChanged() {
-        const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
+    private onConfigurationChanged(e: ConfigurationChangeEvent) {
+        const initializing = configuration.initializing(e);
+
+        const cfg = configuration.get<IConfig>();
 
         let changed = false;
-        let clear = false;
 
-        if (!Objects.areEquivalent(cfg.blame.line, this._config && this._config.blame.line)) {
+        if (initializing || configuration.changed(e, configuration.name('blame')('line').value)) {
             changed = true;
             this._blameLineAnnotationState = undefined;
-            clear = (this._config !== undefined);
         }
 
-        if (!Objects.areEquivalent(cfg.annotations.line.trailing, this._config && this._config.annotations.line.trailing) ||
-            !Objects.areEquivalent(cfg.annotations.line.hover, this._config && this._config.annotations.line.hover) ||
-            !Objects.areEquivalent(cfg.theme.annotations.line.trailing, this._config && this._config.theme.annotations.line.trailing)) {
+        if (initializing ||
+            configuration.changed(e, configuration.name('annotations')('line')('trailing').value) ||
+            configuration.changed(e, configuration.name('annotations')('line')('hover').value) ||
+            configuration.changed(e, configuration.name('theme')('annotations')('line')('trailing').value)) {
             changed = true;
-            clear = (this._config !== undefined);
         }
 
-        if (!Objects.areEquivalent(cfg.statusBar, this._config && this._config.statusBar)) {
+        if (initializing || configuration.changed(e, configuration.name('statusBar').value)) {
             changed = true;
+
             if (cfg.statusBar.enabled) {
                 const alignment = cfg.statusBar.alignment !== 'left' ? StatusBarAlignment.Right : StatusBarAlignment.Left;
                 if (this._statusBarItem !== undefined && this._statusBarItem.alignment !== alignment) {
@@ -99,7 +99,7 @@ export class CurrentLineController extends Disposable {
                 this._statusBarItem = this._statusBarItem || window.createStatusBarItem(alignment, alignment === StatusBarAlignment.Right ? 1000 : 0);
                 this._statusBarItem.command = cfg.statusBar.command;
             }
-            else if (!cfg.statusBar.enabled && this._statusBarItem) {
+            else if (this._statusBarItem !== undefined) {
                 this._statusBarItem.dispose();
                 this._statusBarItem = undefined;
             }
@@ -109,19 +109,18 @@ export class CurrentLineController extends Disposable {
 
         if (!changed) return;
 
-        if (clear) {
-            this.clearAnnotations(this._editor);
-        }
+        const trackCurrentLine = cfg.statusBar.enabled ||
+            cfg.blame.line.enabled ||
+            (this._blameLineAnnotationState !== undefined && this._blameLineAnnotationState.enabled);
 
-        const trackCurrentLine = cfg.statusBar.enabled || cfg.blame.line.enabled || (this._blameLineAnnotationState !== undefined && this._blameLineAnnotationState.enabled);
-        if (trackCurrentLine && !this._trackCurrentLineDisposable) {
-            this._trackCurrentLineDisposable = Disposable.from(
+        if (trackCurrentLine) {
+            this._trackCurrentLineDisposable = this._trackCurrentLineDisposable || Disposable.from(
                 window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 50), this),
                 window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this),
                 this.gitContextTracker.onDidChangeBlameability(this.onBlameabilityChanged, this)
             );
         }
-        else if (!trackCurrentLine && this._trackCurrentLineDisposable) {
+        else if (this._trackCurrentLineDisposable !== undefined) {
             this._trackCurrentLineDisposable.dispose();
             this._trackCurrentLineDisposable = undefined;
         }
@@ -251,6 +250,9 @@ export class CurrentLineController extends Disposable {
 
     async refresh(editor?: TextEditor) {
         this._currentLine.line = -1;
+
+        if (editor === undefined && this._editor !== undefined) return;
+
         this.clearAnnotations(this._editor);
 
         if (editor === undefined || !this.isEditorBlameable(editor)) {
@@ -425,7 +427,7 @@ export class CurrentLineController extends Disposable {
             }
         }
 
-        const message = Annotations.getHoverMessage(logCommit || commit, this._config.defaultDateFormat, this.git.hasRemotes(commit.repoPath), this._config.blame.file.annotationType);
+        const message = Annotations.getHoverMessage(logCommit || commit, this._config.defaultDateFormat, await this.git.hasRemotes(commit.repoPath), this._config.blame.file.annotationType);
         return new Hover(message, range);
     }
 

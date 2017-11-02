@@ -2,7 +2,7 @@
 // import { Objects } from './system';
 import { commands, ExtensionContext, extensions, languages, window, workspace } from 'vscode';
 import { AnnotationController } from './annotations/annotationController';
-import { CodeLensLocations, IConfig, LineHighlightLocations } from './configuration';
+import { CodeLensLocations, Configuration, IConfig, LineHighlightLocations } from './configuration';
 import { ApplicationInsightsKey, CommandContext, ExtensionKey, GlobalState, QualifiedExtensionId, setCommandContext } from './constants';
 import { CodeLensController } from './codeLensController';
 import { configureCommands } from './commands';
@@ -10,7 +10,7 @@ import { CurrentLineController, LineAnnotationType } from './currentLineControll
 import { GitContentProvider } from './gitContentProvider';
 import { GitExplorer } from './views/gitExplorer';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
-import { GitContextTracker, GitService, RemoteProviderFactory } from './gitService';
+import { GitContextTracker, GitService } from './gitService';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
 import { Messages, SuppressedKeys } from './messages';
@@ -18,10 +18,10 @@ import { Telemetry } from './telemetry';
 
 // this method is called when your extension is activated
 export async function activate(context: ExtensionContext) {
+    Configuration.configure(context);
     Logger.configure(context);
     Messages.configure(context);
     Telemetry.configure(ApplicationInsightsKey);
-    RemoteProviderFactory.configure(context);
 
     const gitlens = extensions.getExtension(QualifiedExtensionId)!;
     const gitlensVersion = gitlens.packageJSON.version;

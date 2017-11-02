@@ -1,5 +1,5 @@
 'use strict';
-import { RemoteProvider, RemoteProviderFactory } from '../remotes/factory';
+import { RemoteProvider } from '../remotes/factory';
 
 export enum GitRemoteType {
     Fetch = 'fetch',
@@ -8,15 +8,12 @@ export enum GitRemoteType {
 
 export class GitRemote {
 
-    provider?: RemoteProvider;
-
     constructor(
         public readonly repoPath: string,
         public readonly name: string,
         public readonly domain: string,
         public readonly path: string,
+        public readonly provider: RemoteProvider | undefined,
         public readonly types: { type: GitRemoteType, url: string }[]
-    ) {
-        this.provider = RemoteProviderFactory.getRemoteProvider(this.domain, this.path);
-    }
+    ) { }
 }

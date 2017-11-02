@@ -1,5 +1,4 @@
 'use strict';
-// import { Iterables } from './system';
 import { CancellationToken, CodeLens, CodeLensProvider, DocumentSelector, ExtensionContext, Range, TextDocument, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs } from './commands';
 import { DocumentSchemes } from './constants';
@@ -8,9 +7,8 @@ import { GitCommit, GitService, GitUri } from './gitService';
 export class GitDiffWithWorkingCodeLens extends CodeLens {
 
     constructor(
-        git: GitService,
-        public fileName: string,
-        public commit: GitCommit,
+        public readonly fileName: string,
+        public readonly commit: GitCommit,
         range: Range
     ) {
         super(range);
@@ -20,9 +18,8 @@ export class GitDiffWithWorkingCodeLens extends CodeLens {
 export class GitDiffWithPreviousCodeLens extends CodeLens {
 
     constructor(
-        git: GitService,
-        public fileName: string,
-        public commit: GitCommit,
+        public readonly fileName: string,
+        public readonly commit: GitCommit,
         range: Range
     ) {
         super(range);
@@ -33,7 +30,10 @@ export class GitRevisionCodeLensProvider implements CodeLensProvider {
 
     static selector: DocumentSelector = { scheme: DocumentSchemes.GitLensGit };
 
-    constructor(context: ExtensionContext, private git: GitService) { }
+    constructor(
+        context: ExtensionContext,
+        private readonly git: GitService
+    ) { }
 
     async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
         const data = GitService.fromGitContentUri(document.uri);
@@ -45,9 +45,9 @@ export class GitRevisionCodeLensProvider implements CodeLensProvider {
         if (commit === undefined) return lenses;
 
         if (commit.previousSha) {
-            lenses.push(new GitDiffWithPreviousCodeLens(this.git, commit.previousUri.fsPath, commit, new Range(0, 0, 0, 1)));
+            lenses.push(new GitDiffWithPreviousCodeLens(commit.previousUri.fsPath, commit, new Range(0, 0, 0, 1)));
         }
-        lenses.push(new GitDiffWithWorkingCodeLens(this.git, commit.uri.fsPath, commit, new Range(0, 1, 0, 2)));
+        lenses.push(new GitDiffWithWorkingCodeLens(commit.uri.fsPath, commit, new Range(0, 1, 0, 2)));
 
         return lenses;
     }

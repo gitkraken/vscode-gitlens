@@ -1,8 +1,9 @@
 'use strict';
 import { Iterables } from '../system';
-import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerNode, MessageNode, ResourceType } from './explorerNode';
-import { GitService, GitUri } from '../gitService';
+import { GitExplorer } from './gitExplorer';
+import { GitUri, Repository } from '../gitService';
 import { RemoteNode } from './remoteNode';
 
 export class RemotesNode extends ExplorerNode {
@@ -11,18 +12,18 @@ export class RemotesNode extends ExplorerNode {
 
         constructor(
             uri: GitUri,
-            protected readonly context: ExtensionContext,
-            protected readonly git: GitService
+            private readonly repo: Repository,
+            private readonly explorer: GitExplorer
         ) {
             super(uri);
         }
 
         async getChildren(): Promise<ExplorerNode[]> {
-            const remotes = await this.git.getRemotes(this.uri.repoPath!);
+            const remotes = await this.repo.getRemotes();
             if (remotes === undefined || remotes.length === 0) return [new MessageNode('No remotes configured')];
 
             remotes.sort((a, b) => a.name.localeCompare(b.name));
-            return [...Iterables.map(remotes, r => new RemoteNode(r, this.uri, this.context, this.git))];
+            return [...Iterables.map(remotes, r => new RemoteNode(r, this.uri, this.repo, this.explorer))];
         }
 
         getTreeItem(): TreeItem {
@@ -30,8 +31,8 @@ export class RemotesNode extends ExplorerNode {
             item.contextValue = this.resourceType;
 
             item.iconPath = {
-                dark: this.context.asAbsolutePath('images/dark/icon-remote.svg'),
-                light: this.context.asAbsolutePath('images/light/icon-remote.svg')
+                dark: this.explorer.context.asAbsolutePath('images/dark/icon-remote.svg'),
+                light: this.explorer.context.asAbsolutePath('images/light/icon-remote.svg')
             };
 
             return item;

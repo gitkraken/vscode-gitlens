@@ -1,9 +1,10 @@
 'use strict';
 import { Iterables } from '../system';
-import { ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { CommitNode } from './commitNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { GitService, GitStatus, GitUri } from '../gitService';
+import { GitExplorer } from './gitExplorer';
+import { GitStatus, GitUri } from '../gitService';
 
 export class StatusUpstreamNode extends ExplorerNode {
 
@@ -12,8 +13,7 @@ export class StatusUpstreamNode extends ExplorerNode {
     constructor(
         public readonly status: GitStatus,
         public readonly direction: 'ahead' | 'behind',
-        protected readonly context: ExtensionContext,
-        protected readonly git: GitService
+        private readonly explorer: GitExplorer
     ) {
         super(new GitUri(Uri.file(status.repoPath), { repoPath: status.repoPath, fileName: status.repoPath }));
     }
@@ -23,22 +23,22 @@ export class StatusUpstreamNode extends ExplorerNode {
             ? `${this.status.upstream}..${this.status.branch}`
             : `${this.status.branch}..${this.status.upstream}`;
 
-        let log = await this.git.getLogForRepo(this.uri.repoPath!, range, 0);
+        let log = await this.explorer.git.getLogForRepo(this.uri.repoPath!, range, 0);
         if (log === undefined) return [];
 
-        if (this.direction !== 'ahead') return [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.context, this.git))];
+        if (this.direction !== 'ahead') return [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer))];
 
         // Since the last commit when we are looking 'ahead' can have no previous (because of the range given) -- look it up
         const commits = Array.from(log.commits.values());
         const commit = commits[commits.length - 1];
         if (commit.previousSha === undefined) {
-            log = await this.git.getLogForRepo(this.uri.repoPath!, commit.sha, 2);
+            log = await this.explorer.git.getLogForRepo(this.uri.repoPath!, commit.sha, 2);
             if (log !== undefined) {
                 commits[commits.length - 1] = Iterables.first(log.commits.values());
             }
         }
 
-        return [...Iterables.map(commits, c => new CommitNode(c, this.context, this.git))];
+        return [...Iterables.map(commits, c => new CommitNode(c, this.explorer))];
     }
 
     async getTreeItem(): Promise<TreeItem> {
@@ -50,8 +50,8 @@ export class StatusUpstreamNode extends ExplorerNode {
         item.contextValue = this.resourceType;
 
         item.iconPath = {
-            dark: this.context.asAbsolutePath(`images/dark/icon-${this.direction === 'ahead' ? 'upload' : 'download'}.svg`),
-            light: this.context.asAbsolutePath(`images/light/icon-${this.direction === 'ahead' ? 'upload' : 'download'}.svg`)
+            dark: this.explorer.context.asAbsolutePath(`images/dark/icon-${this.direction === 'ahead' ? 'upload' : 'download'}.svg`),
+            light: this.explorer.context.asAbsolutePath(`images/light/icon-${this.direction === 'ahead' ? 'upload' : 'download'}.svg`)
         };
 
         return item;

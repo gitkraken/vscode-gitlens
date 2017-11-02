@@ -28,9 +28,9 @@ export class RepositoryNode extends ExplorerNode {
 
         this.children = [
             new StatusNode(this.uri, this.repo, this, this.explorer),
-            new BranchesNode(this.uri, this.explorer.context, this.explorer.git),
-            new RemotesNode(this.uri, this.explorer.context, this.explorer.git),
-            new StashesNode(this.uri, this.explorer.context, this.explorer.git)
+            new BranchesNode(this.uri, this.repo, this.explorer),
+            new RemotesNode(this.uri, this.repo, this.explorer),
+            new StashesNode(this.uri, this.repo, this.explorer)
         ];
         return this.children;
     }

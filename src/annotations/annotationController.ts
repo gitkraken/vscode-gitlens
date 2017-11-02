@@ -1,9 +1,9 @@
 'use strict';
-import { Functions, Iterables, Objects } from '../system';
-import { DecorationRangeBehavior, DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, Progress, ProgressLocation, TextDocument, TextDocumentChangeEvent, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
+import { Functions, Iterables } from '../system';
+import { ConfigurationChangeEvent, DecorationRangeBehavior, DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, Progress, ProgressLocation, TextDocument, TextDocumentChangeEvent, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
 import { AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
 import { TextDocumentComparer } from '../comparers';
-import { ExtensionKey, IConfig, LineHighlightLocations, themeDefaults } from '../configuration';
+import { configuration, IConfig, LineHighlightLocations } from '../configuration';
 import { CommandContext, isTextEditor, setCommandContext } from '../constants';
 import { BlameabilityChangeEvent, GitContextTracker, GitService, GitUri } from '../gitService';
 import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
@@ -53,7 +53,6 @@ export class AnnotationController extends Disposable {
 
     private _annotationsDisposable: Disposable | undefined;
     private _annotationProviders: Map<TextEditorCorrelationKey, AnnotationProviderBase> = new Map();
-    private _config: IConfig;
     private _disposable: Disposable;
     private _keyboardScope: KeyboardScope | undefined = undefined;
 
@@ -64,11 +63,10 @@ export class AnnotationController extends Disposable {
     ) {
         super(() => this.dispose());
 
-        this.onConfigurationChanged();
-
         this._disposable = Disposable.from(
-            workspace.onDidChangeConfiguration(this.onConfigurationChanged, this)
+            configuration.onDidChange(this.onConfigurationChanged, this)
         );
+        this.onConfigurationChanged(configuration.initializingChangeEvent);
     }
 
     dispose() {
@@ -81,46 +79,47 @@ export class AnnotationController extends Disposable {
         this._disposable && this._disposable.dispose();
     }
 
-    private onConfigurationChanged() {
-        let changed = false;
+    private onConfigurationChanged(e: ConfigurationChangeEvent) {
+        const initializing = configuration.initializing(e);
 
-        const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
-        const cfgBlameHighlight = cfg.blame.file.lineHighlight;
-        const cfgChangesHighlight = cfg.recentChanges.file.lineHighlight;
-        const cfgTheme = cfg.theme.lineHighlight;
+        let cfg: IConfig | undefined;
 
-        if (!Objects.areEquivalent(cfgBlameHighlight, this._config && this._config.blame.file.lineHighlight) ||
-            !Objects.areEquivalent(cfgChangesHighlight, this._config && this._config.recentChanges.file.lineHighlight) ||
-            !Objects.areEquivalent(cfgTheme, this._config && this._config.theme.lineHighlight)) {
-            changed = true;
-
+        if (initializing ||
+            configuration.changed(e, configuration.name('blame')('file')('lineHighlight').value) ||
+            configuration.changed(e, configuration.name('theme')('lineHighlight').value)) {
             Decorations.blameHighlight && Decorations.blameHighlight.dispose();
 
-            if (cfgBlameHighlight.enabled) {
+            if (cfg === undefined) {
+                cfg = configuration.get<IConfig>();
+            }
+            const cfgHighlight = cfg.blame.file.lineHighlight;
+            const cfgTheme = cfg.theme.lineHighlight;
+
+            if (cfgHighlight.enabled) {
                 Decorations.blameHighlight = window.createTextEditorDecorationType({
                     gutterIconSize: 'contain',
                     isWholeLine: true,
                     overviewRulerLane: OverviewRulerLane.Right,
                     dark: {
-                        backgroundColor: cfgBlameHighlight.locations.includes(LineHighlightLocations.Line)
-                            ? cfgTheme.dark.backgroundColor || themeDefaults.lineHighlight.dark.backgroundColor
+                        backgroundColor: cfgHighlight.locations.includes(LineHighlightLocations.Line)
+                            ? cfgTheme.dark.backgroundColor || configuration.defaults.theme.lineHighlight.dark.backgroundColor
                             : undefined,
-                        gutterIconPath: cfgBlameHighlight.locations.includes(LineHighlightLocations.Gutter)
+                        gutterIconPath: cfgHighlight.locations.includes(LineHighlightLocations.Gutter)
                             ? this.context.asAbsolutePath('images/dark/highlight-gutter.svg')
                             : undefined,
-                        overviewRulerColor: cfgBlameHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
-                            ? cfgTheme.dark.overviewRulerColor || themeDefaults.lineHighlight.dark.overviewRulerColor
+                        overviewRulerColor: cfgHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
+                            ? cfgTheme.dark.overviewRulerColor || configuration.defaults.theme.lineHighlight.dark.overviewRulerColor
                             : undefined
                     },
                     light: {
-                        backgroundColor: cfgBlameHighlight.locations.includes(LineHighlightLocations.Line)
-                            ? cfgTheme.light.backgroundColor || themeDefaults.lineHighlight.light.backgroundColor
+                        backgroundColor: cfgHighlight.locations.includes(LineHighlightLocations.Line)
+                            ? cfgTheme.light.backgroundColor || configuration.defaults.theme.lineHighlight.light.backgroundColor
                             : undefined,
-                        gutterIconPath: cfgBlameHighlight.locations.includes(LineHighlightLocations.Gutter)
+                        gutterIconPath: cfgHighlight.locations.includes(LineHighlightLocations.Gutter)
                             ? this.context.asAbsolutePath('images/light/highlight-gutter.svg')
                             : undefined,
-                        overviewRulerColor: cfgBlameHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
-                            ? cfgTheme.light.overviewRulerColor || themeDefaults.lineHighlight.light.overviewRulerColor
+                        overviewRulerColor: cfgHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
+                            ? cfgTheme.light.overviewRulerColor || configuration.defaults.theme.lineHighlight.light.overviewRulerColor
                             : undefined
                     }
                 });
@@ -128,48 +127,58 @@ export class AnnotationController extends Disposable {
             else {
                 Decorations.blameHighlight = undefined;
             }
+        }
 
+        if (initializing ||
+            configuration.changed(e, configuration.name('recentChanges')('file')('lineHighlight').value) ||
+            configuration.changed(e, configuration.name('theme')('lineHighlight').value)) {
             Decorations.recentChangesHighlight && Decorations.recentChangesHighlight.dispose();
+
+            if (cfg === undefined) {
+                cfg = configuration.get<IConfig>();
+            }
+            const cfgHighlight = cfg.recentChanges.file.lineHighlight;
+            const cfgTheme = cfg.theme.lineHighlight;
 
             Decorations.recentChangesHighlight = window.createTextEditorDecorationType({
                 gutterIconSize: 'contain',
                 isWholeLine: true,
                 overviewRulerLane: OverviewRulerLane.Right,
                 dark: {
-                    backgroundColor: cfgChangesHighlight.locations.includes(LineHighlightLocations.Line)
-                        ? cfgTheme.dark.backgroundColor || themeDefaults.lineHighlight.dark.backgroundColor
+                    backgroundColor: cfgHighlight.locations.includes(LineHighlightLocations.Line)
+                        ? cfgTheme.dark.backgroundColor || configuration.defaults.theme.lineHighlight.dark.backgroundColor
                         : undefined,
-                    gutterIconPath: cfgChangesHighlight.locations.includes(LineHighlightLocations.Gutter)
+                    gutterIconPath: cfgHighlight.locations.includes(LineHighlightLocations.Gutter)
                         ? this.context.asAbsolutePath('images/dark/highlight-gutter.svg')
                         : undefined,
-                    overviewRulerColor: cfgChangesHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
-                        ? cfgTheme.dark.overviewRulerColor || themeDefaults.lineHighlight.dark.overviewRulerColor
+                    overviewRulerColor: cfgHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
+                        ? cfgTheme.dark.overviewRulerColor || configuration.defaults.theme.lineHighlight.dark.overviewRulerColor
                         : undefined
                 },
                 light: {
-                    backgroundColor: cfgChangesHighlight.locations.includes(LineHighlightLocations.Line)
-                        ? cfgTheme.light.backgroundColor || themeDefaults.lineHighlight.light.backgroundColor
+                    backgroundColor: cfgHighlight.locations.includes(LineHighlightLocations.Line)
+                        ? cfgTheme.light.backgroundColor || configuration.defaults.theme.lineHighlight.light.backgroundColor
                         : undefined,
-                    gutterIconPath: cfgChangesHighlight.locations.includes(LineHighlightLocations.Gutter)
+                    gutterIconPath: cfgHighlight.locations.includes(LineHighlightLocations.Gutter)
                         ? this.context.asAbsolutePath('images/light/highlight-gutter.svg')
                         : undefined,
-                    overviewRulerColor: cfgChangesHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
-                        ? cfgTheme.light.overviewRulerColor || themeDefaults.lineHighlight.light.overviewRulerColor
+                    overviewRulerColor: cfgHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
+                        ? cfgTheme.light.overviewRulerColor || configuration.defaults.theme.lineHighlight.light.overviewRulerColor
                         : undefined
                 }
             });
         }
 
-        if (!Objects.areEquivalent(cfg.blame.file, this._config && this._config.blame.file) ||
-            !Objects.areEquivalent(cfg.recentChanges.file, this._config && this._config.recentChanges.file) ||
-            !Objects.areEquivalent(cfg.annotations, this._config && this._config.annotations) ||
-            !Objects.areEquivalent(cfg.theme.annotations, this._config && this._config.theme.annotations)) {
-            changed = true;
-        }
+        if (initializing) return;
 
-        this._config = cfg;
+        if (configuration.changed(e, configuration.name('blame')('file').value) ||
+            configuration.changed(e, configuration.name('recentChanges')('file').value) ||
+            configuration.changed(e, configuration.name('annotations')('file').value) ||
+            configuration.changed(e, configuration.name('theme')('annotations')('file').value)) {
+            if (cfg === undefined) {
+                cfg = configuration.get<IConfig>();
+            }
 
-        if (changed) {
             // Since the configuration has changed -- reset any visible annotations
             for (const provider of this._annotationProviders.values()) {
                 if (provider === undefined) continue;
@@ -178,7 +187,7 @@ export class AnnotationController extends Disposable {
                     provider.reset(Decorations.recentChangesAnnotation, Decorations.recentChangesHighlight);
                 }
                 else {
-                    if (provider.annotationType === this._config.blame.file.annotationType) {
+                    if (provider.annotationType === cfg.blame.file.annotationType) {
                         provider.reset(Decorations.blameAnnotation, Decorations.blameHighlight);
                     }
                     else {

@@ -1,8 +1,8 @@
 'use strict';
-import { DecorationOptions, Disposable, ExtensionContext, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, Uri, window, workspace } from 'vscode';
+import { DecorationOptions, Disposable, ExtensionContext, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, Uri, window } from 'vscode';
 import { FileAnnotationType } from '../annotations/annotationController';
 import { TextDocumentComparer } from '../comparers';
-import { ExtensionKey, IConfig } from '../configuration';
+import { configuration, IConfig } from '../configuration';
 
 export type TextEditorCorrelationKey = string;
 
@@ -31,7 +31,7 @@ export abstract class AnnotationProviderBase extends Disposable {
         this.correlationKey = AnnotationProviderBase.getCorrelationKey(this.editor);
         this.document = this.editor.document;
 
-        this._config = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
+        this._config = configuration.get<IConfig>();
 
         this._disposable = Disposable.from(
             window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this)
@@ -78,7 +78,7 @@ export abstract class AnnotationProviderBase extends Disposable {
     async reset(decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined) {
         await this.clear();
 
-        this._config = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
+        this._config = configuration.get<IConfig>();
         this.decoration = decoration;
         this.highlightDecoration = highlightDecoration;
 

@@ -1,8 +1,9 @@
 'use strict';
-import { Command, ExtensionContext, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { Command, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { CommitFormatter, getGitStatusIcon, GitBranch, GitCommit, GitCommitType, GitService, GitUri, ICommitFormatOptions, IGitStatusFile, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
+import { GitExplorer } from './gitExplorer';
+import { CommitFormatter, getGitStatusIcon, GitBranch, GitCommit, GitCommitType, GitUri, ICommitFormatOptions, IGitStatusFile, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
 import * as path from 'path';
 
 export enum CommitFileNodeDisplayAs {
@@ -24,8 +25,7 @@ export class CommitFileNode extends ExplorerNode {
     constructor(
         public readonly status: IGitStatusFile,
         public commit: GitCommit,
-        protected readonly context: ExtensionContext,
-        protected readonly git: GitService,
+        protected readonly explorer: GitExplorer,
         private displayAs: CommitFileNodeDisplayAs = CommitFileNodeDisplayAs.Commit,
         public readonly branch?: GitBranch
     ) {
@@ -39,7 +39,7 @@ export class CommitFileNode extends ExplorerNode {
 
     async getTreeItem(): Promise<TreeItem> {
         if (this.commit.type !== GitCommitType.File) {
-            const log = await this.git.getLogForFile(this.repoPath, this.status.fileName, this.commit.sha, { maxCount: 2 });
+            const log = await this.explorer.git.getLogForFile(this.repoPath, this.status.fileName, this.commit.sha, { maxCount: 2 });
             if (log !== undefined) {
                 this.commit = log.commits.get(this.commit.sha) || this.commit;
             }
@@ -53,8 +53,8 @@ export class CommitFileNode extends ExplorerNode {
             : getGitStatusIcon(this.status.status);
 
         item.iconPath = {
-            dark: this.context.asAbsolutePath(path.join('images', 'dark', icon)),
-            light: this.context.asAbsolutePath(path.join('images', 'light', icon))
+            dark: this.explorer.context.asAbsolutePath(path.join('images', 'dark', icon)),
+            light: this.explorer.context.asAbsolutePath(path.join('images', 'light', icon))
         };
 
         item.command = this.getCommand();
@@ -79,7 +79,7 @@ export class CommitFileNode extends ExplorerNode {
             this._label = (this.displayAs & CommitFileNodeDisplayAs.CommitLabel)
                 ? CommitFormatter.fromTemplate(this.getCommitTemplate(), this.commit, {
                     truncateMessageAtNewLine: true,
-                    dataFormat: this.git.config.defaultDateFormat
+                    dataFormat: this.explorer.git.config.defaultDateFormat
                 } as ICommitFormatOptions)
                 : StatusFileFormatter.fromTemplate(this.getCommitFileTemplate(),
                     this.status,
@@ -98,11 +98,11 @@ export class CommitFileNode extends ExplorerNode {
     }
 
     protected getCommitTemplate() {
-        return this.git.config.gitExplorer.commitFormat;
+        return this.explorer.config.commitFormat;
     }
 
     protected getCommitFileTemplate() {
-        return this.git.config.gitExplorer.commitFileFormat;
+        return this.explorer.config.commitFileFormat;
     }
 
     getCommand(): Command | undefined {

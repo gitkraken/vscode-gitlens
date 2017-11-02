@@ -1,10 +1,10 @@
 'use strict';
-import { Functions, Iterables, Objects } from './system';
-import { Disposable, Event, EventEmitter, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, window, WindowState, workspace, WorkspaceFoldersChangeEvent } from 'vscode';
-import { IConfig } from './configuration';
-import { CommandContext, DocumentSchemes, ExtensionKey, setCommandContext } from './constants';
-import { RemoteProviderFactory } from './git/remotes/factory';
-import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitCommitType, GitDiff, GitDiffChunkLine, GitDiffParser, GitDiffShortStat, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, Repository, setDefaultEncoding } from './git/git';
+import { Functions, Iterables } from './system';
+import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, window, WindowState, workspace, WorkspaceFoldersChangeEvent } from 'vscode';
+import { configuration, IConfig, IRemotesConfig } from './configuration';
+import { CommandContext, DocumentSchemes, setCommandContext } from './constants';
+import { RemoteProviderFactory, RemoteProviderMap } from './git/remotes/factory';
+import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitCommitType, GitDiff, GitDiffChunkLine, GitDiffParser, GitDiffShortStat, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, Repository } from './git/git';
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { Logger } from './logger';
 import * as fs from 'fs';
@@ -71,7 +71,6 @@ export enum GitRepoSearchBy {
 
 export enum GitChangeReason {
     GitCache = 'git-cache',
-    RemoteCache = 'remote-cache',
     Repositories = 'repositories'
 }
 
@@ -101,7 +100,6 @@ export class GitService extends Disposable {
     private _disposable: Disposable | undefined;
     private _documentKeyMap: Map<TextDocument, string>;
     private _gitCache: Map<string, GitCacheEntry>;
-    private _remotesCache: Map<string, GitRemote[]>;
     private _repositories: Map<string, Repository | undefined>;
     private _repositoriesPromise: Promise<void> | undefined;
     private _suspended: boolean = false;
@@ -113,20 +111,17 @@ export class GitService extends Disposable {
 
         this._documentKeyMap = new Map();
         this._gitCache = new Map();
-        this._remotesCache = new Map();
         this._repositories = new Map();
         this._trackedCache = new Map();
         this._versionedUriCache = new Map();
 
-        this.onConfigurationChanged();
-        this._repositoriesPromise = this.onWorkspaceFoldersChanged();
-
         this._disposable = Disposable.from(
             window.onDidChangeWindowState(this.onWindowStateChanged, this),
-            workspace.onDidChangeConfiguration(this.onConfigurationChanged, this),
             workspace.onDidChangeWorkspaceFolders(this.onWorkspaceFoldersChanged, this),
-            RemoteProviderFactory.onDidChange(this.onRemoteProvidersChanged, this)
+            configuration.onDidChange(this.onConfigurationChanged, this)
         );
+        this.onConfigurationChanged(configuration.initializingChangeEvent);
+        this._repositoriesPromise = this.onWorkspaceFoldersChanged();
     }
 
     dispose() {
@@ -139,7 +134,6 @@ export class GitService extends Disposable {
 
         this._documentKeyMap.clear();
         this._gitCache.clear();
-        this._remotesCache.clear();
         this._trackedCache.clear();
         this._versionedUriCache.clear();
     }
@@ -160,13 +154,12 @@ export class GitService extends Disposable {
         this._trackedCache.clear();
     }
 
-    private onConfigurationChanged() {
-        const encoding = workspace.getConfiguration('files').get<string>('encoding', 'utf8');
-        setDefaultEncoding(encoding);
+    private onConfigurationChanged(e: ConfigurationChangeEvent) {
+        const initializing = configuration.initializing(e);
 
-        const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
+        const cfg = configuration.get<IConfig>();
 
-        if (!Objects.areEquivalent(cfg.advanced, this.config && this.config.advanced)) {
+        if (initializing || configuration.changed(e, configuration.name('advanced')('caching')('enabled').value)) {
             if (cfg.advanced.caching.enabled) {
                 this._cacheDisposable && this._cacheDisposable.dispose();
 
@@ -184,24 +177,13 @@ export class GitService extends Disposable {
             }
         }
 
-        // Only count the change if we aren't just starting up
-        const ignoreWhitespace = this.config === undefined
-            ? cfg.blame.ignoreWhitespace
-            : this.config.blame.ignoreWhitespace;
-
         this.config = cfg;
 
-        if (this.config.blame.ignoreWhitespace !== ignoreWhitespace) {
+        // Only count the change if we aren't initializing
+        if (!initializing && configuration.changed(e, configuration.name('blame')('ignoreWhitespace').value, null)) {
             this._gitCache.clear();
-
             this.fireChange(GitChangeReason.GitCache);
         }
-    }
-
-    private onRemoteProvidersChanged() {
-        this._remotesCache.clear();
-
-        this.fireChange(GitChangeReason.RemoteCache);
     }
 
     private onTextDocumentChanged(e: TextDocumentChangeEvent) {
@@ -260,8 +242,13 @@ export class GitService extends Disposable {
                 this._repositories.set(fsPath, undefined);
             }
             else {
-                this._repositories.set(fsPath, new Repository(f, rp, this.onAnyRepositoryChanged.bind(this), this._suspended));
+                this._repositories.set(fsPath, new Repository(f, rp, this, this.onAnyRepositoryChanged.bind(this), this._suspended));
             }
+
+            // const repoPaths = await this.searchForRepositories(f);
+            // if (repoPaths.length !== 0) {
+            //     debugger;
+            // }
         }
 
         for (const f of e.removed) {
@@ -282,6 +269,11 @@ export class GitService extends Disposable {
             this.fireChange(GitChangeReason.Repositories);
         }
     }
+
+    // private async searchForRepositories(folder: WorkspaceFolder): Promise<string[]> {
+    //     const uris = await workspace.findFiles(new RelativePattern(folder, '**/.git/HEAD'));
+    //     return Arrays.filterMapAsync(uris, uri => this.getRepoPathCore(path.dirname(uri.fsPath), true));
+    // }
 
     private fireChange(reason: GitChangeReason) {
         this._onDidChange.fire({ reason: reason });
@@ -631,7 +623,7 @@ export class GitService extends Disposable {
             Logger.log(`getDiffForFile('${uri.repoPath}', '${uri.fsPath}', '${sha1}', '${sha2}')`);
         }
 
-        const promise = this.getDiffForFileCore(uri.repoPath, uri.fsPath, sha1, sha2, entry, key);
+        const promise = this.getDiffForFileCore(uri.repoPath, uri.fsPath, sha1, sha2, { encoding: GitService.getEncoding(uri) }, entry, key);
 
         if (entry) {
             Logger.log(`Add log cache for '${entry.key}:${key}'`);
@@ -644,11 +636,11 @@ export class GitService extends Disposable {
         return promise;
     }
 
-    private async getDiffForFileCore(repoPath: string | undefined, fileName: string, sha1: string | undefined, sha2: string | undefined, entry: GitCacheEntry | undefined, key: string): Promise<GitDiff | undefined> {
+    private async getDiffForFileCore(repoPath: string | undefined, fileName: string, sha1: string | undefined, sha2: string | undefined, options: { encoding?: string }, entry: GitCacheEntry | undefined, key: string): Promise<GitDiff | undefined> {
         const [file, root] = Git.splitPath(fileName, repoPath, false);
 
         try {
-            const data = await Git.diff(root, file, sha1, sha2);
+            const data = await Git.diff(root, file, sha1, sha2, options);
             const diff = GitDiffParser.parse(data);
             return diff;
         }
@@ -879,35 +871,35 @@ export class GitService extends Disposable {
         }
     }
 
-    hasRemotes(repoPath: string | undefined): boolean {
+    async hasRemotes(repoPath: string | undefined): Promise<boolean> {
         if (repoPath === undefined) return false;
 
-        const remotes = this._remotesCache.get(this.normalizeRepoPath(repoPath));
-        return remotes !== undefined && remotes.length > 0;
-    }
+        const repository = await this.getRepository(repoPath);
+        if (repository === undefined) return false;
 
-    private normalizeRepoPath(repoPath: string) {
-        return (repoPath.endsWith('/') ? repoPath : `${repoPath}/`).toLowerCase();
+        return repository.hasRemotes();
     }
 
     async getRemotes(repoPath: string | undefined): Promise<GitRemote[]> {
-        if (!repoPath) return [];
+        if (repoPath === undefined) return [];
 
         Logger.log(`getRemotes('${repoPath}')`);
 
-        const normalizedRepoPath = this.normalizeRepoPath(repoPath);
+        const repository = await this.getRepository(repoPath);
+        if (repository !== undefined) return repository.getRemotes();
 
-        let remotes = this._remotesCache.get(normalizedRepoPath);
-        if (remotes !== undefined) return remotes;
+        return this.getRemotesCore(repoPath);
+    }
+
+    async getRemotesCore(repoPath: string | undefined, providerMap?: RemoteProviderMap): Promise<GitRemote[]> {
+        if (repoPath === undefined) return [];
+
+        Logger.log(`getRemotesCore('${repoPath}')`);
+
+        providerMap = providerMap || RemoteProviderFactory.createMap(configuration.get<IRemotesConfig[] | null | undefined>(configuration.name('remotes').value, null));
 
         const data = await Git.remote(repoPath);
-        remotes = GitRemoteParser.parse(data, repoPath);
-
-        if (remotes !== undefined) {
-            this._remotesCache.set(normalizedRepoPath, remotes);
-        }
-
-        return remotes;
+        return GitRemoteParser.parse(data, repoPath, RemoteProviderFactory.factory(providerMap));
     }
 
     async getRepoPath(filePath: string): Promise<string | undefined>;
@@ -964,8 +956,9 @@ export class GitService extends Disposable {
     }
 
     async getStashList(repoPath: string | undefined): Promise<GitStash | undefined> {
-        Logger.log(`getStashList('${repoPath}')`);
         if (repoPath === undefined) return undefined;
+
+        Logger.log(`getStashList('${repoPath}')`);
 
         const data = await Git.stash_list(repoPath);
         const stash = GitStashParser.parse(data, repoPath);
@@ -985,8 +978,9 @@ export class GitService extends Disposable {
     }
 
     async getStatusForRepo(repoPath: string | undefined): Promise<GitStatus | undefined> {
-        Logger.log(`getStatusForRepo('${repoPath}')`);
         if (repoPath === undefined) return undefined;
+
+        Logger.log(`getStatusForRepo('${repoPath}')`);
 
         const porcelainVersion = Git.validateVersion(2, 11) ? 2 : 1;
 
@@ -1010,7 +1004,7 @@ export class GitService extends Disposable {
     getVersionedFileText(repoPath: string, fileName: string, sha: string) {
         Logger.log(`getVersionedFileText('${repoPath}', '${fileName}', ${sha})`);
 
-        return Git.show(repoPath, fileName, sha);
+        return Git.show(repoPath, fileName, sha, { encoding: GitService.getEncoding(repoPath, fileName) });
     }
 
     hasGitUriForFile(editor: TextEditor): boolean {
@@ -1126,6 +1120,15 @@ export class GitService extends Disposable {
         return Git.stash_push(repoPath, pathspecs, message);
     }
 
+    static getEncoding(repoPath: string, fileName: string): string;
+    static getEncoding(uri: Uri): string;
+    static getEncoding(repoPathOrUri: string | Uri, fileName?: string): string {
+        const uri = (typeof repoPathOrUri === 'string')
+            ? Uri.file(path.join(repoPathOrUri, fileName!))
+            : repoPathOrUri;
+        return Git.getEncoding(workspace.getConfiguration('files', uri).get<string>('encoding'));
+    }
+
     static getGitPath(gitPath?: string): Promise<IGit> {
         return Git.getGitPath(gitPath);
     }
@@ -1191,14 +1194,14 @@ export class GitService extends Disposable {
         }
 
         const parsed = path.parse(fileName!);
-        return Uri.parse(`${DocumentSchemes.GitLensGit}:${parsed.dir}${parsed.name}:${shortSha}${parsed.ext}?${JSON.stringify(data)}`);
+        return Uri.parse(`${DocumentSchemes.GitLensGit}:${path.join(parsed.dir, parsed.name)}:${shortSha}${parsed.ext}?${JSON.stringify(data)}`);
     }
 
     private static toGitUriData<T extends IGitUriData>(commit: IGitUriData, originalFileName?: string): T {
-        const fileName = Git.normalizePath(path.resolve(commit.repoPath, commit.fileName));
+        const fileName = Git.normalizePath(path.relative(commit.repoPath, commit.fileName));
         const data = { repoPath: commit.repoPath, fileName: fileName, sha: commit.sha } as T;
         if (originalFileName) {
-            data.originalFileName = Git.normalizePath(path.resolve(commit.repoPath, originalFileName));
+            data.originalFileName = Git.normalizePath(path.relative(commit.repoPath, originalFileName));
         }
         return data;
     }

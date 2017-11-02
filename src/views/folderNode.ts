@@ -3,6 +3,7 @@ import { Arrays, Objects } from '../system';
 import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { GitExplorerFilesLayout, IGitExplorerConfig } from '../configuration';
 import { ExplorerNode, ResourceType } from './explorerNode';
+import { GitExplorer } from './gitExplorer';
 import { GitUri } from '../gitService';
 
 export interface IFileExplorerNode extends ExplorerNode {
@@ -23,7 +24,7 @@ export class FolderNode extends ExplorerNode {
         public readonly folderName: string,
         public readonly relativePath: string | undefined,
         public readonly root: Arrays.IHierarchicalItem<IFileExplorerNode>,
-        private readonly config: IGitExplorerConfig
+        private readonly explorer: GitExplorer
     ) {
         super(new GitUri(Uri.file(repoPath), { repoPath: repoPath, fileName: repoPath }));
     }
@@ -33,12 +34,12 @@ export class FolderNode extends ExplorerNode {
 
         let children: (FolderNode | IFileExplorerNode)[];
 
-        const nesting = FolderNode.getFileNesting(this.config, this.root.descendants, this.relativePath === undefined);
+        const nesting = FolderNode.getFileNesting(this.explorer.config, this.root.descendants, this.relativePath === undefined);
         if (nesting !== GitExplorerFilesLayout.List) {
             children = [];
             for (const folder of Objects.values(this.root.children)) {
                 if (folder.value === undefined) {
-                    children.push(new FolderNode(this.repoPath, folder.name, folder.relativePath, folder, this.config));
+                    children.push(new FolderNode(this.repoPath, folder.name, folder.relativePath, folder, this.explorer));
                     continue;
                 }
 

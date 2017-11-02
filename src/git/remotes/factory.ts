@@ -1,10 +1,7 @@
 'use strict';
-import { Objects } from '../../system';
-import { Event, EventEmitter, ExtensionContext, workspace } from 'vscode';
 import { BitbucketService } from './bitbucket';
 import { BitbucketServerService } from './bitbucket-server';
-import { CustomRemoteType, IConfig, IRemotesConfig } from '../../configuration';
-import { ExtensionKey } from '../../constants';
+import { CustomRemoteType, IRemotesConfig } from '../../configuration';
 import { CustomService } from './custom';
 import { GitHubService } from './github';
 import { GitLabService } from './gitlab';
@@ -21,29 +18,22 @@ const defaultProviderMap = new Map<string, (domain: string, path: string) => Rem
     ['visualstudio.com', (domain: string, path: string) => new VisualStudioService(domain, path)]
 ]);
 
+export type RemoteProviderMap = Map<string, (domain: string, path: string) => RemoteProvider>;
+
 export class RemoteProviderFactory {
 
-    private static _providerMap: Map<string, (domain: string, path: string) => RemoteProvider>;
-    private static _remotesCfg: IRemotesConfig[];
-
-    private static _onDidChange = new EventEmitter<void>();
-    public static get onDidChange(): Event<void> {
-        return this._onDidChange.event;
+    static factory(providerMap: RemoteProviderMap): (domain: string, path: string) => RemoteProvider | undefined {
+        return (domain: string, path: string) => this.create(providerMap, domain, path);
     }
 
-    static configure(context: ExtensionContext) {
-        context.subscriptions.push(workspace.onDidChangeConfiguration(() => this.onConfigurationChanged()));
-        this.onConfigurationChanged(true);
-    }
-
-    static getRemoteProvider(domain: string, path: string): RemoteProvider | undefined {
+    static create(providerMap: RemoteProviderMap, domain: string, path: string): RemoteProvider | undefined {
         try {
             let key = domain.toLowerCase();
             if (key.endsWith('visualstudio.com')) {
                 key = 'visualstudio.com';
             }
 
-            const creator = this._providerMap.get(key);
+            const creator = providerMap.get(key);
             if (creator === undefined) return undefined;
 
             return creator(domain, path);
@@ -54,27 +44,17 @@ export class RemoteProviderFactory {
         }
     }
 
-    private static onConfigurationChanged(silent: boolean = false) {
-        const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey);
-        if (cfg === undefined) return;
+    static createMap(cfg: IRemotesConfig[] | null | undefined): RemoteProviderMap {
+        const providerMap = new Map(defaultProviderMap);
+        if (cfg != null && cfg.length > 0) {
+            for (const rc of cfg) {
+                const provider = this.getCustomProvider(rc);
+                if (provider === undefined) continue;
 
-        if (!Objects.areEquivalent(cfg.remotes, this._remotesCfg)) {
-            this._providerMap = new Map(defaultProviderMap);
-
-            this._remotesCfg = cfg.remotes;
-            if (this._remotesCfg != null && this._remotesCfg.length > 0) {
-                for (const remoteCfg of this._remotesCfg) {
-                    const provider = this.getCustomProvider(remoteCfg);
-                    if (provider === undefined) continue;
-
-                    this._providerMap.set(remoteCfg.domain.toLowerCase(), provider);
-                }
-
-                if (!silent) {
-                    this._onDidChange.fire();
-                }
+                providerMap.set(rc.domain.toLowerCase(), provider);
             }
         }
+        return providerMap;
     }
 
     private static getCustomProvider(cfg: IRemotesConfig) {

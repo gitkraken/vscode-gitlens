@@ -1,10 +1,11 @@
 'use strict';
 import { Iterables } from '../system';
-import { ExtensionContext, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchHistoryNode } from './branchHistoryNode';
 import { GlyphChars } from '../constants';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { GitRemote, GitRemoteType, GitService, GitUri } from '../gitService';
+import { GitExplorer } from './gitExplorer';
+import { GitRemote, GitRemoteType, GitUri, Repository } from '../gitService';
 
 export class RemoteNode extends ExplorerNode {
 
@@ -13,18 +14,18 @@ export class RemoteNode extends ExplorerNode {
         constructor(
             public readonly remote: GitRemote,
             uri: GitUri,
-            protected readonly context: ExtensionContext,
-            protected readonly git: GitService
+            private readonly repo: Repository,
+            private readonly explorer: GitExplorer
         ) {
             super(uri);
         }
 
         async getChildren(): Promise<ExplorerNode[]> {
-            const branches = await this.git.getBranches(this.uri.repoPath!);
+            const branches = await this.repo.getBranches();
             if (branches === undefined) return [];
 
             branches.sort((a, b) => a.name.localeCompare(b.name));
-            return [...Iterables.filterMap(branches, b => !b.remote || !b.name.startsWith(this.remote.name) ? undefined : new BranchHistoryNode(b, this.uri, this.context, this.git))];
+            return [...Iterables.filterMap(branches, b => !b.remote || !b.name.startsWith(this.remote.name) ? undefined : new BranchHistoryNode(b, this.uri, this.explorer))];
         }
 
         getTreeItem(): TreeItem {

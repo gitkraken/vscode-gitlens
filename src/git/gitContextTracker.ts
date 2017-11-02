@@ -1,7 +1,8 @@
 'use strict';
 import { Functions } from '../system';
-import { Disposable, Event, EventEmitter, TextDocumentChangeEvent, TextEditor, window, workspace } from 'vscode';
+import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, TextDocumentChangeEvent, TextEditor, window, workspace } from 'vscode';
 import { TextDocumentComparer } from '../comparers';
+import { configuration } from '../configuration';
 import { CommandContext, isTextEditor, setCommandContext } from '../constants';
 import { GitChangeEvent, GitChangeReason, GitService, GitUri, Repository, RepositoryChangeEvent } from '../gitService';
 // import { Logger } from '../logger';
@@ -40,45 +41,49 @@ export class GitContextTracker extends Disposable {
         return this._onDidChangeBlameability.event;
     }
 
-    private _context: Context = { state: { dirty: false } };
-    private _disposable: Disposable | undefined;
-    private _gitEnabled: boolean;
+    private readonly _context: Context = { state: { dirty: false } };
+    private readonly _disposable: Disposable;
+    private _listenersDisposable: Disposable | undefined;
 
     constructor(
         private readonly git: GitService
     ) {
         super(() => this.dispose());
 
-        this.onConfigurationChanged();
+        this._disposable = Disposable.from(
+            workspace.onDidChangeConfiguration(this.onConfigurationChanged, this)
+        );
+    this.onConfigurationChanged(configuration.initializingChangeEvent);
     }
 
     dispose() {
+        this._listenersDisposable && this._listenersDisposable.dispose();
         this._disposable && this._disposable.dispose();
     }
 
-    private onConfigurationChanged() {
-        const gitEnabled = workspace.getConfiguration('git').get<boolean>('enabled', true);
-        if (this._gitEnabled !== gitEnabled) {
-            this._gitEnabled = gitEnabled;
+    private onConfigurationChanged(e: ConfigurationChangeEvent) {
+        if (!configuration.initializing(e) && !e.affectsConfiguration('git.enabled', null!)) return;
 
-            if (this._disposable !== undefined) {
-                this._disposable.dispose();
-                this._disposable = undefined;
-            }
+        const enabled = workspace.getConfiguration('git', null!).get<boolean>('enabled', true);
+        if (this._listenersDisposable !== undefined) {
+            this._listenersDisposable.dispose();
+            this._listenersDisposable = undefined;
+        }
 
-            setCommandContext(CommandContext.Enabled, gitEnabled);
+        setCommandContext(CommandContext.Enabled, enabled);
 
-            if (gitEnabled) {
-                this._disposable = Disposable.from(
-                    window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 50), this),
-                    workspace.onDidChangeConfiguration(this.onConfigurationChanged, this),
-                    workspace.onDidChangeTextDocument(Functions.debounce(this.onTextDocumentChanged, 50), this),
-                    this.git.onDidBlameFail(this.onBlameFailed, this),
-                    this.git.onDidChange(this.onGitChanged, this)
-                );
+        if (enabled) {
+            this._listenersDisposable = Disposable.from(
+                window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 50), this),
+                workspace.onDidChangeTextDocument(Functions.debounce(this.onTextDocumentChanged, 50), this),
+                this.git.onDidBlameFail(this.onBlameFailed, this),
+                this.git.onDidChange(this.onGitChanged, this)
+            );
 
-                this.updateContext(BlameabilityChangeReason.EditorChanged, window.activeTextEditor, true);
-            }
+            this.updateContext(BlameabilityChangeReason.EditorChanged, window.activeTextEditor, true);
+        }
+        else {
+            this.updateContext(BlameabilityChangeReason.EditorChanged, window.activeTextEditor, false);
         }
     }
 
@@ -98,9 +103,9 @@ export class GitContextTracker extends Disposable {
     }
 
     private onGitChanged(e: GitChangeEvent) {
-        if (e.reason === GitChangeReason.RemoteCache || e.reason === GitChangeReason.Repositories) {
-            this.updateRemotes();
-        }
+        if (e.reason !== GitChangeReason.Repositories) return;
+
+        this.updateRemotes();
     }
 
     private onRepoChanged(e: RepositoryChangeEvent) {
@@ -186,9 +191,7 @@ export class GitContextTracker extends Disposable {
     private async updateRemotes() {
         let hasRemotes = false;
         if (this._context.repo !== undefined) {
-            const remotes = await this.git.getRemotes(this._context.repo.path);
-
-            hasRemotes = remotes.length !== 0;
+            hasRemotes = await this._context.repo.hasRemotes();
             setCommandContext(CommandContext.ActiveHasRemotes, hasRemotes);
         }
         else {
@@ -200,9 +203,7 @@ export class GitContextTracker extends Disposable {
             for (const repo of repositories) {
                 if (repo === this._context.repo) continue;
 
-                const remotes = await this.git.getRemotes(repo.path);
-                hasRemotes = remotes.length !== 0;
-
+                hasRemotes = await repo.hasRemotes();
                 if (hasRemotes) break;
             }
         }
