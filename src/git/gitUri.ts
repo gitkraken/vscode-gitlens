@@ -107,7 +107,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
             if (commit !== undefined) return new GitUri(uri, commit);
         }
 
-        const gitUri = git.getGitUriForFile(uri);
+        const gitUri = git.getGitUriForVersionedFile(uri);
         if (gitUri) return gitUri;
 
         return new GitUri(uri, await git.getRepoPath(uri));

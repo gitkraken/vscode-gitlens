@@ -13,7 +13,7 @@ export class RepositoryChangeEvent {
     readonly changes: RepositoryChange[] = [];
 
     constructor(
-        public repository?: Repository
+        public readonly repository?: Repository
     ) { }
 
     changed(change: RepositoryChange, solely: boolean = false) {
@@ -33,8 +33,8 @@ export class RepositoryChangeEvent {
 }
 
 export interface RepositoryFileSystemChangeEvent {
-    repository?: Repository;
-    uris: Uri[];
+    readonly repository?: Repository;
+    readonly uris: Uri[];
 }
 
 export enum RepositoryStorage {
@@ -168,6 +168,12 @@ export class Repository extends Disposable {
     }
 
     containsUri(uri: Uri) {
+        if (uri instanceof GitUri) {
+            uri = uri.repoPath !== undefined
+                ? Uri.file(uri.repoPath)
+                : uri.fileUri();
+        }
+
         return this.folder === workspace.getWorkspaceFolder(uri);
     }
 

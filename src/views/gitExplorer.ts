@@ -146,10 +146,11 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         // If we do have a visible trackable editor, don't change from the last state (avoids issues when focus switches to the problems/output/debug console panes)
         if (editor.document === undefined || !this.git.isTrackable(editor.document.uri)) return this._root;
 
-        const repo = await this.git.getRepository(editor.document.uri);
+        const uri = await GitUri.fromUri(editor.document.uri, this.git);
+
+        const repo = await this.git.getRepository(uri);
         if (repo === undefined) return undefined;
 
-        const uri = this.git.getGitUriForFile(editor.document.uri) || new GitUri(editor.document.uri, { repoPath: repo.path, fileName: editor.document.uri.fsPath });
         if (UriComparer.equals(uri, this._root && this._root.uri)) return this._root;
 
         return new HistoryNode(uri, repo, this);

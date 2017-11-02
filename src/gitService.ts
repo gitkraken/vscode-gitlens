@@ -588,7 +588,7 @@ export class GitService extends Disposable {
         return await Git.config_get(key, repoPath);
     }
 
-    getGitUriForFile(uri: Uri) {
+    getGitUriForVersionedFile(uri: Uri) {
         const cacheKey = this.getCacheEntryKey(uri);
         const entry = this._versionedUriCache.get(cacheKey);
         return entry && entry.uri;
@@ -942,8 +942,21 @@ export class GitService extends Disposable {
         return this._repositories;
     }
 
-    async getRepository(uri: Uri): Promise<Repository | undefined> {
-        const folder = workspace.getWorkspaceFolder(uri);
+    async getRepository(repoPath: string): Promise<Repository | undefined>;
+    async getRepository(uri: Uri): Promise<Repository | undefined>;
+    async getRepository(repoPathOrUri: string | Uri): Promise<Repository | undefined> {
+        if (repoPathOrUri instanceof GitUri) {
+            repoPathOrUri = repoPathOrUri.repoPath !== undefined
+                ? Uri.file(repoPathOrUri.repoPath)
+                : repoPathOrUri.fileUri();
+        }
+
+        if (typeof repoPathOrUri === 'string') {
+            const repositories = await this.getRepositoriesCore();
+            return Iterables.find(repositories.values(), r => r !== undefined && r.path === repoPathOrUri) || undefined;
+        }
+
+        const folder = workspace.getWorkspaceFolder(repoPathOrUri);
         if (folder === undefined) return undefined;
 
         const repositories = await this.getRepositoriesCore();
@@ -1037,6 +1050,7 @@ export class GitService extends Disposable {
     async isTracked(fileNameOrUri: string | GitUri, repoPath?: string): Promise<boolean> {
         let cacheKey: string;
         let fileName: string;
+        let sha: string | undefined;
         if (typeof fileNameOrUri === 'string') {
             [fileName, repoPath] = Git.splitPath(fileNameOrUri, repoPath);
             cacheKey = this.getCacheEntryKey(fileNameOrUri);
@@ -1046,10 +1060,11 @@ export class GitService extends Disposable {
 
             fileName = fileNameOrUri.fsPath;
             repoPath = fileNameOrUri.repoPath;
-            cacheKey = this.getCacheEntryKey(fileNameOrUri);
+            sha = fileNameOrUri.sha;
+            cacheKey = this.getCacheEntryKey(fileName);
         }
 
-        Logger.log(`isTracked('${fileName}', '${repoPath}')`);
+        Logger.log(`isTracked('${fileName}', '${repoPath}', '${sha}')`);
 
         let tracked = this._trackedCache.get(cacheKey);
         if (tracked !== undefined) {
@@ -1057,7 +1072,7 @@ export class GitService extends Disposable {
             return await tracked;
         }
 
-        tracked = this.isTrackedCore(repoPath === undefined ? '' : repoPath, fileName);
+        tracked = this.isTrackedCore(repoPath === undefined ? '' : repoPath, fileName, sha);
         this._trackedCache.set(cacheKey, tracked);
 
         tracked = await tracked;
@@ -1066,10 +1081,15 @@ export class GitService extends Disposable {
         return tracked;
     }
 
-    private async isTrackedCore(repoPath: string, fileName: string) {
-        const result = await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName);
-        return !!result;
+    private async isTrackedCore(repoPath: string, fileName: string, sha?: string) {
+        // Even if we have a sha, check first to see if the file exists (that way the cache will be better reused)
+        let tracked = !!await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName);
+        if (!tracked && sha !== undefined) {
+            tracked = !!await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName, sha);
+        }
+        return tracked;
     }
+
     openDiffTool(repoPath: string, uri: Uri, staged: boolean) {
         Logger.log(`openDiffTool('${repoPath}', '${uri.fsPath}', ${staged})`);
 

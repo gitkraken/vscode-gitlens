@@ -370,9 +370,14 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...params);
     }
 
-    static async ls_files(repoPath: string, fileName: string): Promise<string> {
+    static async ls_files(repoPath: string, fileName: string, sha?: string): Promise<string> {
+        const params = [`ls-files`];
+        if (sha) {
+            params.push(`--with-tree=${sha}`);
+        }
+
         try {
-            const data = await gitCommand({ cwd: repoPath, willHandleErrors: true }, 'ls-files', fileName);
+            const data = await gitCommand({ cwd: repoPath, willHandleErrors: true }, ...params, fileName);
             return data.trim();
         }
         catch {
