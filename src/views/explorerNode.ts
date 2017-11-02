@@ -27,17 +27,21 @@ export declare type ResourceType =
     'gitlens:status-file-commits' |
     'gitlens:status-upstream';
 
+// let id = 0;
+
 export abstract class ExplorerNode extends Disposable {
 
     abstract readonly resourceType: ResourceType;
 
     protected children: ExplorerNode[] | undefined;
     protected disposable: Disposable | undefined;
+    // protected readonly id: number;
 
     constructor(
         public readonly uri: GitUri
     ) {
         super(() => this.dispose());
+        // this.id = id++;
     }
 
     dispose() {

@@ -1,4 +1,4 @@
-import { commands, Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
 import { GitStatus, GitUri, Repository, RepositoryFileSystemChangeEvent } from '../gitService';
@@ -24,7 +24,7 @@ export class StatusNode extends ExplorerNode {
 
         this.children = [];
 
-        const status = await this.explorer.git.getStatusForRepo(this.uri.repoPath!);
+        const status = await this.repo.getStatus();
         if (status === undefined) return this.children;
 
         if (status.state.behind) {
@@ -53,7 +53,7 @@ export class StatusNode extends ExplorerNode {
             this.disposable = undefined;
         }
 
-        const status = await this.explorer.git.getStatusForRepo(this.uri.repoPath!);
+        const status = await this.repo.getStatus();
         if (status === undefined) return new TreeItem('No repo status');
 
         if (this.explorer.autoRefresh && this.includeWorkingTree) {
@@ -120,7 +120,7 @@ export class StatusNode extends ExplorerNode {
     }
 
     private async onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
-        const status = await this.explorer.git.getStatusForRepo(this.uri.repoPath!);
+        const status = await this.repo.getStatus();
 
         // If we haven't changed from having some working changes to none or vice versa then just refresh the node
         // This is because of https://github.com/Microsoft/vscode/issues/34789
@@ -128,12 +128,12 @@ export class StatusNode extends ExplorerNode {
             ((this._status.files.length === status.files.length) || (this._status.files.length > 0 && status.files.length > 0))) {
 
             Logger.log(`StatusNode.onFileSystemChanged; triggering node refresh`);
-            commands.executeCommand('gitlens.gitExplorer.refreshNode', this);
+            this.explorer.refreshNode(this);
 
             return;
         }
 
         Logger.log(`StatusNode.onFileSystemChanged; triggering parent node refresh`);
-        commands.executeCommand('gitlens.gitExplorer.refreshNode', this.parent);
+        this.explorer.refreshNode(this.parent);
     }
 }

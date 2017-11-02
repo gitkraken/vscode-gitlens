@@ -20,6 +20,8 @@ export class FileHistoryNode extends ExplorerNode {
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
+        this.updateSubscription();
+
         const log = await this.explorer.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, this.uri.sha);
         if (log === undefined) return [new MessageNode('No file history')];
 
@@ -27,18 +29,7 @@ export class FileHistoryNode extends ExplorerNode {
     }
 
     getTreeItem(): TreeItem {
-        if (this.disposable !== undefined) {
-            this.disposable.dispose();
-            this.disposable = undefined;
-        }
-
-        // We only need to subscribe if auto-refresh is enabled, because if it becomes enabled we will be refreshed
-        if (this.explorer.autoRefresh) {
-            this.disposable = Disposable.from(
-                this.explorer.onDidChangeAutoRefresh(this.onAutoRefreshChanged, this),
-                this.repo.onDidChange(this.onRepoChanged, this)
-            );
-        }
+        this.updateSubscription();
 
         const item = new TreeItem(`${this.uri.getFormattedPath()}`, TreeItemCollapsibleState.Expanded);
         item.contextValue = this.resourceType;
@@ -51,13 +42,22 @@ export class FileHistoryNode extends ExplorerNode {
         return item;
     }
 
-    private onAutoRefreshChanged() {
-        if (this.disposable === undefined) return;
+    private updateSubscription() {
+        // We only need to subscribe if auto-refresh is enabled, because if it becomes enabled we will be refreshed
+        if (this.explorer.autoRefresh) {
+            this.disposable = this.disposable || Disposable.from(
+                this.explorer.onDidChangeAutoRefresh(this.onAutoRefreshChanged, this),
+                this.repo.onDidChange(this.onRepoChanged, this)
+            );
+        }
+        else if (this.disposable !== undefined) {
+            this.disposable.dispose();
+            this.disposable = undefined;
+        }
+    }
 
-        // If auto-refresh changes, just kill the subscriptions
-        // (if it was enabled -- we will get refreshed so we don't have to worry about re-hooking it up here)
-        this.disposable.dispose();
-        this.disposable = undefined;
+    private onAutoRefreshChanged() {
+        this.updateSubscription();
     }
 
     private onRepoChanged(e: RepositoryChangeEvent) {

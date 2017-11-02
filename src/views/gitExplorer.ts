@@ -235,6 +235,13 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     refreshNode(node: ExplorerNode, args?: RefreshNodeCommandArgs) {
         Logger.log(`GitExplorer[view=${this._view}].refreshNode`);
 
+        // Since the root node won't actually refresh, force it
+        if (node === this._root) {
+            this._onDidChangeTreeData.fire();
+
+            return;
+        }
+
         if (args !== undefined && node instanceof BranchHistoryNode) {
             node.maxCount = args.maxCount;
         }
