@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
-## [6.0.0-alpha3] - 2017-10-28
+## [6.0.0-beta] - 2017-11-02
 
 ATTENTION! To support multi-root workspaces some underlying fundamentals had to change, so please expect and report issues. Thanks!
 
@@ -31,6 +31,8 @@ ATTENTION! To support multi-root workspaces some underlying fundamentals had to 
 ### Fixed
 - Fixes jumpy code lens when deleting characters from a line with a Git code lens
 - Fixes [#178](https://github.com/eamodio/vscode-gitlens/issues/178) - Slight but noticeable keyboard lag with Gitlens
+- Fixes [#183](https://github.com/eamodio/vscode-gitlens/issues/183) - Remote with same url should only show once
+- Fixes [#185](https://github.com/eamodio/vscode-gitlens/issues/185) - Wrong relative date shows on mouse hover
 - Fixes issue where using the `Refresh` command on a `GitLens` custom view node refreshed the whole view, rather than just the node
 
 ## [5.7.1] - 2017-10-19
