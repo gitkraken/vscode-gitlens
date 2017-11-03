@@ -99,7 +99,7 @@ export namespace Strings {
     // Removes \ / : * ? " < > | and C0 and C1 control codes
     const illegalCharsForFSRegEx = /[\\/:*?"<>|\x00-\x1f\x80-\x9f]/g;
 
-    export function sanitizeForFS(s: string, replacement: string = '_') {
+    export function sanitizeForFileSystem(s: string, replacement: string = '_') {
         if (!s) return s;
         return s.replace(illegalCharsForFSRegEx, replacement);
     }

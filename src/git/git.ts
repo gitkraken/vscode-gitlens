@@ -134,7 +134,7 @@ export class Git {
         const data = await Git.show(repoPath, fileName, branchOrSha, { encoding: 'binary' });
         if (data === undefined) return undefined;
 
-        const suffix = Strings.truncate(Strings.sanitizeForFS(Git.isSha(branchOrSha) ? Git.shortenSha(branchOrSha) : branchOrSha), 50, '');
+        const suffix = Strings.truncate(Strings.sanitizeForFileSystem(Git.isSha(branchOrSha) ? Git.shortenSha(branchOrSha) : branchOrSha), 50, '');
         const ext = path.extname(fileName);
         return new Promise<string>((resolve, reject) => {
             tmp.file({ prefix: `${path.basename(fileName, ext)}-${suffix}__`, postfix: ext },
