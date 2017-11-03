@@ -38,7 +38,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
             try {
                 const sha = args.commit === undefined ? gitUri.sha : args.commit.sha;
-                if (sha === GitService.fakeSha) return Messages.showCommitHasNoPreviousCommitWarningMessage();
+                if (sha === GitService.deletedSha) return Messages.showCommitHasNoPreviousCommitWarningMessage();
 
                 const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, sha, { maxCount: 2, range: args.range!, skipMerges: true });
                 if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
@@ -59,7 +59,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
         const diffArgs: DiffWithCommandArgs = {
             repoPath: args.commit.repoPath,
             lhs: {
-                sha: args.commit.previousSha !== undefined ? args.commit.previousSha : GitService.fakeSha,
+                sha: args.commit.previousSha !== undefined ? args.commit.previousSha : GitService.deletedSha,
                 uri: args.commit.previousUri
             },
             rhs: {

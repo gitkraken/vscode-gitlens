@@ -53,7 +53,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
         const diffArgs: DiffWithCommandArgs = {
             repoPath: args.commit.repoPath,
             lhs: {
-                sha: args.commit.previousSha !== undefined ? args.commit.previousSha : GitService.fakeSha,
+                sha: args.commit.previousSha !== undefined ? args.commit.previousSha : GitService.deletedSha,
                 uri: args.commit.previousUri
             },
             rhs: {

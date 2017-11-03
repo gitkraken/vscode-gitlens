@@ -342,7 +342,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
             .map(s => GitUri.fromFileStatus(s, repoPath));
         for (const uri of uris) {
             await this.openDiffWith(repoPath,
-                { uri: uri, sha: node.commit.previousSha !== undefined ? node.commit.previousSha : GitService.fakeSha },
+                { uri: uri, sha: node.commit.previousSha !== undefined ? node.commit.previousSha : GitService.deletedSha },
                 { uri: uri, sha: node.commit.sha }, options);
         }
     }

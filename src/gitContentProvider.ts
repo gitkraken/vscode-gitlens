@@ -16,7 +16,7 @@ export class GitContentProvider implements TextDocumentContentProvider {
 
     async provideTextDocumentContent(uri: Uri, token: CancellationToken): Promise<string | undefined> {
         const data = GitService.fromGitContentUri(uri);
-        if (data.sha === GitService.fakeSha) return '';
+        if (data.sha === GitService.deletedSha) return '';
 
         const fileName = data.originalFileName || data.fileName;
 

@@ -48,7 +48,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
                     args = {
                         repoPath: commit1.repoPath,
                         lhs: {
-                            sha: commit1.previousSha !== undefined ? commit1.previousSha : GitService.fakeSha,
+                            sha: commit1.previousSha !== undefined ? commit1.previousSha : GitService.deletedSha,
                             uri: commit1.previousUri!
                         },
                         rhs: {
@@ -110,19 +110,19 @@ export class DiffWithCommand extends ActiveEditorCommand {
             if (rhs === undefined) {
                 rhsPrefix = 'deleted in ';
             }
-            else if (lhs === undefined || args.lhs.sha === GitService.fakeSha) {
+            else if (lhs === undefined || args.lhs.sha === GitService.deletedSha) {
                 rhsPrefix = 'added in ';
             }
 
-            if (args.lhs.title === undefined && lhs !== undefined && args.lhs.sha !== GitService.fakeSha) {
+            if (args.lhs.title === undefined && lhs !== undefined && args.lhs.sha !== GitService.deletedSha) {
                 args.lhs.title = (args.lhs.sha === '' || GitService.isUncommitted(args.lhs.sha))
                     ? `${path.basename(args.lhs.uri.fsPath)}`
                     : `${path.basename(args.lhs.uri.fsPath)} (${GitService.shortenSha(args.lhs.sha)})`;
             }
-            if (args.rhs.title === undefined && args.rhs.sha !== GitService.fakeSha) {
+            if (args.rhs.title === undefined && args.rhs.sha !== GitService.deletedSha) {
                 args.rhs.title = (args.rhs.sha === '' || GitService.isUncommitted(args.rhs.sha))
-                ? `${path.basename(args.rhs.uri.fsPath)}`
-                : `${path.basename(args.rhs.uri.fsPath)} (${rhsPrefix}${GitService.shortenSha(args.rhs.sha)})`;
+                    ? `${path.basename(args.rhs.uri.fsPath)}`
+                    : `${path.basename(args.rhs.uri.fsPath)} (${rhsPrefix}${GitService.shortenSha(args.rhs.sha)})`;
             }
 
             const title = (args.lhs.title !== undefined && args.rhs.title !== undefined)
@@ -131,10 +131,10 @@ export class DiffWithCommand extends ActiveEditorCommand {
 
             return await commands.executeCommand(BuiltInCommands.Diff,
                 lhs === undefined
-                    ? GitService.toGitContentUri(GitService.fakeSha, args.lhs.uri.fsPath, args.repoPath)
+                    ? GitService.toGitContentUri(GitService.deletedSha, args.lhs.uri.fsPath, args.repoPath)
                     : Uri.file(lhs),
                 rhs === undefined
-                    ? GitService.toGitContentUri(GitService.fakeSha, args.rhs.uri.fsPath, args.repoPath)
+                    ? GitService.toGitContentUri(GitService.deletedSha, args.rhs.uri.fsPath, args.repoPath)
                     : Uri.file(rhs),
                 title,
                 args.showOptions);

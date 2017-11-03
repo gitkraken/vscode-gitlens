@@ -81,7 +81,7 @@ export interface GitChangeEvent {
 export class GitService extends Disposable {
 
     static emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
-    static fakeSha = 'ffffffffffffffffffffffffffffffffffffffff';
+    static deletedSha = 'ffffffffffffffffffffffffffffffffffffffff';
     static uncommittedSha = '0000000000000000000000000000000000000000';
 
     config: IConfig;
