@@ -27,6 +27,7 @@ ATTENTION! To support multi-root workspaces some underlying fundamentals had to 
 - Optimizes event handling, executing git commands, and general processing to improve performance and reduce any lag
 - Optimizes current line hover annotations to only be computed on hover (i.e. lazily evaluated) to reduce the compute required when changing lines
 - Protects credentials from possibly being affected by poor network conditions via Git Credential Manager (GCM) for Windows environment variables
+- Delays (slightly) the initial loading of the `GitLens` custom view to improve startup performance
 
 ### Fixed
 - Fixes jumpy code lens when deleting characters from a line with a Git code lens

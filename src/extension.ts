@@ -1,6 +1,5 @@
 'use strict';
-// import { Objects } from './system';
-import { commands, ExtensionContext, extensions, languages, window, workspace } from 'vscode';
+import { ExtensionContext, extensions, languages, window, workspace } from 'vscode';
 import { AnnotationController } from './annotations/annotationController';
 import { CodeLensLocations, Configuration, IConfig, LineHighlightLocations } from './configuration';
 import { ApplicationInsightsKey, CommandContext, ExtensionKey, GlobalState, QualifiedExtensionId, setCommandContext } from './constants';
@@ -66,23 +65,25 @@ export async function activate(context: ExtensionContext) {
     const annotationController = new AnnotationController(context, git, gitContextTracker);
     context.subscriptions.push(annotationController);
 
-    const codeLensController = new CodeLensController(context, git, gitContextTracker);
-    context.subscriptions.push(codeLensController);
-
     const currentLineController = new CurrentLineController(context, git, gitContextTracker, annotationController);
     context.subscriptions.push(currentLineController);
 
-    context.subscriptions.push(new Keyboard());
+    const codeLensController = new CodeLensController(context, git, gitContextTracker);
+    context.subscriptions.push(codeLensController);
 
     context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider(context, git)));
     context.subscriptions.push(languages.registerCodeLensProvider(GitRevisionCodeLensProvider.selector, new GitRevisionCodeLensProvider(context, git)));
     context.subscriptions.push(window.registerTreeDataProvider('gitlens.gitExplorer', new GitExplorer(context, git)));
-    context.subscriptions.push(commands.registerTextEditorCommand('gitlens.computingFileAnnotations', () => { }));
+
+    context.subscriptions.push(new Keyboard());
 
     configureCommands(context, git, annotationController, currentLineController, codeLensController);
 
     // Constantly over my data cap so stop collecting initialized event
     // Telemetry.trackEvent('initialized', Objects.flatten(cfg, 'config', true));
+
+    // Slightly delay enabling the explorer to not stop the rest of GitLens from being usable
+    setTimeout(() => setCommandContext(CommandContext.GitExplorer, true), 1000);
 }
 
 // this method is called when your extension is deactivated

@@ -1,5 +1,5 @@
 'use strict';
-import { ExtensionContext } from 'vscode';
+import { commands, ExtensionContext } from 'vscode';
 import { AnnotationController } from './annotations/annotationController';
 import { CurrentLineController } from './currentLineController';
 import { CodeLensController } from './codeLensController';
@@ -58,6 +58,8 @@ export function configureCommands(
     currentLineController: CurrentLineController,
     codeLensController: CodeLensController
 ): void {
+    context.subscriptions.push(commands.registerTextEditorCommand('gitlens.computingFileAnnotations', () => { }));
+
     context.subscriptions.push(new Commands.CloseUnchangedFilesCommand(git));
     context.subscriptions.push(new Commands.OpenChangedFilesCommand(git));
     context.subscriptions.push(new Commands.ExternalDiffCommand(git));

@@ -2162,7 +2162,7 @@
                 {
                     "id": "gitlens.gitExplorer",
                     "name": "GitLens",
-                    "when": "gitlens:enabled && gitlens:hasRepository && config.gitlens.gitExplorer.enabled"
+                    "when": "gitlens:enabled && gitlens:gitExplorer && gitlens:hasRepository && config.gitlens.gitExplorer.enabled"
                 }
             ]
         }
