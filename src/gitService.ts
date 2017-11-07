@@ -10,7 +10,7 @@ import { Logger } from './logger';
 import * as fs from 'fs';
 import * as path from 'path';
 
-export { GitUri, IGitCommitInfo };
+export { GitUri, IGit, IGitCommitInfo };
 export * from './git/models/models';
 export * from './git/formatters/commit';
 export * from './git/formatters/status';
@@ -1131,8 +1131,12 @@ export class GitService extends Disposable {
         return Git.getEncoding(workspace.getConfiguration('files', uri).get<string>('encoding'));
     }
 
-    static getGitPath(gitPath?: string): Promise<IGit> {
-        return Git.getGitPath(gitPath);
+    static initialize(gitPath?: string): Promise<IGit> {
+        return Git.getGitInfo(gitPath);
+    }
+
+    static getGitPath(): string {
+        return Git.gitInfo().path;
     }
 
     static getGitVersion(): string {

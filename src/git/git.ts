@@ -124,7 +124,7 @@ export class Git {
             : 'utf8';
     }
 
-    static async getGitPath(gitPath?: string): Promise<IGit> {
+    static async getGitInfo(gitPath?: string): Promise<IGit> {
         git = await findGitPath(gitPath);
         Logger.log(`Git found: ${git.version} @ ${git.path === 'git' ? 'PATH' : git.path}`);
         return git;

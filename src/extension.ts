@@ -28,10 +28,9 @@ export async function activate(context: ExtensionContext) {
     Logger.log(`GitLens(v${gitlensVersion}) active`);
 
     const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
-    const gitPath = cfg.advanced.git;
 
     try {
-        await GitService.getGitPath(gitPath);
+        await GitService.initialize(cfg.advanced.git);
     }
     catch (ex) {
         Logger.error(ex, 'Extension.activate');
