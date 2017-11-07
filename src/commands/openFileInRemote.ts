@@ -54,7 +54,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
             return commands.executeCommand(Commands.OpenInRemote, uri, {
                 resource: {
                     type: gitUri.sha === undefined ? 'file' : 'revision',
-                    branch: args.branch === undefined ? 'Current' : args.branch,
+                    branch: args.branch,
                     fileName: gitUri.getRelativePath(),
                     range: range,
                     sha: gitUri.sha
