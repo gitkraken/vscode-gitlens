@@ -548,6 +548,8 @@ export class GitService extends Disposable {
         Logger.log(`getBranch('${repoPath}')`);
 
         const data = await Git.revparse_currentBranch(repoPath);
+        if (data === undefined) return undefined;
+
         const branch = data.split('\n');
         return new GitBranch(repoPath, branch[0], true, branch[1]);
     }

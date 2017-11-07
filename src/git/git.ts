@@ -394,7 +394,7 @@ export class Git {
         return gitCommand({ cwd: repoPath }, 'remote', 'get-url', remote);
     }
 
-    static async revparse_currentBranch(repoPath: string) {
+    static async revparse_currentBranch(repoPath: string): Promise<string | undefined> {
         const params = [`rev-parse`, `--abbrev-ref`, `--symbolic-full-name`, `@`, `@{u}`];
 
         const opts = { cwd: repoPath, willHandleErrors: true } as GitCommandOptions;
@@ -403,6 +403,8 @@ export class Git {
             return data;
         }
         catch (ex) {
+            if (/HEAD does not point to a branch/.test(ex && ex.toString())) return undefined;
+
             if (/no upstream configured for branch/.test(ex && ex.toString())) {
                 return ex.message.split('\n')[0];
             }
