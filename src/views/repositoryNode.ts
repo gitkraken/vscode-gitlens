@@ -13,8 +13,6 @@ import { Logger } from '../logger';
 
 export class RepositoryNode extends ExplorerNode {
 
-    readonly resourceType: ResourceType = 'gitlens:repository';
-
     constructor(
         uri: GitUri,
         private readonly repo: Repository,
@@ -40,7 +38,7 @@ export class RepositoryNode extends ExplorerNode {
         this.updateSubscription();
 
         const item = new TreeItem(`Repository ${Strings.pad(GlyphChars.Dash, 1, 1)} ${this.repo.name || this.uri.repoPath}`, TreeItemCollapsibleState.Expanded);
-        item.contextValue = this.resourceType;
+        item.contextValue = ResourceType.Repository;
         return item;
     }
 

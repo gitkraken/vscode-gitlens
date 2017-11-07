@@ -12,7 +12,6 @@ import * as path from 'path';
 export class StatusFilesNode extends ExplorerNode {
 
     readonly repoPath: string;
-    readonly resourceType: ResourceType = 'gitlens:status-files';
 
     maxCount: number | undefined = undefined;
 
@@ -88,7 +87,7 @@ export class StatusFilesNode extends ExplorerNode {
 
         const label = `${files} file${files > 1 ? 's' : ''} changed`; // ${this.status.upstream === undefined ? '' : ` (ahead of ${this.status.upstream})`}`;
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
-        item.contextValue = this.resourceType;
+        item.contextValue = ResourceType.StatusFiles;
         item.iconPath = {
             dark: this.explorer.context.asAbsolutePath(`images/dark/icon-diff.svg`),
             light: this.explorer.context.asAbsolutePath(`images/light/icon-diff.svg`)

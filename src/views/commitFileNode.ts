@@ -20,7 +20,6 @@ export class CommitFileNode extends ExplorerNode {
 
     readonly priority: boolean = false;
     readonly repoPath: string;
-    readonly resourceType: ResourceType = 'gitlens:commit-file';
 
     constructor(
         public readonly status: IGitStatusFile,
@@ -95,6 +94,10 @@ export class CommitFileNode extends ExplorerNode {
     set relativePath(value: string | undefined) {
         this._relativePath = value;
         this._label = undefined;
+    }
+
+    protected get resourceType(): ResourceType {
+        return ResourceType.CommitFile;
     }
 
     protected getCommitTemplate() {

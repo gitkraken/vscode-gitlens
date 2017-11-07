@@ -7,8 +7,6 @@ import { RepositoryNode } from './repositoryNode';
 
 export class RepositoriesNode extends ExplorerNode {
 
-    readonly resourceType: ResourceType = 'gitlens:repositories';
-
     constructor(
         private readonly repositories: Repository[],
         private readonly explorer: GitExplorer
@@ -27,7 +25,7 @@ export class RepositoriesNode extends ExplorerNode {
 
     getTreeItem(): TreeItem {
         const item = new TreeItem(`Repositories`, TreeItemCollapsibleState.Expanded);
-        item.contextValue = this.resourceType;
+        item.contextValue = ResourceType.Repositories;
         return item;
     }
 }

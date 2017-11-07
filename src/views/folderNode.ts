@@ -17,7 +17,6 @@ export interface IFileExplorerNode extends ExplorerNode {
 export class FolderNode extends ExplorerNode {
 
     readonly priority: boolean = true;
-    readonly resourceType: ResourceType = 'gitlens:folder';
 
     constructor(
         public readonly repoPath: string,
@@ -64,7 +63,7 @@ export class FolderNode extends ExplorerNode {
     async getTreeItem(): Promise<TreeItem> {
         // TODO: Change this to expanded once https://github.com/Microsoft/vscode/issues/30918 is fixed
         const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
-        item.contextValue = this.resourceType;
+        item.contextValue = ResourceType.Folder;
         return item;
     }
 

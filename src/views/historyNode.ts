@@ -7,8 +7,6 @@ import { GitExplorer } from './gitExplorer';
 
 export class HistoryNode extends ExplorerNode {
 
-    readonly resourceType: ResourceType = 'gitlens:history';
-
     constructor(
         uri: GitUri,
         private readonly repo: Repository,
@@ -28,7 +26,7 @@ export class HistoryNode extends ExplorerNode {
 
     getTreeItem(): TreeItem {
         const item = new TreeItem(`${this.uri.getFormattedPath()}`, TreeItemCollapsibleState.Expanded);
-        item.contextValue = this.resourceType;
+        item.contextValue = ResourceType.History;
 
         item.iconPath = {
             dark: this.explorer.context.asAbsolutePath('images/dark/icon-history.svg'),

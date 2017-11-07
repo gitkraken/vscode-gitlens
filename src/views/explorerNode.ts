@@ -4,34 +4,35 @@ import { GlyphChars } from '../constants';
 import { GitUri } from '../gitService';
 import { RefreshNodeCommandArgs } from './gitExplorer';
 
-export declare type ResourceType =
-    'gitlens:branches' |
-    'gitlens:branch-history' |
-    'gitlens:commit' |
-    'gitlens:commit-file' |
-    'gitlens:file-history' |
-    'gitlens:folder' |
-    'gitlens:history' |
-    'gitlens:message' |
-    'gitlens:pager' |
-    'gitlens:remote' |
-    'gitlens:remotes' |
-    'gitlens:repositories' |
-    'gitlens:repository' |
-    'gitlens:stash' |
-    'gitlens:stash-file' |
-    'gitlens:stashes' |
-    'gitlens:status' |
-    'gitlens:status-file' |
-    'gitlens:status-files' |
-    'gitlens:status-file-commits' |
-    'gitlens:status-upstream';
+export enum ResourceType {
+    Branches = 'gitlens:branches',
+    RemoteBranches = 'gitlens:branches:remote',
+    BranchHistory = 'gitlens:branch-history',
+    RemoteBranchHistory = 'gitlens:branch-history:remote',
+    Commit = 'gitlens:commit',
+    CommitFile = 'gitlens:commit-file',
+    FileHistory = 'gitlens:file-history',
+    Folder = 'gitlens:folder',
+    History = 'gitlens:history',
+    Message = 'gitlens:message',
+    Pager = 'gitlens:pager',
+    Remote = 'gitlens:remote',
+    Remotes = 'gitlens:remotes',
+    Repositories = 'gitlens:repositories',
+    Repository = 'gitlens:repository',
+    Stash = 'gitlens:stash',
+    StashFile = 'gitlens:stash-file',
+    Stashes = 'gitlens:stashes',
+    Status = 'gitlens:status',
+    StatusFile = 'gitlens:status-file',
+    StatusFiles = 'gitlens:status-files',
+    StatusFileCommits = 'gitlens:status-file-commits',
+    StatusUpstream = 'gitlens:status-upstream'
+}
 
 // let id = 0;
 
 export abstract class ExplorerNode extends Disposable {
-
-    abstract readonly resourceType: ResourceType;
 
     protected children: ExplorerNode[] | undefined;
     protected disposable: Disposable | undefined;
@@ -70,8 +71,6 @@ export abstract class ExplorerNode extends Disposable {
 
 export class MessageNode extends ExplorerNode {
 
-    readonly resourceType: ResourceType = 'gitlens:message';
-
     constructor(
         private readonly message: string
     ) {
@@ -84,14 +83,13 @@ export class MessageNode extends ExplorerNode {
 
     getTreeItem(): TreeItem | Promise<TreeItem> {
         const item = new TreeItem(this.message, TreeItemCollapsibleState.None);
-        item.contextValue = this.resourceType;
+        item.contextValue = ResourceType.Message;
         return item;
     }
 }
 
 export class PagerNode extends ExplorerNode {
 
-    readonly resourceType: ResourceType = 'gitlens:pager';
     args: RefreshNodeCommandArgs = {};
 
     constructor(
@@ -108,7 +106,7 @@ export class PagerNode extends ExplorerNode {
 
     getTreeItem(): TreeItem | Promise<TreeItem> {
         const item = new TreeItem(this.message, TreeItemCollapsibleState.None);
-        item.contextValue = this.resourceType;
+        item.contextValue = ResourceType.Pager;
         item.command = this.getCommand();
         item.iconPath = {
             dark: this.context.asAbsolutePath('images/dark/icon-unfold.svg'),

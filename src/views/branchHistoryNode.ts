@@ -9,8 +9,6 @@ import { GitBranch, GitUri } from '../gitService';
 
 export class BranchHistoryNode extends ExplorerNode {
 
-        readonly resourceType: ResourceType = 'gitlens:branch-history';
-
         maxCount: number | undefined = undefined;
 
         constructor(
@@ -38,7 +36,9 @@ export class BranchHistoryNode extends ExplorerNode {
                 name += ` ${GlyphChars.Space}${GlyphChars.ArrowLeftRight}${GlyphChars.Space} ${this.branch.tracking}`;
             }
             const item = new TreeItem(`${this.branch!.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`, TreeItemCollapsibleState.Collapsed);
-            item.contextValue = this.branch.tracking ? `${this.resourceType}:remote` : this.resourceType;
+            item.contextValue = this.branch.tracking
+                ? ResourceType.RemoteBranchHistory
+                : ResourceType.BranchHistory;
 
             item.iconPath = {
                 dark: this.explorer.context.asAbsolutePath('images/dark/icon-branch.svg'),

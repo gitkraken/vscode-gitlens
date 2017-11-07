@@ -9,8 +9,6 @@ import { Logger } from '../logger';
 
 export class FileHistoryNode extends ExplorerNode {
 
-    readonly resourceType: ResourceType = 'gitlens:file-history';
-
     constructor(
         uri: GitUri,
         private readonly repo: Repository,
@@ -32,7 +30,7 @@ export class FileHistoryNode extends ExplorerNode {
         this.updateSubscription();
 
         const item = new TreeItem(`${this.uri.getFormattedPath()}`, TreeItemCollapsibleState.Expanded);
-        item.contextValue = this.resourceType;
+        item.contextValue = ResourceType.FileHistory;
 
         item.iconPath = {
             dark: this.explorer.context.asAbsolutePath('images/dark/icon-history.svg'),

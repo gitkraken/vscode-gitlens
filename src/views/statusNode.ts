@@ -8,8 +8,6 @@ import { StatusUpstreamNode } from './statusUpstreamNode';
 
 export class StatusNode extends ExplorerNode {
 
-    readonly resourceType: ResourceType = 'gitlens:status';
-
     constructor(
         uri: GitUri,
         private readonly repo: Repository,
@@ -96,7 +94,7 @@ export class StatusNode extends ExplorerNode {
         }
 
         const item = new TreeItem(label, (hasChildren || hasWorkingChanges) ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.None);
-        item.contextValue = this.resourceType;
+        item.contextValue = ResourceType.Status;
 
         item.iconPath = {
             dark: this.explorer.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),

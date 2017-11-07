@@ -6,14 +6,16 @@ import { GitLogCommit, IGitStatusFile } from '../gitService';
 
 export class StashFileNode extends CommitFileNode {
 
-    readonly resourceType: ResourceType = 'gitlens:stash-file';
-
     constructor(
         status: IGitStatusFile,
         commit: GitLogCommit,
         explorer: GitExplorer
     ) {
         super(status, commit, explorer, CommitFileNodeDisplayAs.File);
+    }
+
+    protected get resourceType(): ResourceType {
+        return ResourceType.StashFile;
     }
 
     protected getCommitTemplate() {

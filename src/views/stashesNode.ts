@@ -8,8 +8,6 @@ import { StashNode } from './stashNode';
 
 export class StashesNode extends ExplorerNode {
 
-    readonly resourceType: ResourceType = 'gitlens:stashes';
-
     constructor(
         uri: GitUri,
         private readonly repo: Repository,
@@ -27,7 +25,7 @@ export class StashesNode extends ExplorerNode {
 
     getTreeItem(): TreeItem {
         const item = new TreeItem(`Stashes`, TreeItemCollapsibleState.Collapsed);
-        item.contextValue = this.resourceType;
+        item.contextValue = ResourceType.Stashes;
 
         item.iconPath = {
             dark: this.explorer.context.asAbsolutePath('images/dark/icon-stash.svg'),

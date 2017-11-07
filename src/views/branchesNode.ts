@@ -8,8 +8,6 @@ import { GitUri, Repository } from '../gitService';
 
 export class BranchesNode extends ExplorerNode {
 
-        readonly resourceType: ResourceType = 'gitlens:branches';
-
         constructor(
             uri: GitUri,
             private readonly repo: Repository,
@@ -31,8 +29,8 @@ export class BranchesNode extends ExplorerNode {
 
             const remotes = await this.repo.getRemotes();
             item.contextValue = (remotes !== undefined && remotes.length > 0)
-                ? `${this.resourceType}:remote`
-                : this.resourceType;
+                ? ResourceType.RemoteBranches
+                : ResourceType.Branches;
 
             item.iconPath = {
                 dark: this.explorer.context.asAbsolutePath('images/dark/icon-branch.svg'),

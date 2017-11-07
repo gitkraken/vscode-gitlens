@@ -13,7 +13,6 @@ import * as path from 'path';
 export class CommitNode extends ExplorerNode {
 
     readonly repoPath: string;
-    readonly resourceType: ResourceType = 'gitlens:commit';
 
     constructor(
         public readonly commit: GitLogCommit,
@@ -56,7 +55,7 @@ export class CommitNode extends ExplorerNode {
             dataFormat: this.explorer.git.config.defaultDateFormat
         } as ICommitFormatOptions), TreeItemCollapsibleState.Collapsed);
 
-        item.contextValue = this.resourceType;
+        item.contextValue = ResourceType.Commit;
         item.iconPath = {
             dark: this.explorer.context.asAbsolutePath('images/dark/icon-commit.svg'),
             light: this.explorer.context.asAbsolutePath('images/light/icon-commit.svg')

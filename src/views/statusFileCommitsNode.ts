@@ -9,8 +9,6 @@ import * as path from 'path';
 
 export class StatusFileCommitsNode extends ExplorerNode {
 
-    readonly resourceType: ResourceType = 'gitlens:status-file-commits';
-
     constructor(
         public readonly repoPath: string,
         public readonly status: IGitStatusFile,
@@ -27,7 +25,7 @@ export class StatusFileCommitsNode extends ExplorerNode {
 
     async getTreeItem(): Promise<TreeItem> {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
-        item.contextValue = this.resourceType;
+        item.contextValue = ResourceType.StatusFileCommits;
 
         const icon = getGitStatusIcon(this.status.status);
         item.iconPath = {

@@ -9,8 +9,6 @@ import { GitRemote, GitRemoteType, GitUri, Repository } from '../gitService';
 
 export class RemoteNode extends ExplorerNode {
 
-        readonly resourceType: ResourceType = 'gitlens:remote';
-
         constructor(
             public readonly remote: GitRemote,
             uri: GitUri,
@@ -49,7 +47,7 @@ export class RemoteNode extends ExplorerNode {
             const label = `${this.remote.name} ${GlyphChars.Space}${separator}${GlyphChars.Space} ${(this.remote.provider !== undefined) ? this.remote.provider.name : this.remote.domain} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${this.remote.path}`;
 
             const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
-            item.contextValue = this.resourceType;
+            item.contextValue = ResourceType.Remote;
 
             // item.iconPath = {
             //     dark: this.context.asAbsolutePath('images/dark/icon-remote.svg'),

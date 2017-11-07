@@ -8,8 +8,6 @@ import { StashFileNode } from './stashFileNode';
 
 export class StashNode extends ExplorerNode {
 
-    readonly resourceType: ResourceType = 'gitlens:stash';
-
     constructor(
         public readonly commit: GitStashCommit,
         private readonly explorer: GitExplorer
@@ -41,7 +39,7 @@ export class StashNode extends ExplorerNode {
             truncateMessageAtNewLine: true,
             dataFormat: this.explorer.git.config.defaultDateFormat
         } as ICommitFormatOptions), TreeItemCollapsibleState.Collapsed);
-        item.contextValue = this.resourceType;
+        item.contextValue = ResourceType.Stash;
         return item;
     }
 }

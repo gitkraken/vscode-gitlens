@@ -8,8 +8,6 @@ import { RemoteNode } from './remoteNode';
 
 export class RemotesNode extends ExplorerNode {
 
-        readonly resourceType: ResourceType = 'gitlens:remotes';
-
         constructor(
             uri: GitUri,
             private readonly repo: Repository,
@@ -28,7 +26,7 @@ export class RemotesNode extends ExplorerNode {
 
         getTreeItem(): TreeItem {
             const item = new TreeItem(`Remotes`, TreeItemCollapsibleState.Collapsed);
-            item.contextValue = this.resourceType;
+            item.contextValue = ResourceType.Remotes;
 
             item.iconPath = {
                 dark: this.explorer.context.asAbsolutePath('images/dark/icon-remote.svg'),

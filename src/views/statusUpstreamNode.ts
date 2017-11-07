@@ -8,8 +8,6 @@ import { GitStatus, GitUri } from '../gitService';
 
 export class StatusUpstreamNode extends ExplorerNode {
 
-    readonly resourceType: ResourceType = 'gitlens:status-upstream';
-
     constructor(
         public readonly status: GitStatus,
         public readonly direction: 'ahead' | 'behind',
@@ -47,7 +45,7 @@ export class StatusUpstreamNode extends ExplorerNode {
             : `${this.status.state.behind} commit${this.status.state.behind > 1 ? 's' : ''} (behind ${this.status.upstream})`;
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
-        item.contextValue = this.resourceType;
+        item.contextValue = ResourceType.StatusUpstream;
 
         item.iconPath = {
             dark: this.explorer.context.asAbsolutePath(`images/dark/icon-${this.direction === 'ahead' ? 'upload' : 'download'}.svg`),
