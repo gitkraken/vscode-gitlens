@@ -40,6 +40,7 @@ export class ExplorerCommands extends Disposable {
         commands.registerCommand('gitlens.gitExplorer.terminalCreateBranch', this.terminalCreateBranch, this);
         commands.registerCommand('gitlens.gitExplorer.terminalDeleteBranch', this.terminalDeleteBranch, this);
         commands.registerCommand('gitlens.gitExplorer.terminalRebaseBranchToRemote', this.terminalRebaseBranchToRemote, this);
+        commands.registerCommand('gitlens.gitExplorer.terminalSquashBranchIntoCommit', this.terminalSquashBranchIntoCommit, this);
         commands.registerCommand('gitlens.gitExplorer.terminalRebaseCommit', this.terminalRebaseCommit, this);
         commands.registerCommand('gitlens.gitExplorer.terminalResetCommit', this.terminalResetCommit, this);
     }
@@ -181,6 +182,13 @@ export class ExplorerCommands extends Disposable {
             return;
         }
 
+        this.sendTerminalCommand(command);
+    }
+
+    terminalSquashBranchIntoCommit(node: ExplorerNode) {
+        if (!(node instanceof BranchHistoryNode)) return;
+
+        const command = `merge --squash ${node.branch.name}`;
         this.sendTerminalCommand(command);
     }
 

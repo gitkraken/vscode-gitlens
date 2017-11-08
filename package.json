@@ -1346,6 +1346,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.gitExplorer.terminalSquashBranchIntoCommit",
+                "title": "Squash Branch into Commit (via Terminal)",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.gitExplorer.terminalRebaseCommit",
                 "title": "Rebase Commit (via Terminal)",
                 "category": "GitLens"
@@ -1600,6 +1605,10 @@
                 },
                 {
                     "command": "gitlens.gitExplorer.terminalRebaseBranchToRemote",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.gitExplorer.terminalSquashBranchIntoCommit",
                     "when": "false"
                 },
                 {
@@ -1893,6 +1902,11 @@
                     "group": "8_gitlens@3"
                 },
                 {
+                    "command": "gitlens.gitExplorer.terminalSquashBranchIntoCommit",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:branch-history",
+                    "group": "8_gitlens@4"
+                },
+                {
                     "command": "gitlens.openBranchInRemote",
                     "when": "view == gitlens.gitExplorer && viewItem == gitlens:branch-history:tracking",
                     "group": "1_gitlens@1"
@@ -1911,6 +1925,11 @@
                     "command": "gitlens.gitExplorer.terminalDeleteBranch",
                     "when": "view == gitlens.gitExplorer && viewItem == gitlens:branch-history:tracking",
                     "group": "8_gitlens@3"
+                },
+                {
+                    "command": "gitlens.gitExplorer.terminalSquashBranchIntoCommit",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:branch-history:tracking",
+                    "group": "8_gitlens@4"
                 },
                 {
                     "command": "gitlens.gitExplorer.terminalCreateBranch",
@@ -1951,6 +1970,11 @@
                     "command": "gitlens.gitExplorer.terminalDeleteBranch",
                     "when": "view == gitlens.gitExplorer && viewItem == gitlens:remote-branch-history",
                     "group": "8_gitlens@3"
+                },
+                {
+                    "command": "gitlens.gitExplorer.terminalSquashBranchIntoCommit",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:remote-branch-history",
+                    "group": "8_gitlens@4"
                 },
                 {
                     "command": "gitlens.openCommitInRemote",
