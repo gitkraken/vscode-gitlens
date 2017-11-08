@@ -36,6 +36,7 @@ export class ExplorerCommands extends Disposable {
         commands.registerCommand('gitlens.gitExplorer.openChangedFileChangesWithWorking', this.openChangedFileChangesWithWorking, this);
         commands.registerCommand('gitlens.gitExplorer.openChangedFileRevisions', this.openChangedFileRevisions, this);
         commands.registerCommand('gitlens.gitExplorer.applyChanges', this.applyChanges, this);
+        commands.registerCommand('gitlens.gitExplorer.terminalCheckoutBranch', this.terminalCheckoutBranch, this);
         commands.registerCommand('gitlens.gitExplorer.terminalCreateBranch', this.terminalCreateBranch, this);
         commands.registerCommand('gitlens.gitExplorer.terminalDeleteBranch', this.terminalDeleteBranch, this);
         commands.registerCommand('gitlens.gitExplorer.terminalRebaseBranchToRemote', this.terminalRebaseBranchToRemote, this);
@@ -134,6 +135,13 @@ export class ExplorerCommands extends Disposable {
 
     private async setFilesLayout(layout: GitExplorerFilesLayout) {
         return workspace.getConfiguration(ExtensionKey).update(configuration.name('gitExplorer')('files')('layout').value, layout, true);
+    }
+
+    async terminalCheckoutBranch(node: ExplorerNode) {
+        if (!(node instanceof BranchHistoryNode)) return;
+
+        const command = `checkout ${node.branch.name}`;
+        this.sendTerminalCommand(command);
     }
 
     async terminalCreateBranch(node: ExplorerNode) {

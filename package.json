@@ -1326,6 +1326,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.gitExplorer.terminalCheckoutBranch",
+                "title": "Checkout Branch (via Terminal)",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.gitExplorer.terminalCreateBranch",
                 "title": "Create Branch (via Terminal)...",
                 "category": "GitLens"
@@ -1579,6 +1584,10 @@
                 },
                 {
                     "command": "gitlens.gitExplorer.applyChanges",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.gitExplorer.terminalCheckoutBranch",
                     "when": "false"
                 },
                 {
@@ -1869,14 +1878,19 @@
                     "group": "1_gitlens@1"
                 },
                 {
-                    "command": "gitlens.gitExplorer.terminalCreateBranch",
+                    "command": "gitlens.gitExplorer.terminalCheckoutBranch",
                     "when": "view == gitlens.gitExplorer && viewItem == gitlens:branch-history",
                     "group": "8_gitlens@1"
                 },
                 {
-                    "command": "gitlens.gitExplorer.terminalDeleteBranch",
+                    "command": "gitlens.gitExplorer.terminalCreateBranch",
                     "when": "view == gitlens.gitExplorer && viewItem == gitlens:branch-history",
                     "group": "8_gitlens@2"
+                },
+                {
+                    "command": "gitlens.gitExplorer.terminalDeleteBranch",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:branch-history",
+                    "group": "8_gitlens@3"
                 },
                 {
                     "command": "gitlens.openBranchInRemote",
@@ -1884,14 +1898,19 @@
                     "group": "1_gitlens@1"
                 },
                 {
-                    "command": "gitlens.gitExplorer.terminalCreateBranch",
+                    "command": "gitlens.gitExplorer.terminalCheckoutBranch",
                     "when": "view == gitlens.gitExplorer && viewItem == gitlens:branch-history:tracking",
                     "group": "8_gitlens@1"
                 },
                 {
-                    "command": "gitlens.gitExplorer.terminalDeleteBranch",
+                    "command": "gitlens.gitExplorer.terminalCreateBranch",
                     "when": "view == gitlens.gitExplorer && viewItem == gitlens:branch-history:tracking",
                     "group": "8_gitlens@2"
+                },
+                {
+                    "command": "gitlens.gitExplorer.terminalDeleteBranch",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:branch-history:tracking",
+                    "group": "8_gitlens@3"
                 },
                 {
                     "command": "gitlens.gitExplorer.terminalCreateBranch",
@@ -1919,14 +1938,19 @@
                     "group": "1_gitlens@1"
                 },
                 {
-                    "command": "gitlens.gitExplorer.terminalCreateBranch",
+                    "command": "gitlens.gitExplorer.terminalCheckoutBranch",
                     "when": "view == gitlens.gitExplorer && viewItem == gitlens:remote-branch-history",
                     "group": "8_gitlens@1"
                 },
                 {
-                    "command": "gitlens.gitExplorer.terminalDeleteBranch",
+                    "command": "gitlens.gitExplorer.terminalCreateBranch",
                     "when": "view == gitlens.gitExplorer && viewItem == gitlens:remote-branch-history",
                     "group": "8_gitlens@2"
+                },
+                {
+                    "command": "gitlens.gitExplorer.terminalDeleteBranch",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:remote-branch-history",
+                    "group": "8_gitlens@3"
                 },
                 {
                     "command": "gitlens.openCommitInRemote",

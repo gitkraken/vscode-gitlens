@@ -23,6 +23,7 @@ ATTENTION! To support multi-root workspaces some underlying fundamentals had to 
 - Adds `Enable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOn`) to the `GitLens` custom view regardless of the current view
 - Adds `Disable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOff`) to the `GitLens` custom view regardless of the current view
 - Adds new Git terminal commands to the `GitLens` custom view - opens a `GitLens` terminal and sends the specified Git command to it
+  - Adds `Checkout Branch (via Terminal)` command (`gitlens.terminalCheckoutBranch`) to branch node(s) of the `GitLens` custom view
   - Adds `Create Branch (via Terminal)...` command (`gitlens.terminalCreateBranch`) to branch node(s) of the `GitLens` custom view
   - Adds `Delete Branch (via Terminal)` command (`gitlens.terminalDeleteBranch`) to branch node(s) of the `GitLens` custom view
   - Adds `Rebase Branch to Remote (via Terminal)` command (`gitlens.terminalRebaseBranchToRemote`) to branch node(s) of the `GitLens` custom view
