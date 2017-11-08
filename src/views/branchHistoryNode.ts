@@ -36,9 +36,20 @@ export class BranchHistoryNode extends ExplorerNode {
                 name += ` ${GlyphChars.Space}${GlyphChars.ArrowLeftRight}${GlyphChars.Space} ${this.branch.tracking}`;
             }
             const item = new TreeItem(`${this.branch!.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`, TreeItemCollapsibleState.Collapsed);
-            item.contextValue = this.branch.tracking
-                ? ResourceType.RemoteBranchHistory
-                : ResourceType.BranchHistory;
+
+            if (this.branch.remote) {
+                item.contextValue = ResourceType.RemoteBranchHistory;
+            }
+            else if (this.branch.current) {
+                item.contextValue = !!this.branch.tracking
+                    ? ResourceType.CurrentBranchHistoryWithTracking
+                    : ResourceType.CurrentBranchHistory;
+            }
+            else {
+                item.contextValue = !!this.branch.tracking
+                    ? ResourceType.BranchHistoryWithTracking
+                    : ResourceType.BranchHistory;
+            }
 
             item.iconPath = {
                 dark: this.explorer.context.asAbsolutePath('images/dark/icon-branch.svg'),

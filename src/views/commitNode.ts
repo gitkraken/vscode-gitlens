@@ -55,7 +55,10 @@ export class CommitNode extends ExplorerNode {
             dataFormat: this.explorer.git.config.defaultDateFormat
         } as ICommitFormatOptions), TreeItemCollapsibleState.Collapsed);
 
-        item.contextValue = ResourceType.Commit;
+        item.contextValue = (this.branch === undefined || this.branch.current)
+            ? ResourceType.CommitOnCurrentBranch
+            : ResourceType.Commit;
+
         item.iconPath = {
             dark: this.explorer.context.asAbsolutePath('images/dark/icon-commit.svg'),
             light: this.explorer.context.asAbsolutePath('images/light/icon-commit.svg')

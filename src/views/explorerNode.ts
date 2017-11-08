@@ -6,10 +6,14 @@ import { RefreshNodeCommandArgs } from './gitExplorer';
 
 export enum ResourceType {
     Branches = 'gitlens:branches',
-    RemoteBranches = 'gitlens:branches:remote',
+    BranchesWithRemotes = 'gitlens:branches:remotes',
     BranchHistory = 'gitlens:branch-history',
-    RemoteBranchHistory = 'gitlens:branch-history:remote',
+    BranchHistoryWithTracking = 'gitlens:branch-history:tracking',
+    CurrentBranchHistory = 'gitlens:current-branch-history',
+    CurrentBranchHistoryWithTracking = 'gitlens:current-branch-history:tracking',
+    RemoteBranchHistory = 'gitlens:remote-branch-history',
     Commit = 'gitlens:commit',
+    CommitOnCurrentBranch = 'gitlens:commit:current',
     CommitFile = 'gitlens:commit-file',
     FileHistory = 'gitlens:file-history',
     Folder = 'gitlens:folder',

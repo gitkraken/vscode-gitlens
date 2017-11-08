@@ -1,15 +1,16 @@
 import { Arrays } from '../system';
-import { commands, Disposable, TextDocumentShowOptions, Uri, workspace } from 'vscode';
-import { ExtensionKey } from '../constants';
-import { GitExplorer, GitExplorerView } from '../views/gitExplorer';
+import { commands, Disposable, InputBoxOptions, Terminal, TextDocumentShowOptions, Uri, window, workspace } from 'vscode';
+import { ExtensionKey, ExtensionTerminalName } from '../constants';
+import { BranchHistoryNode, ExplorerNode, GitExplorer, GitExplorerView } from '../views/gitExplorer';
 import { configuration, GitExplorerFilesLayout } from '../configuration';
-import { CommitFileNode, CommitNode, StashNode } from './explorerNodes';
+import { CommitFileNode, CommitNode, StashNode, StatusUpstreamNode } from './explorerNodes';
 import { Commands, DiffWithCommandArgs, DiffWithCommandArgsRevision, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, OpenFileInRemoteCommandArgs, OpenFileRevisionCommandArgs } from '../commands';
 import { GitService, GitUri } from '../gitService';
 
 export class ExplorerCommands extends Disposable {
 
     private _disposable: Disposable | undefined;
+    private _terminal: Terminal | undefined;
 
     constructor(
         private explorer: GitExplorer
@@ -35,6 +36,11 @@ export class ExplorerCommands extends Disposable {
         commands.registerCommand('gitlens.gitExplorer.openChangedFileChangesWithWorking', this.openChangedFileChangesWithWorking, this);
         commands.registerCommand('gitlens.gitExplorer.openChangedFileRevisions', this.openChangedFileRevisions, this);
         commands.registerCommand('gitlens.gitExplorer.applyChanges', this.applyChanges, this);
+        commands.registerCommand('gitlens.gitExplorer.terminalCreateBranch', this.terminalCreateBranch, this);
+        commands.registerCommand('gitlens.gitExplorer.terminalDeleteBranch', this.terminalDeleteBranch, this);
+        commands.registerCommand('gitlens.gitExplorer.terminalRebaseBranchToRemote', this.terminalRebaseBranchToRemote, this);
+        commands.registerCommand('gitlens.gitExplorer.terminalRebaseCommit', this.terminalRebaseCommit, this);
+        commands.registerCommand('gitlens.gitExplorer.terminalResetCommit', this.terminalResetCommit, this);
     }
 
      dispose() {
@@ -128,5 +134,87 @@ export class ExplorerCommands extends Disposable {
 
     private async setFilesLayout(layout: GitExplorerFilesLayout) {
         return workspace.getConfiguration(ExtensionKey).update(configuration.name('gitExplorer')('files')('layout').value, layout, true);
+    }
+
+    async terminalCreateBranch(node: ExplorerNode) {
+        if (!(node instanceof BranchHistoryNode)) return;
+
+        const name = await window.showInputBox({
+            prompt: `Please provide a branch name (Press 'Enter' to confirm or 'Escape' to cancel)`,
+            placeHolder: `Branch name`,
+            value: node.branch.remote ? node.branch.getName() : undefined
+        } as InputBoxOptions);
+        if (name === undefined || name === '') return;
+
+        const command = `branch ${node.branch.remote ? '-t ' : ''}${name} ${node.branch.name}`;
+        this.sendTerminalCommand(command);
+    }
+
+    terminalDeleteBranch(node: ExplorerNode) {
+        if (!(node instanceof BranchHistoryNode)) return;
+
+        const command = node.branch.remote
+            ? `push ${node.branch.remote} :${node.branch.name}`
+            : `branch -d ${node.branch.name}`;
+        this.sendTerminalCommand(command);
+    }
+
+    terminalRebaseBranchToRemote(node: ExplorerNode) {
+        let command: string;
+        if (node instanceof BranchHistoryNode) {
+            if (!node.branch.current || !node.branch.tracking) return;
+
+            command = `rebase -i ${node.branch.tracking}`;
+        }
+        else if (node instanceof StatusUpstreamNode) {
+            command = `rebase -i ${node.status.upstream}`;
+        }
+        else {
+            return;
+        }
+
+        this.sendTerminalCommand(command);
+    }
+
+    terminalRebaseCommit(node: ExplorerNode) {
+        if (!(node instanceof CommitNode)) return;
+
+        const command = `rebase -i ${node.commit.sha}^`;
+        this.sendTerminalCommand(command);
+    }
+
+    terminalResetCommit(node: ExplorerNode) {
+        if (!(node instanceof CommitNode)) return;
+
+        const command = `reset --soft ${node.commit.sha}^`;
+        this.sendTerminalCommand(command);
+    }
+
+    private ensureTerminal(): Terminal {
+        if (this._terminal === undefined) {
+            this._terminal = window.createTerminal(ExtensionTerminalName);
+            this._disposable = window.onDidCloseTerminal((e: Terminal) => {
+                if (e.name === ExtensionTerminalName) {
+                    this._terminal = undefined;
+                    this._disposable!.dispose();
+                    this._disposable = undefined;
+                }
+            }, this);
+
+            this.explorer.context.subscriptions.push(this._disposable);
+        }
+
+        return this._terminal;
+    }
+
+    private sendTerminalCommand(command: string) {
+        // let git = GitService.getGitPath();
+        // if (git.includes(' ')) {
+        //     git = `"${git}"`;
+        // }
+
+        const terminal = this.ensureTerminal();
+        terminal.show(false);
+        terminal.sendText(`git ${command}`, false);
     }
 }

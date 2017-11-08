@@ -4,6 +4,7 @@ import { commands, TextEditor } from 'vscode';
 export const ExtensionId = 'gitlens';
 export const ExtensionKey = ExtensionId;
 export const ExtensionOutputChannelName = 'GitLens';
+export const ExtensionTerminalName = 'GitLens';
 export const QualifiedExtensionId = `eamodio.${ExtensionId}`;
 
 export const ApplicationInsightsKey = 'a9c302f8-6483-4d01-b92c-c159c799c679';

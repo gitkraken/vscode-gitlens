@@ -29,7 +29,7 @@ export class BranchesNode extends ExplorerNode {
 
             const remotes = await this.repo.getRemotes();
             item.contextValue = (remotes !== undefined && remotes.length > 0)
-                ? ResourceType.RemoteBranches
+                ? ResourceType.BranchesWithRemotes
                 : ResourceType.Branches;
 
             item.iconPath = {
