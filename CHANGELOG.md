@@ -6,28 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
-### Added
-- Adds new logo/icon
-- Adds new Git terminal commands to the `GitLens` custom view - opens a `GitLens` terminal and sends the specified Git command to it
-  - Adds `Create Branch (via Terminal)...` command (`gitlens.terminalCreateBranch`) to branch node(s) of the `GitLens` custom view
-  - Adds `Delete Branch (via Terminal)` command (`gitlens.terminalDeleteBranch`) to branch node(s) of the `GitLens` custom view
-  - Adds `Rebase Branch to Remote (via Terminal)` command (`gitlens.terminalRebaseBranchToRemote`) to branch node(s) of the `GitLens` custom view
-  - Adds `Rebase Commit (via Terminal)` command (`gitlens.terminalRebaseCommit`) to commit node(s) of the `GitLens` custom view
-  - Adds `Reset Commit (via Terminal)` command (`gitlens.terminalResetCommit`) to commit node(s) of the `GitLens` custom view
-
-### Changed
-- Delays (slightly) the initial loading of the `GitLens` custom view to improve startup performance
-
-### Fixed
-- Fixes issues with certain commands failing when there is no current branch (rebase, detached HEAD, etc)
-
-## [6.0.0-beta2] - 2017-11-03
+## [6.0.0-beta3] - 2017-11-08
 
 ATTENTION! To support multi-root workspaces some underlying fundamentals had to change, so please expect and report issues. Thanks!
 
 ### Added
 - Adds multi-root workspace support -- [Learn more](https://code.visualstudio.com/docs/editor/multi-root-workspaces)
-- Adds a progress indicator to the `Search Commits` command (`gitlens.showCommitSearch`)
+- Adds new logo/icon
+- Adds progress indicator to the `Search Commits` command (`gitlens.showCommitSearch`)
 - Adds code search support to the `Search Commits` command (`gitlens.showCommitSearch`) -- closes [#127](https://github.com/eamodio/vscode-gitlens/issues/127)
   - Use `~<regex>` to search for commits with differences whose patch text contains added/removed lines that match `<regex>`
   - Use `=<regex>` to search for commits with differences that change the number of occurrences of the specified string (i.e. addition/deletion) in a file
@@ -36,12 +22,19 @@ ATTENTION! To support multi-root workspaces some underlying fundamentals had to 
 - Adds `Open Repository in Remote` command (`gitlens.openRepoInRemote`) to repository node(s) of the `GitLens` custom view
 - Adds `Enable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOn`) to the `GitLens` custom view regardless of the current view
 - Adds `Disable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOff`) to the `GitLens` custom view regardless of the current view
+- Adds new Git terminal commands to the `GitLens` custom view - opens a `GitLens` terminal and sends the specified Git command to it
+  - Adds `Create Branch (via Terminal)...` command (`gitlens.terminalCreateBranch`) to branch node(s) of the `GitLens` custom view
+  - Adds `Delete Branch (via Terminal)` command (`gitlens.terminalDeleteBranch`) to branch node(s) of the `GitLens` custom view
+  - Adds `Rebase Branch to Remote (via Terminal)` command (`gitlens.terminalRebaseBranchToRemote`) to branch node(s) of the `GitLens` custom view
+  - Adds `Rebase Commit (via Terminal)` command (`gitlens.terminalRebaseCommit`) to commit node(s) of the `GitLens` custom view
+  - Adds `Reset Commit (via Terminal)` command (`gitlens.terminalResetCommit`) to commit node(s) of the `GitLens` custom view
 
 ### Changed
 - `GitLens` custom view will no longer show if there is no Git repository -- closes [#159](https://github.com/eamodio/vscode-gitlens/issues/159)
 - Optimizes event handling, executing git commands, and general processing to improve performance and reduce any lag
 - Optimizes current line hover annotations to only be computed on hover (i.e. lazily evaluated) to reduce the compute required when changing lines
 - Protects credentials from possibly being affected by poor network conditions via Git Credential Manager (GCM) for Windows environment variables
+- Delays (slightly) the initial loading of the `GitLens` custom view to improve startup performance
 
 ### Fixed
 - Fixes jumpy code lens when deleting characters from a line with a Git code lens
@@ -49,6 +42,7 @@ ATTENTION! To support multi-root workspaces some underlying fundamentals had to 
 - Fixes [#183](https://github.com/eamodio/vscode-gitlens/issues/183) - Remote with same url should only show once
 - Fixes [#185](https://github.com/eamodio/vscode-gitlens/issues/185) - Wrong relative date shows on mouse hover
 - Fixes issue where using the `Refresh` command on a `GitLens` custom view node refreshed the whole view, rather than just the node
+- Fixes issue where certain commands fail when there is no current branch (rebase, detached HEAD, etc)
 
 ## [5.7.1] - 2017-10-19
 ### Fixed
