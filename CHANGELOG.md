@@ -4,11 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
-
-## [6.0.0-beta3] - 2017-11-08
-
-ATTENTION! To support multi-root workspaces some underlying fundamentals had to change, so please expect and report issues. Thanks!
+## [6.0.0] - 2017-11-08
 
 ### Added
 - Adds multi-root workspace support -- [Learn more](https://code.visualstudio.com/docs/editor/multi-root-workspaces)
