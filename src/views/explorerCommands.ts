@@ -24,8 +24,8 @@ export class ExplorerCommands extends Disposable {
         commands.registerCommand('gitlens.gitExplorer.setFilesLayoutToTree', () => this.setFilesLayout(GitExplorerFilesLayout.Tree), this);
         commands.registerCommand('gitlens.gitExplorer.switchToHistoryView', () => this.explorer.switchTo(GitExplorerView.History), this);
         commands.registerCommand('gitlens.gitExplorer.switchToRepositoryView', () => this.explorer.switchTo(GitExplorerView.Repository), this);
-        commands.registerCommand('gitlens.gitExplorer.refresh', this.explorer.refresh, this);
-        commands.registerCommand('gitlens.gitExplorer.refreshNode', this.explorer.refreshNode, this);
+        commands.registerCommand('gitlens.gitExplorer.refresh', this.explorer.refresh, this.explorer);
+        commands.registerCommand('gitlens.gitExplorer.refreshNode', this.explorer.refreshNode, this.explorer);
         commands.registerCommand('gitlens.gitExplorer.openChanges', this.openChanges, this);
         commands.registerCommand('gitlens.gitExplorer.openChangesWithWorking', this.openChangesWithWorking, this);
         commands.registerCommand('gitlens.gitExplorer.openFile', this.openFile, this);
