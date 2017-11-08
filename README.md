@@ -398,7 +398,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 
 |Name | Description
 |-----|------------
-|`gitlens.remotes`|Specifies user-defined remote (code-hosting) services or custom domains for built-in remote services<br /><br />Example:<br />```"gitlens.remotes": [{ "domain": "git.corporate-url.com", "type": "GitHub" }]```<br /><br />Example:<br />```"gitlens.remotes": [{ "domain": "git.corporate-url.com", "type": "Custom", "name": "My Company", "urls": { "repository": "https://git.corporate-url.com/${repo}", "branches": "https://git.corporate-url.com/${repo}/branches", "branch": "https://git.corporate-url.com/${repo}/commits/${branch}", "commit": "https://git.corporate-url.com/${repo}/commit/${id}", "file": "https://git.corporate-url.com/${repo}?path=${file}${line}", "fileInBranch": "https://git.corporate-url.com/${repo}/blob/${branch}/${file}${line}", "fileInCommit": "https://git.corporate-url.com/${repo}/blob/${id}/${file}${line}", "fileLine": "#L${line}", "fileRange": "#L${start}-L${end}" } }```
+|`gitlens.remotes`|Specifies user-defined remote (code-hosting) services or custom domains for built-in remote services<br /><br />Example:<br />```"gitlens.remotes": [{ "domain": "git.corporate-url.com", "type": "GitHub" }]```<br /><br />Example:<br />```"gitlens.remotes": [{ "domain": "git.corporate-url.com", "type": "Custom", "name": "My Company", "protocol": "https", "urls": { "repository": "https://git.corporate-url.com/${repo}", "branches": "https://git.corporate-url.com/${repo}/branches", "branch": "https://git.corporate-url.com/${repo}/commits/${branch}", "commit": "https://git.corporate-url.com/${repo}/commit/${id}", "file": "https://git.corporate-url.com/${repo}?path=${file}${line}", "fileInBranch": "https://git.corporate-url.com/${repo}/blob/${branch}/${file}${line}", "fileInCommit": "https://git.corporate-url.com/${repo}/blob/${id}/${file}${line}", "fileLine": "#L${line}", "fileRange": "#L${start}-L${end}" } }```
 
 ### Status Bar Settings
 
@@ -459,6 +459,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 A big thanks to the people that have contributed to this project:
 
 - Amanda Cameron ([@AmandaCameron](https://github.com/AmandaCameron)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=AmandaCameron))
+- Helmut Januschka ([@hjanuschka](https://github.com/hjanuschka)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=hjanuschka))
 - Chris Kaczor ([@ckaczor](https://github.com/ckaczor)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=ckaczor))
 - Peng Lyu ([@rebornix](https://github.com/rebornix)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=rebornix))
 - Aurelio Ogliari ([@nobitagit](https://github.com/nobitagit)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=nobitagit)

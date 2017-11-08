@@ -143,6 +143,7 @@ export interface IRemotesConfig {
     type: CustomRemoteType;
     domain: string;
     name?: string;
+    protocol?: string;
     urls?: IRemotesUrlsConfig;
 }
 

@@ -28,6 +28,7 @@ ATTENTION! To support multi-root workspaces some underlying fundamentals had to 
   - Adds `Rebase Branch to Remote (via Terminal)` command (`gitlens.terminalRebaseBranchToRemote`) to branch node(s) of the `GitLens` custom view
   - Adds `Rebase Commit (via Terminal)` command (`gitlens.terminalRebaseCommit`) to commit node(s) of the `GitLens` custom view
   - Adds `Reset Commit (via Terminal)` command (`gitlens.terminalResetCommit`) to commit node(s) of the `GitLens` custom view
+- Adds ability to specify the url protocol used with user-defined remote services via `gitlens.remotes` setting -- thanks to [PR #192](https://github.com/eamodio/vscode-gitlens/pull/192) by Helmut Januschka ([@hjanuschka](https://github.com/hjanuschka))!
 
 ### Changed
 - `GitLens` custom view will no longer show if there is no Git repository -- closes [#159](https://github.com/eamodio/vscode-gitlens/issues/159)

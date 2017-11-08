@@ -7,9 +7,10 @@ export class VisualStudioService extends RemoteProvider {
     constructor(
         domain: string,
         path: string,
+        protocol?: string,
         name?: string
     ) {
-        super(domain, path, name);
+        super(domain, path, protocol, name);
     }
 
     get name() {

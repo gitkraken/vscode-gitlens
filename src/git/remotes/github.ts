@@ -7,10 +7,11 @@ export class GitHubService extends RemoteProvider {
     constructor(
         domain: string,
         path: string,
+        protocol?: string,
         name?: string,
         custom: boolean = false
     ) {
-        super(domain, path, name, custom);
+        super(domain, path, protocol, name, custom);
     }
 
     get name() {

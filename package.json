@@ -575,6 +575,11 @@
                                 "type": "string",
                                 "description": "Specifies an optional friendly name for the custom remote service"
                             },
+                            "protocol": {
+                                "type": "string",
+                                "default": "https",
+                                "description": "Specifies an optional url protocol for the custom remote service"
+                            },
                             "urls": {
                                 "type": "object",
                                 "required": [
