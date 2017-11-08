@@ -3,7 +3,7 @@ import { commands, Disposable, InputBoxOptions, Terminal, TextDocumentShowOption
 import { ExtensionKey, ExtensionTerminalName } from '../constants';
 import { BranchHistoryNode, ExplorerNode, GitExplorer, GitExplorerView } from '../views/gitExplorer';
 import { configuration, GitExplorerFilesLayout } from '../configuration';
-import { CommitFileNode, CommitNode, StashNode, StatusUpstreamNode } from './explorerNodes';
+import { CommitFileNode, CommitNode, RemoteNode, StashNode, StatusUpstreamNode } from './explorerNodes';
 import { Commands, DiffWithCommandArgs, DiffWithCommandArgsRevision, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, OpenFileInRemoteCommandArgs, OpenFileRevisionCommandArgs } from '../commands';
 import { GitService, GitUri } from '../gitService';
 
@@ -43,6 +43,7 @@ export class ExplorerCommands extends Disposable {
         commands.registerCommand('gitlens.gitExplorer.terminalSquashBranchIntoCommit', this.terminalSquashBranchIntoCommit, this);
         commands.registerCommand('gitlens.gitExplorer.terminalRebaseCommit', this.terminalRebaseCommit, this);
         commands.registerCommand('gitlens.gitExplorer.terminalResetCommit', this.terminalResetCommit, this);
+        commands.registerCommand('gitlens.gitExplorer.terminalRemoveRemote', this.terminalRemoveRemote, this);
     }
 
      dispose() {
@@ -203,6 +204,13 @@ export class ExplorerCommands extends Disposable {
         if (!(node instanceof CommitNode)) return;
 
         const command = `reset --soft ${node.commit.sha}^`;
+        this.sendTerminalCommand(command);
+    }
+
+    terminalRemoveRemote(node: ExplorerNode) {
+        if (!(node instanceof RemoteNode)) return;
+
+        const command = `remote remove ${node.remote.name}`;
         this.sendTerminalCommand(command);
     }
 

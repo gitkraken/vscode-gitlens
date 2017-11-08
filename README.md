@@ -180,7 +180,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
             - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`,`Show Commit Details`, and `Refresh` commands
             - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, `Show File History`, and `Show Commit File Details` commands
           - Provides a context menu on each remote branch with `Open Branch in Remote`, `Checkout Branch (via Terminal)`, `Create Branch (via Terminal)...`, `Delete Branch (via Terminal)`, `Squash Branch into Commit (via Terminal)`, and `Refresh` commands
-        - Provides a context menu on each remote with `Open Branches in Remote`, `Open Repository in Remote`, and `Refresh` commands
+        - Provides a context menu on each remote with `Open Branches in Remote`, `Open Repository in Remote`, `Remove Remote (via Terminal)`, and `Refresh` commands
       - Provides a context menu with a `Refresh` command
 
     - `Stashes` node — provides a list of stashed changes

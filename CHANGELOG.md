@@ -35,6 +35,7 @@ ATTENTION! To support multi-root workspaces some underlying fundamentals had to 
   - Adds `Squash Branch into Commit (via Terminal)` command (`gitlens.terminalSquashBranchIntoCommit`) to branch node(s) of the `GitLens` custom view
   - Adds `Rebase Commit (via Terminal)` command (`gitlens.terminalRebaseCommit`) to commit node(s) of the `GitLens` custom view
   - Adds `Reset Commit (via Terminal)` command (`gitlens.terminalResetCommit`) to commit node(s) of the `GitLens` custom view
+  - Adds `Remove Remote (via Terminal)` command (`gitlens.terminalRemoveRemote`) to remote node(s) of the `GitLens` custom view
 - Adds ability to specify the url protocol used with user-defined remote services via `gitlens.remotes` setting -- thanks to [PR #192](https://github.com/eamodio/vscode-gitlens/pull/192) by Helmut Januschka ([@hjanuschka](https://github.com/hjanuschka))!
 
 ### Changed

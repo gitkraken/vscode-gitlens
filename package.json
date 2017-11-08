@@ -1359,6 +1359,11 @@
                 "command": "gitlens.gitExplorer.terminalResetCommit",
                 "title": "Reset Commit (via Terminal)",
                 "category": "GitLens"
+            },
+            {
+                "command": "gitlens.gitExplorer.terminalRemoveRemote",
+                "title": "Remove Remote (via Terminal)",
+                "category": "GitLens"
             }
         ],
         "menus": {
@@ -1617,6 +1622,10 @@
                 },
                 {
                     "command": "gitlens.gitExplorer.terminalResetCommit",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.gitExplorer.terminalRemoveRemote",
                     "when": "false"
                 }
             ],
@@ -2123,13 +2132,18 @@
                 },
                 {
                     "command": "gitlens.openBranchesInRemote",
-                    "when": "gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:remote",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:remote",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.openRepoInRemote",
-                    "when": "gitlens:hasRemotes && view == gitlens.gitExplorer && viewItem == gitlens:remote",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:remote",
                     "group": "1_gitlens@2"
+                },
+                {
+                    "command": "gitlens.gitExplorer.terminalRemoveRemote",
+                    "when": "view == gitlens.gitExplorer && viewItem == gitlens:remote",
+                    "group": "8_gitlens@1"
                 },
                 {
                     "command": "gitlens.openRepoInRemote",
