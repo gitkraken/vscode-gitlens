@@ -13,6 +13,11 @@ ATTENTION! To support multi-root workspaces some underlying fundamentals had to 
 ### Added
 - Adds multi-root workspace support -- [Learn more](https://code.visualstudio.com/docs/editor/multi-root-workspaces)
 - Adds new logo/icon
+- Adds indicator dots on the branch node(s) of the `GitLens` custom view which denote the following:
+  - `None` - no upstream or up-to-date with the upstream
+  - `Green` - ahead of the upstream
+  - `Red` - behind the upstream
+  - `Yellow` - both ahead of and behind the upstream
 - Adds progress indicator to the `Search Commits` command (`gitlens.showCommitSearch`)
 - Adds code search support to the `Search Commits` command (`gitlens.showCommitSearch`) -- closes [#127](https://github.com/eamodio/vscode-gitlens/issues/127)
   - Use `~<regex>` to search for commits with differences whose patch text contains added/removed lines that match `<regex>`

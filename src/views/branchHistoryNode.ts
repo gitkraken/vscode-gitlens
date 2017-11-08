@@ -51,9 +51,22 @@ export class BranchHistoryNode extends ExplorerNode {
                     : ResourceType.BranchHistory;
             }
 
+            let iconSuffix = '';
+            if (this.branch.tracking) {
+                if (this.branch.state.ahead && this.branch.state.behind) {
+                    iconSuffix = '-yellow';
+                }
+                else if (this.branch.state.ahead) {
+                    iconSuffix = '-green';
+                }
+                else if (this.branch.state.behind) {
+                    iconSuffix = '-red';
+                }
+            }
+
             item.iconPath = {
-                dark: this.explorer.context.asAbsolutePath('images/dark/icon-branch.svg'),
-                light: this.explorer.context.asAbsolutePath('images/light/icon-branch.svg')
+                dark: this.explorer.context.asAbsolutePath(`images/dark/icon-branch${iconSuffix}.svg`),
+                light: this.explorer.context.asAbsolutePath(`images/light/icon-branch${iconSuffix}.svg`)
             };
 
             return item;

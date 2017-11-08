@@ -161,6 +161,11 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
     - `Branches` node — provides a list of the local branches
       - Indicates which branch is the current branch and [optionally](#gitlens-custom-view-settings) shows the remote tracking branch
       - Expand each branch to easily see its revision (commit) history
+        - Provides indicator dots on each branch icon which denote the following:
+          - `None` - no upstream or up-to-date with the upstream
+          - `Green` - ahead of the upstream
+          - `Red` - behind the upstream
+          - `Yellow` - both ahead of and behind the upstream
         - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
           - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Rebase Commit (via Terminal)`, `Reset Commit (via Terminal)`, and `Refresh` commands
            - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands

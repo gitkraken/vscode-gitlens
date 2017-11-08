@@ -6,12 +6,18 @@ export class GitBranch {
     name: string;
     remote: boolean;
     tracking?: string;
+    state: {
+        ahead: number;
+        behind: number;
+    };
 
     constructor(
         public readonly repoPath: string,
         branch: string,
         current: boolean = false,
-        tracking?: string
+        tracking?: string,
+        ahead: number = 0,
+        behind: number = 0
     ) {
         if (branch.startsWith('remotes/')) {
             branch = branch.substring(8);
@@ -21,6 +27,10 @@ export class GitBranch {
         this.current = current;
         this.name = branch;
         this.tracking = tracking;
+        this.state = {
+            ahead: ahead,
+            behind: behind
+        };
     }
 
     getName(): string {
