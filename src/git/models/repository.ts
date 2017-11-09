@@ -7,8 +7,9 @@ import { GitService, GitUri } from '../../gitService';
 import { RemoteProviderFactory, RemoteProviderMap } from '../remotes/factory';
 
 export enum RepositoryChange {
+    Config = 'config',
     // FileSystem = 'file-system',
-    RemotesCache = 'remotes-cache',
+    Remotes = 'remotes',
     Repository = 'repository',
     Stashes = 'stashes'
 }
@@ -88,7 +89,7 @@ export class Repository extends Disposable {
 
         this._suspended = suspended;
 
-        const watcher = workspace.createFileSystemWatcher(new RelativePattern(folder, '**/.git/{index,HEAD,refs/stash,refs/heads/**,refs/remotes/**}'));
+        const watcher = workspace.createFileSystemWatcher(new RelativePattern(folder, '**/.git/{config,index,HEAD,refs/stash,refs/heads/**,refs/remotes/**}'));
         this._disposable = Disposable.from(
             watcher,
             watcher.onDidChange(this.onRepositoryChanged, this),
@@ -121,7 +122,7 @@ export class Repository extends Disposable {
 
             if (!initializing) {
                 this._remotes = undefined;
-                this.fireChange(RepositoryChange.RemotesCache);
+                this.fireChange(RepositoryChange.Remotes);
             }
         }
     }
@@ -134,18 +135,31 @@ export class Repository extends Disposable {
     }
 
     private onRepositoryChanged(uri: Uri) {
-        if (uri !== undefined && uri.path.endsWith('ref/stash')) {
+        if (uri !== undefined && uri.path.endsWith('refs/stash')) {
             this.fireChange(RepositoryChange.Stashes);
 
             return;
         }
 
-        this.onAnyRepositoryChanged();
+        if (uri !== undefined && uri.path.endsWith('refs/remotes')) {
+            this._remotes = undefined;
+            this.fireChange(RepositoryChange.Remotes);
 
+            return;
+        }
+
+        if (uri !== undefined && uri.path.endsWith('config')) {
+            this._remotes = undefined;
+            this.fireChange(RepositoryChange.Config, RepositoryChange.Remotes);
+
+            return;
+        }
+
+        this.onAnyRepositoryChanged();
         this.fireChange(RepositoryChange.Repository);
     }
 
-    private fireChange(reason: RepositoryChange) {
+    private fireChange(...reasons: RepositoryChange[]) {
         if (this._fireChangeDebounced === undefined) {
             this._fireChangeDebounced = Functions.debounce(this.fireChangeCore, 250);
         }
@@ -156,8 +170,10 @@ export class Repository extends Disposable {
 
         const e = this._pendingChanges.repo;
 
-        if (!e.changes.includes(reason)) {
-            e.changes.push(reason);
+        for (const reason of reasons) {
+            if (!e.changes.includes(reason)) {
+                e.changes.push(reason);
+            }
         }
 
         if (this._suspended) return;
