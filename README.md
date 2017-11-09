@@ -5,7 +5,7 @@
 
 <p align="center">
   <br /><br />
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/gitlens-icon.png" alt="logo" width="192">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/gitlens-icon.png" alt="logo" width="192">
 </p>
 
 # GitLens
