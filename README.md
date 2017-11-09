@@ -25,7 +25,7 @@ While GitLens is highly customizable and provides many [configuration settings](
 |Name | Description
 |-----|------------
 |`gitlens.blame.line.enabled`|Specifies whether or not to provide a blame annotation for the current line, by default<br />Use the `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`) to toggle the annotations on and off for the current session
-|`gitlens.codeLens.enabled`|Specifies whether or not to provide any Git code lens, by default<br />Use the `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) to toggle the Git code lens on and off for the current session"
+|`gitlens.codeLens.enabled`|Specifies whether or not to provide any Git code lens, by default<br />Use the `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) to toggle the Git code lens on and off for the current session
 |`gitlens.gitExplorer.enabled`|Specifies whether or not to show the `GitLens` view
 |`gitlens.statusBar.enabled`|Specifies whether or not to provide blame information on the status bar
 
