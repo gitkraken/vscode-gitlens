@@ -14,8 +14,20 @@ GitLens **supercharges** the built-in Visual Studio Code Git capabilities. It he
 
 GitLens provides an unobtrusive blame annotation at the end of the current line, a status bar item showing the commit information (author and date, by default) of the current line, code lens showing the most recent commit and # of authors of the file and/or code block, and many commands for exploring commits and histories, comparing and navigating revisions, stash access, repository status, and more. GitLens is also [highly customizable](#extension-settings) to meet your specific needs — find code lens intrusive or the current line blame annotation distracting — no problem, it is easy to [turn them off or change how they behave](#extension-settings).
 
-### Preview — featuring blame annotations, code lens, status bar details, quick pick menus for navigation and exploration, compare with previous, and more
-![GitLens preview](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/gitlens-preview.gif)
+### Preview
+>![GitLens preview](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/gitlens-preview.gif)
+>###### Features blame annotations, code lens, status bar details, quick pick menus for navigation and exploration, compare with previous, and more
+
+### Quick Access Settings
+
+While GitLens is highly customizable and provides many [configuration settings](#extension-settings), here are the most important ones for controlling GitLens' behavior
+
+|Name | Description
+|-----|------------
+|`gitlens.blame.line.enabled`|Specifies whether or not to provide a blame annotation for the current line, by default<br />Use the `gitlens.toggleLineBlame` command to toggle the annotations on and off for the current session
+|`gitlens.codeLens.enabled`|Specifies whether or not to provide any Git code lens, by default<br />Use the `gitlens.toggleCodeLens` command to toggle the Git code lens on and off for the current session"
+|`gitlens.gitExplorer.enabled`|Specifies whether or not to show the `GitLens` view
+|`gitlens.statusBar.enabled`|Specifies whether or not to provide blame information on the status bar
 
 ## Features
 
