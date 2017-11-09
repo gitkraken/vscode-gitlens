@@ -246,7 +246,7 @@
                 "gitlens.blame.line.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to provide a blame annotation for the current line, by default\nUse the `gitlens.toggleLineBlame` command to toggle the annotations on and off for the current session",
+                    "description": "Specifies whether or not to provide a blame annotation for the current line, by default\nUse the `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`) to toggle the annotations on and off for the current session",
                     "scope": "window"
                 },
                 "gitlens.blame.line.annotationType": {
@@ -283,7 +283,7 @@
                 "gitlens.codeLens.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to provide any Git code lens, by default\nUse the `gitlens.toggleCodeLens` command to toggle the Git code lens on and off for the current session",
+                    "description": "Specifies whether or not to provide any Git code lens, by default\nUse the `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) to toggle the Git code lens on and off for the current session",
                     "scope": "window"
                 },
                 "gitlens.codeLens.recentChange.enabled": {
