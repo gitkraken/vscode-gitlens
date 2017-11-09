@@ -138,7 +138,7 @@ GitLens provides an unobtrusive blame annotation at the end of the current line,
 
 ### Navigate and Explore
 
-- Adds a [customizable](#gitlens-custom-view-settings) `GitLens` custom view to the Explorer activity
+- Adds a [customizable](#gitlens-custom-view-settings) `GitLens` view to the Explorer activity
 
   - `Repository View` - provides a full repository explorer
 
@@ -381,23 +381,23 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.codeLens.customLocationSymbols`|Specifies a set of document symbols where Git code lens will or will not be shown in the document<br />Prefix with `!` to not show Git code lens for the symbol<br />Must be a member of `SymbolKind`
 |`gitlens.codeLens.perLanguageLocations`|Specifies where Git code lens will be shown in the document for the specified languages
 
-### GitLens Custom View Settings
+### GitLens View Settings
 
 |Name | Description
 |-----|------------
-|`gitlens.gitExplorer.enabled`|Specifies whether or not to show the `GitLens` custom view"
-|`gitlens.gitExplorer.view`|Specifies the starting view (mode) of the `GitLens` custom view<br /> `auto` - shows the last selected view, defaults to `repository`<br />`history` - shows the commit history of the active file<br />`repository` - shows a repository explorer"
-|`gitlens.gitExplorer.autoRefresh`|Specifies whether or not to automatically refresh the `GitLens` custom view when the repository or the file system changes
-|`gitlens.gitExplorer.files.layout`|Specifies how the `GitLens` custom view will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
-|`gitlens.gitExplorer.files.compact`|Specifies whether or not to compact (flatten) unnecessary file nesting in the `GitLens` custom view<br />Only applies when displaying files as a `tree` or `auto`
-|`gitlens.gitExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens` custom view<br />Only applies when displaying files as `auto`
-|`gitlens.gitExplorer.includeWorkingTree`|Specifies whether or not to include working tree files inside the `Repository Status` node of the `GitLens` custom view
-|`gitlens.gitExplorer.showTrackingBranch`|Specifies whether or not to show the tracking branch when displaying local branches in the `GitLens` custom view"
-|`gitlens.gitExplorer.commitFormat`|Specifies the format of committed changes in the `GitLens` custom view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
-|`gitlens.gitExplorer.commitFileFormat`|Specifies the format of a committed file in the `GitLens` custom view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
-|`gitlens.gitExplorer.stashFormat`|Specifies the format of stashed changes in the `GitLens` custom view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
-|`gitlens.gitExplorer.stashFileFormat`|Specifies the format of a stashed file in the `GitLens` custom view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
-|`gitlens.gitExplorer.statusFileFormat`|Specifies the format of the status of a working or committed file in the `GitLens` custom view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path<br />${working} - optional indicator if the file is uncommitted
+|`gitlens.gitExplorer.enabled`|Specifies whether or not to show the `GitLens` view"
+|`gitlens.gitExplorer.view`|Specifies the starting view (mode) of the `GitLens` view<br /> `auto` - shows the last selected view, defaults to `repository`<br />`history` - shows the commit history of the active file<br />`repository` - shows a repository explorer"
+|`gitlens.gitExplorer.autoRefresh`|Specifies whether or not to automatically refresh the `GitLens` view when the repository or the file system changes
+|`gitlens.gitExplorer.files.layout`|Specifies how the `GitLens` view will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
+|`gitlens.gitExplorer.files.compact`|Specifies whether or not to compact (flatten) unnecessary file nesting in the `GitLens` view<br />Only applies when displaying files as a `tree` or `auto`
+|`gitlens.gitExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens` view<br />Only applies when displaying files as `auto`
+|`gitlens.gitExplorer.includeWorkingTree`|Specifies whether or not to include working tree files inside the `Repository Status` node of the `GitLens` view
+|`gitlens.gitExplorer.showTrackingBranch`|Specifies whether or not to show the tracking branch when displaying local branches in the `GitLens` view"
+|`gitlens.gitExplorer.commitFormat`|Specifies the format of committed changes in the `GitLens` view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
+|`gitlens.gitExplorer.commitFileFormat`|Specifies the format of a committed file in the `GitLens` view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
+|`gitlens.gitExplorer.stashFormat`|Specifies the format of stashed changes in the `GitLens` view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
+|`gitlens.gitExplorer.stashFileFormat`|Specifies the format of a stashed file in the `GitLens` view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
+|`gitlens.gitExplorer.statusFileFormat`|Specifies the format of the status of a working or committed file in the `GitLens` view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path<br />${working} - optional indicator if the file is uncommitted
 
 ### Custom Remotes Settings
 

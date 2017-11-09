@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds multi-root workspace support -- [Learn more](https://code.visualstudio.com/docs/editor/multi-root-workspaces)
 - Adds new logo/icon
-- Adds indicator dots on the branch node(s) of the `GitLens` custom view which denote the following:
+- Adds indicator dots on the branch node(s) of the `GitLens` view which denote the following:
   - `None` - no upstream or up-to-date with the upstream
   - `Green` - ahead of the upstream
   - `Red` - behind the upstream
@@ -20,33 +20,33 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Use `=<regex>` to search for commits with differences that change the number of occurrences of the specified string (i.e. addition/deletion) in a file
 - Adds support to the `Compare File with Branch...` command (`gitlens.diffWithBranch`) work with renamed files -- closes [#165](https://github.com/eamodio/vscode-gitlens/issues/165)
 - Adds `Compare File with Branch...` command (`gitlens.diffWithBranch`) to source control resource context menu
-- Adds `Open Repository in Remote` command (`gitlens.openRepoInRemote`) to repository node(s) of the `GitLens` custom view
-- Adds `Enable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOn`) to the `GitLens` custom view regardless of the current view
-- Adds `Disable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOff`) to the `GitLens` custom view regardless of the current view
-- Adds new Git terminal commands to the `GitLens` custom view - opens a `GitLens` terminal and sends the specified Git command to it
-  - Adds `Checkout Branch (via Terminal)` command (`gitlens.terminalCheckoutBranch`) to branch node(s) of the `GitLens` custom view
-  - Adds `Create Branch (via Terminal)...` command (`gitlens.terminalCreateBranch`) to branch node(s) of the `GitLens` custom view
-  - Adds `Delete Branch (via Terminal)` command (`gitlens.terminalDeleteBranch`) to branch node(s) of the `GitLens` custom view
-  - Adds `Rebase Branch to Remote (via Terminal)` command (`gitlens.terminalRebaseBranchToRemote`) to branch node(s) of the `GitLens` custom view
-  - Adds `Squash Branch into Commit (via Terminal)` command (`gitlens.terminalSquashBranchIntoCommit`) to branch node(s) of the `GitLens` custom view
-  - Adds `Rebase Commit (via Terminal)` command (`gitlens.terminalRebaseCommit`) to commit node(s) of the `GitLens` custom view
-  - Adds `Reset Commit (via Terminal)` command (`gitlens.terminalResetCommit`) to commit node(s) of the `GitLens` custom view
-  - Adds `Remove Remote (via Terminal)` command (`gitlens.terminalRemoveRemote`) to remote node(s) of the `GitLens` custom view
+- Adds `Open Repository in Remote` command (`gitlens.openRepoInRemote`) to repository node(s) of the `GitLens` view
+- Adds `Enable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOn`) to the `GitLens` view regardless of the current view
+- Adds `Disable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOff`) to the `GitLens` view regardless of the current view
+- Adds new Git terminal commands to the `GitLens` view - opens a `GitLens` terminal and sends the specified Git command to it
+  - Adds `Checkout Branch (via Terminal)` command (`gitlens.terminalCheckoutBranch`) to branch node(s) of the `GitLens` view
+  - Adds `Create Branch (via Terminal)...` command (`gitlens.terminalCreateBranch`) to branch node(s) of the `GitLens` view
+  - Adds `Delete Branch (via Terminal)` command (`gitlens.terminalDeleteBranch`) to branch node(s) of the `GitLens` view
+  - Adds `Rebase Branch to Remote (via Terminal)` command (`gitlens.terminalRebaseBranchToRemote`) to branch node(s) of the `GitLens` view
+  - Adds `Squash Branch into Commit (via Terminal)` command (`gitlens.terminalSquashBranchIntoCommit`) to branch node(s) of the `GitLens` view
+  - Adds `Rebase Commit (via Terminal)` command (`gitlens.terminalRebaseCommit`) to commit node(s) of the `GitLens` view
+  - Adds `Reset Commit (via Terminal)` command (`gitlens.terminalResetCommit`) to commit node(s) of the `GitLens` view
+  - Adds `Remove Remote (via Terminal)` command (`gitlens.terminalRemoveRemote`) to remote node(s) of the `GitLens` view
 - Adds ability to specify the url protocol used with user-defined remote services via `gitlens.remotes` setting -- thanks to [PR #192](https://github.com/eamodio/vscode-gitlens/pull/192) by Helmut Januschka ([@hjanuschka](https://github.com/hjanuschka))!
 
 ### Changed
-- `GitLens` custom view will no longer show if there is no Git repository -- closes [#159](https://github.com/eamodio/vscode-gitlens/issues/159)
+- `GitLens` view will no longer show if there is no Git repository -- closes [#159](https://github.com/eamodio/vscode-gitlens/issues/159)
 - Optimizes event handling, executing git commands, and general processing to improve performance and reduce any lag
 - Optimizes current line hover annotations to only be computed on hover (i.e. lazily evaluated) to reduce the compute required when changing lines
 - Protects credentials from possibly being affected by poor network conditions via Git Credential Manager (GCM) for Windows environment variables
-- Delays (slightly) the initial loading of the `GitLens` custom view to improve startup performance
+- Delays (slightly) the initial loading of the `GitLens` view to improve startup performance
 
 ### Fixed
 - Fixes jumpy code lens when deleting characters from a line with a Git code lens
 - Fixes [#178](https://github.com/eamodio/vscode-gitlens/issues/178) - Slight but noticeable keyboard lag with Gitlens
 - Fixes [#183](https://github.com/eamodio/vscode-gitlens/issues/183) - Remote with same url should only show once
 - Fixes [#185](https://github.com/eamodio/vscode-gitlens/issues/185) - Wrong relative date shows on mouse hover
-- Fixes issue where using the `Refresh` command on a `GitLens` custom view node refreshed the whole view, rather than just the node
+- Fixes issue where using the `Refresh` command on a `GitLens` view node refreshed the whole view, rather than just the node
 - Fixes issue where certain commands fail when there is no current branch (rebase, detached HEAD, etc)
 
 ## [5.7.1] - 2017-10-19
@@ -57,12 +57,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds `Open All Changes (with difftool)` command (`gitlens.externalDiffAll`) - opens all working changes with the configured git difftool -- closes [#164](https://github.com/eamodio/vscode-gitlens/issues/164)
   - Also adds the command to the Source Control group context menu
-- Adds `gitlens.gitExplorer.autoRefresh` setting to specify whether or not to automatically refresh the `GitLens` custom view when the repository or the file system changes
-- Adds `Enable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOn`) to enable the automatic refresh of the `GitLens` custom view
-- Adds `Disable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOff`) to disable the automatic refresh of the `GitLens` custom view
-- Adds `Show Files in Automatic View` command (`gitlens.gitExplorer.setFilesLayoutToAuto`) to change to an automatic layout for the files in the `GitLens` custom view
-- Adds `Show Files in List View` command (`gitlens.gitExplorer.setFilesLayoutToList`) to change to a list layout for the files in the `GitLens` custom view
-- Adds `Show Files in Tree View` command (`gitlens.gitExplorer.setFilesLayoutToTree`) to change to a tree layout for the files in the `GitLens` custom view
+- Adds `gitlens.gitExplorer.autoRefresh` setting to specify whether or not to automatically refresh the `GitLens` view when the repository or the file system changes
+- Adds `Enable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOn`) to enable the automatic refresh of the `GitLens` view
+- Adds `Disable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOff`) to disable the automatic refresh of the `GitLens` view
+- Adds `Show Files in Automatic View` command (`gitlens.gitExplorer.setFilesLayoutToAuto`) to change to an automatic layout for the files in the `GitLens` view
+- Adds `Show Files in List View` command (`gitlens.gitExplorer.setFilesLayoutToList`) to change to a list layout for the files in the `GitLens` view
+- Adds `Show Files in Tree View` command (`gitlens.gitExplorer.setFilesLayoutToTree`) to change to a tree layout for the files in the `GitLens` view
 
 ### Changed
 - Renames `Directory Compare` command (`gitlens.diffDirectory`) to `Compare Directory with Branch...`
@@ -72,8 +72,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes [#163](https://github.com/eamodio/vscode-gitlens/issues/163) - GitLens can cause git locking in the background
-- Fixes issues tracking the active editor in the `History View` of the `GitLens` custom view
-- Fixes issue where the `GitLens` custom view would refresh more than once when a file system change was detected
+- Fixes issues tracking the active editor in the `History View` of the `GitLens` view
+- Fixes issue where the `GitLens` view would refresh more than once when a file system change was detected
 - Fixes issue where opening commit search could be filled out with `#00000000`
 
 ## [5.6.5] - 2017-10-16
@@ -162,13 +162,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [5.3.0] - 2017-09-26
 ### Added
-- Adds new file layouts to the `GitLens` custom view
+- Adds new file layouts to the `GitLens` view
   - `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level
   - `list` - displays files as a list
   - `tree` - displays files as a tree
-- Adds `gitlens.gitExplorer.files.layout` setting to specify how the `GitLens` custom view will display files
-- Adds `gitlens.gitExplorer.files.compact` setting to specify whether or not to compact (flatten) unnecessary file nesting in the `GitLens` custom view
-- Adds `gitlens.gitExplorer.files.threshold` setting to specify when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens` custom view
+- Adds `gitlens.gitExplorer.files.layout` setting to specify how the `GitLens` view will display files
+- Adds `gitlens.gitExplorer.files.compact` setting to specify whether or not to compact (flatten) unnecessary file nesting in the `GitLens` view
+- Adds `gitlens.gitExplorer.files.threshold` setting to specify when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens` view
 - Adds `${directory}` token to the file formatting settings
 
 ### Changed
@@ -179,17 +179,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [5.2.0] - 2017-09-23
 ### Added
-- Adds new `Changed Files` node to the `Repository Status` node of the `GitLens` custom view's `Repository View` -- closes [#139](https://github.com/eamodio/vscode-gitlens/issues/139)
+- Adds new `Changed Files` node to the `Repository Status` node of the `GitLens` view's `Repository View` -- closes [#139](https://github.com/eamodio/vscode-gitlens/issues/139)
   - Provides a at-a-glance view of all "working" changes
   - Expands to a file-based view of all changed files in the working tree (enabled via `"gitlens.insiders": true`) and/or all files in all commits ahead of the upstream
-- Adds optional (on by default) working tree status information to the `Repository Status` node in the `GitLens` custom view
+- Adds optional (on by default) working tree status information to the `Repository Status` node in the `GitLens` view
 - Adds `auto` value to `gitlens.gitExplorer.view` setting - closes [#150](https://github.com/eamodio/vscode-gitlens/issues/150)
-- Adds `gitlens.gitExplorer.enabled` setting to specify whether or not to show the `GitLens` custom view - closes [#144](https://github.com/eamodio/vscode-gitlens/issues/144)
-- Adds `gitlens.gitExplorer.includeWorkingTree` setting to specify whether or not to include working tree files inside the `Repository Status` node of the `GitLens` custom view
-- Adds `gitlens.gitExplorer.statusFileFormat` setting to the format of the status of a working or committed file in the `GitLens` custom view
+- Adds `gitlens.gitExplorer.enabled` setting to specify whether or not to show the `GitLens` view - closes [#144](https://github.com/eamodio/vscode-gitlens/issues/144)
+- Adds `gitlens.gitExplorer.includeWorkingTree` setting to specify whether or not to include working tree files inside the `Repository Status` node of the `GitLens` view
+- Adds `gitlens.gitExplorer.statusFileFormat` setting to the format of the status of a working or committed file in the `GitLens` view
 
 ### Changed
-- Changes the sorting (now alphabetical) of files shown in the `GitLens` custom view
+- Changes the sorting (now alphabetical) of files shown in the `GitLens` view
 - Changes the default of the `gitlens.gitExplorer.view` setting to `auto`
 - Changes the default of the `gitlens.gitExplorer.commitFormat` setting to add parentheses around the commit id
 - Removes many menu items from `editor/title` & `editor/title/context` by default -- can be re-enabled via the `gitlens.advanced.menus` setting
@@ -212,12 +212,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes `gitlens.annotations.file.recentChanges.hover.wholeLine` setting as it didn't really make sense
 
 ### Fixed
-- Fixes an issue where stashes with only untracked files would not show in the `Stashes` node of the GitLens custom view
-- Fixes an issue where stashes with untracked files would not show its untracked files in the GitLens custom view
+- Fixes an issue where stashes with only untracked files would not show in the `Stashes` node of the GitLens view
+- Fixes an issue where stashes with untracked files would not show its untracked files in the GitLens view
 
 ## [5.0.0] - 2017-09-12
 ### Added
-- Adds an all-new `GitLens` custom view to the Explorer activity
+- Adds an all-new `GitLens` view to the Explorer activity
 
   - `Repository View` - provides a full repository explorer
 
@@ -286,16 +286,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `Open Branches in Remote` command (`gitlens.openBranchesInRemote`) - opens the branches in the supported remote service
 - Adds `Stash Changes` command (`gitlens.stashSave`) to the source control group context menu -- can now stash a group of files
 - Adds `Stash Changes` command (`gitlens.stashSave`) to the source control resource context menu -- can now stash individual files (works with multi-select too!)
-- Adds `gitlens.gitExplorer.view` setting to specify the starting view (mode) of the `GitLens` custom view
-- Adds `gitlens.gitExplorer.showTrackingBranch` setting to specify whether or not to show the tracking branch when displaying local branches in the `GitLens` custom view
-- Adds `gitlens.gitExplorer.commitFormat` setting to specify the format of committed changes in the `GitLens` custom view
-- Adds `gitlens.gitExplorer.commitFileFormat` setting to specify the format of a committed file in the `GitLens` custom view
-- Adds `gitlens.gitExplorer.stashFormat` setting to specify the format of stashed changes in the `GitLens` custom view
-- Adds `gitlens.gitExplorer.stashFileFormat` setting to specify the format of a stashed file in the `GitLens` custom view
+- Adds `gitlens.gitExplorer.view` setting to specify the starting view (mode) of the `GitLens` view
+- Adds `gitlens.gitExplorer.showTrackingBranch` setting to specify whether or not to show the tracking branch when displaying local branches in the `GitLens` view
+- Adds `gitlens.gitExplorer.commitFormat` setting to specify the format of committed changes in the `GitLens` view
+- Adds `gitlens.gitExplorer.commitFileFormat` setting to specify the format of a committed file in the `GitLens` view
+- Adds `gitlens.gitExplorer.stashFormat` setting to specify the format of stashed changes in the `GitLens` view
+- Adds `gitlens.gitExplorer.stashFileFormat` setting to specify the format of a stashed file in the `GitLens` view
 - Adds `${filePath}` token to file formatting settings
 
 ### Changed
-- Changes `Show Stashed Changes` option icon in repository status quick pick menu to match the `GitLens` custom view
+- Changes `Show Stashed Changes` option icon in repository status quick pick menu to match the `GitLens` view
 - Changes `Stash Changes` option icon in stashed changes quick pick menu to a plus (+)
 - Renames `Compare File with Previous` command (`gitlens.diffWithPrevious`) to `Compare File with Previous Revision`
 - Renames `Compare File with Next Commit` command (`gitlens.diffWithNext`) to `Compare File with Next Revision`
@@ -304,7 +304,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Renames `Compare Line Commit with Working Tree` command (`gitlens.diffLineWithWorking`) to `Compare Line Revision with Working`
 
 ### Removed
-- Removes `Git Stashes` custom view view - as it's functionality has been folded into the new `GitLens` custom view
+- Removes `Git Stashes` view view - as it's functionality has been folded into the new `GitLens` view
 - Removes `gitlens.stashExplorer.stashFormat` setting
 - Removes `gitlens.stashExplorer.stashFileFormat` setting
 - Removes `Stash Unstaged Changes` option from stashed changes quick pick menu -- didn't work as intended
@@ -341,8 +341,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes the `gitlens.advanced.toggleWhitespace.enabled` configuration setting to default to `false` -- thanks to the awesome work in vscode by Alexandru Dima ([@alexandrudima](https://github.com/alexandrudima)) this is no longer required!
 
 ## Removed
-- Removes unneeded `gitlens.stashExplorer.enabled` configuration setting since users can add or remove custom views natively now
-- Removes unneeded `Toggle Git Stashes Explorer` command (`gitlens.stashExplorer.toggle`) since users can add or remove custom views natively now
+- Removes unneeded `gitlens.stashExplorer.enabled` configuration setting since users can add or remove views natively now
+- Removes unneeded `Toggle Git Stashes Explorer` command (`gitlens.stashExplorer.toggle`) since users can add or remove views natively now
 - Removes the `gitlens.theme.annotations.file.hover.separateLines` configuration setting
 
 ## Fixed
@@ -364,18 +364,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [4.3.1] - 2017-07-03
 ## Added
-- Adds `gitlens.stashExplorer.enabled` setting to specify whether or not to show the `Git Stashes` custom view
-- Adds `Toggle Git Stashes Explorer` command (`gitlens.stashExplorer.toggle`) - toggles the `Git Stashes` custom view on and off
+- Adds `gitlens.stashExplorer.enabled` setting to specify whether or not to show the `Git Stashes` view
+- Adds `Toggle Git Stashes Explorer` command (`gitlens.stashExplorer.toggle`) - toggles the `Git Stashes` view on and off
 
 ## Changed
-- Hides the `Git Stashes` custom view by default
+- Hides the `Git Stashes` view by default
 
 ## Fixed
 - Fixes [#108](https://github.com/eamodio/vscode-gitlens/issues/108) - Option to remove stash explorer from the main explorer?
 
 ## [4.3.0] - 2017-07-03
 ## Added
-- Adds `Git Stashes` custom view to the Explorer activity
+- Adds `Git Stashes` view to the Explorer activity
   - Shows all of the stashed changes in the repository
   - Provides toolbar buttons to `Stash Changes` and `Refresh`
   - Provides a context menu with `Apply Stashed Changes` and `Delete Stashed Changes` commands - both require a confirmation
