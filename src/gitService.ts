@@ -576,7 +576,7 @@ export class GitService extends Disposable {
         return GitDiffParser.parseShortStat(data);
     }
 
-    async getConfig(key: string, repoPath?: string): Promise<string> {
+    async getConfig(key: string, repoPath?: string): Promise<string | undefined> {
         Logger.log(`getConfig('${key}', '${repoPath}')`);
 
         return await Git.config_get(key, repoPath);
@@ -1086,16 +1086,30 @@ export class GitService extends Disposable {
         return tracked;
     }
 
-    openDiffTool(repoPath: string, uri: Uri, staged: boolean) {
-        Logger.log(`openDiffTool('${repoPath}', '${uri.fsPath}', ${staged})`);
-
-        return Git.difftool_fileDiff(repoPath, uri.fsPath, staged);
+    async getDiffTool(repoPath?: string) {
+        return await Git.config_get('diff.guitool', repoPath) || await Git.config_get('diff.tool', repoPath);
     }
 
-    openDirectoryDiff(repoPath: string, sha1: string, sha2?: string) {
-        Logger.log(`openDirectoryDiff('${repoPath}', '${sha1}', '${sha2}')`);
+    async openDiffTool(repoPath: string, uri: Uri, staged: boolean, tool?: string) {
+        if (!tool) {
+            tool = await this.getDiffTool(repoPath);
+            if (tool === undefined) throw new Error('No diff tool found');
+        }
 
-        return Git.difftool_dirDiff(repoPath, sha1, sha2);
+        Logger.log(`openDiffTool('${repoPath}', '${uri.fsPath}', ${staged}, '${tool}')`);
+
+        return Git.difftool_fileDiff(repoPath, uri.fsPath, tool, staged);
+    }
+
+    async openDirectoryDiff(repoPath: string, sha1: string, sha2?: string, tool?: string) {
+        if (!tool) {
+            tool = await this.getDiffTool(repoPath);
+            if (tool === undefined) throw new Error('No diff tool found');
+        }
+
+        Logger.log(`openDirectoryDiff('${repoPath}', '${sha1}', '${sha2}', '${tool}')`);
+
+        return Git.difftool_dirDiff(repoPath, tool, sha1, sha2);
     }
 
     stopWatchingFileSystem() {

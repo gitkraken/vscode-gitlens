@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Changed
+- Changes to use `diff.guitool` first if available, before falling back to `diff.tool` -- closes [#195](https://github.com/eamodio/vscode-gitlens/issues/195)
+
+### Fixed
+- Fixes issue where failed git commands would get stuck in the pending queue causing future similar commands to also fail
+
 ## [6.0.0] - 2017-11-08
 
 ### Added

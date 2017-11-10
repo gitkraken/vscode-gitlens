@@ -86,16 +86,16 @@ export class ExternalDiffCommand extends Command {
 
     async execute(args: ExternalDiffCommandArgs = {}) {
         try {
-            const diffTool = await this.git.getConfig('diff.tool');
-            if (!diffTool) {
+            const repoPath = await this.git.getRepoPath(undefined);
+            if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open changed files`);
+
+            const tool = await this.git.getDiffTool(repoPath);
+            if (tool === undefined) {
                 const result = await window.showWarningMessage(`Unable to open file compare because there is no Git diff tool configured`, 'View Git Docs');
                 if (!result) return undefined;
 
                 return commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://git-scm.com/docs/git-config#git-config-difftool'));
             }
-
-            const repoPath = await this.git.getRepoPath(undefined);
-            if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open changed files`);
 
             if (args.files === undefined) {
                 const status = await this.git.getStatusForRepo(repoPath);
@@ -115,7 +115,7 @@ export class ExternalDiffCommand extends Command {
             }
 
             for (const file of args.files) {
-                this.git.openDiffTool(repoPath, file.uri, file.staged);
+                this.git.openDiffTool(repoPath, file.uri, file.staged, tool);
             }
 
             return undefined;

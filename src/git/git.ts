@@ -244,7 +244,7 @@ export class Git {
             return data.trim();
         }
         catch {
-            return '';
+            return undefined;
         }
     }
 
@@ -283,8 +283,8 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...params);
     }
 
-    static difftool_dirDiff(repoPath: string, sha1: string, sha2?: string) {
-        const params = [`difftool`, `--dir-diff`, sha1];
+    static difftool_dirDiff(repoPath: string, tool: string, sha1: string, sha2?: string) {
+        const params = [`difftool`, `--dir-diff`, `--tool=${tool}`, sha1];
         if (sha2) {
             params.push(sha2);
         }
@@ -292,8 +292,8 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...params);
     }
 
-    static difftool_fileDiff(repoPath: string, fileName: string, staged: boolean) {
-        const params = [`difftool`, `--no-prompt`];
+    static difftool_fileDiff(repoPath: string, fileName: string, tool: string, staged: boolean) {
+        const params = [`difftool`, `--no-prompt`, `--tool=${tool}`];
         if (staged) {
             params.push('--staged');
         }
