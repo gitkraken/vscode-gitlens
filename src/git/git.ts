@@ -84,14 +84,18 @@ async function gitCommandCore(options: GitCommandOptions, ...args: any[]): Promi
         Logger.log(`Awaiting${command}`);
     }
 
-    const s = await promise;
-    pendingCommands.delete(command);
+    let data: string;
+    try {
+        data = await promise;
+    }
+    finally {
+        pendingCommands.delete(command);
+        Logger.log(`Completed${command}`);
+    }
 
-    Logger.log(`Completed${command}`);
+    if (opts.encoding === 'utf8' || opts.encoding === 'binary') return data;
 
-    if (opts.encoding === 'utf8' || opts.encoding === 'binary') return s;
-
-    return iconv.decode(Buffer.from(s, 'binary'), opts.encoding);
+    return iconv.decode(Buffer.from(data, 'binary'), opts.encoding);
 }
 
 function gitCommandDefaultErrorHandler(ex: Error, options: GitCommandOptions, ...args: any[]): string {
