@@ -63,11 +63,24 @@ export class RepositoryNode extends ExplorerNode {
     private onRepoChanged(e: RepositoryChangeEvent) {
         Logger.log(`RepositoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
 
-        let node: ExplorerNode | undefined;
-        if (this.children !== undefined && e.changed(RepositoryChange.Stashes, true)) {
-            node = this.children.find(c => c instanceof StashesNode);
+        if (this.children === undefined || e.changed(RepositoryChange.Repository) || e.changed(RepositoryChange.Config)) {
+            this.explorer.refreshNode(this);
+
+            return;
         }
 
-        this.explorer.refreshNode(node || this);
+        if (e.changed(RepositoryChange.Stashes)) {
+            const node = this.children.find(c => c instanceof StashesNode);
+            if (node !== undefined) {
+                this.explorer.refreshNode(node);
+            }
+        }
+
+        if (e.changed(RepositoryChange.Remotes)) {
+            const node = this.children.find(c => c instanceof RemotesNode);
+            if (node !== undefined) {
+                this.explorer.refreshNode(node);
+            }
+        }
     }
 }

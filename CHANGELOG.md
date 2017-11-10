@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes issue where failed git commands would get stuck in the pending queue causing future similar commands to also fail
+- Fixes issue where changes to git remotes would refresh the entire `GitLens` view
 
 ## [6.0.0] - 2017-11-08
 
