@@ -8,9 +8,18 @@ export namespace Iterables {
         return true;
     }
 
-    export function* filter<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): Iterable<T> {
-        for (const item of source) {
-            if (predicate(item)) yield item;
+    export function filter<T>(source: Iterable<T | undefined | null> | IterableIterator<T | undefined | null>): Iterable<T>;
+    export function filter<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): Iterable<T>;
+    export function* filter<T>(source: Iterable<T> | IterableIterator<T>, predicate?: (item: T) => boolean): Iterable<T> {
+        if (predicate === undefined) {
+            for (const item of source) {
+                if (item != null) yield item;
+            }
+        }
+        else {
+            for (const item of source) {
+                if (predicate(item)) yield item;
+            }
         }
     }
 

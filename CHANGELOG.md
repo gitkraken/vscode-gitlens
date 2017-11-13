@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes to use `diff.guitool` first if available, before falling back to `diff.tool` -- closes [#195](https://github.com/eamodio/vscode-gitlens/issues/195)
 
 ### Fixed
+- Fixes [#198](https://github.com/eamodio/vscode-gitlens/issues/198) - Files in submodules or nested repositories no longer work properly
 - Fixes issue where failed git commands would get stuck in the pending queue causing future similar commands to also fail
 - Fixes issue where changes to git remotes would refresh the entire `GitLens` view
 

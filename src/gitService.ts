@@ -1,6 +1,6 @@
 'use strict';
-import { Functions, Iterables } from './system';
-import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, window, WindowState, workspace, WorkspaceFoldersChangeEvent } from 'vscode';
+import { Functions, Iterables, Objects, TernarySearchTree } from './system';
+import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, window, WindowState, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent } from 'vscode';
 import { configuration, IConfig, IRemotesConfig } from './configuration';
 import { CommandContext, DocumentSchemes, setCommandContext } from './constants';
 import { RemoteProviderFactory, RemoteProviderMap } from './git/remotes/factory';
@@ -100,8 +100,8 @@ export class GitService extends Disposable {
     private _disposable: Disposable | undefined;
     private _documentKeyMap: Map<TextDocument, string>;
     private _gitCache: Map<string, GitCacheEntry>;
-    private _repositories: Map<string, Repository | undefined>;
-    private _repositoriesPromise: Promise<void> | undefined;
+    private _repositoryTree: TernarySearchTree<Repository>;
+    private _repositoriesLoadingPromise: Promise<void> | undefined;
     private _suspended: boolean = false;
     private _trackedCache: Map<string, boolean | Promise<boolean>>;
     private _versionedUriCache: Map<string, UriCacheEntry>;
@@ -111,7 +111,7 @@ export class GitService extends Disposable {
 
         this._documentKeyMap = new Map();
         this._gitCache = new Map();
-        this._repositories = new Map();
+        this._repositoryTree = TernarySearchTree.forPaths();
         this._trackedCache = new Map();
         this._versionedUriCache = new Map();
 
@@ -121,11 +121,11 @@ export class GitService extends Disposable {
             configuration.onDidChange(this.onConfigurationChanged, this)
         );
         this.onConfigurationChanged(configuration.initializingChangeEvent);
-        this._repositoriesPromise = this.onWorkspaceFoldersChanged();
+        this._repositoriesLoadingPromise = this.onWorkspaceFoldersChanged();
     }
 
     dispose() {
-        this._repositories.forEach(r => r && r.dispose());
+        this._repositoryTree.forEach(r => r.dispose());
 
         this._disposable && this._disposable.dispose();
 
@@ -139,10 +139,11 @@ export class GitService extends Disposable {
     }
 
     get repoPath(): string | undefined {
-        if (this._repositories.size !== 1) return undefined;
+        const entry = this._repositoryTree.highlander();
+        if (entry === undefined) return undefined;
 
-        const repo = Iterables.first(this._repositories.values());
-        return repo === undefined ? undefined : repo.path;
+        const [repo] = entry;
+        return repo.path;
     }
 
     get UseCaching() {
@@ -213,10 +214,10 @@ export class GitService extends Disposable {
 
     private onWindowStateChanged(e: WindowState) {
         if (e.focused) {
-            this._repositories.forEach(r => r && r.resume());
+            this._repositoryTree.forEach(r => r.resume());
         }
         else {
-            this._repositories.forEach(r => r && r.suspend());
+            this._repositoryTree.forEach(r => r.suspend());
         }
 
         this._suspended = !e.focused;
@@ -235,45 +236,163 @@ export class GitService extends Disposable {
         for (const f of e.added) {
             if (f.uri.scheme !== DocumentSchemes.File) continue;
 
-            const fsPath = f.uri.fsPath;
-            const rp = await this.getRepoPathCore(fsPath, true);
-            if (rp === undefined) {
-                Logger.log(`onWorkspaceFoldersChanged(${fsPath})`, 'No repository found');
-                this._repositories.set(fsPath, undefined);
+            // Search for and add all repositories (nested and/or submodules)
+            const repositories = await this.repositorySearch(f);
+            for (const r of repositories) {
+                this._repositoryTree.set(r.path, r);
             }
-            else {
-                this._repositories.set(fsPath, new Repository(f, rp, this, this.onAnyRepositoryChanged.bind(this), this._suspended));
-            }
-
-            // const repoPaths = await this.searchForRepositories(f);
-            // if (repoPaths.length !== 0) {
-            //     debugger;
-            // }
         }
 
         for (const f of e.removed) {
             if (f.uri.scheme !== DocumentSchemes.File) continue;
 
-            const repo = this._repositories.get(f.uri.fsPath);
+            const fsPath = f.uri.fsPath;
+            const filteredTree = this._repositoryTree.findSuperstr(fsPath);
+            const reposToDelete = filteredTree !== undefined
+                // Since the filtered tree will have keys that are relative to the fsPath, normalize to the full path
+                ? [...Iterables.map<[Repository, string], [Repository, string]>(filteredTree.entries(), ([r, k]) => [r, path.join(fsPath, k)])]
+                : [];
+
+            const repo = this._repositoryTree.get(fsPath);
             if (repo !== undefined) {
-                repo.dispose();
+                reposToDelete.push([repo, fsPath]);
             }
 
-            this._repositories.delete(f.uri.fsPath);
+            for (const [r, k] of reposToDelete) {
+                this._repositoryTree.delete(k);
+                r.dispose();
+            }
         }
 
-        const hasRepository = Iterables.some(this._repositories.values(), rp => rp !== undefined);
-        await setCommandContext(CommandContext.HasRepository, hasRepository);
+        await setCommandContext(CommandContext.HasRepository, this._repositoryTree.any());
 
         if (!initializing) {
-            this.fireChange(GitChangeReason.Repositories);
+            // Defer the event trigger enough to let everything unwind
+            setTimeout(() => this.fireChange(GitChangeReason.Repositories), 1);
         }
     }
 
-    // private async searchForRepositories(folder: WorkspaceFolder): Promise<string[]> {
-    //     const uris = await workspace.findFiles(new RelativePattern(folder, '**/.git/HEAD'));
-    //     return Arrays.filterMapAsync(uris, uri => this.getRepoPathCore(path.dirname(uri.fsPath), true));
-    // }
+    private async repositorySearch(folder: WorkspaceFolder): Promise<Repository[]> {
+        const folderUri = folder.uri;
+
+        const repositories: Repository[] = [];
+        const anyRepoChangedFn = this.onAnyRepositoryChanged.bind(this);
+
+        const rootPath = await this.getRepoPathCore(folderUri.fsPath, true);
+        await this.getRepoPathCore(folderUri.fsPath, true);
+        if (rootPath !== undefined) {
+            repositories.push(new Repository(folder, rootPath, true, this, anyRepoChangedFn, this._suspended));
+        }
+
+        // Can remove this try/catch once https://github.com/Microsoft/vscode/issues/38229 is fixed
+        let depth = 1;
+        try {
+            depth = configuration.get<number>(configuration.name('advanced')('repositorySearchDepth').value, folderUri);
+        }
+        catch (ex) {
+            Logger.error(ex);
+            depth = configuration.get<number>(configuration.name('advanced')('repositorySearchDepth').value, null);
+        }
+
+        if (depth <= 0) return repositories;
+
+        // Can remove this try/catch once https://github.com/Microsoft/vscode/issues/38229 is fixed
+        let excludes = {};
+        try {
+            // Get any specified excludes -- this is a total hack, but works for some simple cases and something is better than nothing :)
+            excludes = {
+                ...workspace.getConfiguration('files', folderUri).get<{ [key: string]: boolean }>('exclude', {}),
+                ...workspace.getConfiguration('search', folderUri).get<{ [key: string]: boolean }>('exclude', {})
+            };
+        }
+        catch (ex) {
+            Logger.error(ex);
+            excludes = {
+                ...workspace.getConfiguration('files', null!).get<{ [key: string]: boolean }>('exclude', {}),
+                ...workspace.getConfiguration('search', null!).get<{ [key: string]: boolean }>('exclude', {})
+            };
+        }
+
+        const excludedPaths = [...Iterables.filterMap(Objects.entries(excludes), ([key, value]) => {
+            if (!value) return undefined;
+            if (key.startsWith('**/')) return key.substring(3);
+            return key;
+        })];
+
+        excludes = excludedPaths.reduce((accumulator, current) => {
+            accumulator[current] = true;
+            return accumulator;
+        }, Object.create(null) as any);
+
+        const start = process.hrtime();
+
+        const paths = await this.repositorySearchCore(folderUri.fsPath, depth, excludes);
+
+        const duration = process.hrtime(start);
+        Logger.log(`${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms to search (depth=${depth}) for repositories in ${folderUri.fsPath}`);
+
+        for (const p of paths) {
+            const rp = await this.getRepoPathCore(path.dirname(p), true);
+            if (rp !== undefined && rp !== rootPath) {
+                repositories.push(new Repository(folder, rp, false, this, anyRepoChangedFn, this._suspended));
+            }
+        }
+
+        // const uris = await workspace.findFiles(new RelativePattern(folder, '**/.git/HEAD'));
+        // for (const uri of uris) {
+        //     const rp = await this.getRepoPathCore(path.resolve(path.dirname(uri.fsPath), '../'), true);
+        //     if (rp !== undefined && rp !== rootPath) {
+        //         repositories.push(new Repository(folder, rp, false, this, anyRepoChangedFn, this._suspended));
+        //     }
+        // }
+
+        return repositories;
+    }
+
+    private async repositorySearchCore(root: string, depth: number, excludes: { [key: string]: boolean }, repositories: string[] = []): Promise<string[]> {
+        return new Promise<string[]>((resolve, reject) => {
+            fs.readdir(root, async (err, files) => {
+                if (err != null) {
+                    reject(err);
+                    return;
+                }
+
+                if (files.length === 0) {
+                    resolve(repositories);
+                    return;
+                }
+
+                const folders: string[] = [];
+
+                const promises = files.map(file => {
+                    const fullPath = path.resolve(root, file);
+
+                    return new Promise<void>((res, rej) => {
+                        fs.stat(fullPath, (err, stat) => {
+                            if (file === '.git') {
+                                repositories.push(fullPath);
+                            }
+                            else if (err == null && excludes[file] !== true && stat != null && stat.isDirectory()) {
+                                folders.push(fullPath);
+                            }
+
+                            res();
+                        });
+                    });
+                });
+
+                await Promise.all(promises);
+
+                if (depth-- > 0) {
+                    for (const folder of folders) {
+                        await this.repositorySearchCore(folder, depth, excludes, repositories);
+                    }
+                }
+
+                resolve(repositories);
+            });
+        });
+    }
 
     private fireChange(reason: GitChangeReason) {
         this._onDidChange.fire({ reason: reason });
@@ -910,51 +1029,85 @@ export class GitService extends Disposable {
         if (filePathOrUri === undefined) return this.repoPath;
         if (filePathOrUri instanceof GitUri) return filePathOrUri.repoPath;
 
-        if (typeof filePathOrUri === 'string') return this.getRepoPathCore(filePathOrUri, false);
-
         const repo = await this.getRepository(filePathOrUri);
         if (repo !== undefined) return repo.path;
 
-        return this.getRepoPathCore(filePathOrUri.fsPath, false);
+        const rp = await this.getRepoPathCore(typeof filePathOrUri === 'string' ? filePathOrUri : filePathOrUri.fsPath, false);
+        if (rp === undefined) return undefined;
+
+        // Recheck this._repositoryTree.get(rp) to make sure we haven't already tried adding this due to awaits
+        if (this._repositoryTree.get(rp) !== undefined) return rp;
+
+        // If this new repo is inside one of our known roots and we we don't already know about, add it
+        const root = this._repositoryTree.findSubstr(rp);
+        const folder = root === undefined
+            ? workspace.getWorkspaceFolder(Uri.file(rp))
+            : root.folder;
+
+        if (folder !== undefined) {
+            const repo = new Repository(folder, rp, false, this, this.onAnyRepositoryChanged.bind(this), this._suspended);
+            this._repositoryTree.set(rp, repo);
+
+            // Send a notification that the repositories changed
+            setTimeout(async () => {
+                await setCommandContext(CommandContext.HasRepository, this._repositoryTree.any());
+
+                this.fireChange(GitChangeReason.Repositories);
+            }, 0);
+        }
+
+        return rp;
     }
 
     private getRepoPathCore(filePath: string, isDirectory: boolean): Promise<string | undefined> {
         return Git.revparse_toplevel(isDirectory ? filePath : path.dirname(filePath));
     }
 
-    async getRepositories(): Promise<Repository[]> {
-        const repositories = await this.getRepositoriesCore();
-        return [...Iterables.filter(repositories.values(), r => r !== undefined) as Iterable<Repository>];
+    async getRepositories(): Promise<Iterable<Repository>> {
+        const repositoryTree = await this.getRepositoryTree();
+        return repositoryTree.values();
     }
 
-    private async getRepositoriesCore(): Promise<Map<string, Repository | undefined>> {
-        if (this._repositoriesPromise !== undefined) {
-            await this._repositoriesPromise;
-            this._repositoriesPromise = undefined;
+    private async getRepositoryTree(): Promise<TernarySearchTree<Repository>> {
+        if (this._repositoriesLoadingPromise !== undefined) {
+            await this._repositoriesLoadingPromise;
+            this._repositoriesLoadingPromise = undefined;
         }
 
-        return this._repositories;
+        return this._repositoryTree;
     }
 
     async getRepository(repoPath: string): Promise<Repository | undefined>;
     async getRepository(uri: Uri): Promise<Repository | undefined>;
+    async getRepository(repoPathOrUri: string | Uri): Promise<Repository | undefined>;
     async getRepository(repoPathOrUri: string | Uri): Promise<Repository | undefined> {
-        if (repoPathOrUri instanceof GitUri) {
-            repoPathOrUri = repoPathOrUri.repoPath !== undefined
-                ? Uri.file(repoPathOrUri.repoPath)
-                : repoPathOrUri.fileUri();
-        }
+        const repositoryTree = await this.getRepositoryTree();
 
+        let path: string;
         if (typeof repoPathOrUri === 'string') {
-            const repositories = await this.getRepositoriesCore();
-            return Iterables.find(repositories.values(), r => r !== undefined && r.path === repoPathOrUri) || undefined;
+            const repo = repositoryTree.get(repoPathOrUri);
+            if (repo !== undefined) return repo;
+
+            path = repoPathOrUri;
+        }
+        else {
+            if (repoPathOrUri instanceof GitUri) {
+                const repo = repositoryTree.get(repoPathOrUri.repoPath!);
+                if (repo !== undefined) return repo;
+
+                path = repoPathOrUri.fsPath;
+            }
+            else {
+                path = repoPathOrUri.fsPath;
+            }
         }
 
-        const folder = workspace.getWorkspaceFolder(repoPathOrUri);
-        if (folder === undefined) return undefined;
+        const repo = repositoryTree.findSubstr(path);
+        if (repo === undefined) return undefined;
 
-        const repositories = await this.getRepositoriesCore();
-        return repositories.get(folder.uri.fsPath);
+        // Make sure the file is tracked in that repo, before returning
+        if (!await this.isTrackedCore(repo.path, path)) return undefined;
+        return repo;
     }
 
     async getStashList(repoPath: string | undefined): Promise<GitStash | undefined> {
@@ -1113,7 +1266,7 @@ export class GitService extends Disposable {
     }
 
     stopWatchingFileSystem() {
-        this._repositories.forEach(r => r && r.stopWatchingFileSystem());
+        this._repositoryTree.forEach(r => r.stopWatchingFileSystem());
     }
 
     stashApply(repoPath: string, stashName: string, deleteAfter: boolean = false) {

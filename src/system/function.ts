@@ -17,6 +17,10 @@ export namespace Functions {
         return _debounce(fn, wait, options);
     }
 
+    export function once<T extends Function>(fn: T): T {
+        return _once(fn);
+    }
+
     export function propOf<T, K extends keyof T>(o: T, key: K) {
         const propOfCore = <T, K extends keyof T>(o: T, key: K) => {
             const value: string = (propOfCore as IPropOfValue).value === undefined
@@ -27,10 +31,6 @@ export namespace Functions {
             return Object.assign(fn, { value: value });
         };
         return propOfCore(o, key);
-    }
-
-    export function once<T extends Function>(fn: T): T {
-        return _once(fn);
     }
 
     export async function wait(ms: number) {

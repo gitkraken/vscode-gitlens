@@ -109,7 +109,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     }
 
     private onGitChanged(e: GitChangeEvent) {
-        if (this._root === undefined || this._view !== GitExplorerView.Repository || e.reason !== GitChangeReason.Repositories) return;
+        if (this._view !== GitExplorerView.Repository || e.reason !== GitChangeReason.Repositories) return;
 
         this.clearRoot();
 
@@ -170,7 +170,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
                 const promise = this.git.getRepositories();
                 this._loading = promise.then(async _ => await Functions.wait(0));
 
-                const repositories = await promise;
+                const repositories = [...await promise];
                 if (repositories.length === 0) return undefined; // new MessageNode('No repositories found');
 
                 if (repositories.length === 1) {

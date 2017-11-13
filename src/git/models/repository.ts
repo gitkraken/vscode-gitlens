@@ -5,6 +5,7 @@ import { configuration, IRemotesConfig } from '../../configuration';
 import { GitBranch, GitDiffShortStat, GitRemote, GitStash, GitStatus } from '../git';
 import { GitService, GitUri } from '../../gitService';
 import { RemoteProviderFactory, RemoteProviderMap } from '../remotes/factory';
+import * as _path from 'path';
 
 export enum RepositoryChange {
     Config = 'config',
@@ -70,13 +71,14 @@ export class Repository extends Disposable {
     private _fsWatchCounter = 0;
     private _fsWatcherDisposable: Disposable | undefined;
     private _pendingChanges: { repo?: RepositoryChangeEvent, fs?: RepositoryFileSystemChangeEvent } = { };
-    private _providerMap: RemoteProviderMap;
+    private _providerMap: RemoteProviderMap | undefined;
     private _remotes: GitRemote[] | undefined;
     private _suspended: boolean;
 
     constructor(
-        private readonly folder: WorkspaceFolder,
+        public readonly folder: WorkspaceFolder,
         public readonly path: string,
+        public readonly root: boolean,
         private readonly git: GitService,
         private readonly onAnyRepositoryChanged: () => void,
         suspended: boolean
@@ -84,7 +86,10 @@ export class Repository extends Disposable {
         super(() => this.dispose());
 
         this.index = folder.index;
-        this.name = folder.name;
+        this.name = root
+            ? folder.name
+            : `${folder.name} (${_path.relative(folder.uri.fsPath, path)})`;
+
         this.normalizedPath = (this.path.endsWith('/') ? this.path : `${this.path}/`).toLowerCase();
 
         this._suspended = suspended;
@@ -118,7 +123,9 @@ export class Repository extends Disposable {
 
         const section = configuration.name('remotes').value;
         if (initializing || configuration.changed(e, section, this.folder.uri)) {
-            this._providerMap = RemoteProviderFactory.createMap(configuration.get<IRemotesConfig[] | null | undefined>(section, this.folder.uri));
+            // Can't reset the provider map here because of https://github.com/Microsoft/vscode/issues/38229
+            // this._providerMap = RemoteProviderFactory.createMap(configuration.get<IRemotesConfig[] | null | undefined>(section, this.folder.uri));
+            this._providerMap = undefined;
 
             if (!initializing) {
                 this._remotes = undefined;
@@ -234,6 +241,11 @@ export class Repository extends Disposable {
 
     async getRemotes(): Promise<GitRemote[]> {
         if (this._remotes === undefined) {
+            if (this._providerMap === undefined) {
+                const remotesCfg = configuration.get<IRemotesConfig[] | null | undefined>(configuration.name('remotes').value, this.folder.uri);
+                this._providerMap = RemoteProviderFactory.createMap(remotesCfg);
+            }
+
             this._remotes = await this.git.getRemotesCore(this.path, this._providerMap);
         }
 

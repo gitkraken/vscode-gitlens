@@ -93,6 +93,7 @@ export interface IAdvancedConfig {
     quickPick: {
         closeOnFocusOut: boolean;
     };
+    repositorySearchDepth: number;
     telemetry: {
         enabled: boolean;
     };
@@ -518,6 +519,7 @@ const emptyConfig: IConfig = {
         quickPick: {
             closeOnFocusOut: false
         },
+        repositorySearchDepth: 0,
         telemetry: {
             enabled: false
         }

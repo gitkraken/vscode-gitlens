@@ -980,6 +980,12 @@
                     "description": "Specifies whether or not to close the QuickPick menu when focus is lost",
                     "scope": "window"
                 },
+                "gitlens.advanced.repositorySearchDepth": {
+                    "type": "number",
+                    "default": 1,
+                    "description": "Specifies how many folders deep to search for repositories",
+                    "scope": "resource"
+                },
                 "gitlens.advanced.telemetry.enabled": {
                     "type": "boolean",
                     "default": true,
