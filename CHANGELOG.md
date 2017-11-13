@@ -4,12 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [6.1.0] - 2017-11-13
+### Added
+- Adds support for nested repositories and submodules -- closes [#198](https://github.com/eamodio/vscode-gitlens/issues/198)
+- Adds `gitlens.advanced.repositorySearchDepth` setting to specify how many folders deep to search for repositories
+
 ### Changed
 - Changes to use `diff.guitool` first if available, before falling back to `diff.tool` -- closes [#195](https://github.com/eamodio/vscode-gitlens/issues/195)
 
 ### Fixed
-- Fixes [#198](https://github.com/eamodio/vscode-gitlens/issues/198) - Files in submodules or nested repositories no longer work properly
 - Fixes issue where failed git commands would get stuck in the pending queue causing future similar commands to also fail
 - Fixes issue where changes to git remotes would refresh the entire `GitLens` view
 
