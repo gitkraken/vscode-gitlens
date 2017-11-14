@@ -143,7 +143,7 @@ export class ExplorerCommands extends Disposable {
         if (!(node instanceof BranchHistoryNode)) return;
 
         const command = `checkout ${node.branch.name}`;
-        this.sendTerminalCommand(command);
+        this.sendTerminalCommand(command, node.branch.repoPath);
     }
 
     async terminalCreateBranch(node: ExplorerNode) {
@@ -157,7 +157,7 @@ export class ExplorerCommands extends Disposable {
         if (name === undefined || name === '') return;
 
         const command = `branch ${node.branch.remote ? '-t ' : ''}${name} ${node.branch.name}`;
-        this.sendTerminalCommand(command);
+        this.sendTerminalCommand(command, node.branch.repoPath);
     }
 
     terminalDeleteBranch(node: ExplorerNode) {
@@ -166,52 +166,48 @@ export class ExplorerCommands extends Disposable {
         const command = node.branch.remote
             ? `push ${node.branch.remote} :${node.branch.name}`
             : `branch -d ${node.branch.name}`;
-        this.sendTerminalCommand(command);
+        this.sendTerminalCommand(command, node.branch.repoPath);
     }
 
     terminalRebaseBranchToRemote(node: ExplorerNode) {
-        let command: string;
         if (node instanceof BranchHistoryNode) {
             if (!node.branch.current || !node.branch.tracking) return;
 
-            command = `rebase -i ${node.branch.tracking}`;
+            const command = `rebase -i ${node.branch.tracking}`;
+            this.sendTerminalCommand(command, node.branch.repoPath);
         }
         else if (node instanceof StatusUpstreamNode) {
-            command = `rebase -i ${node.status.upstream}`;
+            const command = `rebase -i ${node.status.upstream}`;
+            this.sendTerminalCommand(command, node.status.repoPath);
         }
-        else {
-            return;
-        }
-
-        this.sendTerminalCommand(command);
     }
 
     terminalSquashBranchIntoCommit(node: ExplorerNode) {
         if (!(node instanceof BranchHistoryNode)) return;
 
         const command = `merge --squash ${node.branch.name}`;
-        this.sendTerminalCommand(command);
+        this.sendTerminalCommand(command, node.branch.repoPath);
     }
 
     terminalRebaseCommit(node: ExplorerNode) {
         if (!(node instanceof CommitNode)) return;
 
         const command = `rebase -i ${node.commit.sha}^`;
-        this.sendTerminalCommand(command);
+        this.sendTerminalCommand(command, node.commit.repoPath);
     }
 
     terminalResetCommit(node: ExplorerNode) {
         if (!(node instanceof CommitNode)) return;
 
         const command = `reset --soft ${node.commit.sha}^`;
-        this.sendTerminalCommand(command);
+        this.sendTerminalCommand(command, node.commit.repoPath);
     }
 
     terminalRemoveRemote(node: ExplorerNode) {
         if (!(node instanceof RemoteNode)) return;
 
         const command = `remote remove ${node.remote.name}`;
-        this.sendTerminalCommand(command);
+        this.sendTerminalCommand(command, node.remote.repoPath);
     }
 
     private ensureTerminal(): Terminal {
@@ -231,7 +227,7 @@ export class ExplorerCommands extends Disposable {
         return this._terminal;
     }
 
-    private sendTerminalCommand(command: string) {
+    private sendTerminalCommand(command: string, cwd: string) {
         // let git = GitService.getGitPath();
         // if (git.includes(' ')) {
         //     git = `"${git}"`;
@@ -239,6 +235,6 @@ export class ExplorerCommands extends Disposable {
 
         const terminal = this.ensureTerminal();
         terminal.show(false);
-        terminal.sendText(`git ${command}`, false);
+        terminal.sendText(`git -C ${cwd} ${command}`, false);
     }
 }

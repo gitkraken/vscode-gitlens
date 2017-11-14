@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [Unreleased]
 ### Fixed
 - Fixes [#201](https://github.com/eamodio/vscode-gitlens/issues/201) - "Open in Remote" commands should check for branch upstream tracking
+- Fixes [#200](https://github.com/eamodio/vscode-gitlens/issues/200) - Submodule using terminal command, root directory is incorrect
 
 ## [6.1.0] - 2017-11-13
 ### Added
