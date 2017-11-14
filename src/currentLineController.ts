@@ -427,7 +427,7 @@ export class CurrentLineController extends Disposable {
             }
         }
 
-        const message = Annotations.getHoverMessage(logCommit || commit, this._config.defaultDateFormat, await this.git.hasRemotes(commit.repoPath), this._config.blame.file.annotationType);
+        const message = Annotations.getHoverMessage(logCommit || commit, this._config.defaultDateFormat, await this.git.hasRemote(commit.repoPath), this._config.blame.file.annotationType);
         return new Hover(message, range);
     }
 

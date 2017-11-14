@@ -65,6 +65,7 @@ export class Repository extends Disposable {
     readonly normalizedPath: string;
     readonly storage: Map<string, any> = new Map();
 
+    private _branch: Promise<GitBranch | undefined> | undefined;
     private readonly _disposable: Disposable;
     private _fireChangeDebounced: ((e: RepositoryChangeEvent) => void) | undefined = undefined;
     private _fireFileSystemChangeDebounced: ((e: RepositoryFileSystemChangeEvent) => void) | undefined = undefined;
@@ -72,7 +73,7 @@ export class Repository extends Disposable {
     private _fsWatcherDisposable: Disposable | undefined;
     private _pendingChanges: { repo?: RepositoryChangeEvent, fs?: RepositoryFileSystemChangeEvent } = { };
     private _providerMap: RemoteProviderMap | undefined;
-    private _remotes: GitRemote[] | undefined;
+    private _remotes: Promise<GitRemote[]> | undefined;
     private _suspended: boolean;
 
     constructor(
@@ -147,6 +148,8 @@ export class Repository extends Disposable {
 
             return;
         }
+
+        this._branch = undefined;
 
         if (uri !== undefined && uri.path.endsWith('refs/remotes')) {
             this._remotes = undefined;
@@ -227,8 +230,11 @@ export class Repository extends Disposable {
         return this.folder === workspace.getWorkspaceFolder(uri);
     }
 
-    async getBranch(): Promise<GitBranch | undefined> {
-        return this.git.getBranch(this.path);
+    getBranch(): Promise<GitBranch | undefined> {
+        if (this._branch === undefined) {
+            this._branch = this.git.getBranch(this.path);
+        }
+        return this._branch;
     }
 
     async getBranches(): Promise<GitBranch[]> {
@@ -239,14 +245,14 @@ export class Repository extends Disposable {
         return this.git.getChangedFilesCount(this.path, sha);
     }
 
-    async getRemotes(): Promise<GitRemote[]> {
+    getRemotes(): Promise<GitRemote[]> {
         if (this._remotes === undefined) {
             if (this._providerMap === undefined) {
                 const remotesCfg = configuration.get<IRemotesConfig[] | null | undefined>(configuration.name('remotes').value, this.folder.uri);
                 this._providerMap = RemoteProviderFactory.createMap(remotesCfg);
             }
 
-            this._remotes = await this.git.getRemotesCore(this.path, this._providerMap);
+            this._remotes = this.git.getRemotesCore(this.path, this._providerMap);
         }
 
         return this._remotes;
@@ -258,6 +264,11 @@ export class Repository extends Disposable {
 
     async getStatus(): Promise<GitStatus | undefined> {
         return this.git.getStatusForRepo(this.path);
+    }
+
+    async hasRemote(): Promise<boolean> {
+        const branch = await this.getBranch();
+        return branch !== undefined && branch.tracking !== undefined;
     }
 
     async hasRemotes(): Promise<boolean> {

@@ -992,6 +992,15 @@ export class GitService extends Disposable {
         }
     }
 
+    async hasRemote(repoPath: string | undefined): Promise<boolean> {
+        if (repoPath === undefined) return false;
+
+        const repository = await this.getRepository(repoPath);
+        if (repository === undefined) return false;
+
+        return repository.hasRemote();
+    }
+
     async hasRemotes(repoPath: string | undefined): Promise<boolean> {
         if (repoPath === undefined) return false;
 

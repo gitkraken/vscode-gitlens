@@ -191,12 +191,10 @@ export class GitContextTracker extends Disposable {
     private async updateRemotes() {
         let hasRemotes = false;
         if (this._context.repo !== undefined) {
-            hasRemotes = await this._context.repo.hasRemotes();
-            setCommandContext(CommandContext.ActiveHasRemotes, hasRemotes);
+            hasRemotes = await this._context.repo.hasRemote();
         }
-        else {
-            setCommandContext(CommandContext.ActiveHasRemotes, false);
-        }
+
+        setCommandContext(CommandContext.ActiveHasRemote, hasRemotes);
 
         if (!hasRemotes) {
             const repositories = await this.git.getRepositories();

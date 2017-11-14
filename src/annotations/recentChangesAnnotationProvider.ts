@@ -48,7 +48,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
                 if (cfg.hover.details) {
                     this._decorations.push({
-                        hoverMessage: Annotations.getHoverMessage(commit, dateFormat, await this.git.hasRemotes(commit.repoPath), this._config.blame.file.annotationType),
+                        hoverMessage: Annotations.getHoverMessage(commit, dateFormat, await this.git.hasRemote(commit.repoPath), this._config.blame.file.annotationType),
                         range: range
                     } as DecorationOptions);
                 }

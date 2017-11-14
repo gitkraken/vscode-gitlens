@@ -35,7 +35,7 @@ export enum CommandContext {
     GitExplorerView = 'gitlens:gitExplorer:view',
     HasRemotes = 'gitlens:hasRemotes',
     HasRepository = 'gitlens:hasRepository',
-    ActiveHasRemotes = 'gitlens:activeHasRemotes',
+    ActiveHasRemote = 'gitlens:activeHasRemote',
     ActiveIsBlameable = 'gitlens:activeIsBlameable',
     ActiveFileIsTracked = 'gitlens:activeIsTracked',
     Key = 'gitlens:key'
