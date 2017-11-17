@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [6.1.1] - 2017-11-17
 ### Fixed
 - Fixes [#201](https://github.com/eamodio/vscode-gitlens/issues/201) - "Open in Remote" commands should check for branch upstream tracking
 - Fixes [#200](https://github.com/eamodio/vscode-gitlens/issues/200) - Submodule using terminal command, root directory is incorrect
