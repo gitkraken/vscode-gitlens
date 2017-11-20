@@ -352,15 +352,19 @@ export class TernarySearchTree<E> {
 
         let count = 0;
         let next: IteratorResult<[E, string]>;
+        let value: [E, string] | undefined;
+
         while (true) {
             next = entries.next();
             if (next.done) break;
+
+            value = next.value;
 
             count++;
             if (count > 1) return undefined;
         }
 
-        return next.value;
+        return value;
     }
 
     private *_iterator(node: TernarySearchTreeNode<E> | undefined, parts: string[]): IterableIterator<[E, string]> {

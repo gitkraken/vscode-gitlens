@@ -38,7 +38,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
 
         const gitUri = uri === undefined ? undefined : await GitUri.fromUri(uri, this.git);
 
-        const repoPath = gitUri === undefined ? this.git.repoPath : gitUri.repoPath;
+        const repoPath = gitUri === undefined ? this.git.getHighlanderRepoPath() : gitUri.repoPath;
         if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show commit search`);
 
         args = { ...args };

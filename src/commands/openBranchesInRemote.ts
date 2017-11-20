@@ -31,7 +31,7 @@ export class OpenBranchesInRemoteCommand extends ActiveEditorCommand {
 
         const gitUri = uri && await GitUri.fromUri(uri, this.git);
 
-        const repoPath = gitUri === undefined ? this.git.repoPath : gitUri.repoPath;
+        const repoPath = gitUri === undefined ? this.git.getHighlanderRepoPath() : gitUri.repoPath;
         if (!repoPath) return undefined;
 
         try {

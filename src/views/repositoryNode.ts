@@ -37,7 +37,7 @@ export class RepositoryNode extends ExplorerNode {
     getTreeItem(): TreeItem {
         this.updateSubscription();
 
-        const item = new TreeItem(`Repository ${Strings.pad(GlyphChars.Dash, 1, 1)} ${this.repo.name || this.uri.repoPath}`, TreeItemCollapsibleState.Expanded);
+        const item = new TreeItem(`Repository ${Strings.pad(GlyphChars.Dash, 1, 1)} ${this.repo.formattedName || this.uri.repoPath}`, TreeItemCollapsibleState.Expanded);
         item.contextValue = ResourceType.Repository;
         return item;
     }

@@ -60,10 +60,11 @@ export class Repository extends Disposable {
         return this._onDidChangeFileSystem.event;
     }
 
+    readonly formattedName: string;
     readonly index: number;
     readonly name: string;
     readonly normalizedPath: string;
-    readonly storage: Map<string, any> = new Map();
+    // readonly storage: Map<string, any> = new Map();
 
     private _branch: Promise<GitBranch | undefined> | undefined;
     private readonly _disposable: Disposable;
@@ -86,10 +87,11 @@ export class Repository extends Disposable {
     ) {
         super(() => this.dispose());
 
-        this.index = folder.index;
-        this.name = root
+        this.formattedName = root
             ? folder.name
             : `${folder.name} (${_path.relative(folder.uri.fsPath, path)})`;
+        this.index = folder.index;
+        this.name = folder.name;
 
         this.normalizedPath = (this.path.endsWith('/') ? this.path : `${this.path}/`).toLowerCase();
 
@@ -109,12 +111,12 @@ export class Repository extends Disposable {
     dispose() {
         this.stopWatchingFileSystem();
 
-        // Clean up any disposables in storage
-        for (const item of this.storage.values()) {
-            if (item != null && typeof item.dispose === 'function') {
-                item.dispose();
-            }
-        }
+        // // Clean up any disposables in storage
+        // for (const item of this.storage.values()) {
+        //     if (item != null && typeof item.dispose === 'function') {
+        //         item.dispose();
+        //     }
+        // }
 
         this._disposable && this._disposable.dispose();
     }

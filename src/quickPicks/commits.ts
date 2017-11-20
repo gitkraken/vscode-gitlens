@@ -17,9 +17,9 @@ export class CommitsQuickPick {
     }
 
     static async show(git: GitService, log: GitLog, placeHolder: string, progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
-        const items = ((log && Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c)))) || []) as (CommitQuickPickItem | CommandQuickPickItem)[];
+        const items = ((log && [...Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))]) || []) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
-        if (goBackCommand) {
+        if (goBackCommand !== undefined) {
             items.splice(0, 0, goBackCommand);
         }
 

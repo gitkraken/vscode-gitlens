@@ -24,7 +24,7 @@ export class BranchesQuickPick {
 
         const items = branches.map(b => new BranchQuickPickItem(b)) as (BranchQuickPickItem | CommandQuickPickItem)[];
 
-        if (goBackCommand) {
+        if (goBackCommand !== undefined) {
             items.splice(0, 0, goBackCommand);
         }
 
@@ -35,7 +35,6 @@ export class BranchesQuickPick {
                 placeHolder: placeHolder,
                 ignoreFocusOut: getQuickPickIgnoreFocusOut()
             } as QuickPickOptions);
-        if (!pick) return undefined;
 
         // await scope.dispose();
 

@@ -8,7 +8,7 @@ import { CommandQuickPickItem } from '../quickPicks';
 
 export interface StashDeleteCommandArgs {
     confirm?: boolean;
-    stashItem?: { stashName: string, message: string };
+    stashItem?: { stashName: string, message: string, repoPath: string };
 
     goBackCommand?: CommandQuickPickItem;
 }
@@ -24,7 +24,7 @@ export class StashDeleteCommand extends Command {
     protected async preExecute(context: CommandContext, args: StashDeleteCommandArgs = { confirm: true }) {
         if (isCommandViewContextWithCommit<GitStashCommit>(context)) {
             args = { ...args };
-            args.stashItem = { stashName: context.node.commit.stashName, message: context.node.commit.message };
+            args.stashItem = context.node.commit;
             return this.execute(args);
         }
 
@@ -32,10 +32,8 @@ export class StashDeleteCommand extends Command {
     }
 
     async execute(args: StashDeleteCommandArgs = { confirm: true }) {
-        if (!this.git.repoPath) return undefined;
-
         args = { ...args };
-        if (args.stashItem === undefined || args.stashItem.stashName === undefined) return undefined;
+        if (args.stashItem === undefined || args.stashItem.stashName === undefined || args.stashItem.repoPath === undefined) return undefined;
 
         if (args.confirm === undefined) {
             args.confirm = true;
@@ -48,7 +46,7 @@ export class StashDeleteCommand extends Command {
                 if (result === undefined || result.title !== 'Yes') return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
             }
 
-            return await this.git.stashDelete(this.git.repoPath, args.stashItem.stashName);
+            return await this.git.stashDelete(args.stashItem.repoPath, args.stashItem.stashName);
         }
         catch (ex) {
             Logger.error(ex, 'StashDeleteCommand');

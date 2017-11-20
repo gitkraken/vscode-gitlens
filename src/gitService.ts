@@ -138,14 +138,6 @@ export class GitService extends Disposable {
         this._versionedUriCache.clear();
     }
 
-    get repoPath(): string | undefined {
-        const entry = this._repositoryTree.highlander();
-        if (entry === undefined) return undefined;
-
-        const [repo] = entry;
-        return repo.path;
-    }
-
     get UseCaching() {
         return this.config.advanced.caching.enabled;
     }
@@ -474,6 +466,26 @@ export class GitService extends Disposable {
             fileName = await this.findNextFileNameCore(repoPath!, fileName);
             if (fileName === undefined) return undefined;
         }
+    }
+
+    async getActiveRepoPath(editor?: TextEditor): Promise<string | undefined> {
+        if (editor === undefined) {
+            const repoPath = this.getHighlanderRepoPath();
+            if (repoPath !== undefined) return repoPath;
+        }
+
+        editor = editor || window.activeTextEditor;
+        if (editor === undefined) return undefined;
+
+        return this.getRepoPath(editor.document.uri);
+    }
+
+    getHighlanderRepoPath(): string | undefined {
+        const entry = this._repositoryTree.highlander();
+        if (entry === undefined) return undefined;
+
+        const [repo] = entry;
+        return repo.path;
     }
 
     public async getBlameability(uri: GitUri): Promise<boolean> {
@@ -1035,7 +1047,7 @@ export class GitService extends Disposable {
     async getRepoPath(filePath: string): Promise<string | undefined>;
     async getRepoPath(uri: Uri | undefined): Promise<string | undefined>;
     async getRepoPath(filePathOrUri: string | Uri | undefined): Promise<string | undefined> {
-        if (filePathOrUri === undefined) return this.repoPath;
+        if (filePathOrUri === undefined) return await this.getActiveRepoPath();
         if (filePathOrUri instanceof GitUri) return filePathOrUri.repoPath;
 
         const repo = await this.getRepository(filePathOrUri);

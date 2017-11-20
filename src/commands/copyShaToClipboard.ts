@@ -36,9 +36,10 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 
             // If we don't have an editor then get the sha of the last commit to the branch
             if (uri === undefined) {
-                if (!this.git.repoPath) return undefined;
+                const repoPath = await this.git.getActiveRepoPath(editor);
+                if (!repoPath) return undefined;
 
-                const log = await this.git.getLogForRepo(this.git.repoPath, undefined, 1);
+                const log = await this.git.getLogForRepo(repoPath, undefined, 1);
                 if (!log) return undefined;
 
                 args.sha = Iterables.first(log.commits.values()).sha;

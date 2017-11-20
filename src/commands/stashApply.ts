@@ -5,12 +5,12 @@ import { Command, CommandContext, Commands, isCommandViewContextWithCommit } fro
 import { GlyphChars } from '../constants';
 import { GitService, GitStashCommit } from '../gitService';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, CommitQuickPickItem, StashListQuickPick } from '../quickPicks';
+import { CommandQuickPickItem, RepositoriesQuickPick, StashListQuickPick } from '../quickPicks';
 
 export interface StashApplyCommandArgs {
     confirm?: boolean;
     deleteAfter?: boolean;
-    stashItem?: { stashName: string, message: string };
+    stashItem?: { stashName: string, message: string, repoPath: string };
 
     goBackCommand?: CommandQuickPickItem;
 }
@@ -26,7 +26,7 @@ export class StashApplyCommand extends Command {
     protected async preExecute(context: CommandContext, args: StashApplyCommandArgs = { confirm: true, deleteAfter: false }) {
         if (isCommandViewContextWithCommit<GitStashCommit>(context)) {
             args = { ...args };
-            args.stashItem = { stashName: context.node.commit.stashName, message: context.node.commit.message };
+            args.stashItem = context.node.commit;
             return this.execute(args);
         }
 
@@ -34,11 +34,25 @@ export class StashApplyCommand extends Command {
     }
 
     async execute(args: StashApplyCommandArgs = { confirm: true, deleteAfter: false }) {
-        if (!this.git.repoPath) return undefined;
-
         args = { ...args };
         if (args.stashItem === undefined || args.stashItem.stashName === undefined) {
-            const stash = await this.git.getStashList(this.git.repoPath);
+            let goBackToRepositoriesCommand: CommandQuickPickItem | undefined;
+
+            let repoPath = await this.git.getActiveRepoPath();
+            if (!repoPath) {
+                const pick = await RepositoriesQuickPick.show(this.git, `Apply stashed changes from which repository${GlyphChars.Ellipsis}`, args.goBackCommand);
+                if (pick instanceof CommandQuickPickItem) return pick.execute();
+                if (pick === undefined) return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
+
+                goBackToRepositoriesCommand = new CommandQuickPickItem({
+                    label: `go back ${GlyphChars.ArrowBack}`,
+                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to pick another repository`
+                }, Commands.StashApply, [args]);
+
+                repoPath = pick.repoPath;
+            }
+
+            const stash = await this.git.getStashList(repoPath);
             if (stash === undefined) return window.showInformationMessage(`There are no stashed changes`);
 
             const currentCommand = new CommandQuickPickItem({
@@ -46,8 +60,9 @@ export class StashApplyCommand extends Command {
                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to apply stashed changes`
             }, Commands.StashApply, [args]);
 
-            const pick = await StashListQuickPick.show(this.git, stash, 'apply', args.goBackCommand, currentCommand);
-            if (pick === undefined || !(pick instanceof CommitQuickPickItem)) return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
+            const pick = await StashListQuickPick.show(this.git, stash, 'apply', goBackToRepositoriesCommand || args.goBackCommand, currentCommand);
+            if (pick instanceof CommandQuickPickItem) return pick.execute();
+            if (pick === undefined) return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
 
             args.goBackCommand = currentCommand;
             args.stashItem = pick.commit as GitStashCommit;
@@ -62,7 +77,7 @@ export class StashApplyCommand extends Command {
                 args.deleteAfter = result.title !== 'Yes';
             }
 
-            return await this.git.stashApply(this.git.repoPath, args.stashItem.stashName, args.deleteAfter);
+            return await this.git.stashApply(args.stashItem.repoPath, args.stashItem.stashName, args.deleteAfter);
         }
         catch (ex) {
             Logger.error(ex, 'StashApplyCommand');

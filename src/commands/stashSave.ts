@@ -4,7 +4,8 @@ import { GitService } from '../gitService';
 import { CommandContext } from '../commands';
 import { Command, Commands } from './common';
 import { Logger } from '../logger';
-import { CommandQuickPickItem } from '../quickPicks';
+import { CommandQuickPickItem, RepositoriesQuickPick } from '../quickPicks';
+import { GlyphChars } from '../constants';
 
 export interface StashSaveCommandArgs {
     message?: string;
@@ -38,7 +39,14 @@ export class StashSaveCommand extends Command {
     }
 
     async execute(args: StashSaveCommandArgs = {}) {
-        if (!this.git.repoPath) return undefined;
+        let repoPath = await this.git.getHighlanderRepoPath();
+        if (!repoPath) {
+            const pick = await RepositoriesQuickPick.show(this.git, `Stash changes for which repository${GlyphChars.Ellipsis}`, args.goBackCommand);
+            if (pick instanceof CommandQuickPickItem) return pick.execute();
+            if (pick === undefined) return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
+
+            repoPath = pick.repoPath;
+        }
 
         try {
             if (args.message == null) {
@@ -50,7 +58,7 @@ export class StashSaveCommand extends Command {
                 if (args.message === undefined) return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
             }
 
-            return await this.git.stashSave(this.git.repoPath, args.message, args.uris);
+            return await this.git.stashSave(repoPath, args.message, args.uris);
         }
         catch (ex) {
             Logger.error(ex, 'StashSaveCommand');
