@@ -7,7 +7,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [Unreleased]
 ### Fixed
 - Fixes [#207](https://github.com/eamodio/vscode-gitlens/issues/207) - Applying and deleting stashes suddenly stopped working
+- Fixes [#205](https://github.com/eamodio/vscode-gitlens/issues/205) - Toggle Line Blame Annotations disappeared after last update
 - Fixes [#203](https://github.com/eamodio/vscode-gitlens/issues/203) - Open Changed Files is broken
+- Fixes [#176](https://github.com/eamodio/vscode-gitlens/issues/176) - Line annotations some times mess with white space
 
 ## [6.1.1] - 2017-11-17
 ### Fixed

@@ -1,5 +1,5 @@
 'use strict';
-import { Functions } from './system';
+import { Functions, IDeferred } from './system';
 import { CancellationToken, ConfigurationChangeEvent, debug, DecorationRangeBehavior, DecorationRenderOptions, Disposable, ExtensionContext, Hover, HoverProvider, languages, Position, Range, StatusBarAlignment, StatusBarItem, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window } from 'vscode';
 import { AnnotationController, FileAnnotationType } from './annotations/annotationController';
 import { Annotations, endOfLineIndex } from './annotations/annotations';
@@ -36,7 +36,7 @@ export class CurrentLineController extends Disposable {
     private _isAnnotating: boolean = false;
     private _statusBarItem: StatusBarItem | undefined;
     private _trackCurrentLineDisposable: Disposable | undefined;
-    private _updateBlameDebounced: (line: number, editor: TextEditor) => Promise<void>;
+    private _updateBlameDebounced: ((line: number, editor: TextEditor) => Promise<void>) & IDeferred;
     private _uri: GitUri;
 
     constructor(
@@ -138,16 +138,22 @@ export class CurrentLineController extends Disposable {
     }
 
     private onBlameabilityChanged(e: BlameabilityChangeEvent) {
-        if (!this._blameable && !e.blameable) return;
+        // Make sure this is for the editor we are tracking
+        if (!TextEditorComparer.equals(this._editor, e.editor)) return;
 
-        this._blameable = e.blameable;
-        if (!e.blameable || this._editor === undefined) {
-            this.clear(e.editor);
+        if (!this._blameable && !e.blameable) {
+            this._updateBlameDebounced.cancel();
+
             return;
         }
 
-        // Make sure this is for the editor we are tracking
-        if (!TextEditorComparer.equals(this._editor, e.editor)) return;
+        this._blameable = e.blameable;
+        if (!e.blameable || this._editor === undefined) {
+            this._updateBlameDebounced.cancel();
+            this.updateBlame(this._currentLine.line, e.editor!);
+
+            return;
+        }
 
         this._updateBlameDebounced(this._editor.selection.active.line, this._editor);
     }
@@ -215,8 +221,12 @@ export class CurrentLineController extends Disposable {
         // Since blame information isn't valid when there are unsaved changes -- don't show any status
         if (this._blameable && line >= 0) {
             const blameLine = await this.git.getBlameForLine(this._uri, line);
-            commitLine = blameLine === undefined ? undefined : blameLine.line;
-            commit = blameLine === undefined ? undefined : blameLine.commit;
+
+            // Make sure we are still blameable after the await
+            if (this._blameable) {
+                commitLine = blameLine === undefined ? undefined : blameLine.line;
+                commit = blameLine === undefined ? undefined : blameLine.commit;
+            }
         }
 
         this._currentLine.commit = commit;
@@ -255,14 +265,14 @@ export class CurrentLineController extends Disposable {
 
         this.clearAnnotations(this._editor);
 
-        if (editor === undefined || !this.isEditorBlameable(editor)) {
-            this.clear(editor);
+        this._blameable = this.isEditorBlameable(editor);
+        if (!this._blameable || editor === undefined) {
+            this.updateBlame(this._currentLine.line, editor!);
             this._editor = undefined;
 
             return;
         }
 
-        this._blameable = editor !== undefined && editor.document !== undefined && !editor.document.isDirty;
         this._editor = editor;
         this._uri = await GitUri.fromUri(editor.document.uri, this.git);
 
