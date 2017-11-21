@@ -277,7 +277,7 @@ export class GitService extends Disposable {
         }
 
         // Can remove this try/catch once https://github.com/Microsoft/vscode/issues/38229 is fixed
-        let depth = 1;
+        let depth;
         try {
             depth = configuration.get<number>(configuration.name('advanced')('repositorySearchDepth').value, folderUri);
         }
@@ -934,7 +934,7 @@ export class GitService extends Disposable {
                     const cachedLog = entry.get<CachedLog>('log');
                     if (cachedLog !== undefined) {
                         if (sha === undefined) {
-                            Logger.log(`getLogForFile[Cached(~${key})]('${repoPath}', '${fileName}', '${sha}', ${options.maxCount}, undefined, ${options.reverse}, ${options.skipMerges})`);
+                            Logger.log(`getLogForFile[Cached(~${key})]('${repoPath}', '${fileName}', '', ${options.maxCount}, undefined, ${options.reverse}, ${options.skipMerges})`);
                             return cachedLog.item;
                         }
 

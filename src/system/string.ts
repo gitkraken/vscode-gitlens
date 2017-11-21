@@ -64,7 +64,7 @@ export namespace Strings {
 
     export function padLeft(s: string, padTo: number, padding: string = '\u00a0') {
         const diff = padTo - width(s);
-        return (diff <= 0) ? s : '\u00a0'.repeat(diff) + s;
+        return (diff <= 0) ? s : padding.repeat(diff) + s;
     }
 
     export function padLeftOrTruncate(s: string, max: number, padding?: string) {
@@ -76,7 +76,7 @@ export namespace Strings {
 
     export function padRight(s: string, padTo: number, padding: string = '\u00a0') {
         const diff = padTo - width(s);
-        return (diff <= 0) ? s : s + '\u00a0'.repeat(diff);
+        return (diff <= 0) ? s : s + padding.repeat(diff);
     }
 
     export function padOrTruncate(s: string, max: number, padding?: string) {

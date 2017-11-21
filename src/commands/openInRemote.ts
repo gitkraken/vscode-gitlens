@@ -1,7 +1,7 @@
 'use strict';
 import { Strings } from '../system';
 import { TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, Commands } from './common';
 import { GlyphChars } from '../constants';
 import { GitLogCommit, GitRemote, GitService, RemoteResource, RemoteResourceType } from '../gitService';
 import { Logger } from '../logger';
@@ -22,8 +22,6 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
     }
 
     async execute(editor: TextEditor, uri?: Uri, args: OpenInRemoteCommandArgs = {}) {
-        uri = getCommandUri(uri, editor);
-
         args = { ...args };
         if (args.remotes === undefined || args.resource === undefined) return undefined;
 

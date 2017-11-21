@@ -175,7 +175,7 @@ export class GitLogParser {
                         }
                     }
                     else {
-                        next = lines.next();
+                        lines.next();
                         next = lines.next();
 
                         i += 2;

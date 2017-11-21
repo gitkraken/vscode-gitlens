@@ -103,7 +103,7 @@ function gitCommandDefaultErrorHandler(ex: Error, options: GitCommandOptions, ..
     if (msg) {
         for (const warning of GitWarnings) {
             if (warning.test(msg)) {
-                Logger.warn('git', ...args, `  cwd='${options.cwd}'`, msg && `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
+                Logger.warn('git', ...args, `  cwd='${options.cwd}'`, `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
                 return '';
             }
         }

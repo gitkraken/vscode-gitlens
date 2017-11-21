@@ -89,9 +89,8 @@ export class AnnotationController extends Disposable {
             configuration.changed(e, configuration.name('theme')('lineHighlight').value)) {
             Decorations.blameHighlight && Decorations.blameHighlight.dispose();
 
-            if (cfg === undefined) {
-                cfg = configuration.get<IConfig>();
-            }
+            cfg = configuration.get<IConfig>();
+
             const cfgHighlight = cfg.blame.file.lineHighlight;
             const cfgTheme = cfg.theme.lineHighlight;
 

@@ -1,7 +1,7 @@
 'use strict';
 import { Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { AnnotationController, FileAnnotationType } from '../annotations/annotationController';
-import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
+import { ActiveEditorCommand, Commands, openEditor } from './common';
 import { Logger } from '../logger';
 
 export interface OpenFileRevisionCommandArgs {
@@ -40,8 +40,6 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
     }
 
     async execute(editor: TextEditor, uri?: Uri, args: OpenFileRevisionCommandArgs = {}) {
-        uri = getCommandUri(uri, editor);
-
         args = { ...args };
         if (args.line === undefined) {
             args.line = editor === undefined ? 0 : editor.selection.active.line;
