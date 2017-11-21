@@ -163,12 +163,12 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         switch (this._view) {
             case GitExplorerView.History: {
                 const promise = this.getHistoryNode(editor || window.activeTextEditor);
-                this._loading = promise.then(async _ => await Functions.wait(0));
+                this._loading = promise.then(_ => Functions.wait(0));
                 return promise;
             }
             default: {
                 const promise = this.git.getRepositories();
-                this._loading = promise.then(async _ => await Functions.wait(0));
+                this._loading = promise.then(_ => Functions.wait(0));
 
                 const repositories = [...await promise];
                 if (repositories.length === 0) return undefined; // new MessageNode('No repositories found');
