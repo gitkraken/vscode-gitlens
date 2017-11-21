@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [6.1.2] - 2017-11-21
 ### Fixed
 - Fixes [#207](https://github.com/eamodio/vscode-gitlens/issues/207) - Applying and deleting stashes suddenly stopped working
 - Fixes [#205](https://github.com/eamodio/vscode-gitlens/issues/205) - Toggle Line Blame Annotations disappeared after last update
