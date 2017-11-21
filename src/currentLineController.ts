@@ -245,17 +245,11 @@ export class CurrentLineController extends Disposable {
         this._statusBarItem && this._statusBarItem.hide();
     }
 
-    private async clearAnnotations(editor: TextEditor | undefined, force: boolean = false) {
+    private clearAnnotations(editor: TextEditor | undefined, force: boolean = false) {
         if (editor === undefined || (!this._isAnnotating && !force)) return;
 
         editor.setDecorations(annotationDecoration, []);
         this._isAnnotating = false;
-
-        if (!force) return;
-
-        // I have no idea why the decorators sometimes don't get removed, but if they don't try again with a tiny delay
-        await Functions.wait(1);
-        editor.setDecorations(annotationDecoration, []);
     }
 
     async refresh(editor?: TextEditor) {
@@ -309,7 +303,7 @@ export class CurrentLineController extends Disposable {
         if (!state.enabled || state.annotationType !== type) {
             this._blameLineAnnotationState = { enabled: true, annotationType: type, reason: reason };
 
-            await this.clearAnnotations(editor);
+            this.clearAnnotations(editor);
             await this.updateBlame(editor.selection.active.line, editor);
         }
     }
@@ -320,7 +314,7 @@ export class CurrentLineController extends Disposable {
         const state = this.getLineAnnotationState();
         this._blameLineAnnotationState = { enabled: !state.enabled, annotationType: type, reason: reason };
 
-        await this.clearAnnotations(editor);
+        this.clearAnnotations(editor);
         await this.updateBlame(editor.selection.active.line, editor);
     }
 
