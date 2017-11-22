@@ -156,15 +156,14 @@ export class GitContextTracker extends Disposable {
             }
 
             if (editor !== undefined) {
-                const uri = editor.document.uri;
+                this._context.uri = await GitUri.fromUri(editor.document.uri, this.git);
 
-                const repo = await this.git.getRepository(uri);
+                const repo = await this.git.getRepository(this._context.uri);
                 if (repo !== undefined) {
                     this._context.repo = repo;
                     this._context.repoDisposable = repo.onDidChange(this.onRepoChanged, this);
                 }
 
-                this._context.uri = await GitUri.fromUri(uri, this.git);
                 this._context.state.dirty = editor.document.isDirty;
                 tracked = await this.git.isTracked(this._context.uri);
             }
