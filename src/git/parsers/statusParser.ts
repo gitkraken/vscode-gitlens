@@ -110,8 +110,15 @@ export class GitStatusParser {
     }
 
     static parseStatusFile(repoPath: string, rawStatus: string, fileName: string, originalFileName?: string): GitStatusFile {
-        const indexStatus = rawStatus[0] !== '.' ? rawStatus[0].trim() : undefined;
-        const workTreeStatus = rawStatus[1] !== '.' ? rawStatus[1].trim() : undefined;
+        let indexStatus = rawStatus[0] !== '.' ? rawStatus[0].trim() : undefined;
+        if (indexStatus === '' || indexStatus === null) {
+            indexStatus = undefined;
+        }
+
+        let workTreeStatus = rawStatus[1] !== '.' ? rawStatus[1].trim() : undefined;
+        if (workTreeStatus === '' || workTreeStatus === null) {
+            workTreeStatus = undefined;
+        }
 
         return new GitStatusFile(
             repoPath,
