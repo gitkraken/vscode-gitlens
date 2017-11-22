@@ -1,6 +1,6 @@
 import { Arrays } from '../system';
-import { commands, Disposable, InputBoxOptions, Terminal, TextDocumentShowOptions, Uri, window, workspace } from 'vscode';
-import { ExtensionKey, ExtensionTerminalName } from '../constants';
+import { commands, ConfigurationTarget, Disposable, InputBoxOptions, Terminal, TextDocumentShowOptions, Uri, window } from 'vscode';
+import { ExtensionTerminalName } from '../constants';
 import { BranchHistoryNode, ExplorerNode, GitExplorer, GitExplorerView } from '../views/gitExplorer';
 import { configuration, GitExplorerFilesLayout } from '../configuration';
 import { CommitFileNode, CommitNode, RemoteNode, StashNode, StatusUpstreamNode } from './explorerNodes';
@@ -136,7 +136,7 @@ export class ExplorerCommands extends Disposable {
     }
 
     private async setFilesLayout(layout: GitExplorerFilesLayout) {
-        return workspace.getConfiguration(ExtensionKey).update(configuration.name('gitExplorer')('files')('layout').value, layout, true);
+        return configuration.update(configuration.name('gitExplorer')('files')('layout').value, layout, ConfigurationTarget.Global);
     }
 
     async terminalCheckoutBranch(node: ExplorerNode) {

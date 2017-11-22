@@ -463,6 +463,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.advanced.git`|Specifies the git path to use
 |`gitlens.advanced.repositorySearchDepth`|Specifies how many folders deep to search for repositories
 |`gitlens.advanced.menus`|Specifies which commands will be added to which menus
+|`gitlens.advanced.messages`|Specifies which messages should be suppressed
 |`gitlens.advanced.caching.enabled`|Specifies whether git output will be cached
 |`gitlens.advanced.caching.maxLines`|Specifies the threshold for caching larger documents
 |`gitlens.advanced.maxQuickHistory`|Specifies the maximum number of QuickPick history entries to show

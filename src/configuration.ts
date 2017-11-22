@@ -1,5 +1,5 @@
 'use strict';
-import { ConfigurationChangeEvent, Event, EventEmitter, ExtensionContext, Uri, workspace } from 'vscode';
+import { ConfigurationChangeEvent, ConfigurationTarget, Event, EventEmitter, ExtensionContext, Uri, workspace } from 'vscode';
 import { FileAnnotationType } from './annotations/annotationController';
 import { ExtensionKey } from './constants';
 import { LineAnnotationType } from './currentLineController';
@@ -89,6 +89,16 @@ export interface IAdvancedConfig {
             history: boolean;
             remote: boolean;
         };
+    };
+    messages: {
+        suppressCommitHasNoPreviousCommitWarning: boolean,
+        suppressCommitNotFoundWarning: boolean,
+        suppressFileNotUnderSourceControlWarning: boolean,
+        suppressGitVersionWarning: boolean,
+        suppressLineUncommittedWarning: boolean,
+        suppressNoRepositoryWarning: boolean,
+        suppressUpdateNotice: boolean,
+        suppressWelcomeNotice: boolean
     };
     quickPick: {
         closeOnFocusOut: boolean;
@@ -363,45 +373,45 @@ const emptyConfig: IConfig = {
         file: {
             gutter: {
                 format: '',
-    dateFormat: null,
-    compact: false,
-    heatmap: {
+                dateFormat: null,
+                compact: false,
+                heatmap: {
                     enabled: false,
-        location: 'left'
-    },
-    hover: {
-                    details: false,
-        changes: false,
-        wholeLine: false
-    }
-            },
-    hover: {
-                details: false,
-        changes: false,
-        heatmap: {
-                    enabled: false
-        }
-            },
-    recentChanges: {
+                    location: 'left'
+                },
                 hover: {
                     details: false,
-        changes: false
-    }
-            }
-        },
-    line: {
+                    changes: false,
+                    wholeLine: false
+                }
+            },
             hover: {
                 details: false,
-        changes: false
-    },
-        trailing: {
-                format: '',
-            dateFormat: null,
-            hover: {
-                    details: false,
                 changes: false,
-                wholeLine: false
+                heatmap: {
+                    enabled: false
+                }
+            },
+            recentChanges: {
+                hover: {
+                    details: false,
+                    changes: false
+                }
             }
+        },
+        line: {
+            hover: {
+                details: false,
+                changes: false
+            },
+            trailing: {
+                format: '',
+                dateFormat: null,
+                hover: {
+                    details: false,
+                    changes: false,
+                    wholeLine: false
+                }
             }
         }
     },
@@ -472,9 +482,9 @@ const emptyConfig: IConfig = {
         codeLens: {
             unsavedChanges: {
                 recentChangeAndAuthors: '',
-        recentChangeOnly: '',
-        authorsOnly: ''
-    }
+                recentChangeOnly: '',
+                authorsOnly: ''
+            }
         }
     },
     theme: themeDefaults,
@@ -484,16 +494,16 @@ const emptyConfig: IConfig = {
     advanced: {
         caching: {
             enabled: false,
-        maxLines: 0
-    },
+            maxLines: 0
+        },
         git: '',
         maxQuickHistory: 0,
         menus: {
             explorerContext: {
                 fileDiff: false,
-            history: false,
-            remote: false
-        },
+                history: false,
+                remote: false
+            },
             editorContext: {
                 blame: false,
                 copy: false,
@@ -515,6 +525,16 @@ const emptyConfig: IConfig = {
                 history: false,
                 remote: false
             }
+        },
+        messages: {
+            suppressCommitHasNoPreviousCommitWarning: false,
+            suppressCommitNotFoundWarning: false,
+            suppressFileNotUnderSourceControlWarning: false,
+            suppressGitVersionWarning: false,
+            suppressLineUncommittedWarning: false,
+            suppressNoRepositoryWarning: false,
+            suppressUpdateNotice: false,
+            suppressWelcomeNotice: false
         },
         quickPick: {
             closeOnFocusOut: false
@@ -562,6 +582,10 @@ export class Configuration {
 
     name<K extends keyof IConfig>(name: K) {
         return Functions.propOf(emptyConfig, name);
+    }
+
+    update(section: string, value: any, target: ConfigurationTarget) {
+        return workspace.getConfiguration(ExtensionKey).update(section, value, target);
     }
 }
 

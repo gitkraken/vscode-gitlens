@@ -974,6 +974,55 @@
                     "description": "Specifies which commands will be added to which menus",
                     "scope": "window"
                 },
+                "gitlens.advanced.messages": {
+                    "type": "object",
+                    "default": {
+                        "suppressCommitHasNoPreviousCommitWarning": false,
+                        "suppressCommitNotFoundWarning": false,
+                        "suppressFileNotUnderSourceControlWarning": false,
+                        "suppressGitVersionWarning": false,
+                        "suppressLineUncommittedWarning": false,
+                        "suppressNoRepositoryWarning": false,
+                        "suppressUpdateNotice": false,
+                        "suppressWelcomeNotice": false
+                    },
+                    "properties": {
+                        "suppressCommitHasNoPreviousCommitWarning": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "suppressCommitNotFoundWarning": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "suppressFileNotUnderSourceControlWarning": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "suppressGitVersionWarning": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "suppressLineUncommittedWarning": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "suppressNoRepositoryWarning": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "suppressUpdateNotice": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "suppressWelcomeNotice": {
+                            "type": "boolean",
+                            "default": false
+                        }
+                    },
+                    "description": "Specifies which messages should be suppressed",
+                    "scope": "window"
+                },
                 "gitlens.advanced.quickPick.closeOnFocusOut": {
                     "type": "boolean",
                     "default": true,

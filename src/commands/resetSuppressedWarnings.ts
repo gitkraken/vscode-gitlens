@@ -1,20 +1,15 @@
 'use strict';
-import { Objects } from '../system';
-import { ExtensionContext } from 'vscode';
+import { ConfigurationTarget } from 'vscode';
 import { Command, Commands } from './common';
-import { SuppressedKeys } from '../messages';
+import { configuration } from '../configuration';
 
 export class ResetSuppressedWarningsCommand extends Command {
 
-    constructor(
-        private readonly context: ExtensionContext
-    ) {
+    constructor() {
         super(Commands.ResetSuppressedWarnings);
     }
 
     async execute() {
-        for (const key of Objects.values(SuppressedKeys)) {
-            await this.context.globalState.update(key, undefined);
-        }
+        await configuration.update(configuration.name('advanced')('messages').value, undefined, ConfigurationTarget.Global);
     }
 }

@@ -87,7 +87,7 @@ export function configureCommands(
     context.subscriptions.push(new Commands.ToggleFileBlameCommand(annotationController));
     context.subscriptions.push(new Commands.ToggleFileRecentChangesCommand(annotationController));
     context.subscriptions.push(new Commands.ToggleLineBlameCommand(currentLineController));
-    context.subscriptions.push(new Commands.ResetSuppressedWarningsCommand(context));
+    context.subscriptions.push(new Commands.ResetSuppressedWarningsCommand());
     context.subscriptions.push(new Commands.ShowLastQuickPickCommand());
     context.subscriptions.push(new Commands.ShowQuickBranchHistoryCommand(git));
     context.subscriptions.push(new Commands.ShowQuickCurrentBranchHistoryCommand(git));

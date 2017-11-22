@@ -1,10 +1,11 @@
 'use strict';
-import { commands, ExtensionContext, Uri, window } from 'vscode';
+import { commands, ConfigurationTarget, Uri, window } from 'vscode';
 import { BuiltInCommands } from './constants';
 import { GitCommit } from './gitService';
 import { Logger } from './logger';
+import { configuration } from './configuration';
 
-export enum SuppressedKeys {
+export enum SuppressedMessages {
     CommitHasNoPreviousCommitWarning = 'suppressCommitHasNoPreviousCommitWarning',
     CommitNotFoundWarning = 'suppressCommitNotFoundWarning',
     FileNotUnderSourceControlWarning = 'suppressFileNotUnderSourceControlWarning',
@@ -17,40 +18,34 @@ export enum SuppressedKeys {
 
 export class Messages {
 
-    static context: ExtensionContext;
-
-    static configure(context: ExtensionContext) {
-        this.context = context;
-    }
-
     static showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<string | undefined> {
-        if (commit === undefined) return Messages.showMessage('info', `Commit has no previous commit`, SuppressedKeys.CommitHasNoPreviousCommitWarning);
-        return Messages.showMessage('info', `Commit ${commit.shortSha} (${commit.author}, ${commit.fromNow()}) has no previous commit`, SuppressedKeys.CommitHasNoPreviousCommitWarning);
+        if (commit === undefined) return Messages.showMessage('info', `Commit has no previous commit`, SuppressedMessages.CommitHasNoPreviousCommitWarning);
+        return Messages.showMessage('info', `Commit ${commit.shortSha} (${commit.author}, ${commit.fromNow()}) has no previous commit`, SuppressedMessages.CommitHasNoPreviousCommitWarning);
     }
 
     static showCommitNotFoundWarningMessage(message: string): Promise<string | undefined> {
-        return Messages.showMessage('warn', `${message}. The commit could not be found`, SuppressedKeys.CommitNotFoundWarning);
+        return Messages.showMessage('warn', `${message}. The commit could not be found`, SuppressedMessages.CommitNotFoundWarning);
     }
 
     static showFileNotUnderSourceControlWarningMessage(message: string): Promise<string | undefined> {
-        return Messages.showMessage('warn', `${message}. The file is probably not under source control`, SuppressedKeys.FileNotUnderSourceControlWarning);
+        return Messages.showMessage('warn', `${message}. The file is probably not under source control`, SuppressedMessages.FileNotUnderSourceControlWarning);
     }
 
     static showLineUncommittedWarningMessage(message: string): Promise<string | undefined> {
-        return Messages.showMessage('warn', `${message}. The line has uncommitted changes`, SuppressedKeys.LineUncommittedWarning);
+        return Messages.showMessage('warn', `${message}. The line has uncommitted changes`, SuppressedMessages.LineUncommittedWarning);
     }
 
     static showNoRepositoryWarningMessage(message: string): Promise<string | undefined> {
-        return Messages.showMessage('warn', `${message}. No repository could be found`, SuppressedKeys.NoRepositoryWarning);
+        return Messages.showMessage('warn', `${message}. No repository could be found`, SuppressedMessages.NoRepositoryWarning);
     }
 
     static showUnsupportedGitVersionErrorMessage(version: string): Promise<string | undefined> {
-        return Messages.showMessage('error', `GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git.`, SuppressedKeys.GitVersionWarning);
+        return Messages.showMessage('error', `GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git.`, SuppressedMessages.GitVersionWarning);
     }
 
     static async showUpdateMessage(version: string): Promise<string | undefined> {
         const viewReleaseNotes = 'View Release Notes';
-        const result = await Messages.showMessage('info', `GitLens has been updated to v${version}`, SuppressedKeys.UpdateNotice, undefined, viewReleaseNotes);
+        const result = await Messages.showMessage('info', `GitLens has been updated to v${version}`, SuppressedMessages.UpdateNotice, undefined, viewReleaseNotes);
         if (result === viewReleaseNotes) {
             commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://marketplace.visualstudio.com/items/eamodio.gitlens/changelog'));
         }
@@ -59,17 +54,17 @@ export class Messages {
 
     static async showWelcomeMessage(): Promise<string | undefined> {
         const viewDocs = 'View Docs';
-        const result = await Messages.showMessage('info', `Thank you for choosing GitLens! GitLens is powerful, feature rich, and highly configurable, so please be sure to view the docs and tailor it to suit your needs.`, SuppressedKeys.WelcomeNotice, null, viewDocs);
+        const result = await Messages.showMessage('info', `Thank you for choosing GitLens! GitLens is powerful, feature rich, and highly configurable, so please be sure to view the docs and tailor it to suit your needs.`, SuppressedMessages.WelcomeNotice, null, viewDocs);
         if (result === viewDocs) {
             commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://marketplace.visualstudio.com/items/eamodio.gitlens'));
         }
         return result;
     }
 
-    private static async showMessage(type: 'info' | 'warn' | 'error', message: string, suppressionKey: SuppressedKeys, dontShowAgain: string | null = 'Don\'t Show Again', ...actions: any[]): Promise<string | undefined> {
+    private static async showMessage(type: 'info' | 'warn' | 'error', message: string, suppressionKey: SuppressedMessages, dontShowAgain: string | null = 'Don\'t Show Again', ...actions: any[]): Promise<string | undefined> {
         Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain})`);
 
-        if (Messages.context.globalState.get(suppressionKey, false)) {
+        if (configuration.get<boolean>(configuration.name('advanced')('messages')(suppressionKey).value)) {
             Logger.log(`ShowMessage(${type}, ${message}, ${suppressionKey}, ${dontShowAgain}) skipped`);
             return undefined;
         }
@@ -95,7 +90,11 @@ export class Messages {
 
         if (dontShowAgain === null || result === dontShowAgain) {
             Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) don't show again requested`);
-            await Messages.context.globalState.update(suppressionKey, true);
+
+            const section = configuration.name('advanced')('messages').value;
+            const messages: { [key: string]: boolean } = configuration.get(section);
+            messages[suppressionKey] = true;
+            await configuration.update(section, messages, ConfigurationTarget.Global);
 
             if (result === dontShowAgain) return undefined;
         }

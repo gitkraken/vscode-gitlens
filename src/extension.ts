@@ -1,7 +1,8 @@
 'use strict';
-import { ExtensionContext, extensions, languages, window, workspace } from 'vscode';
+import { Objects } from './system';
+import { ConfigurationTarget, ExtensionContext, extensions, languages, window, workspace } from 'vscode';
 import { AnnotationController } from './annotations/annotationController';
-import { Configuration, IConfig } from './configuration';
+import { configuration, Configuration, IConfig } from './configuration';
 import { ApplicationInsightsKey, CommandContext, ExtensionKey, GlobalState, QualifiedExtensionId, setCommandContext } from './constants';
 import { CodeLensController } from './codeLensController';
 import { configureCommands } from './commands';
@@ -12,14 +13,13 @@ import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { GitContextTracker, GitService } from './gitService';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
-import { Messages, SuppressedKeys } from './messages';
+import { Messages, SuppressedMessages } from './messages';
 import { Telemetry } from './telemetry';
 
 // this method is called when your extension is activated
 export async function activate(context: ExtensionContext) {
     Configuration.configure(context);
     Logger.configure(context);
-    Messages.configure(context);
     Telemetry.configure(ApplicationInsightsKey);
 
     const gitlens = extensions.getExtension(QualifiedExtensionId)!;
@@ -49,8 +49,11 @@ export async function activate(context: ExtensionContext) {
     telemetryContext['git.version'] = gitVersion;
     Telemetry.setContext(telemetryContext);
 
+    const previousVersion = context.globalState.get<string>(GlobalState.GitLensVersion);
+
+    await migrateSettings(context, previousVersion);
     notifyOnUnsupportedGitVersion(context, gitVersion);
-    notifyOnNewGitLensVersion(context, gitlensVersion);
+    notifyOnNewGitLensVersion(context, gitlensVersion, previousVersion);
 
     await context.globalState.update(GlobalState.GitLensVersion, gitlensVersion);
 
@@ -87,14 +90,50 @@ export async function activate(context: ExtensionContext) {
 // this method is called when your extension is deactivated
 export function deactivate() { }
 
-async function notifyOnNewGitLensVersion(context: ExtensionContext, version: string) {
-    if (context.globalState.get(SuppressedKeys.UpdateNotice, false)) return;
+const migration = {
+    major: 6,
+    minor: 1,
+    patch: 2
+};
 
-    const previousVersion = context.globalState.get<string>(GlobalState.GitLensVersion);
+async function migrateSettings(context: ExtensionContext, previousVersion: string | undefined) {
+    if (previousVersion === undefined) return;
+
+    const [major, minor, patch] = previousVersion.split('.');
+    if (parseInt(major, 10) >= migration.major && parseInt(minor, 10) >= migration.minor && parseInt(patch, 10) >= migration.patch) return;
+
+    try {
+        const section = configuration.name('advanced')('messages').value;
+        const messages: { [key: string]: boolean } = configuration.get(section);
+
+        let migrated = false;
+
+        for (const m of Objects.values(SuppressedMessages)) {
+            const suppressed = context.globalState.get<boolean>(m);
+            if (suppressed === undefined) continue;
+
+            migrated = true;
+            messages[m] = suppressed;
+
+            context.globalState.update(m, undefined);
+        }
+
+        if (!migrated) return;
+
+        await configuration.update(section, messages, ConfigurationTarget.Global);
+    }
+    catch (ex) {
+        Logger.error(ex, 'migrateSettings');
+    }
+}
+
+async function notifyOnNewGitLensVersion(context: ExtensionContext, version: string, previousVersion: string | undefined) {
+    if (configuration.get<boolean>(configuration.name('advanced')('messages')(SuppressedMessages.UpdateNotice).value)) return;
 
     if (previousVersion === undefined) {
         Logger.log(`GitLens first-time install`);
         await Messages.showWelcomeMessage();
+
         return;
     }
 
