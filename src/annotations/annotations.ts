@@ -1,8 +1,7 @@
 import { Dates, Objects, Strings } from '../system';
-import { DecorationInstanceRenderOptions, DecorationOptions, MarkdownString, ThemableDecorationRenderOptions, window } from 'vscode';
+import { DecorationInstanceRenderOptions, DecorationOptions, MarkdownString, ThemableDecorationRenderOptions, ThemeColor, window } from 'vscode';
 import { FileAnnotationType } from './annotationController';
 import { DiffWithCommand, OpenCommitInRemoteCommand, OpenFileRevisionCommand, ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand } from '../commands';
-import { IThemeConfig, themeDefaults } from '../configuration';
 import { GlyphChars } from '../constants';
 import { CommitFormatter, GitCommit, GitDiffChunkLine, GitService, GitUri, ICommitFormatOptions } from '../gitService';
 
@@ -11,15 +10,9 @@ interface IHeatmapConfig {
     location?: 'left' | 'right';
 }
 
-interface IRenderOptions {
-    uncommittedForegroundColor?: {
-        dark: string;
-        light: string;
-    };
-
-    before?: DecorationInstanceRenderOptions & ThemableDecorationRenderOptions & { height?: string };
-    dark?: DecorationInstanceRenderOptions;
-    light?: DecorationInstanceRenderOptions;
+interface IRenderOptions extends DecorationInstanceRenderOptions, ThemableDecorationRenderOptions {
+    height?: string;
+    uncommittedColor?: string | ThemeColor;
 }
 
 export const endOfLineIndex = 1000000;
@@ -137,33 +130,23 @@ export class Annotations {
     }
 
     static gutter(commit: GitCommit, format: string, dateFormatOrFormatOptions: string | null | ICommitFormatOptions, renderOptions: IRenderOptions): DecorationOptions {
-        const message = CommitFormatter.fromTemplate(format, commit, dateFormatOrFormatOptions);
-
-        return {
+        const decoration = {
             renderOptions: {
-                before: {
-                    ...renderOptions.before,
-                    ...{
-                        contentText: Strings.pad(message.replace(/ /g, GlyphChars.Space), 1, 1)
-                    }
-                },
-                dark: {
-                    before: commit.isUncommitted
-                        ? { ...renderOptions.dark, ...{ color: renderOptions.uncommittedForegroundColor!.dark } }
-                        : { ...renderOptions.dark }
-                },
-                light: {
-                    before: commit.isUncommitted
-                        ? { ...renderOptions.light, ...{ color: renderOptions.uncommittedForegroundColor!.light } }
-                        : { ...renderOptions.light }
-                }
+                before: { ...renderOptions }
             } as DecorationInstanceRenderOptions
         } as DecorationOptions;
+
+        if (commit.isUncommitted) {
+            decoration.renderOptions!.before!.color = renderOptions.uncommittedColor;
+        }
+
+        const message = CommitFormatter.fromTemplate(format, commit, dateFormatOrFormatOptions);
+        decoration.renderOptions!.before!.contentText = Strings.pad(message.replace(/ /g, GlyphChars.Space), 1, 1);
+
+        return decoration;
     }
 
-    static gutterRenderOptions(cfgTheme: IThemeConfig, heatmap: IHeatmapConfig, options: ICommitFormatOptions): IRenderOptions {
-        const cfgFileTheme = cfgTheme.annotations.file.gutter;
-
+    static gutterRenderOptions(separateLines: boolean, heatmap: IHeatmapConfig, options: ICommitFormatOptions): IRenderOptions {
         // Try to get the width of the string, if there is a cap
         let width = 4; // Start with a padding
         for (const token of Objects.values(options.tokenOptions!)) {
@@ -186,54 +169,42 @@ export class Annotations {
         }
 
         return {
-            uncommittedForegroundColor: {
-                dark: cfgFileTheme.dark.uncommittedForegroundColor || cfgFileTheme.dark.foregroundColor || themeDefaults.annotations.file.gutter.dark.foregroundColor,
-                light: cfgFileTheme.light.uncommittedForegroundColor || cfgFileTheme.light.foregroundColor || themeDefaults.annotations.file.gutter.light.foregroundColor
-            },
-            before: {
-                borderStyle: borderStyle,
-                borderWidth: borderWidth,
-                height: '100%',
-                margin: '0 26px -1px 0',
-                width: (width > 4) ? `${width}ch` : undefined
-            },
-            dark: {
-                backgroundColor: cfgFileTheme.dark.backgroundColor || undefined,
-                color: cfgFileTheme.dark.foregroundColor || themeDefaults.annotations.file.gutter.dark.foregroundColor,
-                textDecoration: cfgFileTheme.separateLines ? 'overline solid rgba(0, 0, 0, .2)' : 'none'
-            } as DecorationInstanceRenderOptions,
-            light: {
-                backgroundColor: cfgFileTheme.light.backgroundColor || undefined,
-                color: cfgFileTheme.light.foregroundColor || themeDefaults.annotations.file.gutter.light.foregroundColor,
-                textDecoration: cfgFileTheme.separateLines ? 'overline solid rgba(0, 0, 0, .05)' : 'none'
-            } as DecorationInstanceRenderOptions
+            backgroundColor: new ThemeColor('gitlens.gutterBackgroundColor'),
+            borderStyle: borderStyle,
+            borderWidth: borderWidth,
+            color: new ThemeColor('gitlens.gutterForegroundColor'),
+            height: '100%',
+            margin: '0 26px -1px 0',
+            textDecoration: separateLines ? 'overline solid rgba(0, 0, 0, .2)' : 'none',
+            width: (width > 4) ? `${width}ch` : undefined,
+            uncommittedColor: new ThemeColor('gitlens.gutterUncommittedForegroundColor')
         } as IRenderOptions;
     }
 
     static hover(commit: GitCommit, renderOptions: IRenderOptions, now: number): DecorationOptions {
         const decoration = {
-            renderOptions: { before: { ...renderOptions.before } }
+            renderOptions: { before: { ...renderOptions } }
         } as DecorationOptions;
+
         this.applyHeatmap(decoration, commit.date, now);
+
         return decoration;
     }
 
-    static hoverRenderOptions(cfgTheme: IThemeConfig, heatmap: IHeatmapConfig): IRenderOptions {
+    static hoverRenderOptions(heatmap: IHeatmapConfig): IRenderOptions {
         if (!heatmap.enabled) return { before: undefined };
 
         return {
-            before: {
-                borderStyle: 'solid',
-                borderWidth: '0 0 0 2px',
-                contentText: GlyphChars.ZeroWidthSpace,
-                height: '100%',
-                margin: '0 26px 0 0',
-                textDecoration: 'none'
-            }
+            borderStyle: 'solid',
+            borderWidth: '0 0 0 2px',
+            contentText: GlyphChars.ZeroWidthSpace,
+            height: '100%',
+            margin: '0 26px 0 0',
+            textDecoration: 'none'
         } as IRenderOptions;
     }
 
-    static trailing(commit: GitCommit, format: string, dateFormat: string | null, cfgTheme: IThemeConfig): DecorationOptions {
+    static trailing(commit: GitCommit, format: string, dateFormat: string | null): DecorationOptions {
         const message = CommitFormatter.fromTemplate(format, commit, {
             truncateMessageAtNewLine: true,
             dateFormat: dateFormat
@@ -242,19 +213,9 @@ export class Annotations {
         return {
             renderOptions: {
                 after: {
+                    backgroundColor: new ThemeColor('gitlens.trailingLineBackgroundColor'),
+                    color: new ThemeColor('gitlens.trailingLineForegroundColor'),
                     contentText: Strings.pad(message.replace(/ /g, GlyphChars.Space), 1, 1)
-                },
-                dark: {
-                    after: {
-                        backgroundColor: cfgTheme.annotations.line.trailing.dark.backgroundColor || undefined,
-                        color: cfgTheme.annotations.line.trailing.dark.foregroundColor || themeDefaults.annotations.line.trailing.dark.foregroundColor
-                    }
-                },
-                light: {
-                    after: {
-                        backgroundColor: cfgTheme.annotations.line.trailing.light.backgroundColor || undefined,
-                        color: cfgTheme.annotations.line.trailing.light.foregroundColor || themeDefaults.annotations.line.trailing.light.foregroundColor
-                    }
                 }
             } as DecorationInstanceRenderOptions
         } as DecorationOptions;

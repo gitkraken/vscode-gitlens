@@ -33,8 +33,8 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         };
 
         const now = Date.now();
-        const renderOptions = Annotations.gutterRenderOptions(this._config.theme, cfg.heatmap, options);
-        const separateLines = this._config.theme.annotations.file.gutter.separateLines;
+        const separateLines = this._config.annotations.file.gutter.separateLines;
+        const renderOptions = Annotations.gutterRenderOptions(separateLines, cfg.heatmap, options);
 
         this._decorations = [];
         const decorationsMap: { [sha: string]: DecorationOptions | undefined } = Object.create(null);
@@ -54,7 +54,6 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
                 if (cfg.compact && !compacted) {
                     // Since we are wiping out the contextText make sure to copy the objects
                     gutter.renderOptions = {
-                        ...gutter.renderOptions,
                         before: {
                             ...gutter.renderOptions!.before,
                             contentText: GlyphChars.Space.repeat(Strings.width(gutter.renderOptions!.before!.contentText!))
@@ -62,14 +61,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
                     };
 
                     if (separateLines) {
-                        gutter.renderOptions.dark = {
-                            ...gutter.renderOptions.dark,
-                            before: { ...gutter.renderOptions.dark!.before, textDecoration: 'none' }
-                        };
-                        gutter.renderOptions.light = {
-                            ...gutter.renderOptions.light,
-                            before: { ...gutter.renderOptions.light!.before, textDecoration: 'none' }
-                        };
+                        gutter.renderOptions!.before!.textDecoration = 'none';
                     }
 
                     compacted = true;

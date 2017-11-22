@@ -128,6 +128,12 @@
                     "description": "Specifies whether or not to trigger hover annotations over the whole line",
                     "scope": "window"
                 },
+                "gitlens.annotations.file.gutter.separateLines": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not gutter blame annotations will be separated by a small gap",
+                    "scope": "window"
+                },
                 "gitlens.annotations.file.hover.details": {
                     "type": "boolean",
                     "default": true,
@@ -701,96 +707,6 @@
                     "description": "Specifies the string to be shown in place of the `authors` code lens when there are unsaved changes",
                     "scope": "window"
                 },
-                "gitlens.theme.annotations.file.gutter.separateLines": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Specifies whether or not gutter blame annotations will be separated by a small gap",
-                    "scope": "window"
-                },
-                "gitlens.theme.annotations.file.gutter.dark.backgroundColor": {
-                    "type": "string",
-                    "default": "rgba(255, 255, 255, 0.075)",
-                    "description": "Specifies the dark theme background color of the gutter blame annotations. Must be a valid css color",
-                    "scope": "window"
-                },
-                "gitlens.theme.annotations.file.gutter.light.backgroundColor": {
-                    "type": "string",
-                    "default": "rgba(0, 0, 0, 0.05)",
-                    "description": "Specifies the light theme background color of the gutter blame annotations. Must be a valid css color",
-                    "scope": "window"
-                },
-                "gitlens.theme.annotations.file.gutter.dark.foregroundColor": {
-                    "type": "string",
-                    "default": "rgb(190, 190, 190)",
-                    "description": "Specifies the dark theme foreground color of the gutter blame annotations. Must be a valid css color",
-                    "scope": "window"
-                },
-                "gitlens.theme.annotations.file.gutter.light.foregroundColor": {
-                    "type": "string",
-                    "default": "rgb(116, 116, 116)",
-                    "description": "Specifies the light theme foreground color of the gutter blame annotations. Must be a valid css color",
-                    "scope": "window"
-                },
-                "gitlens.theme.annotations.file.gutter.dark.uncommittedForegroundColor": {
-                    "type": "string",
-                    "default": "rgba(0, 188, 242, 0.6)",
-                    "description": "Specifies the dark theme foreground color of an uncommitted line in the gutter blame annotations. Must be a valid css color",
-                    "scope": "window"
-                },
-                "gitlens.theme.annotations.file.gutter.light.uncommittedForegroundColor": {
-                    "type": "string",
-                    "default": "rgba(0, 188, 242, 0.6)",
-                    "description": "Specifies the light theme foreground color of an uncommitted line in the gutter blame annotations. Must be a valid css color",
-                    "scope": "window"
-                },
-                "gitlens.theme.annotations.line.trailing.dark.backgroundColor": {
-                    "type": "string",
-                    "default": null,
-                    "description": "Specifies the dark theme background color of the trailing blame annotation. Must be a valid css color",
-                    "scope": "window"
-                },
-                "gitlens.theme.annotations.line.trailing.light.backgroundColor": {
-                    "type": "string",
-                    "default": null,
-                    "description": "Specifies the light theme background color of the trailing blame annotation. Must be a valid css color",
-                    "scope": "window"
-                },
-                "gitlens.theme.annotations.line.trailing.dark.foregroundColor": {
-                    "type": "string",
-                    "default": "rgba(153, 153, 153, 0.35)",
-                    "description": "Specifies the dark theme foreground color of the trailing blame annotation. Must be a valid css color",
-                    "scope": "window"
-                },
-                "gitlens.theme.annotations.line.trailing.light.foregroundColor": {
-                    "type": "string",
-                    "default": "rgba(153, 153, 153, 0.35)",
-                    "description": "Specifies the light theme foreground color of the trailing blame annotation. Must be a valid css color",
-                    "scope": "window"
-                },
-                "gitlens.theme.lineHighlight.dark.backgroundColor": {
-                    "type": "string",
-                    "default": "rgba(0, 188, 242, 0.2)",
-                    "description": "Specifies the dark theme background color of the associated line highlights in blame annotations. Must be a valid css color",
-                    "scope": "window"
-                },
-                "gitlens.theme.lineHighlight.light.backgroundColor": {
-                    "type": "string",
-                    "default": "rgba(0, 188, 242, 0.2)",
-                    "description": "Specifies the light theme background color of the associated line highlights in blame annotations. Must be a valid css color",
-                    "scope": "window"
-                },
-                "gitlens.theme.lineHighlight.dark.overviewRulerColor": {
-                    "type": "string",
-                    "default": "rgba(0, 188, 242, 0.6)",
-                    "description": "Specifies the dark theme overview ruler color of the associated line highlights in blame annotations. Must be a valid css color",
-                    "scope": "window"
-                },
-                "gitlens.theme.lineHighlight.light.overviewRulerColor": {
-                    "type": "string",
-                    "default": "rgba(0, 188, 242, 0.6)",
-                    "description": "Specifies the light theme overview ruler color of the associated line highlights in blame annotations. Must be a valid css color",
-                    "scope": "window"
-                },
                 "gitlens.advanced.caching.enabled": {
                     "type": "boolean",
                     "default": true,
@@ -1043,6 +959,71 @@
                 }
             }
         },
+        "colors": [
+            {
+                "id": "gitlens.gutterBackgroundColor",
+                "description": "Specifies the background color of the gutter blame annotations",
+                "defaults": {
+                    "dark": "#FFFFFF13",
+                    "light": "#0000000C",
+                    "highContrast": "#FFFFFF13"
+                }
+            },
+            {
+                "id": "gitlens.gutterForegroundColor",
+                "description": "Specifies the foreground color of the gutter blame annotations",
+                "defaults": {
+                    "dark": "#BEBEBE",
+                    "light": "#747474",
+                    "highContrast": "#BEBEBE"
+                }
+            },
+            {
+                "id": "gitlens.gutterUncommittedForegroundColor",
+                "description": "Specifies the foreground color of an uncommitted line in the gutter blame annotations",
+                "defaults": {
+                    "dark": "#00BCF299",
+                    "light": "#00BCF299",
+                    "highContrast": "#00BCF2FF"
+                }
+            },
+            {
+                "id": "gitlens.trailingLineBackgroundColor",
+                "description": "Specifies the background color of the trailing blame annotation",
+                "defaults": {
+                    "dark": "#00000000",
+                    "light": "#00000000",
+                    "highContrast": "#00000000"
+                }
+            },
+            {
+                "id": "gitlens.trailingLineForegroundColor",
+                "description": "Specifies the foreground color of the trailing blame annotation",
+                "defaults": {
+                    "dark": "#99999959",
+                    "light": "#99999959",
+                    "highContrast": "#99999999"
+                }
+            },
+            {
+                "id": "gitlens.lineHighlightBackgroundColor",
+                "description": "Specifies the background color of the associated line highlights in blame annotations",
+                "defaults": {
+                    "dark": "#00BCF233",
+                    "light": "#00BCF233",
+                    "highContrast": "#00BCF233"
+                }
+            },
+            {
+                "id": "gitlens.lineHighlightOverviewRulerColor",
+                "description": "Specifies the overview ruler color of the associated line highlights in blame annotations",
+                "defaults": {
+                    "dark": "#00BCF299",
+                    "light": "#00BCF299",
+                    "highContrast": "#00BCF299"
+                }
+            }
+        ],
         "commands": [
             {
                 "command": "gitlens.diffDirectory",

@@ -1,6 +1,6 @@
 'use strict';
 import { Functions, Iterables } from '../system';
-import { ConfigurationChangeEvent, DecorationRangeBehavior, DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, Progress, ProgressLocation, TextDocument, TextDocumentChangeEvent, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, window, workspace } from 'vscode';
+import { ConfigurationChangeEvent, DecorationRangeBehavior, DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, Progress, ProgressLocation, TextDocument, TextDocumentChangeEvent, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, ThemeColor, window, workspace } from 'vscode';
 import { AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
 import { TextDocumentComparer } from '../comparers';
 import { configuration, IConfig, LineHighlightLocations } from '../configuration';
@@ -85,40 +85,32 @@ export class AnnotationController extends Disposable {
         let cfg: IConfig | undefined;
 
         if (initializing ||
-            configuration.changed(e, configuration.name('blame')('file')('lineHighlight').value) ||
-            configuration.changed(e, configuration.name('theme')('lineHighlight').value)) {
+            configuration.changed(e, configuration.name('blame')('file')('lineHighlight').value)) {
             Decorations.blameHighlight && Decorations.blameHighlight.dispose();
 
             cfg = configuration.get<IConfig>();
 
             const cfgHighlight = cfg.blame.file.lineHighlight;
-            const cfgTheme = cfg.theme.lineHighlight;
 
             if (cfgHighlight.enabled) {
                 Decorations.blameHighlight = window.createTextEditorDecorationType({
                     gutterIconSize: 'contain',
                     isWholeLine: true,
                     overviewRulerLane: OverviewRulerLane.Right,
+                    backgroundColor: cfgHighlight.locations.includes(LineHighlightLocations.Line)
+                        ? new ThemeColor('gitlens.lineHighlightBackgroundColor')
+                        : undefined,
+                    overviewRulerColor: cfgHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
+                        ? new ThemeColor('gitlens.lineHighlightOverviewRulerColor')
+                        : undefined,
                     dark: {
-                        backgroundColor: cfgHighlight.locations.includes(LineHighlightLocations.Line)
-                            ? cfgTheme.dark.backgroundColor || configuration.defaults.theme.lineHighlight.dark.backgroundColor
-                            : undefined,
                         gutterIconPath: cfgHighlight.locations.includes(LineHighlightLocations.Gutter)
                             ? this.context.asAbsolutePath('images/dark/highlight-gutter.svg')
-                            : undefined,
-                        overviewRulerColor: cfgHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
-                            ? cfgTheme.dark.overviewRulerColor || configuration.defaults.theme.lineHighlight.dark.overviewRulerColor
                             : undefined
                     },
                     light: {
-                        backgroundColor: cfgHighlight.locations.includes(LineHighlightLocations.Line)
-                            ? cfgTheme.light.backgroundColor || configuration.defaults.theme.lineHighlight.light.backgroundColor
-                            : undefined,
                         gutterIconPath: cfgHighlight.locations.includes(LineHighlightLocations.Gutter)
                             ? this.context.asAbsolutePath('images/light/highlight-gutter.svg')
-                            : undefined,
-                        overviewRulerColor: cfgHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
-                            ? cfgTheme.light.overviewRulerColor || configuration.defaults.theme.lineHighlight.light.overviewRulerColor
                             : undefined
                     }
                 });
@@ -129,40 +121,32 @@ export class AnnotationController extends Disposable {
         }
 
         if (initializing ||
-            configuration.changed(e, configuration.name('recentChanges')('file')('lineHighlight').value) ||
-            configuration.changed(e, configuration.name('theme')('lineHighlight').value)) {
+            configuration.changed(e, configuration.name('recentChanges')('file')('lineHighlight').value)) {
             Decorations.recentChangesHighlight && Decorations.recentChangesHighlight.dispose();
 
             if (cfg === undefined) {
                 cfg = configuration.get<IConfig>();
             }
             const cfgHighlight = cfg.recentChanges.file.lineHighlight;
-            const cfgTheme = cfg.theme.lineHighlight;
 
             Decorations.recentChangesHighlight = window.createTextEditorDecorationType({
                 gutterIconSize: 'contain',
                 isWholeLine: true,
                 overviewRulerLane: OverviewRulerLane.Right,
+                backgroundColor: cfgHighlight.locations.includes(LineHighlightLocations.Line)
+                    ? new ThemeColor('gitlens.lineHighlightBackgroundColor')
+                    : undefined,
+                overviewRulerColor: cfgHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
+                    ? new ThemeColor('gitlens.lineHighlightOverviewRulerColor')
+                    : undefined,
                 dark: {
-                    backgroundColor: cfgHighlight.locations.includes(LineHighlightLocations.Line)
-                        ? cfgTheme.dark.backgroundColor || configuration.defaults.theme.lineHighlight.dark.backgroundColor
-                        : undefined,
                     gutterIconPath: cfgHighlight.locations.includes(LineHighlightLocations.Gutter)
                         ? this.context.asAbsolutePath('images/dark/highlight-gutter.svg')
-                        : undefined,
-                    overviewRulerColor: cfgHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
-                        ? cfgTheme.dark.overviewRulerColor || configuration.defaults.theme.lineHighlight.dark.overviewRulerColor
                         : undefined
                 },
                 light: {
-                    backgroundColor: cfgHighlight.locations.includes(LineHighlightLocations.Line)
-                        ? cfgTheme.light.backgroundColor || configuration.defaults.theme.lineHighlight.light.backgroundColor
-                        : undefined,
                     gutterIconPath: cfgHighlight.locations.includes(LineHighlightLocations.Gutter)
                         ? this.context.asAbsolutePath('images/light/highlight-gutter.svg')
-                        : undefined,
-                    overviewRulerColor: cfgHighlight.locations.includes(LineHighlightLocations.OverviewRuler)
-                        ? cfgTheme.light.overviewRulerColor || configuration.defaults.theme.lineHighlight.light.overviewRulerColor
                         : undefined
                 }
             });
@@ -172,8 +156,7 @@ export class AnnotationController extends Disposable {
 
         if (configuration.changed(e, configuration.name('blame')('file').value) ||
             configuration.changed(e, configuration.name('recentChanges')('file').value) ||
-            configuration.changed(e, configuration.name('annotations')('file').value) ||
-            configuration.changed(e, configuration.name('theme')('annotations')('file').value)) {
+            configuration.changed(e, configuration.name('annotations')('file').value)) {
             if (cfg === undefined) {
                 cfg = configuration.get<IConfig>();
             }

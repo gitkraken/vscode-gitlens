@@ -81,8 +81,7 @@ export class CurrentLineController extends Disposable {
 
         if (initializing ||
             configuration.changed(e, configuration.name('annotations')('line')('trailing').value) ||
-            configuration.changed(e, configuration.name('annotations')('line')('hover').value) ||
-            configuration.changed(e, configuration.name('theme')('annotations')('line')('trailing').value)) {
+            configuration.changed(e, configuration.name('annotations')('line')('hover').value)) {
             changed = true;
         }
 
@@ -366,7 +365,7 @@ export class CurrentLineController extends Disposable {
         line = line === undefined ? blameLine.line : line;
 
         const cfg = this._config.annotations.line.trailing;
-        const decoration = Annotations.trailing(commit, cfg.format, cfg.dateFormat === null ? this._config.defaultDateFormat : cfg.dateFormat, this._config.theme);
+        const decoration = Annotations.trailing(commit, cfg.format, cfg.dateFormat === null ? this._config.defaultDateFormat : cfg.dateFormat);
         decoration.range = editor.document.validateRange(new Range(line, endOfLineIndex, line, endOfLineIndex));
 
         editor.setDecorations(annotationDecoration, [decoration]);

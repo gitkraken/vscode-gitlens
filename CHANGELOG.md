@@ -6,10 +6,22 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 ### Added
+- Adds theming support - vscode themes can now specify GitLens colors as well as directly by using [`workbench.colorCustomization`](https://code.visualstudio.com/docs/getstarted/themes#_customize-a-color-theme))
+  - Adds `gitlens.gutterBackgroundColor` themable color
+  - Adds `gitlens.gutterForegroundColor` themable color
+  - Adds `gitlens.gutterUncommittedForegroundColor` themable color
+  - Adds `gitlens.trailingLineBackgroundColor` themable color
+  - Adds `gitlens.trailingLineForegroundColor` themable color
+  - Adds `gitlens.lineHighlightBackgroundColor` themable color
+  - Adds `gitlens.lineHighlightOverviewRulerColor` themable color
 - Adds `gitlens.advanced.messages` setting to specify which messages should be suppressed
 
 ### Changed
+- Renames `gitlens.theme.annotations.file.gutter.separateLines` setting to `gitlens.annotations.file.gutter.separateLines`
 - Changes from using `globalState` to use `gitlens.advanced.messages` setting for message suppression - provides more control and avoids strange intermittent with `globalState`
+
+### Removed
+- Removes `gitlens.theme.*` settings - now using built-in theme support
 
 ## [6.1.2] - 2017-11-21
 ### Fixed
@@ -478,7 +490,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [4.0.0] - 2017-06-09
 ### Added
-- Adds all-new, beautiful, highly customizable and themeable, file blame annotations
+- Adds all-new, beautiful, highly customizable and themable, file blame annotations
   - Can now fully customize the [layout and content](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#file-blame-annotation-settings), as well as the [theme](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#theme-settings)
 - Adds all-new configurability and themeability to the current line blame annotations
   - Can now fully customize the [layout and content](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#line-blame-annotation-settings), as well as the [theme](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#theme-settings)

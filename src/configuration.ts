@@ -170,92 +170,6 @@ export interface IRemotesUrlsConfig {
     fileRange: string;
 }
 
-export interface IThemeConfig {
-    annotations: {
-        file: {
-            gutter: {
-                separateLines: boolean;
-                dark: {
-                    backgroundColor: string | null;
-                    foregroundColor: string;
-                    uncommittedForegroundColor: string | null;
-                };
-                light: {
-                    backgroundColor: string | null;
-                    foregroundColor: string;
-                    uncommittedForegroundColor: string | null;
-                };
-            };
-        };
-
-        line: {
-            trailing: {
-                dark: {
-                    backgroundColor: string | null;
-                    foregroundColor: string;
-                };
-                light: {
-                    backgroundColor: string | null;
-                    foregroundColor: string;
-                };
-            };
-        };
-    };
-
-    lineHighlight: {
-        dark: {
-            backgroundColor: string;
-            overviewRulerColor: string;
-        };
-        light: {
-            backgroundColor: string;
-            overviewRulerColor: string;
-        };
-    };
-}
-
-export const themeDefaults: IThemeConfig = {
-    annotations: {
-        file: {
-            gutter: {
-                separateLines: true,
-                dark: {
-                    backgroundColor: null,
-                    foregroundColor: 'rgb(190, 190, 190)',
-                    uncommittedForegroundColor: null
-                },
-                light: {
-                    backgroundColor: null,
-                    foregroundColor: 'rgb(116, 116, 116)',
-                    uncommittedForegroundColor: null
-                }
-            }
-        },
-        line: {
-            trailing: {
-                dark: {
-                    backgroundColor: null,
-                    foregroundColor: 'rgba(153, 153, 153, 0.35)'
-                },
-                light: {
-                    backgroundColor: null,
-                    foregroundColor: 'rgba(153, 153, 153, 0.35)'
-                }
-            }
-        }
-    },
-    lineHighlight: {
-        dark: {
-            backgroundColor: 'rgba(0, 188, 242, 0.2)',
-            overviewRulerColor: 'rgba(0, 188, 242, 0.6)'
-        },
-        light: {
-            backgroundColor: 'rgba(0, 188, 242, 0.2)',
-            overviewRulerColor: 'rgba(0, 188, 242, 0.6)'
-        }
-    }
-};
-
 export interface IConfig {
     annotations: {
         file: {
@@ -272,6 +186,7 @@ export interface IConfig {
                     changes: boolean;
                     wholeLine: boolean;
                 };
+                separateLines: boolean;
             };
 
             hover: {
@@ -359,8 +274,6 @@ export interface IConfig {
         };
     };
 
-    theme: IThemeConfig;
-
     debug: boolean;
     insiders: boolean;
     outputLevel: OutputLevel;
@@ -383,7 +296,8 @@ const emptyConfig: IConfig = {
                     details: false,
                     changes: false,
                     wholeLine: false
-                }
+                },
+                separateLines: false
             },
             hover: {
                 details: false,
@@ -487,7 +401,6 @@ const emptyConfig: IConfig = {
             }
         }
     },
-    theme: themeDefaults,
     debug: false,
     insiders: false,
     outputLevel: 'verbose' as OutputLevel,
@@ -563,7 +476,6 @@ export class Configuration {
         this._onDidChange.fire(e);
     }
 
-    readonly defaults = { theme: themeDefaults };
     readonly initializingChangeEvent: ConfigurationChangeEvent = {
         affectsConfiguration: (section: string, resource?: Uri) => false
     };

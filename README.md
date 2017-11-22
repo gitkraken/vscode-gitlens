@@ -33,7 +33,7 @@ While GitLens is highly customizable and provides many [configuration settings](
 
 ### Git Blame Annotations
 
-- Adds an unobtrusive, highly [customizable](#line-blame-annotation-settings) and [themeable](#theme-settings), **Git blame annotation** to the end of the current line ([optional](#line-blame-annotation-settings), on by default)
+- Adds an unobtrusive, highly [customizable](#line-blame-annotation-settings) and [themable](#themable-colors), **Git blame annotation** to the end of the current line ([optional](#line-blame-annotation-settings), on by default)
 
   ![Line Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotation.png)
   ![Line Blame Annotations (hover)](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotations.png)
@@ -52,7 +52,7 @@ While GitLens is highly customizable and provides many [configuration settings](
     - Clicking on `Changes` will run the `Compare File Revisions` command (`gitlens.diffWith`)
     - Clicking the current and previous commit ids will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
 
-- Adds on-demand, beautiful, highly [customizable](#file-blame-annotation-settings) and [themeable](#theme-settings), **Git blame annotations** of the whole file
+- Adds on-demand, beautiful, highly [customizable](#file-blame-annotation-settings) and [themable](#themable-colors), **Git blame annotations** of the whole file
 
   ![File Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-file-blame-annotation.png)
 
@@ -94,7 +94,7 @@ While GitLens is highly customizable and provides many [configuration settings](
 
 ### Git Recent Changes Annotations
 
-- Adds on-demand, [customizable](#file-recent-changes-annotation-settings) and [themeable](#theme-settings), **recent changes annotations** of the whole file
+- Adds on-demand, [customizable](#file-recent-changes-annotation-settings) and [themable](#themable-colors), **recent changes annotations** of the whole file
   - Highlights all of lines changed in the most recent commit
   - Adds a `details` hover annotation to each line, which provides more commit details ([optional](#file-recent-changes-annotation-settings), on by default)
     - Clicking the commit id will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
@@ -321,6 +321,20 @@ While GitLens is highly customizable and provides many [configuration settings](
 
 Add [`"gitlens.insiders": true`](#general-extension-settings) to your settings to join the insiders channel and get early access to upcoming features. Be aware that because this provides early access expect there to be issues.
 
+## Themable Colors
+
+GitLens defines a set of themable colors which can be provided by vscode themes or directly by the user using [`workbench.colorCustomization`](https://code.visualstudio.com/docs/getstarted/themes#_customize-a-color-theme).
+
+|Name | Description
+|-----|------------
+|`gitlens.gutterBackgroundColor`|Specifies the background color of the gutter blame annotations
+|`gitlens.gutterForegroundColor`|Specifies the foreground color of the gutter blame annotations
+|`gitlens.gutterUncommittedForegroundColor`|Specifies the foreground color of an uncommitted line in the gutter blame annotations
+|`gitlens.trailingLineBackgroundColor`|Specifies the background color of the trailing blame annotation
+|`gitlens.trailingLineForegroundColor`|Specifies the foreground color of the trailing blame annotation
+|`gitlens.lineHighlightBackgroundColor`|Specifies the background color of the associated line highlights in blame annotations
+|`gitlens.lineHighlightOverviewRulerColor`|Specifies the overview ruler color of the associated line highlights in blame annotations
+
 ## Extension Settings
 
 GitLens is highly customizable and provides many configuration settings to allow the personalization of almost all features
@@ -354,6 +368,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.annotations.file.gutter.hover.details`|Specifies whether or not to provide a commit details hover annotation over the gutter blame annotations
 |`gitlens.annotations.file.gutter.hover.changes`|Specifies whether or not to provide a changes (diff) hover annotation over the gutter blame annotations
 |`gitlens.annotations.file.gutter.hover.wholeLine`|Specifies whether or not to trigger hover annotations over the whole line
+|`gitlens.annotations.file.gutter.separateLines`|Specifies whether or not gutter blame annotations will have line separators
 |`gitlens.annotations.file.hover.details`|Specifies whether or not to provide a commit details hover annotation over each line
 |`gitlens.annotations.file.hover.changes`|Specifies whether or not to provide a changes (diff) hover annotation over each line
 |`gitlens.annotations.file.hover.heatmap.enabled`|Specifies whether or not to provide heatmap indicators on the left edge of each line
@@ -434,26 +449,6 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.strings.codeLens.unsavedChanges.recentChangeAndAuthors`|Specifies the string to be shown in place of both the `recent change` and `authors` code lens when there are unsaved changes
 |`gitlens.strings.codeLens.unsavedChanges.recentChangeOnly`|Specifies the string to be shown in place of the `recent change` code lens when there are unsaved changes
 |`gitlens.strings.codeLens.unsavedChanges.authorsOnly`|Specifies the string to be shown in place of the `authors` code lens when there are unsaved changes
-
-### Theme Settings
-
-|Name | Description
-|-----|------------
-|`gitlens.theme.annotations.file.gutter.separateLines`|Specifies whether or not gutter blame annotations will have line separators
-|`gitlens.theme.annotations.file.gutter.dark.backgroundColor`|Specifies the dark theme background color of the gutter blame annotations
-|`gitlens.theme.annotations.file.gutter.light.backgroundColor`|Specifies the light theme background color of the gutter blame annotations
-|`gitlens.theme.annotations.file.gutter.dark.foregroundColor`|Specifies the dark theme foreground color of the gutter blame annotations
-|`gitlens.theme.annotations.file.gutter.light.foregroundColor`|Specifies the light theme foreground color of the gutter blame annotations
-|`gitlens.theme.annotations.file.gutter.dark.uncommittedForegroundColor`|Specifies the dark theme foreground color of an uncommitted line in the gutter blame annotations
-|`gitlens.theme.annotations.file.gutter.light.uncommittedForegroundColor`|Specifies the light theme foreground color of an uncommitted line in the gutter blame annotations
-|`gitlens.theme.annotations.line.trailing.dark.backgroundColor`|Specifies the dark theme background color of the trailing blame annotation
-|`gitlens.theme.annotations.line.trailing.light.backgroundColor`|Specifies the light theme background color of the trailing blame annotation
-|`gitlens.theme.annotations.line.trailing.dark.foregroundColor`|Specifies the dark theme foreground color of the trailing blame annotation
-|`gitlens.theme.annotations.line.trailing.light.foregroundColor`|Specifies the light theme foreground color of the trailing blame annotation
-|`gitlens.theme.lineHighlight.dark.backgroundColor`|Specifies the dark theme background color of the associated line highlights in blame annotations. Must be a valid css color
-|`gitlens.theme.lineHighlight.light.backgroundColor`|Specifies the light theme background color of the associated line highlights in blame annotations. Must be a valid css color
-|`gitlens.theme.lineHighlight.dark.overviewRulerColor`|Specifies the dark theme overview ruler color of the associated line highlights in blame annotations
-|`gitlens.theme.lineHighlight.light.overviewRulerColor`|Specifies the light theme overview ruler color of the associated line highlights in blame annotations
 
 ### Advanced Settings
 

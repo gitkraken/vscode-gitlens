@@ -20,7 +20,7 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
             const start = process.hrtime();
 
             const now = Date.now();
-            const renderOptions = Annotations.hoverRenderOptions(this._config.theme, cfg.heatmap);
+            const renderOptions = Annotations.hoverRenderOptions(cfg.heatmap);
 
             this._decorations = [];
             const decorationsMap: { [sha: string]: DecorationOptions } = Object.create(null);
