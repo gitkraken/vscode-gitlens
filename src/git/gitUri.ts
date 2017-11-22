@@ -29,7 +29,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
             const data = GitService.fromGitContentUri(uri);
             super(uri.scheme, uri.authority, path.resolve(data.repoPath, data.originalFileName || data.fileName), uri.query, uri.fragment);
 
-            if (!GitService.isUncommitted(data.sha)) {
+            if (GitService.isStagedUncommitted(data.sha) || !GitService.isUncommitted(data.sha)) {
                 this.sha = data.sha;
                 this.repoPath = data.repoPath;
             }
@@ -58,7 +58,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
             this.repoPath = commit.repoPath;
         }
 
-        if (commit.sha !== undefined && !GitService.isUncommitted(commit.sha)) {
+        if (commit.sha !== undefined && (GitService.isStagedUncommitted(commit.sha) || !GitService.isUncommitted(commit.sha))) {
             this.sha = commit.sha;
         }
     }

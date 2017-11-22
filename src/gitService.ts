@@ -82,7 +82,8 @@ export class GitService extends Disposable {
 
     static emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
     static deletedSha = 'ffffffffffffffffffffffffffffffffffffffff';
-    static uncommittedSha = '0000000000000000000000000000000000000000';
+    static stagedUncommittedSha = Git.stagedUncommittedSha;
+    static uncommittedSha = Git.uncommittedSha;
 
     config: IConfig;
 
@@ -1165,14 +1166,16 @@ export class GitService extends Disposable {
         return status;
     }
 
-    async getVersionedFile(repoPath: string | undefined, fileName: string, sha: string) {
+    async getVersionedFile(repoPath: string | undefined, fileName: string, sha?: string) {
         Logger.log(`getVersionedFile('${repoPath}', '${fileName}', '${sha}')`);
+
+        if (!sha || (Git.isUncommitted(sha) && !Git.isStagedUncommitted(sha))) return fileName;
 
         const file = await Git.getVersionedFile(repoPath, fileName, sha);
         if (file === undefined) return undefined;
 
         const cacheKey = this.getCacheEntryKey(file);
-        const entry = new UriCacheEntry(new GitUri(Uri.file(fileName), { sha, repoPath: repoPath!, fileName }));
+        const entry = new UriCacheEntry(new GitUri(Uri.file(fileName), { sha: sha, repoPath: repoPath!, fileName }));
         this._versionedUriCache.set(cacheKey, entry);
         return file;
     }
@@ -1192,13 +1195,6 @@ export class GitService extends Disposable {
 
     isEditorBlameable(editor: TextEditor): boolean {
         return (editor.viewColumn !== undefined || this.isTrackable(editor.document.uri) || this.hasGitUriForFile(editor));
-    }
-
-    async isFileUncommitted(uri: GitUri): Promise<boolean> {
-        Logger.log(`isFileUncommitted('${uri.repoPath}', '${uri.fsPath}')`);
-
-        const status = await this.getStatusForFile(uri.repoPath!, uri.fsPath);
-        return !!status;
     }
 
     isTrackable(scheme: string): boolean;
@@ -1342,6 +1338,10 @@ export class GitService extends Disposable {
 
     static isSha(sha: string): boolean {
         return Git.isSha(sha);
+    }
+
+    static isStagedUncommitted(sha: string): boolean {
+        return Git.isStagedUncommitted(sha);
     }
 
     static isUncommitted(sha: string): boolean {

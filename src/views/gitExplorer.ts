@@ -6,7 +6,7 @@ import { configuration, IGitExplorerConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { ExplorerCommands } from './explorerCommands';
 import { BranchHistoryNode, ExplorerNode, HistoryNode, MessageNode, RepositoriesNode, RepositoryNode } from './explorerNodes';
-import { GitChangeEvent, GitChangeReason, GitService, GitUri } from '../gitService';
+import { GitChangeEvent, GitChangeReason, GitContextTracker, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 
 export * from './explorerNodes';
@@ -54,7 +54,8 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
     constructor(
         public readonly context: ExtensionContext,
-        public readonly git: GitService
+        public readonly git: GitService,
+        public readonly gitContextTracker: GitContextTracker
     ) {
         context.subscriptions.push(
             new ExplorerCommands(this),

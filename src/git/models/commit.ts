@@ -33,7 +33,10 @@ export class GitCommit {
     previousSha?: string;
     previousFileName?: string;
     workingFileName?: string;
+
+    private _isStagedUncommitted: boolean | undefined;
     private _isUncommitted: boolean | undefined;
+    private _shortSha: string | undefined;
 
     constructor(
         type: GitCommitType,
@@ -56,7 +59,17 @@ export class GitCommit {
     }
 
     get shortSha() {
-        return Git.shortenSha(this.sha);
+        if (this._shortSha === undefined) {
+            this._shortSha = Git.shortenSha(this.sha);
+        }
+        return this._shortSha;
+    }
+
+    get isStagedUncommitted(): boolean {
+        if (this._isStagedUncommitted === undefined) {
+            this._isStagedUncommitted = Git.isStagedUncommitted(this.sha);
+        }
+        return this._isStagedUncommitted;
     }
 
     get isUncommitted(): boolean {

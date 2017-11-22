@@ -94,13 +94,25 @@ export class Annotations {
         return markdown;
     }
 
-    static getHoverDiffMessage(commit: GitCommit, chunkLine: GitDiffChunkLine | undefined): MarkdownString | undefined {
+    static getHoverDiffMessage(commit: GitCommit, uri: GitUri, chunkLine: GitDiffChunkLine | undefined): MarkdownString | undefined {
         if (chunkLine === undefined || commit.previousSha === undefined) return undefined;
 
         const codeDiff = this.getCodeDiff(chunkLine);
-        const markdown = new MarkdownString(commit.isUncommitted
-            ? `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; _uncommitted_\n${codeDiff}`
-            : `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; [\`${commit.previousShortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.previousSha!)} "Show Commit Details") ${GlyphChars.ArrowLeftRight} [\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show Commit Details")\n${codeDiff}`);
+
+        let message: string;
+        if (commit.isUncommitted) {
+            if (uri.sha !== undefined && GitService.isStagedUncommitted(uri.sha)) {
+                message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; [\`${commit.previousShortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.previousSha!)} "Show Commit Details") ${GlyphChars.ArrowLeftRight} _${uri.shortSha}_\n${codeDiff}`;
+            }
+            else {
+                message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; _uncommitted_\n${codeDiff}`;
+            }
+        }
+        else {
+            message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; [\`${commit.previousShortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.previousSha!)} "Show Commit Details") ${GlyphChars.ArrowLeftRight} [\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show Commit Details")\n${codeDiff}`;
+        }
+
+        const markdown = new MarkdownString(message);
         markdown.isTrusted = true;
         return markdown;
     }
@@ -114,8 +126,11 @@ export class Annotations {
     }
 
     static async changesHover(commit: GitCommit, line: number, uri: GitUri, git: GitService): Promise<DecorationOptions> {
-        const chunkLine = await git.getDiffForLine(uri, line, commit.isUncommitted ? undefined : commit.previousSha);
-        const message = this.getHoverDiffMessage(commit, chunkLine);
+        const sha = !commit.isUncommitted || (uri.sha !== undefined && GitService.isStagedUncommitted(uri.sha))
+            ? commit.previousSha
+            : undefined;
+        const chunkLine = await git.getDiffForLine(uri, line, sha);
+        const message = this.getHoverDiffMessage(commit, uri, chunkLine);
 
         return {
             hoverMessage: message

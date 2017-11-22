@@ -55,7 +55,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
                 let message: MarkdownString | undefined = undefined;
                 if (cfg.hover.changes) {
-                    message = Annotations.getHoverDiffMessage(commit, line);
+                    message = Annotations.getHoverDiffMessage(commit, this.uri, line);
                 }
 
                 this._decorations.push({

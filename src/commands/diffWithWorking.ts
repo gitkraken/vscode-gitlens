@@ -25,15 +25,40 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
 
+        const gitUri = await GitUri.fromUri(uri, this.git);
+
         args = { ...args };
         if (args.line === undefined) {
             args.line = editor === undefined ? 0 : editor.selection.active.line;
         }
 
         if (args.commit === undefined || GitService.isUncommitted(args.commit.sha)) {
-            const gitUri = await GitUri.fromUri(uri, this.git);
             // If the sha is missing, just let the user know the file matches
             if (gitUri.sha === undefined) return window.showInformationMessage(`File matches the working tree`);
+
+            // If we are a fake "staged" sha, check the status
+            if (GitService.isStagedUncommitted(gitUri.sha!)) {
+                gitUri.sha = undefined;
+
+                const status = await this.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
+                if (status !== undefined && status.indexStatus !== undefined) {
+                    const diffArgs: DiffWithCommandArgs = {
+                        repoPath: gitUri.repoPath,
+                        lhs: {
+                            sha: GitService.stagedUncommittedSha,
+                            uri: gitUri.fileUri()
+                        },
+                        rhs: {
+                            sha: '',
+                            uri: gitUri.fileUri()
+                        },
+                        line: args.line,
+                        showOptions: args.showOptions
+                    };
+
+                    return commands.executeCommand(Commands.DiffWith, diffArgs);
+                }
+            }
 
             try {
                 args.commit = await this.git.getLogCommit(gitUri.repoPath, gitUri.fsPath, gitUri.sha, { firstIfMissing: true });
@@ -44,8 +69,6 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
                 return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
             }
         }
-
-        const gitUri = await GitUri.fromUri(uri, this.git);
 
         const workingFileName = await this.git.findWorkingFileName(gitUri.repoPath, gitUri.fsPath);
         if (workingFileName === undefined) return undefined;

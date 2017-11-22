@@ -91,12 +91,8 @@ export class DiffWithCommand extends ActiveEditorCommand {
 
         try {
             const [lhs, rhs] = await Promise.all([
-                args.lhs.sha !== '' && !GitService.isUncommitted(args.lhs.sha)
-                    ? this.git.getVersionedFile(args.repoPath, args.lhs.uri.fsPath, args.lhs.sha)
-                    : args.lhs.uri.fsPath,
-                args.rhs.sha !== '' && !GitService.isUncommitted(args.rhs.sha)
-                    ? this.git.getVersionedFile(args.repoPath, args.rhs.uri.fsPath, args.rhs.sha)
-                    : args.rhs.uri.fsPath
+                this.git.getVersionedFile(args.repoPath, args.lhs.uri.fsPath, args.lhs.sha),
+                this.git.getVersionedFile(args.repoPath, args.rhs.uri.fsPath, args.rhs.sha)
             ]);
 
             if (args.line !== undefined && args.line !== 0) {
@@ -115,14 +111,12 @@ export class DiffWithCommand extends ActiveEditorCommand {
             }
 
             if (args.lhs.title === undefined && lhs !== undefined && args.lhs.sha !== GitService.deletedSha) {
-                args.lhs.title = (args.lhs.sha === '' || GitService.isUncommitted(args.lhs.sha))
-                    ? `${path.basename(args.lhs.uri.fsPath)}`
-                    : `${path.basename(args.lhs.uri.fsPath)} (${GitService.shortenSha(args.lhs.sha)})`;
+                const suffix = GitService.shortenSha(args.lhs.sha) || '';
+                args.lhs.title = `${path.basename(args.lhs.uri.fsPath)}${suffix !== '' ? ` (${suffix})` : ''}`;
             }
             if (args.rhs.title === undefined && args.rhs.sha !== GitService.deletedSha) {
-                args.rhs.title = (args.rhs.sha === '' || GitService.isUncommitted(args.rhs.sha))
-                    ? `${path.basename(args.rhs.uri.fsPath)}`
-                    : `${path.basename(args.rhs.uri.fsPath)} (${rhsPrefix}${GitService.shortenSha(args.rhs.sha)})`;
+                const suffix = GitService.shortenSha(args.rhs.sha) || '';
+                args.rhs.title = `${path.basename(args.rhs.uri.fsPath)}${suffix !== '' ? ` (${rhsPrefix}${suffix})` : ''}`;
             }
 
             const title = (args.lhs.title !== undefined && args.rhs.title !== undefined)

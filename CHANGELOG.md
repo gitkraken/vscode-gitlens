@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Added
+- Adds support for staged changes in the `GitLens` view, blame annotations, comparison commands, etc
+
 ## [6.2.0] - 2017-11-27
 ### Added
 - Adds theming support - vscode themes can now specify GitLens colors as well as directly by using [`workbench.colorCustomization`](https://code.visualstudio.com/docs/getstarted/themes#_customize-a-color-theme))
@@ -262,8 +266,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes `gitlens.annotations.file.recentChanges.hover.wholeLine` setting as it didn't really make sense
 
 ### Fixed
-- Fixes an issue where stashes with only untracked files would not show in the `Stashes` node of the GitLens view
-- Fixes an issue where stashes with untracked files would not show its untracked files in the GitLens view
+- Fixes an issue where stashes with only untracked files would not show in the `Stashes` node of the `GitLens` view
+- Fixes an issue where stashes with untracked files would not show its untracked files in the `GitLens` view
 
 ## [5.0.0] - 2017-09-12
 ### Added

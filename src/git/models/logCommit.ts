@@ -96,14 +96,14 @@ export class GitLogCommit extends GitCommit {
         });
     }
 
-    with(changes: { type?: GitCommitType, sha?: string, fileName?: string, originalFileName?: string | null, previousFileName?: string | null, previousSha?: string | null, status?: GitStatusFileStatus, fileStatuses?: IGitStatusFile[] | null }): GitLogCommit {
+    with(changes: { type?: GitCommitType, sha?: string | null, fileName?: string, author?: string, date?: Date, message?: string, originalFileName?: string | null, previousFileName?: string | null, previousSha?: string | null, status?: GitStatusFileStatus, fileStatuses?: IGitStatusFile[] | null }): GitLogCommit {
         return new GitLogCommit(changes.type || this.type,
             this.repoPath,
-            changes.sha || this.sha,
+            this.getChangedValue(changes.sha, this.sha)!,
             changes.fileName || this.fileName,
-            this.author,
-            this.date,
-            this.message,
+            changes.author || this.author,
+            changes.date || this.date,
+            changes.message || this.message,
             changes.status || this.status,
             this.getChangedValue(changes.fileStatuses, this.fileStatuses),
             this.getChangedValue(changes.originalFileName, this.originalFileName),

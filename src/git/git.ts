@@ -3,11 +3,12 @@ import { Strings } from '../system';
 import { SpawnOptions } from 'child_process';
 import { findGitPath, IGit } from './gitLocator';
 import { Logger } from '../logger';
+import { Observable } from 'rxjs';
 import { spawnPromise } from 'spawn-rx';
 import * as fs from 'fs';
+import * as iconv from 'iconv-lite';
 import * as path from 'path';
 import * as tmp from 'tmp';
-import * as iconv from 'iconv-lite';
 
 export { IGit };
 export * from './models/models';
@@ -40,6 +41,7 @@ interface GitCommandOptions {
     cwd: string;
     env?: any;
     encoding?: string;
+    stdin?: Observable<string> | undefined;
     willHandleErrors?: boolean;
 }
 
@@ -75,7 +77,8 @@ async function gitCommandCore(options: GitCommandOptions, ...args: any[]): Promi
             // Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
             // Shouldn't *really* be needed but better safe than sorry
             env: { ...(options.env || process.env), GCM_INTERACTIVE: 'NEVER', GCM_PRESERVE_CREDS: 'TRUE' },
-            encoding: (opts.encoding === 'utf8') ? 'utf8' : 'binary'
+            encoding: (opts.encoding === 'utf8') ? 'utf8' : 'binary',
+            stdin: opts.stdin
         } as SpawnOptions);
 
         pendingCommands.set(command, promise);
@@ -116,7 +119,10 @@ function gitCommandDefaultErrorHandler(ex: Error, options: GitCommandOptions, ..
 export class Git {
 
     static shaRegex = /^[0-9a-f]{40}(\^[0-9]*?)??( -)?$/;
-    static uncommittedRegex = /^[0]{40}(\^[0-9]*?)??$/;
+    static stagedUncommittedRegex = /^[0]{40}(\^[0-9]*?)??:$/;
+    static stagedUncommittedSha = '0000000000000000000000000000000000000000:';
+    static uncommittedRegex = /^[0]{40}(\^[0-9]*?)??:??$/;
+    static uncommittedSha = '0000000000000000000000000000000000000000';
 
     static gitInfo(): IGit {
         return git;
@@ -137,6 +143,10 @@ export class Git {
     static async getVersionedFile(repoPath: string | undefined, fileName: string, branchOrSha: string) {
         const data = await Git.show(repoPath, fileName, branchOrSha, { encoding: 'binary' });
         if (data === undefined) return undefined;
+
+        if (Git.isStagedUncommitted(branchOrSha)) {
+            branchOrSha = '';
+        }
 
         const suffix = Strings.truncate(Strings.sanitizeForFileSystem(Git.isSha(branchOrSha) ? Git.shortenSha(branchOrSha) : branchOrSha), 50, '');
         const ext = path.extname(fileName);
@@ -165,6 +175,10 @@ export class Git {
         return Git.shaRegex.test(sha);
     }
 
+    static isStagedUncommitted(sha: string): boolean {
+        return Git.stagedUncommittedRegex.test(sha);
+    }
+
     static isUncommitted(sha: string) {
         return Git.uncommittedRegex.test(sha);
     }
@@ -174,6 +188,9 @@ export class Git {
     }
 
     static shortenSha(sha: string) {
+        if (Git.isStagedUncommitted(sha)) return 'index';
+        if (Git.isUncommitted(sha)) return '';
+
         const index = sha.indexOf('^');
         // This is lame, but assume there is only 1 character after the ^
         if (index > 6) return `${sha.substring(0, 6)}${sha.substring(index)}`;
@@ -205,7 +222,7 @@ export class Git {
 
     // Git commands
 
-    static blame(repoPath: string | undefined, fileName: string, sha?: string, options: { ignoreWhitespace?: boolean, startLine?: number, endLine?: number } = {}) {
+    static async blame(repoPath: string | undefined, fileName: string, sha?: string, options: { ignoreWhitespace?: boolean, startLine?: number, endLine?: number } = {}) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const params = [...defaultBlameParams];
@@ -216,11 +233,23 @@ export class Git {
         if (options.startLine != null && options.endLine != null) {
             params.push(`-L ${options.startLine},${options.endLine}`);
         }
+
+        let stdin: Observable<string> | undefined;
         if (sha) {
-            params.push(sha);
+            if (Git.isStagedUncommitted(sha)) {
+                // Pipe the blame contents to stdin
+                params.push(`--contents`);
+                params.push('-');
+
+                // Get the file contents for the staged version using `:`
+                stdin = Observable.from<string>(Git.show(repoPath, fileName, ':') as any);
+            }
+            else {
+                params.push(sha);
+            }
         }
 
-        return gitCommand({ cwd: root }, ...params, `--`, file);
+        return gitCommand({ cwd: root, stdin: stdin }, ...params, `--`, file);
     }
 
     static branch(repoPath: string, options: { all: boolean } = { all: false }) {
@@ -251,10 +280,10 @@ export class Git {
     static diff(repoPath: string, fileName: string, sha1?: string, sha2?: string, options: { encoding?: string } = {}) {
         const params = [`diff`, `--diff-filter=M`, `-M`, `--no-ext-diff`];
         if (sha1) {
-            params.push(sha1);
+            params.push(Git.isStagedUncommitted(sha1) ? '--staged' : sha1);
         }
         if (sha2) {
-            params.push(sha2);
+            params.push(Git.isStagedUncommitted(sha2) ? '--staged' : sha2);
         }
 
         return gitCommand({ cwd: repoPath, encoding: options.encoding || 'utf8' }, ...params, '--', fileName);
@@ -308,7 +337,7 @@ export class Git {
         if (maxCount && !reverse) {
             params.push(`-n${maxCount}`);
         }
-        if (sha) {
+        if (sha && !Git.isStagedUncommitted(sha)) {
             if (reverse) {
                 params.push(`--reverse`);
                 params.push(`--ancestry-path`);
@@ -337,7 +366,7 @@ export class Git {
             params.push(`-m`);
         }
 
-        if (sha) {
+        if (sha && !Git.isStagedUncommitted(sha)) {
             if (options.reverse) {
                 params.push(`--reverse`);
                 params.push(`--ancestry-path`);
@@ -369,7 +398,7 @@ export class Git {
 
     static log_shortstat(repoPath: string, sha?: string) {
         const params = [`log`, `--shortstat`, `--oneline`];
-        if (sha) {
+        if (sha && !Git.isStagedUncommitted(sha)) {
             params.push(sha);
         }
         return gitCommand({ cwd: repoPath }, ...params);
@@ -377,7 +406,7 @@ export class Git {
 
     static async ls_files(repoPath: string, fileName: string, sha?: string): Promise<string> {
         const params = [`ls-files`];
-        if (sha) {
+        if (sha && !Git.isStagedUncommitted(sha)) {
             params.push(`--with-tree=${sha}`);
         }
 
@@ -429,10 +458,17 @@ export class Git {
 
     static async show(repoPath: string | undefined, fileName: string, branchOrSha: string, options: { encoding?: string } = {}) {
         const [file, root] = Git.splitPath(fileName, repoPath);
+
+        if (Git.isStagedUncommitted(branchOrSha)) {
+            branchOrSha = ':';
+        }
         if (Git.isUncommitted(branchOrSha)) throw new Error(`sha=${branchOrSha} is uncommitted`);
 
         const opts = { cwd: root, encoding: options.encoding || 'utf8', willHandleErrors: true } as GitCommandOptions;
-        const args = `${branchOrSha}:./${file}`;
+        const args = branchOrSha.endsWith(':')
+            ? `${branchOrSha}./${file}`
+            : `${branchOrSha}:./${file}`;
+
         try {
             const data = await gitCommand(opts, 'show', args);
             return data;

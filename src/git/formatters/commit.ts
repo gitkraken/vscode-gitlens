@@ -39,7 +39,8 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
     }
 
     get id() {
-        return this._item.isUncommitted ? 'index' : this._item.shortSha;
+        if (this._item.isUncommitted && !this._item.isStagedUncommitted) return '00000000';
+        return this._item.shortSha;
     }
 
     get message() {
