@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes `gitlens.theme.*` settings - now using built-in theme support
 
 ### Fixed
+- Fixes [#211](https://github.com/eamodio/vscode-gitlens/issues/211) - Unsaved code lens appears on untracked files
 - Fixes issue where `Open * in Remote` commands are sometimes missing
 
 ## [6.1.2] - 2017-11-21

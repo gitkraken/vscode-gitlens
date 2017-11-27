@@ -67,6 +67,8 @@ export class GitCodeLensProvider implements CodeLensProvider {
     }
 
     async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
+        if (!await this.git.isTracked(document.uri.fsPath)) return [];
+
         const dirty = document.isDirty;
 
         const cfg = configuration.get<ICodeLensConfig>(configuration.name('codeLens').value, document.uri);
