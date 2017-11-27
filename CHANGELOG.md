@@ -19,6 +19,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 - Renames `gitlens.theme.annotations.file.gutter.separateLines` setting to `gitlens.annotations.file.gutter.separateLines`
 - Changes from using `globalState` to use `gitlens.advanced.messages` setting for message suppression - provides more control and avoids strange intermittent with `globalState`
+- Changes `gitlens.strings.codeLens.unsavedChanges.recentChangeAndAuthors` setting default to `Unsaved changes (cannot determine recent change or authors)`
+- Changes `gitlens.strings.codeLens.unsavedChanges.recentChangeOnly` setting default to `Unsaved changes (cannot determine recent change)`
+- Changes `gitlens.strings.codeLens.unsavedChanges.authorsOnly` setting default to `Unsaved changes (cannot determine authors)`
 
 ### Removed
 - Removes `gitlens.theme.*` settings - now using built-in theme support

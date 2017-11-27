@@ -691,19 +691,19 @@
                 },
                 "gitlens.strings.codeLens.unsavedChanges.recentChangeAndAuthors": {
                     "type": "string",
-                    "default": "Cannot determine recent change or authors (unsaved changes)",
+                    "default": "Unsaved changes (cannot determine recent change or authors)",
                     "description": "Specifies the string to be shown in place of both the `recent change` and `authors` code lens when there are unsaved changes",
                     "scope": "window"
                 },
                 "gitlens.strings.codeLens.unsavedChanges.recentChangeOnly": {
                     "type": "string",
-                    "default": "Cannot determine recent change (unsaved changes)",
+                    "default": "Unsaved changes (cannot determine recent change)",
                     "description": "Specifies the string to be shown in place of the `recent change` code lens when there are unsaved changes",
                     "scope": "window"
                 },
                 "gitlens.strings.codeLens.unsavedChanges.authorsOnly": {
                     "type": "string",
-                    "default": "Cannot determine authors (unsaved changes)",
+                    "default": "Unsaved changes (cannot determine authors)",
                     "description": "Specifies the string to be shown in place of the `authors` code lens when there are unsaved changes",
                     "scope": "window"
                 },
