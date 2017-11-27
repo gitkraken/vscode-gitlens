@@ -1114,8 +1114,10 @@ export class GitService extends Disposable {
         }
         else {
             if (repoPathOrUri instanceof GitUri) {
-                const repo = repositoryTree.get(repoPathOrUri.repoPath!);
-                if (repo !== undefined) return repo;
+                if (repoPathOrUri.repoPath) {
+                    const repo = repositoryTree.get(repoPathOrUri.repoPath);
+                    if (repo !== undefined) return repo;
+                }
 
                 path = repoPathOrUri.fsPath;
             }
