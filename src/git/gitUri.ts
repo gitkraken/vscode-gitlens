@@ -101,10 +101,19 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
         if (uri.scheme === DocumentSchemes.GitLensGit) return new GitUri(uri);
 
-        // If this is a git uri, assume it is showing the most recent commit
+        // If this is a git uri, find its repoPath
         if (uri.scheme === DocumentSchemes.Git) {
-            const commit = await git.getLogCommit(undefined, uri.fsPath);
-            if (commit !== undefined) return new GitUri(uri, commit);
+            const data: { path: string, ref: string } = JSON.parse(uri.query);
+
+            const repoPath = await git.getRepoPath(data.path);
+
+            return new GitUri(uri, {
+                fileName: data.path,
+                repoPath: repoPath,
+                sha: data.ref === '' || data.ref == null
+                    ? undefined
+                    : data.ref
+            } as IGitCommitInfo);
         }
 
         const gitUri = git.getGitUriForVersionedFile(uri);

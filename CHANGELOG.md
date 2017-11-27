@@ -4,9 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Added
+- Adds support for vscode's Git file revisions (e.g. `Open File (HEAD)`) and diffs (e.g. `Open Changes`)
+  - Adds new entry in the `History View` of the `GitLens` view
+  - Adds blame annotations, navigation & comparison commands, etc
+
 ## [6.3.0-beta] - 2017-11-27
 ### Added
-- Adds support for staged changes in the `GitLens` view, blame annotations, comparison commands, etc
+- Adds support for files with staged changes
+  - Adds new entry in the `History View` of the `GitLens` view
+  - Adds blame annotations, navigation & comparison commands, etc
 
 ## [6.2.0] - 2017-11-27
 ### Added
