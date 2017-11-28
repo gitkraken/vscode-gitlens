@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [6.3.0-beta2] - 2017-11-28
+## [6.3.0-beta3] - 2017-11-28
 ### Added
 - Adds support for files with staged changes
   - Adds new entry in the `History View` of the `GitLens` view
@@ -16,7 +16,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds Git code lens to Git file revisions (GitLens or vscode's)
 
 ### Fixed
-- Fixes ?? [#202](https://github.com/eamodio/vscode-gitlens/issues/202) - Staged change's vscode diff side-by-side view shows the wrong history
+- Fixes 🤞 [#202](https://github.com/eamodio/vscode-gitlens/issues/202) - Staged change's vscode diff side-by-side view shows the wrong history
+- Fixes 🤞 [#216](https://github.com/eamodio/vscode-gitlens/issues/216) - PowerShell session not started if GitLen is enabled
+- Fixes [#217](https://github.com/eamodio/vscode-gitlens/issues/217) - empty editor has git lens in status bar with old information
+- Fixes [#218](https://github.com/eamodio/vscode-gitlens/issues/218) - Cannot read property 'replace' of undefined
 
 ## [6.2.0] - 2017-11-27
 ### Added
