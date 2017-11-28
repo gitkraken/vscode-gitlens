@@ -254,7 +254,7 @@ export class CurrentLineController extends Disposable {
     async refresh(editor?: TextEditor) {
         this._currentLine.line = -1;
 
-        if (editor === undefined && this._editor !== undefined) return;
+        if (editor === undefined && this._editor === undefined) return;
 
         this.clearAnnotations(this._editor);
 
