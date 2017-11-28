@@ -1041,8 +1041,14 @@ export class GitService extends Disposable {
 
         providerMap = providerMap || RemoteProviderFactory.createMap(configuration.get<IRemotesConfig[] | null | undefined>(configuration.name('remotes').value, null));
 
-        const data = await Git.remote(repoPath);
-        return GitRemoteParser.parse(data, repoPath, RemoteProviderFactory.factory(providerMap));
+        try {
+            const data = await Git.remote(repoPath);
+            return GitRemoteParser.parse(data, repoPath, RemoteProviderFactory.factory(providerMap));
+        }
+        catch (ex) {
+            Logger.error(ex, 'GitService.getRemotesCore');
+            return [];
+        }
     }
 
     async getRepoPath(filePath: string): Promise<string | undefined>;
@@ -1081,8 +1087,14 @@ export class GitService extends Disposable {
         return rp;
     }
 
-    private getRepoPathCore(filePath: string, isDirectory: boolean): Promise<string | undefined> {
-        return Git.revparse_toplevel(isDirectory ? filePath : path.dirname(filePath));
+    private async getRepoPathCore(filePath: string, isDirectory: boolean): Promise<string | undefined> {
+        try {
+            return await Git.revparse_toplevel(isDirectory ? filePath : path.dirname(filePath));
+        }
+        catch (ex) {
+            Logger.error(ex, 'GitService.getRepoPathCore');
+            return undefined;
+        }
     }
 
     async getRepositories(): Promise<Iterable<Repository>> {
@@ -1250,12 +1262,18 @@ export class GitService extends Disposable {
     }
 
     private async isTrackedCore(repoPath: string, fileName: string, sha?: string) {
-        // Even if we have a sha, check first to see if the file exists (that way the cache will be better reused)
-        let tracked = !!await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName);
-        if (!tracked && sha !== undefined) {
-            tracked = !!await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName, sha);
+        try {
+            // Even if we have a sha, check first to see if the file exists (that way the cache will be better reused)
+            let tracked = !!await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName);
+            if (!tracked && sha !== undefined) {
+                tracked = !!await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName, sha);
+            }
+            return tracked;
         }
-        return tracked;
+        catch (ex) {
+            Logger.error(ex, 'GitService.isTrackedCore');
+            return false;
+        }
     }
 
     async getDiffTool(repoPath?: string) {
