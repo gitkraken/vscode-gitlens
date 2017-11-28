@@ -3,7 +3,7 @@ import { Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitNode } from './commitNode';
 import { GlyphChars } from '../constants';
-import { ExplorerNode, ResourceType, ShowAllNode } from './explorerNode';
+import { ExplorerNode, MessageNode, ResourceType, ShowAllNode } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
 import { GitBranch, GitUri } from '../gitService';
 
@@ -21,7 +21,7 @@ export class BranchHistoryNode extends ExplorerNode {
 
         async getChildren(): Promise<ExplorerNode[]> {
             const log = await this.explorer.git.getLogForRepo(this.uri.repoPath!, this.branch.name, this.maxCount);
-            if (log === undefined) return [];
+            if (log === undefined) return [new MessageNode('No commits yet')];
 
             const children: (CommitNode | ShowAllNode)[] = [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer, this.branch))];
             if (log.truncated) {
