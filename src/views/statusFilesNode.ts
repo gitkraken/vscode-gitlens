@@ -43,13 +43,42 @@ export class StatusFilesNode extends ExplorerNode {
         }
 
         if (this.status.files.length !== 0 && this.includeWorkingTree) {
-            statuses.splice(0, 0, ...this.status.files.map(s => {
-                return {
-                    ...s,
-                    commit: new GitLogCommit(GitCommitType.File, repoPath, GitService.uncommittedSha, s.fileName, 'You', new Date(), '', s.status, [s], s.originalFileName, 'HEAD', s.fileName)
-                } as IGitStatusFileWithCommit;
+            statuses.splice(0, 0, ...Iterables.flatMap(this.status.files, s => {
+                if (s.workTreeStatus !== undefined && s.indexStatus !== undefined) {
+                    // Decrements the date to guarantee this entry will be sorted after the previous entry (most recent first)
+                    const older = new Date();
+                    older.setMilliseconds(older.getMilliseconds() - 1);
+
+                    return [
+                        {
+                            ...s,
+                            commit: new GitLogCommit(GitCommitType.File, repoPath, GitService.uncommittedSha, s.fileName, 'You', new Date(), '', s.status, [s], s.originalFileName, GitService.stagedUncommittedSha, s.fileName)
+                        } as IGitStatusFileWithCommit,
+                        {
+                            ...s,
+                            commit: new GitLogCommit(GitCommitType.File, repoPath, GitService.stagedUncommittedSha, s.fileName, 'You', older, '', s.status, [s], s.originalFileName, 'HEAD', s.fileName)
+                        } as IGitStatusFileWithCommit
+                    ];
+                }
+                else if (s.indexStatus !== undefined) {
+                    return [
+                        {
+                            ...s,
+                            commit: new GitLogCommit(GitCommitType.File, repoPath, GitService.stagedUncommittedSha, s.fileName, 'You', new Date(), '', s.status, [s], s.originalFileName, 'HEAD', s.fileName)
+                        } as IGitStatusFileWithCommit
+                    ];
+                }
+                else {
+                    return [
+                        {
+                            ...s,
+                            commit: new GitLogCommit(GitCommitType.File, repoPath, GitService.uncommittedSha, s.fileName, 'You', new Date(), '', s.status, [s], s.originalFileName, 'HEAD', s.fileName)
+                        } as IGitStatusFileWithCommit
+                    ];
+                }
             }));
         }
+
         statuses.sort((a, b) => b.commit.date.getTime() - a.commit.date.getTime());
 
         const groups = Arrays.groupBy(statuses, s => s.fileName);

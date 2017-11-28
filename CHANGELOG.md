@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds support for vscode's Git file revisions (e.g. `Open File (HEAD)`) and diffs (e.g. `Open Changes`)
   - Adds new entry in the `History View` of the `GitLens` view
   - Adds blame annotations, navigation & comparison commands, etc
+- Adds support for files with staged changes
+  - Adds new entry in the `Repository View` of the `GitLens` view
 
 ## [6.3.0-beta] - 2017-11-27
 ### Added
