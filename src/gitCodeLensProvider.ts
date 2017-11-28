@@ -53,7 +53,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         return this._onDidChangeCodeLenses.event;
     }
 
-    static selector: DocumentSelector = { scheme: DocumentSchemes.File };
+    static selector: DocumentSelector = [{ scheme: DocumentSchemes.File }, { scheme: DocumentSchemes.Git }, { scheme: DocumentSchemes.GitLensGit }];
 
     private _debug: boolean;
 
