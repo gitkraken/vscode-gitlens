@@ -26,7 +26,7 @@ export class GitBranch {
 
         this.current = current;
         this.name = branch;
-        this.tracking = tracking;
+        this.tracking = tracking === '' || tracking == null ? undefined : tracking;
         this.state = {
             ahead: ahead,
             behind: behind
