@@ -692,6 +692,12 @@ export class GitService extends Disposable {
         Logger.log(`getBranches('${repoPath}')`);
 
         const data = await Git.branch(repoPath, { all: true });
+        // If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
+        if (data === '') {
+            const current = await this.getBranch(repoPath);
+            return current !== undefined ? [current] : [];
+        }
+
         return GitBranchParser.parse(data, repoPath) || [];
     }
 

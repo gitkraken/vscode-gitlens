@@ -34,7 +34,8 @@ const GitWarnings = [
     /does not have any commits/,
     /Path \'.*?\' does not exist in/,
     /Path \'.*?\' exists on disk, but not in/,
-    /no upstream configured for branch/
+    /no upstream configured for branch/,
+    /ambiguous argument '.*?': unknown revision or path not in the working tree/
 ];
 
 interface GitCommandOptions {
@@ -436,10 +437,19 @@ export class Git {
             return data;
         }
         catch (ex) {
-            if (/HEAD does not point to a branch/.test(ex && ex.toString())) return undefined;
+            const msg = ex && ex.toString();
+            if (/HEAD does not point to a branch/.test(msg)) return undefined;
+            if (/no upstream configured for branch/.test(msg)) return ex.message.split('\n')[0];
 
-            if (/no upstream configured for branch/.test(ex && ex.toString())) {
-                return ex.message.split('\n')[0];
+            if (/ambiguous argument '.*?': unknown revision or path not in the working tree/.test(msg)) {
+                try {
+                    const params = [`symbolic-ref`, `-q`, `--short`, `HEAD`];
+                    const data = await gitCommand(opts, ...params);
+                    return data;
+                }
+                catch {
+                    return undefined;
+                }
             }
 
             return gitCommandDefaultErrorHandler(ex, opts, ...params);
