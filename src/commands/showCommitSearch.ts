@@ -86,7 +86,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
         switch (args.searchBy) {
             case GitRepoSearchBy.Author:
                 originalSearch = `@${args.search}`;
-                placeHolder = `commits with author matching '${args.search}'`;
+                placeHolder = `commits with an author matching '${args.search}'`;
                 break;
 
             case GitRepoSearchBy.Changes:
@@ -106,19 +106,18 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
 
             case GitRepoSearchBy.Message:
                 originalSearch = args.search;
-                placeHolder = `commits with message matching '${args.search}'`;
+                placeHolder = `commits with a message matching '${args.search}'`;
                 break;
 
             case GitRepoSearchBy.Sha:
                 originalSearch = `#${args.search}`;
-                placeHolder = `commits with id matching '${args.search}'`;
+                placeHolder = `commits with an id matching '${args.search}'`;
                 break;
         }
 
         const progressCancellation = CommitsQuickPick.showProgress(placeHolder!);
         try {
             const log = await this.git.getLogForRepoSearch(repoPath, args.search, args.searchBy);
-            if (log === undefined) return undefined;
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
@@ -156,6 +155,9 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
         catch (ex) {
             Logger.error(ex, 'ShowCommitSearchCommand');
             return window.showErrorMessage(`Unable to find commits. See output channel for more details`);
+        }
+        finally {
+            progressCancellation.dispose();
         }
     }
 }

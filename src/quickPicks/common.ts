@@ -104,6 +104,13 @@ export class CommandQuickPickItem implements QuickPickItem {
     }
 }
 
+export class MessageQuickPickItem extends CommandQuickPickItem {
+
+    constructor(message: string) {
+        super({ label: message, description: '' } as QuickPickItem);
+    }
+}
+
 export class KeyCommandQuickPickItem extends CommandQuickPickItem {
 
     constructor(command: Commands, args?: any[]) {
@@ -113,7 +120,7 @@ export class KeyCommandQuickPickItem extends CommandQuickPickItem {
 
 export class OpenFileCommandQuickPickItem extends CommandQuickPickItem {
 
-    constructor(public uri: Uri, item: QuickPickItem) {
+    constructor(public readonly uri: Uri, item: QuickPickItem) {
         super(item, undefined, undefined);
     }
 
@@ -138,7 +145,7 @@ export class OpenFileCommandQuickPickItem extends CommandQuickPickItem {
 
 export class OpenFilesCommandQuickPickItem extends CommandQuickPickItem {
 
-    constructor(public uris: Uri[], item: QuickPickItem) {
+    constructor(public readonly uris: Uri[], item: QuickPickItem) {
         super(item, undefined, undefined);
     }
 
@@ -163,7 +170,7 @@ export class CommitQuickPickItem implements QuickPickItem {
     description: string;
     detail: string;
 
-    constructor(public commit: GitCommit) {
+    constructor(public readonly commit: GitCommit) {
         let message = commit.message;
         const index = message.indexOf('\n');
         if (index !== -1) {

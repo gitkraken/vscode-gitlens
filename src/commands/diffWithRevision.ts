@@ -67,5 +67,8 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
             Logger.error(ex, 'DiffWithRevisionCommand');
             return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
         }
-    }
+        finally {
+            progressCancellation.dispose();
+        }
+   }
 }
