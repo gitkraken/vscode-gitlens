@@ -7,6 +7,7 @@ import { ApplicationInsightsKey, CommandContext, ExtensionKey, GlobalState, Qual
 import { CodeLensController } from './codeLensController';
 import { configureCommands } from './commands';
 import { CurrentLineController } from './currentLineController';
+import { ExplorerCommands } from './views/explorerCommands';
 import { GitContentProvider } from './gitContentProvider';
 import { GitExplorer } from './views/gitExplorer';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
@@ -14,6 +15,7 @@ import { GitContextTracker, GitService } from './gitService';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
 import { Messages, SuppressedMessages } from './messages';
+import { ResultsExplorer } from './views/resultsExplorer';
 import { Telemetry } from './telemetry';
 
 // this method is called when your extension is activated
@@ -74,7 +76,12 @@ export async function activate(context: ExtensionContext) {
 
     context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider(context, git)));
     context.subscriptions.push(languages.registerCodeLensProvider(GitRevisionCodeLensProvider.selector, new GitRevisionCodeLensProvider(context, git)));
-    context.subscriptions.push(window.registerTreeDataProvider('gitlens.gitExplorer', new GitExplorer(context, git, gitContextTracker)));
+
+    const explorerCommands = new ExplorerCommands(context, git);
+    context.subscriptions.push(explorerCommands);
+
+    context.subscriptions.push(window.registerTreeDataProvider('gitlens.gitExplorer', new GitExplorer(context, explorerCommands, git, gitContextTracker)));
+    context.subscriptions.push(window.registerTreeDataProvider('gitlens.resultsExplorer', new ResultsExplorer(context, explorerCommands, git)));
 
     context.subscriptions.push(new Keyboard());
 
@@ -82,6 +89,8 @@ export async function activate(context: ExtensionContext) {
 
     // Constantly over my data cap so stop collecting initialized event
     // Telemetry.trackEvent('initialized', Objects.flatten(cfg, 'config', true));
+
+    // setCommandContext(CommandContext.ResultsExplorer, false);
 
     // Slightly delay enabling the explorer to not stop the rest of GitLens from being usable
     setTimeout(() => setCommandContext(CommandContext.GitExplorer, true), 1000);

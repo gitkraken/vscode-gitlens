@@ -6,7 +6,7 @@ import { GlyphChars } from '../constants';
 import { GitRepoSearchBy, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { CommandQuickPickItem, CommitsQuickPick } from '../quickPicks';
+import { CommandQuickPickItem, CommitsQuickPick, ShowCommitsInResultsQuickPickItem } from '../quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
 const searchByRegex = /^([@~=:#])/;
@@ -117,7 +117,8 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
 
         const progressCancellation = CommitsQuickPick.showProgress(placeHolder!);
         try {
-            const log = await this.git.getLogForRepoSearch(repoPath, args.search, args.searchBy);
+            const queryFn = ((search: string, searchBy: GitRepoSearchBy) => (maxCount: number | undefined) => this.git.getLogForRepoSearch(repoPath, search, searchBy, maxCount))(args.search, args.searchBy);
+            const log = await queryFn(undefined);
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
@@ -133,7 +134,14 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                     } as ShowCommitSearchCommandArgs
                 ]);
 
-            const pick = await CommitsQuickPick.show(this.git, log, placeHolder!, progressCancellation, currentCommand);
+            const showInResultsExplorer = log !== undefined
+                ? new ShowCommitsInResultsQuickPickItem(placeHolder!, log, queryFn, {
+                    label: 'Show in Results',
+                    description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays results in the GitLens Results view`
+                })
+                : undefined;
+
+            const pick = await CommitsQuickPick.show(this.git, log, placeHolder!, progressCancellation, currentCommand, showInResultsExplorer);
             if (pick === undefined) return undefined;
 
             if (pick instanceof CommandQuickPickItem) return pick.execute();

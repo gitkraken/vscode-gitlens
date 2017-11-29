@@ -115,9 +115,12 @@ export class GitStatusParser {
             indexStatus = undefined;
         }
 
-        let workTreeStatus = rawStatus[1] !== '.' ? rawStatus[1].trim() : undefined;
-        if (workTreeStatus === '' || workTreeStatus === null) {
-            workTreeStatus = undefined;
+        let workTreeStatus = undefined;
+        if (rawStatus.length > 1) {
+            workTreeStatus = rawStatus[1] !== '.' ? rawStatus[1].trim() : undefined;
+            if (workTreeStatus === '' || workTreeStatus === null) {
+                workTreeStatus = undefined;
+            }
         }
 
         return new GitStatusFile(

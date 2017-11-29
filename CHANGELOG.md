@@ -9,7 +9,27 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Automatically updates to track the repository of the active editor
   - Only visible if there is more than 1 repository within the workspace
 - Adds [Gravatar](https://en.gravatar.com/) support to the `GitLens` view
-- Adds `gitlens.gitExplorer.gravatars` setting to specify whether or not to show gravatar images instead of commit (or status) icons in the `GitLens` view
+  - Adds `gitlens.gitExplorer.gravatars` setting to specify whether or not to show gravatar images instead of commit (or status) icons in the `GitLens` view
+- Adds `Select for Compare` command (`gitlens.explorers.selectForCompare`) to branch and revision (commit) nodes in the `GitLens` view to mark the base revision of a comparision
+- Adds `Compare with Selected` command (`gitlens.explorers.compareWithSelected`) to branch and revision (commit) nodes in the `GitLens` view once another branch or revision (commit) node within the same repository has been selected to compare the current selection with the previously selected revision (branch or commit)
+- Adds `Show in Results` option to commit search quick pick menu to show the results in the `GitLens Results` view
+- Adds an all-new, on-demand `GitLens Results` view to the Explorer activity
+
+  - Provides semi-persistent results for commit search operations, via `Show Commit Search` command (`gitlens.showCommitSearch`)
+    - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
+      - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Compare with Selected`, `Select for Compare`, `Rebase Commit (via Terminal)`, `Reset Commit (via Terminal)`, and `Refresh` commands
+        - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
+
+  - Provides semi-persistent results for revision comparison operations, via `Select for Compare` command (`gitlens.explorers.selectForCompare`) and `Compare with Selected` command (`gitlens.explorers.compareWithSelected`)
+    - `Commits` node — provides a list of the commits between the compared revisions (branches or commits)
+      - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
+        - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Compare with Selected`, `Select for Compare`, `Rebase Commit (via Terminal)`, `Reset Commit (via Terminal)`, and `Refresh` commands
+          - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
+    - `Changed Files` node — provides a list of all the files changed between the compared revisions (branches or commits)
+        - Expands to a file-based view of all changed files
+           - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
+
+  - Provides toolbar commands to `Search Commits`, `Keep Results`, `Refresh`, `Show Files in Automatic View` or `Show Files in List View` or `Show Files in Tree View`, and `Close`
 
 ### Fixed
 - Fixes [#228](https://github.com/eamodio/vscode-gitlens/issues/228) - Gutter blame spills over heatmap

@@ -3,8 +3,8 @@ import { Iterables } from '../system';
 import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { ExplorerNode, MessageNode, ResourceType } from './explorerNode';
-import { BlameabilityChangeEvent, BlameabilityChangeReason, GitCommitType, GitLogCommit, GitService, GitUri, Repository, RepositoryChange, RepositoryChangeEvent } from '../gitService';
 import { GitExplorer } from './gitExplorer';
+import { BlameabilityChangeEvent, BlameabilityChangeReason, GitCommitType, GitLogCommit, GitService, GitUri, Repository, RepositoryChange, RepositoryChangeEvent } from '../gitService';
 import { Logger } from '../logger';
 
 export class FileHistoryNode extends ExplorerNode {

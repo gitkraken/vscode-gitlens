@@ -1,7 +1,7 @@
 'use strict';
 import { Arrays, Iterables, Objects } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitExplorerFilesLayout } from '../configuration';
+import { ExplorerFilesLayout } from '../configuration';
 import { ExplorerNode, ResourceType, ShowAllNode } from './explorerNode';
 import { FolderNode, IFileExplorerNode } from './folderNode';
 import { GitExplorer } from './gitExplorer';
@@ -12,8 +12,7 @@ import * as path from 'path';
 export class StatusFilesNode extends ExplorerNode {
 
     readonly repoPath: string;
-
-    maxCount: number | undefined = undefined;
+    readonly supportsPaging: boolean = true;
 
     constructor(
         public readonly status: GitStatus,
@@ -91,7 +90,7 @@ export class StatusFilesNode extends ExplorerNode {
             ...Iterables.map(Objects.values(groups), statuses => new StatusFileCommitsNode(repoPath, statuses[statuses.length - 1], statuses.map(s => s.commit), this.explorer, this.branch))
         ];
 
-        if (this.explorer.config.files.layout !== GitExplorerFilesLayout.List) {
+        if (this.explorer.config.files.layout !== ExplorerFilesLayout.List) {
             const hierarchy = Arrays.makeHierarchical(children, n => n.uri.getRelativePath().split('/'),
                 (...paths: string[]) => GitService.normalizePath(path.join(...paths)), this.explorer.config.files.compact);
 
@@ -103,7 +102,7 @@ export class StatusFilesNode extends ExplorerNode {
         }
 
         if (log !== undefined && log.truncated) {
-            (children as (IFileExplorerNode | ShowAllNode)[]).push(new ShowAllNode('Show All Changes', this, this.explorer.context));
+            (children as (IFileExplorerNode | ShowAllNode)[]).push(new ShowAllNode('Show All Changes', this, this.explorer));
         }
         return children;
     }

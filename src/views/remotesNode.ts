@@ -1,8 +1,7 @@
 'use strict';
 import { Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ExplorerNode, MessageNode, ResourceType } from './explorerNode';
-import { GitExplorer } from './gitExplorer';
+import { Explorer, ExplorerNode, MessageNode, ResourceType } from './explorerNode';
 import { GitUri, Repository } from '../gitService';
 import { RemoteNode } from './remoteNode';
 
@@ -11,7 +10,7 @@ export class RemotesNode extends ExplorerNode {
         constructor(
             uri: GitUri,
             private readonly repo: Repository,
-            private readonly explorer: GitExplorer
+            private readonly explorer: Explorer
         ) {
             super(uri);
         }

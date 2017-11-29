@@ -33,6 +33,19 @@ export namespace Functions {
         return propOfCore(o, key);
     }
 
+    export function seeded<T>(fn: (...args: any[]) => Promise<T>, seed: T): (...args: any[]) => Promise<T> {
+        let cached: T | undefined = seed;
+        return (...args: any[]) => {
+            if (cached !== undefined) {
+                const promise = Promise.resolve(cached);
+                cached = undefined;
+
+                return promise;
+            }
+            return fn(...args);
+        };
+    }
+
     export async function wait(ms: number) {
         await new Promise(resolve => setTimeout(resolve, ms));
     }

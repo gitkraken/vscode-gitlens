@@ -1,9 +1,8 @@
 'use strict';
 import { Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { BranchHistoryNode } from './branchHistoryNode';
-import { ExplorerNode, ResourceType } from './explorerNode';
-import { GitExplorer } from './gitExplorer';
+import { BranchNode } from './branchNode';
+import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { GitUri, Repository } from '../gitService';
 
 export class BranchesNode extends ExplorerNode {
@@ -11,7 +10,7 @@ export class BranchesNode extends ExplorerNode {
         constructor(
             uri: GitUri,
             private readonly repo: Repository,
-            private readonly explorer: GitExplorer,
+            private readonly explorer: Explorer,
             private readonly active: boolean = false
         ) {
             super(uri);
@@ -22,7 +21,7 @@ export class BranchesNode extends ExplorerNode {
             if (branches === undefined) return [];
 
             branches.sort((a, b) => (a.current ? -1 : 1) - (b.current ? -1 : 1) || a.name.localeCompare(b.name));
-            return [...Iterables.filterMap(branches, b => b.remote ? undefined : new BranchHistoryNode(b, this.uri, this.explorer))];
+            return [...Iterables.filterMap(branches, b => b.remote ? undefined : new BranchNode(b, this.uri, this.explorer))];
         }
 
         async getTreeItem(): Promise<TreeItem> {

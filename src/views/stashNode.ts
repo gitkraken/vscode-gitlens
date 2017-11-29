@@ -1,18 +1,21 @@
 'use strict';
 import { Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ExplorerNode, ResourceType } from './explorerNode';
-import { GitExplorer } from './gitExplorer';
+import { Explorer, ExplorerNode, ExplorerRefNode, ResourceType } from './explorerNode';
 import { CommitFormatter, GitStashCommit, ICommitFormatOptions } from '../gitService';
 import { StashFileNode } from './stashFileNode';
 
-export class StashNode extends ExplorerNode {
+export class StashNode extends ExplorerRefNode {
 
     constructor(
         public readonly commit: GitStashCommit,
-        private readonly explorer: GitExplorer
+        private readonly explorer: Explorer
     ) {
         super(commit.toGitUri());
+    }
+
+    get ref(): string {
+        return this.commit.sha;
     }
 
     async getChildren(): Promise<ExplorerNode[]> {

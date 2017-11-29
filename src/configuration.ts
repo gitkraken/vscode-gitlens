@@ -38,7 +38,7 @@ export enum CustomRemoteType {
     GitLab = 'GitLab'
 }
 
-export enum GitExplorerFilesLayout {
+export enum ExplorerFilesLayout {
     Auto = 'auto',
     List = 'list',
     Tree = 'tree'
@@ -137,25 +137,31 @@ export interface ICodeLensLanguageLocation {
     customSymbols?: string[];
 }
 
-export interface IGitExplorerConfig {
-    enabled: boolean;
-    autoRefresh: boolean;
-    view: GitExplorerView;
+export interface IExplorerConfig {
     files: {
-        layout: GitExplorerFilesLayout;
+        layout: ExplorerFilesLayout;
         compact: boolean;
         threshold: number;
     };
-    includeWorkingTree: boolean;
-    showTrackingBranch: boolean;
     commitFormat: string;
     commitFileFormat: string;
+    // dateFormat: string | null;
     gravatars: boolean;
+    showTrackingBranch: boolean;
     stashFormat: string;
     stashFileFormat: string;
     statusFileFormat: string;
-    // dateFormat: string | null;
 }
+
+export interface IGitExplorerConfig extends IExplorerConfig {
+    enabled: boolean;
+    autoRefresh: boolean;
+    includeWorkingTree: boolean;
+    showTrackingBranch: boolean;
+    view: GitExplorerView;
+}
+
+export interface IResultsExplorerConfig extends IExplorerConfig { }
 
 export interface IRemotesConfig {
     type: CustomRemoteType;
@@ -264,6 +270,8 @@ export interface IConfig {
     keymap: KeyMap;
 
     remotes: IRemotesConfig[];
+
+    resultsExplorer: IResultsExplorerConfig;
 
     statusBar: {
         enabled: boolean;
@@ -376,26 +384,41 @@ const emptyConfig: IConfig = {
     },
     defaultDateFormat: null,
     gitExplorer: {
-        enabled: false,
         autoRefresh: false,
-        view: GitExplorerView.Auto,
+        enabled: false,
         files: {
-            layout: GitExplorerFilesLayout.Auto,
+            layout: ExplorerFilesLayout.Auto,
             compact: false,
             threshold: 0
         },
-        includeWorkingTree: false,
-        showTrackingBranch: false,
         commitFormat: '',
         commitFileFormat: '',
+        // dateFormat: string | null;
         gravatars: false,
+        includeWorkingTree: false,
+        showTrackingBranch: false,
         stashFormat: '',
         stashFileFormat: '',
-        statusFileFormat: ''
-        // dateFormat: string | null;
+        statusFileFormat: '',
+        view: GitExplorerView.Auto
     },
     keymap: 'standard' as KeyMap,
     remotes: [],
+    resultsExplorer: {
+        files: {
+            layout: ExplorerFilesLayout.Auto,
+            compact: false,
+            threshold: 0
+        },
+        commitFormat: '',
+        commitFileFormat: '',
+        // dateFormat: string | null;
+        gravatars: false,
+        showTrackingBranch: false,
+        stashFormat: '',
+        stashFileFormat: '',
+        statusFileFormat: ''
+    },
     statusBar: {
         enabled: false,
         alignment: 'left',

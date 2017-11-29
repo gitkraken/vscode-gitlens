@@ -1,8 +1,7 @@
 'use strict';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
-import { ExplorerNode, ResourceType } from './explorerNode';
-import { GitExplorer } from './gitExplorer';
+import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { CommitFormatter, getGitStatusIcon, GitBranch, GitLogCommit, GitUri, ICommitFormatOptions, IGitStatusFile, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
 import * as path from 'path';
 
@@ -25,7 +24,7 @@ export class CommitFileNode extends ExplorerNode {
     constructor(
         public readonly status: IGitStatusFile,
         public commit: GitLogCommit,
-        protected readonly explorer: GitExplorer,
+        protected readonly explorer: Explorer,
         private displayAs: CommitFileNodeDisplayAs = CommitFileNodeDisplayAs.Commit,
         public readonly branch?: GitBranch
     ) {
@@ -92,13 +91,21 @@ export class CommitFileNode extends ExplorerNode {
     get label() {
         if (this._label === undefined) {
             this._label = (this.displayAs & CommitFileNodeDisplayAs.CommitLabel)
-                ? CommitFormatter.fromTemplate(this.getCommitTemplate(), this.commit, {
-                    truncateMessageAtNewLine: true,
-                    dataFormat: this.explorer.git.config.defaultDateFormat
-                } as ICommitFormatOptions)
-                : StatusFileFormatter.fromTemplate(this.getCommitFileTemplate(),
+                ? CommitFormatter.fromTemplate(
+                    this.getCommitTemplate(),
+                    this.commit,
+                    {
+                        truncateMessageAtNewLine: true,
+                        dataFormat: this.explorer.git.config.defaultDateFormat
+                    } as ICommitFormatOptions
+                )
+                : StatusFileFormatter.fromTemplate(
+                    this.getCommitFileTemplate(),
                     this.status,
-                    { relativePath: this.relativePath } as IStatusFormatOptions);
+                    {
+                        relativePath: this.relativePath
+                    } as IStatusFormatOptions
+                );
         }
         return this._label;
     }

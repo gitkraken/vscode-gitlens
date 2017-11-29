@@ -2,8 +2,8 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { FileHistoryNode } from './fileHistoryNode';
-import { GitUri, Repository } from '../gitService';
 import { GitExplorer } from './gitExplorer';
+import { GitUri, Repository } from '../gitService';
 
 export class HistoryNode extends ExplorerNode {
 

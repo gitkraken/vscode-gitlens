@@ -2,8 +2,7 @@
 import { Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitNode } from './commitNode';
-import { ExplorerNode, ResourceType } from './explorerNode';
-import { GitExplorer } from './gitExplorer';
+import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { GitStatus, GitUri } from '../gitService';
 
 export class StatusUpstreamNode extends ExplorerNode {
@@ -11,7 +10,7 @@ export class StatusUpstreamNode extends ExplorerNode {
     constructor(
         public readonly status: GitStatus,
         public readonly direction: 'ahead' | 'behind',
-        private readonly explorer: GitExplorer
+        private readonly explorer: Explorer
     ) {
         super(GitUri.fromRepoPath(status.repoPath));
     }

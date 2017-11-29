@@ -1,25 +1,15 @@
 'use strict';
 import { Functions } from '../system';
-import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, ExtensionContext, TextDocumentShowOptions, TextEditor, TreeDataProvider, TreeItem, Uri, window } from 'vscode';
+import { commands, ConfigurationChangeEvent, ConfigurationTarget, Disposable, Event, EventEmitter, ExtensionContext, TextDocumentShowOptions, TextEditor, TreeDataProvider, TreeItem, Uri, window } from 'vscode';
 import { UriComparer } from '../comparers';
-import { configuration, IGitExplorerConfig } from '../configuration';
+import { configuration, ExplorerFilesLayout, IGitExplorerConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
-import { ExplorerCommands } from './explorerCommands';
-import { BranchHistoryNode, ExplorerNode, HistoryNode, MessageNode, RepositoriesNode, RepositoryNode } from './explorerNodes';
+import { ExplorerCommands, RefreshNodeCommandArgs } from './explorerCommands';
+import { ExplorerNode, HistoryNode, MessageNode, RefreshReason, RepositoriesNode, RepositoryNode } from './explorerNodes';
 import { GitChangeEvent, GitChangeReason, GitContextTracker, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 
 export * from './explorerNodes';
-
-enum RefreshReason {
-    ActiveEditorChanged = 'active-editor-changed',
-    AutoRefreshChanged = 'auto-refresh-changed',
-    Command = 'command',
-    NodeCommand = 'node-command',
-    RepoChanged = 'repo-changed',
-    ViewChanged = 'view-changed',
-    VisibleEditorsChanged = 'visible-editors-changed'
-}
 
 export enum GitExplorerView {
     Auto = 'auto',
@@ -30,10 +20,6 @@ export enum GitExplorerView {
 export interface OpenFileRevisionCommandArgs {
     uri?: Uri;
     showOptions?: TextDocumentShowOptions;
-}
-
-export interface RefreshNodeCommandArgs {
-    maxCount?: number;
 }
 
 export class GitExplorer implements TreeDataProvider<ExplorerNode> {
@@ -54,11 +40,22 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
     constructor(
         public readonly context: ExtensionContext,
+        readonly explorerCommands: ExplorerCommands,
         public readonly git: GitService,
         public readonly gitContextTracker: GitContextTracker
     ) {
+        commands.registerCommand('gitlens.gitExplorer.refresh', this.refresh, this);
+        commands.registerCommand('gitlens.gitExplorer.refreshNode', this.refreshNode, this);
+        commands.registerCommand('gitlens.gitExplorer.setFilesLayoutToAuto', () => this.setFilesLayout(ExplorerFilesLayout.Auto), this);
+        commands.registerCommand('gitlens.gitExplorer.setFilesLayoutToList', () => this.setFilesLayout(ExplorerFilesLayout.List), this);
+        commands.registerCommand('gitlens.gitExplorer.setFilesLayoutToTree', () => this.setFilesLayout(ExplorerFilesLayout.Tree), this);
+
+        commands.registerCommand('gitlens.gitExplorer.setAutoRefreshToOn', () => this.setAutoRefresh(configuration.get<boolean>(configuration.name('gitExplorer')('autoRefresh').value), true), this);
+        commands.registerCommand('gitlens.gitExplorer.setAutoRefreshToOff', () => this.setAutoRefresh(configuration.get<boolean>(configuration.name('gitExplorer')('autoRefresh').value), false), this);
+        commands.registerCommand('gitlens.gitExplorer.switchToHistoryView', () => this.switchTo(GitExplorerView.History), this);
+        commands.registerCommand('gitlens.gitExplorer.switchToRepositoryView', () => this.switchTo(GitExplorerView.Repository), this);
+
         context.subscriptions.push(
-            new ExplorerCommands(this),
             window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this),
             window.onDidChangeVisibleTextEditors(Functions.debounce(this.onVisibleEditorsChanged, 500), this),
             configuration.onDidChange(this.onConfigurationChanged, this)
@@ -85,10 +82,6 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
         if (initializing || configuration.changed(e, section('autoRefresh').value)) {
             this.setAutoRefresh(cfg.autoRefresh);
-        }
-
-        if (initializing || configuration.changed(e, section('files')('layout').value)) {
-            setCommandContext(CommandContext.GitExplorerFilesLayout, cfg.files.layout);
         }
 
         let view = cfg.view;
@@ -200,10 +193,15 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         return new HistoryNode(uri, repo, this);
     }
 
-    async refresh(reason: RefreshReason | undefined, root?: ExplorerNode) {
+    getQualifiedCommand(command: string) {
+        return `gitlens.gitExplorer.${command}`;
+    }
+
+    async refresh(reason?: RefreshReason, root?: ExplorerNode) {
         if (reason === undefined) {
             reason = RefreshReason.Command;
         }
+
         Logger.log(`GitExplorer[view=${this._view}].refresh`, `reason='${reason}'`);
 
         if (this._root === undefined || (root === undefined && this._view === GitExplorerView.History)) {
@@ -217,18 +215,12 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     refreshNode(node: ExplorerNode, args?: RefreshNodeCommandArgs) {
         Logger.log(`GitExplorer[view=${this._view}].refreshNode`);
 
-        // Since the root node won't actually refresh, force it
-        if (node === this._root) {
-            this._onDidChangeTreeData.fire();
-
-            return;
-        }
-
-        if (args !== undefined && node instanceof BranchHistoryNode) {
+        if (args !== undefined && node.supportsPaging) {
             node.maxCount = args.maxCount;
         }
 
-        this._onDidChangeTreeData.fire(node);
+        // Since the root node won't actually refresh, force everything
+        this._onDidChangeTreeData.fire(node === this._root ? undefined : node);
     }
 
     async reset(view: GitExplorerView, force: boolean = false) {
@@ -250,6 +242,10 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
         this._root.dispose();
         this._root = undefined;
+    }
+
+    private async setFilesLayout(layout: ExplorerFilesLayout) {
+        return configuration.update(configuration.name('gitExplorer')('files')('layout').value, layout, ConfigurationTarget.Global);
     }
 
     private setRoot(root: ExplorerNode | undefined): boolean {

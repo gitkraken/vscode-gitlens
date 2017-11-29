@@ -1,9 +1,8 @@
 'use strict';
 import { Arrays, Objects } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitExplorerFilesLayout, IGitExplorerConfig } from '../configuration';
-import { ExplorerNode, ResourceType } from './explorerNode';
-import { GitExplorer } from './gitExplorer';
+import { ExplorerFilesLayout, IExplorerConfig } from '../configuration';
+import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { GitUri } from '../gitService';
 
 export interface IFileExplorerNode extends ExplorerNode {
@@ -23,7 +22,7 @@ export class FolderNode extends ExplorerNode {
         public readonly folderName: string,
         public readonly relativePath: string | undefined,
         public readonly root: Arrays.IHierarchicalItem<IFileExplorerNode>,
-        private readonly explorer: GitExplorer
+        private readonly explorer: Explorer
     ) {
         super(GitUri.fromRepoPath(repoPath));
     }
@@ -34,7 +33,7 @@ export class FolderNode extends ExplorerNode {
         let children: (FolderNode | IFileExplorerNode)[];
 
         const nesting = FolderNode.getFileNesting(this.explorer.config, this.root.descendants, this.relativePath === undefined);
-        if (nesting !== GitExplorerFilesLayout.List) {
+        if (nesting !== ExplorerFilesLayout.List) {
             children = [];
             for (const folder of Objects.values(this.root.children)) {
                 if (folder.value === undefined) {
@@ -71,14 +70,14 @@ export class FolderNode extends ExplorerNode {
         return this.folderName;
     }
 
-    static getFileNesting<T extends IFileExplorerNode>(config: IGitExplorerConfig, children: T[], isRoot: boolean): GitExplorerFilesLayout {
-        const nesting = config.files.layout || GitExplorerFilesLayout.Auto;
-        if (nesting === GitExplorerFilesLayout.Auto) {
+    static getFileNesting<T extends IFileExplorerNode>(config: IExplorerConfig, children: T[], isRoot: boolean): ExplorerFilesLayout {
+        const nesting = config.files.layout || ExplorerFilesLayout.Auto;
+        if (nesting === ExplorerFilesLayout.Auto) {
             if (isRoot || config.files.compact) {
                 const nestingThreshold = config.files.threshold || 5;
-                if (children.length <= nestingThreshold) return GitExplorerFilesLayout.List;
+                if (children.length <= nestingThreshold) return ExplorerFilesLayout.List;
             }
-            return GitExplorerFilesLayout.Tree;
+            return ExplorerFilesLayout.Tree;
         }
         return nesting;
     }

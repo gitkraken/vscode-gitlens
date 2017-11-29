@@ -1403,7 +1403,10 @@ export class GitService extends Disposable {
     static shortenSha(sha: string | undefined) {
         if (sha === undefined) return undefined;
         if (sha === GitService.deletedSha) return '(deleted)';
-        return Git.shortenSha(sha);
+
+        return Git.isSha(sha)
+            ? Git.shortenSha(sha)
+            : sha;
     }
 
     static validateGitVersion(major: number, minor: number): boolean {
