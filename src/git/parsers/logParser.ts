@@ -44,19 +44,17 @@ export class GitLogParser {
         let lineParts: string[];
         let next: IteratorResult<string> | undefined = undefined;
 
-        let i = -1;
+        let i = 0;
         let first = true;
         let skip = false;
 
         const lines = Strings.lines(data);
-        // for (line of lines) {
         while (true) {
             if (!skip) {
                 next = lines.next();
                 if (next.done) break;
 
                 line = next.value;
-                i++;
             }
             else {
                 skip = false;
@@ -99,7 +97,6 @@ export class GitLogParser {
                         next = lines.next();
                         if (next.done) break;
 
-                        i++;
                         line = next.value;
                         if (!line) break;
 
@@ -117,7 +114,6 @@ export class GitLogParser {
                         next = lines.next();
                         if (next.done) break;
 
-                        i++;
                         line = next.value;
 
                         // If the next line isn't blank, make sure it isn't starting a new commit
@@ -131,7 +127,6 @@ export class GitLogParser {
                             next = lines.next();
                             if (next.done) break;
 
-                            i++;
                             line = next.value;
                             lineParts = line.split(' ');
 
@@ -178,7 +173,6 @@ export class GitLogParser {
                         lines.next();
                         next = lines.next();
 
-                        i += 2;
                         line = next.value;
 
                         entry.status = line[0] as GitStatusFileStatus;
@@ -196,7 +190,11 @@ export class GitLogParser {
                     }
                     first = false;
 
-                    recentCommit = GitLogParser.parseEntry(entry, type, repoPath, relativeFileName, commits, authors, recentCommit);
+                    const commit = commits.get(entry.sha);
+                    if (commit === undefined) {
+                        i++;
+                    }
+                    recentCommit = GitLogParser.parseEntry(entry, commit, type, repoPath, relativeFileName, commits, authors, recentCommit);
 
                     entry = undefined;
                     break;
@@ -211,14 +209,14 @@ export class GitLogParser {
             authors: authors,
             commits: commits,
             sha: sha,
+            count: i,
             maxCount: maxCount,
             range: range,
             truncated: !!(maxCount && i >= maxCount)
         } as GitLog;
     }
 
-    private static parseEntry(entry: LogEntry, type: GitCommitType, repoPath: string | undefined, relativeFileName: string, commits: Map<string, GitLogCommit>, authors: Map<string, GitAuthor>, recentCommit: GitLogCommit | undefined): GitLogCommit | undefined {
-        let commit = commits.get(entry.sha);
+    private static parseEntry(entry: LogEntry, commit: GitLogCommit | undefined, type: GitCommitType, repoPath: string | undefined, relativeFileName: string, commits: Map<string, GitLogCommit>, authors: Map<string, GitAuthor>, recentCommit: GitLogCommit | undefined): GitLogCommit | undefined {
         if (commit === undefined) {
             if (entry.author !== undefined) {
                 let author = authors.get(entry.author);

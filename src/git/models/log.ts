@@ -9,6 +9,7 @@ export interface GitLog {
     commits: Map<string, GitLogCommit>;
 
     sha: string | undefined;
+    count: number;
     maxCount: number | undefined;
     range: Range;
     truncated: boolean;
