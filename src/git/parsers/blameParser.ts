@@ -131,16 +131,18 @@ export class GitBlameParser {
                 }
             }
 
-            commit = new GitBlameCommit(repoPath!, entry.sha, fileName!, entry.author, new Date(entry.authorDate as any * 1000), entry.summary!, []);
-
-            if (fileName !== entry.fileName) {
-                commit.originalFileName = entry.fileName;
-            }
-
-            if (entry.previousSha) {
-                commit.previousSha = entry.previousSha;
-                commit.previousFileName = entry.previousFileName;
-            }
+            commit = new GitBlameCommit(
+                repoPath!,
+                entry.sha,
+                entry.author,
+                new Date(entry.authorDate as any * 1000),
+                entry.summary!,
+                fileName!,
+                fileName !== entry.fileName ? entry.fileName : undefined,
+                entry.previousSha,
+                entry.previousSha && entry.previousFileName,
+                []
+            );
 
             commits.set(entry.sha, commit);
         }

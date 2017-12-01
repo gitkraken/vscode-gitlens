@@ -5,7 +5,7 @@ import { configuration, IConfig, IRemotesConfig } from './configuration';
 import { CommandContext, DocumentSchemes, setCommandContext } from './constants';
 import { RemoteProviderFactory, RemoteProviderMap } from './git/remotes/factory';
 import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitCommitType, GitDiff, GitDiffChunkLine, GitDiffParser, GitDiffShortStat, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, Repository } from './git/git';
-import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
+import { GitUri, IGitCommitInfo } from './git/gitUri';
 import { Logger } from './logger';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -607,13 +607,9 @@ export class GitService extends Disposable {
             const blame = GitBlameParser.parse(data, uri.repoPath, fileName);
             if (blame === undefined) return undefined;
 
-            const commit = Iterables.first(blame.commits.values());
-            if (uri.repoPath) {
-                commit.repoPath = uri.repoPath;
-            }
             return {
                 author: Iterables.first(blame.authors.values()),
-                commit: commit,
+                commit: Iterables.first(blame.commits.values()),
                 line: blame.lines[line]
             } as GitBlameLine;
         }
@@ -648,8 +644,7 @@ export class GitService extends Disposable {
         for (const c of blame.commits.values()) {
             if (!shas.has(c.sha)) continue;
 
-            const commit = new GitBlameCommit(c.repoPath, c.sha, c.fileName, c.author, c.date, c.message,
-                c.lines.filter(l => l.line >= range.start.line && l.line <= range.end.line), c.originalFileName, c.previousSha, c.previousFileName);
+            const commit = c.with({ lines: c.lines.filter(l => l.line >= range.start.line && l.line <= range.end.line) });
             commits.set(c.sha, commit);
 
             let author = authors.get(commit.author);
@@ -851,7 +846,10 @@ export class GitService extends Disposable {
         if (log === undefined) return undefined;
 
         const commit = sha && log.commits.get(sha);
-        if (commit === undefined && sha && !options.firstIfMissing) return undefined;
+        if (commit === undefined && sha && !options.firstIfMissing) {
+            // If the sha isn't resolved we will never find it, so don't kick out
+            if (!Git.isResolveRequired(sha)) return undefined;
+        }
 
         return commit || Iterables.first(log.commits.values());
     }
@@ -980,7 +978,7 @@ export class GitService extends Disposable {
     }
 
     private async getLogForFileCore(repoPath: string | undefined, fileName: string, sha: string | undefined, options: { maxCount?: number, range?: Range, reverse?: boolean, skipMerges?: boolean }, entry: GitCacheEntry | undefined, key: string): Promise<GitLog | undefined> {
-        if (!(await this.isTracked(fileName, repoPath))) {
+        if (!(await this.isTracked(fileName, repoPath, sha))) {
             Logger.log(`Skipping log; '${fileName}' is not tracked`);
             return await GitService.emptyPromise as GitLog;
         }
@@ -1189,13 +1187,17 @@ export class GitService extends Disposable {
     async getVersionedFile(repoPath: string | undefined, fileName: string, sha?: string) {
         Logger.log(`getVersionedFile('${repoPath}', '${fileName}', '${sha}')`);
 
-        if (!sha || (Git.isUncommitted(sha) && !Git.isStagedUncommitted(sha))) return fileName;
+        if (!sha || (Git.isUncommitted(sha) && !Git.isStagedUncommitted(sha))) {
+            if (await this.fileExists(repoPath!, fileName)) return fileName;
+
+            return undefined;
+        }
 
         const file = await Git.getVersionedFile(repoPath, fileName, sha);
         if (file === undefined) return undefined;
 
         const cacheKey = this.getCacheEntryKey(file);
-        const entry = new UriCacheEntry(new GitUri(Uri.file(fileName), { sha: sha, repoPath: repoPath!, fileName }));
+        const entry = new UriCacheEntry(new GitUri(Uri.file(fileName), { sha: sha, repoPath: repoPath! }));
         this._versionedUriCache.set(cacheKey, entry);
         return file;
     }
@@ -1231,12 +1233,13 @@ export class GitService extends Disposable {
         return scheme === DocumentSchemes.File || scheme === DocumentSchemes.Git || scheme === DocumentSchemes.GitLensGit;
     }
 
-    async isTracked(fileName: string, repoPath?: string): Promise<boolean>;
+    async isTracked(fileName: string, repoPath?: string, sha?: string): Promise<boolean>;
     async isTracked(uri: GitUri): Promise<boolean>;
-    async isTracked(fileNameOrUri: string | GitUri, repoPath?: string): Promise<boolean> {
+    async isTracked(fileNameOrUri: string | GitUri, repoPath?: string, sha?: string): Promise<boolean> {
+        if (sha === GitService.deletedSha) return false;
+
         let cacheKey: string;
         let fileName: string;
-        let sha: string | undefined;
         if (typeof fileNameOrUri === 'string') {
             [fileName, repoPath] = Git.splitPath(fileNameOrUri, repoPath);
             cacheKey = this.getCacheEntryKey(fileNameOrUri);
@@ -1248,6 +1251,10 @@ export class GitService extends Disposable {
             repoPath = fileNameOrUri.repoPath;
             sha = fileNameOrUri.sha;
             cacheKey = this.getCacheEntryKey(fileName);
+        }
+
+        if (sha !== undefined) {
+            cacheKey += `:${sha}`;
         }
 
         Logger.log(`isTracked('${fileName}', '${repoPath}', '${sha}')`);
@@ -1268,11 +1275,17 @@ export class GitService extends Disposable {
     }
 
     private async isTrackedCore(repoPath: string, fileName: string, sha?: string) {
+        if (sha === GitService.deletedSha) return false;
+
         try {
             // Even if we have a sha, check first to see if the file exists (that way the cache will be better reused)
             let tracked = !!await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName);
             if (!tracked && sha !== undefined) {
                 tracked = !!await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName, sha);
+                // If we still haven't found this file, make sure it wasn't deleted in that sha (i.e. check the previous)
+                if (!tracked) {
+                    tracked = !!await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName, `${sha}^`);
+                }
             }
             return tracked;
         }
@@ -1306,6 +1319,16 @@ export class GitService extends Disposable {
         Logger.log(`openDirectoryDiff('${repoPath}', '${sha1}', '${sha2}', '${tool}')`);
 
         return Git.difftool_dirDiff(repoPath, tool, sha1, sha2);
+    }
+
+    async resolveReference(repoPath: string, sha: string, uri?: Uri) {
+        if (!GitService.isResolveRequired(sha)) return sha;
+
+        Logger.log(`resolveReference('${repoPath}', '${sha}', '${uri && uri.toString()}')`);
+
+        if (uri === undefined) return (await Git.revparse(repoPath, sha)) || sha;
+
+        return (await Git.log_resolve(repoPath, sha, Git.normalizePath(path.relative(repoPath, uri.fsPath)))) || sha;
     }
 
     stopWatchingFileSystem() {
@@ -1353,24 +1376,19 @@ export class GitService extends Disposable {
         return Git.gitInfo().version;
     }
 
-    static fromGitContentUri(uri: Uri): IGitUriData {
-        if (uri.scheme !== DocumentSchemes.GitLensGit) throw new Error(`fromGitUri(uri=${uri}) invalid scheme`);
-        return GitService.fromGitContentUriCore<IGitUriData>(uri);
-    }
-
-    private static fromGitContentUriCore<T extends IGitUriData>(uri: Uri): T {
-        return JSON.parse(uri.query) as T;
+    static isResolveRequired(sha: string): boolean {
+        return Git.isResolveRequired(sha);
     }
 
     static isSha(sha: string): boolean {
         return Git.isSha(sha);
     }
 
-    static isStagedUncommitted(sha: string): boolean {
+    static isStagedUncommitted(sha: string | undefined): boolean {
         return Git.isStagedUncommitted(sha);
     }
 
-    static isUncommitted(sha: string): boolean {
+    static isUncommitted(sha: string | undefined): boolean {
         return Git.isUncommitted(sha);
     }
 
@@ -1380,50 +1398,8 @@ export class GitService extends Disposable {
 
     static shortenSha(sha: string | undefined) {
         if (sha === undefined) return undefined;
+        if (sha === GitService.deletedSha) return '(deleted)';
         return Git.shortenSha(sha);
-    }
-
-    static toGitContentUri(sha: string, fileName: string, repoPath: string, originalFileName?: string): Uri;
-    static toGitContentUri(commit: GitCommit): Uri;
-    static toGitContentUri(uri: GitUri): Uri;
-    static toGitContentUri(shaOrcommitOrUri: string | GitCommit | GitUri, fileName?: string, repoPath?: string, originalFileName?: string): Uri {
-        let data: IGitUriData;
-        let shortSha: string | undefined;
-        if (typeof shaOrcommitOrUri === 'string') {
-            data = GitService.toGitUriData({
-                sha: shaOrcommitOrUri,
-                fileName: fileName!,
-                repoPath: repoPath!,
-                originalFileName: originalFileName
-            });
-            shortSha = GitService.shortenSha(shaOrcommitOrUri);
-        }
-        else if (shaOrcommitOrUri instanceof GitCommit) {
-            data = GitService.toGitUriData(shaOrcommitOrUri, shaOrcommitOrUri.originalFileName);
-            fileName = shaOrcommitOrUri.fileName;
-            shortSha = shaOrcommitOrUri.shortSha;
-        }
-        else {
-            data = GitService.toGitUriData({
-                sha: shaOrcommitOrUri.sha!,
-                fileName: shaOrcommitOrUri.fsPath!,
-                repoPath: shaOrcommitOrUri.repoPath!
-            });
-            fileName = shaOrcommitOrUri.fsPath;
-            shortSha = shaOrcommitOrUri.shortSha;
-        }
-
-        const parsed = path.parse(fileName!);
-        return Uri.parse(`${DocumentSchemes.GitLensGit}:${path.join(parsed.dir, parsed.name)}:${shortSha}${parsed.ext}?${JSON.stringify(data)}`);
-    }
-
-    private static toGitUriData<T extends IGitUriData>(commit: IGitUriData, originalFileName?: string): T {
-        const fileName = Git.normalizePath(path.relative(commit.repoPath, commit.fileName));
-        const data = { repoPath: commit.repoPath, fileName: fileName, sha: commit.sha } as T;
-        if (originalFileName) {
-            data.originalFileName = Git.normalizePath(path.relative(commit.repoPath, originalFileName));
-        }
-        return data;
     }
 
     static validateGitVersion(major: number, minor: number): boolean {

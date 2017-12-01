@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
-import { GitBlameCommit, GitService, GitUri } from '../gitService';
+import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { OpenInRemoteCommandArgs } from './openInRemote';
@@ -56,7 +56,12 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
                 let commit = blame.commit;
                 // If the line is uncommitted, find the previous commit
                 if (commit.isUncommitted) {
-                    commit = new GitBlameCommit(commit.repoPath, commit.previousSha!, commit.previousFileName!, commit.author, commit.date, commit.message, []);
+                    commit = commit.with({
+                        sha: commit.previousSha,
+                        fileName: commit.previousFileName,
+                        previousSha: null,
+                        previousFileName: null
+                    });
                 }
 
                 args.sha = commit.sha;

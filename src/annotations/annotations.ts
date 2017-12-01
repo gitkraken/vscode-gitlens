@@ -49,7 +49,7 @@ export class Annotations {
                 annotationType = FileAnnotationType.Gutter;
             }
 
-            const uri = GitService.toGitContentUri(commit.previousSha, commit.previousUri.fsPath, commit.repoPath);
+            const uri = GitUri.toRevisionUri(commit.previousSha, commit.previousUri.fsPath, commit.repoPath);
             const line = window.activeTextEditor!.selection.active.line;
 
             commandBar += `[\`${GlyphChars.SquareWithTopShadow}\`](${OpenFileRevisionCommand.getMarkdownCommandArgs(uri, annotationType || FileAnnotationType.Gutter, line)} "Blame Previous Revision") `;

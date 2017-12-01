@@ -6,22 +6,53 @@ import { GitStatusFileStatus, IGitStatusFile } from './status';
 export class GitStashCommit extends GitLogCommit {
 
     constructor(
-        public stashName: string,
+        type: GitCommitType,
+        public readonly stashName: string,
         repoPath: string,
         sha: string,
-        fileName: string,
         date: Date,
         message: string,
-        status?: GitStatusFileStatus,
-        fileStatuses?: IGitStatusFile[],
-        originalFileName?: string,
-        previousSha?: string,
-        previousFileName?: string
+        fileName: string,
+        fileStatuses: IGitStatusFile[],
+        status?: GitStatusFileStatus | undefined,
+        originalFileName?: string | undefined,
+        previousSha?: string | undefined,
+        previousFileName?: string | undefined
     ) {
-        super(GitCommitType.Stash, repoPath, sha, fileName, 'You', date, message, status, fileStatuses, originalFileName, previousSha, previousFileName);
+        super(
+            type,
+            repoPath,
+            sha,
+            'You',
+            date,
+            message,
+            fileName,
+            fileStatuses,
+            status,
+            originalFileName,
+            previousSha === undefined ? `${sha}^` : previousSha,
+            previousFileName
+        );
     }
 
     get shortSha() {
         return this.stashName;
+    }
+
+    with(changes: { type?: GitCommitType, sha?: string | null, fileName?: string, date?: Date, message?: string, originalFileName?: string | null, previousFileName?: string | null, previousSha?: string | null, status?: GitStatusFileStatus, fileStatuses?: IGitStatusFile[] | null }): GitLogCommit {
+        return new GitStashCommit(
+            changes.type || this.type,
+            this.stashName,
+            this.repoPath,
+            this.getChangedValue(changes.sha, this.sha)!,
+            changes.date || this.date,
+            changes.message || this.message,
+            changes.fileName || this.fileName,
+            this.getChangedValue(changes.fileStatuses, this.fileStatuses) || [],
+            changes.status || this.status,
+            this.getChangedValue(changes.originalFileName, this.originalFileName),
+            this.getChangedValue(changes.previousSha, this.previousSha),
+            this.getChangedValue(changes.previousFileName, this.previousFileName)
+        );
     }
 }

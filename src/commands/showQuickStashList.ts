@@ -3,7 +3,7 @@ import { Strings } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
-import { GitService, GitUri } from '../gitService';
+import { GitService } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, StashListQuickPick } from '../quickPicks';
@@ -52,7 +52,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
             if (pick instanceof CommandQuickPickItem) return pick.execute();
 
             return commands.executeCommand(Commands.ShowQuickCommitDetails,
-                new GitUri(pick.commit.uri, pick.commit),
+                pick.commit.toGitUri(),
                 {
                     commit: pick.commit,
                     sha: pick.commit.sha,

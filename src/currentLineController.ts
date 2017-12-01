@@ -423,8 +423,8 @@ export class CurrentLineController extends Disposable {
             logCommit = await this.git.getLogCommit(commit.repoPath, commit.uri.fsPath, commit.sha);
             if (logCommit !== undefined) {
                 // Preserve the previous commit from the blame commit
-                logCommit.previousFileName = commit.previousFileName;
                 logCommit.previousSha = commit.previousSha;
+                logCommit.previousFileName = commit.previousFileName;
 
                 this._currentLine.logCommit = logCommit;
             }

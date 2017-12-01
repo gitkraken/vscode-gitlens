@@ -4,7 +4,7 @@ import { CancellationTokenSource, commands, Disposable, QuickPickItem, QuickPick
 import { Commands, openEditor } from '../commands';
 import { ExtensionKey, IAdvancedConfig } from '../configuration';
 import { GlyphChars } from '../constants';
-import { GitCommit, GitCommitType, GitLogCommit, GitStashCommit } from '../gitService';
+import { GitLogCommit, GitStashCommit } from '../gitService';
 import { Keyboard, KeyboardScope, KeyMapping, Keys } from '../keyboard';
 // import { Logger } from '../logger';
 
@@ -170,22 +170,22 @@ export class CommitQuickPickItem implements QuickPickItem {
     description: string;
     detail: string;
 
-    constructor(public readonly commit: GitCommit) {
+    constructor(public readonly commit: GitLogCommit) {
         let message = commit.message;
         const index = message.indexOf('\n');
         if (index !== -1) {
             message = `${message.substring(0, index)}${GlyphChars.Space}$(ellipsis)`;
         }
 
-        if (commit instanceof GitStashCommit) {
+        if (commit.isStash) {
             this.label = message;
             this.description = '';
-            this.detail = `${GlyphChars.Space} ${commit.stashName} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.fromNow()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`;
+            this.detail = `${GlyphChars.Space} ${(commit as GitStashCommit).stashName || commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.fromNow()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`;
         }
         else {
             this.label = message;
             this.description = `${Strings.pad('$(git-commit)', 1, 1)} ${commit.shortSha}`;
-            this.detail = `${GlyphChars.Space} ${commit.author}, ${commit.fromNow()}${(commit.type === GitCommitType.Branch) ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${(commit as GitLogCommit).getDiffStatus()}` : ''}`;
+            this.detail = `${GlyphChars.Space} ${commit.author}, ${commit.fromNow()}${commit.isFile ? '' : ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`}`;
         }
     }
 }

@@ -161,7 +161,9 @@ export class GitLogParser {
                             } as IGitStatusFile;
                             this.parseFileName(status);
 
-                            entry.fileStatuses.push(status);
+                            if (status.fileName) {
+                                entry.fileStatuses.push(status);
+                            }
                         }
 
                         if (entry.fileStatuses) {
@@ -229,12 +231,26 @@ export class GitLogParser {
                 }
             }
 
-            commit = new GitLogCommit(type, repoPath!, entry.sha, relativeFileName, entry.author, new Date(entry.authorDate! as any * 1000), entry.summary!, entry.status, entry.fileStatuses, undefined, entry.originalFileName);
-            commit.parentShas = entry.parentShas!;
-
-            if (relativeFileName !== entry.fileName) {
-                commit.originalFileName = entry.fileName;
+            const originalFileName = relativeFileName !== entry.fileName ? entry.fileName : undefined;
+            if (type === GitCommitType.File) {
+                entry.fileStatuses = [{ status: entry.status, fileName: relativeFileName, originalFileName: originalFileName } as IGitStatusFile];
             }
+
+            commit = new GitLogCommit(
+                type,
+                repoPath!,
+                entry.sha,
+                entry.author,
+                new Date(entry.authorDate! as any * 1000),
+                entry.summary!,
+                relativeFileName,
+                entry.fileStatuses || [],
+                entry.status,
+                originalFileName,
+                undefined,
+                undefined,
+                entry.parentShas!
+            );
 
             commits.set(entry.sha, commit);
         }

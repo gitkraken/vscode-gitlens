@@ -1,6 +1,6 @@
 'use strict';
 import { Iterables } from '../system';
-import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitNode } from './commitNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
@@ -13,7 +13,7 @@ export class StatusUpstreamNode extends ExplorerNode {
         public readonly direction: 'ahead' | 'behind',
         private readonly explorer: GitExplorer
     ) {
-        super(new GitUri(Uri.file(status.repoPath), { repoPath: status.repoPath, fileName: status.repoPath }));
+        super(GitUri.fromRepoPath(status.repoPath));
     }
 
     async getChildren(): Promise<ExplorerNode[]> {

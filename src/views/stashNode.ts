@@ -3,7 +3,7 @@ import { Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
-import { CommitFormatter, GitStashCommit, GitUri, ICommitFormatOptions } from '../gitService';
+import { CommitFormatter, GitStashCommit, ICommitFormatOptions } from '../gitService';
 import { StashFileNode } from './stashFileNode';
 
 export class StashNode extends ExplorerNode {
@@ -12,7 +12,7 @@ export class StashNode extends ExplorerNode {
         public readonly commit: GitStashCommit,
         private readonly explorer: GitExplorer
     ) {
-        super(new GitUri(commit.uri, commit));
+        super(commit.toGitUri());
     }
 
     async getChildren(): Promise<ExplorerNode[]> {

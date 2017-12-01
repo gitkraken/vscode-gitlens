@@ -139,7 +139,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
             if (pick instanceof CommandQuickPickItem) return pick.execute();
 
             return commands.executeCommand(Commands.ShowQuickCommitDetails,
-                new GitUri(pick.commit.uri, pick.commit),
+                pick.commit.toGitUri(),
                 {
                     sha: pick.commit.sha,
                     commit: pick.commit,

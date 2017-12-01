@@ -1,9 +1,9 @@
 'use strict';
-import { Command, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
-import { CommitFormatter, getGitStatusIcon, GitBranch, GitCommit, GitCommitType, GitUri, ICommitFormatOptions, IGitStatusFile, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
+import { CommitFormatter, getGitStatusIcon, GitBranch, GitLogCommit, GitUri, ICommitFormatOptions, IGitStatusFile, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
 import * as path from 'path';
 
 export enum CommitFileNodeDisplayAs {
@@ -23,12 +23,12 @@ export class CommitFileNode extends ExplorerNode {
 
     constructor(
         public readonly status: IGitStatusFile,
-        public commit: GitCommit,
+        public commit: GitLogCommit,
         protected readonly explorer: GitExplorer,
         private displayAs: CommitFileNodeDisplayAs = CommitFileNodeDisplayAs.Commit,
         public readonly branch?: GitBranch
     ) {
-        super(new GitUri(Uri.file(path.resolve(commit.repoPath, status.fileName)), { repoPath: commit.repoPath, fileName: status.fileName, sha: commit.sha }));
+        super(GitUri.fromFileStatus(status, commit.repoPath, commit.sha));
         this.repoPath = commit.repoPath;
     }
 
@@ -37,10 +37,17 @@ export class CommitFileNode extends ExplorerNode {
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        if (this.commit.type !== GitCommitType.File) {
-            const log = await this.explorer.git.getLogForFile(this.repoPath, this.status.fileName, this.commit.sha, { maxCount: 2 });
-            if (log !== undefined) {
-                this.commit = log.commits.get(this.commit.sha) || this.commit;
+        if (!this.commit.isFile) {
+            // See if we can get the commit directly from the multi-file commit
+            const commit = this.commit.toFileCommit(this.status);
+            if (commit === undefined) {
+                const log = await this.explorer.git.getLogForFile(this.repoPath, this.status.fileName, this.commit.sha, { maxCount: 2 });
+                if (log !== undefined) {
+                    this.commit = log.commits.get(this.commit.sha) || this.commit;
+                }
+            }
+            else {
+                this.commit = commit;
             }
         }
 

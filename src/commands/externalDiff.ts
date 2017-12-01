@@ -105,11 +105,11 @@ export class ExternalDiffCommand extends Command {
 
                 for (const file of status.files) {
                     if (file.indexStatus === 'M') {
-                        args.files.push(new ExternalDiffFile(file.Uri, true));
+                        args.files.push(new ExternalDiffFile(file.uri, true));
                     }
 
                     if (file.workTreeStatus === 'M') {
-                        args.files.push(new ExternalDiffFile(file.Uri, false));
+                        args.files.push(new ExternalDiffFile(file.uri, false));
                     }
                 }
             }

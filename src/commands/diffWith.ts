@@ -2,7 +2,7 @@
 import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './common';
 import { BuiltInCommands, GlyphChars } from '../constants';
-import { GitCommit, GitService } from '../gitService';
+import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import * as path from 'path';
 
@@ -90,6 +90,15 @@ export class DiffWithCommand extends ActiveEditorCommand {
         if (args.repoPath === undefined || args.lhs === undefined || args.rhs === undefined) return undefined;
 
         try {
+            // If the shas aren't resolved (e.g. a2d24f^), resolve them
+            if (GitService.isResolveRequired(args.lhs.sha)) {
+                args.lhs.sha = await this.git.resolveReference(args.repoPath, args.lhs.sha, args.lhs.uri);
+            }
+
+            if (GitService.isResolveRequired(args.rhs.sha)) {
+                args.rhs.sha = await this.git.resolveReference(args.repoPath, args.rhs.sha, args.rhs.uri);
+            }
+
             const [lhs, rhs] = await Promise.all([
                 this.git.getVersionedFile(args.repoPath, args.lhs.uri.fsPath, args.lhs.sha),
                 this.git.getVersionedFile(args.repoPath, args.rhs.uri.fsPath, args.rhs.sha)
@@ -104,19 +113,26 @@ export class DiffWithCommand extends ActiveEditorCommand {
 
             let rhsPrefix = '';
             if (rhs === undefined) {
-                rhsPrefix = 'deleted in ';
+                rhsPrefix = GitService.isUncommitted(args.rhs.sha)
+                    ? ' (deleted)'
+                    : 'deleted in ';
             }
             else if (lhs === undefined || args.lhs.sha === GitService.deletedSha) {
                 rhsPrefix = 'added in ';
             }
 
-            if (args.lhs.title === undefined && lhs !== undefined && args.lhs.sha !== GitService.deletedSha) {
+            let lhsPrefix = '';
+            if (lhs === undefined && args.rhs.sha === '') {
+                lhsPrefix = 'deleted in ';
+            }
+
+            if (args.lhs.title === undefined && args.lhs.sha !== GitService.deletedSha && (lhs !== undefined || lhsPrefix !== '')) {
                 const suffix = GitService.shortenSha(args.lhs.sha) || '';
-                args.lhs.title = `${path.basename(args.lhs.uri.fsPath)}${suffix !== '' ? ` (${suffix})` : ''}`;
+                args.lhs.title = `${path.basename(args.lhs.uri.fsPath)}${suffix !== '' ? ` (${lhsPrefix}${suffix})` : ''}`;
             }
             if (args.rhs.title === undefined && args.rhs.sha !== GitService.deletedSha) {
                 const suffix = GitService.shortenSha(args.rhs.sha) || '';
-                args.rhs.title = `${path.basename(args.rhs.uri.fsPath)}${suffix !== '' ? ` (${rhsPrefix}${suffix})` : ''}`;
+                args.rhs.title = `${path.basename(args.rhs.uri.fsPath)}${suffix !== '' ? ` (${rhsPrefix}${suffix})` : rhsPrefix}`;
             }
 
             const title = (args.lhs.title !== undefined && args.rhs.title !== undefined)
@@ -125,10 +141,10 @@ export class DiffWithCommand extends ActiveEditorCommand {
 
             return await commands.executeCommand(BuiltInCommands.Diff,
                 lhs === undefined
-                    ? GitService.toGitContentUri(GitService.deletedSha, args.lhs.uri.fsPath, args.repoPath)
+                    ? GitUri.toRevisionUri(GitService.deletedSha, args.lhs.uri.fsPath, args.repoPath)
                     : Uri.file(lhs),
                 rhs === undefined
-                    ? GitService.toGitContentUri(GitService.deletedSha, args.rhs.uri.fsPath, args.repoPath)
+                    ? GitUri.toRevisionUri(GitService.deletedSha, args.rhs.uri.fsPath, args.repoPath)
                     : Uri.file(rhs),
                 title,
                 args.showOptions);

@@ -4,58 +4,42 @@ import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from
 import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandCommandArgs, DiffWithPreviousCommandArgs, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, QuickPickItem } from './common';
 import { GlyphChars } from '../constants';
-import { getGitStatusOcticon, GitCommit, GitCommitType, GitLog, GitLogCommit, GitService, GitStashCommit, GitStatusFile, GitStatusFileStatus, GitUri, IGitCommitInfo, IGitStatusFile, RemoteResource } from '../gitService';
+import { getGitStatusOcticon, GitLog, GitLogCommit, GitService, GitStashCommit, GitStatusFile, GitStatusFileStatus, GitUri, IGitStatusFile, RemoteResource } from '../gitService';
 import { Keyboard, KeyCommand, KeyNoopCommand, Keys } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as path from 'path';
 
 export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickItem {
 
-    private commit: GitCommit;
-    fileName: string;
-    gitUri: GitUri;
-    sha: string;
-    shortSha: string;
-    status: GitStatusFileStatus;
+    readonly status: GitStatusFileStatus;
+
+    readonly commit: GitLogCommit;
 
     constructor(
-        commit: GitCommit,
+        commit: GitLogCommit,
         status: IGitStatusFile
     ) {
         const octicon = getGitStatusOcticon(status.status);
         const description = GitStatusFile.getFormattedDirectory(status, true);
 
-        let sha;
-        if (status.status === 'D') {
-            sha = commit.previousSha!;
-        }
-        else {
-            sha = commit.sha;
-        }
-
-        super(GitService.toGitContentUri(sha, status.fileName, commit.repoPath, status.originalFileName), {
+        super(GitUri.toRevisionUri(commit.sha, status, commit.repoPath), {
             label: `${Strings.pad(octicon, 4, 2)} ${path.basename(status.fileName)}`,
             description: description
         });
 
-        this.commit = commit;
-        this.fileName = status.fileName;
-        this.gitUri = GitUri.fromFileStatus(status, {
-            fileName: status.fileName,
-            repoPath: commit.repoPath,
-            sha: commit.sha,
-            originalFileName: status.originalFileName
-        } as IGitCommitInfo);
-        this.sha = sha;
-        this.shortSha = GitService.shortenSha(sha)!;
+        this.commit = commit.toFileCommit(status);
         this.status = status.status;
+    }
+
+    get sha(): string {
+        return this.commit.sha;
     }
 
     onDidPressKey(key: Keys): Promise<{} | undefined> {
         if (this.commit.previousSha === undefined) return super.onDidPressKey(key);
 
         return commands.executeCommand(Commands.DiffWithPrevious,
-            this.gitUri,
+            this.commit.toGitUri(),
             {
                 commit: this.commit,
                 showOptions: {
@@ -75,7 +59,7 @@ export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPi
     ) {
         const repoPath = commit.repoPath;
         const uris = Arrays.filterMap(commit.fileStatuses,
-            f => f.status !== 'D' ? GitUri.fromFileStatus(f, repoPath) : undefined);
+            f => GitUri.fromFileStatus(f, repoPath));
 
         super(uris, item || {
             label: `$(file-symlink-file) Open Changed Files`,
@@ -92,7 +76,7 @@ export class OpenCommitFileRevisionsCommandQuickPickItem extends OpenFilesComman
         item?: QuickPickItem
     ) {
         const uris = Arrays.filterMap(commit.fileStatuses,
-            f => f.status !== 'D' ? GitService.toGitContentUri(commit.sha, f.fileName, commit.repoPath, f.originalFileName) : undefined);
+            f => GitUri.toRevisionUri(f.status === 'D' ? commit.previousFileSha : commit.sha, f, commit.repoPath));
 
         super(uris, item || {
             label: `$(file-symlink-file) Open Changed Revisions`,
@@ -105,9 +89,11 @@ export class OpenCommitFileRevisionsCommandQuickPickItem extends OpenFilesComman
 export class CommitDetailsQuickPick {
 
     static async show(git: GitService, commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, repoLog?: GitLog): Promise<CommitWithFileStatusQuickPickItem | CommandQuickPickItem | undefined> {
+        await commit.resolvePreviousFileSha(git);
+
         const items: (CommitWithFileStatusQuickPickItem | CommandQuickPickItem)[] = commit.fileStatuses.map(fs => new CommitWithFileStatusQuickPickItem(commit, fs));
 
-        const stash = commit.type === GitCommitType.Stash;
+        const stash = commit.isStash;
 
         let index = 0;
 
@@ -170,11 +156,11 @@ export class CommitDetailsQuickPick {
 
             items.splice(index++, 0, new CommandQuickPickItem({
                 label: `$(git-compare) Compare Directory with Previous Commit`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.previousShortSha || `${commit.shortSha}^`} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.previousFileShortSha} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`
             }, Commands.DiffDirectory, [
                     commit.uri,
                     {
-                        shaOrBranch1: commit.previousSha || `${commit.sha}^`,
+                        shaOrBranch1: commit.previousFileSha,
                         shaOrBranch2: commit.sha
                     } as DiffDirectoryCommandCommandArgs
                 ]));

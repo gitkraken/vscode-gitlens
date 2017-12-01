@@ -1,6 +1,6 @@
 'use strict';
 import { Arrays } from '../../system';
-import { Git, GitStash, GitStashCommit, GitStatusFileStatus, IGitStatusFile } from './../git';
+import { Git, GitCommitType, GitStash, GitStashCommit, GitStatusFileStatus, IGitStatusFile } from './../git';
 // import { Logger } from '../../logger';
 
 interface StashEntry {
@@ -25,7 +25,17 @@ export class GitStashParser {
 
             let commit = commits.get(entry.sha);
             if (commit === undefined) {
-                commit = new GitStashCommit(entry.stashName, repoPath, entry.sha, entry.fileNames, new Date(entry.date! as any * 1000), entry.summary, undefined, entry.fileStatuses, undefined, `${entry.sha}^1`) as GitStashCommit;
+                commit = new GitStashCommit(
+                    GitCommitType.Stash,
+                    entry.stashName,
+                    repoPath,
+                    entry.sha,
+                    new Date(entry.date! as any * 1000),
+                    entry.summary,
+                    entry.fileNames,
+                    entry.fileStatuses || []
+                );
+
                 commits.set(entry.sha, commit);
             }
         }
@@ -117,7 +127,9 @@ export class GitStashParser {
                         } as IGitStatusFile;
                         this.parseFileName(status);
 
-                        entry.fileStatuses.push(status);
+                        if (status.fileName) {
+                            entry.fileStatuses.push(status);
+                        }
                     }
 
                     if (entry.fileStatuses) {

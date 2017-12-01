@@ -1,5 +1,5 @@
 'use strict';
-import { Command, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
@@ -16,7 +16,7 @@ export class StatusFileCommitsNode extends ExplorerNode {
         private readonly explorer: GitExplorer,
         public readonly branch?: GitBranch
     ) {
-        super(new GitUri(Uri.file(path.resolve(repoPath, status.fileName)), { repoPath: repoPath, fileName: status.fileName, sha: 'HEAD' }));
+        super(GitUri.fromFileStatus(status, repoPath, 'HEAD'));
     }
 
     async getChildren(): Promise<ExplorerNode[]> {

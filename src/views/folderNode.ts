@@ -1,6 +1,6 @@
 'use strict';
 import { Arrays, Objects } from '../system';
-import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitExplorerFilesLayout, IGitExplorerConfig } from '../configuration';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
@@ -25,7 +25,7 @@ export class FolderNode extends ExplorerNode {
         public readonly root: Arrays.IHierarchicalItem<IFileExplorerNode>,
         private readonly explorer: GitExplorer
     ) {
-        super(new GitUri(Uri.file(repoPath), { repoPath: repoPath, fileName: repoPath }));
+        super(GitUri.fromRepoPath(repoPath));
     }
 
     async getChildren(): Promise<(FolderNode | IFileExplorerNode)[]> {

@@ -297,7 +297,7 @@ export async function openEditor(uri: Uri, options?: TextDocumentShowOptions): P
         };
 
         if (uri instanceof GitUri) {
-            uri = Uri.file(uri.fsPath);
+            uri = uri.fileUri(false);
         }
 
         const document = await workspace.openTextDocument(uri);

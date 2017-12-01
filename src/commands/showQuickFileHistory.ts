@@ -62,7 +62,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                 ]);
 
             return commands.executeCommand(Commands.ShowQuickCommitFileDetails,
-                new GitUri(pick.commit.uri, pick.commit),
+                pick.commit.toGitUri(),
                 {
                     commit: pick.commit,
                     fileLog: args.log,

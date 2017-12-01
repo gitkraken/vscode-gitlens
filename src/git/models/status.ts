@@ -36,18 +36,24 @@ export interface IGitStatusFileWithCommit extends IGitStatusFile {
 
 export class GitStatusFile implements IGitStatusFile {
 
-    originalFileName?: string;
-
     constructor(
-        public repoPath: string,
-        public status: GitStatusFileStatus,
-        public workTreeStatus: GitStatusFileStatus,
-        public indexStatus: GitStatusFileStatus,
-        public fileName: string,
-        public staged: boolean,
-        originalFileName?: string
-    ) {
-        this.originalFileName = originalFileName;
+        public readonly repoPath: string,
+        public readonly indexStatus: GitStatusFileStatus,
+        public readonly workTreeStatus: GitStatusFileStatus,
+        public readonly fileName: string,
+        public readonly originalFileName?: string
+    ) { }
+
+    get status(): GitStatusFileStatus {
+        return (this.indexStatus || this.workTreeStatus || '?') as GitStatusFileStatus;
+    }
+
+    get staged() {
+        return this.indexStatus !== undefined;
+    }
+
+    get uri(): Uri {
+        return Uri.file(path.resolve(this.repoPath, this.fileName));
     }
 
     getFormattedDirectory(includeOriginal: boolean = false): string {
@@ -62,8 +68,19 @@ export class GitStatusFile implements IGitStatusFile {
         return getGitStatusOcticon(this.status);
     }
 
-    get Uri(): Uri {
-        return Uri.file(path.resolve(this.repoPath, this.fileName));
+    with(changes: { indexStatus?: GitStatusFileStatus | null, workTreeStatus?: GitStatusFileStatus | null, fileName?: string, originalFileName?: string | null }): GitStatusFile {
+        return new GitStatusFile(
+            this.repoPath,
+            this.getChangedValue(changes.indexStatus, this.indexStatus) as GitStatusFileStatus,
+            this.getChangedValue(changes.workTreeStatus, this.workTreeStatus) as GitStatusFileStatus,
+            changes.fileName || this.fileName,
+            this.getChangedValue(changes.originalFileName, this.originalFileName)
+        );
+    }
+
+    protected getChangedValue<T>(change: T | null | undefined, original: T | undefined): T | undefined {
+        if (change === undefined) return original;
+        return change !== null ? change : undefined;
     }
 
     static getFormattedDirectory(status: IGitStatusFile, includeOriginal: boolean = false, relativeTo?: string): string {

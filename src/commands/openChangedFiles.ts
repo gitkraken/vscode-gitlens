@@ -32,7 +32,7 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
                 if (status === undefined) return window.showWarningMessage(`Unable to open changed files`);
 
                 args.uris = Arrays.filterMap(status.files,
-                    f => f.status !== 'D' ? f.Uri : undefined);
+                    f => f.status !== 'D' ? f.uri : undefined);
             }
 
             for (const uri of args.uris) {

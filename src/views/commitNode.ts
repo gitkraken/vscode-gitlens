@@ -7,7 +7,7 @@ import { GitExplorerFilesLayout } from '../configuration';
 import { FolderNode, IFileExplorerNode } from './folderNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
-import { CommitFormatter, GitBranch, GitLogCommit, GitService, GitUri, ICommitFormatOptions } from '../gitService';
+import { CommitFormatter, GitBranch, GitLogCommit, GitService, ICommitFormatOptions } from '../gitService';
 import * as path from 'path';
 
 export class CommitNode extends ExplorerNode {
@@ -19,7 +19,7 @@ export class CommitNode extends ExplorerNode {
         private readonly explorer: GitExplorer,
         public readonly branch?: GitBranch
     ) {
-        super(new GitUri(commit.uri, commit));
+        super(commit.toGitUri());
         this.repoPath = commit.repoPath;
     }
 
@@ -33,7 +33,7 @@ export class CommitNode extends ExplorerNode {
         if (commit === undefined) return [];
 
         let children: IFileExplorerNode[] = [
-            ...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit, this.explorer, CommitFileNodeDisplayAs.File, this.branch))
+            ...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit.toFileCommit(s), this.explorer, CommitFileNodeDisplayAs.File, this.branch))
         ];
 
         if (this.explorer.config.files.layout !== GitExplorerFilesLayout.List) {
@@ -72,7 +72,7 @@ export class CommitNode extends ExplorerNode {
             title: 'Compare File with Previous Revision',
             command: Commands.DiffWithPrevious,
             arguments: [
-                new GitUri(this.uri, this.commit),
+                this.uri,
                 {
                     commit: this.commit,
                     line: 0,

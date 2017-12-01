@@ -3,7 +3,7 @@ import { Strings } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
 import { GlyphChars } from '../constants';
-import { GitCommit, GitCommitType, GitLog, GitLogCommit, GitService, GitUri } from '../gitService';
+import { GitCommit, GitLog, GitLogCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitDetailsQuickPick, CommitWithFileStatusQuickPickItem } from '../quickPicks';
 import { ShowQuickCommitFileDetailsCommandArgs } from './showQuickCommitFileDetails';
@@ -83,7 +83,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         }
 
         try {
-            if (args.commit === undefined || (args.commit.type !== GitCommitType.Branch && args.commit.type !== GitCommitType.Stash)) {
+            if (args.commit === undefined || args.commit.isFile) {
                 if (args.repoLog !== undefined) {
                     args.commit = args.repoLog.commits.get(args.sha!);
                     // If we can't find the commit, kill the repoLog
@@ -112,7 +112,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
                     label: `go back ${GlyphChars.ArrowBack}`,
                     description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to branch history`
                 }, Commands.ShowQuickCurrentBranchHistory, [
-                        new GitUri(args.commit.uri, args.commit)
+                        args.commit.toGitUri()
                     ]);
             }
 
@@ -121,7 +121,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
                 label: `go back ${GlyphChars.ArrowBack}`,
                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to details of ${GlyphChars.Space}$(git-commit) ${args.commit.shortSha}`
             }, Commands.ShowQuickCommitDetails, [
-                    new GitUri(args.commit.uri, args.commit),
+                    args.commit.toGitUri(),
                     args
                 ]);
 
@@ -131,9 +131,9 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
             if (!(pick instanceof CommitWithFileStatusQuickPickItem)) return pick.execute();
 
             return commands.executeCommand(Commands.ShowQuickCommitFileDetails,
-                pick.gitUri,
+                pick.commit.toGitUri(),
                 {
-                    commit: args.commit,
+                    commit: pick.commit,
                     sha: pick.sha,
                     goBackCommand: currentCommand
                 } as ShowQuickCommitFileDetailsCommandArgs);

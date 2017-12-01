@@ -9,6 +9,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds progress indicator to the `Show Stashed Changes` command (`gitlens.showQuickStashList`)
 - Adds progress indicator to the `Apply Stashed Changes` command (`gitlens.stashApply`)
 
+### Changed
+- Overhauls the internal way GitLens deals with Uris and revisions should be far more robust and lead to many fewer edge-case issues
+
+### Fixed
+- Fixes [#220](https://github.com/eamodio/vscode-gitlens/issues/220) - Open Revision quick pick results in empty file
+- Fixes so, SO, many bugs through the refactor/overhaul of GitLens' Uri handling
+
 ## [6.3.0] - 2017-11-30
 ### Added
 - Adds support for files with staged changes

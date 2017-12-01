@@ -1,6 +1,6 @@
 'use strict';
 import { Iterables, Strings } from '../system';
-import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
+import { CancellationTokenSource, QuickPickOptions, window } from 'vscode';
 import { Commands, ShowCommitSearchCommandArgs, ShowQuickBranchHistoryCommandArgs } from '../commands';
 import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './common';
 import { GlyphChars } from '../constants';
@@ -47,7 +47,7 @@ export class BranchHistoryQuickPick {
             label: `$(search) Show Commit Search`,
             description: `${Strings.pad(GlyphChars.Dash, 2, 3)} search for commits by message, author, files, or commit id`
         }, Commands.ShowCommitSearch, [
-                new GitUri(Uri.file(log.repoPath), { fileName: '', repoPath: log.repoPath }),
+                GitUri.fromRepoPath(log.repoPath),
                 {
                     goBackCommand: currentCommand
                 } as ShowCommitSearchCommandArgs
@@ -61,7 +61,7 @@ export class BranchHistoryQuickPick {
                     label: `$(sync) Show All Commits`,
                     description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
                 }, Commands.ShowQuickBranchHistory, [
-                        new GitUri(Uri.file(log.repoPath), { fileName: '', repoPath: log.repoPath }),
+                        GitUri.fromRepoPath(log.repoPath),
                         {
                             branch,
                             maxCount: 0,
@@ -74,7 +74,7 @@ export class BranchHistoryQuickPick {
                     label: `$(history) Show Branch History`,
                     description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${GlyphChars.Space}$(git-branch) ${branch} history`
                 }, Commands.ShowQuickBranchHistory, [
-                        new GitUri(Uri.file(log.repoPath), { fileName: '', repoPath: log.repoPath }),
+                        GitUri.fromRepoPath(log.repoPath),
                         {
                             branch,
                             goBackCommand: currentCommand

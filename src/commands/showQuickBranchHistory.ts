@@ -77,7 +77,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
                 ]);
 
             return commands.executeCommand(Commands.ShowQuickCommitDetails,
-                new GitUri(pick.commit.uri, pick.commit),
+                pick.commit.toGitUri(),
                 {
                     sha: pick.commit.sha,
                     commit: pick.commit,

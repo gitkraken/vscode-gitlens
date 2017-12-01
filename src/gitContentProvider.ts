@@ -1,7 +1,7 @@
 'use strict';
 import { CancellationToken, ExtensionContext, TextDocumentContentProvider, Uri, window } from 'vscode';
 import { DocumentSchemes } from './constants';
-import { GitService } from './gitService';
+import { GitService, GitUri } from './gitService';
 import { Logger } from './logger';
 import * as path from 'path';
 
@@ -15,17 +15,15 @@ export class GitContentProvider implements TextDocumentContentProvider {
     ) { }
 
     async provideTextDocumentContent(uri: Uri, token: CancellationToken): Promise<string | undefined> {
-        const data = GitService.fromGitContentUri(uri);
-        if (data.sha === GitService.deletedSha) return '';
-
-        const fileName = data.originalFileName || data.fileName;
+        const gitUri = GitUri.fromRevisionUri(uri);
+        if (!gitUri.repoPath || gitUri.sha === GitService.deletedSha) return '';
 
         try {
-            return await this.git.getVersionedFileText(data.repoPath, fileName, data.sha);
+            return await this.git.getVersionedFileText(gitUri.repoPath, gitUri.fsPath, gitUri.sha || 'HEAD');
         }
         catch (ex) {
             Logger.error(ex, 'GitContentProvider', 'getVersionedFileText');
-            window.showErrorMessage(`Unable to show Git revision ${GitService.shortenSha(data.sha)} of '${path.relative(data.repoPath, fileName)}'`);
+            window.showErrorMessage(`Unable to show Git revision ${GitService.shortenSha(gitUri.sha)} of '${path.relative(gitUri.repoPath, gitUri.fsPath)}'`);
             return undefined;
         }
     }

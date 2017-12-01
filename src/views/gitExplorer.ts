@@ -176,7 +176,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
 
                 if (repositories.length === 1) {
                     const repo = repositories[0];
-                    return new RepositoryNode(new GitUri(Uri.file(repo.path), { repoPath: repo.path, fileName: repo.path }), repo, this);
+                    return new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this);
                 }
 
                 return new RepositoriesNode(repositories, this);

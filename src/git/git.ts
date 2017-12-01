@@ -120,6 +120,7 @@ function gitCommandDefaultErrorHandler(ex: Error, options: GitCommandOptions, ..
 export class Git {
 
     static shaRegex = /^[0-9a-f]{40}(\^[0-9]*?)??( -)?$/;
+    static shaStrictRegex = /^[0-9a-f]{40}$/;
     static stagedUncommittedRegex = /^[0]{40}(\^[0-9]*?)??:$/;
     static stagedUncommittedSha = '0000000000000000000000000000000000000000:';
     static uncommittedRegex = /^[0]{40}(\^[0-9]*?)??:??$/;
@@ -159,7 +160,7 @@ export class Git {
                         return;
                     }
 
-                    Logger.log(`getVersionedFile('${repoPath}', '${fileName}', ${branchOrSha}); destination=${destination}`);
+                    Logger.log(`getVersionedFile[${destination}]('${repoPath}', '${fileName}', ${branchOrSha})`);
                     fs.appendFile(destination, data, { encoding: 'binary' }, err => {
                         if (err) {
                             reject(err);
@@ -172,20 +173,28 @@ export class Git {
         });
     }
 
+    static isResolveRequired(sha: string) {
+        return Git.isSha(sha) && !Git.shaStrictRegex.test(sha);
+    }
+
     static isSha(sha: string) {
         return Git.shaRegex.test(sha);
     }
 
-    static isStagedUncommitted(sha: string): boolean {
-        return Git.stagedUncommittedRegex.test(sha);
+    static isStagedUncommitted(sha: string | undefined): boolean {
+        return sha === undefined ? false : Git.stagedUncommittedRegex.test(sha);
     }
 
-    static isUncommitted(sha: string) {
-        return Git.uncommittedRegex.test(sha);
+    static isUncommitted(sha: string | undefined) {
+        return sha === undefined ? false : Git.uncommittedRegex.test(sha);
     }
 
     static normalizePath(fileName: string) {
-        return fileName && fileName.replace(/\\/g, '/');
+        const normalized = fileName && fileName.replace(/\\/g, '/');
+        // if (normalized && normalized.includes('..')) {
+        //     debugger;
+        // }
+        return normalized;
     }
 
     static shortenSha(sha: string) {
@@ -193,8 +202,11 @@ export class Git {
         if (Git.isUncommitted(sha)) return '';
 
         const index = sha.indexOf('^');
-        // This is lame, but assume there is only 1 character after the ^
-        if (index > 6) return `${sha.substring(0, 6)}${sha.substring(index)}`;
+        if (index > 6) {
+            // Only grab a max of 5 chars for the suffix
+            const suffix = sha.substring(index).substring(0, 5);
+            return `${sha.substring(0, 8 - suffix.length)}${suffix}`;
+        }
         return sha.substring(0, 8);
     }
 
@@ -388,6 +400,16 @@ export class Git {
         return gitCommand({ cwd: root }, ...params);
     }
 
+    static async log_resolve(repoPath: string, sha: string, fileName: string) {
+        try {
+            const data = await gitCommand({ cwd: repoPath, willHandleErrors: true }, `log`, `--full-history`, `-M`, `-n1`, `--no-merges`, `--format=%H`, sha, `--`, fileName);
+            return data.trim();
+        }
+        catch {
+            return undefined;
+        }
+    }
+
     static log_search(repoPath: string, search: string[] = [], maxCount?: number) {
         const params = [...defaultLogParams, `-m`, `-i`];
         if (maxCount) {
@@ -426,6 +448,16 @@ export class Git {
 
     static remote_url(repoPath: string, remote: string): Promise<string> {
         return gitCommand({ cwd: repoPath }, 'remote', 'get-url', remote);
+    }
+
+    static async revparse(repoPath: string, ref: string): Promise<string | undefined> {
+        try {
+            const data = await gitCommand({ cwd: repoPath, willHandleErrors: true }, `rev-parse`, ref);
+            return data.trim();
+        }
+        catch (ex) {
+            return undefined;
+        }
     }
 
     static async revparse_currentBranch(repoPath: string): Promise<string | undefined> {

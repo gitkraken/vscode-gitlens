@@ -3,7 +3,7 @@ import { Strings } from '../system';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
 import { GlyphChars } from '../constants';
-import { GitCommit, GitCommitType, GitLog, GitLogCommit, GitService, GitUri } from '../gitService';
+import { GitCommit, GitLog, GitLogCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitFileDetailsQuickPick } from '../quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
@@ -81,7 +81,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
         }
 
         try {
-            if (args.commit === undefined || args.commit.type !== GitCommitType.File) {
+            if (args.commit === undefined || !args.commit.isFile) {
                 if (args.commit !== undefined) {
                     workingFileName = undefined;
                 }
@@ -114,7 +114,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                     label: `go back ${GlyphChars.ArrowBack}`,
                     description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to details of ${GlyphChars.Space}$(git-commit) ${shortSha}`
                 }, Commands.ShowQuickCommitDetails, [
-                        new GitUri(args.commit.uri, args.commit),
+                        args.commit.toGitUri(),
                         {
                             commit: args.commit,
                             sha: args.sha
@@ -127,7 +127,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                 label: `go back ${GlyphChars.ArrowBack}`,
                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to details of ${GlyphChars.Space}$(file-text) ${path.basename(args.commit.fileName)} in ${GlyphChars.Space}$(git-commit) ${shortSha}`
             }, Commands.ShowQuickCommitFileDetails, [
-                    new GitUri(args.commit.uri, args.commit),
+                    args.commit.toGitUri(),
                     args
                 ]);
 

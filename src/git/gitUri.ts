@@ -2,8 +2,14 @@
 import { Strings } from '../system';
 import { Uri } from 'vscode';
 import { DocumentSchemes, GlyphChars } from '../constants';
-import { GitService, IGitStatusFile } from '../gitService';
+import { GitCommit, GitService, IGitStatusFile } from '../gitService';
 import * as path from 'path';
+
+export interface IGitCommitInfo {
+    fileName?: string;
+    repoPath: string;
+    sha?: string;
+}
 
 interface UriEx {
     new(): Uri;
@@ -15,9 +21,9 @@ export class GitUri extends ((Uri as any) as UriEx) {
     repoPath?: string | undefined;
     sha?: string | undefined;
 
-    constructor(uri?: Uri, commit?: IGitCommitInfo);
-    constructor(uri?: Uri, repoPath?: string);
-    constructor(uri?: Uri, commitOrRepoPath?: IGitCommitInfo | string);
+    constructor(uri?: Uri)
+    constructor(uri: Uri, commit: IGitCommitInfo);
+    constructor(uri: Uri, repoPath: string | undefined);
     constructor(uri?: Uri, commitOrRepoPath?: IGitCommitInfo | string) {
         if (uri === undefined) {
             super();
@@ -26,12 +32,12 @@ export class GitUri extends ((Uri as any) as UriEx) {
         }
 
         if (uri.scheme === DocumentSchemes.GitLensGit) {
-            const data = GitService.fromGitContentUri(uri);
-            super(uri.scheme, uri.authority, path.resolve(data.repoPath, data.originalFileName || data.fileName), uri.query, uri.fragment);
+            const data: IUriRevisionData = JSON.parse(uri.query);
+            super(uri.scheme, uri.authority, path.resolve(data.repoPath, data.fileName), uri.query, uri.fragment);
 
+            this.repoPath = data.repoPath;
             if (GitService.isStagedUncommitted(data.sha) || !GitService.isUncommitted(data.sha)) {
                 this.sha = data.sha;
-                this.repoPath = data.repoPath;
             }
 
             return;
@@ -51,15 +57,11 @@ export class GitUri extends ((Uri as any) as UriEx) {
             return;
         }
 
-        const commit = commitOrRepoPath;
-        super(uri.scheme, uri.authority, path.resolve(commit.repoPath, commit.originalFileName || commit.fileName || ''), uri.query, uri.fragment);
+        super(uri.scheme, uri.authority, path.resolve(commitOrRepoPath.repoPath, commitOrRepoPath.fileName || uri.fsPath), uri.query, uri.fragment);
 
-        if (commit.repoPath !== undefined) {
-            this.repoPath = commit.repoPath;
-        }
-
-        if (commit.sha !== undefined && (GitService.isStagedUncommitted(commit.sha) || !GitService.isUncommitted(commit.sha))) {
-            this.sha = commit.sha;
+        this.repoPath = commitOrRepoPath.repoPath;
+        if (GitService.isStagedUncommitted(commitOrRepoPath.sha) || !GitService.isUncommitted(commitOrRepoPath.sha)) {
+            this.sha = commitOrRepoPath.sha;
         }
     }
 
@@ -67,8 +69,8 @@ export class GitUri extends ((Uri as any) as UriEx) {
         return this.sha && GitService.shortenSha(this.sha);
     }
 
-    fileUri() {
-        return Uri.file(this.sha ? this.path : this.fsPath);
+    fileUri(useSha: boolean = true) {
+        return Uri.file(useSha && this.sha ? this.path : this.fsPath);
     }
 
     getFormattedPath(separator: string = Strings.pad(GlyphChars.Dot, 2, 2), relativeTo?: string): string {
@@ -94,10 +96,36 @@ export class GitUri extends ((Uri as any) as UriEx) {
         return GitService.normalizePath(relativePath);
     }
 
+    static fromCommit(commit: GitCommit, previous: boolean = false) {
+        if (!previous) return new GitUri(commit.uri, commit);
+
+        return new GitUri(commit.previousUri, {
+            repoPath: commit.repoPath,
+            sha: commit.previousSha
+        });
+    }
+
+    static fromFileStatus(status: IGitStatusFile, repoPath: string, sha?: string, original: boolean = false): GitUri {
+        const uri = Uri.file(path.resolve(repoPath, (original && status.originalFileName) || status.fileName));
+        return sha === undefined
+            ? new GitUri(uri, repoPath)
+            : new GitUri(uri, { repoPath: repoPath, sha: sha });
+    }
+
+    static fromRepoPath(repoPath: string, ref?: string) {
+        return ref === undefined
+            ? new GitUri(Uri.file(repoPath), repoPath)
+            : new GitUri(Uri.file(repoPath), { repoPath: repoPath, sha: ref });
+    }
+
+    static fromRevisionUri(uri: Uri): GitUri {
+        return new GitUri(uri);
+    }
+
     static async fromUri(uri: Uri, git: GitService) {
         if (uri instanceof GitUri) return uri;
 
-        if (!git.isTrackable(uri)) return new GitUri(uri, undefined);
+        if (!git.isTrackable(uri)) return new GitUri(uri);
 
         if (uri.scheme === DocumentSchemes.GitLensGit) return new GitUri(uri);
 
@@ -120,14 +148,6 @@ export class GitUri extends ((Uri as any) as UriEx) {
         if (gitUri) return gitUri;
 
         return new GitUri(uri, await git.getRepoPath(uri));
-    }
-
-    static fromFileStatus(status: IGitStatusFile, repoPath: string, original?: boolean): GitUri;
-    static fromFileStatus(status: IGitStatusFile, commit: IGitCommitInfo, original?: boolean): GitUri;
-    static fromFileStatus(status: IGitStatusFile, repoPathOrCommit: string | IGitCommitInfo, original: boolean = false): GitUri {
-        const repoPath = typeof repoPathOrCommit === 'string' ? repoPathOrCommit : repoPathOrCommit.repoPath;
-        const uri = Uri.file(path.resolve(repoPath, original ? status.originalFileName || status.fileName : status.fileName));
-        return new GitUri(uri, repoPathOrCommit);
     }
 
     static getDirectory(fileName: string, relativeTo?: string): string {
@@ -173,18 +193,47 @@ export class GitUri extends ((Uri as any) as UriEx) {
         }
         return GitService.normalizePath(relativePath);
     }
+
+    static toRevisionUri(uri: GitUri): Uri;
+    static toRevisionUri(sha: string, fileName: string, repoPath: string): Uri;
+    static toRevisionUri(sha: string, status: IGitStatusFile, repoPath: string): Uri;
+    static toRevisionUri(uriOrSha: string | GitUri, fileNameOrStatus?: string | IGitStatusFile, repoPath?: string): Uri {
+        let fileName: string;
+        let sha: string | undefined;
+        let shortSha: string | undefined;
+
+        if (typeof uriOrSha === 'string') {
+            if (typeof fileNameOrStatus === 'string') {
+                fileName = fileNameOrStatus;
+            }
+            else {
+                fileName = path.resolve(repoPath!, fileNameOrStatus!.fileName);
+            }
+
+            sha = uriOrSha;
+            shortSha = GitService.shortenSha(sha);
+        }
+        else {
+            fileName = uriOrSha.fsPath!;
+            repoPath = uriOrSha.repoPath!;
+            sha = uriOrSha.sha;
+            shortSha = uriOrSha.shortSha;
+        }
+
+        const data: IUriRevisionData = {
+            fileName: GitService.normalizePath(path.relative(repoPath!, fileName)),
+            repoPath: repoPath!,
+            sha: sha
+        };
+
+        const parsed = path.parse(fileName);
+        return Uri.parse(`${DocumentSchemes.GitLensGit}:${path.join(parsed.dir, parsed.name)}:${shortSha}${parsed.ext}?${JSON.stringify(data)}`);
+    }
+
 }
 
-export interface IGitCommitInfo {
-    fileName: string;
-    repoPath: string;
+interface IUriRevisionData {
     sha?: string;
-    originalFileName?: string;
-}
-
-export interface IGitUriData {
-    sha: string;
     fileName: string;
     repoPath: string;
-    originalFileName?: string;
 }

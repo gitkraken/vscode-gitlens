@@ -33,7 +33,7 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
                 const status = await this.git.getStatusForRepo(repoPath);
                 if (status === undefined) return window.showWarningMessage(`Unable to close unchanged files`);
 
-                args.uris = status.files.map(f => f.Uri);
+                args.uris = status.files.map(f => f.uri);
             }
 
             if (args.uris.length === 0) return commands.executeCommand(BuiltInCommands.CloseAllEditors);

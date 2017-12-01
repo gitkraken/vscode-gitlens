@@ -7,47 +7,36 @@ import * as path from 'path';
 
 export class GitLogCommit extends GitCommit {
 
-    fileNames: string;
-    fileStatuses: IGitStatusFile[];
     nextSha?: string;
     nextFileName?: string;
-    parentShas: string[];
-    status?: GitStatusFileStatus;
 
     constructor(
         type: GitCommitType,
         repoPath: string,
         sha: string,
-        fileName: string,
         author: string,
         date: Date,
         message: string,
-        status?: GitStatusFileStatus,
-        fileStatuses?: IGitStatusFile[],
-        originalFileName?: string,
-        previousSha?: string,
-        previousFileName?: string
+        fileName: string,
+        public readonly fileStatuses: IGitStatusFile[],
+        public readonly status: GitStatusFileStatus | undefined,
+        originalFileName: string | undefined,
+        previousSha: string | undefined,
+        previousFileName: string | undefined,
+        public readonly parentShas?: string[]
     ) {
-        super(type, repoPath, sha, fileName, author, date, message, originalFileName, previousSha, previousFileName);
-
-        this.fileNames = this.fileName;
-
-        if (fileStatuses) {
-            this.fileStatuses = fileStatuses.filter(f => !!f.fileName);
-
-            const fileStatus = this.fileStatuses[0];
-            this.fileName = fileStatus.fileName;
-            this.status = fileStatus.status;
-        }
-        else {
-            if (fileName === undefined) {
-                this.fileStatuses = [];
-            }
-            else {
-                this.fileStatuses = [{ status: status, fileName: fileName, originalFileName: originalFileName } as IGitStatusFile];
-            }
-            this.status = status;
-        }
+        super(
+            type,
+            repoPath,
+            sha,
+            author,
+            date,
+            message,
+            fileName,
+            originalFileName,
+            previousSha,
+            previousFileName
+        );
     }
 
     get isMerge() {
@@ -60,6 +49,14 @@ export class GitLogCommit extends GitCommit {
 
     get nextUri(): Uri {
         return this.nextFileName ? Uri.file(path.resolve(this.repoPath, this.nextFileName)) : this.uri;
+    }
+
+    get previousFileSha(): string {
+        if (this._resolvedPreviousFileSha !== undefined) return this._resolvedPreviousFileSha;
+
+        return (this.isFile && this.previousSha)
+            ? this.previousSha
+            : `${this.sha}^`;
     }
 
     getDiffStatus(): string {
@@ -85,29 +82,50 @@ export class GitLogCommit extends GitCommit {
         return `+${added} ~${changed} -${deleted}`;
     }
 
-    toFileCommit(status: IGitStatusFile): GitLogCommit {
+    toFileCommit(fileName: string): GitLogCommit | undefined;
+    toFileCommit(status: IGitStatusFile): GitLogCommit;
+    toFileCommit(fileNameOrStatus: string | IGitStatusFile): GitLogCommit | undefined {
+        let status: IGitStatusFile | undefined;
+        if (typeof fileNameOrStatus === 'string') {
+            const fileName = Git.normalizePath(path.relative(this.repoPath, fileNameOrStatus));
+            status = this.fileStatuses.find(f => f.fileName === fileName);
+            if (status === undefined) return undefined;
+        }
+        else {
+            status = fileNameOrStatus;
+        }
+
+        // If this isn't a single-file commit, we can't trust the previousSha
+        const previousSha = this.isFile
+            ? this.previousSha
+            : `${this.sha}^`;
+
         return this.with({
-            type: GitCommitType.File,
+            type: this.isStash ? GitCommitType.StashFile : GitCommitType.File,
             fileName: status.fileName,
             originalFileName: status.originalFileName,
+            previousSha: previousSha,
             previousFileName: status.originalFileName || status.fileName,
             status: status.status,
-            fileStatuses: null
+            fileStatuses: [status]
         });
     }
 
     with(changes: { type?: GitCommitType, sha?: string | null, fileName?: string, author?: string, date?: Date, message?: string, originalFileName?: string | null, previousFileName?: string | null, previousSha?: string | null, status?: GitStatusFileStatus, fileStatuses?: IGitStatusFile[] | null }): GitLogCommit {
-        return new GitLogCommit(changes.type || this.type,
+        return new GitLogCommit(
+            changes.type || this.type,
             this.repoPath,
             this.getChangedValue(changes.sha, this.sha)!,
-            changes.fileName || this.fileName,
             changes.author || this.author,
             changes.date || this.date,
             changes.message || this.message,
+            changes.fileName || this.fileName,
+            this.getChangedValue(changes.fileStatuses, this.fileStatuses) || [],
             changes.status || this.status,
-            this.getChangedValue(changes.fileStatuses, this.fileStatuses),
             this.getChangedValue(changes.originalFileName, this.originalFileName),
             this.getChangedValue(changes.previousSha, this.previousSha),
-            this.getChangedValue(changes.previousFileName, this.previousFileName));
+            this.getChangedValue(changes.previousFileName, this.previousFileName),
+            undefined
+        );
     }
 }

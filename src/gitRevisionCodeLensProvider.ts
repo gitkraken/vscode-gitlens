@@ -36,8 +36,7 @@ export class GitRevisionCodeLensProvider implements CodeLensProvider {
     ) { }
 
     async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
-        const data = GitService.fromGitContentUri(document.uri);
-        const gitUri = new GitUri(Uri.file(data.fileName), data);
+        const gitUri = GitUri.fromRevisionUri(document.uri);
 
         const lenses: CodeLens[] = [];
 

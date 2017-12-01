@@ -4,7 +4,7 @@ import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } fro
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
 import { DiffWithWorkingCommandArgs } from './diffWithWorking';
-import { GitCommit, GitCommitType, GitService, GitUri } from '../gitService';
+import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 
@@ -33,7 +33,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
             args.line = editor === undefined ? 0 : editor.selection.active.line;
         }
 
-        if (args.commit === undefined || args.commit.type !== GitCommitType.File || args.range !== undefined) {
+        if (args.commit === undefined || !args.commit.isFile || args.range !== undefined) {
             const gitUri = await GitUri.fromUri(uri, this.git);
 
             try {

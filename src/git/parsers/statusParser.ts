@@ -122,11 +122,10 @@ export class GitStatusParser {
 
         return new GitStatusFile(
             repoPath,
-            (indexStatus || workTreeStatus || '?') as GitStatusFileStatus,
-            workTreeStatus as GitStatusFileStatus,
             indexStatus as GitStatusFileStatus,
+            workTreeStatus as GitStatusFileStatus,
             fileName,
-            !!indexStatus,
-            originalFileName);
+            originalFileName
+        );
     }
 }
