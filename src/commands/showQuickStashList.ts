@@ -24,12 +24,16 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickStashListCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
+        const progressCancellation = StashListQuickPick.showProgress('list');
+
         try {
             const repoPath = await this.git.getRepoPath(uri);
             if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show stashed changes`);
 
             const stash = await this.git.getStashList(repoPath);
             if (stash === undefined) return window.showWarningMessage(`Unable to show stashed changes`);
+
+            if (progressCancellation.token.isCancellationRequested) return undefined;
 
             // Create a command to get back to here
             const currentCommand = new CommandQuickPickItem({
@@ -42,7 +46,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
                     } as ShowQuickStashListCommandArgs
                 ]);
 
-            const pick = await StashListQuickPick.show(this.git, stash, 'list', args.goBackCommand, currentCommand);
+            const pick = await StashListQuickPick.show(this.git, stash, 'list', progressCancellation, args.goBackCommand, currentCommand);
             if (pick === undefined) return undefined;
 
             if (pick instanceof CommandQuickPickItem) return pick.execute();
@@ -58,6 +62,9 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
         catch (ex) {
             Logger.error(ex, 'ShowQuickStashListCommand');
             return window.showErrorMessage(`Unable to show stashed changes. See output channel for more details`);
+        }
+        finally {
+            progressCancellation.dispose();
         }
     }
 }

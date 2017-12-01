@@ -35,6 +35,7 @@ export class StashApplyCommand extends Command {
 
     async execute(args: StashApplyCommandArgs = { confirm: true, deleteAfter: false }) {
         args = { ...args };
+
         if (args.stashItem === undefined || args.stashItem.stashName === undefined) {
             let goBackToRepositoriesCommand: CommandQuickPickItem | undefined;
 
@@ -52,20 +53,29 @@ export class StashApplyCommand extends Command {
                 repoPath = pick.repoPath;
             }
 
-            const stash = await this.git.getStashList(repoPath);
-            if (stash === undefined) return window.showInformationMessage(`There are no stashed changes`);
+            const progressCancellation = StashListQuickPick.showProgress('apply');
 
-            const currentCommand = new CommandQuickPickItem({
-                label: `go back ${GlyphChars.ArrowBack}`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to apply stashed changes`
-            }, Commands.StashApply, [args]);
+            try {
+                const stash = await this.git.getStashList(repoPath);
+                if (stash === undefined) return window.showInformationMessage(`There are no stashed changes`);
 
-            const pick = await StashListQuickPick.show(this.git, stash, 'apply', goBackToRepositoriesCommand || args.goBackCommand, currentCommand);
-            if (pick instanceof CommandQuickPickItem) return pick.execute();
-            if (pick === undefined) return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
+                if (progressCancellation.token.isCancellationRequested) return undefined;
 
-            args.goBackCommand = currentCommand;
-            args.stashItem = pick.commit as GitStashCommit;
+                const currentCommand = new CommandQuickPickItem({
+                    label: `go back ${GlyphChars.ArrowBack}`,
+                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to apply stashed changes`
+                }, Commands.StashApply, [args]);
+
+                const pick = await StashListQuickPick.show(this.git, stash, 'apply', progressCancellation, goBackToRepositoriesCommand || args.goBackCommand, currentCommand);
+                if (pick instanceof CommandQuickPickItem) return pick.execute();
+                if (pick === undefined) return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
+
+                args.goBackCommand = currentCommand;
+                args.stashItem = pick.commit as GitStashCommit;
+            }
+            finally {
+                progressCancellation.dispose();
+            }
         }
 
         try {

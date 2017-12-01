@@ -1,15 +1,27 @@
 'use strict';
 import { Iterables, Strings } from '../system';
-import { QuickPickOptions, window } from 'vscode';
+import { CancellationTokenSource, QuickPickOptions, window } from 'vscode';
 import { Commands, StashSaveCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
 import { GitService, GitStash } from '../gitService';
-import { Keyboard } from '../keyboard';
-import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut } from '../quickPicks';
+import { Keyboard, KeyNoopCommand } from '../keyboard';
+import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from '../quickPicks';
 
 export class StashListQuickPick {
 
-    static async show(git: GitService, stash: GitStash, mode: 'list' | 'apply', goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+    static showProgress(mode: 'list' | 'apply') {
+        const message = mode === 'apply'
+            ? `Apply stashed changes to your working tree${GlyphChars.Ellipsis}`
+            : `stashed changes ${GlyphChars.Dash} search by message, filename, or commit id`;
+        return showQuickPickProgress(message,
+            {
+                left: KeyNoopCommand,
+                ',': KeyNoopCommand,
+                '.': KeyNoopCommand
+            });
+    }
+
+    static async show(git: GitService, stash: GitStash, mode: 'list' | 'apply', progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         const items = ((stash && Array.from(Iterables.map(stash.commits.values(), c => new CommitQuickPickItem(c)))) || []) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
         if (mode === 'list') {
@@ -27,7 +39,11 @@ export class StashListQuickPick {
             items.splice(0, 0, goBackCommand);
         }
 
+        if (progressCancellation.token.isCancellationRequested) return undefined;
+
         const scope = await Keyboard.instance.beginScope({ left: goBackCommand });
+
+        progressCancellation.cancel();
 
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,

@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Added
+- Adds progress indicator to the `Show Stashed Changes` command (`gitlens.showQuickStashList`)
+- Adds progress indicator to the `Apply Stashed Changes` command (`gitlens.stashApply`)
+
 ## [6.3.0] - 2017-11-30
 ### Added
 - Adds support for files with staged changes
@@ -21,7 +26,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#217](https://github.com/eamodio/vscode-gitlens/issues/217) - empty editor has git lens in status bar with old information
 - Fixes [#218](https://github.com/eamodio/vscode-gitlens/issues/218) - Cannot read property 'replace' of undefined
 - Fixes issue with feedback when searching for commits without any matches
-- Fixes issue where quickpick progress indicators could get stuck
+- Fixes issue where quick pick menu progress indicators could get stuck
 
 ## [6.2.0] - 2017-11-27
 ### Added
