@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 - Overhauls the internal way GitLens deals with Uris and revisions should be far more robust and lead to many fewer edge-case issues
+- Aligns quick pick menu commands more with the `GitLens` view context menus
 
 ### Fixed
 - Fixes [#220](https://github.com/eamodio/vscode-gitlens/issues/220) - Open Revision quick pick results in empty file

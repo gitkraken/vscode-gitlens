@@ -62,7 +62,7 @@ export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPi
             f => GitUri.fromFileStatus(f, repoPath));
 
         super(uris, item || {
-            label: `$(file-symlink-file) Open Changed Files`,
+            label: `$(file-symlink-file) Open Files`,
             description: ''
             // detail: `Opens all of the changed file in the working tree`
         });
@@ -79,7 +79,7 @@ export class OpenCommitFileRevisionsCommandQuickPickItem extends OpenFilesComman
             f => GitUri.toRevisionUri(f.status === 'D' ? commit.previousFileSha : commit.sha, f, commit.repoPath));
 
         super(uris, item || {
-            label: `$(file-symlink-file) Open Changed Revisions`,
+            label: `$(file-symlink-file) Open Revisions`,
             description: `${Strings.pad(GlyphChars.Dash, 2, 3)} in ${GlyphChars.Space}$(git-commit) ${commit.shortSha}`
             // detail: `Opens all of the changed files in $(git-commit) ${commit.shortSha}`
         });
@@ -108,7 +108,8 @@ export class CommitDetailsQuickPick {
                         stashItem: commit as GitStashCommit,
                         goBackCommand: currentCommand
                     } as StashApplyCommandArgs
-                ]));
+                ])
+            );
 
             items.splice(index++, 0, new CommandQuickPickItem({
                 label: `$(x) Delete Stashed Changes`,
@@ -119,8 +120,44 @@ export class CommitDetailsQuickPick {
                         stashItem: commit as GitStashCommit,
                         goBackCommand: currentCommand
                     } as StashDeleteCommandArgs
-                ]));
+                ])
+            );
         }
+        else {
+            const remotes = (await git.getRemotes(commit.repoPath)).filter(r => r.provider !== undefined);
+            if (remotes.length) {
+                items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, {
+                    type: 'commit',
+                    sha: commit.sha
+                } as RemoteResource, currentCommand));
+            }
+        }
+
+        items.splice(index++, 0, new OpenCommitFilesCommandQuickPickItem(commit));
+        items.splice(index++, 0, new OpenCommitFileRevisionsCommandQuickPickItem(commit));
+
+        items.splice(index++, 0, new CommandQuickPickItem({
+            label: `$(git-compare) Compare Directory with Previous Revision`,
+            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.previousFileShortSha} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`
+        }, Commands.DiffDirectory, [
+                commit.uri,
+                {
+                    shaOrBranch1: commit.previousFileSha,
+                    shaOrBranch2: commit.sha
+                } as DiffDirectoryCommandCommandArgs
+            ])
+        );
+
+        items.splice(index++, 0, new CommandQuickPickItem({
+            label: `$(git-compare) Compare Directory with Working Tree`,
+            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(file-directory) Working Tree`
+        }, Commands.DiffDirectory, [
+                uri,
+                {
+                    shaOrBranch1: commit.sha
+                } as DiffDirectoryCommandCommandArgs
+            ])
+        );
 
         if (!stash) {
             items.splice(index++, 0, new CommandQuickPickItem({
@@ -131,11 +168,12 @@ export class CommitDetailsQuickPick {
                     {
                         sha: commit.sha
                     } as CopyShaToClipboardCommandArgs
-                ]));
+                ])
+            );
         }
 
         items.splice(index++, 0, new CommandQuickPickItem({
-            label: `$(clippy) Copy Message to Clipboard`,
+            label: `$(clippy) Copy Commit Message to Clipboard`,
             description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.message}`
         }, Commands.CopyMessageToClipboard, [
                 uri,
@@ -143,38 +181,8 @@ export class CommitDetailsQuickPick {
                     message: commit.message,
                     sha: commit.sha
                 } as CopyMessageToClipboardCommandArgs
-            ]));
-
-        if (!stash) {
-            const remotes = (await git.getRemotes(commit.repoPath)).filter(r => r.provider !== undefined);
-            if (remotes.length) {
-                items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, {
-                    type: 'commit',
-                    sha: commit.sha
-                } as RemoteResource, currentCommand));
-            }
-
-            items.splice(index++, 0, new CommandQuickPickItem({
-                label: `$(git-compare) Compare Directory with Previous Commit`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.previousFileShortSha} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`
-            }, Commands.DiffDirectory, [
-                    commit.uri,
-                    {
-                        shaOrBranch1: commit.previousFileSha,
-                        shaOrBranch2: commit.sha
-                    } as DiffDirectoryCommandCommandArgs
-                ]));
-        }
-
-        items.splice(index++, 0, new CommandQuickPickItem({
-            label: `$(git-compare) Compare Directory with Working Tree`,
-            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(file-directory) Working Tree`
-        }, Commands.DiffDirectory, [
-                uri,
-                {
-                    shaOrBranch1: commit.sha
-                } as DiffDirectoryCommandCommandArgs
-            ]));
+            ])
+        );
 
         items.splice(index++, 0, new CommandQuickPickItem({
             label: `Changed Files`,
@@ -187,10 +195,8 @@ export class CommitDetailsQuickPick {
                     sha: commit.sha,
                     goBackCommand
                 } as ShowQuickCommitDetailsCommandArgs
-            ]));
-
-            items.push(new OpenCommitFilesCommandQuickPickItem(commit));
-            items.push(new OpenCommitFileRevisionsCommandQuickPickItem(commit));
+            ])
+        );
 
         if (goBackCommand) {
             items.splice(0, 0, goBackCommand);

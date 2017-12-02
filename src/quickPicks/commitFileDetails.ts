@@ -66,65 +66,30 @@ export class CommitFileDetailsQuickPick {
 
         await commit.resolvePreviousFileSha(git);
 
-        if (!stash) {
+        if (commit.previousFileShortSha) {
             items.push(new CommandQuickPickItem({
-                label: `$(git-commit) Show Commit Details`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha}`
-            }, Commands.ShowQuickCommitDetails, [
-                    commit.toGitUri(),
+                label: `$(git-compare) Open Changes`,
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.previousFileShortSha} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`
+            }, Commands.DiffWithPrevious, [
+                    commit.uri,
                     {
-                        commit,
-                        sha: commit.sha,
-                        goBackCommand: currentCommand
-                    } as ShowQuickCommitDetailsCommandArgs
-                ]));
-
-            if (commit.previousFileShortSha) {
-                items.push(new CommandQuickPickItem({
-                    label: `$(git-compare) Compare File with Previous Revision`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.previousFileShortSha} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`
-                }, Commands.DiffWithPrevious, [
-                        commit.uri,
-                        {
-                            commit
-                        } as DiffWithPreviousCommandArgs
-                    ]));
-            }
+                        commit
+                    } as DiffWithPreviousCommandArgs
+                ])
+            );
         }
 
         if (commit.workingFileName) {
             items.push(new CommandQuickPickItem({
-                label: `$(git-compare) Compare File with Working Revision`,
+                label: `$(git-compare) Open Changes with Working Tree`,
                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(file-text) ${workingName}`
             }, Commands.DiffWithWorking, [
                     Uri.file(path.resolve(commit.repoPath, commit.workingFileName)),
                     {
                         commit
                     } as DiffWithWorkingCommandArgs
-                ]));
-        }
-
-        if (!stash) {
-            items.push(new CommandQuickPickItem({
-                label: `$(clippy) Copy Commit ID to Clipboard`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.shortSha}`
-            }, Commands.CopyShaToClipboard, [
-                    uri,
-                    {
-                        sha: commit.sha
-                    } as CopyShaToClipboardCommandArgs
-                ]));
-
-            items.push(new CommandQuickPickItem({
-                label: `$(clippy) Copy Message to Clipboard`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.message}`
-            }, Commands.CopyMessageToClipboard, [
-                    uri,
-                    {
-                        message: commit.message,
-                        sha: commit.sha
-                    } as CopyMessageToClipboardCommandArgs
-                ]));
+                ])
+            );
         }
 
         if (commit.workingFileName && commit.status !== 'D') {
@@ -142,6 +107,7 @@ export class CommitFileDetailsQuickPick {
                     branch: branch!.name
                 } as RemoteResource, currentCommand));
             }
+
             if (!stash) {
                 items.push(new OpenRemotesCommandQuickPickItem(remotes, {
                     type: 'revision',
@@ -149,6 +115,45 @@ export class CommitFileDetailsQuickPick {
                     commit
                 } as RemoteResource, currentCommand));
             }
+        }
+
+        if (!stash) {
+            items.push(new CommandQuickPickItem({
+                label: `$(clippy) Copy Commit ID to Clipboard`,
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.shortSha}`
+            }, Commands.CopyShaToClipboard, [
+                    uri,
+                    {
+                        sha: commit.sha
+                    } as CopyShaToClipboardCommandArgs
+                ])
+            );
+
+            items.push(new CommandQuickPickItem({
+                label: `$(clippy) Copy Commit Message to Clipboard`,
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.message}`
+            }, Commands.CopyMessageToClipboard, [
+                    uri,
+                    {
+                        message: commit.message,
+                        sha: commit.sha
+                    } as CopyMessageToClipboardCommandArgs
+                ]));
+        }
+
+        if (!stash) {
+            items.push(new CommandQuickPickItem({
+                label: `$(git-commit) Show Commit Details`,
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha}`
+            }, Commands.ShowQuickCommitDetails, [
+                    commit.toGitUri(),
+                    {
+                        commit,
+                        sha: commit.sha,
+                        goBackCommand: currentCommand
+                    } as ShowQuickCommitDetailsCommandArgs
+                ])
+            );
         }
 
         if (commit.workingFileName) {
@@ -282,7 +287,7 @@ export class CommitFileDetailsQuickPick {
 
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
-            placeHolder: `${commit.getFormattedPath()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${isUncommitted ? `Uncommitted ${GlyphChars.ArrowRightHollow} ` : '' }${commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.author}, ${commit.fromNow()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.message}`,
+            placeHolder: `${commit.getFormattedPath()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${isUncommitted ? `Uncommitted ${GlyphChars.ArrowRightHollow} ` : ''}${commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.author}, ${commit.fromNow()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.message}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
                 scope.setKeyCommand('right', item as KeyCommand);
