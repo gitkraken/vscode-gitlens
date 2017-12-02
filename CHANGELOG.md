@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [6.4.0-beta] - 2017-12-02
 ### Added
 - Adds progress indicator to the `Show Stashed Changes` command (`gitlens.showQuickStashList`)
 - Adds progress indicator to the `Apply Stashed Changes` command (`gitlens.stashApply`)
