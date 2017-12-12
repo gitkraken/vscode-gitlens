@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [6.4.0-beta] - 2017-12-02
+## [6.4.0] - 2017-12-12
 ### Added
 - Adds `gitlens.keymap` setting to specify the keymap to use for GitLens shortcut keys -- closes [#104](https://github.com/eamodio/vscode-gitlens/issues/104)
   - `standard` - adds a standard set of shortcut keys
