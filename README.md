@@ -127,28 +127,6 @@ While GitLens is highly customizable and provides many [configuration settings](
 
 - Adds a `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) with a shortcut of `shift+alt+b` to toggle the code lens on and off
 
-### Powerful Comparison Tools
-
-- Effortlessly navigate between comparisons via the `alt+,` and `alt+.` shortcut keys to go back and forth through a file's revisions
-
-- Provides easy access to the following comparison commands via the `Command Palette` as well as in context via the many provided quick pick menus
-
-- Adds a `Compare Directory with Branch...` command (`gitlens.diffDirectory`) to open the configured Git difftool to compare directories between branches
-
-- Adds a `Compare File with Branch...` command (`gitlens.diffWithBranch`) to compare the active file with the same file on the selected branch
-
-- Adds a `Compare File with Next Revision` command (`gitlens.diffWithNext`) with a shortcut of `alt+.` to compare the active file/diff with the next commit revision
-
-- Adds a `Compare File with Previous Revision` command (`gitlens.diffWithPrevious`) with a shortcut of `alt+,` to compare the active file/diff with the previous commit revision
-
-- Adds a `Compare Line Revision with Previous` command (`gitlens.diffLineWithPrevious`) with a shortcut of `shift+alt+,` to compare the active file/diff with the previous line commit revision
-
-- Adds a `Compare File with Revision...` command (`gitlens.diffWithRevision`) to compare the active file with the selected revision of the same file
-
-- Adds a `Compare File with Working Revision` command (`gitlens.diffWithWorking`) with a shortcut of `shift+alt+w` to compare the most recent commit revision of the active file/diff with the working tree
-
-- Adds a `Compare Line Revision with Working` command (`gitlens.diffLineWithWorking`) with a shortcut of `alt+w` to compare the commit revision of the active line with the working tree
-
 ### Navigate and Explore
 
 - Adds a [customizable](#gitlens-custom-view-settings) `GitLens` view to the Explorer activity
@@ -297,7 +275,29 @@ While GitLens is highly customizable and provides many [configuration settings](
     - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to  preview the comparison of the current revision with the previous one
 
 - Adds a `Show Last Opened Quick Pick` command (`gitlens.showLastQuickPick`) with a shortcut of `alt+-` to quickly get back to where you were when the last GitLens quick pick menu closed
-7
+
+### Powerful Comparison Tools
+
+- Effortlessly navigate between comparisons via the `alt+,` and `alt+.` shortcut keys to go back and forth through a file's revisions
+
+- Provides easy access to the following comparison commands via the `Command Palette` as well as in context via the many provided quick pick menus
+
+- Adds a `Compare Directory with Branch...` command (`gitlens.diffDirectory`) to open the configured Git difftool to compare directories between branches
+
+- Adds a `Compare File with Branch...` command (`gitlens.diffWithBranch`) to compare the active file with the same file on the selected branch
+
+- Adds a `Compare File with Next Revision` command (`gitlens.diffWithNext`) with a shortcut of `alt+.` to compare the active file/diff with the next commit revision
+
+- Adds a `Compare File with Previous Revision` command (`gitlens.diffWithPrevious`) with a shortcut of `alt+,` to compare the active file/diff with the previous commit revision
+
+- Adds a `Compare Line Revision with Previous` command (`gitlens.diffLineWithPrevious`) with a shortcut of `shift+alt+,` to compare the active file/diff with the previous line commit revision
+
+- Adds a `Compare File with Revision...` command (`gitlens.diffWithRevision`) to compare the active file with the selected revision of the same file
+
+- Adds a `Compare File with Working Revision` command (`gitlens.diffWithWorking`) with a shortcut of `shift+alt+w` to compare the most recent commit revision of the active file/diff with the working tree
+
+- Adds a `Compare Line Revision with Working` command (`gitlens.diffLineWithWorking`) with a shortcut of `alt+w` to compare the commit revision of the active line with the working tree
+
 ### And More
 
 - Adds a `Copy Commit ID to Clipboard` command (`gitlens.copyShaToClipboard`) to copy the commit id (sha) of the active line to the clipboard or from the most recent commit to the current branch, if there is no active editor
