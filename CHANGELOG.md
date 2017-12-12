@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+- Adds a new `Active Repository` node to `Repository View` of the `GitLens` view -- closes [#224](https://github.com/eamodio/vscode-gitlens/issues/224)
+  - Automatically updates to track the repository of the active editor
+  - Only visible if there is more than 1 repository within the workspace
+
 ## [6.4.0] - 2017-12-12
 ### Added
 - Adds `gitlens.keymap` setting to specify the keymap to use for GitLens shortcut keys -- closes [#104](https://github.com/eamodio/vscode-gitlens/issues/104)

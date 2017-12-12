@@ -1,5 +1,6 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ActiveRepositoryNode } from './activeRepositoryNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
 import { GitUri, Repository } from '../gitService';
@@ -20,6 +21,11 @@ export class RepositoriesNode extends ExplorerNode {
         this.children = this.repositories
             .sort((a, b) => a.index - b.index)
             .map(repo => new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this.explorer));
+
+        if (this.children.length > 1) {
+            this.children.splice(0, 0, new ActiveRepositoryNode(this.explorer));
+        }
+
         return this.children;
     }
 

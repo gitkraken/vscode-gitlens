@@ -1,6 +1,7 @@
 'use strict';
 
 export * from './explorerNode';
+export * from './activeRepositoryNode';
 export * from './branchesNode';
 export * from './branchHistoryNode';
 export * from './commitFileNode';

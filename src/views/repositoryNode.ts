@@ -15,8 +15,9 @@ export class RepositoryNode extends ExplorerNode {
 
     constructor(
         uri: GitUri,
-        private readonly repo: Repository,
-        private readonly explorer: GitExplorer
+        readonly repo: Repository,
+        private readonly explorer: GitExplorer,
+        private readonly active: boolean = false
     ) {
         super(uri);
     }
@@ -26,8 +27,8 @@ export class RepositoryNode extends ExplorerNode {
         this.updateSubscription();
 
         this.children = [
-            new StatusNode(this.uri, this.repo, this, this.explorer),
-            new BranchesNode(this.uri, this.repo, this.explorer),
+            new StatusNode(this.uri, this.repo, this, this.explorer, this.active),
+            new BranchesNode(this.uri, this.repo, this.explorer, this.active),
             new RemotesNode(this.uri, this.repo, this.explorer),
             new StashesNode(this.uri, this.repo, this.explorer)
         ];
@@ -37,7 +38,11 @@ export class RepositoryNode extends ExplorerNode {
     getTreeItem(): TreeItem {
         this.updateSubscription();
 
-        const item = new TreeItem(`Repository ${Strings.pad(GlyphChars.Dash, 1, 1)} ${this.repo.formattedName || this.uri.repoPath}`, TreeItemCollapsibleState.Expanded);
+        const label = this.active
+            ? `Active Repository ${Strings.pad(GlyphChars.Dash, 1, 1)} ${this.repo.formattedName || this.uri.repoPath}`
+            : `${this.repo.formattedName || this.uri.repoPath}`;
+
+        const item = new TreeItem(label, this.active ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.Repository;
         return item;
     }

@@ -12,7 +12,8 @@ export class StatusNode extends ExplorerNode {
         uri: GitUri,
         private readonly repo: Repository,
         private readonly parent: ExplorerNode,
-        private readonly explorer: GitExplorer
+        private readonly explorer: GitExplorer,
+        private readonly active: boolean = false
     ) {
         super(uri);
     }
@@ -93,7 +94,16 @@ export class StatusNode extends ExplorerNode {
             label = `${status.branch} ${hasWorkingChanges ? 'has uncommitted changes' : this.includeWorkingTree ? 'has no changes' : 'has nothing to commit'}`;
         }
 
-        const item = new TreeItem(label, (hasChildren || hasWorkingChanges) ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.None);
+        let state: TreeItemCollapsibleState;
+        if (hasChildren || hasWorkingChanges) {
+            // HACK: Until https://github.com/Microsoft/vscode/issues/30918 is fixed
+            state = this.active ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed;
+        }
+        else {
+            state = TreeItemCollapsibleState.None;
+        }
+
+        const item = new TreeItem(label, state);
         item.contextValue = ResourceType.Status;
 
         item.iconPath = {

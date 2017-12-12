@@ -11,7 +11,8 @@ export class BranchesNode extends ExplorerNode {
         constructor(
             uri: GitUri,
             private readonly repo: Repository,
-            private readonly explorer: GitExplorer
+            private readonly explorer: GitExplorer,
+            private readonly active: boolean = false
         ) {
             super(uri);
         }
@@ -25,7 +26,8 @@ export class BranchesNode extends ExplorerNode {
         }
 
         async getTreeItem(): Promise<TreeItem> {
-            const item = new TreeItem(`Branches`, TreeItemCollapsibleState.Expanded);
+            // HACK: Until https://github.com/Microsoft/vscode/issues/30918 is fixed
+            const item = new TreeItem(`Branches`, this.active ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed);
 
             const remotes = await this.repo.getRemotes();
             item.contextValue = (remotes !== undefined && remotes.length > 0)
