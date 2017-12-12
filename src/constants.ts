@@ -38,7 +38,8 @@ export enum CommandContext {
     ActiveHasRemote = 'gitlens:activeHasRemote',
     ActiveIsBlameable = 'gitlens:activeIsBlameable',
     ActiveFileIsTracked = 'gitlens:activeIsTracked',
-    Key = 'gitlens:key'
+    Key = 'gitlens:key',
+    KeyMap = 'gitlens:keymap'
 }
 
 export function setCommandContext(key: CommandContext | string, value: any) {

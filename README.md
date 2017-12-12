@@ -28,6 +28,7 @@ While GitLens is highly customizable and provides many [configuration settings](
 |`gitlens.codeLens.enabled`|Specifies whether or not to provide any Git code lens, by default<br />Use the `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) to toggle the Git code lens on and off for the current session
 |`gitlens.gitExplorer.enabled`|Specifies whether or not to show the `GitLens` view
 |`gitlens.statusBar.enabled`|Specifies whether or not to provide blame information on the status bar
+|`gitlens.keymap`|Specifies the keymap to use for GitLens shortcut keys<br />`standard` - adds a standard set of shortcut keys<br />`chorded` - adds a chorded set of shortcut keys that all start with `Ctrl+Alt+G` (`⌥⌘G` on macOS)<br />`none` - no shortcut keys will be added
 
 ## Features
 
@@ -345,6 +346,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 |-----|------------
 |`gitlens.defaultDateFormat`|Specifies how all absolute dates will be formatted by default<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
 |`gitlens.insiders`|Opts into the insiders channel -- provides access to upcoming features
+|`gitlens.keymap`|Specifies the keymap to use for GitLens shortcut keys<br />`standard` - adds a standard set of shortcut keys<br />`chorded` - adds a chorded set of shortcut keys that all start with `Ctrl+Alt+G` (`⌥⌘G` on macOS)<br />`none` - no shortcut keys will be added
 |`gitlens.outputLevel`|Specifies how much (if any) output will be sent to the GitLens output channel
 
 ### Blame Settings

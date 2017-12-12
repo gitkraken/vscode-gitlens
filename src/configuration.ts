@@ -44,6 +44,12 @@ export enum GitExplorerFilesLayout {
     Tree = 'tree'
 }
 
+export enum KeyMap {
+    Standard = 'standard',
+    Chorded = 'chorded',
+    None = 'none'
+}
+
 export enum StatusBarCommand {
     DiffWithPrevious = 'gitlens.diffWithPrevious',
     DiffWithWorking = 'gitlens.diffWithWorking',
@@ -254,6 +260,8 @@ export interface IConfig {
 
     gitExplorer: IGitExplorerConfig;
 
+    keymap: KeyMap;
+
     remotes: IRemotesConfig[];
 
     statusBar: {
@@ -384,6 +392,7 @@ const emptyConfig: IConfig = {
         statusFileFormat: ''
         // dateFormat: string | null;
     },
+    keymap: 'standard' as KeyMap,
     remotes: [],
     statusBar: {
         enabled: false,

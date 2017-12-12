@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [6.4.0-beta] - 2017-12-02
 ### Added
+- Adds `gitlens.keymap` setting to specify the keymap to use for GitLens shortcut keys -- closes [#104](https://github.com/eamodio/vscode-gitlens/issues/104)
+  - `standard` - adds a standard set of shortcut keys
+  - `chorded` - adds a chorded set of shortcut keys that all start with `Ctrl+Alt+G` (`⌥⌘G` on macOS)
+  - `none` - no shortcut keys will be added
 - Adds progress indicator to the `Show Stashed Changes` command (`gitlens.showQuickStashList`)
 - Adds progress indicator to the `Apply Stashed Changes` command (`gitlens.stashApply`)
 

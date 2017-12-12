@@ -153,6 +153,10 @@ export class GitService extends Disposable {
 
         const cfg = configuration.get<IConfig>();
 
+        if (initializing || configuration.changed(e, configuration.name('keymap').value)) {
+            setCommandContext(CommandContext.KeyMap, cfg.keymap);
+        }
+
         if (initializing || configuration.changed(e, configuration.name('advanced')('caching')('enabled').value)) {
             if (cfg.advanced.caching.enabled) {
                 this._cacheDisposable && this._cacheDisposable.dispose();
