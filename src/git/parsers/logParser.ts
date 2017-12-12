@@ -214,7 +214,7 @@ export class GitLogParser {
             count: i,
             maxCount: maxCount,
             range: range,
-            truncated: !!(maxCount && i >= maxCount)
+            truncated: !!(maxCount && i >= maxCount && maxCount !== 1)
         } as GitLog;
     }
 
