@@ -2456,12 +2456,12 @@
         "@types/copy-paste": "1.1.30",
         "@types/iconv-lite": "0.0.1",
         "@types/mocha": "2.2.44",
-        "@types/node": "8.0.53",
+        "@types/node": "8.0.58",
         "@types/tmp": "0.0.33",
         "husky": "^0.14.3",
         "mocha": "4.0.1",
         "tslint": "5.8.0",
         "typescript": "2.6.2",
-        "vscode": "1.1.9"
+        "vscode": "1.1.10"
     }
 }
