@@ -57,7 +57,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         }
 
         const highlightDecorationRanges = Arrays.filterMap(blame.lines,
-            l => l.sha !== sha ? this.editor.document.validateRange(new Range(l.line, 0, l.line, 1000000)) : undefined);
+            l => l.sha === sha ? this.editor.document.validateRange(new Range(l.line, 0, l.line, 1000000)) : undefined);
 
         this.editor.setDecorations(this.highlightDecoration, highlightDecorationRanges);
     }
