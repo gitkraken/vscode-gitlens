@@ -161,19 +161,28 @@ export class Annotations {
         return decoration;
     }
 
-    static gutterRenderOptions(separateLines: boolean, heatmap: IHeatmapConfig, options: ICommitFormatOptions): IRenderOptions {
-        // Try to get the width of the string, if there is a cap
-        let width = 4; // Start with a padding
+    static gutterRenderOptions(separateLines: boolean, heatmap: IHeatmapConfig, format: string, options: ICommitFormatOptions): IRenderOptions {
+        // Get the width of all the tokens, assuming there there is a cap (bail if not)
+        let width = 0;
         for (const token of Objects.values(options.tokenOptions!)) {
             if (token === undefined) continue;
 
             // If any token is uncapped, kick out and set no max
             if (token.truncateTo == null) {
-                width = 0;
+                width = -1;
                 break;
             }
 
             width += token.truncateTo;
+        }
+
+        if (width >= 0) {
+            // Add the width of the template string (without tokens)
+            width += Strings.width(Strings.interpolate(format, undefined));
+            // If we have some width, add a bit of padding
+            if (width > 0) {
+                width += 3;
+            }
         }
 
         let borderStyle = undefined;
@@ -191,7 +200,7 @@ export class Annotations {
             height: '100%',
             margin: '0 26px -1px 0',
             textDecoration: separateLines ? 'overline solid rgba(0, 0, 0, .2)' : 'none',
-            width: (width > 4) ? `${width}ch` : undefined,
+            width: width >= 0 ? `${width}ch` : undefined,
             uncommittedColor: new ThemeColor('gitlens.gutterUncommittedForegroundColor')
         } as IRenderOptions;
     }

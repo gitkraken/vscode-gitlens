@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Automatically updates to track the repository of the active editor
   - Only visible if there is more than 1 repository within the workspace
 
+### Fixed
+- Fixes [#228](https://github.com/eamodio/vscode-gitlens/issues/228) - Gutter blame spills over heatmap
+
 ## [6.4.0] - 2017-12-12
 ### Added
 - Adds `gitlens.keymap` setting to specify the keymap to use for GitLens shortcut keys -- closes [#104](https://github.com/eamodio/vscode-gitlens/issues/104)

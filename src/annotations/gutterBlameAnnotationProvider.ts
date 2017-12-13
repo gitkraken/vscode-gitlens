@@ -34,7 +34,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
         const now = Date.now();
         const separateLines = this._config.annotations.file.gutter.separateLines;
-        const renderOptions = Annotations.gutterRenderOptions(separateLines, cfg.heatmap, options);
+        const renderOptions = Annotations.gutterRenderOptions(separateLines, cfg.heatmap, cfg.format, options);
 
         this._decorations = [];
         const decorationsMap: { [sha: string]: DecorationOptions | undefined } = Object.create(null);
