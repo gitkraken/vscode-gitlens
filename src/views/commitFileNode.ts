@@ -11,6 +11,7 @@ export enum CommitFileNodeDisplayAs {
     CommitIcon = 1 << 1,
     FileLabel = 1 << 2,
     StatusIcon = 1 << 3,
+    Gravatar = 1 << 4,
 
     Commit = CommitLabel | CommitIcon,
     File = FileLabel | StatusIcon
@@ -54,14 +55,22 @@ export class CommitFileNode extends ExplorerNode {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
         item.contextValue = this.resourceType;
 
-        const icon = (this.displayAs & CommitFileNodeDisplayAs.CommitIcon)
-            ? 'icon-commit.svg'
-            : getGitStatusIcon(this.status.status);
-
-        item.iconPath = {
-            dark: this.explorer.context.asAbsolutePath(path.join('images', 'dark', icon)),
-            light: this.explorer.context.asAbsolutePath(path.join('images', 'light', icon))
-        };
+        if ((this.displayAs & CommitFileNodeDisplayAs.CommitIcon) === CommitFileNodeDisplayAs.CommitIcon) {
+            item.iconPath = {
+                dark: this.explorer.context.asAbsolutePath(path.join('images', 'dark', 'icon-commit.svg')),
+                light: this.explorer.context.asAbsolutePath(path.join('images', 'light', 'icon-commit.svg'))
+            };
+        }
+        else if ((this.displayAs & CommitFileNodeDisplayAs.StatusIcon) === CommitFileNodeDisplayAs.StatusIcon) {
+            const icon = getGitStatusIcon(this.status.status);
+            item.iconPath = {
+                dark: this.explorer.context.asAbsolutePath(path.join('images', 'dark', icon)),
+                light: this.explorer.context.asAbsolutePath(path.join('images', 'light', icon))
+            };
+        }
+        else if ((this.displayAs & CommitFileNodeDisplayAs.Gravatar) === CommitFileNodeDisplayAs.Gravatar) {
+            item.iconPath = this.commit.gravatarUri;
+        }
 
         item.command = this.getCommand();
 

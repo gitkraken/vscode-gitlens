@@ -1,5 +1,6 @@
 'use strict';
 const _escapeRegExp = require('lodash.escaperegexp');
+import * as crypto from 'crypto';
 
 export namespace Strings {
     export function escapeRegExp(s: string): string {
@@ -55,6 +56,10 @@ export namespace Strings {
             yield s.substring(i, j);
             i = j + 1;
         }
+    }
+
+    export function md5(s: string): string {
+        return crypto.createHash('md5').update(s).digest('hex');
     }
 
     export function pad(s: string, before: number = 0, after: number = 0, padding: string = `\u00a0`) {

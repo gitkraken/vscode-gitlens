@@ -1,9 +1,12 @@
 'use strict';
+import { Strings } from '../../system';
 import { Uri } from 'vscode';
 import { GitCommit, GitCommitType } from './commit';
 import { Git } from '../git';
 import { GitStatusFileStatus, IGitStatusFile } from './status';
 import * as path from 'path';
+
+const gravatarCache: Map<string, Uri> = new Map();
 
 export class GitLogCommit extends GitCommit {
 
@@ -15,6 +18,7 @@ export class GitLogCommit extends GitCommit {
         repoPath: string,
         sha: string,
         author: string,
+        public readonly email: string | undefined,
         date: Date,
         message: string,
         fileName: string,
@@ -37,6 +41,27 @@ export class GitLogCommit extends GitCommit {
             previousSha,
             previousFileName
         );
+    }
+
+    get gravatarUri(): Uri {
+        const key = this.email
+            ? this.email.trim().toLowerCase()
+            : '';
+
+        let gravatar = gravatarCache.get(key);
+        if (gravatar !== undefined) return gravatar;
+
+        gravatar = Uri.parse(`https://www.gravatar.com/avatar/${this.email ? Strings.md5(this.email) : '00000000000000000000000000000000'}.jpg?s=22&d=retro`);
+
+        // HACK: Monkey patch Uri.toString to avoid the unwanted query string encoding
+        const originalToStringFn = gravatar.toString;
+        gravatar.toString = function(skipEncoding?: boolean | undefined) {
+            return originalToStringFn.call(gravatar, true);
+        };
+
+        gravatarCache.set(key, gravatar);
+
+        return gravatar;
     }
 
     get isMerge() {
@@ -111,12 +136,13 @@ export class GitLogCommit extends GitCommit {
         });
     }
 
-    with(changes: { type?: GitCommitType, sha?: string | null, fileName?: string, author?: string, date?: Date, message?: string, originalFileName?: string | null, previousFileName?: string | null, previousSha?: string | null, status?: GitStatusFileStatus, fileStatuses?: IGitStatusFile[] | null }): GitLogCommit {
+    with(changes: { type?: GitCommitType, sha?: string | null, fileName?: string, author?: string, email?: string, date?: Date, message?: string, originalFileName?: string | null, previousFileName?: string | null, previousSha?: string | null, status?: GitStatusFileStatus, fileStatuses?: IGitStatusFile[] | null }): GitLogCommit {
         return new GitLogCommit(
             changes.type || this.type,
             this.repoPath,
             this.getChangedValue(changes.sha, this.sha)!,
             changes.author || this.author,
+            changes.email || this.email,
             changes.date || this.date,
             changes.message || this.message,
             changes.fileName || this.fileName,

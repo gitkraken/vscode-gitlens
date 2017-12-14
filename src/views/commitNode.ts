@@ -59,10 +59,14 @@ export class CommitNode extends ExplorerNode {
             ? ResourceType.CommitOnCurrentBranch
             : ResourceType.Commit;
 
-        item.iconPath = {
-            dark: this.explorer.context.asAbsolutePath('images/dark/icon-commit.svg'),
-            light: this.explorer.context.asAbsolutePath('images/light/icon-commit.svg')
-        };
+        if (this.explorer.config.gravatars) {
+            item.iconPath = this.commit.gravatarUri;
+        } else {
+            item.iconPath = {
+                dark: this.explorer.context.asAbsolutePath('images/dark/icon-commit.svg'),
+                light: this.explorer.context.asAbsolutePath('images/light/icon-commit.svg')
+            };
+        }
 
         return item;
     }

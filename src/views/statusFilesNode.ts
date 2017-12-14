@@ -53,12 +53,12 @@ export class StatusFilesNode extends ExplorerNode {
                         {
                             ...s,
                             status: s.status,
-                            commit: new GitLogCommit(GitCommitType.File, repoPath, GitService.uncommittedSha, 'You', new Date(), '', s.fileName, [s], s.status, s.originalFileName, GitService.stagedUncommittedSha, s.fileName)
+                            commit: new GitLogCommit(GitCommitType.File, repoPath, GitService.uncommittedSha, 'You', undefined, new Date(), '', s.fileName, [s], s.status, s.originalFileName, GitService.stagedUncommittedSha, s.fileName)
                         } as IGitStatusFileWithCommit,
                         {
                             ...s,
                             status: s.status,
-                            commit: new GitLogCommit(GitCommitType.File, repoPath, GitService.stagedUncommittedSha, 'You', older, '', s.fileName, [s], s.status, s.originalFileName, 'HEAD', s.fileName)
+                            commit: new GitLogCommit(GitCommitType.File, repoPath, GitService.stagedUncommittedSha, 'You', undefined, older, '', s.fileName, [s], s.status, s.originalFileName, 'HEAD', s.fileName)
                         } as IGitStatusFileWithCommit
                     ];
                 }
@@ -67,7 +67,7 @@ export class StatusFilesNode extends ExplorerNode {
                         {
                             ...s,
                             status: s.status,
-                            commit: new GitLogCommit(GitCommitType.File, repoPath, GitService.stagedUncommittedSha, 'You', new Date(), '', s.fileName, [s], s.status, s.originalFileName, 'HEAD', s.fileName)
+                            commit: new GitLogCommit(GitCommitType.File, repoPath, GitService.stagedUncommittedSha, 'You', undefined, new Date(), '', s.fileName, [s], s.status, s.originalFileName, 'HEAD', s.fileName)
                         } as IGitStatusFileWithCommit
                     ];
                 }
@@ -76,7 +76,7 @@ export class StatusFilesNode extends ExplorerNode {
                         {
                             ...s,
                             status: s.status,
-                            commit: new GitLogCommit(GitCommitType.File, repoPath, GitService.uncommittedSha, 'You', new Date(), '', s.fileName, [s], s.status, s.originalFileName, 'HEAD', s.fileName)
+                            commit: new GitLogCommit(GitCommitType.File, repoPath, GitService.uncommittedSha, 'You', undefined, new Date(), '', s.fileName, [s], s.status, s.originalFileName, 'HEAD', s.fileName)
                         } as IGitStatusFileWithCommit
                     ];
                 }

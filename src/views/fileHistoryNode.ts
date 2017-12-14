@@ -22,6 +22,8 @@ export class FileHistoryNode extends ExplorerNode {
 
         const children: ExplorerNode[] = [];
 
+        const displayAs = CommitFileNodeDisplayAs.CommitLabel | (this.explorer.config.gravatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
+
         const status = await this.explorer.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
         if (status !== undefined && (status.indexStatus !== undefined || status.workTreeStatus !== undefined)) {
             let sha;
@@ -45,6 +47,7 @@ export class FileHistoryNode extends ExplorerNode {
                 this.uri.repoPath!,
                 sha,
                 'You',
+                undefined,
                 new Date(),
                 '',
                 status.fileName,
@@ -53,12 +56,12 @@ export class FileHistoryNode extends ExplorerNode {
                 status.originalFileName,
                 previousSha,
                 status.originalFileName || status.fileName);
-            children.push(new CommitFileNode(status, commit, this.explorer, CommitFileNodeDisplayAs.CommitLabel | CommitFileNodeDisplayAs.StatusIcon));
+            children.push(new CommitFileNode(status, commit, this.explorer, displayAs));
         }
 
         const log = await this.explorer.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, this.uri.sha);
         if (log !== undefined) {
-            children.push(...Iterables.map(log.commits.values(), c => new CommitFileNode(c.fileStatuses[0], c, this.explorer, CommitFileNodeDisplayAs.CommitLabel | CommitFileNodeDisplayAs.StatusIcon)));
+            children.push(...Iterables.map(log.commits.values(), c => new CommitFileNode(c.fileStatuses[0], c, this.explorer, displayAs)));
         }
 
         if (children.length === 0) return [new MessageNode('No file history')];

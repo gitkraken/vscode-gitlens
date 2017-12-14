@@ -9,6 +9,7 @@ interface LogEntry {
     sha: string;
 
     author: string;
+    authorEmail?: string;
     authorDate?: string;
 
     parentShas?: string[];
@@ -81,6 +82,10 @@ export class GitLogParser {
                     entry.author = Git.isUncommitted(entry.sha)
                         ? 'You'
                         : lineParts.slice(1).join(' ').trim();
+                    break;
+
+                case 'author-email':
+                    entry.authorEmail = lineParts.slice(1).join(' ').trim();
                     break;
 
                 case 'author-date':
@@ -241,6 +246,7 @@ export class GitLogParser {
                 repoPath!,
                 entry.sha,
                 entry.author,
+                entry.authorEmail,
                 new Date(entry.authorDate! as any * 1000),
                 entry.summary!,
                 relativeFileName,

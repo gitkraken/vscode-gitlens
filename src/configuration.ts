@@ -150,6 +150,7 @@ export interface IGitExplorerConfig {
     showTrackingBranch: boolean;
     commitFormat: string;
     commitFileFormat: string;
+    gravatars: boolean;
     stashFormat: string;
     stashFileFormat: string;
     statusFileFormat: string;
@@ -387,6 +388,7 @@ const emptyConfig: IConfig = {
         showTrackingBranch: false,
         commitFormat: '',
         commitFileFormat: '',
+        gravatars: false,
         stashFormat: '',
         stashFileFormat: '',
         statusFileFormat: ''

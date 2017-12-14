@@ -24,6 +24,7 @@ export class GitStashCommit extends GitLogCommit {
             repoPath,
             sha,
             'You',
+            undefined,
             date,
             message,
             fileName,

@@ -28,10 +28,10 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
 
         this.status = status;
         if (status.indexStatus !== undefined) {
-            this.commit = new GitLogCommit(GitCommitType.File, status.repoPath, GitService.stagedUncommittedSha, 'You', new Date(), '', status.fileName, [status], status.status, status.originalFileName, 'HEAD', status.fileName);
+            this.commit = new GitLogCommit(GitCommitType.File, status.repoPath, GitService.stagedUncommittedSha, 'You', undefined, new Date(), '', status.fileName, [status], status.status, status.originalFileName, 'HEAD', status.fileName);
         }
         else {
-            this.commit = new GitLogCommit(GitCommitType.File, status.repoPath, GitService.uncommittedSha, 'You', new Date(), '', status.fileName, [status], status.status, status.originalFileName, realIndexStatus !== undefined ? GitService.stagedUncommittedSha : 'HEAD', status.fileName);
+            this.commit = new GitLogCommit(GitCommitType.File, status.repoPath, GitService.uncommittedSha, 'You', undefined, new Date(), '', status.fileName, [status], status.status, status.originalFileName, realIndexStatus !== undefined ? GitService.stagedUncommittedSha : 'HEAD', status.fileName);
         }
     }
 

@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a new `Active Repository` node to `Repository View` of the `GitLens` view -- closes [#224](https://github.com/eamodio/vscode-gitlens/issues/224)
   - Automatically updates to track the repository of the active editor
   - Only visible if there is more than 1 repository within the workspace
+- Adds [Gravatar](https://en.gravatar.com/) support to the `GitLens` view
+- Adds `gitlens.gitExplorer.gravatars` setting to specify whether or not to show gravatar images instead of commit (or status) icons in the `GitLens` view
 
 ### Fixed
 - Fixes [#228](https://github.com/eamodio/vscode-gitlens/issues/228) - Gutter blame spills over heatmap
