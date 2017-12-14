@@ -517,3 +517,4 @@ A big thanks to the people that have contributed to this project:
 - Johannes Rieken ([@jrieken](https://github.com/jrieken)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=jrieken))
 - Zack Schuster ([@zackschuster](https://github.com/zackschuster)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=zackschuster)
 - SpaceEEC ([@SpaceEEC](https://github.com/SpaceEEC)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=SpaceEEC)
+- Alexey Vasyukov ([@notmedia](https://github.com/notmedia)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=notmedia))

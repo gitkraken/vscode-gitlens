@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [7.0.0-beta] - 2017-12-14
 - Adds a new `Active Repository` node to `Repository View` of the `GitLens` view -- closes [#224](https://github.com/eamodio/vscode-gitlens/issues/224)
   - Automatically updates to track the repository of the active editor
   - Only visible if there is more than 1 repository within the workspace
@@ -33,6 +33,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes [#228](https://github.com/eamodio/vscode-gitlens/issues/228) - Gutter blame spills over heatmap
+- Fixes incorrect blame highlighting -- thanks to [PR #231](https://github.com/eamodio/vscode-gitlens/pull/231) by Alexey Vasyukov ([@notmedia](https://github.com/notmedia))!
 
 ## [6.4.0] - 2017-12-12
 ### Added
