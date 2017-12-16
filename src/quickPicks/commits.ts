@@ -16,20 +16,24 @@ export class CommitsQuickPick {
             });
     }
 
-    static async show(git: GitService, log: GitLog | undefined, placeHolder: string, progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem, showInResultsExplorerCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(git: GitService, log: GitLog | undefined, placeHolder: string, progressCancellation: CancellationTokenSource, options: { goBackCommand?: CommandQuickPickItem, showAllCommand?: CommandQuickPickItem, showInResultsExplorerCommand?: CommandQuickPickItem }): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         const items = ((log && [...Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))]) || [new MessageQuickPickItem('No results found')]) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
-        if (showInResultsExplorerCommand !== undefined) {
-            items.splice(0, 0, showInResultsExplorerCommand);
+        if (options.showInResultsExplorerCommand !== undefined) {
+            items.splice(0, 0, options.showInResultsExplorerCommand);
         }
 
-        if (goBackCommand !== undefined) {
-            items.splice(0, 0, goBackCommand);
+        if (options.showAllCommand !== undefined) {
+            items.splice(0, 0, options.showAllCommand);
+        }
+
+        if (options.goBackCommand !== undefined) {
+            items.splice(0, 0, options.goBackCommand);
         }
 
         if (progressCancellation.token.isCancellationRequested) return undefined;
 
-        const scope = await Keyboard.instance.beginScope({ left: goBackCommand });
+        const scope = await Keyboard.instance.beginScope({ left: options.goBackCommand });
 
         progressCancellation.cancel();
 

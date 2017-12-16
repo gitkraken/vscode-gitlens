@@ -870,6 +870,12 @@ export class GitService extends Disposable {
         try {
             const data = await Git.log(repoPath, { maxCount: maxCount, ref: options.ref, reverse: options.reverse });
             const log = GitLogParser.parse(data, GitCommitType.Branch, repoPath, undefined, options.ref, maxCount, options.reverse!, undefined);
+
+            if (log !== undefined) {
+                const opts = { ...options };
+                log.query = (maxCount: number | undefined) => this.getLogForRepo(repoPath, { ...opts, maxCount: maxCount });
+            }
+
             return log;
         }
         catch (ex) {
@@ -910,6 +916,12 @@ export class GitService extends Disposable {
         try {
             const data = await Git.log_search(repoPath, searchArgs, { maxCount: maxCount });
             const log = GitLogParser.parse(data, GitCommitType.Branch, repoPath, undefined, undefined, maxCount, false, undefined);
+
+            if (log !== undefined) {
+                const opts = { ...options };
+                log.query = (maxCount: number | undefined) => this.getLogForRepoSearch(repoPath, search, searchBy, { ...opts, maxCount: maxCount });
+            }
+
             return log;
         }
         catch (ex) {
@@ -1000,6 +1012,12 @@ export class GitService extends Disposable {
 
             const data = await Git.log_file(root, file, { ...opts, maxCount: maxCount, startLine: range && range.start.line + 1, endLine: range && range.end.line + 1 });
             const log = GitLogParser.parse(data, GitCommitType.File, root, file, opts.ref, maxCount, opts.reverse!, range);
+
+            if (log !== undefined) {
+                const opts = { ...options };
+                log.query = (maxCount: number | undefined) => this.getLogForFile(repoPath, fileName, { ...opts, maxCount: maxCount });
+            }
+
             return log;
         }
         catch (ex) {

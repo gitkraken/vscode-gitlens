@@ -125,21 +125,31 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
         this._onDidChangeTreeData.fire();
     }
 
-    async showCommitComparisonResults(repoPath: string, ref1: string, ref2: string) {
+    async showComparisonInResults(repoPath: string, ref1: string, ref2: string) {
         this.addResults(new ComparisionResultsNode(repoPath, ref1, ref2, this));
         setCommandContext(CommandContext.ResultsExplorer, true);
     }
 
-    showCommitSearchResults(search: string, results: GitLog, queryFn: (maxCount: number | undefined) => Promise<GitLog | undefined>) {
+    showCommitsInResults(results: GitLog, resultsLabel: string | { label: string, resultsType?: { singular: string, plural: string } }) {
+        const query = results.query === undefined
+            ? (maxCount: number | undefined) => Promise.resolve(results)
+            : results.query;
+
         const labelFn = (log: GitLog | undefined) => {
+            if (typeof resultsLabel === 'string') return resultsLabel;
+
             const count = log !== undefined ? log.count : 0;
             const truncated = log !== undefined ? log.truncated : false;
 
-            if (count === 1) return `1 result for ${search}`;
-            return `${count === 0 ? 'No' : `${count}${truncated ? '+' : ''}`} results for ${search}`;
+            const resultsType = resultsLabel.resultsType === undefined
+                ? { singular: 'result', plural: 'results' }
+                : resultsLabel.resultsType;
+
+            if (count === 1) return `1 ${resultsType.singular} for ${resultsLabel.label}`;
+            return `${count === 0 ? 'No' : `${count}${truncated ? '+' : ''}`} ${resultsType.plural} for ${resultsLabel.label}`;
         };
 
-        this.addResults(new CommitsResultsNode(results.repoPath, labelFn, Functions.seeded(queryFn, results), this, ResourceType.SearchResults));
+        this.addResults(new CommitsResultsNode(results.repoPath, labelFn, Functions.seeded(query, results), this, ResourceType.SearchResults));
         setCommandContext(CommandContext.ResultsExplorer, true);
     }
 
@@ -167,6 +177,9 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
         if (index === -1) return;
 
         this._roots.splice(index, 1);
+
+        node.dispose();
+
         this.refresh();
     }
 

@@ -194,16 +194,29 @@ export class CommitQuickPickItem implements QuickPickItem {
 export class ShowCommitsInResultsQuickPickItem extends CommandQuickPickItem {
 
     constructor(
-        public readonly search: string,
         public readonly results: GitLog,
-        public readonly queryFn: (maxCount: number | undefined) => Promise<GitLog | undefined>,
-        item: QuickPickItem
+        public readonly resultsLabel: string | { label: string, resultsType?: { singular: string, plural: string } },
+        item: QuickPickItem = {
+            label: 'Show in Results',
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays results in the GitLens Results view`
+        }
     ) {
         super(item, undefined, undefined);
     }
 
     async execute(options: TextDocumentShowOptions = { preserveFocus: false, preview: false }): Promise<{} | undefined> {
-        ResultsExplorer.instance.showCommitSearchResults(this.search, this.results, this.queryFn);
+        ResultsExplorer.instance.showCommitsInResults(this.results, this.resultsLabel);
         return undefined;
+    }
+}
+
+export class ShowCommitsSearchInResultsQuickPickItem extends ShowCommitsInResultsQuickPickItem {
+
+    constructor(
+        public readonly results: GitLog,
+        public readonly search: string,
+        item?: QuickPickItem
+    ) {
+        super(results, { label: search }, item);
     }
 }

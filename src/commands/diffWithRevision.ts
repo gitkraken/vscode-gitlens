@@ -1,6 +1,8 @@
 'use strict';
+import { Strings } from '../system';
 import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { GlyphChars } from '../constants';
 import { DiffWithCommandArgs } from './diffWith';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
@@ -32,9 +34,6 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
         }
 
         const gitUri = await GitUri.fromUri(uri, this.git);
-        if (args.maxCount == null) {
-            args.maxCount = this.git.config.advanced.maxQuickHistory;
-        }
 
         const progressCancellation = FileHistoryQuickPick.showProgress(gitUri);
         try {
@@ -43,7 +42,16 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
-            const pick = await FileHistoryQuickPick.show(this.git, log, gitUri, progressCancellation, { pickerOnly: true });
+            const label = `${gitUri.getFormattedPath()}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}`;
+            const pick = await FileHistoryQuickPick.show(this.git, log, gitUri, label, progressCancellation, {
+                pickerOnly: true,
+                showAllCommand: log !== undefined && log.truncated
+                    ? new CommandQuickPickItem({
+                        label: `$(sync) Show All Commits`,
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
+                    }, Commands.ShowQuickFileHistory, [uri, { ...args, maxCount: 0 }])
+                    : undefined
+            });
             if (pick === undefined) return undefined;
 
             if (pick instanceof CommandQuickPickItem) return pick.execute();

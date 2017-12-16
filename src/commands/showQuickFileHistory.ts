@@ -5,7 +5,7 @@ import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
 import { GitLog, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, FileHistoryQuickPick } from '../quickPicks';
+import { CommandQuickPickItem, FileHistoryQuickPick, ShowCommitsInResultsQuickPickItem } from '../quickPicks';
 import { ShowQuickCommitFileDetailsCommandArgs } from './showQuickCommitFileDetails';
 import { Messages } from '../messages';
 import * as path from 'path';
@@ -34,9 +34,6 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
         const gitUri = await GitUri.fromUri(uri, this.git);
 
         args = { ...args };
-        if (args.maxCount == null) {
-            args.maxCount = this.git.config.advanced.maxQuickHistory;
-        }
 
         const progressCancellation = FileHistoryQuickPick.showProgress(gitUri);
         try {
@@ -47,7 +44,23 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
-            const pick = await FileHistoryQuickPick.show(this.git, args.log, gitUri, progressCancellation, { goBackCommand: args.goBackCommand, nextPageCommand: args.nextPageCommand });
+            const label = `${gitUri.getFormattedPath()}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}`;
+            const pick = await FileHistoryQuickPick.show(this.git, args.log, gitUri, label, progressCancellation, {
+                goBackCommand: args.goBackCommand,
+                nextPageCommand: args.nextPageCommand,
+                showAllCommand: args.log !== undefined && args.log.truncated
+                    ? new CommandQuickPickItem({
+                        label: `$(sync) Show All Commits`,
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
+                    }, Commands.ShowQuickFileHistory, [uri, { ...args, maxCount: 0 }])
+                    : undefined,
+                showInResultsExplorerCommand: args.log !== undefined
+                    ? new ShowCommitsInResultsQuickPickItem(args.log, {
+                        label: label,
+                        resultsType: { singular: 'commit', plural: 'commits' }
+                    })
+                    : undefined
+            });
             if (pick === undefined) return undefined;
 
             if (pick instanceof CommandQuickPickItem) return pick.execute();

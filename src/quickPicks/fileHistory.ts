@@ -20,27 +20,24 @@ export class FileHistoryQuickPick {
             });
     }
 
-    static async show(git: GitService, log: GitLog, uri: GitUri, progressCancellation: CancellationTokenSource, options: { goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem, pickerOnly?: boolean } = {}): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
-        options = { ...{ pickerOnly: false }, ...options };
+    static async show(git: GitService, log: GitLog, uri: GitUri, placeHolder: string, progressCancellation: CancellationTokenSource, options: { goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem, pickerOnly?: boolean, showAllCommand?: CommandQuickPickItem, showInResultsExplorerCommand?: CommandQuickPickItem } = {}): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+        options = { pickerOnly: false, ...options };
 
         const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
         let previousPageCommand: CommandQuickPickItem | undefined = undefined;
 
         let index = 0;
+
+        if (options.showInResultsExplorerCommand !== undefined) {
+            index++;
+            items.splice(0, 0, options.showInResultsExplorerCommand);
+        }
+
         if (log.truncated || log.sha) {
-            if (log.truncated) {
+            if (options.showAllCommand !== undefined) {
                 index++;
-                items.splice(0, 0, new CommandQuickPickItem({
-                    label: `$(sync) Show All Commits`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
-                }, Commands.ShowQuickFileHistory, [
-                        Uri.file(uri.fsPath),
-                        {
-                            maxCount: 0,
-                            goBackCommand: options.goBackCommand
-                        } as ShowQuickFileHistoryCommandArgs
-                    ]));
+                items.splice(0, 0, options.showAllCommand);
             }
             else {
                 const workingFileName = await git.findWorkingFileName(log.repoPath, path.relative(log.repoPath, uri.fsPath));
@@ -138,12 +135,19 @@ export class FileHistoryQuickPick {
 
             const remotes = (await git.getRemotes(uri.repoPath!)).filter(r => r.provider !== undefined);
             if (remotes.length) {
-                items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, {
-                    type: 'revision',
-                    branch: branch!.name,
-                    fileName: uri.getRelativePath(),
-                    sha: uri.sha
-                } as RemoteResource, currentCommand));
+                const resource = uri.sha !== undefined
+                    ? {
+                        type: 'revision',
+                        branch: branch!.name,
+                        fileName: uri.getRelativePath(),
+                        sha: uri.sha
+                    } as RemoteResource
+                    : {
+                        type: 'file',
+                        branch: branch!.name,
+                        fileName: uri.getRelativePath()
+                    } as RemoteResource;
+                items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, resource, currentCommand));
             }
 
             if (options.goBackCommand) {
@@ -159,14 +163,12 @@ export class FileHistoryQuickPick {
             '.': options.nextPageCommand
         });
 
-        const commit = Iterables.first(log.commits.values());
-
         progressCancellation.cancel();
 
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: `${commit.getFormattedPath()}${uri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${uri.shortSha}` : ''}`,
+            placeHolder: placeHolder,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
             // onDidSelectItem: (item: QuickPickItem) => {
             //     scope.setKeyCommand('right', item);

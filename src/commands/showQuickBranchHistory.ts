@@ -32,9 +32,6 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
         const gitUri = uri && await GitUri.fromUri(uri, this.git);
 
         args = { ...args };
-        if (args.maxCount == null) {
-            args.maxCount = this.git.config.advanced.maxQuickHistory;
-        }
 
         let progressCancellation = args.branch === undefined ? undefined : BranchHistoryQuickPick.showProgress(args.branch);
         try {

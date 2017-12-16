@@ -241,7 +241,7 @@ While GitLens is highly customizable and provides many [configuration settings](
 
   ![File History Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-file-history.png)
 
-  - Provides entries to `Show Branch History` and `Open File in <remote-service>` when available
+  - Provides additional entries to `Show in Results`, `Show Branch History`, and `Open File in <remote-service>` when available
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Navigate pages via `alt+,` and `alt+.` to go backward and forward respectively
 
@@ -250,7 +250,7 @@ While GitLens is highly customizable and provides many [configuration settings](
   ![Commit Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-commit-details.png)
 
   - Quickly see the set of files changed in the commit, complete with status indicators for adds, changes, renames, and deletes
-  - Provides entries to `Copy to Clipboard`, `Compare Directory with...`, `Open Changed Files`, `Open File in <remote-service>` when available, and more
+  - Provides additional entries to `Open Commit in <remote-service>` when available, `Open Files`, `Open Revisions`, `Compare Directory with Previous Revision`, `Compare Directory with Working Tree`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
   - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the comparison of the current revision with the previous one
@@ -259,7 +259,7 @@ While GitLens is highly customizable and provides many [configuration settings](
 
   ![Commit File Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-commit-file-details.png)
 
-  - Provides entries to `Show Commit Details`, `Show File History`, `Compare File with...`, `Copy to Clipboard`, `Open File`, `Open File in <remote-service>` when available, and more
+  - Provides entries to `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in <remote-service>` when available, `Open Revision in <remote-service>` when available, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Show File History`, and `Show Previous File History`
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
 
@@ -279,7 +279,7 @@ While GitLens is highly customizable and provides many [configuration settings](
 
   ![Stashed Changes Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-stash-list.png)
 
-  - Provides entries to `Stash Changes`
+  - Provides additional entries to `Stash Changes`
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
 
   - Choosing a stash entry shows a **stash details quick pick menu** which is very similar to the **commit details quick pick menu** above
@@ -287,8 +287,7 @@ While GitLens is highly customizable and provides many [configuration settings](
     ![Stash Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-stash-details.png)
 
     - Quickly see the set of files changed in the stash, complete with status indicators for adds, changes, renames, and deletes
-    - Provides entries to `Copy Message to Clipboard`, `Compare Directory with...`, and `Open Changed Files`
-    - Provides entries to `Apply Stashed Changes` and `Delete Stashed Changes` — both require a confirmation
+    - Provides additional entries to `Apply Stashed Changes` (requires confirmation), `Delete Stashed Changes` (requires confirmation), `Open Files`, `Open Revisions`, `Compare Directory with Previous Revision`, `Compare Directory with Working Tree`, `Copy Commit Message to Clipboard`
     - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
     - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
     - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to  preview the comparison of the current revision with the previous one

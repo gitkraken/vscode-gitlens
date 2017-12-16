@@ -57,7 +57,7 @@ export class ExplorerCommands extends Disposable {
         if (this._selection === undefined || !(node instanceof ExplorerRefNode)) return;
         if (this._selection.repoPath !== node.repoPath) return;
 
-        ResultsExplorer.instance.showCommitComparisonResults(this._selection.repoPath, this._selection.ref, node.ref);
+        ResultsExplorer.instance.showComparisonInResults(this._selection.repoPath, this._selection.ref, node.ref);
     }
 
     private _selection: { ref: string, repoPath: string | undefined } | undefined;
