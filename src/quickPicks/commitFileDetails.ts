@@ -1,13 +1,32 @@
 'use strict';
 import { Iterables, Strings } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
-import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
+import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem } from './common';
 import { GlyphChars } from '../constants';
 import { GitLog, GitLogCommit, GitService, GitUri, RemoteResource } from '../gitService';
 import { Keyboard, KeyCommand, KeyNoopCommand } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as path from 'path';
+
+export class ApplyCommitFileChangesCommandQuickPickItem extends CommandQuickPickItem {
+    constructor(
+        private readonly commit: GitLogCommit,
+        private readonly git: GitService,
+        item?: QuickPickItem
+    ) {
+        super(item || {
+            label: `$(git-pull-request) Apply Changes`,
+            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(file-text) ${path.basename(commit.fileName)} in ${GlyphChars.Space}$(git-commit) ${commit.shortSha}`
+        }, undefined, undefined);
+    }
+
+    async execute(): Promise<{} | undefined> {
+        const uri = this.commit.toGitUri();
+        await this.git.checkoutFile(uri);
+        return openEditor(uri, { preserveFocus: true, preview: false });
+    }
+}
 
 export class OpenCommitFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 
@@ -66,6 +85,10 @@ export class CommitFileDetailsQuickPick {
 
         await commit.resolvePreviousFileSha(git);
 
+        if (stash) {
+            items.push(new ApplyCommitFileChangesCommandQuickPickItem(commit, git));
+        }
+
         if (commit.previousFileShortSha) {
             items.push(new CommandQuickPickItem({
                 label: `$(git-compare) Open Changes`,
@@ -118,6 +141,8 @@ export class CommitFileDetailsQuickPick {
         }
 
         if (!stash) {
+            items.push(new ApplyCommitFileChangesCommandQuickPickItem(commit, git));
+
             items.push(new CommandQuickPickItem({
                 label: `$(clippy) Copy Commit ID to Clipboard`,
                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.shortSha}`
@@ -139,9 +164,7 @@ export class CommitFileDetailsQuickPick {
                         sha: commit.sha
                     } as CopyMessageToClipboardCommandArgs
                 ]));
-        }
 
-        if (!stash) {
             items.push(new CommandQuickPickItem({
                 label: `$(git-commit) Show Commit Details`,
                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha}`
