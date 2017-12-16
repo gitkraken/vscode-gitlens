@@ -41,7 +41,7 @@ export class CommitFileNode extends ExplorerNode {
             // See if we can get the commit directly from the multi-file commit
             const commit = this.commit.toFileCommit(this.status);
             if (commit === undefined) {
-                const log = await this.explorer.git.getLogForFile(this.repoPath, this.status.fileName, this.commit.sha, { maxCount: 2 });
+                const log = await this.explorer.git.getLogForFile(this.repoPath, this.status.fileName, { maxCount: 2, ref: this.commit.sha });
                 if (log !== undefined) {
                     this.commit = log.commits.get(this.commit.sha) || this.commit;
                 }

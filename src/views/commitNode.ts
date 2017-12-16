@@ -26,7 +26,7 @@ export class CommitNode extends ExplorerRefNode {
     async getChildren(): Promise<ExplorerNode[]> {
         const repoPath = this.repoPath;
 
-        const log = await this.explorer.git.getLogForRepo(repoPath, this.commit.sha, 1);
+        const log = await this.explorer.git.getLogForRepo(repoPath, { maxCount: 1, ref: this.commit.sha });
         if (log === undefined) return [];
 
         const commit = Iterables.first(log.commits.values());

@@ -42,7 +42,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
                 // If we are a fake "staged" sha, treat it as a DiffWithWorking
                 if (GitService.isStagedUncommitted(sha!)) return commands.executeCommand(Commands.DiffWithWorking, uri);
 
-                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, { maxCount: sha !== undefined ? undefined : 2, range: args.range! });
+                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: sha !== undefined ? undefined : 2, range: args.range! });
                 if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
 
                 args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());

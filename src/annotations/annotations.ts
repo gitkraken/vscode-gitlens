@@ -259,6 +259,6 @@ export class Annotations {
             });
         }
 
-        return { ...decoration, ...{ range: range } };
+        return { ...decoration, range: range };
     }
 }

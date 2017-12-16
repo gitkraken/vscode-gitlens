@@ -47,7 +47,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                     isStagedUncommitted = true;
                 }
 
-                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, sha, { maxCount: 2, range: args.range!, skipMerges: true });
+                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: 2, range: args.range!, ref: sha, skipMerges: true });
                 if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
 
                 args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());

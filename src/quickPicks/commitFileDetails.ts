@@ -219,7 +219,7 @@ export class CommitFileDetailsQuickPick {
 
                     // If we can't find the commit or the previous commit isn't available (since it isn't trustworthy)
                     if (c === undefined || c.previousSha === undefined) {
-                        log = await git.getLogForFile(commit.repoPath, uri.fsPath, commit.sha, { maxCount: git.config.advanced.maxQuickHistory });
+                        log = await git.getLogForFile(commit.repoPath, uri.fsPath, { maxCount: git.config.advanced.maxQuickHistory, ref: commit.sha });
                         if (log === undefined) return KeyNoopCommand;
 
                         c = log && log.commits.get(commit.sha);

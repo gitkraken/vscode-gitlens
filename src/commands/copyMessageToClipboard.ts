@@ -40,7 +40,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 const repoPath = await this.git.getActiveRepoPath(editor);
                 if (!repoPath) return undefined;
 
-                const log = await this.git.getLogForRepo(repoPath, undefined, 1);
+                const log = await this.git.getLogForRepo(repoPath, { maxCount: 1 });
                 if (!log) return undefined;
 
                 args.message = Iterables.first(log.commits.values()).message;

@@ -31,7 +31,7 @@ export class StatusFilesNode extends ExplorerNode {
 
         let log: GitLog | undefined;
         if (this.range !== undefined) {
-            log = await this.explorer.git.getLogForRepo(repoPath, this.range, this.maxCount);
+            log = await this.explorer.git.getLogForRepo(repoPath, { maxCount: this.maxCount, ref: this.range });
             if (log !== undefined) {
                 statuses = Array.from(Iterables.flatMap(log.commits.values(), c => {
                     return c.fileStatuses.map(s => {

@@ -38,7 +38,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 
         const progressCancellation = FileHistoryQuickPick.showProgress(gitUri);
         try {
-            const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha, { maxCount: args.maxCount });
+            const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: args.maxCount, ref: gitUri.sha });
             if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open history compare');
 
             if (progressCancellation.token.isCancellationRequested) return undefined;

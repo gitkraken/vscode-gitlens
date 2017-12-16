@@ -59,7 +59,7 @@ export class FileHistoryNode extends ExplorerNode {
             children.push(new CommitFileNode(status, commit, this.explorer, displayAs));
         }
 
-        const log = await this.explorer.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, this.uri.sha);
+        const log = await this.explorer.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, { ref: this.uri.sha });
         if (log !== undefined) {
             children.push(...Iterables.map(log.commits.values(), c => new CommitFileNode(c.fileStatuses[0], c, this.explorer, displayAs)));
         }

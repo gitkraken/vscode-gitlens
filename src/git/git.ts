@@ -345,25 +345,25 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...params);
     }
 
-    static log(repoPath: string, sha?: string, maxCount?: number, reverse: boolean = false) {
+    static log(repoPath: string, options: { maxCount?: number, ref?: string, reverse?: boolean }) {
         const params = [...defaultLogParams, `-m`];
-        if (maxCount && !reverse) {
-            params.push(`-n${maxCount}`);
+        if (options.maxCount && !options.reverse) {
+            params.push(`-n${options.maxCount}`);
         }
-        if (sha && !Git.isStagedUncommitted(sha)) {
-            if (reverse) {
+        if (options.ref && !Git.isStagedUncommitted(options.ref)) {
+            if (options.reverse) {
                 params.push(`--reverse`);
                 params.push(`--ancestry-path`);
-                params.push(`${sha}..HEAD`);
+                params.push(`${options.ref}..HEAD`);
             }
             else {
-                params.push(sha);
+                params.push(options.ref);
             }
         }
         return gitCommand({ cwd: repoPath }, ...params);
     }
 
-    static log_file(repoPath: string, fileName: string, sha?: string, options: { maxCount?: number, reverse?: boolean, startLine?: number, endLine?: number, skipMerges?: boolean } = { reverse: false, skipMerges: false }) {
+    static log_file(repoPath: string, fileName: string, options: { maxCount?: number, ref?: string, reverse?: boolean, startLine?: number, endLine?: number, skipMerges?: boolean } = { reverse: false, skipMerges: false }) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const params = [...defaultLogParams, `--follow`];
@@ -372,21 +372,21 @@ export class Git {
         }
 
         // If we are looking for a specific sha don't exclude merge commits
-        if (options.skipMerges || !sha || options.maxCount! > 2) {
+        if (options.skipMerges || !options.ref || options.maxCount! > 2) {
             params.push(`--no-merges`);
         }
         else {
             params.push(`-m`);
         }
 
-        if (sha && !Git.isStagedUncommitted(sha)) {
+        if (options.ref && !Git.isStagedUncommitted(options.ref)) {
             if (options.reverse) {
                 params.push(`--reverse`);
                 params.push(`--ancestry-path`);
-                params.push(`${sha}..HEAD`);
+                params.push(`${options.ref}..HEAD`);
             }
             else {
-                params.push(sha);
+                params.push(options.ref);
             }
         }
 
@@ -400,9 +400,9 @@ export class Git {
         return gitCommand({ cwd: root }, ...params);
     }
 
-    static async log_resolve(repoPath: string, sha: string, fileName: string) {
+    static async log_resolve(repoPath: string, fileName: string, ref: string) {
         try {
-            const data = await gitCommand({ cwd: repoPath, willHandleErrors: true }, `log`, `--full-history`, `-M`, `-n1`, `--no-merges`, `--format=%H`, sha, `--`, fileName);
+            const data = await gitCommand({ cwd: repoPath, willHandleErrors: true }, `log`, `--full-history`, `-M`, `-n1`, `--no-merges`, `--format=%H`, ref, `--`, fileName);
             return data.trim();
         }
         catch {
@@ -410,27 +410,27 @@ export class Git {
         }
     }
 
-    static log_search(repoPath: string, search: string[] = [], maxCount?: number) {
+    static log_search(repoPath: string, search: string[] = [], options: { maxCount?: number } = {}) {
         const params = [...defaultLogParams, `-m`, `-i`];
-        if (maxCount) {
-            params.push(`-n${maxCount}`);
+        if (options.maxCount) {
+            params.push(`-n${options.maxCount}`);
         }
 
         return gitCommand({ cwd: repoPath }, ...params, ...search);
     }
 
-    static log_shortstat(repoPath: string, sha?: string) {
+    static log_shortstat(repoPath: string, options: { ref?: string }) {
         const params = [`log`, `--shortstat`, `--oneline`];
-        if (sha && !Git.isStagedUncommitted(sha)) {
-            params.push(sha);
+        if (options.ref && !Git.isStagedUncommitted(options.ref)) {
+            params.push(options.ref);
         }
         return gitCommand({ cwd: repoPath }, ...params);
     }
 
-    static async ls_files(repoPath: string, fileName: string, sha?: string): Promise<string> {
+    static async ls_files(repoPath: string, fileName: string, options: { ref?: string } = {}): Promise<string> {
         const params = [`ls-files`];
-        if (sha && !Git.isStagedUncommitted(sha)) {
-            params.push(`--with-tree=${sha}`);
+        if (options.ref && !Git.isStagedUncommitted(options.ref)) {
+            params.push(`--with-tree=${options.ref}`);
         }
 
         try {

@@ -20,7 +20,7 @@ export class StatusUpstreamNode extends ExplorerNode {
             ? `${this.status.upstream}..${this.status.branch}`
             : `${this.status.branch}..${this.status.upstream}`;
 
-        let log = await this.explorer.git.getLogForRepo(this.uri.repoPath!, range, 0);
+        let log = await this.explorer.git.getLogForRepo(this.uri.repoPath!, { maxCount: 0, ref: range });
         if (log === undefined) return [];
 
         if (this.direction !== 'ahead') return [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer))];
@@ -29,7 +29,7 @@ export class StatusUpstreamNode extends ExplorerNode {
         const commits = Array.from(log.commits.values());
         const commit = commits[commits.length - 1];
         if (commit.previousSha === undefined) {
-            log = await this.explorer.git.getLogForRepo(this.uri.repoPath!, commit.sha, 2);
+            log = await this.explorer.git.getLogForRepo(this.uri.repoPath!, { maxCount: 2, ref: commit.sha });
             if (log !== undefined) {
                 commits[commits.length - 1] = Iterables.first(log.commits.values());
             }

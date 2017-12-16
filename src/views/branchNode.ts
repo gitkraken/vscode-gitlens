@@ -23,7 +23,7 @@ export class BranchNode extends ExplorerRefNode {
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        const log = await this.explorer.git.getLogForRepo(this.uri.repoPath!, this.branch.name, this.maxCount);
+        const log = await this.explorer.git.getLogForRepo(this.uri.repoPath!, { maxCount: this.maxCount, ref: this.branch.name });
         if (log === undefined) return [new MessageNode('No commits yet')];
 
         const children: (CommitNode | ShowAllNode)[] = [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer, this.branch))];

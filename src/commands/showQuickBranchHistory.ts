@@ -56,7 +56,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
             }
 
             if (args.log === undefined) {
-                args.log = await this.git.getLogForRepo(repoPath, (gitUri && gitUri.sha) || args.branch, args.maxCount);
+                args.log = await this.git.getLogForRepo(repoPath, { maxCount: args.maxCount, ref: (gitUri && gitUri.sha) || args.branch });
                 if (args.log === undefined) return window.showWarningMessage(`Unable to show branch history`);
             }
 
