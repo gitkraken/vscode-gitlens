@@ -281,34 +281,14 @@ export class GitService extends Disposable {
             repositories.push(new Repository(folder, rootPath, true, this, anyRepoChangedFn, this._suspended));
         }
 
-        // Can remove this try/catch once https://github.com/Microsoft/vscode/issues/38229 is fixed
-        let depth;
-        try {
-            depth = configuration.get<number>(configuration.name('advanced')('repositorySearchDepth').value, folderUri);
-        }
-        catch (ex) {
-            Logger.error(ex);
-            depth = configuration.get<number>(configuration.name('advanced')('repositorySearchDepth').value, null);
-        }
-
+        const depth = configuration.get<number>(configuration.name('advanced')('repositorySearchDepth').value, folderUri);
         if (depth <= 0) return repositories;
 
-        // Can remove this try/catch once https://github.com/Microsoft/vscode/issues/38229 is fixed
-        let excludes = {};
-        try {
-            // Get any specified excludes -- this is a total hack, but works for some simple cases and something is better than nothing :)
-            excludes = {
-                ...workspace.getConfiguration('files', folderUri).get<{ [key: string]: boolean }>('exclude', {}),
-                ...workspace.getConfiguration('search', folderUri).get<{ [key: string]: boolean }>('exclude', {})
-            };
-        }
-        catch (ex) {
-            Logger.error(ex);
-            excludes = {
-                ...workspace.getConfiguration('files', null!).get<{ [key: string]: boolean }>('exclude', {}),
-                ...workspace.getConfiguration('search', null!).get<{ [key: string]: boolean }>('exclude', {})
-            };
-        }
+        // Get any specified excludes -- this is a total hack, but works for some simple cases and something is better than nothing :)
+        let excludes = {
+            ...workspace.getConfiguration('files', folderUri).get<{ [key: string]: boolean }>('exclude', {}),
+            ...workspace.getConfiguration('search', folderUri).get<{ [key: string]: boolean }>('exclude', {})
+        };
 
         const excludedPaths = [...Iterables.filterMap(Objects.entries(excludes), ([key, value]) => {
             if (!value) return undefined;

@@ -126,9 +126,7 @@ export class Repository extends Disposable {
 
         const section = configuration.name('remotes').value;
         if (initializing || configuration.changed(e, section, this.folder.uri)) {
-            // Can't reset the provider map here because of https://github.com/Microsoft/vscode/issues/38229
-            // this._providerMap = RemoteProviderFactory.createMap(configuration.get<IRemotesConfig[] | null | undefined>(section, this.folder.uri));
-            this._providerMap = undefined;
+            this._providerMap = RemoteProviderFactory.createMap(configuration.get<IRemotesConfig[] | null | undefined>(section, this.folder.uri));
 
             if (!initializing) {
                 this._remotes = undefined;
