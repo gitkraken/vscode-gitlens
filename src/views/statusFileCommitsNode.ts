@@ -19,7 +19,7 @@ export class StatusFileCommitsNode extends ExplorerNode {
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        return this.commits.map(c => new CommitFileNode(this.status, c, this.explorer, CommitFileNodeDisplayAs.Commit, this.branch));
+        return this.commits.map(c => new CommitFileNode(this.status, c, this.explorer, CommitFileNodeDisplayAs.CommitLabel | (this.explorer.config.gravatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.CommitIcon), this.branch));
     }
 
     async getTreeItem(): Promise<TreeItem> {
@@ -34,7 +34,7 @@ export class StatusFileCommitsNode extends ExplorerNode {
 
         if (this.commits.length === 1 && this.commits[0].isUncommitted) {
             item.collapsibleState = TreeItemCollapsibleState.None;
-            item.contextValue = 'gitlens:status-file' as ResourceType;
+            item.contextValue = ResourceType.StatusFile;
             item.command = this.getCommand();
         }
 

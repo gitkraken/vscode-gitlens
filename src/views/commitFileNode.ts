@@ -7,12 +7,12 @@ import * as path from 'path';
 
 export enum CommitFileNodeDisplayAs {
     CommitLabel = 1 << 0,
-    CommitIcon = 1 << 1,
-    FileLabel = 1 << 2,
+    FileLabel = 1 << 1,
+
+    CommitIcon = 1 << 2,
     StatusIcon = 1 << 3,
     Gravatar = 1 << 4,
 
-    Commit = CommitLabel | CommitIcon,
     File = FileLabel | StatusIcon
 }
 
@@ -25,7 +25,7 @@ export class CommitFileNode extends ExplorerNode {
         public readonly status: IGitStatusFile,
         public commit: GitLogCommit,
         protected readonly explorer: Explorer,
-        private displayAs: CommitFileNodeDisplayAs = CommitFileNodeDisplayAs.Commit,
+        private displayAs: CommitFileNodeDisplayAs,
         public readonly branch?: GitBranch
     ) {
         super(GitUri.fromFileStatus(status, commit.repoPath, commit.sha));
