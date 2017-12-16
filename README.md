@@ -202,7 +202,7 @@ While GitLens is highly customizable and provides many [configuration settings](
 
 - Adds an on-demand, [customizable](#gitlens-results-view-settings) `GitLens Results` view to the Explorer activity
 
-  - Provides semi-persistent results for commit search operations, via `Show Commit Search` command (`gitlens.showCommitSearch`)
+  - Provides semi-persistent results for commit search operations, via Show Commit Search command (`gitlens.showCommitSearch`), and file history operations, via Show File History command (`gitlens.showQuickFileHistory`)
     - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
       - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Compare with Selected`, `Select for Compare`, `Rebase Commit (via Terminal)`, `Reset Commit (via Terminal)`, and `Refresh` commands
         - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
