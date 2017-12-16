@@ -12,7 +12,7 @@ export class ActiveEditorTracker extends Disposable {
     constructor() {
         super(() => this.dispose());
 
-        const fn = Functions.debounce((e: TextEditor) => this._resolver && this._resolver(e), 50);
+        const fn = Functions.debounce((e: TextEditor | undefined) => this._resolver && this._resolver(e), 50);
         this._disposable = window.onDidChangeActiveTextEditor(fn);
     }
 

@@ -7,7 +7,7 @@
     },
     "publisher": "eamodio",
     "engines": {
-        "vscode": "^1.18.0"
+        "vscode": "^1.19.0"
     },
     "license": "SEE LICENSE IN LICENSE",
     "displayName": "Git Lens \u2014 git blame annotations, code lens, and more",
