@@ -1,8 +1,7 @@
 import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
-import { GitStatus, GitUri, Repository, RepositoryFileSystemChangeEvent } from '../gitService';
-import { Logger } from '../logger';
+import { GitUri, Repository, RepositoryFileSystemChangeEvent } from '../gitService';
 import { StatusFilesNode } from './statusFilesNode';
 import { StatusUpstreamNode } from './statusUpstreamNode';
 
@@ -11,7 +10,6 @@ export class StatusNode extends ExplorerNode {
     constructor(
         uri: GitUri,
         private readonly repo: Repository,
-        private readonly parent: ExplorerNode,
         private readonly explorer: GitExplorer,
         private readonly active: boolean = false
     ) {
@@ -44,8 +42,6 @@ export class StatusNode extends ExplorerNode {
         return this.children;
     }
 
-    private _status: GitStatus | undefined;
-
     async getTreeItem(): Promise < TreeItem > {
         if (this.disposable !== undefined) {
             this.disposable.dispose();
@@ -56,8 +52,6 @@ export class StatusNode extends ExplorerNode {
         if (status === undefined) return new TreeItem('No repo status');
 
         if (this.explorer.autoRefresh && this.includeWorkingTree) {
-            this._status = status;
-
             this.disposable = Disposable.from(
                 this.explorer.onDidChangeAutoRefresh(this.onAutoRefreshChanged, this),
                 this.repo.onDidChangeFileSystem(this.onFileSystemChanged, this),
@@ -128,20 +122,6 @@ export class StatusNode extends ExplorerNode {
     }
 
     private async onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
-        const status = await this.repo.getStatus();
-
-        // If we haven't changed from having some working changes to none or vice versa then just refresh the node
-        // This is because of https://github.com/Microsoft/vscode/issues/34789
-        if (this._status !== undefined && status !== undefined &&
-            ((this._status.files.length === status.files.length) || (this._status.files.length > 0 && status.files.length > 0))) {
-
-            Logger.log(`StatusNode.onFileSystemChanged; triggering node refresh`);
-            this.explorer.refreshNode(this);
-
-            return;
-        }
-
-        Logger.log(`StatusNode.onFileSystemChanged; triggering parent node refresh`);
-        this.explorer.refreshNode(this.parent);
+        this.explorer.refreshNode(this);
     }
 }

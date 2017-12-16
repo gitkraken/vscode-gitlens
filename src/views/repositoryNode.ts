@@ -27,7 +27,7 @@ export class RepositoryNode extends ExplorerNode {
         this.updateSubscription();
 
         this.children = [
-            new StatusNode(this.uri, this.repo, this, this.explorer, this.active),
+            new StatusNode(this.uri, this.repo, this.explorer, this.active),
             new BranchesNode(this.uri, this.repo, this.explorer, this.active),
             new RemotesNode(this.uri, this.repo, this.explorer),
             new StashesNode(this.uri, this.repo, this.explorer)
