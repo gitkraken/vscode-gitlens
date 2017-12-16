@@ -197,6 +197,7 @@ export class Annotations {
             borderStyle: borderStyle,
             borderWidth: borderWidth,
             color: new ThemeColor('gitlens.gutterForegroundColor'),
+            fontWeight: 400,
             height: '100%',
             margin: '0 26px -1px 0',
             textDecoration: separateLines ? 'overline solid rgba(0, 0, 0, .2)' : 'none',
@@ -239,7 +240,8 @@ export class Annotations {
                 after: {
                     backgroundColor: new ThemeColor('gitlens.trailingLineBackgroundColor'),
                     color: new ThemeColor('gitlens.trailingLineForegroundColor'),
-                    contentText: Strings.pad(message.replace(/ /g, GlyphChars.Space), 1, 1)
+                    contentText: Strings.pad(message.replace(/ /g, GlyphChars.Space), 1, 1),
+                    fontWeight: 400
                 }
             } as DecorationInstanceRenderOptions
         } as DecorationOptions;
