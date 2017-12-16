@@ -132,5 +132,5 @@ const statusIconsMap = {
 };
 
 export function getGitStatusIcon(status: GitStatusFileStatus): string {
-    return statusIconsMap[status];
+    return statusIconsMap[status] || statusIconsMap['X'];
 }

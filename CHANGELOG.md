@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#228](https://github.com/eamodio/vscode-gitlens/issues/228) - Gutter blame spills over heatmap
 - Fixes incorrect blame highlighting -- thanks to [PR #231](https://github.com/eamodio/vscode-gitlens/pull/231) by Alexey Vasyukov ([@notmedia](https://github.com/notmedia))!
 - Fixes issue with the `Open in File/Revision` option in the file history quick pick menu
+- Fixes issues with Git warnings when parsing log status output (can cause the `GitLens` view to not show data in some cases)
 
 ## [6.4.0] - 2017-12-12
 ### Added

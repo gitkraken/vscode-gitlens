@@ -121,8 +121,8 @@ export class GitLogParser {
 
                         line = next.value;
 
-                        // If the next line isn't blank, make sure it isn't starting a new commit
-                        if (line && Git.shaRegex.test(line)) {
+                        // If the next line isn't blank, make sure it isn't starting a new commit or s git warning
+                        if (line && (Git.shaRegex.test(line) || line.startsWith('warning:'))) {
                             skip = true;
                             continue;
                         }
@@ -135,7 +135,8 @@ export class GitLogParser {
                             line = next.value;
                             lineParts = line.split(' ');
 
-                            if (Git.shaRegex.test(lineParts[0])) {
+                            // make sure the line isn't starting a new commit or s git warning
+                            if (Git.shaRegex.test(lineParts[0]) || line.startsWith('warning:')) {
                                 skip = true;
                                 break;
                             }
@@ -182,9 +183,11 @@ export class GitLogParser {
 
                         line = next.value;
 
-                        entry.status = line[0] as GitStatusFileStatus;
-                        entry.fileName = line.substring(1);
-                        this.parseFileName(entry);
+                        if (line !== undefined && !line.startsWith('warning:')) {
+                            entry.status = line[0] as GitStatusFileStatus;
+                            entry.fileName = line.substring(1);
+                            this.parseFileName(entry);
+                        }
                     }
 
                     if (first && repoPath === undefined && type === GitCommitType.File && fileName !== undefined) {
