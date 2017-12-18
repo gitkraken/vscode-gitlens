@@ -4,10 +4,12 @@
 images/**
 .vscode/**
 .vscode-test/**
-out/test/**
 test/**
 src/**
 **/*.map
+.github/**
 .gitignore
+CODE_OF_CONDUCT.md
 tsconfig.json
 tslint.json
+webpack.config.js

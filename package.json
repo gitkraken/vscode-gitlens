@@ -28,9 +28,6 @@
         "blame",
         "log",
         "annotation",
-        "diff",
-        "lens",
-        "history",
         "multi-root ready"
     ],
     "galleryBanner": {
@@ -47,7 +44,7 @@
         "type": "git",
         "url": "https://github.com/eamodio/vscode-gitlens.git"
     },
-    "main": "./out/src/extension",
+    "main": "./out/extension",
     "contributes": {
         "configuration": {
             "type": "object",
@@ -73,7 +70,7 @@
                         "chorded",
                         "none"
                     ],
-                    "description": "Specifies the keymap to use for GitLens shortcut keys\n `standard` - adds a standard set of shortcut keys\n `chorded` - adds a chorded set of shortcut keys that all start with `Ctrl+Alt+G` (`⌥⌘G` on macOS)\n `none` - no shortcut keys will be added",
+                    "description": "Specifies the keymap to use for GitLens shortcut keys\n `standard` - adds a standard set of shortcut keys\n `chorded` - adds a chorded set of shortcut keys that all start with `Ctrl+Alt+G` (`??G` on macOS)\n `none` - no shortcut keys will be added",
                     "scope": "window"
                 },
                 "gitlens.outputLevel": {
@@ -2925,6 +2922,7 @@
         "*"
     ],
     "scripts": {
+        "bundle": "npm run lint && webpack --env.production",
         "clean": "git clean -xdf",
         "compile": "npm run lint && tsc -p ./",
         "watch": "tsc -watch -p ./",
@@ -2946,7 +2944,8 @@
         "lodash.isequal": "4.5.0",
         "lodash.once": "4.1.1",
         "spawn-rx": "2.0.12",
-        "tmp": "0.0.33"
+        "tmp": "0.0.33",
+        "tslib": "^1.8.1"
     },
     "devDependencies": {
         "@types/copy-paste": "1.1.30",
@@ -2956,8 +2955,12 @@
         "@types/tmp": "0.0.33",
         "husky": "^0.14.3",
         "mocha": "4.0.1",
+        "ts-loader": "^3.2.0",
         "tslint": "5.8.0",
         "typescript": "2.6.2",
-        "vscode": "1.1.10"
+        "uglifyjs-webpack-plugin": "^1.1.4",
+        "vscode": "1.1.10",
+        "webpack": "^3.10.0",
+        "webpack-node-externals": "^1.6.0"
     }
 }

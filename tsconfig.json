@@ -1,6 +1,7 @@
 {
     "compilerOptions": {
         "forceConsistentCasingInFileNames": true,
+        "importHelpers": true,
         "lib": [ "es2015", "es2016" ],
         "module": "commonjs",
         "noFallthroughCasesInSwitch": true,
@@ -8,7 +9,7 @@
         "noUnusedLocals": true,
         "outDir": "out",
         "removeComments": true,
-        "rootDir": ".",
+        "rootDir": "./src",
         "skipLibCheck": true,
         "sourceMap": true,
         "strict": true,
@@ -16,6 +17,7 @@
     },
     "exclude": [
         "node_modules",
+        "test",
         ".vscode-test"
     ]
 }
