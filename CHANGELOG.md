@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [7.0.0-beta2] - 2017-12-16
+## [7.0.0] - 2017-12-18
 ### Added
 - Adds a new `Active Repository` node to the `Repository View` of the `GitLens` view -- closes [#224](https://github.com/eamodio/vscode-gitlens/issues/224)
   - Automatically updates to track the repository of the active editor
@@ -62,6 +62,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes incorrect blame highlighting -- thanks to [PR #231](https://github.com/eamodio/vscode-gitlens/pull/231) by Alexey Vasyukov ([@notmedia](https://github.com/notmedia))!
 - Fixes issue with the `Open in File/Revision` option in the file history quick pick menu
 - Fixes issues with Git warnings when parsing log status output (can cause the `GitLens` view to not show data in some cases)
+- Fixes 🤞 [#226](https://github.com/eamodio/vscode-gitlens/issues/226) - Annotations show in Debug Console
 
 ## [6.4.0] - 2017-12-12
 ### Added
