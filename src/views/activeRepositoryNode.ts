@@ -1,6 +1,7 @@
 'use strict';
 import { Functions } from '../system';
 import { TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { isTextEditor } from '../constants';
 import { ExplorerNode } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
 import { GitUri } from '../gitService';
@@ -32,6 +33,8 @@ export class ActiveRepositoryNode extends ExplorerNode {
     }
 
     private async onActiveEditorChanged(editor: TextEditor | undefined) {
+        if (editor !== undefined && !isTextEditor(editor)) return;
+
         let changed = false;
 
         try {
