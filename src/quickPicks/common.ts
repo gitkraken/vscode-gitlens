@@ -1,39 +1,24 @@
 'use strict';
 import { Strings } from '../system';
-import { CancellationTokenSource, commands, Disposable, QuickPickItem, QuickPickOptions, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { CancellationTokenSource, commands, QuickPickItem, QuickPickOptions, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { Commands, openEditor } from '../commands';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import { GitLog, GitLogCommit, GitStashCommit } from '../gitService';
 import { Keyboard, KeyboardScope, KeyMapping, Keys } from '../keyboard';
 import { ResultsExplorer } from '../views/resultsExplorer';
-// import { Logger } from '../logger';
 
 export function getQuickPickIgnoreFocusOut() {
     return configuration.get<boolean>(configuration.name('advanced')('quickPick')('closeOnFocusOut').value);
 }
 
-export function showQuickPickProgress(message: string, mapping?: KeyMapping, delay: boolean = false): CancellationTokenSource {
+export function showQuickPickProgress(message: string, mapping?: KeyMapping): CancellationTokenSource {
     const cancellation = new CancellationTokenSource();
-
-    if (delay) {
-        let disposable: Disposable;
-        const timer = setTimeout(() => {
-            disposable && disposable.dispose();
-            _showQuickPickProgress(message, cancellation, mapping);
-        }, 250);
-        disposable = cancellation.token.onCancellationRequested(() => clearTimeout(timer));
-    }
-    else {
-        _showQuickPickProgress(message, cancellation, mapping);
-    }
-
+    _showQuickPickProgress(message, cancellation, mapping);
     return cancellation;
 }
 
 async function _showQuickPickProgress(message: string, cancellation: CancellationTokenSource, mapping?: KeyMapping) {
-        // Logger.log(`showQuickPickProgress`, `show`, message);
-
         const scope: KeyboardScope | undefined = mapping && await Keyboard.instance.beginScope(mapping);
 
         try {
@@ -46,8 +31,6 @@ async function _showQuickPickProgress(message: string, cancellation: Cancellatio
             // Not sure why this throws
         }
         finally {
-            // Logger.log(`showQuickPickProgress`, `cancel`, message);
-
             cancellation.cancel();
             scope && scope.dispose();
         }
