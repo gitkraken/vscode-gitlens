@@ -3,7 +3,7 @@ import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
-import { getGitStatusIcon, GitBranch, GitLogCommit, GitUri, IGitStatusFile, IGitStatusFileWithCommit, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
+import { getGitStatusIcon, GitLogCommit, GitUri, IGitStatusFile, IGitStatusFileWithCommit, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
 import * as path from 'path';
 
 export class StatusFileCommitsNode extends ExplorerNode {
@@ -12,14 +12,13 @@ export class StatusFileCommitsNode extends ExplorerNode {
         public readonly repoPath: string,
         public readonly status: IGitStatusFile,
         public readonly commits: GitLogCommit[],
-        private readonly explorer: Explorer,
-        public readonly branch?: GitBranch
+        private readonly explorer: Explorer
     ) {
         super(GitUri.fromFileStatus(status, repoPath, 'HEAD'));
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        return this.commits.map(c => new CommitFileNode(this.status, c, this.explorer, CommitFileNodeDisplayAs.CommitLabel | (this.explorer.config.gravatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.CommitIcon), this.branch));
+        return this.commits.map(c => new CommitFileNode(this.status, c, this.explorer, CommitFileNodeDisplayAs.CommitLabel | (this.explorer.config.gravatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.CommitIcon)));
     }
 
     async getTreeItem(): Promise<TreeItem> {

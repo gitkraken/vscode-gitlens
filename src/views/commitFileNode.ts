@@ -3,7 +3,7 @@ import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { GravatarDefault } from '../configuration';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
-import { CommitFormatter, getGitStatusIcon, GitBranch, GitLogCommit, GitUri, ICommitFormatOptions, IGitStatusFile, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
+import { CommitFormatter, getGitStatusIcon, GitLogCommit, GitUri, ICommitFormatOptions, IGitStatusFile, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
 import * as path from 'path';
 
 export enum CommitFileNodeDisplayAs {
@@ -26,8 +26,7 @@ export class CommitFileNode extends ExplorerNode {
         public readonly status: IGitStatusFile,
         public commit: GitLogCommit,
         protected readonly explorer: Explorer,
-        private displayAs: CommitFileNodeDisplayAs,
-        public readonly branch?: GitBranch
+        private displayAs: CommitFileNodeDisplayAs
     ) {
         super(GitUri.fromFileStatus(status, commit.repoPath, commit.sha));
         this.repoPath = commit.repoPath;

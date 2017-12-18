@@ -14,7 +14,7 @@ export class CommitNode extends ExplorerRefNode {
     constructor(
         public readonly commit: GitLogCommit,
         private readonly explorer: Explorer,
-        public readonly branch?: GitBranch
+        private readonly branch?: GitBranch
     ) {
         super(commit.toGitUri());
     }
@@ -33,7 +33,7 @@ export class CommitNode extends ExplorerRefNode {
         if (commit === undefined) return [];
 
         let children: IFileExplorerNode[] = [
-            ...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit.toFileCommit(s), this.explorer, CommitFileNodeDisplayAs.File, this.branch))
+            ...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit.toFileCommit(s), this.explorer, CommitFileNodeDisplayAs.File))
         ];
 
         if (this.explorer.config.files.layout !== ExplorerFilesLayout.List) {

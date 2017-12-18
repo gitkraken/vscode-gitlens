@@ -5,7 +5,7 @@ import { ExplorerFilesLayout } from '../configuration';
 import { ExplorerNode, ResourceType, ShowAllNode } from './explorerNode';
 import { FolderNode, IFileExplorerNode } from './folderNode';
 import { GitExplorer } from './gitExplorer';
-import { GitBranch, GitCommitType, GitLog, GitLogCommit, GitService, GitStatus, GitUri, IGitStatusFileWithCommit } from '../gitService';
+import { GitCommitType, GitLog, GitLogCommit, GitService, GitStatus, GitUri, IGitStatusFileWithCommit } from '../gitService';
 import { StatusFileCommitsNode } from './statusFileCommitsNode';
 import * as path from 'path';
 
@@ -17,8 +17,7 @@ export class StatusFilesNode extends ExplorerNode {
     constructor(
         public readonly status: GitStatus,
         public readonly range: string | undefined,
-        private readonly explorer: GitExplorer,
-        public readonly branch?: GitBranch
+        private readonly explorer: GitExplorer
     ) {
         super(GitUri.fromRepoPath(status.repoPath));
         this.repoPath = status.repoPath;
@@ -87,7 +86,7 @@ export class StatusFilesNode extends ExplorerNode {
         const groups = Arrays.groupBy(statuses, s => s.fileName);
 
         let children: IFileExplorerNode[] = [
-            ...Iterables.map(Objects.values(groups), statuses => new StatusFileCommitsNode(repoPath, statuses[statuses.length - 1], statuses.map(s => s.commit), this.explorer, this.branch))
+            ...Iterables.map(Objects.values(groups), statuses => new StatusFileCommitsNode(repoPath, statuses[statuses.length - 1], statuses.map(s => s.commit), this.explorer))
         ];
 
         if (this.explorer.config.files.layout !== ExplorerFilesLayout.List) {
