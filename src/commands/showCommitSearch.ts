@@ -119,16 +119,18 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
+            const goBackCommand = args.goBackCommand || new CommandQuickPickItem({
+                label: `go back ${GlyphChars.ArrowBack}`,
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to commit search`
+            }, Commands.ShowCommitSearch, [uri, originalArgs]);
+
             const pick = await CommitsQuickPick.show(this.git, log, searchLabel!, progressCancellation, {
-                goBackCommand: new CommandQuickPickItem({
-                    label: `go back ${GlyphChars.ArrowBack}`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to commit search`
-                }, Commands.ShowCommitSearch, [uri, originalArgs]),
+                goBackCommand: goBackCommand,
                 showAllCommand: log !== undefined && log.truncated
                     ? new CommandQuickPickItem({
                         label: `$(sync) Show All Commits`,
                         description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
-                    }, Commands.ShowCommitSearch, [uri, { ...args, maxCount: 0 }])
+                    }, Commands.ShowCommitSearch, [uri, { ...args, maxCount: 0, goBackCommand: goBackCommand }])
                     : undefined,
                 showInResultsExplorerCommand: log !== undefined
                     ? new ShowCommitsSearchInResultsQuickPickItem(log, searchLabel!)
