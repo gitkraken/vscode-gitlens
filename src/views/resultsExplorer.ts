@@ -5,7 +5,7 @@ import { configuration, ExplorerFilesLayout, IExplorerConfig } from '../configur
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { ExplorerCommands, RefreshNodeCommandArgs } from './explorerCommands';
 import { CommitsResultsNode, ComparisionResultsNode, ExplorerNode, MessageNode, RefreshReason, ResourceType } from './explorerNodes';
-import { GitLog, GitService } from '../gitService';
+import { clearGravatarCache, GitLog, GitService } from '../gitService';
 import { Logger } from '../logger';
 
 export * from './explorerNodes';
@@ -57,6 +57,10 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
 
         const section = configuration.name('resultsExplorer');
         if (!initializing && !configuration.changed(e, section.value)) return;
+
+        if (!initializing && (configuration.changed(e, section('gravatars').value) || configuration.changed(e, section('gravatarsDefault').value))) {
+            clearGravatarCache();
+        }
 
         const cfg = configuration.get<IExplorerConfig>(section.value);
 

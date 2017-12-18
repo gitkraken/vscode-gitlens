@@ -6,7 +6,7 @@ import { configuration, ExplorerFilesLayout, IGitExplorerConfig } from '../confi
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { ExplorerCommands, RefreshNodeCommandArgs } from './explorerCommands';
 import { ExplorerNode, HistoryNode, MessageNode, RefreshReason, RepositoriesNode, RepositoryNode } from './explorerNodes';
-import { GitChangeEvent, GitChangeReason, GitContextTracker, GitService, GitUri } from '../gitService';
+import { clearGravatarCache, GitChangeEvent, GitChangeReason, GitContextTracker, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 
 export * from './explorerNodes';
@@ -79,6 +79,10 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
         if (!initializing && !configuration.changed(e, section.value)) return;
 
         const cfg = configuration.get<IGitExplorerConfig>(section.value);
+
+        if (!initializing && (configuration.changed(e, section('gravatars').value) || configuration.changed(e, section('gravatarsDefault').value))) {
+            clearGravatarCache();
+        }
 
         if (initializing || configuration.changed(e, section('autoRefresh').value)) {
             this.setAutoRefresh(cfg.autoRefresh);

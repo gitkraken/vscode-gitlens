@@ -44,6 +44,15 @@ export enum ExplorerFilesLayout {
     Tree = 'tree'
 }
 
+export enum GravatarDefault {
+    Faces = 'wavatar',
+    Geometric = 'identicon',
+    Monster = 'monsterid',
+    MysteryMan = 'mm',
+    Retro = 'retro',
+    Robot = 'robohash'
+}
+
 export enum KeyMap {
     Standard = 'standard',
     Chorded = 'chorded',
@@ -147,6 +156,7 @@ export interface IExplorerConfig {
     commitFileFormat: string;
     // dateFormat: string | null;
     gravatars: boolean;
+    gravatarsDefault: GravatarDefault;
     showTrackingBranch: boolean;
     stashFormat: string;
     stashFileFormat: string;
@@ -395,6 +405,7 @@ const emptyConfig: IConfig = {
         commitFileFormat: '',
         // dateFormat: string | null;
         gravatars: false,
+        gravatarsDefault: 'robohash' as GravatarDefault,
         includeWorkingTree: false,
         showTrackingBranch: false,
         stashFormat: '',
@@ -414,6 +425,7 @@ const emptyConfig: IConfig = {
         commitFileFormat: '',
         // dateFormat: string | null;
         gravatars: false,
+        gravatarsDefault: 'robohash' as GravatarDefault,
         showTrackingBranch: false,
         stashFormat: '',
         stashFileFormat: '',

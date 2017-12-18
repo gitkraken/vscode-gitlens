@@ -2,11 +2,16 @@
 import { Strings } from '../../system';
 import { Uri } from 'vscode';
 import { GitCommit, GitCommitType } from './commit';
+import { GravatarDefault } from '../../configuration';
 import { Git } from '../git';
 import { GitStatusFileStatus, IGitStatusFile } from './status';
 import * as path from 'path';
 
 const gravatarCache: Map<string, Uri> = new Map();
+
+export function clearGravatarCache() {
+    gravatarCache.clear();
+}
 
 export class GitLogCommit extends GitCommit {
 
@@ -41,27 +46,6 @@ export class GitLogCommit extends GitCommit {
             previousSha,
             previousFileName
         );
-    }
-
-    get gravatarUri(): Uri {
-        const key = this.email
-            ? this.email.trim().toLowerCase()
-            : '';
-
-        let gravatar = gravatarCache.get(key);
-        if (gravatar !== undefined) return gravatar;
-
-        gravatar = Uri.parse(`https://www.gravatar.com/avatar/${this.email ? Strings.md5(this.email) : '00000000000000000000000000000000'}.jpg?s=22&d=retro`);
-
-        // HACK: Monkey patch Uri.toString to avoid the unwanted query string encoding
-        const originalToStringFn = gravatar.toString;
-        gravatar.toString = function(skipEncoding?: boolean | undefined) {
-            return originalToStringFn.call(gravatar, true);
-        };
-
-        gravatarCache.set(key, gravatar);
-
-        return gravatar;
     }
 
     get isMerge() {
@@ -105,6 +89,27 @@ export class GitLogCommit extends GitCommit {
         }
 
         return `+${added} ~${changed} -${deleted}`;
+    }
+
+    getGravatarUri(fallback: GravatarDefault): Uri {
+        const key = this.email
+            ? `${ this.email.trim().toLowerCase() }`
+            : '';
+
+        let gravatar = gravatarCache.get(key);
+        if (gravatar !== undefined) return gravatar;
+
+        gravatar = Uri.parse(`https://www.gravatar.com/avatar/${this.email ? Strings.md5(this.email) : '00000000000000000000000000000000'}.jpg?s=22&d=${fallback}`);
+
+        // HACK: Monkey patch Uri.toString to avoid the unwanted query string encoding
+        const originalToStringFn = gravatar.toString;
+        gravatar.toString = function(skipEncoding?: boolean | undefined) {
+            return originalToStringFn.call(gravatar, true);
+        };
+
+        gravatarCache.set(key, gravatar);
+
+        return gravatar;
     }
 
     toFileCommit(fileName: string): GitLogCommit | undefined;

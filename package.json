@@ -528,6 +528,20 @@
                     "description": "Specifies whether or not to show gravatar images instead of commit (or status) icons in the `GitLens` view",
                     "scope": "window"
                 },
+                "gitlens.gitExplorer.gravatarsDefault": {
+                    "type": "string",
+                    "default": "robohash",
+                    "enum": [
+                        "identicon",
+                        "mm",
+                        "monsterid",
+                        "retro",
+                        "robohash",
+                        "wavatar"
+                    ],
+                    "description": "Specifies the style of the gravatar default (fallback) images in the `GitLens` view\n `identicon` - a geometric pattern\n `mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)\n `monsterid` - a monster with different colors, faces, etc\n `retro` - 8-bit arcade-style pixelated faces\n `robohash` - a robot with different colors, faces, etc\n `wavatar` - faces with differing features and backgrounds",
+                    "scope": "window"
+                },
                 "gitlens.gitExplorer.includeWorkingTree": {
                     "type": "boolean",
                     "default": true,
@@ -701,6 +715,20 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Specifies whether or not to show gravatar images instead of commit (or status) icons in the `GitLens Results` view",
+                    "scope": "window"
+                },
+                "gitlens.resultsExplorer.gravatarsDefault": {
+                    "type": "string",
+                    "default": "robohash",
+                    "enum": [
+                        "identicon",
+                        "mm",
+                        "monsterid",
+                        "retro",
+                        "robohash",
+                        "wavatar"
+                    ],
+                    "description": "Specifies the style of the gravatar default (fallback) images in the `GitLens Results` view\n `identicon` - a geometric pattern\n `mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)\n `monsterid` - a monster with different colors, faces, etc\n `retro` - 8-bit arcade-style pixelated faces\n `robohash` - a robot with different colors, faces, etc\n `wavatar` - faces with differing features and backgrounds",
                     "scope": "window"
                 },
                 "gitlens.resultsExplorer.showTrackingBranch": {
