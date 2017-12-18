@@ -1332,15 +1332,15 @@ export class GitService extends Disposable {
         return Git.difftool_fileDiff(repoPath, uri.fsPath, tool, staged);
     }
 
-    async openDirectoryDiff(repoPath: string, sha1: string, sha2?: string, tool?: string) {
+    async openDirectoryDiff(repoPath: string, ref1: string, ref2?: string, tool?: string) {
         if (!tool) {
             tool = await this.getDiffTool(repoPath);
             if (tool === undefined) throw new Error('No diff tool found');
         }
 
-        Logger.log(`openDirectoryDiff('${repoPath}', '${sha1}', '${sha2}', '${tool}')`);
+        Logger.log(`openDirectoryDiff('${repoPath}', '${ref1}', '${ref2}', '${tool}')`);
 
-        return Git.difftool_dirDiff(repoPath, tool, sha1, sha2);
+        return Git.difftool_dirDiff(repoPath, tool, ref1, ref2);
     }
 
     async resolveReference(repoPath: string, ref: string, uri?: Uri) {

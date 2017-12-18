@@ -10,13 +10,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Automatically updates to track the repository of the active editor
   - Only visible if there is more than 1 repository within the workspace
 
-- Adds a new `Tags` node to the `Repository View` of the `GitLens` view
+- Adds a new `Tags` node to the `Repository View` of the `GitLens` view -- closes [#234](https://github.com/eamodio/vscode-gitlens/issues/234)
   - Provides a list of tags
   - Expand each tag to easily see its revision (commit) history
     - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
       - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Compare with Selected`, `Select for Compare`, `Rebase Commit (via Terminal)`, `Reset Commit (via Terminal)`, and `Refresh` commands
         - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
-    - Provides a context menu on each tag with `Compare with Selected`, `Select for Compare`, and `Refresh` commands
+    - Provides a context menu on each tag with `Compare with Selected`, `Select for Compare`, `Open Directory Compare with Working Tree`, and `Refresh` commands
   - Provides a context menu with a `Refresh` command
 
 - Adds [Gravatar](https://en.gravatar.com/) support to the `GitLens` view
@@ -43,7 +43,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - `Changed Files` node — provides a list of all the files changed between the compared revisions (branches or commits)
         - Expands to a file-based view of all changed files
            - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
-
+    - Provides a context menu with `Open Directory Compare` and `Refresh` commands
   - Provides toolbar commands to `Search Commits`, `Keep Results`, `Refresh`, `Show Files in Automatic View` or `Show Files in List View` or `Show Files in Tree View`, and `Close`
 
 - Adds `Apply Changes` option to the commit/stash file quick pick menu -- closes [#232](https://github.com/eamodio/vscode-gitlens/issues/232)
@@ -53,6 +53,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 - Improves startup performance a bit
+- Renames `Compare Directory with Branch...` command (`gitlens.diffDirectory`) to `Directory Compare Working Tree with...`
+- Renames `Compare Directory with Previous Revision` in quick pick menus to `Open Directory Compare with Previous Revision`
+- Renames `Compare Directory with Working Tree` in quick pick menus to `Open Directory Compare with Working Tree`
 
 ### Fixed
 - Fixes [#228](https://github.com/eamodio/vscode-gitlens/issues/228) - Gutter blame spills over heatmap

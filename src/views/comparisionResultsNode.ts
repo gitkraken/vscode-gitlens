@@ -11,8 +11,8 @@ export class ComparisionResultsNode extends ExplorerNode {
 
     constructor(
         repoPath: string,
-        private readonly ref1: string,
-        private readonly ref2: string,
+        public readonly ref1: string,
+        public readonly ref2: string,
         private readonly explorer: Explorer
     ) {
         super(GitUri.fromRepoPath(repoPath));

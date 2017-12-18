@@ -1,6 +1,6 @@
 'use strict';
 import { commands, Disposable, SourceControlResourceGroup, SourceControlResourceState, TextDocumentShowOptions, TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
-import { ExplorerNode } from '../views/explorerNodes';
+import { ExplorerNode, ExplorerRefNode } from '../views/explorerNodes';
 import { GitBranch, GitCommit, GitRemote, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Telemetry } from '../telemetry';
@@ -21,6 +21,8 @@ export enum Commands {
     DiffWithWorking = 'gitlens.diffWithWorking',
     DiffLineWithWorking = 'gitlens.diffLineWithWorking',
     ExternalDiff = 'gitlens.externalDiff',
+    ExplorersOpenDirectoryDiff = 'gitlens.explorers.openDirectoryDiff',
+    ExplorersOpenDirectoryDiffWithWorking = 'gitlens.explorers.openDirectoryDiffWithWorking',
     OpenChangedFiles = 'gitlens.openChangedFiles',
     OpenBranchesInRemote = 'gitlens.openBranchesInRemote',
     OpenBranchInRemote = 'gitlens.openBranchInRemote',
@@ -94,12 +96,12 @@ export function isCommandViewContextWithBranch(context: CommandContext): context
     return context.type === 'view' && (context.node as any).branch && (context.node as any).branch instanceof GitBranch;
 }
 
-interface ICommandViewContextWithCommit<T extends GitCommit> extends CommandViewContext {
-    node: (ExplorerNode & { commit: T });
+export function isCommandViewContextWithCommit<T extends GitCommit>(context: CommandContext): context is CommandViewContext & { node: (ExplorerNode & { commit: T }) } {
+    return context.type === 'view' && (context.node as any).commit && (context.node as any).commit instanceof GitCommit;
 }
 
-export function isCommandViewContextWithCommit<T extends GitCommit>(context: CommandContext): context is ICommandViewContextWithCommit<T> {
-    return context.type === 'view' && (context.node as any).commit && (context.node as any).commit instanceof GitCommit;
+export function isCommandViewContextWithRef(context: CommandContext): context is CommandViewContext & { node: (ExplorerNode & { ref: string }) } {
+    return context.type === 'view' && (context.node instanceof ExplorerRefNode);
 }
 
 export function isCommandViewContextWithRemote(context: CommandContext): context is CommandViewContext & { node: (ExplorerNode & { remote: GitRemote }) } {

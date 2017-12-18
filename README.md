@@ -160,7 +160,7 @@ While GitLens is highly customizable and provides many [configuration settings](
         - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
           - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Compare with Selected`, `Select for Compare`, `Rebase Commit (via Terminal)`, `Reset Commit (via Terminal)`, and `Refresh` commands
            - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
-        - Provides a context menu on each branch with `Open Branch in Remote`, `Compare with Selected`, `Select for Compare`, `Checkout Branch (via Terminal)`, `Create Branch (via Terminal)...`, `Delete Branch (via Terminal)`, `Rebase Branch to Remote (via Terminal)`, `Squash Branch into Commit (via Terminal)`, and `Refresh` commands
+        - Provides a context menu on each branch with `Open Branch in Remote`, `Compare with Selected`, `Select for Compare`, `Open Directory Compare with Working Tree`, `Checkout Branch (via Terminal)`, `Create Branch (via Terminal)...`, `Delete Branch (via Terminal)`, `Rebase Branch to Remote (via Terminal)`, `Squash Branch into Commit (via Terminal)`, and `Refresh` commands
       - Provides a context menu with `Open Branches in Remote`, and `Refresh` commands
 
     - `Remotes` node — provides a list of remotes
@@ -170,7 +170,7 @@ While GitLens is highly customizable and provides many [configuration settings](
           - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
             - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`,`Show Commit Details`, `Compare with Selected`, `Select for Compare`, and `Refresh` commands
             - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, `Show File History`, and `Show Commit File Details` commands
-          - Provides a context menu on each remote branch with `Open Branch in Remote`, `Compare with Selected`, `Select for Compare`, `Checkout Branch (via Terminal)`, `Create Branch (via Terminal)...`, `Delete Branch (via Terminal)`, `Squash Branch into Commit (via Terminal)`, and `Refresh` commands
+          - Provides a context menu on each remote branch with `Open Branch in Remote`, `Compare with Selected`, `Select for Compare`, `Open Directory Compare with Working Tree`, `Checkout Branch (via Terminal)`, `Create Branch (via Terminal)...`, `Delete Branch (via Terminal)`, `Squash Branch into Commit (via Terminal)`, and `Refresh` commands
         - Provides a context menu on each remote with `Open Branches in Remote`, `Open Repository in Remote`, `Remove Remote (via Terminal)`, and `Refresh` commands
       - Provides a context menu with a `Refresh` command
 
@@ -185,7 +185,7 @@ While GitLens is highly customizable and provides many [configuration settings](
         - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
           - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Compare with Selected`, `Select for Compare`, `Rebase Commit (via Terminal)`, `Reset Commit (via Terminal)`, and `Refresh` commands
            - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
-        - Provides a context menu on each tag with `Compare with Selected`, `Select for Compare`, and `Refresh` commands
+        - Provides a context menu on each tag with `Compare with Selected`, `Select for Compare`, `Open Directory Compare with Working Tree`, and `Refresh` commands
       - Provides a context menu with a `Refresh` command
 
   - `History View` - provides the revision history of the active file
@@ -223,7 +223,7 @@ While GitLens is highly customizable and provides many [configuration settings](
     - `Changed Files` node — provides a list of all the files changed between the compared revisions (branches or commits)
         - Expands to a file-based view of all changed files
            - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
-
+    - Provides a context menu with `Open Directory Compare` and `Refresh` commands
   - Provides toolbar commands to `Search Commits`, `Keep Results`, `Refresh`, `Show Files in Automatic View` or `Show Files in List View` or `Show Files in Tree View`, and `Close`
 
 - Adds commands to open files, commits, branches, and the repository in the supported remote services, **BitBucket, GitHub, GitLab, and Visual Studio Team Services** or a [**user-defined** remote services](#custom-remotes-settings) — only available if a Git upstream service is configured in the repository
@@ -258,7 +258,7 @@ While GitLens is highly customizable and provides many [configuration settings](
   ![Commit Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-commit-details.png)
 
   - Quickly see the set of files changed in the commit, complete with status indicators for adds, changes, renames, and deletes
-  - Provides additional entries to `Open Commit in <remote-service>` when available, `Open Files`, `Open Revisions`, `Compare Directory with Previous Revision`, `Compare Directory with Working Tree`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`
+  - Provides additional entries to `Open Commit in <remote-service>` when available, `Open Files`, `Open Revisions`, `Open Directory Compare with Previous Revision`, `Open Directory Compare with Working Tree`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
   - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the comparison of the current revision with the previous one
@@ -295,7 +295,7 @@ While GitLens is highly customizable and provides many [configuration settings](
     ![Stash Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-stash-details.png)
 
     - Quickly see the set of files changed in the stash, complete with status indicators for adds, changes, renames, and deletes
-    - Provides additional entries to `Apply Stashed Changes` (requires confirmation), `Delete Stashed Changes` (requires confirmation), `Open Files`, `Open Revisions`, `Compare Directory with Previous Revision`, `Compare Directory with Working Tree`, `Copy Commit Message to Clipboard`
+    - Provides additional entries to `Apply Stashed Changes` (requires confirmation), `Delete Stashed Changes` (requires confirmation), `Open Files`, `Open Revisions`, `Open Directory Compare with Previous Revision`, `Open Directory Compare with Working Tree`, `Copy Commit Message to Clipboard`
     - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
     - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
     - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to  preview the comparison of the current revision with the previous one
@@ -308,7 +308,7 @@ While GitLens is highly customizable and provides many [configuration settings](
 
 - Provides easy access to the following comparison commands via the `Command Palette` as well as in context via the many provided quick pick menus
 
-- Adds a `Compare Directory with Branch...` command (`gitlens.diffDirectory`) to open the configured Git difftool to compare directories between branches
+- Adds a `Directory Compare Working Tree with...` command (`gitlens.diffDirectory`) to open the configured Git difftool to compare the working tree with the selected branch
 
 - Adds a `Compare File with Branch...` command (`gitlens.diffWithBranch`) to compare the active file with the same file on the selected branch
 

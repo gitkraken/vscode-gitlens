@@ -137,24 +137,24 @@ export class CommitDetailsQuickPick {
         items.splice(index++, 0, new OpenCommitFileRevisionsCommandQuickPickItem(commit));
 
         items.splice(index++, 0, new CommandQuickPickItem({
-            label: `$(git-compare) Compare Directory with Previous Revision`,
+            label: `$(git-compare) Open Directory Compare with Previous Revision`,
             description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.previousFileShortSha} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`
         }, Commands.DiffDirectory, [
                 commit.uri,
                 {
-                    shaOrBranch1: commit.previousFileSha,
-                    shaOrBranch2: commit.sha
+                    ref1: commit.previousFileSha,
+                    ref2: commit.sha
                 } as DiffDirectoryCommandCommandArgs
             ])
         );
 
         items.splice(index++, 0, new CommandQuickPickItem({
-            label: `$(git-compare) Compare Directory with Working Tree`,
+            label: `$(git-compare) Open Directory Compare with Working Tree`,
             description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(file-directory) Working Tree`
         }, Commands.DiffDirectory, [
                 uri,
                 {
-                    shaOrBranch1: commit.sha
+                    ref1: commit.sha
                 } as DiffDirectoryCommandCommandArgs
             ])
         );

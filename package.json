@@ -1137,7 +1137,7 @@
         "commands": [
             {
                 "command": "gitlens.diffDirectory",
-                "title": "Compare Directory with Branch...",
+                "title": "Directory Compare Working Tree with...",
                 "category": "GitLens"
             },
             {
@@ -1362,6 +1362,16 @@
             {
                 "command": "gitlens.resetSuppressedWarnings",
                 "title": "Reset Suppressed Warnings",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.explorers.openDirectoryDiff",
+                "title": "Open Directory Compare",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.explorers.openDirectoryDiffWithWorking",
+                "title": "Open Directory Compare with Working Tree",
                 "category": "GitLens"
             },
             {
@@ -1739,6 +1749,14 @@
                 },
                 {
                     "command": "gitlens.explorers.openChanges",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.explorers.openDirectoryDiff",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.explorers.openDirectoryDiffWithWorking",
                     "when": "false"
                 },
                 {
@@ -2207,6 +2225,11 @@
                     "group": "7_gitlens@2"
                 },
                 {
+                    "command": "gitlens.explorers.openDirectoryDiffWithWorking",
+                    "when": "viewItem == gitlens:branch",
+                    "group": "7_gitlens_diff@1"
+                },
+                {
                     "command": "gitlens.explorers.terminalCheckoutBranch",
                     "when": "viewItem == gitlens:branch",
                     "group": "8_gitlens@1"
@@ -2240,6 +2263,11 @@
                     "command": "gitlens.explorers.selectForCompare",
                     "when": "viewItem == gitlens:branch:tracking",
                     "group": "7_gitlens@2"
+                },
+                {
+                    "command": "gitlens.explorers.openDirectoryDiffWithWorking",
+                    "when": "viewItem == gitlens:branch:tracking",
+                    "group": "7_gitlens_diff@1"
                 },
                 {
                     "command": "gitlens.explorers.terminalCheckoutBranch",
@@ -2315,6 +2343,11 @@
                     "command": "gitlens.explorers.selectForCompare",
                     "when": "viewItem == gitlens:remote-branch",
                     "group": "7_gitlens@2"
+                },
+                {
+                    "command": "gitlens.explorers.openDirectoryDiffWithWorking",
+                    "when": "viewItem == gitlens:remote-branch",
+                    "group": "7_gitlens_diff@1"
                 },
                 {
                     "command": "gitlens.explorers.terminalCheckoutBranch",
@@ -2527,6 +2560,11 @@
                     "group": "1_gitlens@1"
                 },
                 {
+                    "command": "gitlens.explorers.openDirectoryDiff",
+                    "when": "viewItem == gitlens:comparison-results",
+                    "group": "7_gitlens@1"
+                },
+                {
                     "command": "gitlens.resultsExplorer.clearResultsNode",
                     "when": "viewItem == gitlens:search-results",
                     "group": "1_gitlens@1"
@@ -2680,6 +2718,11 @@
                     "command": "gitlens.explorers.selectForCompare",
                     "when": "viewItem == gitlens:tag",
                     "group": "7_gitlens@2"
+                },
+                {
+                    "command": "gitlens.explorers.openDirectoryDiffWithWorking",
+                    "when": "viewItem == gitlens:tag",
+                    "group": "7_gitlens_diff@1"
                 },
                 {
                     "command": "gitlens.gitExplorer.refreshNode",

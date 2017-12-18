@@ -1,17 +1,17 @@
 'use strict';
-import { Iterables } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
-import { CommandContext } from '../commands';
+import { CommandContext, isCommandViewContextWithRef } from '../commands';
 import { BuiltInCommands, GlyphChars } from '../constants';
+import { ComparisionResultsNode } from '../views/explorerNodes';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { BranchesQuickPick, CommandQuickPickItem } from '../quickPicks';
 
 export interface DiffDirectoryCommandCommandArgs {
-    shaOrBranch1?: string;
-    shaOrBranch2?: string;
+    ref1?: string;
+    ref2?: string;
 }
 
 export class DiffDirectoryCommand extends ActiveEditorCommand {
@@ -19,13 +19,29 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
     constructor(
         private readonly git: GitService
     ) {
-        super([Commands.DiffDirectory, Commands.ExternalDiffAll]);
+        super([Commands.DiffDirectory, Commands.ExternalDiffAll, Commands.ExplorersOpenDirectoryDiff, Commands.ExplorersOpenDirectoryDiffWithWorking]);
     }
 
     protected async preExecute(context: CommandContext, args: DiffDirectoryCommandCommandArgs = {}): Promise<any> {
-        if (context.command === Commands.ExternalDiffAll) {
-            args.shaOrBranch1 = 'HEAD';
-            args.shaOrBranch2 = undefined;
+        switch (context.command) {
+            case Commands.ExternalDiffAll:
+                args.ref1 = 'HEAD';
+                args.ref2 = undefined;
+                break;
+
+            case Commands.ExplorersOpenDirectoryDiff:
+                if (context.type === 'view' && context.node instanceof ComparisionResultsNode) {
+                    args.ref1 = context.node.ref1;
+                    args.ref2 = context.node.ref2;
+                }
+                break;
+
+            case Commands.ExplorersOpenDirectoryDiffWithWorking:
+                if (isCommandViewContextWithRef(context)) {
+                    args.ref1 = context.node.ref;
+                    args.ref2 = undefined;
+                }
+                break;
         }
 
         return this.execute(context.editor, context.uri, args);
@@ -38,23 +54,20 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
             const repoPath = await this.git.getRepoPath(uri);
             if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open directory compare`);
 
-            if (!args.shaOrBranch1) {
+            if (!args.ref1) {
                 args = { ...args };
 
                 const branches = await this.git.getBranches(repoPath);
-                const current = Iterables.find(branches, b => b.current);
-                if (current == null) return window.showWarningMessage(`Unable to open directory compare`);
-
-                const pick = await BranchesQuickPick.show(branches, `Compare ${current.name} to ${GlyphChars.Ellipsis}`);
+                const pick = await BranchesQuickPick.show(branches, `Compare Working Tree to ${GlyphChars.Ellipsis}`);
                 if (pick === undefined) return undefined;
 
                 if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-                args.shaOrBranch1 = pick.branch.name;
-                if (args.shaOrBranch1 === undefined) return undefined;
+                args.ref1 = pick.branch.name;
+                if (args.ref1 === undefined) return undefined;
             }
 
-            this.git.openDirectoryDiff(repoPath, args.shaOrBranch1, args.shaOrBranch2);
+            this.git.openDirectoryDiff(repoPath, args.ref1, args.ref2);
             return undefined;
         }
         catch (ex) {
