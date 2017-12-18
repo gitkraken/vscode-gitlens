@@ -6,10 +6,11 @@ import { GlyphChars } from '../constants';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
 import { GitUri, Repository, RepositoryChange, RepositoryChangeEvent } from '../gitService';
+import { Logger } from '../logger';
 import { RemotesNode } from './remotesNode';
 import { StatusNode } from './statusNode';
 import { StashesNode } from './stashesNode';
-import { Logger } from '../logger';
+import { TagsNode } from './tagsNode';
 
 export class RepositoryNode extends ExplorerNode {
 
@@ -30,7 +31,8 @@ export class RepositoryNode extends ExplorerNode {
             new StatusNode(this.uri, this.repo, this.explorer, this.active),
             new BranchesNode(this.uri, this.repo, this.explorer, this.active),
             new RemotesNode(this.uri, this.repo, this.explorer),
-            new StashesNode(this.uri, this.repo, this.explorer)
+            new StashesNode(this.uri, this.repo, this.explorer),
+            new TagsNode(this.uri, this.repo, this.explorer)
         ];
         return this.children;
     }

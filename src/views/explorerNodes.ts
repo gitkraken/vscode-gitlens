@@ -24,3 +24,5 @@ export * from './statusFilesNode';
 export * from './statusFilesResultsNode';
 export * from './statusNode';
 export * from './statusUpstreamNode';
+export * from './tagsNode';
+export * from './tagNode';

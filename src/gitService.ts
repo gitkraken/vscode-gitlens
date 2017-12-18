@@ -4,7 +4,7 @@ import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, Range, TextD
 import { configuration, IConfig, IRemotesConfig } from './configuration';
 import { CommandContext, DocumentSchemes, setCommandContext } from './constants';
 import { RemoteProviderFactory, RemoteProviderMap } from './git/remotes/factory';
-import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitCommitType, GitDiff, GitDiffChunkLine, GitDiffParser, GitDiffShortStat, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, IGit, Repository } from './git/git';
+import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitCommitType, GitDiff, GitDiffChunkLine, GitDiffParser, GitDiffShortStat, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, GitTag, GitTagParser, IGit, Repository } from './git/git';
 import { GitUri, IGitCommitInfo } from './git/gitUri';
 import { Logger } from './logger';
 import * as fs from 'fs';
@@ -1195,6 +1195,15 @@ export class GitService extends Disposable {
         const data = await Git.status(repoPath, porcelainVersion);
         const status = GitStatusParser.parse(data, repoPath, porcelainVersion);
         return status;
+    }
+
+    async getTags(repoPath: string | undefined): Promise<GitTag[]> {
+        if (repoPath === undefined) return [];
+
+        Logger.log(`getTags('${repoPath}')`);
+
+        const data = await Git.tag(repoPath);
+        return GitTagParser.parse(data, repoPath) || [];
     }
 
     async getVersionedFile(repoPath: string | undefined, fileName: string, sha: string | undefined) {

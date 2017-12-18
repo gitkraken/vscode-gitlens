@@ -11,3 +11,4 @@ export * from './repository';
 export * from './stash';
 export * from './stashCommit';
 export * from './status';
+export * from './tag';

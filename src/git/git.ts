@@ -19,6 +19,7 @@ export * from './parsers/logParser';
 export * from './parsers/remoteParser';
 export * from './parsers/stashParser';
 export * from './parsers/statusParser';
+export * from './parsers/tagParser';
 export * from './remotes/provider';
 
 let git: IGit;
@@ -147,15 +148,15 @@ export class Git {
         return git;
     }
 
-    static async getVersionedFile(repoPath: string | undefined, fileName: string, branchOrSha: string) {
-        const data = await Git.show(repoPath, fileName, branchOrSha, { encoding: 'binary' });
+    static async getVersionedFile(repoPath: string | undefined, fileName: string, ref: string) {
+        const data = await Git.show(repoPath, fileName, ref, { encoding: 'binary' });
         if (data === undefined) return undefined;
 
-        if (Git.isStagedUncommitted(branchOrSha)) {
-            branchOrSha = '';
+        if (Git.isStagedUncommitted(ref)) {
+            ref = '';
         }
 
-        const suffix = Strings.truncate(Strings.sanitizeForFileSystem(Git.isSha(branchOrSha) ? Git.shortenSha(branchOrSha) : branchOrSha), 50, '');
+        const suffix = Strings.truncate(Strings.sanitizeForFileSystem(Git.isSha(ref) ? Git.shortenSha(ref) : ref), 50, '');
         const ext = path.extname(fileName);
         return new Promise<string>((resolve, reject) => {
             tmp.file({ prefix: `${path.basename(fileName, ext)}-${suffix}__`, postfix: ext },
@@ -165,7 +166,7 @@ export class Git {
                         return;
                     }
 
-                    Logger.log(`getVersionedFile[${destination}]('${repoPath}', '${fileName}', ${branchOrSha})`);
+                    Logger.log(`getVersionedFile[${destination}]('${repoPath}', '${fileName}', ${ref})`);
                     fs.appendFile(destination, data, { encoding: 'binary' }, err => {
                         if (err) {
                             reject(err);
@@ -330,10 +331,10 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...params);
     }
 
-    static difftool_dirDiff(repoPath: string, tool: string, sha1: string, sha2?: string) {
-        const params = [`difftool`, `--dir-diff`, `--tool=${tool}`, sha1];
-        if (sha2) {
-            params.push(sha2);
+    static difftool_dirDiff(repoPath: string, tool: string, ref1: string, ref2?: string) {
+        const params = [`difftool`, `--dir-diff`, `--tool=${tool}`, ref1];
+        if (ref2) {
+            params.push(ref2);
         }
 
         return gitCommand({ cwd: repoPath }, ...params);
@@ -503,18 +504,18 @@ export class Git {
         }
     }
 
-    static async show(repoPath: string | undefined, fileName: string, branchOrSha: string, options: { encoding?: string } = {}) {
+    static async show(repoPath: string | undefined, fileName: string, ref: string, options: { encoding?: string } = {}) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
-        if (Git.isStagedUncommitted(branchOrSha)) {
-            branchOrSha = ':';
+        if (Git.isStagedUncommitted(ref)) {
+            ref = ':';
         }
-        if (Git.isUncommitted(branchOrSha)) throw new Error(`sha=${branchOrSha} is uncommitted`);
+        if (Git.isUncommitted(ref)) throw new Error(`sha=${ref} is uncommitted`);
 
         const opts = { cwd: root, encoding: options.encoding || 'utf8', willHandleErrors: true } as GitCommandOptions;
-        const args = branchOrSha.endsWith(':')
-            ? `${branchOrSha}./${file}`
-            : `${branchOrSha}:./${file}`;
+        const args = ref.endsWith(':')
+            ? `${ref}./${file}`
+            : `${ref}:./${file}`;
 
         try {
             const data = await gitCommand(opts, 'show', args);
@@ -572,5 +573,11 @@ export class Git {
 
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
         return gitCommand({ cwd: root, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }, 'status', porcelain, file);
+    }
+
+    static tag(repoPath: string) {
+        const params = [`tag`, `-l`];
+
+        return gitCommand({ cwd: repoPath }, ...params);
     }
 }

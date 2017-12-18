@@ -2,7 +2,7 @@
 import { Functions } from '../../system';
 import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, RelativePattern, Uri, workspace, WorkspaceFolder } from 'vscode';
 import { configuration, IRemotesConfig } from '../../configuration';
-import { GitBranch, GitDiffShortStat, GitRemote, GitStash, GitStatus } from '../git';
+import { GitBranch, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
 import { GitService, GitUri } from '../../gitService';
 import { RemoteProviderFactory, RemoteProviderMap } from '../remotes/factory';
 import * as _path from 'path';
@@ -237,11 +237,11 @@ export class Repository extends Disposable {
         return this._branch;
     }
 
-    async getBranches(): Promise<GitBranch[]> {
+    getBranches(): Promise<GitBranch[]> {
         return this.git.getBranches(this.path);
     }
 
-    async getChangedFilesCount(sha?: string): Promise<GitDiffShortStat | undefined> {
+    getChangedFilesCount(sha?: string): Promise<GitDiffShortStat | undefined> {
         return this.git.getChangedFilesCount(this.path, sha);
     }
 
@@ -258,12 +258,16 @@ export class Repository extends Disposable {
         return this._remotes;
     }
 
-    async getStashList(): Promise<GitStash | undefined> {
+    getStashList(): Promise<GitStash | undefined> {
         return this.git.getStashList(this.path);
     }
 
-    async getStatus(): Promise<GitStatus | undefined> {
+    getStatus(): Promise<GitStatus | undefined> {
         return this.git.getStatusForRepo(this.path);
+    }
+
+    getTags(): Promise<GitTag[]> {
+        return this.git.getTags(this.path);
     }
 
     async hasRemote(): Promise<boolean> {

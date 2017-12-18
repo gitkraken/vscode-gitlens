@@ -160,7 +160,7 @@ While GitLens is highly customizable and provides many [configuration settings](
         - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
           - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Compare with Selected`, `Select for Compare`, `Rebase Commit (via Terminal)`, `Reset Commit (via Terminal)`, and `Refresh` commands
            - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
-        - Provides a context menu on each branch with `Open Branch in Remote`, `Checkout Branch (via Terminal)`, `Create Branch (via Terminal)...`, `Delete Branch (via Terminal)`, `Rebase Branch to Remote (via Terminal)`, `Squash Branch into Commit (via Terminal)`, and `Refresh` commands
+        - Provides a context menu on each branch with `Open Branch in Remote`, `Compare with Selected`, `Select for Compare`, `Checkout Branch (via Terminal)`, `Create Branch (via Terminal)...`, `Delete Branch (via Terminal)`, `Rebase Branch to Remote (via Terminal)`, `Squash Branch into Commit (via Terminal)`, and `Refresh` commands
       - Provides a context menu with `Open Branches in Remote`, and `Refresh` commands
 
     - `Remotes` node — provides a list of remotes
@@ -170,7 +170,7 @@ While GitLens is highly customizable and provides many [configuration settings](
           - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
             - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`,`Show Commit Details`, `Compare with Selected`, `Select for Compare`, and `Refresh` commands
             - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, `Show File History`, and `Show Commit File Details` commands
-          - Provides a context menu on each remote branch with `Open Branch in Remote`, `Checkout Branch (via Terminal)`, `Create Branch (via Terminal)...`, `Delete Branch (via Terminal)`, `Squash Branch into Commit (via Terminal)`, and `Refresh` commands
+          - Provides a context menu on each remote branch with `Open Branch in Remote`, `Compare with Selected`, `Select for Compare`, `Checkout Branch (via Terminal)`, `Create Branch (via Terminal)...`, `Delete Branch (via Terminal)`, `Squash Branch into Commit (via Terminal)`, and `Refresh` commands
         - Provides a context menu on each remote with `Open Branches in Remote`, `Open Repository in Remote`, `Remove Remote (via Terminal)`, and `Refresh` commands
       - Provides a context menu with a `Refresh` command
 
@@ -179,6 +179,14 @@ While GitLens is highly customizable and provides many [configuration settings](
         - Provides a context menu on each stash with `Apply Stashed Changes` (confirmation required), `Delete Stashed Changes` (confirmation required), `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit Message to Clipboard`, `Compare with Selected`, `Select for Compare`, and `Refresh` commands
          - Provides a context menu on each stashed file with `Apply Changes`, `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, and `Show File History` commands
       - Provides a context menu with `Stash Changes`, and `Refresh` commands
+
+    - `Tags` node — provides a list of tags
+      - Expand each tag to easily see its revision (commit) history
+        - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
+          - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Compare with Selected`, `Select for Compare`, `Rebase Commit (via Terminal)`, `Reset Commit (via Terminal)`, and `Refresh` commands
+           - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
+        - Provides a context menu on each tag with `Compare with Selected`, `Select for Compare`, and `Refresh` commands
+      - Provides a context menu with a `Refresh` command
 
   - `History View` - provides the revision history of the active file
 

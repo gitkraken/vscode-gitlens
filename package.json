@@ -2672,6 +2672,16 @@
                     "group": "8_gitlens@1"
                 },
                 {
+                    "command": "gitlens.explorers.compareWithSelected",
+                    "when": "viewItem == gitlens:tag && gitlens:explorers:canCompare",
+                    "group": "7_gitlens@1"
+                },
+                {
+                    "command": "gitlens.explorers.selectForCompare",
+                    "when": "viewItem == gitlens:tag",
+                    "group": "7_gitlens@2"
+                },
+                {
                     "command": "gitlens.gitExplorer.refreshNode",
                     "when": "view == gitlens.gitExplorer && viewItem != gitlens:commit-file && viewItem != gitlens:stash-file && viewItem != gitlens:status-file",
                     "group": "9_gitlens@1"

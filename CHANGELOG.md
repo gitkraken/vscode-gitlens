@@ -6,20 +6,27 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [7.0.0-beta2] - 2017-12-16
 ### Added
-- Adds a new `Active Repository` node to `Repository View` of the `GitLens` view -- closes [#224](https://github.com/eamodio/vscode-gitlens/issues/224)
+- Adds a new `Active Repository` node to the `Repository View` of the `GitLens` view -- closes [#224](https://github.com/eamodio/vscode-gitlens/issues/224)
   - Automatically updates to track the repository of the active editor
   - Only visible if there is more than 1 repository within the workspace
+
+- Adds a new `Tags` node to the `Repository View` of the `GitLens` view
+  - Provides a list of tags
+  - Expand each tag to easily see its revision (commit) history
+    - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
+      - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Compare with Selected`, `Select for Compare`, `Rebase Commit (via Terminal)`, `Reset Commit (via Terminal)`, and `Refresh` commands
+        - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
+    - Provides a context menu on each tag with `Compare with Selected`, `Select for Compare`, and `Refresh` commands
+  - Provides a context menu with a `Refresh` command
+
 - Adds [Gravatar](https://en.gravatar.com/) support to the `GitLens` view
   - Adds `gitlens.gitExplorer.gravatars` setting to specify whether or not to show gravatar images instead of commit (or status) icons in the `GitLens` view
   - Adds `gitlens.gitExplorer.gravatarsDefault` setting to specify the style of the gravatar default (fallback) images in the `GitLens` view<br />`identicon` - a geometric pattern<br />`mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)<br />`monsterid` - a monster with different colors, faces, etc<br />`retro` - 8-bit arcade-style pixelated faces<br />`robohash` - a robot with different colors, faces, etc<br />`wavatar` - faces with differing features and backgrounds
   - Adds `gitlens.resultsExplorer.gravatars` setting to specify whether or not to show gravatar images instead of commit (or status) icons in the `GitLens Results` view
   - Adds `gitlens.resultsExplorer.gravatarsDefault` setting to specify the style of the gravatar default (fallback) images in the `GitLens Results` view<br />`identicon` - a geometric pattern<br />`mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)<br />`monsterid` - a monster with different colors, faces, etc<br />`retro` - 8-bit arcade-style pixelated faces<br />`robohash` - a robot with different colors, faces, etc<br />`wavatar` - faces with differing features and backgrounds
-- Adds `Select for Compare` command (`gitlens.explorers.selectForCompare`) to branch and revision (commit) nodes in the `GitLens` view to mark the base revision of a comparision
-- Adds `Compare with Selected` command (`gitlens.explorers.compareWithSelected`) to branch and revision (commit) nodes in the `GitLens` view once another branch or revision (commit) node within the same repository has been selected to compare the current selection with the previously selected revision (branch or commit)
-- Adds `Apply Changes` option to the commit/stash file quick pick menu -- closes [#232](https://github.com/eamodio/vscode-gitlens/issues/232)
-- Adds `Show All Commits` option to the commit search quick pick menu to show all the results, if there are more than the threshold
-- Adds `Show in Results` option to the commit search quick pick menu to show the results in the `GitLens Results` view
-- Adds `Show in Results` option to the file history quick pick menu to show the history in the `GitLens Results` view
+
+- Adds `Select for Compare` command (`gitlens.explorers.selectForCompare`) to branch, remote branch, tag, and revision (commit) nodes in the `GitLens` view to mark the base reference of a comparision
+- Adds `Compare with Selected` command (`gitlens.explorers.compareWithSelected`) to branch, remote branch, tag, and revision (commit) nodes in the `GitLens` view once another reference within the same repository has been selected to compare the current selection with the previously selected reference in the `GitLens Results` view
 
 - Adds an all-new, on-demand `GitLens Results` view to the Explorer activity
 
@@ -38,6 +45,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
            - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
 
   - Provides toolbar commands to `Search Commits`, `Keep Results`, `Refresh`, `Show Files in Automatic View` or `Show Files in List View` or `Show Files in Tree View`, and `Close`
+
+- Adds `Apply Changes` option to the commit/stash file quick pick menu -- closes [#232](https://github.com/eamodio/vscode-gitlens/issues/232)
+- Adds `Show All Commits` option to the commit search quick pick menu to show all the results, if there are more than the threshold
+- Adds `Show in Results` option to the commit search quick pick menu to show the results in the `GitLens Results` view
+- Adds `Show in Results` option to the file history quick pick menu to show the history in the `GitLens Results` view
+
+### Changed
+- Improves startup performance a bit
 
 ### Fixed
 - Fixes [#228](https://github.com/eamodio/vscode-gitlens/issues/228) - Gutter blame spills over heatmap

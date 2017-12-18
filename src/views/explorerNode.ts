@@ -48,7 +48,9 @@ export enum ResourceType {
     StatusFile = 'gitlens:status-file',
     StatusFiles = 'gitlens:status-files',
     StatusFileCommits = 'gitlens:status-file-commits',
-    StatusUpstream = 'gitlens:status-upstream'
+    StatusUpstream = 'gitlens:status-upstream',
+    Tag = 'gitlens:tag',
+    Tags = 'gitlens:tags'
 }
 
 export type Explorer = GitExplorer | ResultsExplorer;
