@@ -1,8 +1,8 @@
 'use strict';
 import { Strings } from '../system';
-import { CancellationTokenSource, commands, Disposable, QuickPickItem, QuickPickOptions, TextDocumentShowOptions, TextEditor, Uri, window, workspace } from 'vscode';
+import { CancellationTokenSource, commands, Disposable, QuickPickItem, QuickPickOptions, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { Commands, openEditor } from '../commands';
-import { ExtensionKey, IAdvancedConfig } from '../configuration';
+import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import { GitLog, GitLogCommit, GitStashCommit } from '../gitService';
 import { Keyboard, KeyboardScope, KeyMapping, Keys } from '../keyboard';
@@ -10,8 +10,7 @@ import { ResultsExplorer } from '../views/resultsExplorer';
 // import { Logger } from '../logger';
 
 export function getQuickPickIgnoreFocusOut() {
-    const cfg = workspace.getConfiguration(ExtensionKey).get<IAdvancedConfig>('advanced')!;
-    return !cfg.quickPick.closeOnFocusOut;
+    return configuration.get<boolean>(configuration.name('advanced')('quickPick')('closeOnFocusOut').value);
 }
 
 export function showQuickPickProgress(message: string, mapping?: KeyMapping, delay: boolean = false): CancellationTokenSource {

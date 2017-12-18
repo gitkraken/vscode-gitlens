@@ -1,6 +1,7 @@
 'use strict';
 import { Disposable, env, version, workspace } from 'vscode';
-import { ExtensionKey, IConfig } from './configuration';
+import { configuration } from './configuration';
+import { Logger } from './logger';
 import * as os from 'os';
 
 let _reporter: TelemetryReporter;
@@ -8,10 +9,17 @@ let _reporter: TelemetryReporter;
 export class Telemetry extends Disposable {
 
     static configure(key: string) {
-        const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
-        if (!cfg.advanced.telemetry.enabled || !workspace.getConfiguration('telemetry').get<boolean>('enableTelemetry', true)) return;
+        if (!configuration.get<boolean>(configuration.name('advanced')('telemetry')('enabled').value) ||
+            !workspace.getConfiguration('telemetry').get<boolean>('enableTelemetry', true)) {
+            return;
+        }
+
+        const start = process.hrtime();
 
         _reporter = new TelemetryReporter(key);
+
+        const duration = process.hrtime(start);
+        Logger.log(`Telemetry.configure took ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);
     }
 
     static setContext(context?: { [key: string]: string }) {

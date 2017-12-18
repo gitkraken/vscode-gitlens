@@ -139,14 +139,13 @@ export abstract class Command extends Disposable {
     constructor(command: Commands | Commands[]) {
         super(() => this.dispose());
 
-        if (!Array.isArray(command)) {
-            command = [command];
+        if (typeof command === 'string') {
+            this._disposable = commands.registerCommand(command, (...args: any[]) => this._execute(command, ...args), this);
+
+            return;
         }
 
-        const subscriptions = [];
-        for (const cmd of command) {
-            subscriptions.push(commands.registerCommand(cmd, (...args: any[]) => this._execute(cmd, ...args), this));
-        }
+        const subscriptions = command.map(cmd => commands.registerCommand(cmd, (...args: any[]) => this._execute(cmd, ...args), this));
         this._disposable = Disposable.from(...subscriptions);
     }
 

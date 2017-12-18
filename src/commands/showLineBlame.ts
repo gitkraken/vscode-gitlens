@@ -1,8 +1,8 @@
 'use strict';
-import { TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
+import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { CurrentLineController, LineAnnotationType } from '../currentLineController';
 import { Commands, EditorCommand } from './common';
-import { ExtensionKey, IConfig } from '../configuration';
+import { configuration } from '../configuration';
 import { Logger } from '../logger';
 
 export interface ShowLineBlameCommandArgs {
@@ -22,13 +22,10 @@ export class ShowLineBlameCommand extends EditorCommand {
 
         try {
             if (args.type === undefined) {
-                args = { ...args };
-
-                const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
-                args.type = cfg.blame.line.annotationType;
+                args = { ...args, type: configuration.get<LineAnnotationType>(configuration.name('blame')('line')('annotationType').value) };
             }
 
-            return this.currentLineController.showAnnotations(editor, args.type);
+            return this.currentLineController.showAnnotations(editor, args.type!);
         }
         catch (ex) {
             Logger.error(ex, 'ShowLineBlameCommand');

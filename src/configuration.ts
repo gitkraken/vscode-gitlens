@@ -1,11 +1,11 @@
 'use strict';
+import { Functions } from './system';
 import { ConfigurationChangeEvent, ConfigurationTarget, Event, EventEmitter, ExtensionContext, Uri, workspace } from 'vscode';
 import { FileAnnotationType } from './annotations/annotationController';
 import { ExtensionKey } from './constants';
 import { LineAnnotationType } from './currentLineController';
 import { GitExplorerView } from './views/gitExplorer';
 import { OutputLevel } from './logger';
-import { Functions } from './system';
 
 export { ExtensionKey };
 

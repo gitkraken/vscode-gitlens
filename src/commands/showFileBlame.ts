@@ -1,8 +1,8 @@
 'use strict';
-import { TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
+import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { AnnotationController, FileAnnotationType } from '../annotations/annotationController';
 import { Commands, EditorCommand } from './common';
-import { ExtensionKey, IConfig } from '../configuration';
+import { configuration } from '../configuration';
 import { Logger } from '../logger';
 
 export interface ShowFileBlameCommandArgs {
@@ -23,13 +23,10 @@ export class ShowFileBlameCommand extends EditorCommand {
 
         try {
             if (args.type === undefined) {
-                args = { ...args };
-
-                const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
-                args.type = cfg.blame.file.annotationType;
+                args = { ...args, type: configuration.get<FileAnnotationType>(configuration.name('blame')('file')('annotationType').value) };
             }
 
-            return this.annotationController.showAnnotations(editor, args.type, args.sha !== undefined ? args.sha : editor.selection.active.line);
+            return this.annotationController.showAnnotations(editor, args.type!, args.sha !== undefined ? args.sha : editor.selection.active.line);
         }
         catch (ex) {
             Logger.error(ex, 'ShowFileBlameCommand');

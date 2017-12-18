@@ -122,6 +122,7 @@ export class GitService extends Disposable {
             configuration.onDidChange(this.onConfigurationChanged, this)
         );
         this.onConfigurationChanged(configuration.initializingChangeEvent);
+
         this._repositoriesLoadingPromise = this.onWorkspaceFoldersChanged();
     }
 
@@ -276,7 +277,6 @@ export class GitService extends Disposable {
         const anyRepoChangedFn = this.onAnyRepositoryChanged.bind(this);
 
         const rootPath = await this.getRepoPathCore(folderUri.fsPath, true);
-        await this.getRepoPathCore(folderUri.fsPath, true);
         if (rootPath !== undefined) {
             repositories.push(new Repository(folder, rootPath, true, this, anyRepoChangedFn, this._suspended));
         }
@@ -306,13 +306,17 @@ export class GitService extends Disposable {
         const paths = await this.repositorySearchCore(folderUri.fsPath, depth, excludes);
 
         const duration = process.hrtime(start);
-        Logger.log(`${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms to search (depth=${depth}) for repositories in ${folderUri.fsPath}`);
+        Logger.log(`Searching (depth=${depth}) for repositories in ${folderUri.fsPath} took ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);
 
-        for (const p of paths) {
-            const rp = await this.getRepoPathCore(path.dirname(p), true);
-            if (rp !== undefined && rp !== rootPath) {
-                repositories.push(new Repository(folder, rp, false, this, anyRepoChangedFn, this._suspended));
-            }
+        for (let p of paths) {
+            p = path.dirname(p);
+            // If we are the same as the root, skip it
+            if (Git.normalizePath(p) === rootPath) continue;
+
+            const rp = await this.getRepoPathCore(p, true);
+            if (rp === undefined) continue;
+
+            repositories.push(new Repository(folder, rp, false, this, anyRepoChangedFn, this._suspended));
         }
 
         // const uris = await workspace.findFiles(new RelativePattern(folder, '**/.git/HEAD'));

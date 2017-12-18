@@ -101,10 +101,10 @@ export class Keyboard extends Disposable {
     constructor() {
         super(() => this.dispose());
 
+        _instance = this;
+
         const subscriptions = keys.map(key => commands.registerCommand(`${ExtensionKey}.key.${key}`, () => this.execute(key), this));
         this._disposable = Disposable.from(...subscriptions);
-
-        _instance = this;
     }
 
     dispose() {

@@ -20,31 +20,31 @@ import { Telemetry } from './telemetry';
 
 // this method is called when your extension is activated
 export async function activate(context: ExtensionContext) {
-    Configuration.configure(context);
+    const start = process.hrtime();
+
     Logger.configure(context);
-    Telemetry.configure(ApplicationInsightsKey);
+    Configuration.configure(context);
 
     const gitlens = extensions.getExtension(QualifiedExtensionId)!;
     const gitlensVersion = gitlens.packageJSON.version;
 
-    Logger.log(`GitLens(v${gitlensVersion}) active`);
-
-    const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
+    const cfg = configuration.get<IConfig>();
 
     try {
         await GitService.initialize(cfg.advanced.git);
     }
     catch (ex) {
-        Logger.error(ex, 'Extension.activate');
+        Logger.error(ex, `GitLens(v${gitlensVersion}).activate`);
         if (ex.message.includes('Unable to find git')) {
-            await window.showErrorMessage(`GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'gitlens.advanced.git' is pointed to its installed location.`);
+            await window.showErrorMessage(`GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that '${ExtensionKey}.${configuration.name('advanced')('git').value}' is pointed to its installed location.`);
         }
         setCommandContext(CommandContext.Enabled, false);
         return;
     }
 
     const gitVersion = GitService.getGitVersion();
-    Logger.log(`Git version: ${gitVersion}`);
+
+    Telemetry.configure(ApplicationInsightsKey);
 
     const telemetryContext: { [id: string]: any } = Object.create(null);
     telemetryContext.version = gitlensVersion;
@@ -57,7 +57,7 @@ export async function activate(context: ExtensionContext) {
     notifyOnUnsupportedGitVersion(context, gitVersion);
     notifyOnNewGitLensVersion(context, gitlensVersion, previousVersion);
 
-    await context.globalState.update(GlobalState.GitLensVersion, gitlensVersion);
+    context.globalState.update(GlobalState.GitLensVersion, gitlensVersion);
 
     const git = new GitService();
     context.subscriptions.push(git);
@@ -94,6 +94,9 @@ export async function activate(context: ExtensionContext) {
 
     // Slightly delay enabling the explorer to not stop the rest of GitLens from being usable
     setTimeout(() => setCommandContext(CommandContext.GitExplorer, true), 1000);
+
+    const duration = process.hrtime(start);
+    Logger.log(`GitLens(v${gitlensVersion}) activated in ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);
 }
 
 // this method is called when your extension is deactivated

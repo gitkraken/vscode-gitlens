@@ -137,8 +137,13 @@ export class Git {
     }
 
     static async getGitInfo(gitPath?: string): Promise<IGit> {
+        const start = process.hrtime();
+
         git = await findGitPath(gitPath);
-        Logger.log(`Git found: ${git.version} @ ${git.path === 'git' ? 'PATH' : git.path}`);
+
+        const duration = process.hrtime(start);
+        Logger.log(`Git found: ${git.version} @ ${git.path === 'git' ? 'PATH' : git.path} in ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);
+
         return git;
     }
 
