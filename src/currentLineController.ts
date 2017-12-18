@@ -360,7 +360,7 @@ export class CurrentLineController extends Disposable {
 
     private async updateTrailingAnnotation(commit: GitCommit, blameLine: GitCommitLine, editor: TextEditor, line?: number) {
         const state = this.getLineAnnotationState();
-        if (!state.enabled || state.annotationType !== LineAnnotationType.Trailing) return;
+        if (!state.enabled || state.annotationType !== LineAnnotationType.Trailing || !isTextEditor(editor)) return;
 
         line = line === undefined ? blameLine.line : line;
 
