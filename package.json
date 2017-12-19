@@ -2931,7 +2931,7 @@
         "postinstall": "node ./node_modules/vscode/bin/install",
         "pub": "npm run clean && vsce publish",
         "reset": "npm run clean && npm install",
-        "vscode:prepublish": "npm install --no-save && npm run compile",
+        "vscode:prepublish": "npm install --no-save && npm run bundle",
         "prepush": "npm run compile"
     },
     "dependencies": {
