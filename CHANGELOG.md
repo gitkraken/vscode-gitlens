@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [7.0.1-beta] - 2017-12-18
+### Changed
+- Improves startup performance some by switching to a bundled build (I'm seeing a ~16% reduction)
+
 ## [7.0.0] - 2017-12-18
 ### Added
 - Adds a new `Active Repository` node to the `Repository View` of the `GitLens` view -- closes [#224](https://github.com/eamodio/vscode-gitlens/issues/224)
