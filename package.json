@@ -2761,71 +2761,6 @@
             },
             {
                 "command": "gitlens.toggleFileBlame",
-                "key": "alt+b",
-                "when": "gitlens:keymap == standard && editorTextFocus && gitlens:activeIsBlameable"
-            },
-            {
-                "command": "gitlens.toggleCodeLens",
-                "key": "shift+alt+b",
-                "when": "gitlens:keymap == standard && editorTextFocus && gitlens:activeIsTracked && gitlens:canToggleCodeLens"
-            },
-            {
-                "command": "gitlens.showLastQuickPick",
-                "key": "alt+-",
-                "when": "gitlens:keymap == standard && gitlens:enabled"
-            },
-            {
-                "command": "gitlens.showCommitSearch",
-                "key": "alt+/",
-                "when": "gitlens:keymap == standard && gitlens:enabled"
-            },
-            {
-                "command": "gitlens.showQuickFileHistory",
-                "key": "alt+h",
-                "when": "gitlens:keymap == standard && gitlens:enabled"
-            },
-            {
-                "command": "gitlens.showQuickRepoHistory",
-                "key": "shift+alt+h",
-                "when": "gitlens:keymap == standard && gitlens:enabled"
-            },
-            {
-                "command": "gitlens.showQuickRepoStatus",
-                "key": "alt+s",
-                "when": "gitlens:keymap == standard && gitlens:enabled"
-            },
-            {
-                "command": "gitlens.showQuickCommitFileDetails",
-                "key": "alt+c",
-                "when": "gitlens:keymap == standard && editorTextFocus && gitlens:enabled"
-            },
-            {
-                "command": "gitlens.diffWithNext",
-                "key": "alt+.",
-                "when": "gitlens:keymap == standard && editorTextFocus && gitlens:activeIsTracked"
-            },
-            {
-                "command": "gitlens.diffLineWithPrevious",
-                "key": "shift+alt+,",
-                "when": "gitlens:keymap == standard && editorTextFocus && gitlens:activeIsTracked"
-            },
-            {
-                "command": "gitlens.diffWithPrevious",
-                "key": "alt+,",
-                "when": "gitlens:keymap == standard && editorTextFocus && gitlens:activeIsTracked"
-            },
-            {
-                "command": "gitlens.diffLineWithWorking",
-                "key": "alt+w",
-                "when": "gitlens:keymap == standard && editorTextFocus && gitlens:activeIsTracked"
-            },
-            {
-                "command": "gitlens.diffWithWorking",
-                "key": "shift+alt+w",
-                "when": "gitlens:keymap == standard && editorTextFocus && gitlens:activeIsTracked"
-            },
-            {
-                "command": "gitlens.toggleFileBlame",
                 "key": "ctrl+alt+g b",
                 "mac": "cmd+alt+g b",
                 "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeIsBlameable"
@@ -2901,6 +2836,71 @@
                 "key": "ctrl+alt+g shift+w",
                 "mac": "cmd+alt+g shift+w",
                 "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeIsTracked"
+            },
+            {
+                "command": "gitlens.toggleFileBlame",
+                "key": "alt+b",
+                "when": "gitlens:keymap == standard && editorTextFocus && gitlens:activeIsBlameable"
+            },
+            {
+                "command": "gitlens.toggleCodeLens",
+                "key": "shift+alt+b",
+                "when": "gitlens:keymap == standard && editorTextFocus && gitlens:activeIsTracked && gitlens:canToggleCodeLens"
+            },
+            {
+                "command": "gitlens.showLastQuickPick",
+                "key": "alt+-",
+                "when": "gitlens:keymap == standard && gitlens:enabled"
+            },
+            {
+                "command": "gitlens.showCommitSearch",
+                "key": "alt+/",
+                "when": "gitlens:keymap == standard && gitlens:enabled"
+            },
+            {
+                "command": "gitlens.showQuickFileHistory",
+                "key": "alt+h",
+                "when": "gitlens:keymap == standard && gitlens:enabled"
+            },
+            {
+                "command": "gitlens.showQuickRepoHistory",
+                "key": "shift+alt+h",
+                "when": "gitlens:keymap == standard && gitlens:enabled"
+            },
+            {
+                "command": "gitlens.showQuickRepoStatus",
+                "key": "alt+s",
+                "when": "gitlens:keymap == standard && gitlens:enabled"
+            },
+            {
+                "command": "gitlens.showQuickCommitFileDetails",
+                "key": "alt+c",
+                "when": "gitlens:keymap == standard && editorTextFocus && gitlens:enabled"
+            },
+            {
+                "command": "gitlens.diffWithNext",
+                "key": "alt+.",
+                "when": "gitlens:keymap == standard && editorTextFocus && gitlens:activeIsTracked"
+            },
+            {
+                "command": "gitlens.diffLineWithPrevious",
+                "key": "shift+alt+,",
+                "when": "gitlens:keymap == standard && editorTextFocus && gitlens:activeIsTracked"
+            },
+            {
+                "command": "gitlens.diffWithPrevious",
+                "key": "alt+,",
+                "when": "gitlens:keymap == standard && editorTextFocus && gitlens:activeIsTracked"
+            },
+            {
+                "command": "gitlens.diffLineWithWorking",
+                "key": "alt+w",
+                "when": "gitlens:keymap == standard && editorTextFocus && gitlens:activeIsTracked"
+            },
+            {
+                "command": "gitlens.diffWithWorking",
+                "key": "shift+alt+w",
+                "when": "gitlens:keymap == standard && editorTextFocus && gitlens:activeIsTracked"
             }
         ],
         "views": {
