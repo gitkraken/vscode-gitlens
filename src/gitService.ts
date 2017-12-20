@@ -1422,7 +1422,7 @@ export class GitService extends Disposable {
         if (sha === undefined) return undefined;
         if (sha === GitService.deletedSha) return '(deleted)';
 
-        return Git.isSha(sha)
+        return Git.isSha(sha) || Git.isStagedUncommitted(sha)
             ? Git.shortenSha(sha)
             : sha;
     }
