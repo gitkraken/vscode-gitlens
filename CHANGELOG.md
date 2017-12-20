@@ -4,9 +4,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [7.0.1-beta] - 2017-12-18
+## [7.1.0-beta] - 2017-12-20
 ### Changed
-- Improves startup performance some by switching to a bundled build (I'm seeing a ~16% reduction)
+- Improves startup performance by ~65% (on my very fast PC) and reduces package size by over 75%
 
 ## [7.0.0] - 2017-12-18
 ### Added
