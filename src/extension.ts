@@ -3,7 +3,7 @@ import { Objects } from './system';
 import { ConfigurationTarget, ExtensionContext, extensions, languages, window, workspace } from 'vscode';
 import { AnnotationController } from './annotations/annotationController';
 import { configuration, Configuration, IConfig } from './configuration';
-import { ApplicationInsightsKey, CommandContext, ExtensionKey, GlobalState, QualifiedExtensionId, setCommandContext } from './constants';
+import { CommandContext, ExtensionKey, GlobalState, QualifiedExtensionId, setCommandContext } from './constants';
 import { CodeLensController } from './codeLensController';
 import { configureCommands } from './commands';
 import { CurrentLineController } from './currentLineController';
@@ -16,7 +16,7 @@ import { Keyboard } from './keyboard';
 import { Logger } from './logger';
 import { Messages, SuppressedMessages } from './messages';
 import { ResultsExplorer } from './views/resultsExplorer';
-import { Telemetry } from './telemetry';
+// import { Telemetry } from './telemetry';
 
 // this method is called when your extension is activated
 export async function activate(context: ExtensionContext) {
@@ -44,12 +44,12 @@ export async function activate(context: ExtensionContext) {
 
     const gitVersion = GitService.getGitVersion();
 
-    Telemetry.configure(ApplicationInsightsKey);
+    // Telemetry.configure(ApplicationInsightsKey);
 
-    const telemetryContext: { [id: string]: any } = Object.create(null);
-    telemetryContext.version = gitlensVersion;
-    telemetryContext['git.version'] = gitVersion;
-    Telemetry.setContext(telemetryContext);
+    // const telemetryContext: { [id: string]: any } = Object.create(null);
+    // telemetryContext.version = gitlensVersion;
+    // telemetryContext['git.version'] = gitVersion;
+    // Telemetry.setContext(telemetryContext);
 
     const previousVersion = context.globalState.get<string>(GlobalState.GitLensVersion);
 
@@ -89,8 +89,6 @@ export async function activate(context: ExtensionContext) {
 
     // Constantly over my data cap so stop collecting initialized event
     // Telemetry.trackEvent('initialized', Objects.flatten(cfg, 'config', true));
-
-    // setCommandContext(CommandContext.ResultsExplorer, false);
 
     // Slightly delay enabling the explorer to not stop the rest of GitLens from being usable
     setTimeout(() => setCommandContext(CommandContext.GitExplorer, true), 1000);

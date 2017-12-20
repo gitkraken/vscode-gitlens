@@ -2,7 +2,7 @@
 import { ConfigurationChangeEvent, ExtensionContext, OutputChannel, window } from 'vscode';
 import { configuration } from './configuration';
 import { ExtensionOutputChannelName } from './constants';
-import { Telemetry } from './telemetry';
+// import { Telemetry } from './telemetry';
 
 const ConsolePrefix = `[${ExtensionOutputChannelName}]`;
 
@@ -66,7 +66,7 @@ export class Logger {
             this.output.appendLine((this.debug ? [this.timestamp, classOrMethod, ex, ...params] : [classOrMethod, ex, ...params]).join(' '));
         }
 
-        Telemetry.trackException(ex);
+        // Telemetry.trackException(ex);
     }
 
     static warn(message?: any, ...params: any[]): void {

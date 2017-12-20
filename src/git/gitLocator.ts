@@ -1,5 +1,6 @@
 'use strict';
-import { findActualExecutable, spawnPromise } from 'spawn-rx';
+// import { findActualExecutable, spawnPromise } from 'spawn-rx';
+import { findExecutable, runCommand } from './shell';
 import * as path from 'path';
 
 export interface IGit {
@@ -12,10 +13,10 @@ function parseVersion(raw: string): string {
 }
 
 async function findSpecificGit(path: string): Promise<IGit> {
-    const version = await spawnPromise(path, ['--version']);
+    const version = await runCommand(path, ['--version']);
     // If needed, let's update our path to avoid the search on every command
     if (!path || path === 'git') {
-        path = findActualExecutable(path, ['--version']).cmd;
+        path = findExecutable(path, ['--version']).cmd;
     }
 
     return {
@@ -26,7 +27,7 @@ async function findSpecificGit(path: string): Promise<IGit> {
 
 async function findGitDarwin(): Promise<IGit> {
     try {
-        let path = await spawnPromise('which', ['git']);
+        let path = await runCommand('which', ['git']);
         path = path.replace(/^\s+|\s+$/g, '');
 
         if (path !== '/usr/bin/git') {
@@ -34,7 +35,7 @@ async function findGitDarwin(): Promise<IGit> {
         }
 
         try {
-            await spawnPromise('xcode-select', ['-p']);
+            await runCommand('xcode-select', ['-p']);
             return findSpecificGit(path);
         }
         catch (ex) {

@@ -1,12 +1,7 @@
 'use strict';
-const _escapeRegExp = require('lodash.escaperegexp');
 import * as crypto from 'crypto';
 
 export namespace Strings {
-    export function escapeRegExp(s: string): string {
-        return _escapeRegExp(s);
-    }
-
     const TokenRegex = /\$\{([^|]*?)(?:\|(\d+)(\-|\?)?)?\}/g;
     const TokenSanitizeRegex = /\$\{(\w*?)(?:\W|\d)*?\}/g;
 

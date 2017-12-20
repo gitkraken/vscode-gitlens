@@ -1,11 +1,6 @@
 'use strict';
-const _isEqual = require('lodash.isequal');
 
 export namespace Objects {
-    export function areEquivalent(first: any, second: any): boolean {
-        return _isEqual(first, second);
-    }
-
     export function entries<T>(o: { [key: string]: T }): IterableIterator<[string, T]>;
     export function entries<T>(o: { [key: number]: T }): IterableIterator<[string, T]>;
     export function* entries<T>(o: any): IterableIterator<[string, T]> {
