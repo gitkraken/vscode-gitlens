@@ -112,9 +112,10 @@ function buildDistanceInWordsLocale() {
 }
 
 // Monkey patch the locale to customize the wording
-(en as any).distanceInWords = buildDistanceInWordsLocale();
+const patch = (en as any);
+patch.distanceInWords = buildDistanceInWordsLocale();
 
-const formatterOptions = { addSuffix: true, locale: en };
+const formatterOptions = { addSuffix: true, locale: patch };
 
 export namespace Dates {
 

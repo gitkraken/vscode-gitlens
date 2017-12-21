@@ -4,6 +4,7 @@
         "importHelpers": true,
         "lib": [ "es2015", "es2016" ],
         "module": "commonjs",
+        "moduleResolution": "node",
         "noFallthroughCasesInSwitch": true,
         "noImplicitReturns": true,
         "noUnusedLocals": true,
