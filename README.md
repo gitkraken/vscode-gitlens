@@ -260,7 +260,7 @@ While GitLens is highly customizable and provides many [configuration settings](
   - Quickly see the set of files changed in the commit, complete with status indicators for adds, changes, renames, and deletes
   - Provides additional entries to `Open Commit in <remote-service>` when available, `Open Files`, `Open Revisions`, `Open Directory Compare with Previous Revision`, `Open Directory Compare with Working Tree`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
-  - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
+  - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings) is set
   - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the comparison of the current revision with the previous one
 
 - Adds a `Show Commit File Details` command (`gitlens.showQuickCommitFileDetails`) with a shortcut of `alt+c` to show a **file commit details quick pick menu** of the most recent commit of the active file
@@ -269,7 +269,7 @@ While GitLens is highly customizable and provides many [configuration settings](
 
   - Provides entries to `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in <remote-service>` when available, `Open Revision in <remote-service>` when available, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Show File History`, and `Show Previous File History`
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
-  - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
+  - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings) is set
 
 - Adds a `Show Repository Status` command (`gitlens.showQuickRepoStatus`) with a shortcut of `alt+s` to show a **repository status quick pick menu** for visualizing the current repository status
 
@@ -280,7 +280,7 @@ While GitLens is highly customizable and provides many [configuration settings](
     - If you are behind the upstream, an entry will be shown with the number of commits behind. Choosing it will show a limited **branch history quick pick menu** containing just the commits behind the upstream
   - Quickly see all working changes, both staged and unstaged, complete with status indicators for adds, changes, renames, and deletes
   - Provides entries to `Show Stashed Changes`, `Open Changed Files`, and `Close Unchanged Files`
-  - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
+  - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings) is set
   - Use the `alt+right arrow` shortcut on a file entry in the `Staged Files` or `Unstaged Files` sections to preview the comparison of the working file with the previous revision
 
 - Adds a `Show Stashed Changes` command (`gitlens.showQuickStashList`) to show a **stashed changes quick pick menu** for exploring your repository stash history
@@ -297,7 +297,7 @@ While GitLens is highly customizable and provides many [configuration settings](
     - Quickly see the set of files changed in the stash, complete with status indicators for adds, changes, renames, and deletes
     - Provides additional entries to `Apply Stashed Changes` (requires confirmation), `Delete Stashed Changes` (requires confirmation), `Open Files`, `Open Revisions`, `Open Directory Compare with Previous Revision`, `Open Directory Compare with Working Tree`, `Copy Commit Message to Clipboard`
     - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
-    - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#extension-settings) is set
+    - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings) is set
     - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to  preview the comparison of the current revision with the previous one
 
 - Adds a `Show Last Opened Quick Pick` command (`gitlens.showLastQuickPick`) with a shortcut of `alt+-` to quickly get back to where you were when the last GitLens quick pick menu closed
@@ -346,7 +346,7 @@ While GitLens is highly customizable and provides many [configuration settings](
 
 ## Insiders
 
-Add [`"gitlens.insiders": true`](#general-extension-settings) to your settings to join the insiders channel and get early access to upcoming features. Be aware that because this provides early access expect there to be issues.
+Add [`"gitlens.insiders": true`](#general-settings) to your settings to join the insiders channel and get early access to upcoming features. Be aware that because this provides early access expect there to be issues.
 
 ## Themable Colors
 
@@ -527,3 +527,10 @@ A big thanks to the people that have contributed to this project:
 - Zack Schuster ([@zackschuster](https://github.com/zackschuster)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=zackschuster)
 - SpaceEEC ([@SpaceEEC](https://github.com/SpaceEEC)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=SpaceEEC)
 - Alexey Vasyukov ([@notmedia](https://github.com/notmedia)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=notmedia))
+
+Also special thanks to the people that have provided support, testing, brainstorming, etc:
+
+- Brian Canzanella ([@bcanzanella](https://github.com/bcanzanella))
+- Matt King ([@KattMingMing](https://github.com/KattMingMing))
+
+And of course the awesome [vscode](https://github.com/Microsoft/vscode/graphs/contributors) team!
