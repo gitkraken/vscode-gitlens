@@ -29,6 +29,7 @@ export * from './commands/openFileInRemote';
 export * from './commands/openFileRevision';
 export * from './commands/openInRemote';
 export * from './commands/openRepoInRemote';
+export * from './commands/openWorkingFile';
 export * from './commands/resetSuppressedWarnings';
 export * from './commands/showCommitSearch';
 export * from './commands/showFileBlame';
@@ -81,6 +82,7 @@ export function configureCommands(
     context.subscriptions.push(new Commands.OpenFileRevisionCommand(annotationController));
     context.subscriptions.push(new Commands.OpenInRemoteCommand());
     context.subscriptions.push(new Commands.OpenRepoInRemoteCommand(git));
+    context.subscriptions.push(new Commands.OpenWorkingFileCommand(annotationController, git));
     context.subscriptions.push(new Commands.ClearFileAnnotationsCommand(annotationController));
     context.subscriptions.push(new Commands.ShowFileBlameCommand(annotationController));
     context.subscriptions.push(new Commands.ShowLineBlameCommand(currentLineController));

@@ -31,6 +31,7 @@ export enum Commands {
     OpenFileRevision = 'gitlens.openFileRevision',
     OpenInRemote = 'gitlens.openInRemote',
     OpenRepoInRemote = 'gitlens.openRepoInRemote',
+    OpenWorkingFile = 'gitlens.openWorkingFile',
     ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',
     ShowCommitSearch = 'gitlens.showCommitSearch',
     ShowFileBlame = 'gitlens.showFileBlame',

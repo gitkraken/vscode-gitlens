@@ -31,6 +31,7 @@ interface Context {
 interface ContextState {
     blameable?: boolean;
     dirty: boolean;
+    revision?: boolean;
     tracked?: boolean;
 }
 
@@ -147,7 +148,8 @@ export class GitContextTracker extends Disposable {
 
     private async updateContext(reason: BlameabilityChangeReason, editor: TextEditor | undefined, force: boolean = false) {
         try {
-            let tracked: boolean;
+            let revision = false;
+            let tracked = false;
             if (force || this._context.editor !== editor) {
                 this._context.editor = editor;
                 this._context.repo = undefined;
@@ -166,20 +168,24 @@ export class GitContextTracker extends Disposable {
                     }
 
                     this._context.state.dirty = editor.document.isDirty;
+                    revision = !!this._context.uri.sha;
                     tracked = await this.git.isTracked(this._context.uri);
                 }
                 else {
                     this._context.uri = undefined;
                     this._context.state.dirty = false;
                     this._context.state.blameable = false;
-                    tracked = false;
                 }
             }
-            else {
-                // Since the tracked state could have changed, update it
-                tracked = this._context.uri !== undefined
-                    ? await this.git.isTracked(this._context.uri!)
-                    : false;
+            // Since the revision or tracked state could have changed, update it
+            else if (this._context.uri !== undefined) {
+                revision = !!this._context.uri.sha;
+                tracked = await this.git.isTracked(this._context.uri);
+            }
+
+            if (this._context.state.revision !== revision) {
+                this._context.state.revision = revision;
+                setCommandContext(CommandContext.ActiveIsRevision, revision);
             }
 
             if (this._context.state.tracked !== tracked) {

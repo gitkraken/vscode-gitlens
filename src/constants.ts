@@ -29,6 +29,7 @@ export enum CommandContext {
     ActiveHasRemote = 'gitlens:activeHasRemote',
     ActiveIsBlameable = 'gitlens:activeIsBlameable',
     ActiveFileIsTracked = 'gitlens:activeIsTracked',
+    ActiveIsRevision = 'gitlens:activeIsRevision',
     AnnotationStatus = 'gitlens:annotationStatus',
     CanToggleCodeLens = 'gitlens:canToggleCodeLens',
     Enabled = 'gitlens:enabled',

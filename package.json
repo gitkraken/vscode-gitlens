@@ -1328,6 +1328,15 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.openWorkingFile",
+                "title": "Open Working File",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/open-file.svg",
+                    "light": "images/light/open-file.svg"
+                }
+            },
+            {
                 "command": "gitlens.stashApply",
                 "title": "Apply Stashed Changes",
                 "category": "GitLens"
@@ -1733,6 +1742,10 @@
                     "when": "gitlens:activeHasRemote"
                 },
                 {
+                    "command": "gitlens.openWorkingFile",
+                    "when": "gitlens:activeIsRevision"
+                },
+                {
                     "command": "gitlens.stashApply",
                     "when": "gitlens:enabled"
                 },
@@ -1958,6 +1971,11 @@
                 }
             ],
             "editor/title": [
+                {
+                    "command": "gitlens.openWorkingFile",
+                    "when": "gitlens:activeIsRevision",
+                    "group": "navigation@1"
+                },
                 {
                     "command": "gitlens.toggleFileBlame",
                     "alt": "gitlens.toggleFileRecentChanges",

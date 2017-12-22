@@ -330,6 +330,8 @@ While GitLens is highly customizable and provides many [configuration settings](
 
 - Adds a `Copy Commit Message to Clipboard` command (`gitlens.copyMessageToClipboard`) to copy the commit message of the active line to the clipboard or from the most recent commit to the current branch, if there is no active editor
 
+- Adds a `Open Working File"` command (`gitlens.openWorkingFile`) to open the working file for the active file revision
+
 - Adds a `Open Changes (with difftool)` command (`gitlens.externalDiff`) to the source control group and source control resource context menus to open the changes of a file or set of files with the configured git difftool
 
 - Adds a `Open All Changes (with difftool)` command (`gitlens.externalDiffAll`) to open all working changes with the configured git difftool
