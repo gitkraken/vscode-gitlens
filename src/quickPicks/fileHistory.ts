@@ -2,7 +2,7 @@
 import { Iterables, Strings } from '../system';
 import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, ShowQuickCurrentBranchHistoryCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
-import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './common';
+import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, ShowBranchesAndTagsQuickPickItem, showQuickPickProgress } from './common';
 import { GlyphChars } from '../constants';
 import { GitLog, GitService, GitUri, RemoteResource } from '../gitService';
 import { Keyboard, KeyNoopCommand } from '../keyboard';
@@ -11,8 +11,8 @@ import * as path from 'path';
 
 export class FileHistoryQuickPick {
 
-    static showProgress(uri: GitUri) {
-        return showQuickPickProgress(`${uri.getFormattedPath()}${uri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${uri.shortSha}` : ''}`,
+    static showProgress(placeHolder: string) {
+        return showQuickPickProgress(placeHolder,
             {
                 left: KeyNoopCommand,
                 ',': KeyNoopCommand,
@@ -20,12 +20,17 @@ export class FileHistoryQuickPick {
             });
     }
 
-    static async show(git: GitService, log: GitLog, uri: GitUri, placeHolder: string, progressCancellation: CancellationTokenSource, options: { goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem, previousPageCommand?: CommandQuickPickItem, pickerOnly?: boolean, showAllCommand?: CommandQuickPickItem, showInResultsExplorerCommand?: CommandQuickPickItem } = {}): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(git: GitService, log: GitLog, uri: GitUri, placeHolder: string, options: { currentCommand?: CommandQuickPickItem, goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem, previousPageCommand?: CommandQuickPickItem, pickerOnly?: boolean, progressCancellation?: CancellationTokenSource, showAllCommand?: CommandQuickPickItem, showInResultsExplorerCommand?: CommandQuickPickItem } = {}): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         options = { pickerOnly: false, ...options };
 
         const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
         let index = 0;
+
+        if (options.pickerOnly) {
+            index++;
+            items.splice(0, 0, new ShowBranchesAndTagsQuickPickItem(log.repoPath, placeHolder, git, options.currentCommand));
+        }
 
         if (options.showInResultsExplorerCommand !== undefined) {
             index++;
@@ -126,7 +131,7 @@ export class FileHistoryQuickPick {
             }
         }
 
-        if (progressCancellation.token.isCancellationRequested) return undefined;
+        if (options.progressCancellation !== undefined && options.progressCancellation.token.isCancellationRequested) return undefined;
 
         const scope = await Keyboard.instance.beginScope({
             left: options.goBackCommand,
@@ -134,7 +139,7 @@ export class FileHistoryQuickPick {
             '.': options.nextPageCommand
         });
 
-        progressCancellation.cancel();
+        options.progressCancellation && options.progressCancellation.cancel();
 
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,

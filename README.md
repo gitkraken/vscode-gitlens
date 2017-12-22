@@ -308,9 +308,9 @@ While GitLens is highly customizable and provides many [configuration settings](
 
 - Provides easy access to the following comparison commands via the `Command Palette` as well as in context via the many provided quick pick menus
 
-- Adds a `Directory Compare Working Tree with...` command (`gitlens.diffDirectory`) to open the configured Git difftool to compare the working tree with the selected branch
+- Adds a `Directory Compare Working Tree with...` command (`gitlens.diffDirectory`) to open the configured Git difftool to compare the working tree with the selected branch or tag
 
-- Adds a `Compare File with Branch...` command (`gitlens.diffWithBranch`) to compare the active file with the same file on the selected branch
+- Adds a `Compare File with Branch or Tag...` command (`gitlens.diffWithBranch`) to compare the active file with the same file on the selected branch or tag
 
 - Adds a `Compare File with Next Revision` command (`gitlens.diffWithNext`) with a shortcut of `alt+.` to compare the active file/diff with the next commit revision
 

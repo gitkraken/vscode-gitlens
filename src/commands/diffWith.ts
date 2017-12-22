@@ -123,7 +123,13 @@ export class DiffWithCommand extends ActiveEditorCommand {
 
             let lhsPrefix = '';
             if (lhs === undefined && args.rhs.sha === '') {
-                lhsPrefix = 'deleted in ';
+                if (rhs !== undefined) {
+                    lhsPrefix = 'not in ';
+                    rhsPrefix = '';
+                }
+                else {
+                    lhsPrefix = 'deleted in ';
+                }
             }
 
             if (args.lhs.title === undefined && args.lhs.sha !== GitService.deletedSha && (lhs !== undefined || lhsPrefix !== '')) {

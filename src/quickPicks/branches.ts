@@ -20,12 +20,11 @@ export class BranchQuickPickItem implements QuickPickItem {
 
 export class BranchesQuickPick {
 
-    static async show(branches: GitBranch[], placeHolder: string, goBackCommand?: CommandQuickPickItem): Promise<BranchQuickPickItem | CommandQuickPickItem | undefined> {
-
+    static async show(branches: GitBranch[], placeHolder: string, options: { goBackCommand?: CommandQuickPickItem} = {}): Promise<BranchQuickPickItem | CommandQuickPickItem | undefined> {
         const items = branches.map(b => new BranchQuickPickItem(b)) as (BranchQuickPickItem | CommandQuickPickItem)[];
 
-        if (goBackCommand !== undefined) {
-            items.splice(0, 0, goBackCommand);
+        if (options.goBackCommand !== undefined) {
+            items.splice(0, 0, options.goBackCommand);
         }
 
         // const scope = await Keyboard.instance.beginScope({ left: goBackCommand });

@@ -2,6 +2,7 @@
 export * from './quickPicks/common';
 
 export * from './quickPicks/branches';
+export * from './quickPicks/branchesAndTags';
 export * from './quickPicks/commitDetails';
 export * from './quickPicks/commitFileDetails';
 export * from './quickPicks/commits';

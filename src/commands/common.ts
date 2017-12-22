@@ -290,22 +290,24 @@ export abstract class EditorCommand extends Disposable {
     abstract execute(editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any;
 }
 
-export async function openEditor(uri: Uri, options?: TextDocumentShowOptions): Promise<TextEditor | undefined> {
+export async function openEditor(uri: Uri, options: TextDocumentShowOptions & { rethrow?: boolean } = {}): Promise<TextEditor | undefined> {
+    const { rethrow, ...opts } = options;
     try {
-        const defaults: TextDocumentShowOptions = {
-            preserveFocus: false,
-            preview: true,
-            viewColumn: (window.activeTextEditor && window.activeTextEditor.viewColumn) || 1
-        };
-
         if (uri instanceof GitUri) {
             uri = uri.fileUri(false);
         }
 
         const document = await workspace.openTextDocument(uri);
-        return window.showTextDocument(document, { ...defaults, ...(options || {}) });
+        return window.showTextDocument(document, {
+            preserveFocus: false,
+            preview: true,
+            viewColumn: (window.activeTextEditor && window.activeTextEditor.viewColumn) || 1,
+            ...opts
+        });
     }
     catch (ex) {
+        if (rethrow) throw ex;
+
         Logger.error(ex, 'openEditor');
         return undefined;
     }

@@ -1,13 +1,13 @@
 'use strict';
 import { Iterables, Strings } from '../system';
-import { Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { CancellationTokenSource, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { AnnotationController, FileAnnotationType } from '../annotations/annotationController';
 import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
 import { GlyphChars } from '../constants';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { CommandQuickPickItem, FileHistoryQuickPick } from '../quickPicks';
+import { CommandQuickPickItem, FileHistoryQuickPick, ShowBranchesAndTagsQuickPickItem } from '../quickPicks';
 
 export interface OpenFileRevisionCommandArgs {
     uri?: Uri;
@@ -54,6 +54,8 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
             args.line = editor === undefined ? 0 : editor.selection.active.line;
         }
 
+        let progressCancellation: CancellationTokenSource | undefined;
+
         try {
             if (args.uri === undefined) {
                 uri = getCommandUri(uri, editor);
@@ -61,7 +63,8 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 
                 const gitUri = await GitUri.fromUri(uri, this.git);
 
-                const progressCancellation = FileHistoryQuickPick.showProgress(gitUri);
+                const placeHolder = `Open ${gitUri.getFormattedPath()}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''} in revision ${GlyphChars.Ellipsis}`;
+                progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
 
                 const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: args.maxCount, ref: gitUri.sha });
                 if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open history compare');
@@ -85,9 +88,13 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                     }
                 }
 
-                const label = `${gitUri.getFormattedPath()}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}`;
-                const pick = await FileHistoryQuickPick.show(this.git, log, gitUri, label, progressCancellation, {
+                const pick = await FileHistoryQuickPick.show(this.git, log, gitUri, placeHolder, {
                     pickerOnly: true,
+                    progressCancellation: progressCancellation,
+                    currentCommand: new CommandQuickPickItem({
+                        label: `go back ${GlyphChars.ArrowBack}`,
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${GlyphChars.Space}$(file-text) ${gitUri.getFormattedPath()}${gitUri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}` : ''}`
+                    }, Commands.OpenFileRevision, [uri, { ...args }]),
                     nextPageCommand: args.nextPageCommand,
                     previousPageCommand: previousPageCommand,
                     showAllCommand: log !== undefined && log.truncated
@@ -99,9 +106,20 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                 });
                 if (pick === undefined) return undefined;
 
-                if (pick instanceof CommandQuickPickItem) return pick.execute();
+                if (pick instanceof ShowBranchesAndTagsQuickPickItem) {
+                    const branchOrTag = await pick.execute();
+                    if (branchOrTag === undefined) return undefined;
 
-                args.uri = GitUri.toRevisionUri(pick.commit.sha, pick.commit.uri.fsPath, pick.commit.repoPath);
+                    if (branchOrTag instanceof CommandQuickPickItem) return branchOrTag.execute();
+
+                    args.uri = GitUri.toRevisionUri(branchOrTag.name, gitUri.fsPath, gitUri.repoPath!);
+                }
+                else {
+                    if (pick instanceof CommandQuickPickItem) return pick.execute();
+
+                    args.uri = GitUri.toRevisionUri(pick.commit.sha, pick.commit.uri.fsPath, pick.commit.repoPath);
+                }
+
             }
 
             if (args.line !== undefined && args.line !== 0) {
@@ -111,7 +129,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                 args.showOptions.selection = new Range(args.line, 0, args.line, 0);
             }
 
-            const e = await openEditor(args.uri!, args.showOptions);
+            const e = await openEditor(args.uri!, { ...args.showOptions, rethrow: true });
             if (args.annotationType === undefined) return e;
 
             return this.annotationController.showAnnotations(e!, args.annotationType, args.line);
@@ -119,6 +137,9 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
         catch (ex) {
             Logger.error(ex, 'OpenFileRevisionCommand');
             return window.showErrorMessage(`Unable to open file revision. See output channel for more details`);
+        }
+        finally {
+            progressCancellation && progressCancellation.dispose();
         }
     }
 }

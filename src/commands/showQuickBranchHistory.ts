@@ -68,10 +68,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
             const currentCommand = new CommandQuickPickItem({
                 label: `go back ${GlyphChars.ArrowBack}`,
                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to ${GlyphChars.Space}$(git-branch) ${args.branch} history`
-            }, Commands.ShowQuickBranchHistory, [
-                    uri,
-                    args
-                ]);
+            }, Commands.ShowQuickBranchHistory, [uri, { ...args }]);
 
             return commands.executeCommand(Commands.ShowQuickCommitDetails,
                 pick.commit.toGitUri(),

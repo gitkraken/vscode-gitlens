@@ -35,7 +35,9 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 
         args = { ...args };
 
-        const progressCancellation = FileHistoryQuickPick.showProgress(gitUri);
+        const placeHolder = `${gitUri.getFormattedPath()}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}`;
+
+        const progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
         try {
             if (args.log === undefined) {
                 args.log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: args.maxCount, range: args.range, ref: gitUri.sha });
@@ -61,8 +63,8 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                 }
             }
 
-            const label = `${gitUri.getFormattedPath()}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}`;
-            const pick = await FileHistoryQuickPick.show(this.git, args.log, gitUri, label, progressCancellation, {
+            const pick = await FileHistoryQuickPick.show(this.git, args.log, gitUri, placeHolder, {
+                progressCancellation: progressCancellation,
                 goBackCommand: args.goBackCommand,
                 nextPageCommand: args.nextPageCommand,
                 previousPageCommand: previousPageCommand,
@@ -74,7 +76,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                     : undefined,
                 showInResultsExplorerCommand: args.log !== undefined
                     ? new ShowCommitsInResultsQuickPickItem(args.log, {
-                        label: label,
+                        label: placeHolder,
                         resultsType: { singular: 'commit', plural: 'commits' }
                     })
                     : undefined

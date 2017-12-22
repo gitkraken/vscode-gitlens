@@ -1,5 +1,5 @@
 'use strict';
-import { commands, TextEditor, Uri, window } from 'vscode';
+import { CancellationTokenSource, commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { CommandContext, isCommandViewContextWithRef } from '../commands';
 import { BuiltInCommands, GlyphChars } from '../constants';
@@ -7,7 +7,7 @@ import { ComparisionResultsNode } from '../views/explorerNodes';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { BranchesQuickPick, CommandQuickPickItem } from '../quickPicks';
+import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickPicks';
 
 export interface DiffDirectoryCommandCommandArgs {
     ref1?: string;
@@ -50,6 +50,8 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: DiffDirectoryCommandCommandArgs = {}): Promise<any> {
         uri = getCommandUri(uri, editor);
 
+        let progressCancellation: CancellationTokenSource | undefined;
+
         try {
             const repoPath = await this.git.getRepoPath(uri);
             if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open directory compare`);
@@ -57,13 +59,23 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
             if (!args.ref1) {
                 args = { ...args };
 
-                const branches = await this.git.getBranches(repoPath);
-                const pick = await BranchesQuickPick.show(branches, `Compare Working Tree to ${GlyphChars.Ellipsis}`);
+                const placeHolder = `Compare Working Tree to ${GlyphChars.Ellipsis}`;
+
+                progressCancellation = BranchesAndTagsQuickPick.showProgress(placeHolder);
+
+                const [branches, tags] = await Promise.all([
+                    this.git.getBranches(repoPath),
+                    this.git.getTags(repoPath)
+                ]);
+
+                if (progressCancellation.token.isCancellationRequested) return undefined;
+
+                const pick = await BranchesAndTagsQuickPick.show(branches, tags, placeHolder, { progressCancellation: progressCancellation });
                 if (pick === undefined) return undefined;
 
                 if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-                args.ref1 = pick.branch.name;
+                args.ref1 = pick.name;
                 if (args.ref1 === undefined) return undefined;
             }
 
@@ -81,6 +93,9 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 
             Logger.error(ex, 'DiffDirectoryCommand');
             return window.showErrorMessage(`Unable to open directory compare. See output channel for more details`);
+        }
+        finally {
+            progressCancellation && progressCancellation.dispose();
         }
     }
 }

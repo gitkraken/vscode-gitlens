@@ -42,7 +42,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
                 args.showOptions.selection = new Range(args.line, 0, args.line, 0);
             }
 
-            const e = await openEditor(args.uri, args.showOptions);
+            const e = await openEditor(args.uri, { ...args.showOptions, rethrow: true });
             if (args.annotationType === undefined) return e;
 
             return this.annotationController.showAnnotations(e!, args.annotationType, args.line);

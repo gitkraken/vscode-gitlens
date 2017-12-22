@@ -1,10 +1,11 @@
 'use strict';
 import { Strings } from '../system';
 import { CancellationTokenSource, commands, QuickPickItem, QuickPickOptions, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { BranchesAndTagsQuickPick, BranchOrTagQuickPickItem } from './branchesAndTags';
 import { Commands, openEditor } from '../commands';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
-import { GitLog, GitLogCommit, GitStashCommit } from '../gitService';
+import { GitLog, GitLogCommit, GitService, GitStashCommit } from '../gitService';
 import { Keyboard, KeyboardScope, KeyMapping, Keys } from '../keyboard';
 import { ResultsExplorer } from '../views/resultsExplorer';
 
@@ -200,5 +201,39 @@ export class ShowCommitsSearchInResultsQuickPickItem extends ShowCommitsInResult
         item?: QuickPickItem
     ) {
         super(results, { label: search }, item);
+    }
+}
+
+export class ShowBranchesAndTagsQuickPickItem extends CommandQuickPickItem {
+
+    constructor(
+        private readonly repoPath: string,
+        private readonly placeHolder: string,
+        private readonly git: GitService,
+        private readonly goBackCommand?: CommandQuickPickItem,
+        item: QuickPickItem = {
+            label: 'Show Branches and Tags',
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays branches and tags`
+        }
+    ) {
+        super(item, undefined, undefined);
+    }
+
+    async execute(options: TextDocumentShowOptions = { preserveFocus: false, preview: false }): Promise<CommandQuickPickItem | BranchOrTagQuickPickItem | undefined> {
+        const progressCancellation = BranchesAndTagsQuickPick.showProgress(this.placeHolder);
+
+        try {
+            const [branches, tags] = await Promise.all([
+                this.git.getBranches(this.repoPath),
+                this.git.getTags(this.repoPath)
+            ]);
+
+            if (progressCancellation.token.isCancellationRequested) return undefined;
+
+            return BranchesAndTagsQuickPick.show(branches, tags, this.placeHolder, { progressCancellation: progressCancellation, goBackCommand: this.goBackCommand });
+        }
+        finally {
+            progressCancellation.dispose();
+        }
     }
 }

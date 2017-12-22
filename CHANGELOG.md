@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds `Open Working File` command (`gitlens.openWorkingFile`) - opens the working file for the active file revision -- closes [#236](https://github.com/eamodio/vscode-gitlens/issues/236)
 - Adds `Open Revision...` command (`gitlens.openFileRevision`) - opens the selected revision for the active file
+- Adds tags to the `Compare File with Branch...` command (`gitlens.diffWithBranch`) -- closes [#204](https://github.com/eamodio/vscode-gitlens/issues/204)
+- Adds tags to the `Directory Compare Working Tree with...` command (`gitlens.diffDirectory`) -- closes [#204](https://github.com/eamodio/vscode-gitlens/issues/204)
+- Adds `Show Branches and Tags` to quick pick menu shown by the `Compare File with Revision...` command (`gitlens.diffWithRevision`) -- closes [#204](https://github.com/eamodio/vscode-gitlens/issues/204)
+- Adds `Show Branches and Tags` to quick pick menu shown by the `Open Revision...` command (`gitlens.openFileRevision`) -- closes [#204](https://github.com/eamodio/vscode-gitlens/issues/204)
+
+### Changed
+- Renames `Compare File with Branch...` command (`gitlens.diffWithBranch`) to `Compare File with Branch or Tag...`
 
 ### Fixed
 - Fixes issues with commit paging in certain quick pick menus

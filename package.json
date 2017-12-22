@@ -1144,7 +1144,7 @@
             },
             {
                 "command": "gitlens.diffWithBranch",
-                "title": "Compare File with Branch...",
+                "title": "Compare File with Branch or Tag...",
                 "category": "GitLens"
             },
             {
