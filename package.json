@@ -1977,37 +1977,37 @@
                 {
                     "command": "gitlens.openFileInRemote",
                     "when": "gitlens:enabled && gitlens:activeHasRemote && config.gitlens.advanced.menus.editorTitle.remote",
-                    "group": "1_gitlens"
+                    "group": "2_gitlens"
                 },
                 {
                     "command": "gitlens.openRepoInRemote",
                     "when": "gitlens:enabled && gitlens:activeHasRemote && config.gitlens.advanced.menus.editorTitle.remote",
-                    "group": "1_gitlens"
+                    "group": "2_gitlens"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
                     "when": "editorTextFocus && gitlens:activeIsTracked && config.gitlens.advanced.menus.editorTitle.fileDiff",
-                    "group": "2_gitlens"
+                    "group": "2_gitlens_1"
                 },
                 {
                     "command": "gitlens.diffWithWorking",
                     "when": "editorTextFocus && gitlens:activeIsTracked && config.gitlens.advanced.menus.editorTitle.fileDiff",
-                    "group": "2_gitlens"
+                    "group": "2_gitlens_1"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
                     "when": "editorFocus && gitlens:activeIsTracked && config.gitlens.advanced.menus.editorTitle.history",
-                    "group": "2_gitlens_1"
+                    "group": "2_gitlens_2"
                 },
                 {
                     "command": "gitlens.showQuickRepoHistory",
                     "when": "!editorFocus && gitlens:enabled && config.gitlens.advanced.menus.editorTitle.history",
-                    "group": "2_gitlens_1"
+                    "group": "2_gitlens_2"
                 },
                 {
                     "command": "gitlens.showQuickRepoStatus",
                     "when": "gitlens:enabled && config.gitlens.advanced.menus.editorTitle.status",
-                    "group": "2_gitlens_1"
+                    "group": "2_gitlens_2"
                 }
             ],
             "editor/title/context": [
