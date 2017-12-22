@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [Unreleased]
 ### Added
 - Adds `Open Working File` command (`gitlens.openWorkingFile`) - opens the working file for the active file revision -- closes [#236](https://github.com/eamodio/vscode-gitlens/issues/236)
+- Adds `Open Revision...` command (`gitlens.openFileRevision`) - opens the selected revision for the active file
+
+### Fixed
+- Fixes issues with commit paging in certain quick pick menus
 
 ## [7.1.0-beta] - 2017-12-20
 ### Changed

@@ -1,5 +1,5 @@
 'use strict';
-import { Strings } from '../system';
+import { Iterables, Strings } from '../system';
 import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
@@ -14,6 +14,7 @@ export interface DiffWithRevisionCommandArgs {
 
     line?: number;
     showOptions?: TextDocumentShowOptions;
+    nextPageCommand?: CommandQuickPickItem;
 }
 
 export class DiffWithRevisionCommand extends ActiveEditorCommand {
@@ -42,14 +43,33 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
+            let previousPageCommand: CommandQuickPickItem | undefined = undefined;
+
+            if (log.truncated) {
+                const npc = new CommandQuickPickItem({
+                    label: `$(arrow-right) Show Next Commits`,
+                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} newer commits`
+                }, Commands.DiffWithRevision, [uri, { ...args } as DiffWithRevisionCommandArgs]);
+
+                const last = Iterables.last(log.commits.values());
+                if (last != null) {
+                    previousPageCommand = new CommandQuickPickItem({
+                        label: `$(arrow-left) Show Previous Commits`,
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} older commits`
+                    }, Commands.DiffWithRevision, [new GitUri(uri, last), { ...args, nextPageCommand: npc } as DiffWithRevisionCommandArgs]);
+                }
+            }
+
             const label = `${gitUri.getFormattedPath()}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}`;
             const pick = await FileHistoryQuickPick.show(this.git, log, gitUri, label, progressCancellation, {
                 pickerOnly: true,
+                nextPageCommand: args.nextPageCommand,
+                previousPageCommand: previousPageCommand,
                 showAllCommand: log !== undefined && log.truncated
                     ? new CommandQuickPickItem({
                         label: `$(sync) Show All Commits`,
                         description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
-                    }, Commands.ShowQuickFileHistory, [uri, { ...args, maxCount: 0 }])
+                    }, Commands.DiffWithRevision, [uri, { ...args, maxCount: 0 }])
                     : undefined
             });
             if (pick === undefined) return undefined;

@@ -20,12 +20,10 @@ export class FileHistoryQuickPick {
             });
     }
 
-    static async show(git: GitService, log: GitLog, uri: GitUri, placeHolder: string, progressCancellation: CancellationTokenSource, options: { goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem, pickerOnly?: boolean, showAllCommand?: CommandQuickPickItem, showInResultsExplorerCommand?: CommandQuickPickItem } = {}): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(git: GitService, log: GitLog, uri: GitUri, placeHolder: string, progressCancellation: CancellationTokenSource, options: { goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem, previousPageCommand?: CommandQuickPickItem, pickerOnly?: boolean, showAllCommand?: CommandQuickPickItem, showInResultsExplorerCommand?: CommandQuickPickItem } = {}): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         options = { pickerOnly: false, ...options };
 
         const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))) as (CommitQuickPickItem | CommandQuickPickItem)[];
-
-        let previousPageCommand: CommandQuickPickItem | undefined = undefined;
 
         let index = 0;
 
@@ -39,7 +37,7 @@ export class FileHistoryQuickPick {
                 index++;
                 items.splice(0, 0, options.showAllCommand);
             }
-            else {
+            else if (!options.pickerOnly) {
                 const workingFileName = await git.findWorkingFileName(log.repoPath, path.relative(log.repoPath, uri.fsPath));
                 if (workingFileName) {
                     index++;
@@ -66,41 +64,14 @@ export class FileHistoryQuickPick {
                 }
             }
 
-            if (options.nextPageCommand) {
+            if (options.nextPageCommand !== undefined) {
                 index++;
                 items.splice(0, 0, options.nextPageCommand);
             }
 
-            if (log.truncated) {
-                const npc = new CommandQuickPickItem({
-                    label: `$(arrow-right) Show Next Commits`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} newer commits`
-                }, Commands.ShowQuickFileHistory, [
-                        uri,
-                        {
-                            maxCount: log.maxCount,
-                            goBackCommand: options.goBackCommand,
-                            nextPageCommand: options.nextPageCommand
-                        } as ShowQuickFileHistoryCommandArgs
-                    ]);
-
-                const last = Iterables.last(log.commits.values());
-                if (last != null) {
-                    previousPageCommand = new CommandQuickPickItem({
-                        label: `$(arrow-left) Show Previous Commits`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} older commits`
-                    }, Commands.ShowQuickFileHistory, [
-                            new GitUri(uri, last),
-                            {
-                                maxCount: log.maxCount,
-                                goBackCommand: options.goBackCommand,
-                                nextPageCommand: npc
-                            } as ShowQuickFileHistoryCommandArgs
-                        ]);
-
-                    index++;
-                    items.splice(0, 0, previousPageCommand);
-                }
+            if (options.previousPageCommand !== undefined) {
+                index++;
+                items.splice(0, 0, options.previousPageCommand);
             }
         }
 
@@ -159,7 +130,7 @@ export class FileHistoryQuickPick {
 
         const scope = await Keyboard.instance.beginScope({
             left: options.goBackCommand,
-            ',': previousPageCommand,
+            ',': options.previousPageCommand,
             '.': options.nextPageCommand
         });
 

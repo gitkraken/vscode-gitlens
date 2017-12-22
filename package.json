@@ -1323,6 +1323,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.openFileRevision",
+                "title": "Open Revision...",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.openRepoInRemote",
                 "title": "Open Repository in Remote",
                 "category": "GitLens"
@@ -1736,6 +1741,10 @@
                 {
                     "command": "gitlens.openFileInRemote",
                     "when": "gitlens:activeIsTracked && gitlens:activeHasRemote"
+                },
+                {
+                    "command": "gitlens.openFileRevision",
+                    "when": "gitlens:activeIsTracked"
                 },
                 {
                     "command": "gitlens.openRepoInRemote",

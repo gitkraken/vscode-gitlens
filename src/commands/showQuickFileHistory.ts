@@ -1,5 +1,5 @@
 'use strict';
-import { Strings } from '../system';
+import { Iterables, Strings } from '../system';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
@@ -44,15 +44,33 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
+            let previousPageCommand: CommandQuickPickItem | undefined = undefined;
+
+            if (args.log.truncated) {
+                const npc = new CommandQuickPickItem({
+                    label: `$(arrow-right) Show Next Commits`,
+                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${args.log.maxCount} newer commits`
+                }, Commands.ShowQuickFileHistory, [gitUri, { ...args, log: undefined } as ShowQuickFileHistoryCommandArgs]);
+
+                const last = Iterables.last(args.log.commits.values());
+                if (last != null) {
+                    previousPageCommand = new CommandQuickPickItem({
+                        label: `$(arrow-left) Show Previous Commits`,
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${args.log.maxCount} older commits`
+                    }, Commands.ShowQuickFileHistory, [new GitUri(uri, last), { ...args, log: undefined, nextPageCommand: npc } as ShowQuickFileHistoryCommandArgs]);
+                }
+            }
+
             const label = `${gitUri.getFormattedPath()}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}`;
             const pick = await FileHistoryQuickPick.show(this.git, args.log, gitUri, label, progressCancellation, {
                 goBackCommand: args.goBackCommand,
                 nextPageCommand: args.nextPageCommand,
+                previousPageCommand: previousPageCommand,
                 showAllCommand: args.log !== undefined && args.log.truncated
                     ? new CommandQuickPickItem({
                         label: `$(sync) Show All Commits`,
                         description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
-                    }, Commands.ShowQuickFileHistory, [uri, { ...args, maxCount: 0 }])
+                    }, Commands.ShowQuickFileHistory, [uri, { ...args, log: undefined, maxCount: 0 }])
                     : undefined,
                 showInResultsExplorerCommand: args.log !== undefined
                     ? new ShowCommitsInResultsQuickPickItem(args.log, {

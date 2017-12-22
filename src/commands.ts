@@ -79,7 +79,7 @@ export function configureCommands(
     context.subscriptions.push(new Commands.OpenBranchInRemoteCommand(git));
     context.subscriptions.push(new Commands.OpenCommitInRemoteCommand(git));
     context.subscriptions.push(new Commands.OpenFileInRemoteCommand(git));
-    context.subscriptions.push(new Commands.OpenFileRevisionCommand(annotationController));
+    context.subscriptions.push(new Commands.OpenFileRevisionCommand(annotationController, git));
     context.subscriptions.push(new Commands.OpenInRemoteCommand());
     context.subscriptions.push(new Commands.OpenRepoInRemoteCommand(git));
     context.subscriptions.push(new Commands.OpenWorkingFileCommand(annotationController, git));
