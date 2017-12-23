@@ -13,6 +13,7 @@ module.exports = function(env, argv) {
     const sourceMaps = !env.production;
 
     const plugins = [
+        new webpack.optimize.ModuleConcatenationPlugin(),
         new UglifyJsPlugin({
             parallel: true,
             sourceMap: sourceMaps,

@@ -3,7 +3,7 @@
         "forceConsistentCasingInFileNames": true,
         "importHelpers": true,
         "lib": [ "es2015", "es2016" ],
-        "module": "commonjs",
+        "module": "es2015",
         "moduleResolution": "node",
         "noFallthroughCasesInSwitch": true,
         "noImplicitReturns": true,
