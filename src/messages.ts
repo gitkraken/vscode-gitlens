@@ -65,7 +65,7 @@ export class Messages {
         Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain})`);
 
         if (configuration.get<boolean>(configuration.name('advanced')('messages')(suppressionKey).value)) {
-            Logger.log(`ShowMessage(${type}, ${message}, ${suppressionKey}, ${dontShowAgain}) skipped`);
+            Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) skipped`);
             return undefined;
         }
 
