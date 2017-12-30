@@ -2952,7 +2952,7 @@
         "bundle": "npm run lint && webpack --env.production",
         "bundle-rollup": "npm run lint && rollup -c",
         "clean": "git clean -xdf",
-        "compile": "npm run lint && tsc -p ./",
+        "compile": "npm run lint && tsc -m commonjs -p ./",
         "watch": "tsc -watch -p ./",
         "lint": "tslint --project tslint.json",
         "pack": "npm run clean && vsce package",
