@@ -11,9 +11,20 @@ export interface IGitCommitInfo {
     sha?: string;
 }
 
+// Taken from https://github.com/Microsoft/vscode/blob/master/src/vs/base/common/uri.ts#L331-L337
+interface UriComponents {
+    scheme: string;
+    authority: string;
+    path: string;
+    query: string;
+    fragment: string;
+}
+
 interface UriEx {
     new(): Uri;
     new(scheme: string, authority: string, path: string, query: string, fragment: string): Uri;
+    // Use this ctor, because vscode doesn't validate it
+    new(components: UriComponents): Uri;
 }
 
 export class GitUri extends ((Uri as any) as UriEx) {
@@ -33,7 +44,9 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
         if (uri.scheme === DocumentSchemes.GitLensGit) {
             const data: IUriRevisionData = JSON.parse(uri.query);
-            super(uri.scheme, uri.authority, path.resolve(data.repoPath, data.fileName), uri.query, uri.fragment);
+
+            const [authority, fsPath] = GitUri.ensureValidUNCPath(uri.authority, path.resolve(data.repoPath, data.fileName));
+            super({ scheme: uri.scheme, authority: authority, path: fsPath, query: uri.query, fragment: uri.fragment });
 
             this.repoPath = data.repoPath;
             if (GitService.isStagedUncommitted(data.sha) || !GitService.isUncommitted(data.sha)) {
@@ -44,20 +57,21 @@ export class GitUri extends ((Uri as any) as UriEx) {
         }
 
         if (commitOrRepoPath === undefined) {
-            super(uri.scheme, uri.authority, uri.path, uri.query, uri.fragment);
+            super(uri);
 
             return;
         }
 
         if (typeof commitOrRepoPath === 'string') {
-            super(uri.scheme, uri.authority, uri.path, uri.query, uri.fragment);
+            super(uri);
 
             this.repoPath = commitOrRepoPath;
 
             return;
         }
 
-        super(uri.scheme, uri.authority, path.resolve(commitOrRepoPath.repoPath, commitOrRepoPath.fileName || uri.fsPath), uri.query, uri.fragment);
+        const [authority, fsPath] = GitUri.ensureValidUNCPath(uri.authority, path.resolve(commitOrRepoPath.repoPath, commitOrRepoPath.fileName || uri.fsPath));
+        super({ scheme: uri.scheme, authority: authority, path: fsPath, query: uri.query, fragment: uri.fragment });
 
         this.repoPath = commitOrRepoPath.repoPath;
         if (GitService.isStagedUncommitted(commitOrRepoPath.sha) || !GitService.isUncommitted(commitOrRepoPath.sha)) {
@@ -94,6 +108,23 @@ export class GitUri extends ((Uri as any) as UriEx) {
             relativePath = path.relative(relativeTo, relativePath);
         }
         return GitService.normalizePath(relativePath);
+    }
+
+    private static ensureValidUNCPath(authority: string, fsPath: string): [string, string] {
+        // Taken from https://github.com/Microsoft/vscode/blob/master/src/vs/base/common/uri.ts#L239-L251
+        // check for authority as used in UNC shares or use the path as given
+        if (fsPath[0] === '\\' && fsPath[1] === '\\') {
+            const index = fsPath.indexOf('\\', 2);
+            if (index === -1) {
+                authority = fsPath.substring(2);
+                fsPath = '\\';
+            } else {
+                authority = fsPath.substring(2, index);
+                fsPath = fsPath.substring(index) || '\\';
+            }
+        }
+
+        return [authority, fsPath];
     }
 
     static fromCommit(commit: GitCommit, previous: boolean = false) {

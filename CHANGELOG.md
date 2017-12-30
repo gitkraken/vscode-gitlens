@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Changed
+- Improves startup performance and reduces package size
+
+### Fixed
+- Fixes [#208](https://github.com/eamodio/vscode-gitlens/issues/208) - Gitlens doesn't work over UNC
+
 ## [7.1.0] - 2017-12-22
 ### Added
 - Adds `Open Working File` command (`gitlens.openWorkingFile`) - opens the working file for the active file revision -- closes [#236](https://github.com/eamodio/vscode-gitlens/issues/236)
