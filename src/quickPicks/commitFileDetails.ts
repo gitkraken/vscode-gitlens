@@ -164,19 +164,6 @@ export class CommitFileDetailsQuickPick {
                         sha: commit.sha
                     } as CopyMessageToClipboardCommandArgs
                 ]));
-
-            items.push(new CommandQuickPickItem({
-                label: `$(git-commit) Show Commit Details`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha}`
-            }, Commands.ShowQuickCommitDetails, [
-                    commit.toGitUri(),
-                    {
-                        commit,
-                        sha: commit.sha,
-                        goBackCommand: currentCommand
-                    } as ShowQuickCommitDetailsCommandArgs
-                ])
-            );
         }
 
         if (commit.workingFileName) {
@@ -202,6 +189,19 @@ export class CommitFileDetailsQuickPick {
                         goBackCommand: currentCommand
                     } as ShowQuickFileHistoryCommandArgs
                 ]));
+
+            items.push(new CommandQuickPickItem({
+                label: `$(git-commit) Show Commit Details`,
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha}`
+            }, Commands.ShowQuickCommitDetails, [
+                    commit.toGitUri(),
+                    {
+                        commit,
+                        sha: commit.sha,
+                        goBackCommand: currentCommand
+                    } as ShowQuickCommitDetailsCommandArgs
+                ])
+            );
         }
 
         if (goBackCommand) {
