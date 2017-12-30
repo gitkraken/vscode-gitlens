@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### Added
+- Adds semi-persistent results for commit operations, via the `Show Commit Details` command (`gitlens.showQuickCommitDetails`) in the `GitLens Results` view -- closes [#237](https://github.com/eamodio/vscode-gitlens/issues/237)
+- Adds `Show in Results` option to the commit details quick pick menu to show the commit in the `GitLens Results` view
+
 ### Changed
 - Improves startup performance and reduces package size
 
@@ -55,12 +59,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds an all-new, on-demand `GitLens Results` view to the Explorer activity
 
-  - Provides semi-persistent results for commit search operations, via `Show Commit Search` command (`gitlens.showCommitSearch`), and file history operations, via `Show File History` command (`gitlens.showQuickFileHistory`)
+  - Provides semi-persistent results for commit search operations, via the `Show Commit Search` command (`gitlens.showCommitSearch`), and file history operations, via the `Show File History` command (`gitlens.showQuickFileHistory`)
     - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
       - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Compare with Selected`, `Select for Compare`, `Rebase Commit (via Terminal)`, `Reset Commit (via Terminal)`, and `Refresh` commands
         - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
 
-  - Provides semi-persistent results for revision comparison operations, via `Select for Compare` command (`gitlens.explorers.selectForCompare`) and `Compare with Selected` command (`gitlens.explorers.compareWithSelected`)
+  - Provides semi-persistent results for revision comparison operations, via the `Select for Compare` command (`gitlens.explorers.selectForCompare`) and the `Compare with Selected` command (`gitlens.explorers.compareWithSelected`)
     - `Commits` node — provides a list of the commits between the compared revisions (branches or commits)
       - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
         - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Compare with Selected`, `Select for Compare`, `Rebase Commit (via Terminal)`, `Reset Commit (via Terminal)`, and `Refresh` commands

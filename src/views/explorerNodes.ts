@@ -6,6 +6,7 @@ export * from './branchesNode';
 export * from './branchNode';
 export * from './commitFileNode';
 export * from './commitNode';
+export * from './commitResultsNode';
 export * from './commitsNode';
 export * from './commitsResultsNode';
 export * from './comparisionResultsNode';

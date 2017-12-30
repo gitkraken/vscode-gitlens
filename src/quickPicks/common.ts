@@ -174,6 +174,23 @@ export class CommitQuickPickItem implements QuickPickItem {
     }
 }
 
+export class ShowCommitInResultsQuickPickItem extends CommandQuickPickItem {
+    constructor(
+        public readonly commit: GitLogCommit,
+        item: QuickPickItem = {
+            label: 'Show in Results',
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays commit in the GitLens Results view`
+        }
+    ) {
+        super(item, undefined, undefined);
+    }
+
+    async execute(options: TextDocumentShowOptions = { preserveFocus: false, preview: false }): Promise<{} | undefined> {
+        ResultsExplorer.instance.showCommitInResults(this.commit);
+        return undefined;
+    }
+}
+
 export class ShowCommitsInResultsQuickPickItem extends CommandQuickPickItem {
 
     constructor(
@@ -181,7 +198,7 @@ export class ShowCommitsInResultsQuickPickItem extends CommandQuickPickItem {
         public readonly resultsLabel: string | { label: string, resultsType?: { singular: string, plural: string } },
         item: QuickPickItem = {
             label: 'Show in Results',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays results in the GitLens Results view`
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays commits in the GitLens Results view`
         }
     ) {
         super(item, undefined, undefined);
@@ -198,7 +215,10 @@ export class ShowCommitsSearchInResultsQuickPickItem extends ShowCommitsInResult
     constructor(
         public readonly results: GitLog,
         public readonly search: string,
-        item?: QuickPickItem
+        item: QuickPickItem = {
+            label: 'Show in Results',
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays results in the GitLens Results view`
+        }
     ) {
         super(results, { label: search }, item);
     }

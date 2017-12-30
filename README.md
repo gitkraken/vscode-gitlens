@@ -210,12 +210,12 @@ While GitLens is highly customizable and provides many [configuration settings](
 
 - Adds an on-demand, [customizable](#gitlens-results-view-settings) `GitLens Results` view to the Explorer activity
 
-  - Provides semi-persistent results for commit search operations, via Show Commit Search command (`gitlens.showCommitSearch`), and file history operations, via Show File History command (`gitlens.showQuickFileHistory`)
+  - Provides semi-persistent results for commit search operations, via the `Show Commit Search` command (`gitlens.showCommitSearch`), file history operations, via the `Show File History` command (`gitlens.showQuickFileHistory`), and commit operations, via the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
     - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
       - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Compare with Selected`, `Select for Compare`, `Rebase Commit (via Terminal)`, `Reset Commit (via Terminal)`, and `Refresh` commands
         - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
 
-  - Provides semi-persistent results for revision comparison operations, via `Select for Compare` command (`gitlens.explorers.selectForCompare`) and `Compare with Selected` command (`gitlens.explorers.compareWithSelected`)
+  - Provides semi-persistent results for revision comparison operations, via the `Select for Compare` command (`gitlens.explorers.selectForCompare`) and the `Compare with Selected` command (`gitlens.explorers.compareWithSelected`)
     - `Commits` node — provides a list of the commits between the compared revisions (branches or commits)
       - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
         - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Compare with Selected`, `Select for Compare`, `Rebase Commit (via Terminal)`, `Reset Commit (via Terminal)`, and `Refresh` commands
@@ -258,7 +258,7 @@ While GitLens is highly customizable and provides many [configuration settings](
   ![Commit Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-commit-details.png)
 
   - Quickly see the set of files changed in the commit, complete with status indicators for adds, changes, renames, and deletes
-  - Provides additional entries to `Open Commit in <remote-service>` when available, `Open Files`, `Open Revisions`, `Open Directory Compare with Previous Revision`, `Open Directory Compare with Working Tree`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`
+  - Provides additional entries to `Show in Results`, `Open Commit in <remote-service>` when available, `Open Files`, `Open Revisions`, `Open Directory Compare with Previous Revision`, `Open Directory Compare with Working Tree`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings) is set
   - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the comparison of the current revision with the previous one

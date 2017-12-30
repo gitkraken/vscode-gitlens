@@ -2,7 +2,7 @@
 import { Arrays, Iterables, Strings } from '../system';
 import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from 'vscode';
 import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandCommandArgs, DiffWithPreviousCommandArgs, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, QuickPickItem } from './common';
+import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, QuickPickItem, ShowCommitInResultsQuickPickItem } from './common';
 import { GlyphChars } from '../constants';
 import { getGitStatusOcticon, GitLog, GitLogCommit, GitService, GitStashCommit, GitStatusFile, GitStatusFileStatus, GitUri, IGitStatusFile, RemoteResource } from '../gitService';
 import { Keyboard, KeyCommand, KeyNoopCommand, Keys } from '../keyboard';
@@ -122,8 +122,12 @@ export class CommitDetailsQuickPick {
                     } as StashDeleteCommandArgs
                 ])
             );
+
+            items.splice(index++, 0, new ShowCommitInResultsQuickPickItem(commit));
         }
         else {
+            items.splice(index++, 0, new ShowCommitInResultsQuickPickItem(commit));
+
             const remotes = (await git.getRemotes(commit.repoPath)).filter(r => r.provider !== undefined);
             if (remotes.length) {
                 items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, {

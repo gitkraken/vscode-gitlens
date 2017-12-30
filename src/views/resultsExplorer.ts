@@ -4,8 +4,8 @@ import { commands, ConfigurationChangeEvent, ConfigurationTarget, Event, EventEm
 import { configuration, ExplorerFilesLayout, IExplorerConfig } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { ExplorerCommands, RefreshNodeCommandArgs } from './explorerCommands';
-import { CommitsResultsNode, ComparisionResultsNode, ExplorerNode, MessageNode, RefreshReason, ResourceType } from './explorerNodes';
-import { clearGravatarCache, GitLog, GitService } from '../gitService';
+import { CommitResultsNode, CommitsResultsNode, ComparisionResultsNode, ExplorerNode, MessageNode, RefreshReason, ResourceType } from './explorerNodes';
+import { clearGravatarCache, GitLog, GitLogCommit, GitService } from '../gitService';
 import { Logger } from '../logger';
 
 export * from './explorerNodes';
@@ -131,6 +131,11 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
 
     async showComparisonInResults(repoPath: string, ref1: string, ref2: string) {
         this.addResults(new ComparisionResultsNode(repoPath, ref1, ref2, this));
+        setCommandContext(CommandContext.ResultsExplorer, true);
+    }
+
+    showCommitInResults(commit: GitLogCommit) {
+        this.addResults(new CommitResultsNode(commit, this));
         setCommandContext(CommandContext.ResultsExplorer, true);
     }
 
