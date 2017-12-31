@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds semi-persistent results for commit operations, via the `Show Commit Details` command (`gitlens.showQuickCommitDetails`) in the `GitLens Results` view -- closes [#237](https://github.com/eamodio/vscode-gitlens/issues/237)
 - Adds `Show in Results` option to the commit details quick pick menu to show the commit in the `GitLens Results` view
+- Adds `Compare with Index (HEAD)` command (`gitlens.explorers.compareWithHead`) to branch, remote branch, tag, and revision (commit) nodes in the `GitLens` view to compare the current selection with the current index (HEAD) in the `GitLens Results` view
+- Adds `Compare with Remote` command (`gitlens.explorers.compareWithRemote`) to branch nodes in the `GitLens` view to compare the current selection with its remote tracking branch in the `GitLens Results` view
 
 ### Changed
 - Improves startup performance and reduces package size

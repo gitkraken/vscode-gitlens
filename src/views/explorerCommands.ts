@@ -32,6 +32,8 @@ export class ExplorerCommands extends Disposable {
         commands.registerCommand('gitlens.explorers.openChangedFileChangesWithWorking', this.openChangedFileChangesWithWorking, this);
         commands.registerCommand('gitlens.explorers.openChangedFileRevisions', this.openChangedFileRevisions, this);
         commands.registerCommand('gitlens.explorers.applyChanges', this.applyChanges, this);
+        commands.registerCommand('gitlens.explorers.compareWithHead', this.compareWithHead, this);
+        commands.registerCommand('gitlens.explorers.compareWithRemote', this.compareWithRemote, this);
         commands.registerCommand('gitlens.explorers.compareWithSelected', this.compareWithSelected, this);
         commands.registerCommand('gitlens.explorers.selectForCompare', this.selectForCompare, this);
         commands.registerCommand('gitlens.explorers.terminalCheckoutBranch', this.terminalCheckoutBranch, this);
@@ -51,6 +53,18 @@ export class ExplorerCommands extends Disposable {
     private async applyChanges(node: CommitFileNode | StashFileNode) {
         await this.git.checkoutFile(node.uri);
         return this.openFile(node);
+    }
+
+    private async compareWithHead(node: ExplorerNode) {
+        if (!(node instanceof ExplorerRefNode)) return;
+
+        ResultsExplorer.instance.showComparisonInResults(node.repoPath, node.ref, 'HEAD');
+    }
+
+    private async compareWithRemote(node: BranchNode) {
+        if (!node.branch.tracking) return;
+
+        ResultsExplorer.instance.showComparisonInResults(node.repoPath, node.branch.tracking, node.ref);
     }
 
     private async compareWithSelected(node: ExplorerNode) {

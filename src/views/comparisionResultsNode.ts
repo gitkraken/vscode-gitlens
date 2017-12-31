@@ -49,7 +49,7 @@ export class ComparisionResultsNode extends ExplorerNode {
     async getTreeItem(): Promise<TreeItem> {
         const repo = await this.explorer.git.getRepository(this.uri.repoPath!);
 
-        const item = new TreeItem(`Comparing ${GitService.shortenSha(this.ref1)} to ${GitService.shortenSha(this.ref2)} ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) || this.uri.repoPath}`, TreeItemCollapsibleState.Expanded);
+        const item = new TreeItem(`Comparing ${GitService.shortenSha(this.ref1)} to ${GitService.shortenSha(this.ref2 || 'HEAD')} ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) || this.uri.repoPath}`, TreeItemCollapsibleState.Expanded);
         item.contextValue = ResourceType.ComparisonResults;
         return item;
     }
