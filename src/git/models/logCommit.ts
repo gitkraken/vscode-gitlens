@@ -99,7 +99,7 @@ export class GitLogCommit extends GitCommit {
         let gravatar = gravatarCache.get(key);
         if (gravatar !== undefined) return gravatar;
 
-        gravatar = Uri.parse(`https://www.gravatar.com/avatar/${this.email ? Strings.md5(this.email) : '00000000000000000000000000000000'}.jpg?s=22&d=${fallback}`);
+        gravatar = Uri.parse(`https://www.gravatar.com/avatar/${this.email ? Strings.md5(this.email, 'hex') : '00000000000000000000000000000000'}.jpg?s=22&d=${fallback}`);
 
         // HACK: Monkey patch Uri.toString to avoid the unwanted query string encoding
         const originalToStringFn = gravatar.toString;

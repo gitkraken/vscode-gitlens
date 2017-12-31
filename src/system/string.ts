@@ -1,5 +1,5 @@
 'use strict';
-import * as crypto from 'crypto';
+import { createHash, HexBase64Latin1Encoding } from 'crypto';
 
 export namespace Strings {
     const TokenRegex = /\$\{([^|]*?)(?:\|(\d+)(\-|\?)?)?\}/g;
@@ -53,8 +53,8 @@ export namespace Strings {
         }
     }
 
-    export function md5(s: string): string {
-        return crypto.createHash('md5').update(s).digest('hex');
+    export function md5(s: string, encoding: HexBase64Latin1Encoding = 'base64'): string {
+        return createHash('md5').update(s).digest(encoding);
     }
 
     export function pad(s: string, before: number = 0, after: number = 0, padding: string = `\u00a0`) {
@@ -103,6 +103,10 @@ export namespace Strings {
     export function sanitizeForFileSystem(s: string, replacement: string = '_') {
         if (!s) return s;
         return s.replace(illegalCharsForFSRegEx, replacement);
+    }
+
+    export function sha1(s: string, encoding: HexBase64Latin1Encoding = 'base64'): string {
+        return createHash('sha1').update(s).digest(encoding);
     }
 
     export function truncate(s: string, truncateTo: number, ellipsis: string = '\u2026') {

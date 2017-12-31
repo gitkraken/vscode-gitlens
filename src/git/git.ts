@@ -240,7 +240,6 @@ export class Git {
             params.push(`-L ${options.startLine},${options.endLine}`);
         }
 
-        // let stdin: Observable<string> | undefined;
         let stdin: string | undefined;
         if (sha) {
             if (Git.isStagedUncommitted(sha)) {
@@ -257,6 +256,25 @@ export class Git {
         }
 
         return gitCommand({ cwd: root, stdin: stdin }, ...params, `--`, file);
+    }
+
+    static async blame_contents(repoPath: string | undefined, fileName: string, contents: string, options: { ignoreWhitespace?: boolean, startLine?: number, endLine?: number } = {}) {
+        const [file, root] = Git.splitPath(fileName, repoPath);
+
+        const params = [...defaultBlameParams];
+
+        if (options.ignoreWhitespace) {
+            params.push('-w');
+        }
+        if (options.startLine != null && options.endLine != null) {
+            params.push(`-L ${options.startLine},${options.endLine}`);
+        }
+
+        // Pipe the blame contents to stdin
+        params.push(`--contents`);
+        params.push('-');
+
+        return gitCommand({ cwd: root, stdin: contents }, ...params, `--`, file);
     }
 
     static branch(repoPath: string, options: { all: boolean } = { all: false }) {

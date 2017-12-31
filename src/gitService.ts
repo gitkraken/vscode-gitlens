@@ -1,5 +1,5 @@
 'use strict';
-import { Functions, Iterables, Objects, TernarySearchTree } from './system';
+import { Functions, Iterables, Objects, Strings, TernarySearchTree } from './system';
 import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, window, WindowState, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent } from 'vscode';
 import { configuration, IConfig, IRemotesConfig } from './configuration';
 import { CommandContext, DocumentSchemes, setCommandContext } from './constants';
@@ -536,7 +536,7 @@ export class GitService extends Disposable {
             if (entry && entry.key) {
                 this._onDidBlameFail.fire(entry.key);
             }
-            return await GitService.emptyPromise as GitBlame;
+            return GitService.emptyPromise as Promise<GitBlame>;
         }
 
         const [file, root] = Git.splitPath(uri.fsPath, uri.repoPath, false);
@@ -558,7 +558,82 @@ export class GitService extends Disposable {
                 } as CachedBlame);
 
                 this._onDidBlameFail.fire(entry.key);
-                return await GitService.emptyPromise as GitBlame;
+                return GitService.emptyPromise as Promise<GitBlame>;
+            }
+
+            return undefined;
+        }
+    }
+
+    async getBlameForFileContents(uri: GitUri, contents: string): Promise<GitBlame | undefined> {
+        const key = `blame:${Strings.sha1(contents)}`;
+
+        let entry: GitCacheEntry | undefined;
+        if (this.UseCaching) {
+            const cacheKey = this.getCacheEntryKey(uri);
+            entry = this._gitCache.get(cacheKey);
+
+            if (entry !== undefined) {
+                const cachedBlame = entry.get<CachedBlame>(key);
+                if (cachedBlame !== undefined) {
+                    Logger.log(`getBlameForFileContents[Cached(${key})]('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}')`);
+                    return cachedBlame.item;
+                }
+            }
+
+            Logger.log(`getBlameForFileContents[Not Cached(${key})]('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}')`);
+
+            if (entry === undefined) {
+                entry = new GitCacheEntry(cacheKey);
+                this._gitCache.set(entry.key, entry);
+            }
+        }
+        else {
+            Logger.log(`getBlameForFileContents('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}')`);
+        }
+
+        const promise = this.getBlameForFileContentsCore(uri, contents, entry, key);
+
+        if (entry) {
+            Logger.log(`Add blame cache for '${entry.key}:${key}'`);
+
+            entry.set<CachedBlame>(key, {
+                item: promise
+            } as CachedBlame);
+        }
+
+        return promise;
+    }
+
+    async getBlameForFileContentsCore(uri: GitUri, contents: string, entry: GitCacheEntry | undefined, key: string): Promise<GitBlame | undefined> {
+        if (!(await this.isTracked(uri))) {
+            Logger.log(`Skipping blame; '${uri.fsPath}' is not tracked`);
+            if (entry && entry.key) {
+                this._onDidBlameFail.fire(entry.key);
+            }
+            return GitService.emptyPromise as Promise<GitBlame>;
+        }
+
+        const [file, root] = Git.splitPath(uri.fsPath, uri.repoPath, false);
+
+        try {
+            const data = await Git.blame_contents(root, file, contents, { ignoreWhitespace: this.config.blame.ignoreWhitespace });
+            const blame = GitBlameParser.parse(data, root, file);
+            return blame;
+        }
+        catch (ex) {
+            // Trap and cache expected blame errors
+            if (entry) {
+                const msg = ex && ex.toString();
+                Logger.log(`Replace blame cache with empty promise for '${entry.key}:${key}'`);
+
+                entry.set<CachedBlame>(key, {
+                    item: GitService.emptyPromise,
+                    errorMessage: msg
+                } as CachedBlame);
+
+                this._onDidBlameFail.fire(entry.key);
+                return GitService.emptyPromise as Promise<GitBlame>;
             }
 
             return undefined;
@@ -582,16 +657,17 @@ export class GitService extends Disposable {
             if (commit === undefined) return undefined;
 
             return {
-                author: Object.assign({}, blame.authors.get(commit.author), { lineCount: commit.lines.length }),
+                author: { ...blame.authors.get(commit.author), lineCount: commit.lines.length },
                 commit: commit,
                 line: blameLine
             } as GitBlameLine;
         }
 
+        const lineToBlame = line + 1;
         const fileName = uri.fsPath;
 
         try {
-            const data = await Git.blame(uri.repoPath, fileName, uri.sha, { ignoreWhitespace: this.config.blame.ignoreWhitespace, startLine: line + 1, endLine: line + 1 });
+            const data = await Git.blame(uri.repoPath, fileName, uri.sha, { ignoreWhitespace: this.config.blame.ignoreWhitespace, startLine: lineToBlame, endLine: lineToBlame });
             const blame = GitBlameParser.parse(data, uri.repoPath, fileName);
             if (blame === undefined) return undefined;
 
@@ -601,7 +677,49 @@ export class GitService extends Disposable {
                 line: blame.lines[line]
             } as GitBlameLine;
         }
-        catch (ex) {
+        catch {
+            return undefined;
+        }
+    }
+
+    async getBlameForLineContents(uri: GitUri, line: number, contents: string): Promise<GitBlameLine | undefined> {
+        Logger.log(`getBlameForLineContents('${uri.repoPath}', '${uri.fsPath}', ${line})`);
+
+        if (this.UseCaching) {
+            const blame = await this.getBlameForFileContents(uri, contents);
+            if (blame === undefined) return undefined;
+
+            let blameLine = blame.lines[line];
+            if (blameLine === undefined) {
+                if (blame.lines.length !== line) return undefined;
+                blameLine = blame.lines[line - 1];
+            }
+
+            const commit = blame.commits.get(blameLine.sha);
+            if (commit === undefined) return undefined;
+
+            return {
+                author: { ...blame.authors.get(commit.author), lineCount: commit.lines.length },
+                commit: commit,
+                line: blameLine
+            } as GitBlameLine;
+        }
+
+        const lineToBlame = line + 1;
+        const fileName = uri.fsPath;
+
+        try {
+            const data = await Git.blame_contents(uri.repoPath, fileName, contents, { ignoreWhitespace: this.config.blame.ignoreWhitespace, startLine: lineToBlame, endLine: lineToBlame });
+            const blame = GitBlameParser.parse(data, uri.repoPath, fileName);
+            if (blame === undefined) return undefined;
+
+            return {
+                author: Iterables.first(blame.authors.values()),
+                commit: Iterables.first(blame.commits.values()),
+                line: blame.lines[line]
+            } as GitBlameLine;
+        }
+        catch {
             return undefined;
         }
     }
@@ -618,10 +736,10 @@ export class GitService extends Disposable {
     getBlameForRangeSync(blame: GitBlame, uri: GitUri, range: Range): GitBlameLines | undefined {
         Logger.log(`getBlameForRangeSync('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}', [${range.start.line}, ${range.end.line}])`);
 
-        if (blame.lines.length === 0) return Object.assign({ allLines: blame.lines }, blame);
+        if (blame.lines.length === 0) return { allLines: blame.lines, ...blame };
 
         if (range.start.line === 0 && range.end.line === blame.lines.length - 1) {
-            return Object.assign({ allLines: blame.lines }, blame);
+            return { allLines: blame.lines, ...blame };
         }
 
         const lines = blame.lines.slice(range.start.line, range.end.line + 1);
@@ -778,7 +896,7 @@ export class GitService extends Disposable {
                     errorMessage: msg
                 } as CachedDiff);
 
-                return await GitService.emptyPromise as GitDiff;
+                return GitService.emptyPromise as Promise<GitDiff>;
             }
 
             return undefined;
@@ -982,7 +1100,7 @@ export class GitService extends Disposable {
     private async getLogForFileCore(repoPath: string | undefined, fileName: string, options: { maxCount?: number, range?: Range, ref?: string, reverse?: boolean, skipMerges?: boolean }, entry: GitCacheEntry | undefined, key: string): Promise<GitLog | undefined> {
         if (!(await this.isTracked(fileName, repoPath, options.ref))) {
             Logger.log(`Skipping log; '${fileName}' is not tracked`);
-            return await GitService.emptyPromise as GitLog;
+            return GitService.emptyPromise as Promise<GitLog>;
         }
 
         const [file, root] = Git.splitPath(fileName, repoPath, false);
@@ -1015,7 +1133,7 @@ export class GitService extends Disposable {
                     errorMessage: msg
                 } as CachedLog);
 
-                return await GitService.emptyPromise as GitLog;
+                return GitService.emptyPromise as Promise<GitLog>;
             }
 
             return undefined;
