@@ -2857,7 +2857,7 @@
             {
                 "command": "gitlens.key.escape",
                 "key": "escape",
-                "when": "gitlens:key:escape"
+                "when": "gitlens:key:escape && editorTextFocus && !findWidgetVisible && !renameInputVisible && !suggestWidgetVisible && !isInEmbeddedEditor"
             },
             {
                 "command": "gitlens.toggleFileBlame",
