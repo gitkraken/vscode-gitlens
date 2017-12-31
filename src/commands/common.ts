@@ -49,6 +49,7 @@ export enum Commands {
     StashSave = 'gitlens.stashSave',
     ToggleCodeLens = 'gitlens.toggleCodeLens',
     ToggleFileBlame = 'gitlens.toggleFileBlame',
+    ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
     ToggleFileRecentChanges = 'gitlens.toggleFileRecentChanges',
     ToggleLineBlame = 'gitlens.toggleLineBlame'
 }

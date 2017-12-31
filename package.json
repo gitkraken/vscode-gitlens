@@ -1215,6 +1215,11 @@
                 }
             },
             {
+                "command": "gitlens.toggleFileHeatmap",
+                "title": "Toggle File Heatmap Annotations",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.toggleFileRecentChanges",
                 "title": "Toggle Recent File Changes Annotations",
                 "category": "GitLens",
@@ -1675,6 +1680,10 @@
                 {
                     "command": "gitlens.computingFileAnnotations",
                     "when": "false"
+                },
+                {
+                    "command": "gitlens.toggleFileHeatmap",
+                    "when": "gitlens:activeIsBlameable"
                 },
                 {
                     "command": "gitlens.toggleFileRecentChanges",

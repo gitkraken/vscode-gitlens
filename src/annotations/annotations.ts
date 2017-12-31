@@ -207,6 +207,28 @@ export class Annotations {
         } as IRenderOptions;
     }
 
+    static heatmap(commit: GitCommit, now: number, renderOptions: IRenderOptions): DecorationOptions {
+        const decoration = {
+            renderOptions: {
+                before: { ...renderOptions }
+            } as DecorationInstanceRenderOptions
+        } as DecorationOptions;
+
+        Annotations.applyHeatmap(decoration, commit.date, now);
+
+        return decoration;
+    }
+
+    static heatmapRenderOptions(): IRenderOptions {
+        return {
+            borderStyle: 'solid',
+            borderWidth: '0 0 0 2px',
+            contentText: GlyphChars.ZeroWidthSpace,
+            height: '100%',
+            margin: '0 26px -1px 0'
+        } as IRenderOptions;
+    }
+
     static hover(commit: GitCommit, renderOptions: IRenderOptions, now: number): DecorationOptions {
         const decoration = {
             renderOptions: { before: { ...renderOptions } }

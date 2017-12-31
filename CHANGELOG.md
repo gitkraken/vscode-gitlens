@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 ### Added
+- Adds on-demand **heatmap annotations** of the whole file -- closes [#182](https://github.com/eamodio/vscode-gitlens/issues/182)
+  - Displays a `heatmap` (age) indicator near the gutter, which provides an easy, at-a-glance way to tell the age of a line
+    - Indicator ranges from bright yellow (newer) to dark brown (older)
+  - Press `Escape` to quickly toggle the annotations off
+- Adds `Toggle File Heatmap Annotations` command (`gitlens.toggleFileHeatmap`) to toggle the heatmap annotations on and off
 - Adds semi-persistent results for commit operations, via the `Show Commit Details` command (`gitlens.showQuickCommitDetails`) in the `GitLens Results` view -- closes [#237](https://github.com/eamodio/vscode-gitlens/issues/237)
 - Adds `Show in Results` option to the commit details quick pick menu to show the commit in the `GitLens Results` view
 - Adds `Compare with Index (HEAD)` command (`gitlens.explorers.compareWithHead`) to branch, remote branch, tag, and revision (commit) nodes in the `GitLens` view to compare the current selection with the current index (HEAD) in the `GitLens Results` view

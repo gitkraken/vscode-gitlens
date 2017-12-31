@@ -7,6 +7,7 @@ import { configuration, IConfig, LineHighlightLocations } from '../configuration
 import { CommandContext, isTextEditor, setCommandContext } from '../constants';
 import { BlameabilityChangeEvent, GitContextTracker, GitService, GitUri } from '../gitService';
 import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
+import { HeatmapBlameAnnotationProvider } from './heatmapBlameAnnotationProvider';
 import { HoverBlameAnnotationProvider } from './hoverBlameAnnotationProvider';
 import { Keyboard, KeyboardScope, KeyCommand, Keys } from '../keyboard';
 import { Logger } from '../logger';
@@ -15,6 +16,7 @@ import * as path from 'path';
 
 export enum FileAnnotationType {
     Gutter = 'gutter',
+    Heatmap = 'heatmap',
     Hover = 'hover',
     RecentChanges = 'recentChanges'
 }
@@ -343,6 +345,10 @@ export class AnnotationController extends Disposable {
                     annotationsLabel = 'blame annotations';
                     break;
 
+                case FileAnnotationType.Heatmap:
+                    annotationsLabel = 'heatmap annotations';
+                    break;
+
                 case FileAnnotationType.RecentChanges:
                     annotationsLabel = 'recent changes annotations';
                     break;
@@ -360,6 +366,10 @@ export class AnnotationController extends Disposable {
         switch (type) {
             case FileAnnotationType.Gutter:
                 provider = new GutterBlameAnnotationProvider(this.context, editor, Decorations.blameAnnotation, Decorations.blameHighlight, this.git, gitUri);
+                break;
+
+            case FileAnnotationType.Heatmap:
+                provider = new HeatmapBlameAnnotationProvider(this.context, editor, Decorations.blameAnnotation, undefined, this.git, gitUri);
                 break;
 
             case FileAnnotationType.Hover:

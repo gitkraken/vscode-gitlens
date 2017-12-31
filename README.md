@@ -93,6 +93,15 @@ While GitLens is highly customizable and provides many [configuration settings](
 - Adds a `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`) to toggle the current line blame annotations on and off
   - Also adds a `Show Line Blame Annotations` command (`gitlens.showLineBlame`)
 
+### Git Heatmap Annotations
+
+- Adds on-demand **heatmap annotations** of the whole file
+  - Displays a `heatmap` (age) indicator near the gutter, which provides an easy, at-a-glance way to tell the age of a line
+    - Indicator ranges from bright yellow (newer) to dark brown (older)
+  - Press `Escape` to quickly toggle the annotations off
+
+- Adds `Toggle File Heatmap Annotations` command (`gitlens.toggleFileHeatmap`) to toggle the heatmap annotations on and off
+
 ### Git Recent Changes Annotations
 
 - Adds on-demand, [customizable](#file-recent-changes-annotation-settings) and [themable](#themable-colors), **recent changes annotations** of the whole file

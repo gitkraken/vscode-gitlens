@@ -47,6 +47,7 @@ export * from './commands/stashDelete';
 export * from './commands/stashSave';
 export * from './commands/toggleCodeLens';
 export * from './commands/toggleFileBlame';
+export * from './commands/toggleFileHeatmap';
 export * from './commands/toggleFileRecentChanges';
 export * from './commands/toggleLineBlame';
 
@@ -87,6 +88,7 @@ export function configureCommands(
     context.subscriptions.push(new Commands.ShowFileBlameCommand(annotationController));
     context.subscriptions.push(new Commands.ShowLineBlameCommand(currentLineController));
     context.subscriptions.push(new Commands.ToggleFileBlameCommand(annotationController));
+    context.subscriptions.push(new Commands.ToggleFileHeatmapCommand(annotationController));
     context.subscriptions.push(new Commands.ToggleFileRecentChangesCommand(annotationController));
     context.subscriptions.push(new Commands.ToggleLineBlameCommand(currentLineController));
     context.subscriptions.push(new Commands.ResetSuppressedWarningsCommand());
