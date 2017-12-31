@@ -1040,6 +1040,19 @@ export class GitService extends Disposable {
         return repository.hasRemotes();
     }
 
+    async getMergeBase(repoPath: string, ref1: string, ref2: string, options: { forkPoint?: boolean } = {}) {
+        try {
+            const data = await Git.merge_base(repoPath, ref1, ref2, options);
+            if (data === undefined) return undefined;
+
+            return data.split('\n')[0];
+        }
+        catch (ex) {
+            Logger.error(ex, 'GitService.getMergeBase');
+            return undefined;
+        }
+    }
+
     async getRemotes(repoPath: string | undefined): Promise<GitRemote[]> {
         if (repoPath === undefined) return [];
 

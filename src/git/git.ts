@@ -437,6 +437,15 @@ export class Git {
         }
     }
 
+    static merge_base(repoPath: string, ref1: string, ref2: string, options: { forkPoint?: boolean } = {}) {
+        const params = [`merge-base`];
+        if (options.forkPoint) {
+            params.push(`--fork-point`);
+        }
+
+        return gitCommand({ cwd: repoPath }, ...params, ref1, ref2);
+    }
+
     static remote(repoPath: string): Promise<string> {
         return gitCommand({ cwd: repoPath }, 'remote', '-v');
     }
