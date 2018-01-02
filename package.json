@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "7.1.0",
+    "version": "7.2.0",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -3051,24 +3051,23 @@
         "lodash.debounce": "4.0.8",
         "lodash.once": "4.1.1",
         "tmp": "0.0.33",
-        "tslib": "^1.8.1"
+        "tslib": "1.8.1"
     },
     "devDependencies": {
         "@types/copy-paste": "1.1.30",
-        "@types/iconv-lite": "0.0.1",
         "@types/node": "8.5.2",
         "@types/tmp": "0.0.33",
-        "husky": "^0.14.3",
-        "rollup": "^0.53.1",
-        "rollup-plugin-typescript2": "^0.9.0",
-        "rollup-plugin-uglify": "^2.0.1",
-        "ts-loader": "^3.2.0",
+        "husky": "0.14.3",
+        "rollup": "0.53.2",
+        "rollup-plugin-typescript2": "0.9.0",
+        "rollup-plugin-uglify": "2.0.1",
+        "ts-loader": "3.2.0",
         "tslint": "5.8.0",
         "typescript": "2.6.2",
-        "uglify-es": "3.3.3",
-        "uglifyjs-webpack-plugin": "^1.1.5",
+        "uglify-es": "3.3.4",
+        "uglifyjs-webpack-plugin": "1.1.5",
         "vscode": "1.1.10",
-        "webpack": "^3.10.0",
-        "webpack-node-externals": "^1.6.0"
+        "webpack": "3.10.0",
+        "webpack-node-externals": "1.6.0"
     }
 }
