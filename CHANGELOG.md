@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds `gitlens.defaultDateStyle` setting to specify how dates will be displayed by default -- closes [#89](https://github.com/eamodio/vscode-gitlens/issues/89)
 
+### Fixed
+- Fixes issue where the `GitLens Results` view wouldn't properly update when replacing existing results
+
 ## [7.2.0] - 2018-01-01
 ### Added
 - Adds on-demand **heatmap annotations** of the whole file -- closes [#182](https://github.com/eamodio/vscode-gitlens/issues/182)

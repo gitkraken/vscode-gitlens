@@ -179,6 +179,8 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
 
         this._roots.forEach(r => r.dispose());
         this._roots = [];
+
+        this.refresh();
     }
 
     private clearResultsNode(node: ExplorerNode) {
