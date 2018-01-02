@@ -1,5 +1,5 @@
 'use strict';
-import { Objects } from './system';
+import { Objects, Versions } from './system';
 import { ConfigurationTarget, ExtensionContext, extensions, languages, window, workspace } from 'vscode';
 import { AnnotationController } from './annotations/annotationController';
 import { configuration, Configuration, IConfig } from './configuration';
@@ -100,37 +100,51 @@ export async function activate(context: ExtensionContext) {
 // this method is called when your extension is deactivated
 export function deactivate() { }
 
-const migration = {
-    major: 6,
-    minor: 1,
-    patch: 2
-};
-
 async function migrateSettings(context: ExtensionContext, previousVersion: string | undefined) {
     if (previousVersion === undefined) return;
 
-    const [major, minor, patch] = previousVersion.split('.');
-    if (parseInt(major, 10) >= migration.major && parseInt(minor, 10) >= migration.minor && parseInt(patch, 10) >= migration.patch) return;
+    const previous = Versions.fromString(previousVersion);
 
     try {
-        const section = configuration.name('advanced')('messages').value;
-        const messages: { [key: string]: boolean } = configuration.get(section);
+        if (Versions.compare(previous, Versions.from(6, 1, 2)) !== 1) {
+            try {
+                const section = configuration.name('advanced')('messages').value;
+                const messages: { [key: string]: boolean } = configuration.get(section);
 
-        let migrated = false;
+                let migrated = false;
 
-        for (const m of Objects.values(SuppressedMessages)) {
-            const suppressed = context.globalState.get<boolean>(m);
-            if (suppressed === undefined) continue;
+                for (const m of Objects.values(SuppressedMessages)) {
+                    const suppressed = context.globalState.get<boolean>(m);
+                    if (suppressed === undefined) continue;
 
-            migrated = true;
-            messages[m] = suppressed;
+                    migrated = true;
+                    messages[m] = suppressed;
 
-            context.globalState.update(m, undefined);
+                    context.globalState.update(m, undefined);
+                }
+
+                if (!migrated) return;
+
+                await configuration.update(section, messages, ConfigurationTarget.Global);
+            }
+            catch (ex) {
+                Logger.error(ex, 'migrateSettings - messages');
+            }
         }
 
-        if (!migrated) return;
-
-        await configuration.update(section, messages, ConfigurationTarget.Global);
+        if (Versions.compare(previous, Versions.from(7, 1, 0)) !== 1) {
+            // https://github.com/eamodio/vscode-gitlens/issues/239
+            const section = configuration.name('advanced')('quickPick')('closeOnFocusOut').value;
+            const inspection = configuration.inspect(section);
+            if (inspection !== undefined) {
+                if (inspection.globalValue !== undefined) {
+                    await configuration.update(section, !inspection.globalValue, ConfigurationTarget.Global);
+                }
+                else if (inspection.workspaceFolderValue !== undefined) {
+                    await configuration.update(section, !inspection.workspaceFolderValue, ConfigurationTarget.WorkspaceFolder);
+                }
+            }
+        }
     }
     catch (ex) {
         Logger.error(ex, 'migrateSettings');

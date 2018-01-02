@@ -10,7 +10,7 @@ import { Keyboard, KeyboardScope, KeyMapping, Keys } from '../keyboard';
 import { ResultsExplorer } from '../views/resultsExplorer';
 
 export function getQuickPickIgnoreFocusOut() {
-    return configuration.get<boolean>(configuration.name('advanced')('quickPick')('closeOnFocusOut').value);
+    return !configuration.get<boolean>(configuration.name('advanced')('quickPick')('closeOnFocusOut').value);
 }
 
 export function showQuickPickProgress(message: string, mapping?: KeyMapping): CancellationTokenSource {

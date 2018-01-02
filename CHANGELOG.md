@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves startup performance and reduces package size
 
 ### Fixed
+- Fixes [#239](https://github.com/eamodio/vscode-gitlens/issues/239) - `gitlens.advanced.quickPick.closeOnFocusOut` setting should be reversed
 - Fixes [#208](https://github.com/eamodio/vscode-gitlens/issues/208) - Gitlens doesn't work over UNC
 
 ## [7.1.0] - 2017-12-22

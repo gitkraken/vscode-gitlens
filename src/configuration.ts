@@ -526,8 +526,10 @@ export class Configuration {
         affectsConfiguration: (section: string, resource?: Uri) => false
     };
 
-    get<T>(section?: string, resource?: Uri | null) {
-        return workspace.getConfiguration(section === undefined ? undefined : ExtensionKey, resource!).get<T>(section === undefined ? ExtensionKey : section)!;
+    get<T>(section?: string, resource?: Uri | null, defaultValue?: T) {
+        return defaultValue === undefined
+            ? workspace.getConfiguration(section === undefined ? undefined : ExtensionKey, resource!).get<T>(section === undefined ? ExtensionKey : section)!
+            : workspace.getConfiguration(section === undefined ? undefined : ExtensionKey, resource!).get<T>(section === undefined ? ExtensionKey : section, defaultValue)!;
     }
 
     changed(e: ConfigurationChangeEvent, section: string, resource?: Uri | null) {
@@ -536,6 +538,10 @@ export class Configuration {
 
     initializing(e: ConfigurationChangeEvent) {
         return e === this.initializingChangeEvent;
+    }
+
+    inspect(section?: string, resource?: Uri | null) {
+        return workspace.getConfiguration(section === undefined ? undefined : ExtensionKey, resource!).inspect(section === undefined ? ExtensionKey : section);
     }
 
     name<K extends keyof IConfig>(name: K) {
