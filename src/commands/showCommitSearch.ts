@@ -13,7 +13,7 @@ const searchByRegex = /^([@~=:#])/;
 const searchByMap = new Map<string, GitRepoSearchBy>([
     ['@', GitRepoSearchBy.Author],
     ['~', GitRepoSearchBy.Changes],
-    ['=', GitRepoSearchBy.ChangesOccurrences],
+    ['=', GitRepoSearchBy.ChangedOccurrences],
     [':', GitRepoSearchBy.Files],
     ['#', GitRepoSearchBy.Sha]
 ]);
@@ -63,7 +63,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
             args.search = await window.showInputBox({
                 value: args.search,
                 prompt: `Please enter a search string`,
-                placeHolder: `search by message, author (use @<name>), files (use :<pattern>), or commit id (use #<sha>)`
+                placeHolder: `search by message, author (@<pattern>), files (:<pattern>), commit id (#<sha>), changes (~<pattern>), or changed occurrences (=<string>)`
             } as InputBoxOptions);
             if (args.search === undefined) return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
 
@@ -96,8 +96,8 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                 searchLabel = `commits with changes matching '${args.search}'`;
                 break;
 
-            case GitRepoSearchBy.ChangesOccurrences:
-                searchLabel = `commits with changes (new occurrences) matching '${args.search}'`;
+            case GitRepoSearchBy.ChangedOccurrences:
+                searchLabel = `commits with changed occurrences matching '${args.search}'`;
                 break;
 
             case GitRepoSearchBy.Files:

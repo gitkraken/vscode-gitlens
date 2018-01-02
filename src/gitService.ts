@@ -62,8 +62,8 @@ enum RemoveCacheReason {
 
 export enum GitRepoSearchBy {
     Author = 'author',
+    ChangedOccurrences = 'changed-occurrences',
     Changes = 'changes',
-    ChangesOccurrences = 'changes-occurrences',
     Files = 'files',
     Message = 'message',
     Sha = 'sha'
@@ -1002,11 +1002,11 @@ export class GitService extends Disposable {
             case GitRepoSearchBy.Author:
                 searchArgs = [`--author=${search}`];
                 break;
+            case GitRepoSearchBy.ChangedOccurrences:
+                searchArgs = [`-S${search}`, '--pickaxe-regex'];
+                break;
             case GitRepoSearchBy.Changes:
                 searchArgs = [`-G${search}`];
-                break;
-            case GitRepoSearchBy.ChangesOccurrences:
-                searchArgs = [`-S${search}`, '--pickaxe-regex'];
                 break;
             case GitRepoSearchBy.Files:
                 searchArgs = [`--`, `${search}`];

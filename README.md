@@ -210,11 +210,11 @@ While GitLens is highly customizable and provides many [configuration settings](
 
 - Adds a `Search Commits` command (`gitlens.showCommitSearch`) with a shortcut of `alt+/` to search for commits by message, author, file(s), commit id, or code changes
   - Use `<message>` to search for commits with messages that match `<message>` -- See [Git docs](https://git-scm.com/docs/git-log#git-log---grepltpatterngt)
-  - Use `@<name>` to search for commits with authors that match `<name>` -- See [Git docs](https://git-scm.com/docs/git-log#git-log---authorltpatterngt)
+  - Use `@<pattern>` to search for commits with authors that match `<pattern>` -- See [Git docs](https://git-scm.com/docs/git-log#git-log---authorltpatterngt)
   - Use `:<pattern>` to search for commits with file names that match `<pattern>` -- See [Git docs](https://git-scm.com/docs/git-log)
   - Use `#<sha>` to search for a commit with id of `<sha>` -- See [Git docs](https://git-scm.com/docs/git-log)
-  - Use `~<regex>` to search for commits with differences whose patch text contains added/removed lines that match `<regex>` -- See [Git docs](https://git-scm.com/docs/git-log#git-log--Gltregexgt)
-  - Use `=<regex>` to search for commits with differences that change the number of occurrences of the specified string (i.e. addition/deletion) in a file -- See [Git docs](https://git-scm.com/docs/git-log#git-log--Sltstringgt)
+  - Use `~<pattern>` to search for commits with differences whose patch text contains added/removed lines that match `<pattern>` -- See [Git docs](https://git-scm.com/docs/git-log#git-log--Gltregexgt)
+  - Use `=<string>` to search for commits with differences that change the number of occurrences of the specified string (i.e. addition/deletion) in a file -- See [Git docs](https://git-scm.com/docs/git-log#git-log--Sltstringgt)
   - Provides a `Show in Results` option to show the search results in the `GitLens Results` view
 
 - Adds an on-demand, [customizable](#gitlens-results-view-settings) `GitLens Results` view to the Explorer activity

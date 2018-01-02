@@ -24,14 +24,7 @@ export class CommitNode extends ExplorerRefNode {
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        const repoPath = this.repoPath;
-
-        const log = await this.explorer.git.getLogForRepo(repoPath, { maxCount: 1, ref: this.commit.sha });
-        if (log === undefined) return [];
-
-        const commit = Iterables.first(log.commits.values());
-        if (commit === undefined) return [];
-
+        const commit = this.commit;
         let children: IFileExplorerNode[] = [
             ...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit.toFileCommit(s), this.explorer, CommitFileNodeDisplayAs.File))
         ];
@@ -40,7 +33,7 @@ export class CommitNode extends ExplorerRefNode {
             const hierarchy = Arrays.makeHierarchical(children, n => n.uri.getRelativePath().split('/'),
             (...paths: string[]) => GitService.normalizePath(path.join(...paths)), this.explorer.config.files.compact);
 
-            const root = new FolderNode(repoPath, '', undefined, hierarchy, this.explorer);
+            const root = new FolderNode(this.repoPath, '', undefined, hierarchy, this.explorer);
             children = await root.getChildren() as IFileExplorerNode[];
         }
         else {

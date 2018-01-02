@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes issue where the `GitLens Results` view wouldn't properly update when replacing existing results
+- Fixes issue where showing commit search (file-based) results in the `GitLens Results` view wouldn't only show the matching files -- closes [#197](https://github.com/eamodio/vscode-gitlens/issues/197)
 
 ## [7.2.0] - 2018-01-01
 ### Added
