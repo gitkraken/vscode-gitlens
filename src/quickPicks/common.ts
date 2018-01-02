@@ -164,12 +164,12 @@ export class CommitQuickPickItem implements QuickPickItem {
         if (commit.isStash) {
             this.label = message;
             this.description = '';
-            this.detail = `${GlyphChars.Space} ${(commit as GitStashCommit).stashName || commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.fromNow()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`;
+            this.detail = `${GlyphChars.Space} ${(commit as GitStashCommit).stashName || commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`;
         }
         else {
             this.label = message;
             this.description = `${Strings.pad('$(git-commit)', 1, 1)} ${commit.shortSha}`;
-            this.detail = `${GlyphChars.Space} ${commit.author}, ${commit.fromNow()}${commit.isFile ? '' : ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`}`;
+            this.detail = `${GlyphChars.Space} ${commit.author}, ${commit.formattedDate}${commit.isFile ? '' : ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`}`;
         }
     }
 }

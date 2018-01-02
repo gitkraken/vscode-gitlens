@@ -4,7 +4,7 @@ import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, Range, TextD
 import { configuration, IConfig, IRemotesConfig } from './configuration';
 import { CommandContext, DocumentSchemes, setCommandContext } from './constants';
 import { RemoteProviderFactory, RemoteProviderMap } from './git/remotes/factory';
-import { Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitCommitType, GitDiff, GitDiffChunkLine, GitDiffParser, GitDiffShortStat, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, GitTag, GitTagParser, IGit, Repository } from './git/git';
+import { CommitFormatting, Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitCommitType, GitDiff, GitDiffChunkLine, GitDiffParser, GitDiffShortStat, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, GitTag, GitTagParser, IGit, Repository } from './git/git';
 import { GitUri, IGitCommitInfo } from './git/gitUri';
 import { Logger } from './logger';
 import * as fs from 'fs';
@@ -174,6 +174,11 @@ export class GitService extends Disposable {
                 this._documentKeyMap.clear();
                 this._gitCache.clear();
             }
+        }
+
+        if (initializing || configuration.changed(e, configuration.name('defaultDateStyle').value) ||
+            configuration.changed(e, configuration.name('defaultDateFormat').value)) {
+            CommitFormatting.reset();
         }
 
         this.config = cfg;

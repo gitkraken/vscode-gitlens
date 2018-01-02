@@ -302,7 +302,7 @@ export class CommitDetailsQuickPick {
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: `${commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.author ? `${commit.author}, ` : ''}${commit.fromNow()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.message}`,
+            placeHolder: `${commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.author ? `${commit.author}, ` : ''}${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.message}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
                 scope.setKeyCommand('right', item);

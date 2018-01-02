@@ -1,6 +1,7 @@
 'use strict';
 import { Dates, Strings } from '../../system';
 import { Uri } from 'vscode';
+import { configuration, DateStyle } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Git } from '../git';
 import { GitService } from '../../gitService';
@@ -27,6 +28,16 @@ export enum GitCommitType {
     Stash = 'stash',
     StashFile = 'stash-file'
 }
+
+export const CommitFormatting = {
+    dateFormat: undefined! as string | null,
+    dateStyle: undefined! as DateStyle,
+
+    reset: () => {
+        CommitFormatting.dateStyle = configuration.get<DateStyle>(configuration.name('defaultDateStyle').value);
+        CommitFormatting.dateFormat = configuration.get<string | null>(configuration.name('defaultDateFormat').value);
+    }
+};
 
 export abstract class GitCommit {
 
@@ -64,6 +75,12 @@ export abstract class GitCommit {
     get fileName() {
         // If we aren't a single-file commit, return an empty file name (makes it default to the repoPath)
         return this.isFile ? this._fileName : '';
+    }
+
+    get formattedDate(): string {
+        return CommitFormatting.dateStyle === DateStyle.Absolute
+            ? this.formatDate(CommitFormatting.dateFormat)
+            : this.fromNow();
     }
 
     get shortSha() {
@@ -126,7 +143,11 @@ export abstract class GitCommit {
 
     private _dateFormatter?: Dates.IDateFormatter;
 
-    formatDate(format: string) {
+    formatDate(format?: string | null) {
+        if (format == null) {
+            format = 'MMMM Do, YYYY h:MMa';
+        }
+
         if (this._dateFormatter === undefined) {
             this._dateFormatter = Dates.toFormatter(this.date);
         }

@@ -383,7 +383,8 @@ GitLens is highly customizable and provides many configuration settings to allow
 
 |Name | Description
 |-----|------------
-|`gitlens.defaultDateFormat`|Specifies how all absolute dates will be formatted by default<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
+|`gitlens.defaultDateFormat`|Specifies how absolute dates will be formatted by default<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
+|`gitlens.defaultDateStyle`|Specifies how dates will be displayed by default
 |`gitlens.insiders`|Opts into the insiders channel -- provides access to upcoming features
 |`gitlens.keymap`|Specifies the keymap to use for GitLens shortcut keys<br />`standard` - adds a standard set of shortcut keys<br />`chorded` - adds a chorded set of shortcut keys that all start with `Ctrl+Alt+G` (`⌥⌘G` on macOS)<br />`none` - no shortcut keys will be added
 |`gitlens.outputLevel`|Specifies how much (if any) output will be sent to the GitLens output channel

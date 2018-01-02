@@ -36,7 +36,9 @@ export class CodeLensController extends Disposable {
         const initializing = configuration.initializing(e);
 
         const section = configuration.name('codeLens').value;
-        if (initializing || configuration.changed(e, section, null)) {
+        if (initializing || configuration.changed(e, section, null) ||
+            configuration.changed(e, configuration.name('defaultDateStyle').value) ||
+            configuration.changed(e, configuration.name('defaultDateFormat').value)) {
             if (!initializing) {
                 Logger.log('CodeLens config changed; resetting CodeLens provider');
             }

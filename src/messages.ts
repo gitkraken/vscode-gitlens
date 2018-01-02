@@ -20,7 +20,7 @@ export class Messages {
 
     static showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<string | undefined> {
         if (commit === undefined) return Messages.showMessage('info', `Commit has no previous commit`, SuppressedMessages.CommitHasNoPreviousCommitWarning);
-        return Messages.showMessage('info', `Commit ${commit.shortSha} (${commit.author}, ${commit.fromNow()}) has no previous commit`, SuppressedMessages.CommitHasNoPreviousCommitWarning);
+        return Messages.showMessage('info', `Commit ${commit.shortSha} (${commit.author}, ${commit.formattedDate}) has no previous commit`, SuppressedMessages.CommitHasNoPreviousCommitWarning);
     }
 
     static showCommitNotFoundWarningMessage(message: string): Promise<string | undefined> {

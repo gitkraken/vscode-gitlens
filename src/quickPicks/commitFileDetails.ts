@@ -310,7 +310,7 @@ export class CommitFileDetailsQuickPick {
 
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
-            placeHolder: `${commit.getFormattedPath()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${isUncommitted ? `Uncommitted ${GlyphChars.ArrowRightHollow} ` : ''}${commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.author}, ${commit.fromNow()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.message}`,
+            placeHolder: `${commit.getFormattedPath()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${isUncommitted ? `Uncommitted ${GlyphChars.ArrowRightHollow} ` : ''}${commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.author}, ${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.message}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
                 scope.setKeyCommand('right', item as KeyCommand);

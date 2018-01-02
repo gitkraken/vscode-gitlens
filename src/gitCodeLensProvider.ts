@@ -289,7 +289,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         if (blame === undefined) return lens;
 
         const recentCommit = Iterables.first(blame.commits.values());
-        let title = `${recentCommit.author}, ${recentCommit.fromNow()}`;
+        let title = `${recentCommit.author}, ${recentCommit.formattedDate}`;
         if (this._debug) {
             title += ` [${SymbolKind[lens.symbolKind]}(${lens.range.start.character}-${lens.range.end.character}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Commit (${recentCommit.shortSha})]`;
         }

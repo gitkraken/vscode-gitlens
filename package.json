@@ -469,7 +469,17 @@
                 "gitlens.defaultDateFormat": {
                     "type": "string",
                     "default": null,
-                    "description": "Specifies how all absolute dates will be formatted by default\nSee https://momentjs.com/docs/#/displaying/format/ for valid formats",
+                    "description": "Specifies how absolute dates will be formatted by default\nSee https://momentjs.com/docs/#/displaying/format/ for valid formats",
+                    "scope": "window"
+                },
+                "gitlens.defaultDateStyle": {
+                    "type": "string",
+                    "default": "relative",
+                    "enum": [
+                        "relative",
+                        "absolute"
+                    ],
+                    "description": "Specifies how dates will be displayed by default",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.autoRefresh": {

@@ -38,6 +38,11 @@ export enum CustomRemoteType {
     GitLab = 'GitLab'
 }
 
+export enum DateStyle {
+    Absolute = 'absolute',
+    Relative = 'relative'
+}
+
 export enum ExplorerFilesLayout {
     Auto = 'auto',
     List = 'list',
@@ -274,6 +279,7 @@ export interface IConfig {
     codeLens: ICodeLensConfig;
 
     defaultDateFormat: string | null;
+    defaultDateStyle: DateStyle;
 
     gitExplorer: IGitExplorerConfig;
 
@@ -393,6 +399,7 @@ const emptyConfig: IConfig = {
         debug: false
     },
     defaultDateFormat: null,
+    defaultDateStyle: 'relative' as DateStyle,
     gitExplorer: {
         autoRefresh: false,
         enabled: false,
