@@ -1,11 +1,11 @@
 'use strict';
 import { Functions, Iterables } from '../system';
-import { ConfigurationChangeEvent, DecorationRangeBehavior, DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, Progress, ProgressLocation, TextDocument, TextDocumentChangeEvent, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, ThemeColor, window, workspace } from 'vscode';
+import { ConfigurationChangeEvent, DecorationRangeBehavior, DecorationRenderOptions, Disposable, Event, EventEmitter, ExtensionContext, OverviewRulerLane, Progress, ProgressLocation, TextDocument, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, ThemeColor, window, workspace } from 'vscode';
 import { AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
 import { TextDocumentComparer } from '../comparers';
 import { configuration, IConfig, LineHighlightLocations } from '../configuration';
 import { CommandContext, isTextEditor, setCommandContext } from '../constants';
-import { BlameabilityChangeEvent, GitContextTracker, GitService, GitUri } from '../gitService';
+import { BlameabilityChangeEvent, GitContextTracker, GitService, GitUri, LineDirtyStateChangeEvent } from '../gitService';
 import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
 import { HeatmapBlameAnnotationProvider } from './heatmapBlameAnnotationProvider';
 import { HoverBlameAnnotationProvider } from './hoverBlameAnnotationProvider';
@@ -168,11 +168,11 @@ export class AnnotationController extends Disposable {
                 if (provider === undefined) continue;
 
                 if (provider.annotationType === FileAnnotationType.RecentChanges) {
-                    provider.reset(Decorations.recentChangesAnnotation, Decorations.recentChangesHighlight);
+                    provider.reset({ decoration: Decorations.recentChangesAnnotation, highlightDecoration: Decorations.recentChangesHighlight });
                 }
                 else {
                     if (provider.annotationType === cfg.blame.file.annotationType) {
-                        provider.reset(Decorations.blameAnnotation, Decorations.blameHighlight);
+                        provider.reset({ decoration: Decorations.blameAnnotation, highlightDecoration: Decorations.blameHighlight });
                     }
                     else {
                         this.showAnnotations(provider.editor, cfg.blame.file.annotationType);
@@ -189,10 +189,14 @@ export class AnnotationController extends Disposable {
 
         const provider = this.getProvider(editor);
         if (provider === undefined) {
+            this.gitContextTracker.setLineTracking(editor, false);
+
             setCommandContext(CommandContext.AnnotationStatus, undefined);
             this.detachKeyboardHook();
         }
         else {
+            this.gitContextTracker.setLineTracking(editor, true);
+
             setCommandContext(CommandContext.AnnotationStatus, AnnotationStatus.Computed);
             this.attachKeyboardHook();
         }
@@ -204,13 +208,13 @@ export class AnnotationController extends Disposable {
         this.clear(e.editor, AnnotationClearReason.BlameabilityChanged);
     }
 
-    private onTextDocumentChanged(e: TextDocumentChangeEvent) {
-        if (!e.document.isDirty || !this.git.isTrackable(e.document.uri)) return;
+    private onLineDirtyStateChanged(e: LineDirtyStateChangeEvent) {
+        if (e.editor === undefined || !this.git.isTrackable(e.editor.document.uri)) return;
 
-        for (const [key, p] of this._annotationProviders) {
-            if (!TextDocumentComparer.equals(p.document, e.document)) continue;
+        for (const p of this._annotationProviders.values()) {
+            if (!TextDocumentComparer.equals(p.document, e.editor.document)) continue;
 
-            this.clearCore(key, AnnotationClearReason.DocumentClosed);
+            p.reset();
         }
     }
 
@@ -365,19 +369,19 @@ export class AnnotationController extends Disposable {
         let provider: AnnotationProviderBase | undefined = undefined;
         switch (type) {
             case FileAnnotationType.Gutter:
-                provider = new GutterBlameAnnotationProvider(this.context, editor, Decorations.blameAnnotation, Decorations.blameHighlight, this.git, gitUri);
+                provider = new GutterBlameAnnotationProvider(this.context, editor, this.gitContextTracker, Decorations.blameAnnotation, Decorations.blameHighlight, this.git, gitUri);
                 break;
 
             case FileAnnotationType.Heatmap:
-                provider = new HeatmapBlameAnnotationProvider(this.context, editor, Decorations.blameAnnotation, undefined, this.git, gitUri);
+                provider = new HeatmapBlameAnnotationProvider(this.context, editor, this.gitContextTracker, Decorations.blameAnnotation, undefined, this.git, gitUri);
                 break;
 
             case FileAnnotationType.Hover:
-                provider = new HoverBlameAnnotationProvider(this.context, editor, Decorations.blameAnnotation, Decorations.blameHighlight, this.git, gitUri);
+                provider = new HoverBlameAnnotationProvider(this.context, editor, this.gitContextTracker, Decorations.blameAnnotation, Decorations.blameHighlight, this.git, gitUri);
                 break;
 
             case FileAnnotationType.RecentChanges:
-                provider = new RecentChangesAnnotationProvider(this.context, editor, undefined, Decorations.recentChangesHighlight!, this.git, gitUri);
+                provider = new RecentChangesAnnotationProvider(this.context, editor, this.gitContextTracker, undefined, Decorations.recentChangesHighlight!, this.git, gitUri);
                 break;
         }
         if (provider === undefined || !(await provider.validate())) return false;
@@ -393,9 +397,9 @@ export class AnnotationController extends Disposable {
                 window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 50), this),
                 window.onDidChangeTextEditorViewColumn(this.onTextEditorViewColumnChanged, this),
                 window.onDidChangeVisibleTextEditors(this.onVisibleTextEditorsChanged, this),
-                workspace.onDidChangeTextDocument(Functions.debounce(this.onTextDocumentChanged, 50), this),
                 workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
-                this.gitContextTracker.onDidChangeBlameability(this.onBlameabilityChanged, this)
+                this.gitContextTracker.onDidChangeBlameability(this.onBlameabilityChanged, this),
+                this.gitContextTracker.onDidChangeLineDirtyState(this.onLineDirtyStateChanged, this)
             );
         }
 

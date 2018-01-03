@@ -33,13 +33,13 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
         }
 
         if (args.commit === undefined || GitService.isUncommitted(args.commit.sha)) {
-            if (editor !== undefined && editor.document !== undefined && editor.document.isDirty) return undefined;
-
             const blameline = args.line;
             if (blameline < 0) return undefined;
 
             try {
-                const blame = await this.git.getBlameForLine(gitUri, blameline);
+                const blame = editor && editor.document && editor.document.isDirty
+                    ? await this.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
+                    : await this.git.getBlameForLine(gitUri, blameline);
                 if (blame === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
 
                 args.commit = blame.commit;

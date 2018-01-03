@@ -3,8 +3,9 @@ import { Arrays, Iterables } from '../system';
 import { CancellationToken, Disposable, ExtensionContext, Hover, HoverProvider, languages, Position, Range, TextDocument, TextEditor, TextEditorDecorationType } from 'vscode';
 import { FileAnnotationType } from './annotationController';
 import { AnnotationProviderBase } from './annotationProvider';
-import { Annotations, endOfLineIndex } from './annotations';
-import { GitBlame, GitCommit, GitService, GitUri } from '../gitService';
+import { Annotations } from './annotations';
+import { RangeEndOfLineIndex } from '../constants';
+import { GitBlame, GitCommit, GitContextTracker, GitService, GitUri } from '../gitService';
 
 export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase {
 
@@ -14,19 +15,32 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
     constructor(
         context: ExtensionContext,
         editor: TextEditor,
+        gitContextTracker: GitContextTracker,
         decoration: TextEditorDecorationType | undefined,
         highlightDecoration: TextEditorDecorationType | undefined,
         protected readonly git: GitService,
         protected readonly uri: GitUri
     ) {
-        super(context, editor, decoration, highlightDecoration);
+        super(context, editor, gitContextTracker, decoration, highlightDecoration);
 
-        this._blame = this.git.getBlameForFile(this.uri);
+        this._blame = editor.document.isDirty
+            ? this.git.getBlameForFileContents(this.uri, editor.document.getText())
+            : this.git.getBlameForFile(this.uri);
     }
 
     async clear() {
         this._hoverProviderDisposable && this._hoverProviderDisposable.dispose();
         super.clear();
+    }
+
+    async reset(changes?: { decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined }) {
+        if (this.editor !== undefined) {
+            this._blame = this.editor.document.isDirty
+                ? this.git.getBlameForFileContents(this.uri, this.editor.document.getText())
+                : this.git.getBlameForFile(this.uri);
+        }
+
+        super.reset(changes);
     }
 
     async selection(shaOrLine?: string | number, blame?: GitBlame) {
@@ -57,7 +71,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         }
 
         const highlightDecorationRanges = Arrays.filterMap(blame.lines,
-            l => l.sha === sha ? this.editor.document.validateRange(new Range(l.line, 0, l.line, 1000000)) : undefined);
+            l => l.sha === sha ? this.editor.document.validateRange(new Range(l.line, 0, l.line, RangeEndOfLineIndex)) : undefined);
 
         this.editor.setDecorations(this.highlightDecoration, highlightDecorationRanges);
     }
@@ -104,7 +118,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         }
 
         const message = Annotations.getHoverMessage(logCommit || commit, this._config.defaultDateFormat, await this.git.hasRemote(commit.repoPath), this._config.blame.file.annotationType);
-        return new Hover(message, document.validateRange(new Range(position.line, 0, position.line, endOfLineIndex)));
+        return new Hover(message, document.validateRange(new Range(position.line, 0, position.line, RangeEndOfLineIndex)));
     }
 
     async provideChangesHover(document: TextDocument, position: Position, token: CancellationToken): Promise<Hover | undefined> {
@@ -112,7 +126,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         if (commit === undefined) return undefined;
 
         const hover = await Annotations.changesHover(commit, position.line, await GitUri.fromUri(document.uri, this.git), this.git);
-        return new Hover(hover.hoverMessage!, document.validateRange(new Range(position.line, 0, position.line, endOfLineIndex)));
+        return new Hover(hover.hoverMessage!, document.validateRange(new Range(position.line, 0, position.line, RangeEndOfLineIndex)));
     }
 
     private async getCommitForHover(position: Position): Promise<GitCommit | undefined> {

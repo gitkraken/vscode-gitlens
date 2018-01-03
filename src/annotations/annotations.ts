@@ -15,7 +15,6 @@ interface IRenderOptions extends DecorationInstanceRenderOptions, ThemableDecora
     uncommittedColor?: string | ThemeColor;
 }
 
-export const endOfLineIndex = 1000000;
 const escapeMarkdownRegEx = /[`\>\#\*\_\-\+\.]/g;
 // const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
 

@@ -10,7 +10,7 @@ import { Logger } from '../logger';
 
 export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
-    async provideAnnotation(shaOrLine?: string | number, type?: FileAnnotationType): Promise<boolean> {
+    async onProvideAnnotation(shaOrLine?: string | number, type?: FileAnnotationType): Promise<boolean> {
         this.annotationType = FileAnnotationType.Gutter;
 
         const blame = await this.getBlame();

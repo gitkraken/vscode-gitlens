@@ -40,8 +40,6 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: OpenCommitInRemoteCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
-        if (editor !== undefined && editor.document !== undefined && editor.document.isDirty) return undefined;
-
         const gitUri = await GitUri.fromUri(uri, this.git);
         if (!gitUri.repoPath) return undefined;
 
@@ -50,7 +48,9 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
                 const blameline = editor === undefined ? 0 : editor.selection.active.line;
                 if (blameline < 0) return undefined;
 
-                const blame = await this.git.getBlameForLine(gitUri, blameline);
+                const blame = editor && editor.document && editor.document.isDirty
+                    ? await this.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
+                    : await this.git.getBlameForLine(gitUri, blameline);
                 if (blame === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open commit in remote provider');
 
                 let commit = blame.commit;

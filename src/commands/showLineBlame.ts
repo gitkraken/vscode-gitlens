@@ -18,7 +18,7 @@ export class ShowLineBlameCommand extends EditorCommand {
     }
 
     async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, args: ShowLineBlameCommandArgs = {}): Promise<any> {
-        if (editor === undefined || editor.document.isDirty) return undefined;
+        if (editor === undefined) return undefined;
 
         try {
             if (args.type === undefined) {

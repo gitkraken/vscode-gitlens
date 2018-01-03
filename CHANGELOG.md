@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 ### Added
+- Adds experimental support for providing blame annotations, code lens, etc on files with unsaved changes (enabled via `"gitlens.insiders": true`) -- closes [#112](https://github.com/eamodio/vscode-gitlens/issues/112)
 - Adds `gitlens.defaultDateStyle` setting to specify how dates will be displayed by default -- closes [#89](https://github.com/eamodio/vscode-gitlens/issues/89)
 
 ### Fixed

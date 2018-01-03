@@ -13,8 +13,28 @@ interface IPropOfValue {
 }
 
 export namespace Functions {
-    export function debounce<T extends Function>(fn: T, wait?: number, options?: { leading?: boolean, maxWait?: number, trailing?: boolean }): T & IDeferred {
-        return _debounce(fn, wait, options);
+    export function debounce<T extends Function>(fn: T, wait?: number, options?: { leading?: boolean, maxWait?: number, track?: boolean, trailing?: boolean }): T & IDeferred & { pending?: () => boolean } {
+        const { track, ...opts } = { track: false, ...(options || {}) } as { leading?: boolean, maxWait?: number, track?: boolean, trailing?: boolean };
+
+        if (track !== true) return _debounce(fn, wait, opts);
+
+        let pending = false;
+
+        const debounced = _debounce(function() {
+            pending = false;
+            return fn.apply(null, arguments);
+        } as any as T, wait, options) as T & IDeferred;
+
+        const tracked = function() {
+            pending = true;
+            return debounced.apply(null, arguments);
+        } as any as T & IDeferred & { pending(): boolean};
+
+        tracked.pending = function() { return pending; };
+        tracked.cancel = function() { return debounced.cancel.apply(debounced, arguments); };
+        tracked.flush = function(...args: any[]) { return debounced.flush.apply(debounced, arguments); };
+
+        return tracked;
     }
 
     export function once<T extends Function>(fn: T): T {

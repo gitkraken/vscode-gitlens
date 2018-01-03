@@ -8,7 +8,7 @@ import { Logger } from '../logger';
 
 export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
-    async provideAnnotation(shaOrLine?: string | number, type?: FileAnnotationType): Promise<boolean> {
+    async onProvideAnnotation(shaOrLine?: string | number, type?: FileAnnotationType): Promise<boolean> {
         this.annotationType = FileAnnotationType.Heatmap;
 
         const blame = await this.getBlame();

@@ -1697,7 +1697,7 @@
                 },
                 {
                     "command": "gitlens.toggleFileRecentChanges",
-                    "when": "gitlens:activeIsTracked"
+                    "when": "gitlens:activeIsBlameable"
                 },
                 {
                     "command": "gitlens.toggleLineBlame",

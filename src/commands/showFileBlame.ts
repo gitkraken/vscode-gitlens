@@ -19,7 +19,7 @@ export class ShowFileBlameCommand extends EditorCommand {
     }
 
     async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, args: ShowFileBlameCommandArgs = {}): Promise<any> {
-        if (editor === undefined || editor.document.isDirty) return undefined;
+        if (editor === undefined) return undefined;
 
         try {
             if (args.type === undefined) {

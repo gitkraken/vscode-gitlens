@@ -9,6 +9,8 @@ export const QualifiedExtensionId = `eamodio.${ExtensionId}`;
 
 export const ApplicationInsightsKey = 'a9c302f8-6483-4d01-b92c-c159c799c679';
 
+export const RangeEndOfLineIndex = 100000000;
+
 export enum BuiltInCommands {
     CloseActiveEditor = 'workbench.action.closeActiveEditor',
     CloseAllEditors = 'workbench.action.closeAllEditors',

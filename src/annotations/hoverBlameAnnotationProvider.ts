@@ -8,7 +8,7 @@ import { Logger } from '../logger';
 
 export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
-    async provideAnnotation(shaOrLine?: string | number): Promise<boolean> {
+    async onProvideAnnotation(shaOrLine?: string | number): Promise<boolean> {
         this.annotationType = FileAnnotationType.Hover;
 
         const cfg = this._config.annotations.file.hover;

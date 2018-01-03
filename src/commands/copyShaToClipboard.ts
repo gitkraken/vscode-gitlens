@@ -50,13 +50,13 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
             const gitUri = await GitUri.fromUri(uri, this.git);
 
             if (args.sha === undefined) {
-                if (editor !== undefined && editor.document !== undefined && editor.document.isDirty) return undefined;
-
                 const blameline = (editor && editor.selection.active.line) || 0;
                 if (blameline < 0) return undefined;
 
                 try {
-                    const blame = await this.git.getBlameForLine(gitUri, blameline);
+                    const blame = editor && editor.document && editor.document.isDirty
+                        ? await this.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
+                        : await this.git.getBlameForLine(gitUri, blameline);
                     if (blame === undefined) return undefined;
 
                     args.sha = blame.commit.sha;
