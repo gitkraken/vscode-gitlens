@@ -384,9 +384,12 @@ export class Git {
             params.push(`-n${options.maxCount}`);
         }
 
-        // If we are looking for a specific sha don't exclude merge commits
-        if (options.skipMerges || !options.ref || options.maxCount! > 2) {
+        if (options.skipMerges) {
             params.push(`--no-merges`);
+        }
+        // If we are looking for a specific sha don't simplify merges
+        else if (!options.ref || options.maxCount! > 2) {
+            params.push(`--simplify-merges`);
         }
         else {
             params.push(`-m`);
