@@ -415,7 +415,7 @@ export class Git {
 
     static async log_resolve(repoPath: string, fileName: string, ref: string) {
         try {
-            const data = await gitCommandCore({ cwd: repoPath }, `log`, `--full-history`, `-M`, `-n1`, `--no-merges`, `--format=%H`, ref, `--`, fileName);
+            const data = await gitCommandCore({ cwd: repoPath }, `log`, `--full-history`, `-M`, `-n1`, `--format=%H`, ref, `--`, fileName);
             return data.trim();
         }
         catch {
