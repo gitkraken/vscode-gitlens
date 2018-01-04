@@ -382,12 +382,12 @@ export class Git {
         if (options.skipMerges) {
             params.push('--no-merges');
         }
-        // If we are looking for a specific sha don't simplify merges
-        else if (!options.ref || options.maxCount! > 2) {
-            params.push('--simplify-merges');
-        }
         else {
             params.push('-m');
+            // If we are looking for a specific sha don't simplify merges
+            if (!options.ref || options.maxCount! > 2) {
+                params.push('--simplify-merges');
+            }
         }
 
         if (options.ref && !Git.isStagedUncommitted(options.ref)) {
