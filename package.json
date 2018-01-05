@@ -1496,8 +1496,18 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.explorers.terminalMergeBranch",
+                "title": "Merge Branch (via Terminal)",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.explorers.terminalRebaseBranch",
+                "title": "Rebase (Interactive) Branch (via Terminal)",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.explorers.terminalRebaseBranchToRemote",
-                "title": "Rebase Branch to Remote (via Terminal)",
+                "title": "Rebase (Interactive) Branch to Remote (via Terminal)",
                 "category": "GitLens"
             },
             {
@@ -1506,18 +1516,38 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.explorers.terminalCherryPickCommit",
+                "title": "Cherry Pick Commit (via Terminal)",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.explorers.terminalRebaseCommit",
-                "title": "Rebase Commit (via Terminal)",
+                "title": "Rebase to Commit (via Terminal)",
                 "category": "GitLens"
             },
             {
                 "command": "gitlens.explorers.terminalResetCommit",
-                "title": "Reset Commit (via Terminal)",
+                "title": "Reset to Commit (via Terminal)",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.explorers.terminalRevertCommit",
+                "title": "Revert Commit (via Terminal)",
                 "category": "GitLens"
             },
             {
                 "command": "gitlens.explorers.terminalRemoveRemote",
                 "title": "Remove Remote (via Terminal)",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.explorers.terminalCreateTag",
+                "title": "Create Tag (via Terminal)...",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.explorers.terminalDeleteTag",
+                "title": "Delete Tag (via Terminal)",
                 "category": "GitLens"
             },
             {
@@ -1890,11 +1920,23 @@
                     "when": "false"
                 },
                 {
+                    "command": "gitlens.explorers.terminalMergeBranch",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.explorers.terminalRebaseBranch",
+                    "when": "false"
+                },
+                {
                     "command": "gitlens.explorers.terminalRebaseBranchToRemote",
                     "when": "false"
                 },
                 {
                     "command": "gitlens.explorers.terminalSquashBranchIntoCommit",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.explorers.terminalCherryPickCommit",
                     "when": "false"
                 },
                 {
@@ -1906,7 +1948,19 @@
                     "when": "false"
                 },
                 {
+                    "command": "gitlens.explorers.terminalRevertCommit",
+                    "when": "false"
+                },
+                {
                     "command": "gitlens.explorers.terminalRemoveRemote",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.explorers.terminalCreateTag",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.explorers.terminalDeleteTag",
                     "when": "false"
                 },
                 {
@@ -2329,12 +2383,12 @@
                     "group": "8_gitlens@1"
                 },
                 {
-                    "command": "gitlens.explorers.terminalCreateBranch",
+                    "command": "gitlens.explorers.terminalMergeBranch",
                     "when": "viewItem == gitlens:branch",
                     "group": "8_gitlens@2"
                 },
                 {
-                    "command": "gitlens.explorers.terminalDeleteBranch",
+                    "command": "gitlens.explorers.terminalRebaseBranch",
                     "when": "viewItem == gitlens:branch",
                     "group": "8_gitlens@3"
                 },
@@ -2342,6 +2396,21 @@
                     "command": "gitlens.explorers.terminalSquashBranchIntoCommit",
                     "when": "viewItem == gitlens:branch",
                     "group": "8_gitlens@4"
+                },
+                {
+                    "command": "gitlens.explorers.terminalCreateBranch",
+                    "when": "viewItem == gitlens:branch",
+                    "group": "8_gitlens@5"
+                },
+                {
+                    "command": "gitlens.explorers.terminalDeleteBranch",
+                    "when": "viewItem == gitlens:branch",
+                    "group": "8_gitlens@6"
+                },
+                {
+                    "command": "gitlens.explorers.terminalCreateTag",
+                    "when": "viewItem == gitlens:branch",
+                    "group": "8_gitlens@7"
                 },
                 {
                     "command": "gitlens.openBranchInRemote",
@@ -2389,12 +2458,12 @@
                     "group": "8_gitlens@1"
                 },
                 {
-                    "command": "gitlens.explorers.terminalCreateBranch",
+                    "command": "gitlens.explorers.terminalMergeBranch",
                     "when": "viewItem == gitlens:branch:tracking",
                     "group": "8_gitlens@2"
                 },
                 {
-                    "command": "gitlens.explorers.terminalDeleteBranch",
+                    "command": "gitlens.explorers.terminalRebaseBranch",
                     "when": "viewItem == gitlens:branch:tracking",
                     "group": "8_gitlens@3"
                 },
@@ -2402,6 +2471,21 @@
                     "command": "gitlens.explorers.terminalSquashBranchIntoCommit",
                     "when": "viewItem == gitlens:branch:tracking",
                     "group": "8_gitlens@4"
+                },
+                {
+                    "command": "gitlens.explorers.terminalCreateBranch",
+                    "when": "viewItem == gitlens:branch:tracking",
+                    "group": "8_gitlens@5"
+                },
+                {
+                    "command": "gitlens.explorers.terminalDeleteBranch",
+                    "when": "viewItem == gitlens:branch:tracking",
+                    "group": "8_gitlens@6"
+                },
+                {
+                    "command": "gitlens.explorers.terminalCreateTag",
+                    "when": "viewItem == gitlens:branch:tracking",
+                    "group": "8_gitlens@7"
                 },
                 {
                     "command": "gitlens.explorers.compareWithHead",
@@ -2432,6 +2516,11 @@
                     "command": "gitlens.explorers.terminalCreateBranch",
                     "when": "viewItem == gitlens:current-branch",
                     "group": "8_gitlens@1"
+                },
+                {
+                    "command": "gitlens.explorers.terminalCreateTag",
+                    "when": "viewItem == gitlens:current-branch",
+                    "group": "8_gitlens@2"
                 },
                 {
                     "command": "gitlens.openBranchInRemote",
@@ -2469,14 +2558,19 @@
                     "group": "7_gitlens_@3"
                 },
                 {
-                    "command": "gitlens.explorers.terminalCreateBranch",
+                    "command": "gitlens.explorers.terminalRebaseBranchToRemote",
                     "when": "viewItem == gitlens:current-branch:tracking",
                     "group": "8_gitlens@1"
                 },
                 {
-                    "command": "gitlens.explorers.terminalRebaseBranchToRemote",
+                    "command": "gitlens.explorers.terminalCreateBranch",
                     "when": "viewItem == gitlens:current-branch:tracking",
                     "group": "8_gitlens@2"
+                },
+                {
+                    "command": "gitlens.explorers.terminalCreateTag",
+                    "when": "viewItem == gitlens:current-branch:tracking",
+                    "group": "8_gitlens@3"
                 },
                 {
                     "command": "gitlens.openBranchInRemote",
@@ -2519,12 +2613,12 @@
                     "group": "8_gitlens@1"
                 },
                 {
-                    "command": "gitlens.explorers.terminalCreateBranch",
+                    "command": "gitlens.explorers.terminalMergeBranch",
                     "when": "viewItem == gitlens:remote-branch",
                     "group": "8_gitlens@2"
                 },
                 {
-                    "command": "gitlens.explorers.terminalDeleteBranch",
+                    "command": "gitlens.explorers.terminalRebaseBranch",
                     "when": "viewItem == gitlens:remote-branch",
                     "group": "8_gitlens@3"
                 },
@@ -2532,6 +2626,21 @@
                     "command": "gitlens.explorers.terminalSquashBranchIntoCommit",
                     "when": "viewItem == gitlens:remote-branch",
                     "group": "8_gitlens@4"
+                },
+                {
+                    "command": "gitlens.explorers.terminalCreateBranch",
+                    "when": "viewItem == gitlens:remote-branch",
+                    "group": "8_gitlens@5"
+                },
+                {
+                    "command": "gitlens.explorers.terminalDeleteBranch",
+                    "when": "viewItem == gitlens:remote-branch",
+                    "group": "8_gitlens@6"
+                },
+                {
+                    "command": "gitlens.explorers.terminalCreateTag",
+                    "when": "viewItem == gitlens:remote-branch",
+                    "group": "8_gitlens@7"
                 },
                 {
                     "command": "gitlens.openCommitInRemote",
@@ -2594,6 +2703,21 @@
                     "group": "7_gitlens_@2"
                 },
                 {
+                    "command": "gitlens.explorers.terminalCherryPickCommit",
+                    "when": "viewItem == gitlens:commit",
+                    "group": "8_gitlens@1"
+                },
+                {
+                    "command": "gitlens.explorers.terminalCreateBranch",
+                    "when": "viewItem == gitlens:commit",
+                    "group": "8_gitlens@2"
+                },
+                {
+                    "command": "gitlens.explorers.terminalCreateTag",
+                    "when": "viewItem == gitlens:commit",
+                    "group": "8_gitlens@3"
+                },
+                {
                     "command": "gitlens.openCommitInRemote",
                     "when": "viewItem == gitlens:commit:current && gitlens:hasRemotes",
                     "group": "1_gitlens@1"
@@ -2654,14 +2778,29 @@
                     "group": "7_gitlens_@2"
                 },
                 {
-                    "command": "gitlens.explorers.terminalRebaseCommit",
+                    "command": "gitlens.explorers.terminalRevertCommit",
                     "when": "viewItem == gitlens:commit:current",
                     "group": "8_gitlens@1"
                 },
                 {
-                    "command": "gitlens.explorers.terminalResetCommit",
+                    "command": "gitlens.explorers.terminalRebaseCommit",
                     "when": "viewItem == gitlens:commit:current",
                     "group": "8_gitlens@2"
+                },
+                {
+                    "command": "gitlens.explorers.terminalResetCommit",
+                    "when": "viewItem == gitlens:commit:current",
+                    "group": "8_gitlens@3"
+                },
+                {
+                    "command": "gitlens.explorers.terminalCreateBranch",
+                    "when": "viewItem == gitlens:commit:current",
+                    "group": "8_gitlens@4"
+                },
+                {
+                    "command": "gitlens.explorers.terminalCreateTag",
+                    "when": "viewItem == gitlens:commit:current",
+                    "group": "8_gitlens@5"
                 },
                 {
                     "command": "gitlens.explorers.openChanges",
@@ -2904,6 +3043,16 @@
                     "group": "8_gitlens@1"
                 },
                 {
+                    "command": "gitlens.explorers.terminalCreateBranch",
+                    "when": "viewItem == gitlens:status-upstream",
+                    "group": "8_gitlens@2"
+                },
+                {
+                    "command": "gitlens.explorers.terminalCreateTag",
+                    "when": "viewItem == gitlens:status-upstream",
+                    "group": "8_gitlens@3"
+                },
+                {
                     "command": "gitlens.explorers.compareWithHead",
                     "when": "viewItem == gitlens:tag",
                     "group": "7_gitlens@1"
@@ -2927,6 +3076,11 @@
                     "command": "gitlens.explorers.openDirectoryDiffWithWorking",
                     "when": "viewItem == gitlens:tag",
                     "group": "7_gitlens_diff@1"
+                },
+                {
+                    "command": "gitlens.explorers.terminalDeleteTag",
+                    "when": "viewItem == gitlens:tag",
+                    "group": "8_gitlens"
                 },
                 {
                     "command": "gitlens.gitExplorer.refreshNode",

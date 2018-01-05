@@ -10,6 +10,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `gitlens.defaultDateStyle` setting to specify how dates will be displayed by default -- closes [#89](https://github.com/eamodio/vscode-gitlens/issues/89)
 - Adds `Compare with Working` command (`gitlens.explorers.compareWithWorking`) to branch, tag, and revision (commit) nodes in the `GitLens` view to compare the current selection with the current working tree in the `GitLens Results` view
 - Adds `Compare Selected Base with Working` command (`gitlens.explorers.compareSelectedBaseWithWorking`) to branch nodes in the `GitLens` view once another branch within the same repository has been selected to compare the [merge base](https://git-scm.com/docs/git-merge-base) of current and previously selected branches with the working tree in the `GitLens Results` view -- closes [#240](https://github.com/eamodio/vscode-gitlens/issues/240)
+- Adds `Merge Branch (via Terminal)` command (`gitlens.explorers.terminalMergeBranch`) to branch nodes in the `GitLens` view
+- Adds `Rebase (Interactive) Branch (via Terminal)` command (`gitlens.explorers.terminalRebaseBranch`) to branch nodes in the `GitLens` view
+- Adds `Cherry Pick Commit (via Terminal)` command (`gitlens.explorers.terminalRebaseBranch`) to revision (commit) nodes in the `GitLens` & `GitLens Results` views
+- Adds `Revert Commit (via Terminal)` command (`gitlens.explorers.terminalRevertCommit`) to revision (commit) nodes in the `GitLens` & `GitLens Results` views
+- Adds `Create Tag (via Terminal)...` command (`gitlens.explorers.terminalCreateTag`) to branch and revision (commit) nodes in the `GitLens` & `GitLens Results` views
+- Adds `Delete Tag (via Terminal)` command (`gitlens.explorers.terminalDeleteTag`) to tag nodes in the `GitLens` views
+
+### Changed
+- Renames `Rebase Commit (via Terminal)` command (`gitlens.terminalRebaseCommit`) to `Rebase to Commit (via Terminal)`
+- Renames `Reset Commit (via Terminal)` command (`gitlens.terminalResetCommit`) to `Reset to Commit (via Terminal)`
 
 ### Fixed
 - Fixes issue where the `GitLens Results` view wouldn't properly update when replacing existing results
