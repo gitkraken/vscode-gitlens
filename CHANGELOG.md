@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [7.3.0-beta] - 2018-01-02
+## [7.3.0-beta2] - 2018-01-04
 ### Added
 - Adds experimental support for providing blame annotations, code lens, etc on files with unsaved changes (enabled via `"gitlens.insiders": true`) -- closes [#112](https://github.com/eamodio/vscode-gitlens/issues/112)
 - Adds `gitlens.defaultDateStyle` setting to specify how dates will be displayed by default -- closes [#89](https://github.com/eamodio/vscode-gitlens/issues/89)
