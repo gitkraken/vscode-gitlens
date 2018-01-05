@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issue where the `GitLens Results` view wouldn't properly update when replacing existing results
 - Fixes issue where showing commit search (file-based) results in the `GitLens Results` view wouldn't only show the matching files -- closes [#197](https://github.com/eamodio/vscode-gitlens/issues/197)
 - Fixes [#238](https://github.com/eamodio/vscode-gitlens/issues/238) - Show merge commits in file history
+- Fixes issue where the Tags node of the `GitLens` view wasn't updated on changes
 
 ## [7.2.0] - 2018-01-01
 ### Added
