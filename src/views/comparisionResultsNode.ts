@@ -21,7 +21,7 @@ export class ComparisionResultsNode extends ExplorerNode {
     async getChildren(): Promise<ExplorerNode[]> {
         this.resetChildren();
 
-        const commitsQueryFn = (maxCount: number | undefined) => this.explorer.git.getLogForRepo(this.uri.repoPath!, { maxCount: maxCount, ref: `${this.ref1}...${this.ref2}` });
+        const commitsQueryFn = (maxCount: number | undefined) => this.explorer.git.getLogForRepo(this.uri.repoPath!, { maxCount: maxCount, ref: `${this.ref1}...${this.ref2 || 'HEAD'}` });
         const commitsLabelFn = (log: GitLog | undefined) => {
             const count = log !== undefined ? log.count : 0;
             const truncated = log !== undefined ? log.truncated : false;
@@ -49,7 +49,7 @@ export class ComparisionResultsNode extends ExplorerNode {
     async getTreeItem(): Promise<TreeItem> {
         const repo = await this.explorer.git.getRepository(this.uri.repoPath!);
 
-        const item = new TreeItem(`Comparing ${GitService.shortenSha(this.ref1)} to ${GitService.shortenSha(this.ref2 || 'HEAD')} ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) || this.uri.repoPath}`, TreeItemCollapsibleState.Expanded);
+        const item = new TreeItem(`Comparing ${GitService.shortenSha(this.ref1)} to ${this.ref2 !== '' ? GitService.shortenSha(this.ref2) : 'Working Tree'} ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) || this.uri.repoPath}`, TreeItemCollapsibleState.Expanded);
         item.contextValue = ResourceType.ComparisonResults;
         return item;
     }

@@ -11,6 +11,12 @@ export interface RefreshNodeCommandArgs {
     maxCount?: number;
 }
 
+interface ICompareSelected {
+    ref: string;
+    repoPath: string | undefined;
+    type: 'branch' | 'ref';
+}
+
 export class ExplorerCommands extends Disposable {
 
     private _disposable: Disposable | undefined;
@@ -32,9 +38,11 @@ export class ExplorerCommands extends Disposable {
         commands.registerCommand('gitlens.explorers.openChangedFileChangesWithWorking', this.openChangedFileChangesWithWorking, this);
         commands.registerCommand('gitlens.explorers.openChangedFileRevisions', this.openChangedFileRevisions, this);
         commands.registerCommand('gitlens.explorers.applyChanges', this.applyChanges, this);
+        commands.registerCommand('gitlens.explorers.compareSelectedBaseWithWorking', this.compareSelectedBaseWithWorking, this);
         commands.registerCommand('gitlens.explorers.compareWithHead', this.compareWithHead, this);
         commands.registerCommand('gitlens.explorers.compareWithRemote', this.compareWithRemote, this);
         commands.registerCommand('gitlens.explorers.compareWithSelected', this.compareWithSelected, this);
+        commands.registerCommand('gitlens.explorers.compareWithWorking', this.compareWithWorking, this);
         commands.registerCommand('gitlens.explorers.selectForCompare', this.selectForCompare, this);
         commands.registerCommand('gitlens.explorers.terminalCheckoutBranch', this.terminalCheckoutBranch, this);
         commands.registerCommand('gitlens.explorers.terminalCreateBranch', this.terminalCreateBranch, this);
@@ -55,36 +63,54 @@ export class ExplorerCommands extends Disposable {
         return this.openFile(node);
     }
 
-    private async compareWithHead(node: ExplorerNode) {
+    private async compareSelectedBaseWithWorking(node: BranchNode) {
+        if (this._selection === undefined || !(node instanceof BranchNode)) return;
+        if (this._selection.repoPath !== node.repoPath || this._selection.type !== 'branch') return;
+
+        const base = await this.git.getMergeBase(this._selection.repoPath, this._selection.ref, node.ref);
+        if (base === undefined) return;
+
+        ResultsExplorer.instance.showComparisonInResults(this._selection.repoPath, base, '');
+    }
+
+    private compareWithHead(node: ExplorerNode) {
         if (!(node instanceof ExplorerRefNode)) return;
 
         ResultsExplorer.instance.showComparisonInResults(node.repoPath, node.ref, 'HEAD');
     }
 
-    private async compareWithRemote(node: BranchNode) {
+    private compareWithRemote(node: BranchNode) {
         if (!node.branch.tracking) return;
 
         ResultsExplorer.instance.showComparisonInResults(node.repoPath, node.branch.tracking, node.ref);
     }
 
-    private async compareWithSelected(node: ExplorerNode) {
+    private compareWithSelected(node: ExplorerNode) {
         if (this._selection === undefined || !(node instanceof ExplorerRefNode)) return;
         if (this._selection.repoPath !== node.repoPath) return;
 
         ResultsExplorer.instance.showComparisonInResults(this._selection.repoPath, this._selection.ref, node.ref);
     }
 
-    private _selection: { ref: string, repoPath: string | undefined } | undefined;
-
-    private async selectForCompare(node: ExplorerNode) {
+    private compareWithWorking(node: ExplorerNode) {
         if (!(node instanceof ExplorerRefNode)) return;
 
+        ResultsExplorer.instance.showComparisonInResults(node.repoPath, node.ref, '');
+    }
+
+    private _selection: ICompareSelected | undefined;
+
+    private selectForCompare(node: ExplorerNode) {
+        if (!(node instanceof ExplorerRefNode)) return;
+
+        const type = node instanceof BranchNode ? 'branch' : 'ref';
         this._selection = {
             ref: node.ref,
-            repoPath: node.repoPath
+            repoPath: node.repoPath,
+            type: type
         };
 
-        setCommandContext(CommandContext.ExplorersCanCompare, true);
+        setCommandContext(CommandContext.ExplorersCanCompare, type);
     }
 
     private openChanges(node: CommitNode | StashNode) {

@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds experimental support for providing blame annotations, code lens, etc on files with unsaved changes (enabled via `"gitlens.insiders": true`) -- closes [#112](https://github.com/eamodio/vscode-gitlens/issues/112)
 - Adds `gitlens.defaultDateStyle` setting to specify how dates will be displayed by default -- closes [#89](https://github.com/eamodio/vscode-gitlens/issues/89)
+- Adds `Compare with Working` command (`gitlens.explorers.compareWithWorking`) to branch, tag, and revision (commit) nodes in the `GitLens` view to compare the current selection with the current working tree in the `GitLens Results` view
+- Adds `Compare Selected Base with Working` command (`gitlens.explorers.compareSelectedBaseWithWorking`) to branch nodes in the `GitLens` view once another branch within the same repository has been selected to compare the [merge base](https://git-scm.com/docs/git-merge-base) of current and previously selected branches with the working tree in the `GitLens Results` view -- closes [#240](https://github.com/eamodio/vscode-gitlens/issues/240)
 
 ### Fixed
 - Fixes issue where the `GitLens Results` view wouldn't properly update when replacing existing results
@@ -22,7 +24,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `Toggle File Heatmap Annotations` command (`gitlens.toggleFileHeatmap`) to toggle the heatmap annotations on and off
 - Adds semi-persistent results for commit operations, via the `Show Commit Details` command (`gitlens.showQuickCommitDetails`) in the `GitLens Results` view -- closes [#237](https://github.com/eamodio/vscode-gitlens/issues/237)
 - Adds `Show in Results` option to the commit details quick pick menu to show the commit in the `GitLens Results` view
-- Adds `Compare with Index (HEAD)` command (`gitlens.explorers.compareWithHead`) to branch, remote branch, tag, and revision (commit) nodes in the `GitLens` view to compare the current selection with the current index (HEAD) in the `GitLens Results` view
+- Adds `Compare with Index (HEAD)` command (`gitlens.explorers.compareWithHead`) to branch, tag, and revision (commit) nodes in the `GitLens` view to compare the current selection with the current index (HEAD) in the `GitLens Results` view
 - Adds `Compare with Remote` command (`gitlens.explorers.compareWithRemote`) to branch nodes in the `GitLens` view to compare the current selection with its remote tracking branch in the `GitLens Results` view
 
 ### Changed
