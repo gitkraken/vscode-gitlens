@@ -38,7 +38,7 @@ export class ExplorerCommands extends Disposable {
         commands.registerCommand('gitlens.explorers.openChangedFileChangesWithWorking', this.openChangedFileChangesWithWorking, this);
         commands.registerCommand('gitlens.explorers.openChangedFileRevisions', this.openChangedFileRevisions, this);
         commands.registerCommand('gitlens.explorers.applyChanges', this.applyChanges, this);
-        commands.registerCommand('gitlens.explorers.compareSelectedBaseWithWorking', this.compareSelectedBaseWithWorking, this);
+        commands.registerCommand('gitlens.explorers.compareSelectedAncestorWithWorking', this.compareSelectedAncestorWithWorking, this);
         commands.registerCommand('gitlens.explorers.compareWithHead', this.compareWithHead, this);
         commands.registerCommand('gitlens.explorers.compareWithRemote', this.compareWithRemote, this);
         commands.registerCommand('gitlens.explorers.compareWithSelected', this.compareWithSelected, this);
@@ -69,16 +69,6 @@ export class ExplorerCommands extends Disposable {
         return this.openFile(node);
     }
 
-    private async compareSelectedBaseWithWorking(node: BranchNode) {
-        if (this._selection === undefined || !(node instanceof BranchNode)) return;
-        if (this._selection.repoPath !== node.repoPath || this._selection.type !== 'branch') return;
-
-        const base = await this.git.getMergeBase(this._selection.repoPath, this._selection.ref, node.ref);
-        if (base === undefined) return;
-
-        ResultsExplorer.instance.showComparisonInResults(this._selection.repoPath, base, '');
-    }
-
     private compareWithHead(node: ExplorerNode) {
         if (!(node instanceof ExplorerRefNode)) return;
 
@@ -91,17 +81,27 @@ export class ExplorerCommands extends Disposable {
         ResultsExplorer.instance.showComparisonInResults(node.repoPath, node.branch.tracking, node.ref);
     }
 
+    private compareWithWorking(node: ExplorerNode) {
+        if (!(node instanceof ExplorerRefNode)) return;
+
+        ResultsExplorer.instance.showComparisonInResults(node.repoPath, node.ref, '');
+    }
+
+    private async compareSelectedAncestorWithWorking(node: BranchNode) {
+        if (this._selection === undefined || !(node instanceof BranchNode)) return;
+        if (this._selection.repoPath !== node.repoPath || this._selection.type !== 'branch') return;
+
+        const commonAncestor = await this.git.getMergeBase(this._selection.repoPath, this._selection.ref, node.ref);
+        if (commonAncestor === undefined) return;
+
+        ResultsExplorer.instance.showComparisonInResults(this._selection.repoPath, commonAncestor, '');
+    }
+
     private compareWithSelected(node: ExplorerNode) {
         if (this._selection === undefined || !(node instanceof ExplorerRefNode)) return;
         if (this._selection.repoPath !== node.repoPath) return;
 
         ResultsExplorer.instance.showComparisonInResults(this._selection.repoPath, this._selection.ref, node.ref);
-    }
-
-    private compareWithWorking(node: ExplorerNode) {
-        if (!(node instanceof ExplorerRefNode)) return;
-
-        ResultsExplorer.instance.showComparisonInResults(node.repoPath, node.ref, '');
     }
 
     private _selection: ICompareSelected | undefined;

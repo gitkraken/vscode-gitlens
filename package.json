@@ -1451,8 +1451,8 @@
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.explorers.compareSelectedBaseWithWorking",
-                "title": "Compare Selected Base with Working",
+                "command": "gitlens.explorers.compareSelectedAncestorWithWorking",
+                "title": "Compare Selected Ancestor with Working",
                 "category": "GitLens"
             },
             {
@@ -1884,7 +1884,7 @@
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.explorers.compareSelectedBaseWithWorking",
+                    "command": "gitlens.explorers.compareSelectedAncestorWithWorking",
                     "when": "false"
                 },
                 {
@@ -2363,7 +2363,7 @@
                     "group": "7_gitlens_@1"
                 },
                 {
-                    "command": "gitlens.explorers.compareSelectedBaseWithWorking",
+                    "command": "gitlens.explorers.compareSelectedAncestorWithWorking",
                     "when": "viewItem == gitlens:branch && gitlens:explorers:canCompare == branch",
                     "group": "7_gitlens_@2"
                 },
@@ -2438,7 +2438,7 @@
                     "group": "7_gitlens_@1"
                 },
                 {
-                    "command": "gitlens.explorers.compareSelectedBaseWithWorking",
+                    "command": "gitlens.explorers.compareSelectedAncestorWithWorking",
                     "when": "viewItem == gitlens:branch:tracking && gitlens:explorers:canCompare == branch",
                     "group": "7_gitlens_@2"
                 },
@@ -2503,7 +2503,7 @@
                     "group": "7_gitlens_@1"
                 },
                 {
-                    "command": "gitlens.explorers.compareSelectedBaseWithWorking",
+                    "command": "gitlens.explorers.compareSelectedAncestorWithWorking",
                     "when": "viewItem == gitlens:current-branch && gitlens:explorers:canCompare == branch",
                     "group": "7_gitlens_@2"
                 },
@@ -2548,7 +2548,7 @@
                     "group": "7_gitlens_@1"
                 },
                 {
-                    "command": "gitlens.explorers.compareSelectedBaseWithWorking",
+                    "command": "gitlens.explorers.compareSelectedAncestorWithWorking",
                     "when": "viewItem == gitlens:current-branch:tracking && gitlens:explorers:canCompare == branch",
                     "group": "7_gitlens_@2"
                 },
@@ -2593,7 +2593,7 @@
                     "group": "7_gitlens_@1"
                 },
                 {
-                    "command": "gitlens.explorers.compareSelectedBaseWithWorking",
+                    "command": "gitlens.explorers.compareSelectedAncestorWithWorking",
                     "when": "viewItem == gitlens:remote-branch && gitlens:explorers:canCompare == branch",
                     "group": "7_gitlens_@2"
                 },
