@@ -8,35 +8,35 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds experimental support for providing blame annotations, code lens, etc on files with unsaved changes (enabled via `"gitlens.insiders": true`) -- closes [#112](https://github.com/eamodio/vscode-gitlens/issues/112)
 - Adds `gitlens.defaultDateStyle` setting to specify how dates will be displayed by default -- closes [#89](https://github.com/eamodio/vscode-gitlens/issues/89)
-- Adds `Compare with Working` command (`gitlens.explorers.compareWithWorking`) to branch, tag, and revision (commit) nodes in the `GitLens` view to compare the current selection with the current working tree in the `GitLens Results` view
-- Adds `Compare Selected Base with Working` command (`gitlens.explorers.compareSelectedBaseWithWorking`) to branch nodes in the `GitLens` view once another branch within the same repository has been selected to compare the [merge base](https://git-scm.com/docs/git-merge-base) of current and previously selected branches with the working tree in the `GitLens Results` view -- closes [#240](https://github.com/eamodio/vscode-gitlens/issues/240)
-- Adds `Merge Branch (via Terminal)` command (`gitlens.explorers.terminalMergeBranch`) to branch nodes in the `GitLens` view
-- Adds `Rebase (Interactive) Branch (via Terminal)` command (`gitlens.explorers.terminalRebaseBranch`) to branch nodes in the `GitLens` view
-- Adds `Cherry Pick Commit (via Terminal)` command (`gitlens.explorers.terminalRebaseBranch`) to revision (commit) nodes in the `GitLens` & `GitLens Results` views
-- Adds `Revert Commit (via Terminal)` command (`gitlens.explorers.terminalRevertCommit`) to revision (commit) nodes in the `GitLens` & `GitLens Results` views
-- Adds `Create Tag (via Terminal)...` command (`gitlens.explorers.terminalCreateTag`) to branch and revision (commit) nodes in the `GitLens` & `GitLens Results` views
-- Adds `Delete Tag (via Terminal)` command (`gitlens.explorers.terminalDeleteTag`) to tag nodes in the `GitLens` views
+- Adds *Compare with Working* command (`gitlens.explorers.compareWithWorking`) to branch, tag, and revision (commit) nodes in the **GitLens** view to compare the current selection with the current working tree in the **GitLens Results** view
+- Adds *Compare Selected Base with Working* command (`gitlens.explorers.compareSelectedBaseWithWorking`) to branch nodes in the **GitLens** view once another branch within the same repository has been selected to compare the [merge base](https://git-scm.com/docs/git-merge-base) of current and previously selected branches with the working tree in the **GitLens Results** view -- closes [#240](https://github.com/eamodio/vscode-gitlens/issues/240)
+- Adds *Merge Branch (via Terminal)* command (`gitlens.explorers.terminalMergeBranch`) to branch nodes in the **GitLens** view
+- Adds *Rebase (Interactive) Branch (via Terminal)* command (`gitlens.explorers.terminalRebaseBranch`) to branch nodes in the **GitLens** view
+- Adds *Cherry Pick Commit (via Terminal)* command (`gitlens.explorers.terminalRebaseBranch`) to revision (commit) nodes in the **GitLens** & **GitLens Results** views
+- Adds *Revert Commit (via Terminal)* command (`gitlens.explorers.terminalRevertCommit`) to revision (commit) nodes in the **GitLens** & **GitLens Results** views
+- Adds *Create Tag (via Terminal)...* command (`gitlens.explorers.terminalCreateTag`) to branch and revision (commit) nodes in the **GitLens** & **GitLens Results** views
+- Adds *Delete Tag (via Terminal)* command (`gitlens.explorers.terminalDeleteTag`) to tag nodes in the **GitLens** view
 
 ### Changed
-- Renames `Rebase Commit (via Terminal)` command (`gitlens.terminalRebaseCommit`) to `Rebase to Commit (via Terminal)`
-- Renames `Reset Commit (via Terminal)` command (`gitlens.terminalResetCommit`) to `Reset to Commit (via Terminal)`
+- Renames *Rebase Commit (via Terminal)* command (`gitlens.terminalRebaseCommit`) to *Rebase to Commit (via Terminal)*
+- Renames *Reset Commit (via Terminal)* command (`gitlens.terminalResetCommit`) to *Reset to Commit (via Terminal)*
 
 ### Fixed
-- Fixes issue where the `GitLens Results` view wouldn't properly update when replacing existing results
-- Fixes issue where showing commit search (file-based) results in the `GitLens Results` view wouldn't only show the matching files -- closes [#197](https://github.com/eamodio/vscode-gitlens/issues/197)
+- Fixes issue where the **GitLens Results** view wouldn't properly update when replacing existing results
+- Fixes issue where showing commit search (file-based) results in the **GitLens Results** view wouldn't only show the matching files -- closes [#197](https://github.com/eamodio/vscode-gitlens/issues/197)
 - Fixes [#238](https://github.com/eamodio/vscode-gitlens/issues/238) - Show merge commits in file history
-- Fixes issue where the Tags node of the `GitLens` view wasn't updated on changes
+- Fixes issue where the Tags node of the **GitLens** view wasn't updated on changes
 
 ## [7.2.0] - 2018-01-01
 ### Added
 - Adds on-demand **heatmap annotations** of the whole file -- closes [#182](https://github.com/eamodio/vscode-gitlens/issues/182)
-  - Displays a `heatmap` (age) indicator near the gutter, which provides an easy, at-a-glance way to tell the age of a line
+  - Displays a **heatmap** (age) indicator near the gutter, which provides an easy, at-a-glance way to tell the age of a line
     - Indicator ranges from bright yellow (newer) to dark brown (older)
-- Adds `Toggle File Heatmap Annotations` command (`gitlens.toggleFileHeatmap`) to toggle the heatmap annotations on and off
-- Adds semi-persistent results for commit operations, via the `Show Commit Details` command (`gitlens.showQuickCommitDetails`) in the `GitLens Results` view -- closes [#237](https://github.com/eamodio/vscode-gitlens/issues/237)
-- Adds `Show in Results` option to the commit details quick pick menu to show the commit in the `GitLens Results` view
-- Adds `Compare with Index (HEAD)` command (`gitlens.explorers.compareWithHead`) to branch, tag, and revision (commit) nodes in the `GitLens` view to compare the current selection with the current index (HEAD) in the `GitLens Results` view
-- Adds `Compare with Remote` command (`gitlens.explorers.compareWithRemote`) to branch nodes in the `GitLens` view to compare the current selection with its remote tracking branch in the `GitLens Results` view
+- Adds *Toggle File Heatmap Annotations* command (`gitlens.toggleFileHeatmap`) to toggle the heatmap annotations on and off
+- Adds semi-persistent results for commit operations, via the *Show Commit Details* command (`gitlens.showQuickCommitDetails`) in the **GitLens Results** view -- closes [#237](https://github.com/eamodio/vscode-gitlens/issues/237)
+- Adds *Show in Results* option to the commit details quick pick menu to show the commit in the **GitLens Results** view
+- Adds *Compare with Index (HEAD)* command (`gitlens.explorers.compareWithHead`) to branch, tag, and revision (commit) nodes in the **GitLens** view to compare the current selection with the current index (HEAD) in the **GitLens Results** view
+- Adds *Compare with Remote* command (`gitlens.explorers.compareWithRemote`) to branch nodes in the **GitLens** view to compare the current selection with its remote tracking branch in the **GitLens Results** view
 
 ### Changed
 - Improves startup performance and reduces package size
@@ -47,16 +47,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [7.1.0] - 2017-12-22
 ### Added
-- Adds `Open Working File` command (`gitlens.openWorkingFile`) - opens the working file for the active file revision -- closes [#236](https://github.com/eamodio/vscode-gitlens/issues/236)
-- Adds `Open Revision...` command (`gitlens.openFileRevision`) - opens the selected revision for the active file
-- Adds tags to the `Compare File with Branch...` command (`gitlens.diffWithBranch`) -- closes [#204](https://github.com/eamodio/vscode-gitlens/issues/204)
-- Adds tags to the `Directory Compare Working Tree with...` command (`gitlens.diffDirectory`) -- closes [#204](https://github.com/eamodio/vscode-gitlens/issues/204)
-- Adds `Show Branches and Tags` to quick pick menu shown by the `Compare File with Revision...` command (`gitlens.diffWithRevision`) -- closes [#204](https://github.com/eamodio/vscode-gitlens/issues/204)
-- Adds `Show Branches and Tags` to quick pick menu shown by the `Open Revision...` command (`gitlens.openFileRevision`) -- closes [#204](https://github.com/eamodio/vscode-gitlens/issues/204)
+- Adds *Open Working File* command (`gitlens.openWorkingFile`) - opens the working file for the active file revision -- closes [#236](https://github.com/eamodio/vscode-gitlens/issues/236)
+- Adds *Open Revision...* command (`gitlens.openFileRevision`) - opens the selected revision for the active file
+- Adds tags to the *Compare File with Branch...* command (`gitlens.diffWithBranch`) -- closes [#204](https://github.com/eamodio/vscode-gitlens/issues/204)
+- Adds tags to the *Directory Compare Working Tree with...* command (`gitlens.diffDirectory`) -- closes [#204](https://github.com/eamodio/vscode-gitlens/issues/204)
+- Adds *Show Branches and Tags* to quick pick menu shown by the *Compare File with Revision...* command (`gitlens.diffWithRevision`) -- closes [#204](https://github.com/eamodio/vscode-gitlens/issues/204)
+- Adds *Show Branches and Tags* to quick pick menu shown by the *Open Revision...* command (`gitlens.openFileRevision`) -- closes [#204](https://github.com/eamodio/vscode-gitlens/issues/204)
 
 ### Changed
 - Improves startup performance by ~65% (on my very fast PC) and reduces package size by over 75%
-- Renames `Compare File with Branch...` command (`gitlens.diffWithBranch`) to `Compare File with Branch or Tag...`
+- Renames *Compare File with Branch...* command (`gitlens.diffWithBranch`) to *Compare File with Branch or Tag...*
 
 ### Fixed
 - Fixes issues with commit paging in certain quick pick menus
@@ -65,62 +65,62 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [7.0.0] - 2017-12-18
 ### Added
-- Adds a new `Active Repository` node to the `Repository View` of the `GitLens` view -- closes [#224](https://github.com/eamodio/vscode-gitlens/issues/224)
+- Adds a new **Active Repository** node to the **Repository View** of the **GitLens** view -- closes [#224](https://github.com/eamodio/vscode-gitlens/issues/224)
   - Automatically updates to track the repository of the active editor
   - Only visible if there is more than 1 repository within the workspace
 
-- Adds a new `Tags` node to the `Repository View` of the `GitLens` view -- closes [#234](https://github.com/eamodio/vscode-gitlens/issues/234)
+- Adds a new **Tags** node to the **Repository View** of the **GitLens** view -- closes [#234](https://github.com/eamodio/vscode-gitlens/issues/234)
   - Provides a list of tags
   - Expand each tag to easily see its revision (commit) history
     - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-      - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Compare with Selected`, `Select for Compare`, `Rebase Commit (via Terminal)`, `Reset Commit (via Terminal)`, and `Refresh` commands
-        - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
-    - Provides a context menu on each tag with `Compare with Selected`, `Select for Compare`, `Open Directory Compare with Working Tree`, and `Refresh` commands
-  - Provides a context menu with a `Refresh` command
+      - Provides a context menu on each revision (commit) with *Open Commit in Remote*, *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Selected*, *Select for Compare*, *Rebase Commit (via Terminal)*, *Reset Commit (via Terminal)*, and *Refresh* commands
+        - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working Tree*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
+    - Provides a context menu on each tag with *Compare with Selected*, *Select for Compare*, *Open Directory Compare with Working Tree*, and *Refresh* commands
+  - Provides a context menu with a *Refresh* command
 
-- Adds [Gravatar](https://en.gravatar.com/) support to the `GitLens` view
-  - Adds `gitlens.gitExplorer.gravatars` setting to specify whether or not to show gravatar images instead of commit (or status) icons in the `GitLens` view
-  - Adds `gitlens.gitExplorer.gravatarsDefault` setting to specify the style of the gravatar default (fallback) images in the `GitLens` view<br />`identicon` - a geometric pattern<br />`mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)<br />`monsterid` - a monster with different colors, faces, etc<br />`retro` - 8-bit arcade-style pixelated faces<br />`robohash` - a robot with different colors, faces, etc<br />`wavatar` - faces with differing features and backgrounds
-  - Adds `gitlens.resultsExplorer.gravatars` setting to specify whether or not to show gravatar images instead of commit (or status) icons in the `GitLens Results` view
-  - Adds `gitlens.resultsExplorer.gravatarsDefault` setting to specify the style of the gravatar default (fallback) images in the `GitLens Results` view<br />`identicon` - a geometric pattern<br />`mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)<br />`monsterid` - a monster with different colors, faces, etc<br />`retro` - 8-bit arcade-style pixelated faces<br />`robohash` - a robot with different colors, faces, etc<br />`wavatar` - faces with differing features and backgrounds
+- Adds [Gravatar](https://en.gravatar.com/) support to the **GitLens** view
+  - Adds `gitlens.gitExplorer.gravatars` setting to specify whether or not to show gravatar images instead of commit (or status) icons in the **GitLens** view
+  - Adds `gitlens.gitExplorer.gravatarsDefault` setting to specify the style of the gravatar default (fallback) images in the **GitLens** view<br />`identicon` - a geometric pattern<br />`mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)<br />`monsterid` - a monster with different colors, faces, etc<br />`retro` - 8-bit arcade-style pixelated faces<br />`robohash` - a robot with different colors, faces, etc<br />`wavatar` - faces with differing features and backgrounds
+  - Adds `gitlens.resultsExplorer.gravatars` setting to specify whether or not to show gravatar images instead of commit (or status) icons in the **GitLens Results** view
+  - Adds `gitlens.resultsExplorer.gravatarsDefault` setting to specify the style of the gravatar default (fallback) images in the **GitLens Results** view<br />`identicon` - a geometric pattern<br />`mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)<br />`monsterid` - a monster with different colors, faces, etc<br />`retro` - 8-bit arcade-style pixelated faces<br />`robohash` - a robot with different colors, faces, etc<br />`wavatar` - faces with differing features and backgrounds
 
-- Adds `Select for Compare` command (`gitlens.explorers.selectForCompare`) to branch, remote branch, tag, and revision (commit) nodes in the `GitLens` view to mark the base reference of a comparision
-- Adds `Compare with Selected` command (`gitlens.explorers.compareWithSelected`) to branch, remote branch, tag, and revision (commit) nodes in the `GitLens` view once another reference within the same repository has been selected to compare the current selection with the previously selected reference in the `GitLens Results` view
+- Adds *Select for Compare* command (`gitlens.explorers.selectForCompare`) to branch, remote branch, tag, and revision (commit) nodes in the **GitLens** view to mark the base reference of a comparision
+- Adds *Compare with Selected* command (`gitlens.explorers.compareWithSelected`) to branch, remote branch, tag, and revision (commit) nodes in the **GitLens** view once another reference within the same repository has been selected to compare the current selection with the previously selected reference in the **GitLens Results** view
 
-- Adds an all-new, on-demand `GitLens Results` view to the Explorer activity
+- Adds an all-new, on-demand **GitLens Results** view to the Explorer activity
 
-  - Provides semi-persistent results for commit search operations, via the `Show Commit Search` command (`gitlens.showCommitSearch`), and file history operations, via the `Show File History` command (`gitlens.showQuickFileHistory`)
+  - Provides semi-persistent results for commit search operations, via the *Show Commit Search* command (`gitlens.showCommitSearch`), and file history operations, via the *Show File History* command (`gitlens.showQuickFileHistory`)
     - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-      - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Compare with Selected`, `Select for Compare`, `Rebase Commit (via Terminal)`, `Reset Commit (via Terminal)`, and `Refresh` commands
-        - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
+      - Provides a context menu on each revision (commit) with *Open Commit in Remote*, *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Selected*, *Select for Compare*, *Rebase Commit (via Terminal)*, *Reset Commit (via Terminal)*, and *Refresh* commands
+        - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working Tree*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
 
-  - Provides semi-persistent results for revision comparison operations, via the `Select for Compare` command (`gitlens.explorers.selectForCompare`) and the `Compare with Selected` command (`gitlens.explorers.compareWithSelected`)
-    - `Commits` node — provides a list of the commits between the compared revisions (branches or commits)
+  - Provides semi-persistent results for revision comparison operations, via the *Select for Compare* command (`gitlens.explorers.selectForCompare`) and the *Compare with Selected* command (`gitlens.explorers.compareWithSelected`)
+    - **Commits** node — provides a list of the commits between the compared revisions (branches or commits)
       - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-        - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, `Compare with Selected`, `Select for Compare`, `Rebase Commit (via Terminal)`, `Reset Commit (via Terminal)`, and `Refresh` commands
-          - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
-    - `Changed Files` node — provides a list of all the files changed between the compared revisions (branches or commits)
+        - Provides a context menu on each revision (commit) with *Open Commit in Remote*, *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Selected*, *Select for Compare*, *Rebase Commit (via Terminal)*, *Reset Commit (via Terminal)*, and *Refresh* commands
+          - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working Tree*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
+    - **Changed Files** node — provides a list of all the files changed between the compared revisions (branches or commits)
         - Expands to a file-based view of all changed files
-           - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
-    - Provides a context menu with `Open Directory Compare` and `Refresh` commands
-  - Provides toolbar commands to `Search Commits`, `Keep Results`, `Refresh`, `Show Files in Automatic View` or `Show Files in List View` or `Show Files in Tree View`, and `Close`
+           - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working Tree*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
+    - Provides a context menu with *Open Directory Compare* and *Refresh* commands
+  - Provides toolbar commands to *Search Commits*, *Keep Results*, *Refresh*, *Show Files in Automatic View* or *Show Files in List View* or *Show Files in Tree View*, and *Close*
 
-- Adds `Apply Changes` option to the commit/stash file quick pick menu -- closes [#232](https://github.com/eamodio/vscode-gitlens/issues/232)
-- Adds `Show All Commits` option to the commit search quick pick menu to show all the results, if there are more than the threshold
-- Adds `Show in Results` option to the commit search quick pick menu to show the results in the `GitLens Results` view
-- Adds `Show in Results` option to the file history quick pick menu to show the history in the `GitLens Results` view
+- Adds *Apply Changes* option to the commit/stash file quick pick menu -- closes [#232](https://github.com/eamodio/vscode-gitlens/issues/232)
+- Adds *Show All Commits* option to the commit search quick pick menu to show all the results, if there are more than the threshold
+- Adds *Show in Results* option to the commit search quick pick menu to show the results in the **GitLens Results** view
+- Adds *Show in Results* option to the file history quick pick menu to show the history in the **GitLens Results** view
 
 ### Changed
 - Improves startup performance a bit
-- Renames `Compare Directory with Branch...` command (`gitlens.diffDirectory`) to `Directory Compare Working Tree with...`
-- Renames `Compare Directory with Previous Revision` in quick pick menus to `Open Directory Compare with Previous Revision`
-- Renames `Compare Directory with Working Tree` in quick pick menus to `Open Directory Compare with Working Tree`
+- Renames *Compare Directory with Branch...* command (`gitlens.diffDirectory`) to *Directory Compare Working Tree with...*
+- Renames *Compare Directory with Previous Revision* in quick pick menus to *Open Directory Compare with Previous Revision*
+- Renames *Compare Directory with Working Tree* in quick pick menus to *Open Directory Compare with Working Tree*
 
 ### Fixed
 - Fixes [#228](https://github.com/eamodio/vscode-gitlens/issues/228) - Gutter blame spills over heatmap
 - Fixes incorrect blame highlighting -- thanks to [PR #231](https://github.com/eamodio/vscode-gitlens/pull/231) by Alexey Vasyukov ([@notmedia](https://github.com/notmedia))!
-- Fixes issue with the `Open in File/Revision` option in the file history quick pick menu
-- Fixes issues with Git warnings when parsing log status output (can cause the `GitLens` view to not show data in some cases)
+- Fixes issue with the *Open in File/Revision* option in the file history quick pick menu
+- Fixes issues with Git warnings when parsing log status output (can cause the **GitLens** view to not show data in some cases)
 - Fixes 🤞 [#226](https://github.com/eamodio/vscode-gitlens/issues/226) - Annotations show in Debug Console
 
 ## [6.4.0] - 2017-12-12
@@ -129,12 +129,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - `standard` - adds a standard set of shortcut keys
   - `chorded` - adds a chorded set of shortcut keys that all start with `Ctrl+Alt+G` (`⌥⌘G` on macOS)
   - `none` - no shortcut keys will be added
-- Adds progress indicator to the `Show Stashed Changes` command (`gitlens.showQuickStashList`)
-- Adds progress indicator to the `Apply Stashed Changes` command (`gitlens.stashApply`)
+- Adds progress indicator to the *Show Stashed Changes* command (`gitlens.showQuickStashList`)
+- Adds progress indicator to the *Apply Stashed Changes* command (`gitlens.stashApply`)
 
 ### Changed
 - Overhauls the internal way GitLens deals with Uris and revisions should be far more robust and lead to many fewer edge-case issues
-- Aligns quick pick menu commands more with the `GitLens` view context menus
+- Aligns quick pick menu commands more with the **GitLens** view context menus
 
 ### Fixed
 - Fixes [#220](https://github.com/eamodio/vscode-gitlens/issues/220) - Open Revision quick pick results in empty file
@@ -143,11 +143,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [6.3.0] - 2017-11-30
 ### Added
 - Adds support for files with staged changes
-  - Adds new entry in the `History View` of the `GitLens` view
-  - Adds new entry in the `Repository View` of the `GitLens` view
+  - Adds new entry in the **History View** of the **GitLens** view
+  - Adds new entry in the **Repository View** of the **GitLens** view
   - Adds blame annotations, navigation & comparison commands, etc
-- Adds support for vscode's Git file revisions (e.g. `Open File (HEAD)`) and diffs (e.g. `Open Changes`)
-  - Adds new entry in the `History View` of the `GitLens` view
+- Adds support for vscode's Git file revisions (e.g. *Open File (HEAD)*) and diffs (e.g. *Open Changes*)
+  - Adds new entry in the **History View** of the **GitLens** view
   - Adds blame annotations, navigation & comparison commands, etc
 - Adds Git code lens to Git file revisions (GitLens or vscode's)
 
@@ -183,7 +183,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes [#211](https://github.com/eamodio/vscode-gitlens/issues/211) - Unsaved code lens appears on untracked files
-- Fixes issue where `Open * in Remote` commands are sometimes missing
+- Fixes issue where *Open * in Remote* commands are sometimes missing
 
 ## [6.1.2] - 2017-11-21
 ### Fixed
@@ -207,51 +207,51 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes issue where failed git commands would get stuck in the pending queue causing future similar commands to also fail
-- Fixes issue where changes to git remotes would refresh the entire `GitLens` view
+- Fixes issue where changes to git remotes would refresh the entire **GitLens** view
 
 ## [6.0.0] - 2017-11-08
 
 ### Added
 - Adds multi-root workspace support -- [Learn more](https://code.visualstudio.com/docs/editor/multi-root-workspaces)
 - Adds new logo/icon
-- Adds indicator dots on the branch node(s) of the `GitLens` view which denote the following:
-  - `None` - no upstream or up-to-date with the upstream
-  - `Green` - ahead of the upstream
-  - `Red` - behind the upstream
-  - `Yellow` - both ahead of and behind the upstream
-- Adds progress indicator to the `Search Commits` command (`gitlens.showCommitSearch`)
-- Adds code search support to the `Search Commits` command (`gitlens.showCommitSearch`) -- closes [#127](https://github.com/eamodio/vscode-gitlens/issues/127)
+- Adds indicator dots on the branch node(s) of the **GitLens** view which denote the following:
+  - *None* - no upstream or up-to-date with the upstream
+  - *Green* - ahead of the upstream
+  - *Red* - behind the upstream
+  - *Yellow* - both ahead of and behind the upstream
+- Adds progress indicator to the *Search Commits* command (`gitlens.showCommitSearch`)
+- Adds code search support to the *Search Commits* command (`gitlens.showCommitSearch`) -- closes [#127](https://github.com/eamodio/vscode-gitlens/issues/127)
   - Use `~<regex>` to search for commits with differences whose patch text contains added/removed lines that match `<regex>`
   - Use `=<regex>` to search for commits with differences that change the number of occurrences of the specified string (i.e. addition/deletion) in a file
-- Adds support to the `Compare File with Branch...` command (`gitlens.diffWithBranch`) work with renamed files -- closes [#165](https://github.com/eamodio/vscode-gitlens/issues/165)
-- Adds `Compare File with Branch...` command (`gitlens.diffWithBranch`) to source control resource context menu
-- Adds `Open Repository in Remote` command (`gitlens.openRepoInRemote`) to repository node(s) of the `GitLens` view
-- Adds `Enable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOn`) to the `GitLens` view regardless of the current view
-- Adds `Disable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOff`) to the `GitLens` view regardless of the current view
-- Adds new Git terminal commands to the `GitLens` view - opens a `GitLens` terminal and sends the specified Git command to it
-  - Adds `Checkout Branch (via Terminal)` command (`gitlens.terminalCheckoutBranch`) to branch node(s) of the `GitLens` view
-  - Adds `Create Branch (via Terminal)...` command (`gitlens.terminalCreateBranch`) to branch node(s) of the `GitLens` view
-  - Adds `Delete Branch (via Terminal)` command (`gitlens.terminalDeleteBranch`) to branch node(s) of the `GitLens` view
-  - Adds `Rebase Branch to Remote (via Terminal)` command (`gitlens.terminalRebaseBranchToRemote`) to branch node(s) of the `GitLens` view
-  - Adds `Squash Branch into Commit (via Terminal)` command (`gitlens.terminalSquashBranchIntoCommit`) to branch node(s) of the `GitLens` view
-  - Adds `Rebase Commit (via Terminal)` command (`gitlens.terminalRebaseCommit`) to commit node(s) of the `GitLens` view
-  - Adds `Reset Commit (via Terminal)` command (`gitlens.terminalResetCommit`) to commit node(s) of the `GitLens` view
-  - Adds `Remove Remote (via Terminal)` command (`gitlens.terminalRemoveRemote`) to remote node(s) of the `GitLens` view
+- Adds support to the *Compare File with Branch...* command (`gitlens.diffWithBranch`) work with renamed files -- closes [#165](https://github.com/eamodio/vscode-gitlens/issues/165)
+- Adds *Compare File with Branch...* command (`gitlens.diffWithBranch`) to source control resource context menu
+- Adds *Open Repository in Remote* command (`gitlens.openRepoInRemote`) to repository node(s) of the **GitLens** view
+- Adds *Enable Automatic Refresh* command (`gitlens.gitExplorer.setAutoRefreshToOn`) to the **GitLens** view regardless of the current view
+- Adds *Disable Automatic Refresh* command (`gitlens.gitExplorer.setAutoRefreshToOff`) to the **GitLens** view regardless of the current view
+- Adds new Git terminal commands to the **GitLens** view - opens a **GitLens** terminal and sends the specified Git command to it
+  - Adds *Checkout Branch (via Terminal)* command (`gitlens.terminalCheckoutBranch`) to branch node(s) of the **GitLens** view
+  - Adds *Create Branch (via Terminal)...* command (`gitlens.terminalCreateBranch`) to branch node(s) of the **GitLens** view
+  - Adds *Delete Branch (via Terminal)* command (`gitlens.terminalDeleteBranch`) to branch node(s) of the **GitLens** view
+  - Adds *Rebase Branch to Remote (via Terminal)* command (`gitlens.terminalRebaseBranchToRemote`) to branch node(s) of the **GitLens** view
+  - Adds *Squash Branch into Commit (via Terminal)* command (`gitlens.terminalSquashBranchIntoCommit`) to branch node(s) of the **GitLens** view
+  - Adds *Rebase Commit (via Terminal)* command (`gitlens.terminalRebaseCommit`) to commit node(s) of the **GitLens** view
+  - Adds *Reset Commit (via Terminal)* command (`gitlens.terminalResetCommit`) to commit node(s) of the **GitLens** view
+  - Adds *Remove Remote (via Terminal)* command (`gitlens.terminalRemoveRemote`) to remote node(s) of the **GitLens** view
 - Adds ability to specify the url protocol used with user-defined remote services via `gitlens.remotes` setting -- thanks to [PR #192](https://github.com/eamodio/vscode-gitlens/pull/192) by Helmut Januschka ([@hjanuschka](https://github.com/hjanuschka))!
 
 ### Changed
-- `GitLens` view will no longer show if there is no Git repository -- closes [#159](https://github.com/eamodio/vscode-gitlens/issues/159)
+- **GitLens** view will no longer show if there is no Git repository -- closes [#159](https://github.com/eamodio/vscode-gitlens/issues/159)
 - Optimizes event handling, executing git commands, and general processing to improve performance and reduce any lag
 - Optimizes current line hover annotations to only be computed on hover (i.e. lazily evaluated) to reduce the compute required when changing lines
 - Protects credentials from possibly being affected by poor network conditions via Git Credential Manager (GCM) for Windows environment variables
-- Delays (slightly) the initial loading of the `GitLens` view to improve startup performance
+- Delays (slightly) the initial loading of the **GitLens** view to improve startup performance
 
 ### Fixed
 - Fixes jumpy code lens when deleting characters from a line with a Git code lens
 - Fixes [#178](https://github.com/eamodio/vscode-gitlens/issues/178) - Slight but noticeable keyboard lag with Gitlens
 - Fixes [#183](https://github.com/eamodio/vscode-gitlens/issues/183) - Remote with same url should only show once
 - Fixes [#185](https://github.com/eamodio/vscode-gitlens/issues/185) - Wrong relative date shows on mouse hover
-- Fixes issue where using the `Refresh` command on a `GitLens` view node refreshed the whole view, rather than just the node
+- Fixes issue where using the *Refresh* command on a **GitLens** view node refreshed the whole view, rather than just the node
 - Fixes issue where certain commands fail when there is no current branch (rebase, detached HEAD, etc)
 
 ## [5.7.1] - 2017-10-19
@@ -260,25 +260,25 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [5.7.0] - 2017-10-19
 ### Added
-- Adds `Open All Changes (with difftool)` command (`gitlens.externalDiffAll`) - opens all working changes with the configured git difftool -- closes [#164](https://github.com/eamodio/vscode-gitlens/issues/164)
+- Adds *Open All Changes (with difftool)* command (`gitlens.externalDiffAll`) - opens all working changes with the configured git difftool -- closes [#164](https://github.com/eamodio/vscode-gitlens/issues/164)
   - Also adds the command to the Source Control group context menu
-- Adds `gitlens.gitExplorer.autoRefresh` setting to specify whether or not to automatically refresh the `GitLens` view when the repository or the file system changes
-- Adds `Enable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOn`) to enable the automatic refresh of the `GitLens` view
-- Adds `Disable Automatic Refresh` command (`gitlens.gitExplorer.setAutoRefreshToOff`) to disable the automatic refresh of the `GitLens` view
-- Adds `Show Files in Automatic View` command (`gitlens.gitExplorer.setFilesLayoutToAuto`) to change to an automatic layout for the files in the `GitLens` view
-- Adds `Show Files in List View` command (`gitlens.gitExplorer.setFilesLayoutToList`) to change to a list layout for the files in the `GitLens` view
-- Adds `Show Files in Tree View` command (`gitlens.gitExplorer.setFilesLayoutToTree`) to change to a tree layout for the files in the `GitLens` view
+- Adds `gitlens.gitExplorer.autoRefresh` setting to specify whether or not to automatically refresh the **GitLens** view when the repository or the file system changes
+- Adds *Enable Automatic Refresh* command (`gitlens.gitExplorer.setAutoRefreshToOn`) to enable the automatic refresh of the **GitLens** view
+- Adds *Disable Automatic Refresh* command (`gitlens.gitExplorer.setAutoRefreshToOff`) to disable the automatic refresh of the **GitLens** view
+- Adds *Show Files in Automatic View* command (`gitlens.gitExplorer.setFilesLayoutToAuto`) to change to an automatic layout for the files in the **GitLens** view
+- Adds *Show Files in List View* command (`gitlens.gitExplorer.setFilesLayoutToList`) to change to a list layout for the files in the **GitLens** view
+- Adds *Show Files in Tree View* command (`gitlens.gitExplorer.setFilesLayoutToTree`) to change to a tree layout for the files in the **GitLens** view
 
 ### Changed
-- Renames `Directory Compare` command (`gitlens.diffDirectory`) to `Compare Directory with Branch...`
-- Renames `Directory Compare with Previous Commit` in quick pick menus to `Compare Directory with Previous Commit`
-- Renames `Directory Compare with Working Tree` in quick pick menus to `Compare Directory with Working Tree`
+- Renames *Directory Compare* command (`gitlens.diffDirectory`) to *Compare Directory with Branch...*
+- Renames *Directory Compare with Previous Commit* in quick pick menus to *Compare Directory with Previous Commit*
+- Renames *Directory Compare with Working Tree* in quick pick menus to *Compare Directory with Working Tree*
 - Changes the marketplace keywords for better discoverability
 
 ### Fixed
 - Fixes [#163](https://github.com/eamodio/vscode-gitlens/issues/163) - GitLens can cause git locking in the background
-- Fixes issues tracking the active editor in the `History View` of the `GitLens` view
-- Fixes issue where the `GitLens` view would refresh more than once when a file system change was detected
+- Fixes issues tracking the active editor in the **History View** of the **GitLens** view
+- Fixes issue where the **GitLens** view would refresh more than once when a file system change was detected
 - Fixes issue where opening commit search could be filled out with `#00000000`
 
 ## [5.6.5] - 2017-10-16
@@ -297,11 +297,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Swaps out Moment.js for date-fns to improve blame annotation performance and to reduce the GitLen bundle size (saves ~400kb)
 
 ### Fixed
-- Fixes issue where the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) wasn't available after a file was saved
+- Fixes issue where the *Toggle File Blame Annotations* command (`gitlens.toggleFileBlame`) wasn't available after a file was saved
 
 ## [5.6.2] - 2017-10-11
 ### Fixed
-- Fixes issue where `Open File` command failed for in many instances (for GitUri resources)
+- Fixes issue where *Open File* command failed for in many instances (for GitUri resources)
 
 ## [5.6.1] - 2017-10-11
 ### Fixed
@@ -309,7 +309,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [5.6.0] - 2017-10-11
 ### Added
-- Adds `changes` (diff) hover annotation support to both the `gutter` and `hover` file blame annotations
+- Adds **changes** (diff) hover annotation support to both the *gutter* and *hover* file blame annotations
 - Adds `gitlens.annotations.file.gutter.hover.changes` setting to specify whether or not to provide a changes (diff) hover annotation over the gutter blame annotations
 - Adds `gitlens.annotations.file.hover.details` setting to specify whether or not to provide a commit details hover annotation over each line
 - Adds `gitlens.annotations.file.hover.changes` setting to specify whether or not to provide a changes (diff) hover annotation over each line
@@ -328,11 +328,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [5.5.0] - 2017-10-09
 ### Added
-- Adds a **quick-access** command bar to the bottom of the `details` hover annotations
+- Adds a **quick-access** command bar to the bottom of the **details** hover annotations
 
   ![Details Blame Annotation (hover)](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotations-details.png)
 
-  - Provides `Open Changes`, `Blame Previous Revision`, `Open in Remote`, and `Show More Actions` command buttons
+  - Provides *Open Changes*, *Blame Previous Revision*, *Open in Remote*, and *Show More Actions* command buttons
 - Adds support for remembering file annotations when switching tabs
 - Adds full GitLens support for file revisions -- file & line annotations, commands, etc
 
@@ -341,8 +341,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Removed
 - Removes peek-style file & blame history explorers - see [#66](https://github.com/eamodio/vscode-gitlens/issues/66) for more details
-  - Removes `Open Blame History Explorer` command (`gitlens.showBlameHistory`)
-  - Removes `Open File History Explorer` command (`gitlens.showFileHistory`)
+  - Removes *Open Blame History Explorer* command (`gitlens.showBlameHistory`)
+  - Removes *Open File History Explorer* command (`gitlens.showFileHistory`)
   - Removes `"gitlens.showBlameHistory"` & `"gitlens.showFileHistory"` option from `gitlens.codeLens.recentChange.command` setting
   - Removes `"gitlens.showBlameHistory"` & `"gitlens.showFileHistory"` option from `gitlens.codeLens.authors.command` setting
   - Removes `"gitlens.showBlameHistory"` & `"gitlens.showFileHistory"` option from `gitlens.statusBar.command` setting
@@ -353,27 +353,27 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [5.4.1] - 2017-10-03
 ### Changed
-- Changes annotation hovers to only add `Open in Remote` and `Show Commit Details` commands when applicable -- thanks to [PR #158](https://github.com/eamodio/vscode-gitlens/pull/158) by SpaceEEC ([@SpaceEEC](https://github.com/SpaceEEC))!
+- Changes annotation hovers to only add *Open in Remote* and *Show Commit Details* commands when applicable -- thanks to [PR #158](https://github.com/eamodio/vscode-gitlens/pull/158) by SpaceEEC ([@SpaceEEC](https://github.com/SpaceEEC))!
 
 ### Fixed
-- Fixes issue where `Changes` hover annotation displayed incorrect info when there was no previous commit -- thanks to [PR #158](https://github.com/eamodio/vscode-gitlens/pull/158) by SpaceEEC ([@SpaceEEC](https://github.com/SpaceEEC))!
+- Fixes issue where **Changes** hover annotation displayed incorrect info when there was no previous commit -- thanks to [PR #158](https://github.com/eamodio/vscode-gitlens/pull/158) by SpaceEEC ([@SpaceEEC](https://github.com/SpaceEEC))!
 - Fixes issue when checking for remotes could return no remotes even if remotes are configured
 
 ## [5.4.0] - 2017-09-30
 ### Added
 - Adds support for user-defined remote services via `gitlens.remotes` setting -- closes [#148](https://github.com/eamodio/vscode-gitlens/issues/148)
-- Adds `Open Changes (with difftool)` command (`gitlens.externalDiff`) - opens the changes of a file or set of files with the configured git difftool -- thanks to [PR #154](https://github.com/eamodio/vscode-gitlens/pull/154) by Chris Kaczor ([@ckaczor](https://github.com/ckaczor))!
+- Adds *Open Changes (with difftool)* command (`gitlens.externalDiff`) - opens the changes of a file or set of files with the configured git difftool -- thanks to [PR #154](https://github.com/eamodio/vscode-gitlens/pull/154) by Chris Kaczor ([@ckaczor](https://github.com/ckaczor))!
   - Adds to the source control group and source control resource context menus
 
 ## [5.3.0] - 2017-09-26
 ### Added
-- Adds new file layouts to the `GitLens` view
+- Adds new file layouts to the **GitLens** view
   - `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level
   - `list` - displays files as a list
   - `tree` - displays files as a tree
-- Adds `gitlens.gitExplorer.files.layout` setting to specify how the `GitLens` view will display files
-- Adds `gitlens.gitExplorer.files.compact` setting to specify whether or not to compact (flatten) unnecessary file nesting in the `GitLens` view
-- Adds `gitlens.gitExplorer.files.threshold` setting to specify when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens` view
+- Adds `gitlens.gitExplorer.files.layout` setting to specify how the **GitLens** view will display files
+- Adds `gitlens.gitExplorer.files.compact` setting to specify whether or not to compact (flatten) unnecessary file nesting in the **GitLens** view
+- Adds `gitlens.gitExplorer.files.threshold` setting to specify when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the **GitLens** view
 - Adds `${directory}` token to the file formatting settings
 
 ### Changed
@@ -384,30 +384,30 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [5.2.0] - 2017-09-23
 ### Added
-- Adds new `Changed Files` node to the `Repository Status` node of the `GitLens` view's `Repository View` -- closes [#139](https://github.com/eamodio/vscode-gitlens/issues/139)
+- Adds new **Changed Files** node to the **Repository Status** node of the **GitLens** view's **Repository View** -- closes [#139](https://github.com/eamodio/vscode-gitlens/issues/139)
   - Provides a at-a-glance view of all "working" changes
   - Expands to a file-based view of all changed files in the working tree (enabled via `"gitlens.insiders": true`) and/or all files in all commits ahead of the upstream
-- Adds optional (on by default) working tree status information to the `Repository Status` node in the `GitLens` view
+- Adds optional (on by default) working tree status information to the **Repository Status** node in the **GitLens** view
 - Adds `auto` value to `gitlens.gitExplorer.view` setting - closes [#150](https://github.com/eamodio/vscode-gitlens/issues/150)
-- Adds `gitlens.gitExplorer.enabled` setting to specify whether or not to show the `GitLens` view - closes [#144](https://github.com/eamodio/vscode-gitlens/issues/144)
-- Adds `gitlens.gitExplorer.includeWorkingTree` setting to specify whether or not to include working tree files inside the `Repository Status` node of the `GitLens` view
-- Adds `gitlens.gitExplorer.statusFileFormat` setting to the format of the status of a working or committed file in the `GitLens` view
+- Adds `gitlens.gitExplorer.enabled` setting to specify whether or not to show the **GitLens** view - closes [#144](https://github.com/eamodio/vscode-gitlens/issues/144)
+- Adds `gitlens.gitExplorer.includeWorkingTree` setting to specify whether or not to include working tree files inside the **Repository Status** node of the **GitLens** view
+- Adds `gitlens.gitExplorer.statusFileFormat` setting to the format of the status of a working or committed file in the **GitLens** view
 
 ### Changed
-- Changes the sorting (now alphabetical) of files shown in the `GitLens` view
+- Changes the sorting (now alphabetical) of files shown in the **GitLens** view
 - Changes the default of the `gitlens.gitExplorer.view` setting to `auto`
 - Changes the default of the `gitlens.gitExplorer.commitFormat` setting to add parentheses around the commit id
 - Removes many menu items from `editor/title` & `editor/title/context` by default -- can be re-enabled via the `gitlens.advanced.menus` setting
 
 ### Fixed
 - Fixes [#146](https://github.com/eamodio/vscode-gitlens/issues/146) - Blame gutter annotation issue when commit contains emoji
-- Fixes an issue when running `Open File in Remote` with a multi-line selection wasn't properly opening the selection in GitLab -- thanks to [PR #145](https://github.com/eamodio/vscode-gitlens/pull/145) by Amanda Cameron ([@AmandaCameron](https://github.com/AmandaCameron))!
+- Fixes an issue when running *Open File in Remote* with a multi-line selection wasn't properly opening the selection in GitLab -- thanks to [PR #145](https://github.com/eamodio/vscode-gitlens/pull/145) by Amanda Cameron ([@AmandaCameron](https://github.com/AmandaCameron))!
 - Fixes an issue where the `gitlens.advanced.menus` setting wasn't controlling all the menu items properly
 
 ## [5.1.0] - 2017-09-15
 ### Added
-- Adds full (multi-line) commit message to the `details` hover annotations -- closes [#116](https://github.com/eamodio/vscode-gitlens/issues/116)
-- Adds an external link icon to the `details` hover annotations to run the `Open Commit in Remote` command (`gitlens.openCommitInRemote`)
+- Adds full (multi-line) commit message to the **details** hover annotations -- closes [#116](https://github.com/eamodio/vscode-gitlens/issues/116)
+- Adds an external link icon to the **details** hover annotations to run the *Open Commit in Remote* command (`gitlens.openCommitInRemote`)
 
 ### Changed
 - Optimizes performance of the providing blame annotations, especially for large files (saw a ~78% improvement on some files)
@@ -417,102 +417,102 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes `gitlens.annotations.file.recentChanges.hover.wholeLine` setting as it didn't really make sense
 
 ### Fixed
-- Fixes an issue where stashes with only untracked files would not show in the `Stashes` node of the `GitLens` view
-- Fixes an issue where stashes with untracked files would not show its untracked files in the `GitLens` view
+- Fixes an issue where stashes with only untracked files would not show in the **Stashes** node of the **GitLens** view
+- Fixes an issue where stashes with untracked files would not show its untracked files in the **GitLens** view
 
 ## [5.0.0] - 2017-09-12
 ### Added
-- Adds an all-new `GitLens` view to the Explorer activity
+- Adds an all-new **GitLens** view to the Explorer activity
 
-  - `Repository View` - provides a full repository explorer
+  - **Repository View** - provides a full repository explorer
 
     ![GitLens Repository view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-repository.png)
 
-    - `Repository Status` node — provides the status of the repository
+    - **Repository Status** node — provides the status of the repository
       - Provides the name of the current branch, its upstream tracking branch (if available), and its upstream status (if available)
       - Provides indicator dots on the repository icon which denote the following:
-        - `None` - up-to-date with the upstream
-        - `Green` - ahead of the upstream
-        - `Red` - behind the upstream
-        - `Yellow` - both ahead of and behind the upstream
+        - *None* - up-to-date with the upstream
+        - *Green* - ahead of the upstream
+        - *Red* - behind the upstream
+        - *Yellow* - both ahead of and behind the upstream
       - Provides additional nodes, if the current branch is not synchronized with the upstream, to quickly see and explore the specific commits ahead and/or behind the upstream
-      - Provides a context menu with `Open Repository in Remote`, and `Refresh` commands
+      - Provides a context menu with *Open Repository in Remote*, and *Refresh* commands
 
-    - `Branches` node — provides a list of the local branches
+    - **Branches** node — provides a list of the local branches
       - Indicates which branch is the current branch and optionally shows the remote tracking branch
       - Expand each branch to easily see its revision (commit) history
         - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-           - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, `Show File History`, and `Show Commit File Details` commands
-        - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`, `Show Commit Details`, and `Refresh` commands
-        - Provides a context menu on each branch with `Open Branch in Remote`, and `Refresh` commands
-      - Provides a context menu with `Open Branches in Remote`, and `Refresh` commands
+           - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working Tree*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, *Show File History*, and *Show Commit File Details* commands
+        - Provides a context menu on each revision (commit) with *Open Commit in Remote*, *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, and *Refresh* commands
+        - Provides a context menu on each branch with *Open Branch in Remote*, and *Refresh* commands
+      - Provides a context menu with *Open Branches in Remote*, and *Refresh* commands
 
-    - `Remotes` node — provides a list of remotes
+    - **Remotes** node — provides a list of remotes
       - Indicates the direction of the remote (fetch, push, both), remote service (if applicable), and repository path
       - Expand each remote to see its list of branches
         - Expand each branch to easily see its revision (commit) history
           - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-            - Provides a context menu on each changed file with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
-          - Provides a context menu on each revision (commit) with `Open Commit in Remote`, `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit ID to Clipboard`, `Copy Commit Message to Clipboard`,`Show Commit Details`, and `Refresh` commands
-        - Provides a context menu on each remote with `Open Branches in Remote`, `Open Repository in Remote`, and `Refresh` commands
-      - Provides a context menu with a `Refresh` command
+            - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working Tree*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
+          - Provides a context menu on each revision (commit) with *Open Commit in Remote*, *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*,*Show Commit Details*, and *Refresh* commands
+        - Provides a context menu on each remote with *Open Branches in Remote*, *Open Repository in Remote*, and *Refresh* commands
+      - Provides a context menu with a *Refresh* command
 
-    - `Stashes` node — provides a list of stashed changes
+    - **Stashes** node — provides a list of stashed changes
       - Expand each stash to quickly see the set of files stashed, complete with status indicators for adds, changes, renames, and deletes
-      - Provides a context menu with `Stash Changes`, and `Refresh` commands
-      - Provides a context menu on each stash with `Apply Stashed Changes` (confirmation required), `Delete Stashed Changes` (confirmation required), `Open All Changes`, `Open All Changes with Working Tree`, `Open Files`, `Open Revisions`, `Copy Commit Message to Clipboard`, and `Refresh` commands
-      - Provides a context menu on each stashed file with `Apply Changes`, `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, and `Show File History` commands
+      - Provides a context menu with *Stash Changes*, and *Refresh* commands
+      - Provides a context menu on each stash with *Apply Stashed Changes* (confirmation required), *Delete Stashed Changes* (confirmation required), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit Message to Clipboard*, and *Refresh* commands
+      - Provides a context menu on each stashed file with *Apply Changes*, *Open Changes*, *Open Changes with Working Tree*, *Open File*, *Open Revision*, *Open File in Remote*, and *Show File History* commands
 
-  - `History View` - provides the revision history of the active file
+  - **History View** - provides the revision history of the active file
 
     ![GitLens History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-history.png)
 
     - Automatically updates to track the active editor
-    - Provides a context menu with `Open File`, `Open File in Remote`, and `Refresh` commands
-    - Provides a context menu on each revision (commit) with `Open Changes`, `Open Changes with Working Tree`, `Open File`, `Open Revision`, `Open File in Remote`, `Open Revision in Remote`, `Apply Changes`, and `Show Commit File Details` commands
+    - Provides a context menu with *Open File*, *Open File in Remote*, and *Refresh* commands
+    - Provides a context menu on each revision (commit) with *Open Changes*, *Open Changes with Working Tree*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
 
-  - Quickly switch between views using the `Switch to Repository View` or `Switch to History View` commands
-  - Provides toolbar commands to `Search Commits`, `Switch to Repository View` or `Switch to History View`, and `Refresh`
+  - Quickly switch between views using the *Switch to Repository View* or *Switch to History View* commands
+  - Provides toolbar commands to *Search Commits*, *Switch to Repository View* or *Switch to History View*, and *Refresh*
 
 - Adds all-new interactivity to the hover annotations
 
   ![Hover Annotations](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotations.png)
 
-  - Adds the following command-links to the `details` hover annotation
-    - Clicking the commit id will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
-  - Adds the following command-links to the `changes` hover annotation
-    - Clicking on `Changes` will run the `Compare File Revisions` command (`gitlens.diffWith`)
-    - Clicking the current and previous commit ids will run the `Show Commit Details` command (`gitlens.showQuickCommitDetails`)
+  - Adds the following command-links to the **details** hover annotation
+    - Clicking the commit id will run the *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
+  - Adds the following command-links to the **changes** hover annotation
+    - Clicking on **Changes** will run the *Compare File Revisions* command (`gitlens.diffWith`)
+    - Clicking the current and previous commit ids will run the *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
 
 - Adds support for remote services with custom domains -- closes [#120](https://github.com/eamodio/vscode-gitlens/issues/120)
 - Adds support for the Bitbucket Server (previously called Stash) remote service -- closes [#120](https://github.com/eamodio/vscode-gitlens/issues/120)
 - Adds `gitlens.blame.ignoreWhitespace` setting to specify whether or not to ignore whitespace when comparing revisions during blame operations -- closes [#138](https://github.com/eamodio/vscode-gitlens/issues/138)
-- Adds `Compare File Revisions` command (`gitlens.diffWith`) - compares the specified file revisions
-- Adds `Open Branches in Remote` command (`gitlens.openBranchesInRemote`) - opens the branches in the supported remote service
-- Adds `Stash Changes` command (`gitlens.stashSave`) to the source control group context menu -- can now stash a group of files
-- Adds `Stash Changes` command (`gitlens.stashSave`) to the source control resource context menu -- can now stash individual files (works with multi-select too!)
-- Adds `gitlens.gitExplorer.view` setting to specify the starting view (mode) of the `GitLens` view
-- Adds `gitlens.gitExplorer.showTrackingBranch` setting to specify whether or not to show the tracking branch when displaying local branches in the `GitLens` view
-- Adds `gitlens.gitExplorer.commitFormat` setting to specify the format of committed changes in the `GitLens` view
-- Adds `gitlens.gitExplorer.commitFileFormat` setting to specify the format of a committed file in the `GitLens` view
-- Adds `gitlens.gitExplorer.stashFormat` setting to specify the format of stashed changes in the `GitLens` view
-- Adds `gitlens.gitExplorer.stashFileFormat` setting to specify the format of a stashed file in the `GitLens` view
+- Adds *Compare File Revisions* command (`gitlens.diffWith`) - compares the specified file revisions
+- Adds *Open Branches in Remote* command (`gitlens.openBranchesInRemote`) - opens the branches in the supported remote service
+- Adds *Stash Changes* command (`gitlens.stashSave`) to the source control group context menu -- can now stash a group of files
+- Adds *Stash Changes* command (`gitlens.stashSave`) to the source control resource context menu -- can now stash individual files (works with multi-select too!)
+- Adds `gitlens.gitExplorer.view` setting to specify the starting view (mode) of the **GitLens** view
+- Adds `gitlens.gitExplorer.showTrackingBranch` setting to specify whether or not to show the tracking branch when displaying local branches in the **GitLens** view
+- Adds `gitlens.gitExplorer.commitFormat` setting to specify the format of committed changes in the **GitLens** view
+- Adds `gitlens.gitExplorer.commitFileFormat` setting to specify the format of a committed file in the **GitLens** view
+- Adds `gitlens.gitExplorer.stashFormat` setting to specify the format of stashed changes in the **GitLens** view
+- Adds `gitlens.gitExplorer.stashFileFormat` setting to specify the format of a stashed file in the **GitLens** view
 - Adds `${filePath}` token to file formatting settings
 
 ### Changed
-- Changes `Show Stashed Changes` option icon in repository status quick pick menu to match the `GitLens` view
-- Changes `Stash Changes` option icon in stashed changes quick pick menu to a plus (+)
-- Renames `Compare File with Previous` command (`gitlens.diffWithPrevious`) to `Compare File with Previous Revision`
-- Renames `Compare File with Next Commit` command (`gitlens.diffWithNext`) to `Compare File with Next Revision`
-- Renames `Compare File with Working Tree` command (`gitlens.diffWithWorking`) to `Compare File with Working Revision`
-- Renames `Compare Line Commit with Previous` command (`gitlens.diffLineWithPrevious`) to `Compare Line Revision with Previous`
-- Renames `Compare Line Commit with Working Tree` command (`gitlens.diffLineWithWorking`) to `Compare Line Revision with Working`
+- Changes *Show Stashed Changes* option icon in repository status quick pick menu to match the **GitLens** view
+- Changes *Stash Changes* option icon in stashed changes quick pick menu to a plus (+)
+- Renames *Compare File with Previous* command (`gitlens.diffWithPrevious`) to *Compare File with Previous Revision*
+- Renames *Compare File with Next Commit* command (`gitlens.diffWithNext`) to *Compare File with Next Revision*
+- Renames *Compare File with Working Tree* command (`gitlens.diffWithWorking`) to *Compare File with Working Revision*
+- Renames *Compare Line Commit with Previous* command (`gitlens.diffLineWithPrevious`) to *Compare Line Revision with Previous*
+- Renames *Compare Line Commit with Working Tree* command (`gitlens.diffLineWithWorking`) to *Compare Line Revision with Working*
 
 ### Removed
-- Removes `Git Stashes` view view - as it's functionality has been folded into the new `GitLens` view
+- Removes **Git Stashes** view - as it's functionality has been folded into the new **GitLens** view
 - Removes `gitlens.stashExplorer.stashFormat` setting
 - Removes `gitlens.stashExplorer.stashFileFormat` setting
-- Removes `Stash Unstaged Changes` option from stashed changes quick pick menu -- didn't work as intended
+- Removes *Stash Unstaged Changes* option from stashed changes quick pick menu -- didn't work as intended
 - Removes the seeding of the commit search command from the clipboard
 
 ### Fixed
@@ -536,9 +536,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [4.4.0] - 2017-08-18
 ## Added
-- Adds a progress indicator to the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) icon -- pulses while annotations are computed
-- Adds an active state to the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) icon -- turns orange while the annotations are visible
-- Adds automatic disabling of the current line blame annotations when starting a debug session and will restore them when the debug session ends -- can still be manually toggled via the `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`)
+- Adds a progress indicator to the *Toggle File Blame Annotations* command (`gitlens.toggleFileBlame`) icon -- pulses while annotations are computed
+- Adds an active state to the *Toggle File Blame Annotations* command (`gitlens.toggleFileBlame`) icon -- turns orange while the annotations are visible
+- Adds automatic disabling of the current line blame annotations when starting a debug session and will restore them when the debug session ends -- can still be manually toggled via the *Toggle Line Blame Annotations* command (`gitlens.toggleLineBlame`)
 
 ## Changed
 - Changes chat links from Gitter to [Slack](https://join.slack.com/t/vscode-gitlens/shared_invite/MjIxOTgxNDE3NzM0LTE1MDE2Nzk1MTgtMjkwMmZjMzcxNQ)
@@ -547,7 +547,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## Removed
 - Removes unneeded `gitlens.stashExplorer.enabled` configuration setting since users can add or remove views natively now
-- Removes unneeded `Toggle Git Stashes Explorer` command (`gitlens.stashExplorer.toggle`) since users can add or remove views natively now
+- Removes unneeded *Toggle Git Stashes Explorer* command (`gitlens.stashExplorer.toggle`) since users can add or remove views natively now
 - Removes the `gitlens.theme.annotations.file.hover.separateLines` configuration setting
 
 ## Fixed
@@ -569,55 +569,55 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [4.3.1] - 2017-07-03
 ## Added
-- Adds `gitlens.stashExplorer.enabled` setting to specify whether or not to show the `Git Stashes` view
-- Adds `Toggle Git Stashes Explorer` command (`gitlens.stashExplorer.toggle`) - toggles the `Git Stashes` view on and off
+- Adds `gitlens.stashExplorer.enabled` setting to specify whether or not to show the **Git Stashes** view
+- Adds *Toggle Git Stashes Explorer* command (`gitlens.stashExplorer.toggle`) - toggles the **Git Stashes** view on and off
 
 ## Changed
-- Hides the `Git Stashes` view by default
+- Hides the **Git Stashes** view by default
 
 ## Fixed
 - Fixes [#108](https://github.com/eamodio/vscode-gitlens/issues/108) - Option to remove stash explorer from the main explorer?
 
 ## [4.3.0] - 2017-07-03
 ## Added
-- Adds `Git Stashes` view to the Explorer activity
+- Adds **Git Stashes** view to the Explorer activity
   - Shows all of the stashed changes in the repository
-  - Provides toolbar buttons to `Stash Changes` and `Refresh`
-  - Provides a context menu with `Apply Stashed Changes` and `Delete Stashed Changes` commands - both require a confirmation
+  - Provides toolbar buttons to *Stash Changes* and *Refresh*
+  - Provides a context menu with *Apply Stashed Changes* and *Delete Stashed Changes* commands - both require a confirmation
   - Expand each stash to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-    - Provides a context menu with `Open Changes`, `Open File`, `Open Stashed File`, `Open File in Remote`, and `Compare File with Working Tree` commands
+    - Provides a context menu with *Open Changes*, *Open File*, *Open Stashed File*, *Open File in Remote*, and *Compare File with Working Tree* commands
 
 ## [4.2.0] - 2017-06-27
 ## Added
-- Adds `Compare File with Revision...` command (`gitlens.diffWithRevision`) - compares the active file with the selected revision of the same file
-- Adds `Open Changed Files` command (`gitlens.openChangedFiles`) to the source control group context menu
-- Adds `Close Unchanged Files` command (`gitlens.closeUnchangedFiles`) to the source control group context menu
-- Adds `Open File in Remote` command (`gitlens.openFileInRemote`) to the source control resource context menu
-- Adds `Compare File with Revision...` command (`gitlens.diffWithRevision`) to the source control resource context menu
-- Adds `Show File History` command (`gitlens.showQuickFileHistory`) to the source control resource context menu
+- Adds *Compare File with Revision...* command (`gitlens.diffWithRevision`) - compares the active file with the selected revision of the same file
+- Adds *Open Changed Files* command (`gitlens.openChangedFiles`) to the source control group context menu
+- Adds *Close Unchanged Files* command (`gitlens.closeUnchangedFiles`) to the source control group context menu
+- Adds *Open File in Remote* command (`gitlens.openFileInRemote`) to the source control resource context menu
+- Adds *Compare File with Revision...* command (`gitlens.diffWithRevision`) to the source control resource context menu
+- Adds *Show File History* command (`gitlens.showQuickFileHistory`) to the source control resource context menu
 
 ## Changed
-- Renames `Compare File with...` command to `Compare File with Branch...`
-- Renames `Open Line Commit in Remote` command to `Open Commit in Remote`
-- Renames `Show Line Commit Details` command to `Show Commit File Details`
+- Renames *Compare File with...* command to `Compare File with Branch...`
+- Renames *Open Line Commit in Remote* command to `Open Commit in Remote`
+- Renames *Show Line Commit Details* command to `Show Commit File Details`
 - Updates the description of `gitlens.blame.line.enabled` to be clearer about its behavior
 - Updates the description of `gitlens.codeLens.enabled` to be clearer about its behavior
 
 ### Fixed
 - Fixes [#103](https://github.com/eamodio/vscode-gitlens/issues/103) - Toggle file blame annotations disables line blame annotations if line blame annotations are off by default
-- Fixes another infinite loop in the `Close Unchanged Files` command
+- Fixes another infinite loop in the *Close Unchanged Files* command
 
 ## [4.1.4] - 2017-06-25
 ## Changed
-- Optimizes performance of the `Compare with Previous` commands - also avoids trying to focus a line if we don't have one
+- Optimizes performance of the *Compare with Previous* commands - also avoids trying to focus a line if we don't have one
 
 ### Fixed
-- Fixes `changes` (diff) hover not showing the correct previous line (for real this time)
+- Fixes **changes** (diff) hover not showing the correct previous line (for real this time)
 - Attempts to fix [#99](https://github.com/eamodio/vscode-gitlens/issues/99) - undo/redo spawns too many git processes
 
 ## [4.1.3] - 2017-06-20
 ### Fixed
-- Fixes `changes` (diff) hover not showing the correct previous line when showing recent changes annotations of the whole-file
+- Fixes **changes** (diff) hover not showing the correct previous line when showing recent changes annotations of the whole-file
 
 ## [4.1.2] - 2017-06-15
 ### Fixed
@@ -625,16 +625,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [4.1.1] - 2017-06-13
 ### Added
-- Adds an `alt` command to the `Toggle File Blame Annotations` command button, which when you hold down `alt` and click it will execute the `Toggle Recent File Changes Annotations` command instead
+- Adds an `alt` command to the *Toggle File Blame Annotations* command button, which when you hold down `alt` and click it will execute the *Toggle Recent File Changes Annotations* command instead
 
 ### Fixed
-- Fixes missing `Toggle File Blame Annotations` command icon
+- Fixes missing *Toggle File Blame Annotations* command icon
 
 ## [4.1.0] - 2017-06-13
 ### Added
 - Adds all-new recent changes annotations of the whole-file - annotates and highlights all of lines changed in the most recent commit
   - Can customize the [layout](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#file-recent-changes-annotation-settings), as well as the [theme](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#theme-settings)
-- Adds `Toggle Recent File Changes Annotations` command (`gitlens.toggleFileRecentChanges`) - toggles the recent changes annotations on and off
+- Adds *Toggle Recent File Changes Annotations* command (`gitlens.toggleFileRecentChanges`) - toggles the recent changes annotations on and off
 - Adds ability to press `Escape` to quickly toggle any whole-file annotations off
 - Improves performance
   - Optimized git output parsing to increase speed and dramatically reduce memory usage
@@ -660,35 +660,35 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Can now fully customize the [layout and content](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#status-bar-settings)
 - Adds all-new [configurability](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#advanced-settings) over which commands are added to which menus via the `gitlens.advanced.menus` setting
 - Adds better [configurability](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#code-lens-settings) over where Git code lens will be shown -- both by default and per language
-- Adds an all-new `changes` (diff) hover annotation to the current line - provides instant access to the line's previous version
-- Adds `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`) - toggles the current line blame annotations on and off
-- Adds `Show Line Blame Annotations` command (`gitlens.showLineBlame`) - shows the current line blame annotations
-- Adds `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`) - toggles the file blame annotations on and off
-- Adds `Show File Blame Annotations` command (`gitlens.showFileBlame`) - shows the file blame annotations
-- Adds `Open File in Remote` command (`gitlens.openFileInRemote`) to the `editor/title` context menu
-- Adds `Open Repo in Remote` command (`gitlens.openRepoInRemote`) to the `editor/title` context menu
+- Adds an all-new **changes** (diff) hover annotation to the current line - provides instant access to the line's previous version
+- Adds *Toggle Line Blame Annotations* command (`gitlens.toggleLineBlame`) - toggles the current line blame annotations on and off
+- Adds *Show Line Blame Annotations* command (`gitlens.showLineBlame`) - shows the current line blame annotations
+- Adds *Toggle File Blame Annotations* command (`gitlens.toggleFileBlame`) - toggles the file blame annotations on and off
+- Adds *Show File Blame Annotations* command (`gitlens.showFileBlame`) - shows the file blame annotations
+- Adds *Open File in Remote* command (`gitlens.openFileInRemote`) to the `editor/title` context menu
+- Adds *Open Repo in Remote* command (`gitlens.openRepoInRemote`) to the `editor/title` context menu
 - Adds `gitlens.strings.*` settings to allow for the customization of certain strings displayed
 - Adds `gitlens.theme.*` settings to allow for the theming of certain elements
 - Adds `gitlens.advanced.telemetry.enabled` settings to explicitly opt-in or out of telemetry, but still ultimately honors the `telemetry.enableTelemetry` setting
-- Adds ability to suppress most warning messages - which can be re-enabled using the `Reset Suppressed Warnings` command (`gitlens.resetSuppressedWarnings`)
+- Adds ability to suppress most warning messages - which can be re-enabled using the *Reset Suppressed Warnings* command (`gitlens.resetSuppressedWarnings`)
 
 ### Changed
 - (BREAKING) Almost all of the GitLens settings have either been renamed, removed, or otherwise changed - see the [README](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#extension-settings)`
 - Changes the positioning of the Git code lens to try to be at the end of any other code lens on the same line
-- Changes the position of the `Open File in Remote` command (`gitlens.openFileInRemote`) in the context menus - now in the `navigation` group
-- Changes the `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) to always toggle the Git code lens on and off
+- Changes the position of the *Open File in Remote* command (`gitlens.openFileInRemote`) in the context menus - now in the `navigation` group
+- Changes the *Toggle Git Code Lens* command (`gitlens.toggleCodeLens`) to always toggle the Git code lens on and off
 - Changes the default of `gitlens.advanced.toggleWhitespace.enabled` back to `true`, but automatically disables whitespace toggling if whitespace rendering is not on
 
 ### Removed
-- Removes the on-demand `trailing` file blame annotations -- didn't work out and just ended up with a ton of visual noise
-- Removes `Toggle Blame Annotations` command (`gitlens.toggleBlame`) - replaced by the `Toggle File Blame Annotations` command (`gitlens.toggleFileBlame`)
-- Removes `Show Blame Annotations` command (`gitlens.showBlame`) - replaced by the `Show File Blame Annotations` command (`gitlens.showFileBlame`)
+- Removes the on-demand **trailing** file blame annotations -- didn't work out and just ended up with a ton of visual noise
+- Removes *Toggle Blame Annotations* command (`gitlens.toggleBlame`) - replaced by the *Toggle File Blame Annotations* command (`gitlens.toggleFileBlame`)
+- Removes *Show Blame Annotations* command (`gitlens.showBlame`) - replaced by the *Show File Blame Annotations* command (`gitlens.showFileBlame`)
 
 ### Fixed
 - Fixes [#81](https://github.com/eamodio/vscode-gitlens/issues/81) - Current line annotation feels too sticky
 - Fixes [#83](https://github.com/eamodio/vscode-gitlens/issues/83) - Calling "close unchanged files" results in no new files being openable
 - Fixes issues with the zone.js monkey patching done by application insights (telemetry) - disables all the monkey patching
-- Fixes issue with `Open Branch in Remote` & `Open Repository in Remote` not showing when there are no open editors
+- Fixes issue with *Open Branch in Remote* & *Open Repository in Remote* not showing when there are no open editors
 
 ## [3.6.1] - 2017-06-07
 ### Fixed
@@ -700,16 +700,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a `gitlens.diffWithWorking` status bar command option - compares the current line commit with the working tree
 
 ### Changed
-- Changes the behavior of the `Compare File with Working Tree` command (`gitlens.diffWithWorking`) - always does what it says :)
+- Changes the behavior of the *Compare File with Working Tree* command (`gitlens.diffWithWorking`) - always does what it says :)
   - Compares the current file with the working tree -- if the current file *is* the working file, it will show a `File matches the working tree` message
-- Changes the behavior of the `Compare File with Previous` command (`gitlens.diffWithPrevious`) - always does what it says  :)
+- Changes the behavior of the *Compare File with Previous* command (`gitlens.diffWithPrevious`) - always does what it says  :)
   - Compares the current file with the previous commit to that file
 - Changes the behavior of the `gitlens.diffWithPrevious` status bar command option - compares the current line commit with the previous
-- Renames `Compare File with Previous Commit` command to `Compare File with Previous`
-- Renames `Compare Line with Previous Commit` command to `Compare Line Commit with Previous`
-- Renames `Compare Line with Working Tree` command to `Compare Line Commit with Working Tree`
-- Renames `Compare with Previous Commit` in quick pick menus to `Compare File with Previous`
-- Renames `Compare with Working Tree` in quick pick menus to `Compare File with Working Tree`
+- Renames *Compare File with Previous Commit* command to *Compare File with Previous*
+- Renames *Compare Line with Previous Commit* command to *Compare Line Commit with Previous*
+- Renames *Compare Line with Working Tree* command to *Compare Line Commit with Working Tree*
+- Renames *Compare with Previous Commit* in quick pick menus to *Compare File with Previous*
+- Renames *Compare with Working Tree* in quick pick menus to *Compare File with Working Tree*
 
 ### Fixed
 - Fixes [#79](https://github.com/eamodio/vscode-gitlens/issues/79) - Application insights package breaks GitLens + eslint
@@ -731,21 +731,21 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Increases the debounce (delay) on cursor movement to reduce lag when navigating around a file
 - Adds diff information (the line's previous version) into the active line hover when the current line is uncommitted
 - Adds `gitlens.statusBar.alignment` settings to control the alignment of the status bar -- thanks to [PR #72](https://github.com/eamodio/vscode-gitlens/pull/72) by Zack Schuster ([@zackschuster](https://github.com/zackschuster))!
-- Adds `Open Branch in Remote` command (`gitlens.openBranchInRemote`) - opens the current branch commits in the supported remote service
-- Adds `Open Repository in Remote` command (`gitlens.openRepoInRemote`) - opens the repository in the supported remote service
-- Adds `Stash Changes` option to stashed changes quick pick menu -- no longer hidden behind the `"gitlens.insiders": true` setting
-- Adds `Stash Unstaged Changes` option to stashed changes quick pick menu -- no longer hidden behind the `"gitlens.insiders": true` setting
-- Adds `Apply Stashed Changes` command (`gitlens.stashApply`) to apply the selected stashed changes to the working tree -- no longer hidden behind the `"gitlens.insiders": true` setting
-- Adds `Stash Changes` command (`gitlens.stashSave`) to stash any working tree changes -- no longer hidden behind the `"gitlens.insiders": true` setting
-- Adds support to the `Search commits` command (`gitlens.showCommitSearch`) to work without any active editor
+- Adds *Open Branch in Remote* command (`gitlens.openBranchInRemote`) - opens the current branch commits in the supported remote service
+- Adds *Open Repository in Remote* command (`gitlens.openRepoInRemote`) - opens the repository in the supported remote service
+- Adds *Stash Changes* option to stashed changes quick pick menu -- no longer hidden behind the `"gitlens.insiders": true` setting
+- Adds *Stash Unstaged Changes* option to stashed changes quick pick menu -- no longer hidden behind the `"gitlens.insiders": true` setting
+- Adds *Apply Stashed Changes* command (`gitlens.stashApply`) to apply the selected stashed changes to the working tree -- no longer hidden behind the `"gitlens.insiders": true` setting
+- Adds *Stash Changes* command (`gitlens.stashSave`) to stash any working tree changes -- no longer hidden behind the `"gitlens.insiders": true` setting
+- Adds support to the *Search commits* command (`gitlens.showCommitSearch`) to work without any active editor
 - Adds commit search pre-population -- if there is an active editor it will use the commit sha of the current line commit, otherwise it will use the current clipboard
 
 ### Changed
-- Changes `Open File in Remote` and `Open Line Commit in Remote` commands to actually work for everyone (part of their implementation was still behind the `gitlens.insiders` setting)
+- Changes *Open File in Remote* and *Open Line Commit in Remote* commands to actually work for everyone (part of their implementation was still behind the `gitlens.insiders` setting)
 - Changes the active line hover to only show at the beginning and end of a line if `gitlens.blame.annotation.activeLine` is `both`
-- Changes `alt+f` shortcut to `alt+/` for the `Search commits` command (`gitlens.showCommitSearch`)
-- Changes `alt+right` on commit details quick pick menu to execute the `Compare File with Previous Commit` command (`gitlens.diffWithPrevious`) when a file is selected
-- Changes `alt+right` on repository status quick pick menu to execute the `Compare File with Previous Commit` command (`gitlens.diffWithPrevious`) when a file is selected
+- Changes `alt+f` shortcut to `alt+/` for the *Search commits* command (`gitlens.showCommitSearch`)
+- Changes `alt+right` on commit details quick pick menu to execute the *Compare File with Previous Commit* command (`gitlens.diffWithPrevious`) when a file is selected
+- Changes `alt+right` on repository status quick pick menu to execute the *Compare File with Previous Commit* command (`gitlens.diffWithPrevious`) when a file is selected
 - Refactors command argument passing to allow for future inclusion into the SCM menus
 
 ### Fixed
@@ -759,20 +759,20 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [3.4.9] - 2017-05-03
 ### Added
-- Adds better support for deleted files when choosing `Open Changed Files` via in quick pick menus - now opens the file revision from the previous commit
+- Adds better support for deleted files when choosing *Open Changed Files* via in quick pick menus - now opens the file revision from the previous commit
 - Adds better support for deleted files when using `alt+right arrow` shortcut on the commit details quick pick menu - now opens the file revision from the previous commit
 
 ### Changed
-- Removes deleted files when choosing `Open Working Changed Files` via in quick pick menus
+- Removes deleted files when choosing *Open Working Changed Files* via in quick pick menus
 
 ## [3.4.8] - 2017-05-02
 ### Changed
-- Changes display name in the marketplace to `Git Lens` because of the marketplace search ranking algorithm
+- Changes display name in the marketplace to **Git Lens** because of the marketplace search ranking algorithm
 
 ## [3.4.6] - 2017-05-01
 ### Added
-- Adds better support for deleted files when choosing `Open File` via in quick pick menus - now opens the file revision from the previous commit
-- Adds better support for deleted files when choosing `Open File in Remote` via in quick pick menus - now opens the file revision from the previous commit
+- Adds better support for deleted files when choosing *Open File* via in quick pick menus - now opens the file revision from the previous commit
+- Adds better support for deleted files when choosing *Open File in Remote* via in quick pick menus - now opens the file revision from the previous commit
 - Improves performance by caching the git path to avoid lookups on every git command
 
 ### Changed
@@ -790,16 +790,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `gitlens.blame.annotation.activeLineDarkColor` & `gitlens.blame.annotation.activeLineLightColor` settings to control the colors of the active line blame annotation
 
 ### Changed
-- Changes `Toggle Git Code Lens` command to work when `gitlens.codeLens.visibility` is set to `auto` (the default)
-- Renames `Compare with...` command to `Compare File with...`
-- Renames `Compare with Next Commit` command to `Compare File with Next Commit`
-- Renames `Compare with Previous Commit` command to `Compare File with Previous Commit`
-- Renames `Compare with Previous Commit` command to `Compare File with Previous Commit`
-- Renames `Compare with Working Tree` command to `Compare File with Working Tree`
+- Changes *Toggle Git Code Lens* command to work when `gitlens.codeLens.visibility` is set to `auto` (the default)
+- Renames *Compare with...* command to *Compare File with...*
+- Renames *Compare with Next Commit* command to *Compare File with Next Commit*
+- Renames *Compare with Previous Commit* command to *Compare File with Previous Commit*
+- Renames *Compare with Previous Commit* command to *Compare File with Previous Commit*
+- Renames *Compare with Working Tree* command to *Compare File with Working Tree*
 
 ### Fixed
-- Fixes issue with `Open Commit in Remote` not working
-- Fixes issue with many commands missing from the `Command Palette`
+- Fixes issue with *Open Commit in Remote* not working
+- Fixes issue with many commands missing from the **Command Palette**
 
 ## [3.3.3] - 2017-04-10
 ### Fixed
@@ -822,14 +822,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [3.3.0] - 2017-04-09
 ### Added
-- Adds `Search commits` command (`gitlens.showCommitSearch`) to allow commit searching by message, author, file pattern, or sha
-- Adds `alt+f` shortcut for the `Search commits` command (`gitlens.showCommitSearch`)
-- Adds `Show Commit Search` command to the branch history quick pick menu
-- Adds `Show Stashed Changes` command to the repository status quick pick menu
-- Adds a `Don't Show Again` option to the GitLen update notification
+- Adds *Search commits* command (`gitlens.showCommitSearch`) to allow commit searching by message, author, file pattern, or sha
+- Adds `alt+f` shortcut for the *Search commits* command (`gitlens.showCommitSearch`)
+- Adds *Show Commit Search* command to the branch history quick pick menu
+- Adds *Show Stashed Changes* command to the repository status quick pick menu
+- Adds a *Don't Show Again* option to the GitLen update notification
 
 ### Changed
-- Changes `Open x in Remote` commands to be no longer hidden behind the `gitlens.insiders` setting
+- Changes *Open x in Remote* commands to be no longer hidden behind the `gitlens.insiders` setting
 
 ### Fixed
 - Fixes [#59](https://github.com/eamodio/vscode-gitlens/issues/59) - Context menu shows gitlens commands even if folder/file is not under git
@@ -846,23 +846,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 - Fixes [#57](https://github.com/eamodio/vscode-gitlens/issues/57) - Warn on directory compare when there is no diff tool configured
 - Fixes [#58](https://github.com/eamodio/vscode-gitlens/issues/58) - Work with git sub-modules
-- Fixes issue with `Open * in Remote` commands with nested repositories and non-git workspace root folder
+- Fixes issue with *Open * in Remote* commands with nested repositories and non-git workspace root folder
 
 ## [3.1.0]
 ### Added
-- Adds `Show Stashed Changes` command (`gitlens.showQuickStashList`) to open a quick pick menu of all the stashed changes
-- Adds insiders `Stash Changes` option to stashed changes quick pick menu -- enabled via `"gitlens.insiders": true`
-- Adds insiders `Stash Unstaged Changes` option to stashed changes quick pick menu
-- Adds insiders `Apply Stashed Changes` command (`gitlens.stashApply`) to apply the selected stashed changes to the working tree
-- Adds insiders `Stash Changes` command (`gitlens.stashSave`) to stash any working tree changes
+- Adds *Show Stashed Changes* command (`gitlens.showQuickStashList`) to open a quick pick menu of all the stashed changes
+- Adds insiders *Stash Changes* option to stashed changes quick pick menu -- enabled via `"gitlens.insiders": true`
+- Adds insiders *Stash Unstaged Changes* option to stashed changes quick pick menu
+- Adds insiders *Apply Stashed Changes* command (`gitlens.stashApply`) to apply the selected stashed changes to the working tree
+- Adds insiders *Stash Changes* command (`gitlens.stashSave`) to stash any working tree changes
 
 ### Fixed
 - Fixes incorrect counts in upstream status
 
 ## [3.0.5]
 ### Added
-- Adds additional insiders support for GitLab, Bitbucket, and Visual Studio Team Services to the `Open x in Remote` commands and quick pick menus -- enabled via `"gitlens.insiders": true`
-- Adds insiders line support to `Open File in Remote` command (`gitlens.openFileInRemote`)
+- Adds additional insiders support for GitLab, Bitbucket, and Visual Studio Team Services to the *Open x in Remote* commands and quick pick menus -- enabled via `"gitlens.insiders": true`
+- Adds insiders line support to *Open File in Remote* command (`gitlens.openFileInRemote`)
 - Adds original file name for renamed files to the repository status and commit details quick pick menu
 
 ### Fixed
@@ -893,27 +893,27 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [3.0.0]
 ### Added
-- Adds insiders support for `Open in GitHub` to the relevant quick pick menus -- enabled via `"gitlens.insiders": true`
-- Adds insiders `Open Line Commit in Remote` command (`gitlens.openCommitInRemote`) to open the current commit in the remote service (currently only GitHub)
-- Adds insiders `Open File in Remote` command (`gitlens.openFileInRemote`) to open the current file in the remote service (currently only GitHub)
+- Adds insiders support for *Open in GitHub* to the relevant quick pick menus -- enabled via `"gitlens.insiders": true`
+- Adds insiders *Open Line Commit in Remote* command (`gitlens.openCommitInRemote`) to open the current commit in the remote service (currently only GitHub)
+- Adds insiders *Open File in Remote* command (`gitlens.openFileInRemote`) to open the current file in the remote service (currently only GitHub)
 - Adds an update notification for feature releases
-- Adds `Show Branch History` command (`gitlens.showQuickBranchHistory`) to show the history of the selected branch
-- Adds `Show Last Opened Quick Pick` command (`gitlens.showLastQuickPick`) to re-open the previously opened quick pick menu - helps to get back to previous context
-- Adds `alt+-` shortcut for the `Show Last Opened Quick Pick` command (`gitlens.showLastQuickPick`)
+- Adds *Show Branch History* command (`gitlens.showQuickBranchHistory`) to show the history of the selected branch
+- Adds *Show Last Opened Quick Pick* command (`gitlens.showLastQuickPick`) to re-open the previously opened quick pick menu - helps to get back to previous context
+- Adds `alt+-` shortcut for the *Show Last Opened Quick Pick* command (`gitlens.showLastQuickPick`)
 - Adds upstream status information (if available) to the repository status pick pick
 - Adds file status rollup information to the repository status pick pick
 - Adds file status rollup information to the commit details quick pick menu
-- Adds `Compare with...` (`gitlens.diffWithBranch`) command to compare working file to another branch (via branch quick pick menu)
-- Adds branch quick pick menu to `Directory Compare` (`gitlens.diffDirectory`) command
+- Adds *Compare with...* (`gitlens.diffWithBranch`) command to compare working file to another branch (via branch quick pick menu)
+- Adds branch quick pick menu to *Directory Compare* (`gitlens.diffDirectory`) command
 - Adds support for `gitlens.showQuickFileHistory` command execution via code lens to limit results to the code lens block
 - Adds current branch to branch quick pick menu placeholder
-- Adds `Show Branch History` command to the branch history quick pick menu when showing only limited commits (e.g. starting at a specified commit)
-- Adds `Show File History` command to the file history quick pick menu when showing only limited commits (e.g. starting at a specified commit)
-- Adds `Don't Show Again` option to the unsupported git version notification
+- Adds *Show Branch History* command to the branch history quick pick menu when showing only limited commits (e.g. starting at a specified commit)
+- Adds *Show File History* command to the file history quick pick menu when showing only limited commits (e.g. starting at a specified commit)
+- Adds *Don't Show Again* option to the unsupported git version notification
 
 ### Changed
-- Changes `Show Repository History` command to `Show Current Branch History`
-- Changes `Repository History` terminology to `Branch History`
+- Changes *Show Repository History* command to *Show Current Branch History*
+- Changes *Repository History* terminology to *Branch History*
 
 ### Fixed
 - Fixes issue with `gitlens.diffWithPrevious` command execution via code lens when the code lens was not at the document/file level
@@ -939,8 +939,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds progress indicator for the `gitlens.showQuickFileHistory` & `gitlens.showQuickRepoHistory` quick pick menus
 - Adds paging support to the `gitlens.showQuickFileHistory` & `gitlens.showQuickRepoHistory` quick pick menus
-  - Adds `Show Previous Commits` command
-  - Adds `Show Next Commits` command
+  - Adds *Show Previous Commits* command
+  - Adds *Show Next Commits* command
 - Adds keyboard page navigation via `alt+,` (previous) & `alt+.` (next) on the `gitlens.showQuickFileHistory` & `gitlens.showQuickRepoHistory` quick pick menus
 - Adds keyboard commit navigation via `alt+,` (previous) & `alt+.` (next) on the `gitlens.showQuickCommitDetails` & `gitlens.showQuickCommitFileDetails` quick pick menus
 
@@ -980,21 +980,21 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `gitlens.showQuickCommitFileDetails` command to the status bar
 - Adds `gitlens.closeUnchangedFiles` command to close any editors that don't have uncommitted changes
 - Adds `gitlens.openChangedFiles` command to open all files that have uncommitted changes
-- Adds `Directory Compare` (`gitlens.diffDirectory`) command to open the configured git difftool to compare directory versions
-- Adds `Directory Compare with Previous Commit` command on the `gitlens.showQuickCommitDetails` quick pick menu
-- Adds `Directory Compare with Working Tree` command on the `gitlens.showQuickCommitDetails` quick pick menu
-- Adds a `Changed Files` grouping on the `gitlens.showQuickCommitDetails` quick pick menu
-- Adds a `Close Unchanged Files` command on the `gitlens.showQuickRepoStatus` quick pick menu
-- Adds a contextual description to the `go back` command in quick pick menus
+- Adds *Directory Compare* (`gitlens.diffDirectory`) command to open the configured git difftool to compare directory versions
+- Adds *Directory Compare with Previous Commit* command on the `gitlens.showQuickCommitDetails` quick pick menu
+- Adds *Directory Compare with Working Tree* command on the `gitlens.showQuickCommitDetails` quick pick menu
+- Adds a **Changed Files** grouping on the `gitlens.showQuickCommitDetails` quick pick menu
+- Adds a *Close Unchanged Files* command on the `gitlens.showQuickRepoStatus` quick pick menu
+- Adds a contextual description to the *go back* command in quick pick menus
 
 ### Changed
 - Changes layout of the `gitlens.showQuickRepoStatus` quick pick menu for better clarity
 - Changes behavior of `gitlens.showQuickCommitDetails` to show commit a quick pick menu of details for a commit
 - Changes default of `gitlens.codeLens.recentChange.command` to be `gitlens.showQuickCommitFileDetails` (though there is no visible behavior change)
-- Renames `Open Files` to `Open Changed Files` on the `gitlens.showQuickCommitDetails` quick pick menu
-- Renames `Open Working Files` to `Open Changed Working Files` on the `gitlens.showQuickCommitDetails` quick pick menu
-- Renames `Show Changed Files` to `Show Commit Details` on the `gitlens.showQuickCommitFileDetails` quick pick menu
-- Renames `Open Files` to `Open Changed Files` on the `gitlens.showQuickRepoStatus` quick pick menu
+- Renames *Open Files* to *Open Changed Files* on the `gitlens.showQuickCommitDetails` quick pick menu
+- Renames *Open Working Files* to *Open Changed Working Files* on the `gitlens.showQuickCommitDetails` quick pick menu
+- Renames *Show Changed Files* to *Show Commit Details* on the `gitlens.showQuickCommitFileDetails` quick pick menu
+- Renames *Open Files* to *Open Changed Files* on the `gitlens.showQuickRepoStatus` quick pick menu
 
 ### Fixed
 - Fixes [#44](https://github.com/eamodio/vscode-gitlens/issues/43) by adding a warning message about Git version requirements
@@ -1014,7 +1014,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes startup failure if caching was disabled
-- Fixes missing `Compare Line with Previous Commit` context menu item
+- Fixes missing *Compare Line with Previous Commit* context menu item
 - Fixes [#41](https://github.com/eamodio/vscode-gitlens/issues/41) - Toggle Blame annotations on compare files page
 - Fixes issue with undo (to a saved state) not causing annotations to reappear properly
 - Attempts to fix [#42](https://github.com/eamodio/vscode-gitlens/issues/42) - Cursor on Uncommitted message
@@ -1041,20 +1041,20 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [2.8.1]
 ### Fixed
-- Fixes issue where `Compare with *` commands fail to open when there is no active editor
+- Fixes issue where *Compare with ** commands fail to open when there is no active editor
 
 ## [2.8.0]
 ### Added
-- Adds new `Open File` command on the `gitlens.showQuickCommitDetails` quick pick menu to open the commit version of the file
-- Adds new `Open File` command on the `gitlens.showQuickCommitDetails` quick pick menu to open the commit version of the files
-- Adds `alt+left` keyboard shortcut in quick pick menus to `go back`
+- Adds new *Open File* command on the `gitlens.showQuickCommitDetails` quick pick menu to open the commit version of the file
+- Adds new *Open File* command on the `gitlens.showQuickCommitDetails` quick pick menu to open the commit version of the files
+- Adds `alt+left` keyboard shortcut in quick pick menus to *go back*
 - Adds `alt+right` keyboard shortcut in quick pick menus to execute the currently selected item while keeping the quick pick menu open (in most cases)
   - `alt+right` keyboard shortcut on commit details file name, will open the commit version of the file
 
 ### Changed
 - Indents the file statuses on the `gitlens.showQuickCommitDetails` quick pick menu
-- Renames `Open File` to `Open Working File` on the `gitlens.showQuickCommitDetails` quick pick menu
-- Renames `Open File` and `Open Working Files` on the `gitlens.showQuickCommitDetails` quick pick menu
+- Renames *Open File* to *Open Working File* on the `gitlens.showQuickCommitDetails` quick pick menu
+- Renames *Open File* and *Open Working Files* on the `gitlens.showQuickCommitDetails` quick pick menu
 - Reorders some quick pick menus
 
 ### Fixed
@@ -1074,12 +1074,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [2.7.0]
 ### Added
 - Adds file status icons (added, modified, deleted, etc) to the `gitlens.showQuickCommitDetails` quick pick menu
-- Adds `Copy Commit Sha to Clipboard` command to commit files quick pick menu
-- Adds `Copy Commit Message to Clipboard` command to commit files quick pick menu
+- Adds *Copy Commit Sha to Clipboard* command to commit files quick pick menu
+- Adds *Copy Commit Message to Clipboard* command to commit files quick pick menu
 
 ### Changed
-- Changes `Show Commit History` to `Show File History` on the `gitlens.showQuickCommitDetails` quick pick menu
-- Changes `Show Previous Commit History` to `Show Previous File History` on the `gitlens.showQuickCommitDetails` quick pick menu
+- Changes *Show Commit History* to *Show File History* on the `gitlens.showQuickCommitDetails` quick pick menu
+- Changes *Show Previous Commit History* to *Show Previous File History* on the `gitlens.showQuickCommitDetails` quick pick menu
 
 ### Fixed
 - Fixes issue with repository status when there are no changes
@@ -1109,12 +1109,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [2.5.2]
 ### Added
-- Adds `Open File` command to `gitlens.showQuickCommitDetails` quick pick menu
-- Adds `Open Files` command to `gitlens.showQuickCommitDetails` quick pick menu
+- Adds *Open File* command to `gitlens.showQuickCommitDetails` quick pick menu
+- Adds *Open Files* command to `gitlens.showQuickCommitDetails` quick pick menu
 - Improves performance of git-log operations in `gitlens.diffWithPrevious` and `gitlens.diffWithWorking` commands
 
 ### Changed
-- Changes `Not Committed Yet` author for uncommitted changes to `Uncommitted`
+- Changes *Not Committed Yet* author for uncommitted changes to *Uncommitted*
 
 ### Fixed
 - Fixes showing `gitlens.showQuickCommitDetails` quick pick menu for uncommitted changes -- now shows the previous commit details
@@ -1123,7 +1123,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds `gitlens.copyMessageToClipboard` command to copy commit message to the clipboard
 - Adds `gitlens.copyMessageToClipboard` to the editor content menu
-- Adds `Copy Commit Message to Clipboard` command to `gitlens.showQuickCommitDetails` quick pick menu
+- Adds *Copy Commit Message to Clipboard* command to `gitlens.showQuickCommitDetails` quick pick menu
 
 ### Changed
 - Changes behavior of `gitlens.copyShaToClipboard` to copy the sha of the most recent commit to the repository if there is no active editor
@@ -1135,12 +1135,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [2.5.0]
 ### Added
 - Overhauls the `gitlens.showQuickRepoHistory`, `gitlens.showQuickFileHistory`, and `gitlens.showQuickCommitDetails` quick pick menus
-  - Adds `Show Repository History` command to `gitlens.showQuickFileHistory` quick pick menu
-  - Adds `Show Previous Commits History` command to `gitlens.showQuickCommitDetails` quick pick menu
-  - Adds `Show Commits History` command to `gitlens.showQuickCommitDetails` quick pick menu
-  - Adds `Copy Commit Sha to Clipboard` command to `gitlens.showQuickCommitDetails` quick pick menu
-  - Adds `Show Changed Files` command to `gitlens.showQuickCommitDetails` quick pick menu
-  - Adds more robust `go back` navigation in quick pick menus
+  - Adds *Show Repository History* command to `gitlens.showQuickFileHistory` quick pick menu
+  - Adds *Show Previous Commits History* command to `gitlens.showQuickCommitDetails` quick pick menu
+  - Adds *Show Commits History* command to `gitlens.showQuickCommitDetails` quick pick menu
+  - Adds *Copy Commit Sha to Clipboard* command to `gitlens.showQuickCommitDetails` quick pick menu
+  - Adds *Show Changed Files* command to `gitlens.showQuickCommitDetails` quick pick menu
+  - Adds more robust *go back* navigation in quick pick menus
   - Adds commit message to placeholder text of many quick pick menus
   - Adds icons for some commands
 - Adds `gitlens.diffWithPrevious` command to the editor content menu
@@ -1248,12 +1248,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [1.3.1]
 ### Added
-- Adds `Diff Commit with Working Tree` to the explorer context menu (assuming `gitlens.menus.fileDiff.enabled` is `true`)
-- Adds `Diff Commit with Working Tree` & `Diff Commit with Previous` to the editor title context menu (assuming `gitlens.menus.fileDiff.enabled` is `true`)
+- Adds *Diff Commit with Working Tree* to the explorer context menu (assuming `gitlens.menus.fileDiff.enabled` is `true`)
+- Adds *Diff Commit with Working Tree* & *Diff Commit with Previous* to the editor title context menu (assuming `gitlens.menus.fileDiff.enabled` is `true`)
 
 ### Changed
-- Renames `Diff` commands for better clarity
-- Removes `Git` from the commands as it feels unnecessary
+- Renames *Diff* commands for better clarity
+- Removes *Git* from the commands as it feels unnecessary
 - Reorders the context menu commands
 
 ## [1.3.0]
