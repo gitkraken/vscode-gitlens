@@ -2,9 +2,10 @@
 const _debounce = require('lodash.debounce');
 const _once = require('lodash.once');
 
-export interface IDeferred {
+export interface IDeferrable {
     cancel(): void;
     flush(...args: any[]): void;
+    pending?: () => boolean;
 }
 
 interface IPropOfValue {
@@ -13,22 +14,22 @@ interface IPropOfValue {
 }
 
 export namespace Functions {
-    export function debounce<T extends Function>(fn: T, wait?: number, options?: { leading?: boolean, maxWait?: number, track?: boolean, trailing?: boolean }): T & IDeferred & { pending?: () => boolean } {
+    export function debounce<T extends Function>(fn: T, wait?: number, options?: { leading?: boolean, maxWait?: number, track?: boolean, trailing?: boolean }): T & IDeferrable {
         const { track, ...opts } = { track: false, ...(options || {}) } as { leading?: boolean, maxWait?: number, track?: boolean, trailing?: boolean };
 
         if (track !== true) return _debounce(fn, wait, opts);
 
         let pending = false;
 
-        const debounced = _debounce(function() {
+        const debounced = _debounce(function(this: any) {
             pending = false;
-            return fn.apply(null, arguments);
-        } as any as T, wait, options) as T & IDeferred;
+            return fn.apply(this, arguments);
+        } as any as T, wait, options) as T & IDeferrable;
 
-        const tracked = function() {
+        const tracked = function(this: any) {
             pending = true;
-            return debounced.apply(null, arguments);
-        } as any as T & IDeferred & { pending(): boolean};
+            return debounced.apply(this, arguments);
+        } as any as T & IDeferrable;
 
         tracked.pending = function() { return pending; };
         tracked.cancel = function() { return debounced.cancel.apply(debounced, arguments); };

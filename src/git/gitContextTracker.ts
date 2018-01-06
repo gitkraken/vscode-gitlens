@@ -1,5 +1,5 @@
 'use strict';
-import { Functions, IDeferred } from '../system';
+import { Functions, IDeferrable } from '../system';
 import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, Range, TextDocumentChangeEvent, TextEditor, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
 import { TextDocumentComparer } from '../comparers';
 import { configuration } from '../configuration';
@@ -70,10 +70,10 @@ export class GitContextTracker extends Disposable {
     private readonly _context: Context = { state: { dirty: false } };
     private readonly _disposable: Disposable;
     private _listenersDisposable: Disposable | undefined;
-    private _fireDirtyStateChangedDebounced: (() => void) & IDeferred;
+    private _fireDirtyStateChangedDebounced: (() => void) & IDeferrable;
 
-    private _checkLineDirtyStateChangedDebounced: (() => void) & IDeferred;
-    private _fireLineDirtyStateChangedDebounced: (() => void) & IDeferred;
+    private _checkLineDirtyStateChangedDebounced: (() => void) & IDeferrable;
+    private _fireLineDirtyStateChangedDebounced: (() => void) & IDeferrable;
 
     private _insiders = false;
 

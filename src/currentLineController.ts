@@ -1,5 +1,5 @@
 'use strict';
-import { Functions, IDeferred } from './system';
+import { Functions, IDeferrable } from './system';
 import { CancellationToken, ConfigurationChangeEvent, debug, DecorationRangeBehavior, DecorationRenderOptions, Disposable, ExtensionContext, Hover, HoverProvider, languages, Position, Range, StatusBarAlignment, StatusBarItem, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window } from 'vscode';
 import { AnnotationController, FileAnnotationType } from './annotations/annotationController';
 import { Annotations } from './annotations/annotations';
@@ -36,7 +36,7 @@ export class CurrentLineController extends Disposable {
     private _isAnnotating: boolean = false;
     private _statusBarItem: StatusBarItem | undefined;
     private _trackCurrentLineDisposable: Disposable | undefined;
-    private _updateBlameDebounced: ((line: number, editor: TextEditor) => Promise<void>) & IDeferred;
+    private _updateBlameDebounced: ((line: number, editor: TextEditor) => Promise<void>) & IDeferrable;
     private _uri: GitUri;
 
     constructor(
