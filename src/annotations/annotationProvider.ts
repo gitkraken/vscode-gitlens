@@ -1,4 +1,5 @@
 'use strict';
+import { Functions } from '../system';
 import { DecorationOptions, Disposable, ExtensionContext, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, Uri, window } from 'vscode';
 import { FileAnnotationType } from '../annotations/annotationController';
 import { TextDocumentComparer } from '../comparers';
@@ -79,7 +80,17 @@ export abstract class AnnotationProviderBase extends Disposable {
         }
     }
 
+    private _resetDebounced: ((changes?: { decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined }) => Promise<void>) | undefined;
+
     async reset(changes?: { decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined }) {
+        if (this._resetDebounced === undefined) {
+            this._resetDebounced = Functions.debounce(this.onReset, 250);
+        }
+
+        this._resetDebounced(changes);
+    }
+
+    async onReset(changes?: { decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined }) {
         if (changes !== undefined) {
             await this.clear();
 

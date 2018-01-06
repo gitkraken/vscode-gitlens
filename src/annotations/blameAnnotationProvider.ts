@@ -33,14 +33,14 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         super.clear();
     }
 
-    async reset(changes?: { decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined }) {
+    async onReset(changes?: { decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined }) {
         if (this.editor !== undefined) {
             this._blame = this.editor.document.isDirty
                 ? this.git.getBlameForFileContents(this.uri, this.editor.document.getText())
                 : this.git.getBlameForFile(this.uri);
         }
 
-        super.reset(changes);
+        super.onReset(changes);
     }
 
     async selection(shaOrLine?: string | number, blame?: GitBlame) {
