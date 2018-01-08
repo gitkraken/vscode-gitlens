@@ -117,7 +117,7 @@ export class GitLogCommit extends GitCommit {
     toFileCommit(fileNameOrStatus: string | IGitStatusFile): GitLogCommit | undefined {
         let status: IGitStatusFile | undefined;
         if (typeof fileNameOrStatus === 'string') {
-            const fileName = Git.normalizePath(path.relative(this.repoPath, fileNameOrStatus));
+            const fileName = Strings.normalizePath(path.relative(this.repoPath, fileNameOrStatus));
             status = this.fileStatuses.find(f => f.fileName === fileName);
             if (status === undefined) return undefined;
         }

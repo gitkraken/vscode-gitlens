@@ -3,7 +3,8 @@ import { Iterables, Strings } from '../system';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
-import { GitLog, GitService, GitUri } from '../gitService';
+import { Container } from '../container';
+import { GitLog, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, FileHistoryQuickPick, ShowCommitsInResultsQuickPickItem } from '../quickPicks';
 import { ShowQuickCommitFileDetailsCommandArgs } from './showQuickCommitFileDetails';
@@ -21,9 +22,7 @@ export interface ShowQuickFileHistoryCommandArgs {
 
 export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.ShowQuickFileHistory);
     }
 
@@ -31,7 +30,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return commands.executeCommand(Commands.ShowQuickCurrentBranchHistory);
 
-        const gitUri = await GitUri.fromUri(uri, this.git);
+        const gitUri = await GitUri.fromUri(uri);
 
         args = { ...args };
 
@@ -40,7 +39,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
         const progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
         try {
             if (args.log === undefined) {
-                args.log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: args.maxCount, range: args.range, ref: gitUri.sha });
+                args.log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: args.maxCount, range: args.range, ref: gitUri.sha });
                 if (args.log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to show file history');
             }
 
@@ -63,7 +62,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                 }
             }
 
-            const pick = await FileHistoryQuickPick.show(this.git, args.log, gitUri, placeHolder, {
+            const pick = await FileHistoryQuickPick.show(args.log, gitUri, placeHolder, {
                 progressCancellation: progressCancellation,
                 goBackCommand: args.goBackCommand,
                 nextPageCommand: args.nextPageCommand,

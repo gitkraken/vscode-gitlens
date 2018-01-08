@@ -3,12 +3,13 @@ import { Strings } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
 import { GlyphChars } from '../constants';
-import { GitCommit, GitLog, GitLogCommit, GitService, GitUri } from '../gitService';
+import { GitCommit, GitLog, GitLogCommit, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitDetailsQuickPick, CommitWithFileStatusQuickPickItem } from '../quickPicks';
 import { ShowQuickCommitFileDetailsCommandArgs } from './showQuickCommitFileDetails';
 import { Messages } from '../messages';
 import * as path from 'path';
+import { Container } from '../container';
 
 export interface ShowQuickCommitDetailsCommandArgs {
     sha?: string;
@@ -29,9 +30,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         return super.getMarkdownCommandArgsCore<ShowQuickCommitDetailsCommandArgs>(Commands.ShowQuickCommitDetails, args);
     }
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.ShowQuickCommitDetails);
     }
 
@@ -51,7 +50,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
 
-        const gitUri = await GitUri.fromUri(uri, this.git);
+        const gitUri = await GitUri.fromUri(uri);
 
         let repoPath = gitUri.repoPath;
         let workingFileName = path.relative(repoPath || '', gitUri.fsPath);
@@ -64,7 +63,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
             if (blameline < 0) return undefined;
 
             try {
-                const blame = await this.git.getBlameForLine(gitUri, blameline);
+                const blame = await Container.git.getBlameForLine(gitUri, blameline);
                 if (blame === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to show commit details');
 
                 // Because the previous sha of an uncommitted file isn't trust worthy we just have to kick out
@@ -93,7 +92,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
                 }
 
                 if (args.repoLog === undefined) {
-                    const log = await this.git.getLogForRepo(repoPath!, { maxCount: 2, ref: args.sha });
+                    const log = await Container.git.getLogForRepo(repoPath!, { maxCount: 2, ref: args.sha });
                     if (log === undefined) return Messages.showCommitNotFoundWarningMessage(`Unable to show commit details`);
 
                     args.commit = log.commits.get(args.sha!);
@@ -125,7 +124,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
                     args
                 ]);
 
-            const pick = await CommitDetailsQuickPick.show(this.git, args.commit as GitLogCommit, uri, args.goBackCommand, currentCommand, args.repoLog);
+            const pick = await CommitDetailsQuickPick.show(args.commit as GitLogCommit, uri, args.goBackCommand, currentCommand, args.repoLog);
             if (pick === undefined) return undefined;
 
             if (!(pick instanceof CommitWithFileStatusQuickPickItem)) return pick.execute();

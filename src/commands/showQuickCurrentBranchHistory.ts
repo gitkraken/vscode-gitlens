@@ -1,11 +1,11 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
-import { ShowQuickBranchHistoryCommandArgs } from './showQuickBranchHistory';
-import { GitService } from '../gitService';
+import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem } from '../quickPicks';
+import { ShowQuickBranchHistoryCommandArgs } from './showQuickBranchHistory';
 
 export interface ShowQuickCurrentBranchHistoryCommandArgs {
     goBackCommand?: CommandQuickPickItem;
@@ -13,9 +13,7 @@ export interface ShowQuickCurrentBranchHistoryCommandArgs {
 
 export class ShowQuickCurrentBranchHistoryCommand extends ActiveEditorCachedCommand {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.ShowQuickCurrentBranchHistory);
     }
 
@@ -23,10 +21,10 @@ export class ShowQuickCurrentBranchHistoryCommand extends ActiveEditorCachedComm
         uri = getCommandUri(uri, editor);
 
         try {
-            const repoPath = await this.git.getRepoPath(uri);
+            const repoPath = await Container.git.getRepoPath(uri);
             if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show branch history`);
 
-            const branch = await this.git.getBranch(repoPath);
+            const branch = await Container.git.getBranch(repoPath);
             if (branch === undefined) return undefined;
 
             return commands.executeCommand(Commands.ShowQuickBranchHistory,

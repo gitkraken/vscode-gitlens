@@ -2,8 +2,9 @@
 import { Functions } from '../../system';
 import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, RelativePattern, Uri, workspace, WorkspaceFolder } from 'vscode';
 import { configuration, IRemotesConfig } from '../../configuration';
+import { Container } from '../../container';
 import { GitBranch, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
-import { GitService, GitUri } from '../../gitService';
+import { GitUri } from '../../gitService';
 import { RemoteProviderFactory, RemoteProviderMap } from '../remotes/factory';
 import * as _path from 'path';
 
@@ -82,8 +83,7 @@ export class Repository extends Disposable {
         public readonly folder: WorkspaceFolder,
         public readonly path: string,
         public readonly root: boolean,
-        private readonly git: GitService,
-        private readonly onAnyRepositoryChanged: () => void,
+        private readonly onAnyRepositoryChanged: (repo: Repository) => void,
         suspended: boolean
     ) {
         super(() => this.dispose());
@@ -172,7 +172,7 @@ export class Repository extends Disposable {
             return;
         }
 
-        this.onAnyRepositoryChanged();
+        this.onAnyRepositoryChanged(this);
         this.fireChange(RepositoryChange.Repository);
     }
 
@@ -239,17 +239,17 @@ export class Repository extends Disposable {
 
     getBranch(): Promise<GitBranch | undefined> {
         if (this._branch === undefined) {
-            this._branch = this.git.getBranch(this.path);
+            this._branch = Container.git.getBranch(this.path);
         }
         return this._branch;
     }
 
     getBranches(): Promise<GitBranch[]> {
-        return this.git.getBranches(this.path);
+        return Container.git.getBranches(this.path);
     }
 
     getChangedFilesCount(sha?: string): Promise<GitDiffShortStat | undefined> {
-        return this.git.getChangedFilesCount(this.path, sha);
+        return Container.git.getChangedFilesCount(this.path, sha);
     }
 
     getRemotes(): Promise<GitRemote[]> {
@@ -259,22 +259,22 @@ export class Repository extends Disposable {
                 this._providerMap = RemoteProviderFactory.createMap(remotesCfg);
             }
 
-            this._remotes = this.git.getRemotesCore(this.path, this._providerMap);
+            this._remotes = Container.git.getRemotesCore(this.path, this._providerMap);
         }
 
         return this._remotes;
     }
 
     getStashList(): Promise<GitStash | undefined> {
-        return this.git.getStashList(this.path);
+        return Container.git.getStashList(this.path);
     }
 
     getStatus(): Promise<GitStatus | undefined> {
-        return this.git.getStatusForRepo(this.path);
+        return Container.git.getStatusForRepo(this.path);
     }
 
     getTags(): Promise<GitTag[]> {
-        return this.git.getTags(this.path);
+        return Container.git.getTags(this.path);
     }
 
     async hasRemote(): Promise<boolean> {

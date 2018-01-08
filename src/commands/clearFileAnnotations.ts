@@ -1,14 +1,12 @@
 'use strict';
 import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { AnnotationController } from '../annotations/annotationController';
 import { Commands, EditorCommand } from './common';
+import { Container } from '../container';
 import { Logger } from '../logger';
 
 export class ClearFileAnnotationsCommand extends EditorCommand {
 
-    constructor(
-        private readonly annotationController: AnnotationController
-    ) {
+    constructor() {
         super(Commands.ClearFileAnnotations);
     }
 
@@ -16,7 +14,7 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
         if (editor === undefined) return undefined;
 
         try {
-            return this.annotationController.clear(editor);
+            return Container.annotations.clear(editor);
         }
         catch (ex) {
             Logger.error(ex, 'ClearFileAnnotationsCommand');

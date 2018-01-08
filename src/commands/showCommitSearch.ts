@@ -3,6 +3,7 @@ import { Strings } from '../system';
 import { commands, InputBoxOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
+import { Container } from '../container';
 import { GitRepoSearchBy, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
@@ -28,18 +29,16 @@ export interface ShowCommitSearchCommandArgs {
 
 export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.ShowCommitSearch);
     }
 
     async execute(editor?: TextEditor, uri?: Uri, args: ShowCommitSearchCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
-        const gitUri = uri === undefined ? undefined : await GitUri.fromUri(uri, this.git);
+        const gitUri = uri === undefined ? undefined : await GitUri.fromUri(uri);
 
-        const repoPath = gitUri === undefined ? this.git.getHighlanderRepoPath() : gitUri.repoPath;
+        const repoPath = gitUri === undefined ? Container.git.getHighlanderRepoPath() : gitUri.repoPath;
         if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show commit search`);
 
         args = { ...args };
@@ -49,7 +48,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
             try {
                 if (!args.search) {
                     if (editor !== undefined && gitUri !== undefined) {
-                        const blameLine = await this.git.getBlameForLine(gitUri, editor.selection.active.line);
+                        const blameLine = await Container.git.getBlameForLine(gitUri, editor.selection.active.line);
                         if (blameLine !== undefined && !blameLine.commit.isUncommitted) {
                             args.search = `#${blameLine.commit.shortSha}`;
                         }
@@ -115,7 +114,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
 
         const progressCancellation = CommitsQuickPick.showProgress(searchLabel!);
         try {
-            const log = await this.git.getLogForRepoSearch(repoPath, args.search, args.searchBy, { maxCount: args.maxCount });
+            const log = await Container.git.getLogForRepoSearch(repoPath, args.search, args.searchBy, { maxCount: args.maxCount });
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
@@ -124,7 +123,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to commit search`
             }, Commands.ShowCommitSearch, [uri, originalArgs]);
 
-            const pick = await CommitsQuickPick.show(this.git, log, searchLabel!, progressCancellation, {
+            const pick = await CommitsQuickPick.show(log, searchLabel!, progressCancellation, {
                 goBackCommand: goBackCommand,
                 showAllCommand: log !== undefined && log.truncated
                     ? new CommandQuickPickItem({

@@ -1,5 +1,6 @@
 'use strict';
-import { Git, GitStatus, GitStatusFile, GitStatusFileStatus } from './../git';
+import { Strings } from '../../system';
+import { GitStatus, GitStatusFile, GitStatusFileStatus } from './../git';
 
 const aheadStatusV1Regex = /(?:ahead ([0-9]+))/;
 const behindStatusV1Regex = /(?:behind ([0-9]+))/;
@@ -14,7 +15,7 @@ export class GitStatusParser {
 
         const status = {
             branch: '',
-            repoPath: Git.normalizePath(repoPath),
+            repoPath: Strings.normalizePath(repoPath),
             sha: '',
             state: {
                 ahead: 0,

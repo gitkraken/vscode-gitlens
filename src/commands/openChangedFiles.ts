@@ -2,7 +2,7 @@
 import { Arrays } from '../system';
 import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
-import { GitService } from '../gitService';
+import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 
@@ -12,9 +12,7 @@ export interface OpenChangedFilesCommandArgs {
 
 export class OpenChangedFilesCommand extends ActiveEditorCommand {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.OpenChangedFiles);
     }
 
@@ -25,10 +23,10 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
             if (args.uris === undefined) {
                 args = { ...args };
 
-                const repoPath = await this.git.getRepoPath(uri);
+                const repoPath = await Container.git.getRepoPath(uri);
                 if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open changed files`);
 
-                const status = await this.git.getStatusForRepo(repoPath);
+                const status = await Container.git.getStatusForRepo(repoPath);
                 if (status === undefined) return window.showWarningMessage(`Unable to open changed files`);
 
                 args.uris = Arrays.filterMap(status.files,

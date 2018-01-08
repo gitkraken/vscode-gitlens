@@ -37,7 +37,7 @@ export class GitLogParser {
         let recentCommit: GitLogCommit | undefined = undefined;
 
         if (repoPath !== undefined) {
-            repoPath = Git.normalizePath(repoPath);
+            repoPath = Strings.normalizePath(repoPath);
         }
 
         let entry: LogEntry | undefined = undefined;
@@ -192,8 +192,8 @@ export class GitLogParser {
 
                     if (first && repoPath === undefined && type === GitCommitType.File && fileName !== undefined) {
                         // Try to get the repoPath from the most recent commit
-                        repoPath = Git.normalizePath(fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName!, ''));
-                        relativeFileName = Git.normalizePath(path.relative(repoPath, fileName));
+                        repoPath = Strings.normalizePath(fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName!, ''));
+                        relativeFileName = Strings.normalizePath(path.relative(repoPath, fileName));
                     }
                     else {
                         relativeFileName = entry.fileName!;

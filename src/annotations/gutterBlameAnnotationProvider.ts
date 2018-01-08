@@ -5,6 +5,7 @@ import { FileAnnotationType } from './annotationController';
 import { Annotations } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { GlyphChars } from '../constants';
+import { Container } from '../container';
 import { GitBlameCommit, ICommitFormatOptions } from '../gitService';
 import { Logger } from '../logger';
 
@@ -18,7 +19,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
         const start = process.hrtime();
 
-        const cfg = this._config.annotations.file.gutter;
+        const cfg = Container.config.annotations.file.gutter;
 
         // Precalculate the formatting options so we don't need to do it on each iteration
         const tokenOptions = Strings.getTokensFromTemplate(cfg.format)
@@ -28,12 +29,12 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             }, {} as { [token: string]: ICommitFormatOptions });
 
         const options: ICommitFormatOptions = {
-            dateFormat: cfg.dateFormat === null ? this._config.defaultDateFormat : cfg.dateFormat,
+            dateFormat: cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
             tokenOptions: tokenOptions
         };
 
         const now = Date.now();
-        const separateLines = this._config.annotations.file.gutter.separateLines;
+        const separateLines = Container.config.annotations.file.gutter.separateLines;
         const renderOptions = Annotations.gutterRenderOptions(separateLines, cfg.heatmap, cfg.format, options);
 
         this._decorations = [];
@@ -105,7 +106,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         }
 
         if (this._decorations.length) {
-            this.editor.setDecorations(this.decoration!, this._decorations);
+            this.editor.setDecorations(this._decoration!, this._decorations);
         }
 
         const duration = process.hrtime(start);

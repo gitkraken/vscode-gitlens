@@ -3,8 +3,8 @@ import { CancellationTokenSource, commands, TextEditor, Uri, window } from 'vsco
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { CommandContext, isCommandViewContextWithRef } from '../commands';
 import { BuiltInCommands, GlyphChars } from '../constants';
+import { Container } from '../container';
 import { ComparisionResultsNode } from '../views/explorerNodes';
-import { GitService } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickPicks';
@@ -16,9 +16,7 @@ export interface DiffDirectoryCommandCommandArgs {
 
 export class DiffDirectoryCommand extends ActiveEditorCommand {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super([Commands.DiffDirectory, Commands.ExternalDiffAll, Commands.ExplorersOpenDirectoryDiff, Commands.ExplorersOpenDirectoryDiffWithWorking]);
     }
 
@@ -53,7 +51,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
         let progressCancellation: CancellationTokenSource | undefined;
 
         try {
-            const repoPath = await this.git.getRepoPath(uri);
+            const repoPath = await Container.git.getRepoPath(uri);
             if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open directory compare`);
 
             if (!args.ref1) {
@@ -64,8 +62,8 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
                 progressCancellation = BranchesAndTagsQuickPick.showProgress(placeHolder);
 
                 const [branches, tags] = await Promise.all([
-                    this.git.getBranches(repoPath),
-                    this.git.getTags(repoPath)
+                    Container.git.getBranches(repoPath),
+                    Container.git.getTags(repoPath)
                 ]);
 
                 if (progressCancellation.token.isCancellationRequested) return undefined;
@@ -79,7 +77,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
                 if (args.ref1 === undefined) return undefined;
             }
 
-            this.git.openDirectoryDiff(repoPath, args.ref1, args.ref2);
+            Container.git.openDirectoryDiff(repoPath, args.ref1, args.ref2);
             return undefined;
         }
         catch (ex) {

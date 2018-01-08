@@ -124,7 +124,7 @@ export class RemotesQuickPick {
             items.splice(0, 0, goBackCommand);
         }
 
-        // const scope = await Keyboard.instance.beginScope({ left: goBackCommand });
+        // const scope = await Container.keyboard.beginScope({ left: goBackCommand });
 
         const pick = await window.showQuickPick(items, {
             placeHolder: placeHolder,

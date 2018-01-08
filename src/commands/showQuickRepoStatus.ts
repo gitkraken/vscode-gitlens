@@ -1,7 +1,7 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
-import { GitService } from '../gitService';
+import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, RepoStatusQuickPick } from '../quickPicks';
@@ -12,9 +12,7 @@ export interface ShowQuickRepoStatusCommandArgs {
 
 export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.ShowQuickRepoStatus);
     }
 
@@ -22,10 +20,10 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
         uri = getCommandUri(uri, editor);
 
         try {
-            const repoPath = await this.git.getRepoPath(uri);
+            const repoPath = await Container.git.getRepoPath(uri);
             if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show repository status`);
 
-            const status = await this.git.getStatusForRepo(repoPath);
+            const status = await Container.git.getStatusForRepo(repoPath);
             if (status === undefined) return window.showWarningMessage(`Unable to show repository status`);
 
             const pick = await RepoStatusQuickPick.show(status, args.goBackCommand);

@@ -1,11 +1,11 @@
 'use strict';
 import { InputBoxOptions, Uri, window } from 'vscode';
-import { GitService } from '../gitService';
 import { CommandContext } from '../commands';
 import { Command, Commands } from './common';
+import { GlyphChars } from '../constants';
+import { Container } from '../container';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepositoriesQuickPick } from '../quickPicks';
-import { GlyphChars } from '../constants';
 
 export interface StashSaveCommandArgs {
     message?: string;
@@ -16,9 +16,7 @@ export interface StashSaveCommandArgs {
 
 export class StashSaveCommand extends Command {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.StashSave);
     }
 
@@ -39,9 +37,9 @@ export class StashSaveCommand extends Command {
     }
 
     async execute(args: StashSaveCommandArgs = {}) {
-        let repoPath = await this.git.getHighlanderRepoPath();
+        let repoPath = await Container.git.getHighlanderRepoPath();
         if (!repoPath) {
-            const pick = await RepositoriesQuickPick.show(this.git, `Stash changes for which repository${GlyphChars.Ellipsis}`, args.goBackCommand);
+            const pick = await RepositoriesQuickPick.show(`Stash changes for which repository${GlyphChars.Ellipsis}`, args.goBackCommand);
             if (pick instanceof CommandQuickPickItem) return pick.execute();
             if (pick === undefined) return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
 
@@ -58,7 +56,7 @@ export class StashSaveCommand extends Command {
                 if (args.message === undefined) return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
             }
 
-            return await this.git.stashSave(repoPath, args.message, args.uris);
+            return await Container.git.stashSave(repoPath, args.message, args.uris);
         }
         catch (ex) {
             Logger.error(ex, 'StashSaveCommand');

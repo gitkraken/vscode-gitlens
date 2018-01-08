@@ -1,5 +1,6 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Container } from '../container';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { FileHistoryNode } from './fileHistoryNode';
 import { GitExplorer } from './gitExplorer';
@@ -29,8 +30,8 @@ export class HistoryNode extends ExplorerNode {
         item.contextValue = ResourceType.History;
 
         item.iconPath = {
-            dark: this.explorer.context.asAbsolutePath('images/dark/icon-history.svg'),
-            light: this.explorer.context.asAbsolutePath('images/light/icon-history.svg')
+            dark: Container.context.asAbsolutePath('images/dark/icon-history.svg'),
+            light: Container.context.asAbsolutePath('images/light/icon-history.svg')
         };
 
         return item;

@@ -4,15 +4,15 @@ import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem } from './common';
 import { GlyphChars } from '../constants';
-import { GitLog, GitLogCommit, GitService, GitUri, RemoteResource } from '../gitService';
-import { Keyboard, KeyCommand, KeyNoopCommand } from '../keyboard';
+import { Container } from '../container';
+import { GitLog, GitLogCommit, GitUri, RemoteResource } from '../gitService';
+import { KeyCommand, KeyNoopCommand } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as path from 'path';
 
 export class ApplyCommitFileChangesCommandQuickPickItem extends CommandQuickPickItem {
     constructor(
         private readonly commit: GitLogCommit,
-        private readonly git: GitService,
         item?: QuickPickItem
     ) {
         super(item || {
@@ -23,7 +23,7 @@ export class ApplyCommitFileChangesCommandQuickPickItem extends CommandQuickPick
 
     async execute(): Promise<{} | undefined> {
         const uri = this.commit.toGitUri();
-        await this.git.checkoutFile(uri);
+        await Container.git.checkoutFile(uri);
         return openEditor(uri, { preserveFocus: true, preview: false });
     }
 }
@@ -67,7 +67,7 @@ export class OpenCommitFileRevisionCommandQuickPickItem extends OpenFileCommandQ
 
 export class CommitFileDetailsQuickPick {
 
-    static async show(git: GitService, commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, fileLog?: GitLog): Promise<CommandQuickPickItem | undefined> {
+    static async show(commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, fileLog?: GitLog): Promise<CommandQuickPickItem | undefined> {
         const items: CommandQuickPickItem[] = [];
 
         const stash = commit.isStash;
@@ -77,16 +77,16 @@ export class CommitFileDetailsQuickPick {
         const isUncommitted = commit.isUncommitted;
         if (isUncommitted) {
             // Since we can't trust the previous sha on an uncommitted commit, find the last commit for this file
-            const c = await git.getLogCommit(undefined, commit.uri.fsPath, { previous: true });
+            const c = await Container.git.getLogCommit(undefined, commit.uri.fsPath, { previous: true });
             if (c === undefined) return undefined;
 
             commit = c;
         }
 
-        await commit.resolvePreviousFileSha(git);
+        await commit.resolvePreviousFileSha();
 
         if (stash) {
-            items.push(new ApplyCommitFileChangesCommandQuickPickItem(commit, git));
+            items.push(new ApplyCommitFileChangesCommandQuickPickItem(commit));
         }
 
         if (commit.previousFileShortSha) {
@@ -120,10 +120,10 @@ export class CommitFileDetailsQuickPick {
         }
         items.push(new OpenCommitFileRevisionCommandQuickPickItem(commit));
 
-        const remotes = (await git.getRemotes(commit.repoPath)).filter(r => r.provider !== undefined);
+        const remotes = (await Container.git.getRemotes(commit.repoPath)).filter(r => r.provider !== undefined);
         if (remotes.length) {
             if (commit.workingFileName && commit.status !== 'D') {
-                const branch = await git.getBranch(commit.repoPath);
+                const branch = await Container.git.getBranch(commit.repoPath);
                 items.push(new OpenRemotesCommandQuickPickItem(remotes, {
                     type: 'file',
                     fileName: commit.workingFileName,
@@ -141,7 +141,7 @@ export class CommitFileDetailsQuickPick {
         }
 
         if (!stash) {
-            items.push(new ApplyCommitFileChangesCommandQuickPickItem(commit, git));
+            items.push(new ApplyCommitFileChangesCommandQuickPickItem(commit));
 
             items.push(new CommandQuickPickItem({
                 label: `$(clippy) Copy Commit ID to Clipboard`,
@@ -242,7 +242,7 @@ export class CommitFileDetailsQuickPick {
 
                     // If we can't find the commit or the previous commit isn't available (since it isn't trustworthy)
                     if (c === undefined || c.previousSha === undefined) {
-                        log = await git.getLogForFile(commit.repoPath, uri.fsPath, { maxCount: git.config.advanced.maxQuickHistory, ref: commit.sha });
+                        log = await Container.git.getLogForFile(commit.repoPath, uri.fsPath, { maxCount: Container.config.advanced.maxListItems, ref: commit.sha });
                         if (log === undefined) return KeyNoopCommand;
 
                         c = log && log.commits.get(commit.sha);
@@ -280,7 +280,7 @@ export class CommitFileDetailsQuickPick {
                         c = undefined;
 
                         // Try to find the next commit
-                        const next = await git.findNextCommit(commit.repoPath, uri.fsPath, commit.sha);
+                        const next = await Container.git.findNextCommit(commit.repoPath, uri.fsPath, commit.sha);
                         if (next !== undefined && next.sha !== commit.sha) {
                             c = commit;
                             c.nextSha = next.sha;
@@ -302,7 +302,7 @@ export class CommitFileDetailsQuickPick {
             }
         }
 
-        const scope = await Keyboard.instance.beginScope({
+        const scope = await Container.keyboard.beginScope({
             left: goBackCommand,
             ',': previousCommand,
             '.': nextCommand

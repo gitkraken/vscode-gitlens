@@ -1,6 +1,7 @@
 'use strict';
 import { Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Container } from '../container';
 import { Explorer, ExplorerNode, ExplorerRefNode, ResourceType } from './explorerNode';
 import { CommitFormatter, GitStashCommit, ICommitFormatOptions } from '../gitService';
 import { StashFileNode } from './stashFileNode';
@@ -22,7 +23,7 @@ export class StashNode extends ExplorerRefNode {
         const statuses = (this.commit as GitStashCommit).fileStatuses;
 
         // Check for any untracked files -- since git doesn't return them via `git stash list` :(
-        const log = await this.explorer.git.getLogForRepo(this.commit.repoPath, { maxCount: 1, ref: `${(this.commit as GitStashCommit).stashName}^3` });
+        const log = await Container.git.getLogForRepo(this.commit.repoPath, { maxCount: 1, ref: `${(this.commit as GitStashCommit).stashName}^3` });
         if (log !== undefined) {
             const commit = Iterables.first(log.commits.values());
             if (commit !== undefined && commit.fileStatuses.length !== 0) {
@@ -40,7 +41,7 @@ export class StashNode extends ExplorerRefNode {
     getTreeItem(): TreeItem {
         const item = new TreeItem(CommitFormatter.fromTemplate(this.explorer.config.stashFormat, this.commit, {
             truncateMessageAtNewLine: true,
-            dataFormat: this.explorer.git.config.defaultDateFormat
+            dataFormat: Container.config.defaultDateFormat
         } as ICommitFormatOptions), TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.Stash;
         return item;

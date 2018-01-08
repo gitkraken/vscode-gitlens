@@ -2,8 +2,9 @@
 import { CancellationTokenSource, QuickPickItem, QuickPickOptions, window } from 'vscode';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './common';
 import { GlyphChars } from '../constants';
+import { Container } from '../container';
 import { GitBranch, GitTag } from '../gitService';
-import { Keyboard, KeyNoopCommand } from '../keyboard';
+import { KeyNoopCommand } from '../keyboard';
 
 export class BranchOrTagQuickPickItem implements QuickPickItem {
 
@@ -57,7 +58,7 @@ export class BranchesAndTagsQuickPick {
 
         if (options.progressCancellation !== undefined && options.progressCancellation.token.isCancellationRequested) return undefined;
 
-        const scope = await Keyboard.instance.beginScope({ left: options.goBackCommand || KeyNoopCommand });
+        const scope = await Container.keyboard.beginScope({ left: options.goBackCommand || KeyNoopCommand });
 
         options.progressCancellation && options.progressCancellation.cancel();
 

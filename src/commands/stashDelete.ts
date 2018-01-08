@@ -2,7 +2,8 @@
 import { MessageItem, window } from 'vscode';
 import { Command, CommandContext, Commands, isCommandViewContextWithCommit } from './common';
 import { GlyphChars } from '../constants';
-import { GitService, GitStashCommit } from '../gitService';
+import { Container } from '../container';
+import { GitStashCommit } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem } from '../quickPicks';
 
@@ -15,9 +16,7 @@ export interface StashDeleteCommandArgs {
 
 export class StashDeleteCommand extends Command {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.StashDelete);
     }
 
@@ -46,7 +45,7 @@ export class StashDeleteCommand extends Command {
                 if (result === undefined || result.title !== 'Yes') return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
             }
 
-            return await this.git.stashDelete(args.stashItem.repoPath, args.stashItem.stashName);
+            return await Container.git.stashDelete(args.stashItem.repoPath, args.stashItem.stashName);
         }
         catch (ex) {
             Logger.error(ex, 'StashDeleteCommand');

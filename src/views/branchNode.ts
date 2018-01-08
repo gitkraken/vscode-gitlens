@@ -3,6 +3,7 @@ import { Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitNode } from './commitNode';
 import { GlyphChars } from '../constants';
+import { Container } from '../container';
 import { Explorer, ExplorerNode, ExplorerRefNode, MessageNode, ResourceType, ShowAllNode } from './explorerNode';
 import { GitBranch, GitUri } from '../gitService';
 
@@ -23,7 +24,7 @@ export class BranchNode extends ExplorerRefNode {
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        const log = await this.explorer.git.getLogForRepo(this.uri.repoPath!, { maxCount: this.maxCount, ref: this.branch.name });
+        const log = await Container.git.getLogForRepo(this.uri.repoPath!, { maxCount: this.maxCount, ref: this.branch.name });
         if (log === undefined) return [new MessageNode('No commits yet')];
 
         const children: (CommitNode | ShowAllNode)[] = [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer, this.branch))];
@@ -68,8 +69,8 @@ export class BranchNode extends ExplorerRefNode {
         }
 
         item.iconPath = {
-            dark: this.explorer.context.asAbsolutePath(`images/dark/icon-branch${iconSuffix}.svg`),
-            light: this.explorer.context.asAbsolutePath(`images/light/icon-branch${iconSuffix}.svg`)
+            dark: Container.context.asAbsolutePath(`images/dark/icon-branch${iconSuffix}.svg`),
+            light: Container.context.asAbsolutePath(`images/light/icon-branch${iconSuffix}.svg`)
         };
 
         return item;

@@ -1,12 +1,13 @@
 'use strict';
-import { Arrays, Iterables } from '../system';
+import { Arrays, Iterables, Strings } from '../system';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { ExplorerFilesLayout, GravatarDefault } from '../configuration';
+import { Container } from '../container';
 import { FolderNode, IFileExplorerNode } from './folderNode';
 import { Explorer, ExplorerNode, ExplorerRefNode, ResourceType } from './explorerNode';
-import { CommitFormatter, GitBranch, GitLogCommit, GitService, ICommitFormatOptions } from '../gitService';
+import { CommitFormatter, GitBranch, GitLogCommit, ICommitFormatOptions } from '../gitService';
 import * as path from 'path';
 
 export class CommitNode extends ExplorerRefNode {
@@ -31,7 +32,7 @@ export class CommitNode extends ExplorerRefNode {
 
         if (this.explorer.config.files.layout !== ExplorerFilesLayout.List) {
             const hierarchy = Arrays.makeHierarchical(children, n => n.uri.getRelativePath().split('/'),
-            (...paths: string[]) => GitService.normalizePath(path.join(...paths)), this.explorer.config.files.compact);
+            (...paths: string[]) => Strings.normalizePath(path.join(...paths)), this.explorer.config.files.compact);
 
             const root = new FolderNode(this.repoPath, '', undefined, hierarchy, this.explorer);
             children = await root.getChildren() as IFileExplorerNode[];
@@ -45,7 +46,7 @@ export class CommitNode extends ExplorerRefNode {
     getTreeItem(): TreeItem {
         const item = new TreeItem(CommitFormatter.fromTemplate(this.explorer.config.commitFormat, this.commit, {
             truncateMessageAtNewLine: true,
-            dataFormat: this.explorer.git.config.defaultDateFormat
+            dataFormat: Container.config.defaultDateFormat
         } as ICommitFormatOptions), TreeItemCollapsibleState.Collapsed);
 
         item.contextValue = (this.branch === undefined || this.branch.current)
@@ -56,8 +57,8 @@ export class CommitNode extends ExplorerRefNode {
             item.iconPath = this.commit.getGravatarUri(this.explorer.config.gravatarsDefault || GravatarDefault.Robot);
         } else {
             item.iconPath = {
-                dark: this.explorer.context.asAbsolutePath('images/dark/icon-commit.svg'),
-                light: this.explorer.context.asAbsolutePath('images/light/icon-commit.svg')
+                dark: Container.context.asAbsolutePath('images/dark/icon-commit.svg'),
+                light: Container.context.asAbsolutePath('images/light/icon-commit.svg')
             };
         }
 

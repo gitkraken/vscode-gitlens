@@ -1,7 +1,8 @@
 'use strict';
-import { Arrays, Iterables, Objects } from '../system';
+import { Arrays, Iterables, Objects, Strings } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerFilesLayout } from '../configuration';
+import { Container } from '../container';
 import { ExplorerNode, ResourceType, ShowAllNode } from './explorerNode';
 import { FolderNode, IFileExplorerNode } from './folderNode';
 import { GitExplorer } from './gitExplorer';
@@ -30,7 +31,7 @@ export class StatusFilesNode extends ExplorerNode {
 
         let log: GitLog | undefined;
         if (this.range !== undefined) {
-            log = await this.explorer.git.getLogForRepo(repoPath, { maxCount: this.maxCount, ref: this.range });
+            log = await Container.git.getLogForRepo(repoPath, { maxCount: this.maxCount, ref: this.range });
             if (log !== undefined) {
                 statuses = Array.from(Iterables.flatMap(log.commits.values(), c => {
                     return c.fileStatuses.map(s => {
@@ -91,7 +92,7 @@ export class StatusFilesNode extends ExplorerNode {
 
         if (this.explorer.config.files.layout !== ExplorerFilesLayout.List) {
             const hierarchy = Arrays.makeHierarchical(children, n => n.uri.getRelativePath().split('/'),
-                (...paths: string[]) => GitService.normalizePath(path.join(...paths)), this.explorer.config.files.compact);
+                (...paths: string[]) => Strings.normalizePath(path.join(...paths)), this.explorer.config.files.compact);
 
             const root = new FolderNode(repoPath, '', undefined, hierarchy, this.explorer);
             children = await root.getChildren() as IFileExplorerNode[];
@@ -110,7 +111,7 @@ export class StatusFilesNode extends ExplorerNode {
         let files = (this.status.files !== undefined && this.includeWorkingTree) ? this.status.files.length : 0;
 
         if (this.status.upstream !== undefined) {
-            const stats = await this.explorer.git.getChangedFilesCount(this.repoPath, `${this.status.upstream}...`);
+            const stats = await Container.git.getChangedFilesCount(this.repoPath, `${this.status.upstream}...`);
             if (stats !== undefined) {
                 files += stats.files;
             }
@@ -120,8 +121,8 @@ export class StatusFilesNode extends ExplorerNode {
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.StatusFiles;
         item.iconPath = {
-            dark: this.explorer.context.asAbsolutePath(`images/dark/icon-diff.svg`),
-            light: this.explorer.context.asAbsolutePath(`images/light/icon-diff.svg`)
+            dark: Container.context.asAbsolutePath(`images/dark/icon-diff.svg`),
+            light: Container.context.asAbsolutePath(`images/light/icon-diff.svg`)
         };
 
         return item;

@@ -3,6 +3,7 @@ import { Strings } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitsResultsNode } from './commitsResultsNode';
 import { GlyphChars } from '../constants';
+import { Container } from '../container';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { GitLog, GitService, GitStatusFile, GitUri } from '../gitService';
 import { StatusFilesResultsNode } from './statusFilesResultsNode';
@@ -21,7 +22,7 @@ export class ComparisionResultsNode extends ExplorerNode {
     async getChildren(): Promise<ExplorerNode[]> {
         this.resetChildren();
 
-        const commitsQueryFn = (maxCount: number | undefined) => this.explorer.git.getLogForRepo(this.uri.repoPath!, { maxCount: maxCount, ref: `${this.ref1}...${this.ref2 || 'HEAD'}` });
+        const commitsQueryFn = (maxCount: number | undefined) => Container.git.getLogForRepo(this.uri.repoPath!, { maxCount: maxCount, ref: `${this.ref1}...${this.ref2 || 'HEAD'}` });
         const commitsLabelFn = (log: GitLog | undefined) => {
             const count = log !== undefined ? log.count : 0;
             const truncated = log !== undefined ? log.truncated : false;
@@ -30,7 +31,7 @@ export class ComparisionResultsNode extends ExplorerNode {
             return `${count === 0 ? 'No' : `${count}${truncated ? '+' : ''}`} commits`;
         };
 
-        const filesQueryFn = () => this.explorer.git.getDiffStatus(this.uri.repoPath!, this.ref1, this.ref2);
+        const filesQueryFn = () => Container.git.getDiffStatus(this.uri.repoPath!, this.ref1, this.ref2);
         const filesLabelFn = (diff: GitStatusFile[] | undefined) => {
             const count = diff !== undefined ? diff.length : 0;
 
@@ -47,7 +48,7 @@ export class ComparisionResultsNode extends ExplorerNode {
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        const repo = await this.explorer.git.getRepository(this.uri.repoPath!);
+        const repo = await Container.git.getRepository(this.uri.repoPath!);
 
         const item = new TreeItem(`Comparing ${GitService.shortenSha(this.ref1)} to ${this.ref2 !== '' ? GitService.shortenSha(this.ref2) : 'Working Tree'} ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) || this.uri.repoPath}`, TreeItemCollapsibleState.Expanded);
         item.contextValue = ResourceType.ComparisonResults;

@@ -1,10 +1,9 @@
 'use strict';
 import { Functions } from '../system';
-import { DecorationOptions, Disposable, ExtensionContext, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, Uri, window } from 'vscode';
+import { DecorationOptions, Disposable, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, Uri, window } from 'vscode';
 import { FileAnnotationType } from '../annotations/annotationController';
 import { TextDocumentComparer } from '../comparers';
-import { configuration, IConfig } from '../configuration';
-import { GitContextTracker } from '../gitService';
+import { GitDocumentState, TrackedDocument } from '../trackers/documentTracker';
 
 export type TextEditorCorrelationKey = string;
 
@@ -18,23 +17,19 @@ export abstract class AnnotationProviderBase extends Disposable {
     public correlationKey: TextEditorCorrelationKey;
     public document: TextDocument;
 
-    protected _config: IConfig;
     protected _decorations: DecorationOptions[] | undefined;
     protected _disposable: Disposable;
 
     constructor(
-        context: ExtensionContext,
         public editor: TextEditor,
-        protected readonly gitContextTracker: GitContextTracker,
-        protected decoration: TextEditorDecorationType | undefined,
-        protected highlightDecoration: TextEditorDecorationType | undefined
+        protected readonly trackedDocument: TrackedDocument<GitDocumentState>,
+        protected _decoration: TextEditorDecorationType | undefined,
+        protected _highlightDecoration: TextEditorDecorationType | undefined
     ) {
         super(() => this.dispose());
 
         this.correlationKey = AnnotationProviderBase.getCorrelationKey(this.editor);
         this.document = this.editor.document;
-
-        this._config = configuration.get<IConfig>();
 
         this._disposable = Disposable.from(
             window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this)
@@ -64,16 +59,14 @@ export abstract class AnnotationProviderBase extends Disposable {
     }
 
     async clear() {
-        this.gitContextTracker.setLineTracking(this.editor, false);
-
         if (this.editor !== undefined) {
             try {
-                if (this.highlightDecoration !== undefined) {
-                    this.editor.setDecorations(this.highlightDecoration, []);
+                if (this._highlightDecoration !== undefined) {
+                    this.editor.setDecorations(this._highlightDecoration, []);
                 }
 
-                if (this.decoration !== undefined) {
-                    this.editor.setDecorations(this.decoration, []);
+                if (this._decoration !== undefined) {
+                    this.editor.setDecorations(this._decoration, []);
                 }
             }
             catch { }
@@ -94,17 +87,14 @@ export abstract class AnnotationProviderBase extends Disposable {
         if (changes !== undefined) {
             await this.clear();
 
-            this.decoration = changes.decoration;
-            this.highlightDecoration = changes.highlightDecoration;
+            this._decoration = changes.decoration;
+            this._highlightDecoration = changes.highlightDecoration;
         }
 
-        this._config = configuration.get<IConfig>();
         await this.provideAnnotation(this.editor === undefined ? undefined : this.editor.selection.active.line);
     }
 
     restore(editor: TextEditor, force: boolean = false) {
-        this.gitContextTracker.setLineTracking(this.editor, true);
-
         // If the editor isn't disposed then we don't need to do anything
         // Explicitly check for `false`
         if (!force && (this.editor as any)._disposed === false) return;
@@ -114,13 +104,11 @@ export abstract class AnnotationProviderBase extends Disposable {
         this.document = editor.document;
 
         if (this._decorations !== undefined && this._decorations.length) {
-            this.editor.setDecorations(this.decoration!, this._decorations);
+            this.editor.setDecorations(this._decoration!, this._decorations);
         }
     }
 
     provideAnnotation(shaOrLine?: string | number): Promise<boolean> {
-        this.gitContextTracker.setLineTracking(this.editor, true);
-
         return this.onProvideAnnotation(shaOrLine);
     }
 

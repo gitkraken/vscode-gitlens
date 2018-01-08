@@ -1,21 +1,15 @@
 'use strict';
 import { Objects, Versions } from './system';
 import { ConfigurationTarget, ExtensionContext, extensions, languages, window, workspace } from 'vscode';
-import { AnnotationController } from './annotations/annotationController';
 import { configuration, Configuration, IConfig } from './configuration';
 import { CommandContext, ExtensionKey, GlobalState, QualifiedExtensionId, setCommandContext } from './constants';
-import { CodeLensController } from './codeLensController';
 import { configureCommands } from './commands';
-import { CurrentLineController } from './currentLineController';
-import { ExplorerCommands } from './views/explorerCommands';
 import { GitContentProvider } from './gitContentProvider';
-import { GitExplorer } from './views/gitExplorer';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
-import { GitContextTracker, GitService } from './gitService';
-import { Keyboard } from './keyboard';
+import { GitService } from './gitService';
 import { Logger } from './logger';
 import { Messages, SuppressedMessages } from './messages';
-import { ResultsExplorer } from './views/resultsExplorer';
+import { Container } from './container';
 // import { Telemetry } from './telemetry';
 
 // this method is called when your extension is activated
@@ -23,10 +17,20 @@ export async function activate(context: ExtensionContext) {
     const start = process.hrtime();
 
     Logger.configure(context);
-    Configuration.configure(context);
 
     const gitlens = extensions.getExtension(QualifiedExtensionId)!;
     const gitlensVersion = gitlens.packageJSON.version;
+
+    const enabled = workspace.getConfiguration('git', null!).get<boolean>('enabled', true);
+    setCommandContext(CommandContext.Enabled, enabled);
+
+    if (!enabled) {
+        Logger.log(`GitLens(v${gitlensVersion}) was NOT activated -- "git.enabled": false`);
+
+        return;
+    }
+
+    Configuration.configure(context);
 
     const cfg = configuration.get<IConfig>();
 
@@ -59,37 +63,20 @@ export async function activate(context: ExtensionContext) {
 
     context.globalState.update(GlobalState.GitLensVersion, gitlensVersion);
 
-    const git = new GitService();
-    context.subscriptions.push(git);
+    Container.initialize(context, cfg);
 
-    const gitContextTracker = new GitContextTracker(git);
-    context.subscriptions.push(gitContextTracker);
+    context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider()));
+    context.subscriptions.push(languages.registerCodeLensProvider(GitRevisionCodeLensProvider.selector, new GitRevisionCodeLensProvider()));
 
-    const annotationController = new AnnotationController(context, git, gitContextTracker);
-    context.subscriptions.push(annotationController);
+    context.subscriptions.push(window.registerTreeDataProvider('gitlens.gitExplorer', Container.gitExplorer));
+    context.subscriptions.push(window.registerTreeDataProvider('gitlens.resultsExplorer', Container.resultsExplorer));
 
-    const currentLineController = new CurrentLineController(context, git, gitContextTracker, annotationController);
-    context.subscriptions.push(currentLineController);
-
-    const codeLensController = new CodeLensController(context, git, gitContextTracker);
-    context.subscriptions.push(codeLensController);
-
-    context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider(context, git)));
-    context.subscriptions.push(languages.registerCodeLensProvider(GitRevisionCodeLensProvider.selector, new GitRevisionCodeLensProvider(context, git)));
-
-    const explorerCommands = new ExplorerCommands(context, git);
-    context.subscriptions.push(explorerCommands);
-
-    context.subscriptions.push(window.registerTreeDataProvider('gitlens.gitExplorer', new GitExplorer(context, explorerCommands, git, gitContextTracker)));
-    context.subscriptions.push(window.registerTreeDataProvider('gitlens.resultsExplorer', new ResultsExplorer(context, explorerCommands, git)));
-
-    context.subscriptions.push(new Keyboard());
-
-    configureCommands(context, git, annotationController, currentLineController, codeLensController);
+    configureCommands();
 
     // Constantly over my data cap so stop collecting initialized event
     // Telemetry.trackEvent('initialized', Objects.flatten(cfg, 'config', true));
 
+    setCommandContext(CommandContext.KeyMap, configuration.get(configuration.name('keymap').value));
     // Slightly delay enabling the explorer to not stop the rest of GitLens from being usable
     setTimeout(() => setCommandContext(CommandContext.GitExplorer, true), 1000);
 
@@ -142,6 +129,23 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
                 }
                 else if (inspection.workspaceFolderValue !== undefined) {
                     await configuration.update(section, !inspection.workspaceFolderValue, ConfigurationTarget.WorkspaceFolder);
+                }
+            }
+        }
+
+        if (Versions.compare(previous, Versions.from(7, 3, 0)) !== 1) {
+            const oldSection = 'advanced.maxQuickHistory';
+            const inspection = configuration.inspect(oldSection);
+            if (inspection !== undefined) {
+                const section = configuration.name('advanced')('maxListItems').value;
+
+                if (inspection.globalValue !== undefined) {
+                    await configuration.update(section, inspection.globalValue, ConfigurationTarget.Global);
+                    await configuration.update(oldSection, undefined, ConfigurationTarget.Global);
+                }
+                else if (inspection.workspaceFolderValue !== undefined) {
+                    await configuration.update(section, inspection.workspaceFolderValue, ConfigurationTarget.WorkspaceFolder);
+                    await configuration.update(oldSection, undefined, ConfigurationTarget.WorkspaceFolder);
                 }
             }
         }

@@ -2,10 +2,11 @@
 import { Functions } from './system';
 import { ConfigurationChangeEvent, ConfigurationTarget, Event, EventEmitter, ExtensionContext, Uri, workspace } from 'vscode';
 import { FileAnnotationType } from './annotations/annotationController';
-import { ExtensionKey } from './constants';
+import { CommandContext, ExtensionKey, setCommandContext } from './constants';
 import { LineAnnotationType } from './currentLineController';
 import { GitExplorerView } from './views/gitExplorer';
 import { OutputLevel } from './logger';
+import { Container } from './container';
 
 export { ExtensionKey };
 
@@ -76,12 +77,15 @@ export enum StatusBarCommand {
 }
 
 export interface IAdvancedConfig {
+    blame: {
+        delayAfterEdit: number;
+        sizeThresholdAfterEdit: number;
+    };
     caching: {
         enabled: boolean;
-        maxLines: number;
     };
     git: string;
-    maxQuickHistory: number;
+    maxListItems: number;
     menus: {
         explorerContext: {
             fileDiff: boolean;
@@ -458,12 +462,15 @@ const emptyConfig: IConfig = {
     insiders: false,
     outputLevel: 'verbose' as OutputLevel,
     advanced: {
+        blame: {
+            delayAfterEdit: 0,
+            sizeThresholdAfterEdit: 0
+        },
         caching: {
-            enabled: false,
-            maxLines: 0
+            enabled: false
         },
         git: '',
-        maxQuickHistory: 0,
+        maxListItems: 0,
         menus: {
             explorerContext: {
                 fileDiff: false,
@@ -525,6 +532,13 @@ export class Configuration {
 
     private onConfigurationChanged(e: ConfigurationChangeEvent) {
         if (!e.affectsConfiguration(ExtensionKey, null!)) return;
+
+        Container.resetConfig();
+
+        const section = configuration.name('keymap').value;
+        if (configuration.changed(e, section)) {
+            setCommandContext(CommandContext.KeyMap, this.get<KeyMap>(section));
+        }
 
         this._onDidChange.fire(e);
     }

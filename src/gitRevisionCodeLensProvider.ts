@@ -1,8 +1,9 @@
 'use strict';
-import { CancellationToken, CodeLens, CodeLensProvider, DocumentSelector, ExtensionContext, Range, TextDocument, Uri } from 'vscode';
+import { CancellationToken, CodeLens, CodeLensProvider, DocumentSelector, Range, TextDocument, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs } from './commands';
 import { DocumentSchemes } from './constants';
-import { GitCommit, GitService, GitUri } from './gitService';
+import { Container } from './container';
+import { GitCommit, GitUri } from './gitService';
 
 export class GitDiffWithWorkingCodeLens extends CodeLens {
 
@@ -30,17 +31,12 @@ export class GitRevisionCodeLensProvider implements CodeLensProvider {
 
     static selector: DocumentSelector = { scheme: DocumentSchemes.GitLensGit };
 
-    constructor(
-        context: ExtensionContext,
-        private readonly git: GitService
-    ) { }
-
     async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
         const gitUri = GitUri.fromRevisionUri(document.uri);
 
         const lenses: CodeLens[] = [];
 
-        const commit = await this.git.getLogCommit(gitUri.repoPath, gitUri.fsPath, gitUri.sha, { firstIfMissing: true, previous: true });
+        const commit = await Container.git.getLogCommit(gitUri.repoPath, gitUri.fsPath, gitUri.sha, { firstIfMissing: true, previous: true });
         if (commit === undefined) return lenses;
 
         if (commit.previousSha) {

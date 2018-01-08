@@ -3,6 +3,7 @@ import { DecorationOptions, Range } from 'vscode';
 import { FileAnnotationType } from './annotationController';
 import { Annotations } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
+import { Container } from '../container';
 import { GitBlameCommit } from '../gitService';
 import { Logger } from '../logger';
 
@@ -11,7 +12,7 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
     async onProvideAnnotation(shaOrLine?: string | number): Promise<boolean> {
         this.annotationType = FileAnnotationType.Hover;
 
-        const cfg = this._config.annotations.file.hover;
+        const cfg = Container.config.annotations.file.hover;
 
         const blame = await this.getBlame();
         if (blame === undefined) return false;
@@ -56,7 +57,7 @@ export class HoverBlameAnnotationProvider extends BlameAnnotationProviderBase {
             }
 
             if (this._decorations.length) {
-                this.editor.setDecorations(this.decoration!, this._decorations);
+                this.editor.setDecorations(this._decoration!, this._decorations);
             }
 
             const duration = process.hrtime(start);

@@ -3,6 +3,7 @@ import { DecorationInstanceRenderOptions, DecorationOptions, MarkdownString, The
 import { FileAnnotationType } from './annotationController';
 import { DiffWithCommand, OpenCommitInRemoteCommand, OpenFileRevisionCommand, ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand } from '../commands';
 import { GlyphChars } from '../constants';
+import { Container } from '../container';
 import { CommitFormatter, GitCommit, GitDiffChunkLine, GitService, GitUri, ICommitFormatOptions } from '../gitService';
 
 interface IHeatmapConfig {
@@ -124,11 +125,11 @@ export class Annotations {
 \`\`\``;
     }
 
-    static async changesHover(commit: GitCommit, line: number, uri: GitUri, git: GitService): Promise<DecorationOptions> {
+    static async changesHover(commit: GitCommit, line: number, uri: GitUri): Promise<DecorationOptions> {
         const sha = !commit.isUncommitted || (uri.sha !== undefined && GitService.isStagedUncommitted(uri.sha))
             ? commit.previousSha
             : undefined;
-        const chunkLine = await git.getDiffForLine(uri, line, sha);
+        const chunkLine = await Container.git.getDiffForLine(uri, line, sha);
         const message = this.getHoverDiffMessage(commit, uri, chunkLine);
 
         return {

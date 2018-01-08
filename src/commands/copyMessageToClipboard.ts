@@ -2,7 +2,8 @@
 import { Iterables } from '../system';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
-import { GitService, GitUri } from '../gitService';
+import { Container } from '../container';
+import { GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { copy } from 'copy-paste';
 
@@ -13,9 +14,7 @@ export interface CopyMessageToClipboardCommandArgs {
 
 export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.CopyMessageToClipboard);
     }
 
@@ -37,10 +36,10 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 
             // If we don't have an editor then get the message of the last commit to the branch
             if (uri === undefined) {
-                const repoPath = await this.git.getActiveRepoPath(editor);
+                const repoPath = await Container.git.getActiveRepoPath(editor);
                 if (!repoPath) return undefined;
 
-                const log = await this.git.getLogForRepo(repoPath, { maxCount: 1 });
+                const log = await Container.git.getLogForRepo(repoPath, { maxCount: 1 });
                 if (!log) return undefined;
 
                 args.message = Iterables.first(log.commits.values()).message;
@@ -48,7 +47,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 return undefined;
             }
 
-            const gitUri = await GitUri.fromUri(uri, this.git);
+            const gitUri = await GitUri.fromUri(uri);
 
             if (args.message === undefined) {
                 if (args.sha === undefined) {
@@ -57,8 +56,8 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 
                     try {
                         const blame = editor && editor.document && editor.document.isDirty
-                            ? await this.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-                            : await this.git.getBlameForLine(gitUri, blameline);
+                            ? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
+                            : await Container.git.getBlameForLine(gitUri, blameline);
                         if (!blame) return undefined;
 
                         if (blame.commit.isUncommitted) return undefined;
@@ -75,7 +74,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 }
 
                 // Get the full commit message -- since blame only returns the summary
-                const commit = await this.git.getLogCommit(gitUri.repoPath, gitUri.fsPath, args.sha);
+                const commit = await Container.git.getLogCommit(gitUri.repoPath, gitUri.fsPath, args.sha);
                 if (commit === undefined) return undefined;
 
                 args.message = commit.message;

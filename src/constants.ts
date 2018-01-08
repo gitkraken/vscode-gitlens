@@ -1,5 +1,5 @@
 'use strict';
-import { commands, TextEditor } from 'vscode';
+import { commands, TextDocument, TextEditor, window } from 'vscode';
 
 export const ExtensionId = 'gitlens';
 export const ExtensionKey = ExtensionId;
@@ -57,6 +57,16 @@ export enum DocumentSchemes {
     Git = 'git',
     GitLensGit = 'gitlens-git',
     Output = 'output'
+}
+
+export function getEditorIfActive(document: TextDocument): TextEditor | undefined {
+    const editor = window.activeTextEditor;
+    return (editor !== undefined && editor.document === document) ? editor : undefined;
+}
+
+export function isActiveDocument(document: TextDocument): boolean {
+    const editor = window.activeTextEditor;
+    return editor !== undefined && editor.document === document;
 }
 
 export function isTextEditor(editor: TextEditor): boolean {

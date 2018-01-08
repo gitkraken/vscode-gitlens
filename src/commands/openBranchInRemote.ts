@@ -2,7 +2,8 @@
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithBranch } from './common';
 import { GlyphChars } from '../constants';
-import { GitService, GitUri } from '../gitService';
+import { Container } from '../container';
+import { GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { BranchesQuickPick, CommandQuickPickItem } from '../quickPicks';
 import { OpenInRemoteCommandArgs } from './openInRemote';
@@ -14,9 +15,7 @@ export interface OpenBranchInRemoteCommandArgs {
 
 export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.OpenBranchInRemote);
     }
 
@@ -33,16 +32,16 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: OpenBranchInRemoteCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
-        const gitUri = uri && await GitUri.fromUri(uri, this.git);
+        const gitUri = uri && await GitUri.fromUri(uri);
 
-        const repoPath = gitUri === undefined ? this.git.getHighlanderRepoPath() : gitUri.repoPath;
+        const repoPath = gitUri === undefined ? Container.git.getHighlanderRepoPath() : gitUri.repoPath;
         if (!repoPath) return undefined;
 
         try {
             if (args.branch === undefined) {
                 args = { ...args };
 
-                const branches = await this.git.getBranches(repoPath);
+                const branches = await Container.git.getBranches(repoPath);
 
                 const pick = await BranchesQuickPick.show(branches, `Show history for branch${GlyphChars.Ellipsis}`);
                 if (pick === undefined) return undefined;
@@ -53,7 +52,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
                 if (args.branch === undefined) return undefined;
             }
 
-            const remotes = (await this.git.getRemotes(repoPath)).filter(r => r.provider !== undefined);
+            const remotes = (await Container.git.getRemotes(repoPath)).filter(r => r.provider !== undefined);
 
             return commands.executeCommand(Commands.OpenInRemote, uri, {
                 resource: {

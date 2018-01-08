@@ -1,15 +1,14 @@
 'use strict';
 import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { AnnotationController, FileAnnotationType } from '../annotations/annotationController';
+import { FileAnnotationType } from '../annotations/annotationController';
 import { Commands, EditorCommand } from './common';
 import { UriComparer } from '../comparers';
+import { Container } from '../container';
 import { Logger } from '../logger';
 
 export class ToggleFileHeatmapCommand extends EditorCommand {
 
-    constructor(
-        private readonly annotationController: AnnotationController
-    ) {
+    constructor() {
         super(Commands.ToggleFileHeatmap);
     }
 
@@ -25,7 +24,7 @@ export class ToggleFileHeatmapCommand extends EditorCommand {
         }
 
         try {
-            return this.annotationController.toggleAnnotations(editor, FileAnnotationType.Heatmap);
+            return Container.annotations.toggleAnnotations(editor, FileAnnotationType.Heatmap);
         }
         catch (ex) {
             Logger.error(ex, 'ToggleFileHeatmapCommand');

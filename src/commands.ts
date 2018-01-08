@@ -1,9 +1,6 @@
 'use strict';
-import { commands, ExtensionContext } from 'vscode';
-import { AnnotationController } from './annotations/annotationController';
-import { CurrentLineController } from './currentLineController';
-import { CodeLensController } from './codeLensController';
-import { GitService } from './gitService';
+import { commands } from 'vscode';
+import { Container } from './container';
 
 export * from './commands/common';
 
@@ -53,56 +50,50 @@ export * from './commands/toggleLineBlame';
 
 import * as Commands from './commands';
 
-export function configureCommands(
-    context: ExtensionContext,
-    git: GitService,
-    annotationController: AnnotationController,
-    currentLineController: CurrentLineController,
-    codeLensController: CodeLensController
-): void {
-    context.subscriptions.push(commands.registerTextEditorCommand('gitlens.computingFileAnnotations', () => { }));
+export function configureCommands(): void {
+    Container.context.subscriptions.push(commands.registerTextEditorCommand('gitlens.computingFileAnnotations', () => { }));
 
-    context.subscriptions.push(new Commands.CloseUnchangedFilesCommand(git));
-    context.subscriptions.push(new Commands.OpenChangedFilesCommand(git));
-    context.subscriptions.push(new Commands.ExternalDiffCommand(git));
-    context.subscriptions.push(new Commands.CopyMessageToClipboardCommand(git));
-    context.subscriptions.push(new Commands.CopyShaToClipboardCommand(git));
-    context.subscriptions.push(new Commands.DiffDirectoryCommand(git));
-    context.subscriptions.push(new Commands.DiffLineWithPreviousCommand(git));
-    context.subscriptions.push(new Commands.DiffLineWithWorkingCommand(git));
-    context.subscriptions.push(new Commands.DiffWithCommand(git));
-    context.subscriptions.push(new Commands.DiffWithBranchCommand(git));
-    context.subscriptions.push(new Commands.DiffWithNextCommand(git));
-    context.subscriptions.push(new Commands.DiffWithPreviousCommand(git));
-    context.subscriptions.push(new Commands.DiffWithRevisionCommand(git));
-    context.subscriptions.push(new Commands.DiffWithWorkingCommand(git));
-    context.subscriptions.push(new Commands.OpenBranchesInRemoteCommand(git));
-    context.subscriptions.push(new Commands.OpenBranchInRemoteCommand(git));
-    context.subscriptions.push(new Commands.OpenCommitInRemoteCommand(git));
-    context.subscriptions.push(new Commands.OpenFileInRemoteCommand(git));
-    context.subscriptions.push(new Commands.OpenFileRevisionCommand(annotationController, git));
-    context.subscriptions.push(new Commands.OpenInRemoteCommand());
-    context.subscriptions.push(new Commands.OpenRepoInRemoteCommand(git));
-    context.subscriptions.push(new Commands.OpenWorkingFileCommand(annotationController, git));
-    context.subscriptions.push(new Commands.ClearFileAnnotationsCommand(annotationController));
-    context.subscriptions.push(new Commands.ShowFileBlameCommand(annotationController));
-    context.subscriptions.push(new Commands.ShowLineBlameCommand(currentLineController));
-    context.subscriptions.push(new Commands.ToggleFileBlameCommand(annotationController));
-    context.subscriptions.push(new Commands.ToggleFileHeatmapCommand(annotationController));
-    context.subscriptions.push(new Commands.ToggleFileRecentChangesCommand(annotationController));
-    context.subscriptions.push(new Commands.ToggleLineBlameCommand(currentLineController));
-    context.subscriptions.push(new Commands.ResetSuppressedWarningsCommand());
-    context.subscriptions.push(new Commands.ShowLastQuickPickCommand());
-    context.subscriptions.push(new Commands.ShowQuickBranchHistoryCommand(git));
-    context.subscriptions.push(new Commands.ShowQuickCurrentBranchHistoryCommand(git));
-    context.subscriptions.push(new Commands.ShowQuickCommitDetailsCommand(git));
-    context.subscriptions.push(new Commands.ShowQuickCommitFileDetailsCommand(git));
-    context.subscriptions.push(new Commands.ShowCommitSearchCommand(git));
-    context.subscriptions.push(new Commands.ShowQuickFileHistoryCommand(git));
-    context.subscriptions.push(new Commands.ShowQuickRepoStatusCommand(git));
-    context.subscriptions.push(new Commands.ShowQuickStashListCommand(git));
-    context.subscriptions.push(new Commands.StashApplyCommand(git));
-    context.subscriptions.push(new Commands.StashDeleteCommand(git));
-    context.subscriptions.push(new Commands.StashSaveCommand(git));
-    context.subscriptions.push(new Commands.ToggleCodeLensCommand(codeLensController));
+    Container.context.subscriptions.push(new Commands.CloseUnchangedFilesCommand());
+    Container.context.subscriptions.push(new Commands.OpenChangedFilesCommand());
+    Container.context.subscriptions.push(new Commands.ExternalDiffCommand());
+    Container.context.subscriptions.push(new Commands.CopyMessageToClipboardCommand());
+    Container.context.subscriptions.push(new Commands.CopyShaToClipboardCommand());
+    Container.context.subscriptions.push(new Commands.DiffDirectoryCommand());
+    Container.context.subscriptions.push(new Commands.DiffLineWithPreviousCommand());
+    Container.context.subscriptions.push(new Commands.DiffLineWithWorkingCommand());
+    Container.context.subscriptions.push(new Commands.DiffWithCommand());
+    Container.context.subscriptions.push(new Commands.DiffWithBranchCommand());
+    Container.context.subscriptions.push(new Commands.DiffWithNextCommand());
+    Container.context.subscriptions.push(new Commands.DiffWithPreviousCommand());
+    Container.context.subscriptions.push(new Commands.DiffWithRevisionCommand());
+    Container.context.subscriptions.push(new Commands.DiffWithWorkingCommand());
+    Container.context.subscriptions.push(new Commands.OpenBranchesInRemoteCommand());
+    Container.context.subscriptions.push(new Commands.OpenBranchInRemoteCommand());
+    Container.context.subscriptions.push(new Commands.OpenCommitInRemoteCommand());
+    Container.context.subscriptions.push(new Commands.OpenFileInRemoteCommand());
+    Container.context.subscriptions.push(new Commands.OpenFileRevisionCommand());
+    Container.context.subscriptions.push(new Commands.OpenInRemoteCommand());
+    Container.context.subscriptions.push(new Commands.OpenRepoInRemoteCommand());
+    Container.context.subscriptions.push(new Commands.OpenWorkingFileCommand());
+    Container.context.subscriptions.push(new Commands.ClearFileAnnotationsCommand());
+    Container.context.subscriptions.push(new Commands.ShowFileBlameCommand());
+    Container.context.subscriptions.push(new Commands.ShowLineBlameCommand());
+    Container.context.subscriptions.push(new Commands.ToggleFileBlameCommand());
+    Container.context.subscriptions.push(new Commands.ToggleFileHeatmapCommand());
+    Container.context.subscriptions.push(new Commands.ToggleFileRecentChangesCommand());
+    Container.context.subscriptions.push(new Commands.ToggleLineBlameCommand());
+    Container.context.subscriptions.push(new Commands.ResetSuppressedWarningsCommand());
+    Container.context.subscriptions.push(new Commands.ShowLastQuickPickCommand());
+    Container.context.subscriptions.push(new Commands.ShowQuickBranchHistoryCommand());
+    Container.context.subscriptions.push(new Commands.ShowQuickCurrentBranchHistoryCommand());
+    Container.context.subscriptions.push(new Commands.ShowQuickCommitDetailsCommand());
+    Container.context.subscriptions.push(new Commands.ShowQuickCommitFileDetailsCommand());
+    Container.context.subscriptions.push(new Commands.ShowCommitSearchCommand());
+    Container.context.subscriptions.push(new Commands.ShowQuickFileHistoryCommand());
+    Container.context.subscriptions.push(new Commands.ShowQuickRepoStatusCommand());
+    Container.context.subscriptions.push(new Commands.ShowQuickStashListCommand());
+    Container.context.subscriptions.push(new Commands.StashApplyCommand());
+    Container.context.subscriptions.push(new Commands.StashDeleteCommand());
+    Container.context.subscriptions.push(new Commands.StashSaveCommand());
+    Container.context.subscriptions.push(new Commands.ToggleCodeLensCommand());
 }

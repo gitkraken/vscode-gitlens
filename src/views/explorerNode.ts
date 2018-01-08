@@ -1,6 +1,7 @@
 'use strict';
 import { Command, Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../constants';
+import { Container } from '../container';
 import { RefreshNodeCommandArgs } from './explorerCommands';
 import { GitUri } from '../gitService';
 import { GitExplorer } from './gitExplorer';
@@ -146,8 +147,8 @@ export class PagerNode extends ExplorerNode {
         item.contextValue = ResourceType.Pager;
         item.command = this.getCommand();
         item.iconPath = {
-            dark: this.explorer.context.asAbsolutePath('images/dark/icon-unfold.svg'),
-            light: this.explorer.context.asAbsolutePath('images/light/icon-unfold.svg')
+            dark: Container.context.asAbsolutePath('images/dark/icon-unfold.svg'),
+            light: Container.context.asAbsolutePath('images/light/icon-unfold.svg')
         };
         return item;
     }

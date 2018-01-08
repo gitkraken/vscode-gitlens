@@ -2,6 +2,7 @@
 import { Functions } from '../system';
 import { TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { isTextEditor } from '../constants';
+import { Container } from '../container';
 import { ExplorerNode } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
 import { GitUri } from '../gitService';
@@ -16,7 +17,7 @@ export class ActiveRepositoryNode extends ExplorerNode {
     ) {
         super(undefined!);
 
-        explorer.context.subscriptions.push(
+        Container.context.subscriptions.push(
             window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this)
         );
 
@@ -38,7 +39,7 @@ export class ActiveRepositoryNode extends ExplorerNode {
         let changed = false;
 
         try {
-            const repoPath = await this.explorer.git.getActiveRepoPath(editor);
+            const repoPath = await Container.git.getActiveRepoPath(editor);
             if (repoPath === undefined) {
                 if (this._repositoryNode !== undefined) {
                     changed = true;
@@ -52,7 +53,7 @@ export class ActiveRepositoryNode extends ExplorerNode {
 
             if (this._repositoryNode !== undefined && this._repositoryNode.repo.path === repoPath) return;
 
-            const repo = await this.explorer.git.getRepository(repoPath);
+            const repo = await Container.git.getRepository(repoPath);
             if (repo === undefined) {
                 if (this._repositoryNode !== undefined) {
                     changed = true;

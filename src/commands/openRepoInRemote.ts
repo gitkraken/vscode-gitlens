@@ -1,7 +1,8 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithRemote } from './common';
-import { GitService, GitUri } from '../gitService';
+import { Container } from '../container';
+import { GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { OpenInRemoteCommandArgs } from './openInRemote';
 
@@ -11,9 +12,7 @@ export interface OpenRepoInRemoteCommandArgs {
 
 export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.OpenRepoInRemote);
     }
 
@@ -29,13 +28,13 @@ export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: OpenRepoInRemoteCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
-        const gitUri = uri && await GitUri.fromUri(uri, this.git);
+        const gitUri = uri && await GitUri.fromUri(uri);
 
-        const repoPath = gitUri === undefined ? this.git.getHighlanderRepoPath() : gitUri.repoPath;
+        const repoPath = gitUri === undefined ? Container.git.getHighlanderRepoPath() : gitUri.repoPath;
         if (!repoPath) return undefined;
 
         try {
-            const remotes = (await this.git.getRemotes(repoPath)).filter(r => r.provider !== undefined);
+            const remotes = (await Container.git.getRemotes(repoPath)).filter(r => r.provider !== undefined);
 
             return commands.executeCommand(Commands.OpenInRemote, uri, {
                 resource: {

@@ -4,8 +4,9 @@ import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, ShowQuickCurrentBranchHistoryCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
 import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, ShowBranchesAndTagsQuickPickItem, showQuickPickProgress } from './common';
 import { GlyphChars } from '../constants';
-import { GitLog, GitService, GitUri, RemoteResource } from '../gitService';
-import { Keyboard, KeyNoopCommand } from '../keyboard';
+import { Container } from '../container';
+import { GitLog, GitUri, RemoteResource } from '../gitService';
+import { KeyNoopCommand } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as path from 'path';
 
@@ -20,7 +21,7 @@ export class FileHistoryQuickPick {
             });
     }
 
-    static async show(git: GitService, log: GitLog, uri: GitUri, placeHolder: string, options: { currentCommand?: CommandQuickPickItem, goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem, previousPageCommand?: CommandQuickPickItem, pickerOnly?: boolean, progressCancellation?: CancellationTokenSource, showAllCommand?: CommandQuickPickItem, showInResultsExplorerCommand?: CommandQuickPickItem } = {}): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(log: GitLog, uri: GitUri, placeHolder: string, options: { currentCommand?: CommandQuickPickItem, goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem, previousPageCommand?: CommandQuickPickItem, pickerOnly?: boolean, progressCancellation?: CancellationTokenSource, showAllCommand?: CommandQuickPickItem, showInResultsExplorerCommand?: CommandQuickPickItem } = {}): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         options = { pickerOnly: false, ...options };
 
         const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))) as (CommitQuickPickItem | CommandQuickPickItem)[];
@@ -29,7 +30,7 @@ export class FileHistoryQuickPick {
 
         if (options.pickerOnly) {
             index++;
-            items.splice(0, 0, new ShowBranchesAndTagsQuickPickItem(log.repoPath, placeHolder, git, options.currentCommand));
+            items.splice(0, 0, new ShowBranchesAndTagsQuickPickItem(log.repoPath, placeHolder, options.currentCommand));
         }
 
         if (options.showInResultsExplorerCommand !== undefined) {
@@ -43,7 +44,7 @@ export class FileHistoryQuickPick {
                 items.splice(0, 0, options.showAllCommand);
             }
             else if (!options.pickerOnly) {
-                const workingFileName = await git.findWorkingFileName(log.repoPath, path.relative(log.repoPath, uri.fsPath));
+                const workingFileName = await Container.git.findWorkingFileName(log.repoPath, path.relative(log.repoPath, uri.fsPath));
                 if (workingFileName) {
                     index++;
                     items.splice(0, 0, new CommandQuickPickItem({
@@ -81,7 +82,7 @@ export class FileHistoryQuickPick {
         }
 
         if (!options.pickerOnly) {
-            const branch = await git.getBranch(uri.repoPath!);
+            const branch = await Container.git.getBranch(uri.repoPath!);
 
             const currentCommand = new CommandQuickPickItem({
                 label: `go back ${GlyphChars.ArrowBack}`,
@@ -109,7 +110,7 @@ export class FileHistoryQuickPick {
                     ]));
             }
 
-            const remotes = (await git.getRemotes(uri.repoPath!)).filter(r => r.provider !== undefined);
+            const remotes = (await Container.git.getRemotes(uri.repoPath!)).filter(r => r.provider !== undefined);
             if (remotes.length) {
                 const resource = uri.sha !== undefined
                     ? {
@@ -133,7 +134,7 @@ export class FileHistoryQuickPick {
 
         if (options.progressCancellation !== undefined && options.progressCancellation.token.isCancellationRequested) return undefined;
 
-        const scope = await Keyboard.instance.beginScope({
+        const scope = await Container.keyboard.beginScope({
             left: options.goBackCommand,
             ',': options.previousPageCommand,
             '.': options.nextPageCommand

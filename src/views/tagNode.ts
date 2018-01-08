@@ -2,6 +2,7 @@
 import { Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitNode } from './commitNode';
+import { Container } from '../container';
 import { Explorer, ExplorerNode, ExplorerRefNode, MessageNode, ResourceType, ShowAllNode } from './explorerNode';
 import { GitTag, GitUri } from '../gitService';
 
@@ -22,7 +23,7 @@ export class TagNode extends ExplorerRefNode {
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        const log = await this.explorer.git.getLogForRepo(this.uri.repoPath!, { maxCount: this.maxCount, ref: this.tag.name });
+        const log = await Container.git.getLogForRepo(this.uri.repoPath!, { maxCount: this.maxCount, ref: this.tag.name });
         if (log === undefined) return [new MessageNode('No commits yet')];
 
         const children: (CommitNode | ShowAllNode)[] = [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer))];
@@ -37,8 +38,8 @@ export class TagNode extends ExplorerRefNode {
         item.contextValue = ResourceType.Tag;
 
         item.iconPath = {
-            dark: this.explorer.context.asAbsolutePath(`images/dark/icon-tag.svg`),
-            light: this.explorer.context.asAbsolutePath(`images/light/icon-tag.svg`)
+            dark: Container.context.asAbsolutePath(`images/dark/icon-tag.svg`),
+            light: Container.context.asAbsolutePath(`images/light/icon-tag.svg`)
         };
 
         return item;

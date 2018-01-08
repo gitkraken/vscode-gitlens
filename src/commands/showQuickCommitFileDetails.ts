@@ -9,6 +9,7 @@ import { CommandQuickPickItem, CommitFileDetailsQuickPick } from '../quickPicks'
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 import { Messages } from '../messages';
 import * as path from 'path';
+import { Container } from '../container';
 
 export interface ShowQuickCommitFileDetailsCommandArgs {
     sha?: string;
@@ -29,9 +30,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
         return super.getMarkdownCommandArgsCore<ShowQuickCommitFileDetailsCommandArgs>(Commands.ShowQuickCommitFileDetails, args);
     }
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.ShowQuickCommitFileDetails);
     }
 
@@ -53,7 +52,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
 
         let workingFileName = args.commit && args.commit.workingFileName;
 
-        const gitUri = await GitUri.fromUri(uri, this.git);
+        const gitUri = await GitUri.fromUri(uri);
 
         args = { ...args };
         if (args.sha === undefined) {
@@ -63,7 +62,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
             if (blameline < 0) return undefined;
 
             try {
-                const blame = await this.git.getBlameForLine(gitUri, blameline);
+                const blame = await Container.git.getBlameForLine(gitUri, blameline);
                 if (blame === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to show commit file details');
 
                 // Because the previous sha of an uncommitted file isn't trust worthy we just have to kick out
@@ -95,7 +94,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                 }
 
                 if (args.fileLog === undefined) {
-                    args.commit = await this.git.getLogCommit(args.commit === undefined ? gitUri.repoPath : args.commit.repoPath, gitUri.fsPath, args.sha, { previous: true });
+                    args.commit = await Container.git.getLogCommit(args.commit === undefined ? gitUri.repoPath : args.commit.repoPath, gitUri.fsPath, args.sha, { previous: true });
                     if (args.commit === undefined) return Messages.showCommitNotFoundWarningMessage(`Unable to show commit file details`);
                 }
             }
@@ -104,7 +103,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
 
             // Attempt to the most recent commit -- so that we can find the real working filename if there was a rename
             args.commit.workingFileName = workingFileName;
-            args.commit.workingFileName = await this.git.findWorkingFileName(args.commit);
+            args.commit.workingFileName = await Container.git.findWorkingFileName(args.commit);
 
             const shortSha = GitService.shortenSha(args.sha!);
 
@@ -131,7 +130,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                     args
                 ]);
 
-            const pick = await CommitFileDetailsQuickPick.show(this.git, args.commit as GitLogCommit, uri, args.goBackCommand, currentCommand, args.fileLog);
+            const pick = await CommitFileDetailsQuickPick.show(args.commit as GitLogCommit, uri, args.goBackCommand, currentCommand, args.fileLog);
             if (pick === undefined) return undefined;
 
             if (pick instanceof CommandQuickPickItem) return pick.execute();

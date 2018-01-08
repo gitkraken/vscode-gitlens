@@ -2,9 +2,10 @@
 import { Iterables } from '../system';
 import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
+import { Container } from '../container';
 import { ExplorerNode, MessageNode, ResourceType } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
-import { BlameabilityChangeEvent, BlameabilityChangeReason, GitCommitType, GitLogCommit, GitService, GitUri, Repository, RepositoryChange, RepositoryChangeEvent } from '../gitService';
+import { GitCommitType, GitLogCommit, GitService, GitUri, Repository, RepositoryChange, RepositoryChangeEvent } from '../gitService';
 import { Logger } from '../logger';
 
 export class FileHistoryNode extends ExplorerNode {
@@ -24,7 +25,7 @@ export class FileHistoryNode extends ExplorerNode {
 
         const displayAs = CommitFileNodeDisplayAs.CommitLabel | (this.explorer.config.gravatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
 
-        const status = await this.explorer.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
+        const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
         if (status !== undefined && (status.indexStatus !== undefined || status.workTreeStatus !== undefined)) {
             let sha;
             let previousSha;
@@ -59,7 +60,7 @@ export class FileHistoryNode extends ExplorerNode {
             children.push(new CommitFileNode(status, commit, this.explorer, displayAs));
         }
 
-        const log = await this.explorer.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, { ref: this.uri.sha });
+        const log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, { ref: this.uri.sha });
         if (log !== undefined) {
             children.push(...Iterables.map(log.commits.values(), c => new CommitFileNode(c.fileStatuses[0], c, this.explorer, displayAs)));
         }
@@ -75,8 +76,8 @@ export class FileHistoryNode extends ExplorerNode {
         item.contextValue = ResourceType.FileHistory;
 
         item.iconPath = {
-            dark: this.explorer.context.asAbsolutePath('images/dark/icon-history.svg'),
-            light: this.explorer.context.asAbsolutePath('images/light/icon-history.svg')
+            dark: Container.context.asAbsolutePath('images/dark/icon-history.svg'),
+            light: Container.context.asAbsolutePath('images/light/icon-history.svg')
         };
 
         return item;
@@ -87,8 +88,8 @@ export class FileHistoryNode extends ExplorerNode {
         if (this.explorer.autoRefresh) {
             this.disposable = this.disposable || Disposable.from(
                 this.explorer.onDidChangeAutoRefresh(this.onAutoRefreshChanged, this),
-                this.repo.onDidChange(this.onRepoChanged, this),
-                this.explorer.gitContextTracker.onDidChangeBlameability(this.onBlameabilityChanged, this)
+                this.repo.onDidChange(this.onRepoChanged, this)
+                // Container.gitContextTracker.onDidChangeBlameability(this.onBlameabilityChanged, this)
             );
         }
         else if (this.disposable !== undefined) {
@@ -101,13 +102,13 @@ export class FileHistoryNode extends ExplorerNode {
         this.updateSubscription();
     }
 
-    private onBlameabilityChanged(e: BlameabilityChangeEvent) {
-        if (!e.blameable || e.reason !== BlameabilityChangeReason.DocumentChanged) return;
+    // private onBlameabilityChanged(e: BlameabilityChangeEvent) {
+    //     if (!e.blameable || e.reason !== BlameabilityChangeReason.DocumentChanged) return;
 
-        // Logger.log(`RepositoryNode.onBlameabilityChanged(${e.reason}); triggering node refresh`);
+    //     // Logger.log(`RepositoryNode.onBlameabilityChanged(${e.reason}); triggering node refresh`);
 
-        this.explorer.refreshNode(this);
-    }
+    //     this.explorer.refreshNode(this);
+    // }
 
     private onRepoChanged(e: RepositoryChangeEvent) {
         if (!e.changed(RepositoryChange.Repository)) return;

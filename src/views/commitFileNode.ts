@@ -2,6 +2,7 @@
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { GravatarDefault } from '../configuration';
+import { Container } from '../container';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { CommitFormatter, getGitStatusIcon, GitLogCommit, GitUri, ICommitFormatOptions, IGitStatusFile, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
 import * as path from 'path';
@@ -41,7 +42,7 @@ export class CommitFileNode extends ExplorerNode {
             // See if we can get the commit directly from the multi-file commit
             const commit = this.commit.toFileCommit(this.status);
             if (commit === undefined) {
-                const log = await this.explorer.git.getLogForFile(this.repoPath, this.status.fileName, { maxCount: 2, ref: this.commit.sha });
+                const log = await Container.git.getLogForFile(this.repoPath, this.status.fileName, { maxCount: 2, ref: this.commit.sha });
                 if (log !== undefined) {
                     this.commit = log.commits.get(this.commit.sha) || this.commit;
                 }
@@ -56,15 +57,15 @@ export class CommitFileNode extends ExplorerNode {
 
         if ((this.displayAs & CommitFileNodeDisplayAs.CommitIcon) === CommitFileNodeDisplayAs.CommitIcon) {
             item.iconPath = {
-                dark: this.explorer.context.asAbsolutePath(path.join('images', 'dark', 'icon-commit.svg')),
-                light: this.explorer.context.asAbsolutePath(path.join('images', 'light', 'icon-commit.svg'))
+                dark: Container.context.asAbsolutePath(path.join('images', 'dark', 'icon-commit.svg')),
+                light: Container.context.asAbsolutePath(path.join('images', 'light', 'icon-commit.svg'))
             };
         }
         else if ((this.displayAs & CommitFileNodeDisplayAs.StatusIcon) === CommitFileNodeDisplayAs.StatusIcon) {
             const icon = getGitStatusIcon(this.status.status);
             item.iconPath = {
-                dark: this.explorer.context.asAbsolutePath(path.join('images', 'dark', icon)),
-                light: this.explorer.context.asAbsolutePath(path.join('images', 'light', icon))
+                dark: Container.context.asAbsolutePath(path.join('images', 'dark', icon)),
+                light: Container.context.asAbsolutePath(path.join('images', 'light', icon))
             };
         }
         else if ((this.displayAs & CommitFileNodeDisplayAs.Gravatar) === CommitFileNodeDisplayAs.Gravatar) {
@@ -96,7 +97,7 @@ export class CommitFileNode extends ExplorerNode {
                     this.commit,
                     {
                         truncateMessageAtNewLine: true,
-                        dataFormat: this.explorer.git.config.defaultDateFormat
+                        dataFormat: Container.config.defaultDateFormat
                     } as ICommitFormatOptions
                 )
                 : StatusFileFormatter.fromTemplate(

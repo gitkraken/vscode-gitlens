@@ -2,6 +2,7 @@
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
+import { Container } from '../container';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { getGitStatusIcon, GitLogCommit, GitUri, IGitStatusFile, IGitStatusFileWithCommit, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
 import * as path from 'path';
@@ -27,8 +28,8 @@ export class StatusFileCommitsNode extends ExplorerNode {
 
         const icon = getGitStatusIcon(this.status.status);
         item.iconPath = {
-            dark: this.explorer.context.asAbsolutePath(path.join('images', 'dark', icon)),
-            light: this.explorer.context.asAbsolutePath(path.join('images', 'light', icon))
+            dark: Container.context.asAbsolutePath(path.join('images', 'dark', icon)),
+            light: Container.context.asAbsolutePath(path.join('images', 'light', icon))
         };
 
         if (this.commits.length === 1 && this.commits[0].isUncommitted) {

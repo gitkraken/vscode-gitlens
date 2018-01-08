@@ -1,5 +1,6 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Container } from '../container';
 import { Explorer, ExplorerNode, MessageNode, ResourceType } from './explorerNode';
 import { GitUri, Repository } from '../gitService';
 import { TagNode } from './tagNode';
@@ -27,8 +28,8 @@ export class TagsNode extends ExplorerNode {
             item.contextValue = ResourceType.Tags;
 
             item.iconPath = {
-                dark: this.explorer.context.asAbsolutePath('images/dark/icon-tag.svg'),
-                light: this.explorer.context.asAbsolutePath('images/light/icon-tag.svg')
+                dark: Container.context.asAbsolutePath('images/dark/icon-tag.svg'),
+                light: Container.context.asAbsolutePath('images/light/icon-tag.svg')
             };
 
             return item;

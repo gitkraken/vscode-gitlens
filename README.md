@@ -516,15 +516,16 @@ GitLens is highly customizable and provides many configuration settings to allow
 
 |Name | Description
 |-----|------------
-|`gitlens.advanced.telemetry.enabled`|Specifies whether or not to enable GitLens telemetry (even if enabled still abides by the overall `telemetry.enableTelemetry` setting
 |`gitlens.advanced.git`|Specifies the git path to use
-|`gitlens.advanced.repositorySearchDepth`|Specifies how many folders deep to search for repositories
+|`gitlens.advanced.blame.delayAfterEdit`|Specifies the time (in milliseconds) to wait before re-blaming an unsaved document after an edit. Use 0 to specify an infinite wait
+|`gitlens.advanced.blame.sizeThresholdAfterEdit`|Specifies the maximum document size (in lines) allowed to be re-blamed after an edit while still unsaved. Use 0 to specify no maximum
+|`gitlens.advanced.caching.enabled`|Specifies whether git output will be cached -- changing the default is not recommended
+|`gitlens.advanced.maxListItems`|Specifies the maximum number of items to show in a list. Use 0 to specify no maximum
 |`gitlens.advanced.menus`|Specifies which commands will be added to which menus
 |`gitlens.advanced.messages`|Specifies which messages should be suppressed
-|`gitlens.advanced.caching.enabled`|Specifies whether git output will be cached
-|`gitlens.advanced.caching.maxLines`|Specifies the threshold for caching larger documents
-|`gitlens.advanced.maxQuickHistory`|Specifies the maximum number of QuickPick history entries to show
-|`gitlens.advanced.quickPick.closeOnFocusOut`|Specifies whether or not to close the QuickPick menu when focus is lost
+|`gitlens.advanced.quickPick.closeOnFocusOut`|Specifies whether or not to close QuickPick menus when focus is lost
+|`gitlens.advanced.repositorySearchDepth`|Specifies how many folders deep to search for repositories
+|`gitlens.advanced.telemetry.enabled`|Specifies whether or not to enable GitLens telemetry (even if enabled still abides by the overall `telemetry.enableTelemetry` setting
 
 ## Known Issues
 

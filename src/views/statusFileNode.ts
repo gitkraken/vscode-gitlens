@@ -1,6 +1,7 @@
 'use strict';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs } from '../commands';
+import { Container } from '../container';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { getGitStatusIcon, GitStatusFile, GitUri, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
 import * as path from 'path';
@@ -27,8 +28,8 @@ export class StatusFileNode extends ExplorerNode {
 
         const icon = getGitStatusIcon(this.status.status);
         item.iconPath = {
-            dark: this.explorer.context.asAbsolutePath(path.join('images', 'dark', icon)),
-            light: this.explorer.context.asAbsolutePath(path.join('images', 'light', icon))
+            dark: Container.context.asAbsolutePath(path.join('images', 'dark', icon)),
+            light: Container.context.asAbsolutePath(path.join('images', 'light', icon))
         };
 
         item.command = this.getCommand();

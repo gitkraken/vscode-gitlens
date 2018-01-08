@@ -4,7 +4,7 @@ import { commands, SourceControlResourceState, Uri, window } from 'vscode';
 import { Command, Commands } from './common';
 import { BuiltInCommands } from '../constants';
 import { CommandContext } from '../commands';
-import { GitService } from '../gitService';
+import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 
@@ -54,9 +54,7 @@ export interface ExternalDiffCommandArgs {
 
 export class ExternalDiffCommand extends Command {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.ExternalDiff);
     }
 
@@ -86,10 +84,10 @@ export class ExternalDiffCommand extends Command {
 
     async execute(args: ExternalDiffCommandArgs = {}) {
         try {
-            const repoPath = await this.git.getRepoPath(undefined);
+            const repoPath = await Container.git.getRepoPath(undefined);
             if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open changed files`);
 
-            const tool = await this.git.getDiffTool(repoPath);
+            const tool = await Container.git.getDiffTool(repoPath);
             if (tool === undefined) {
                 const result = await window.showWarningMessage(`Unable to open file compare because there is no Git diff tool configured`, 'View Git Docs');
                 if (!result) return undefined;
@@ -98,7 +96,7 @@ export class ExternalDiffCommand extends Command {
             }
 
             if (args.files === undefined) {
-                const status = await this.git.getStatusForRepo(repoPath);
+                const status = await Container.git.getStatusForRepo(repoPath);
                 if (status === undefined) return window.showWarningMessage(`Unable to open changed files`);
 
                 args.files = [];
@@ -115,7 +113,7 @@ export class ExternalDiffCommand extends Command {
             }
 
             for (const file of args.files) {
-                this.git.openDiffTool(repoPath, file.uri, file.staged, tool);
+                Container.git.openDiffTool(repoPath, file.uri, file.staged, tool);
             }
 
             return undefined;

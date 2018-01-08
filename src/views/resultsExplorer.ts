@@ -1,24 +1,18 @@
 'use strict';
 import { Functions } from '../system';
-import { commands, ConfigurationChangeEvent, ConfigurationTarget, Event, EventEmitter, ExtensionContext, TreeDataProvider, TreeItem } from 'vscode';
+import { commands, ConfigurationChangeEvent, ConfigurationTarget, Event, EventEmitter, TreeDataProvider, TreeItem } from 'vscode';
 import { configuration, ExplorerFilesLayout, IExplorerConfig } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
-import { ExplorerCommands, RefreshNodeCommandArgs } from './explorerCommands';
+import { Container } from '../container';
+import { RefreshNodeCommandArgs } from './explorerCommands';
 import { CommitResultsNode, CommitsResultsNode, ComparisionResultsNode, ExplorerNode, MessageNode, RefreshReason, ResourceType } from './explorerNodes';
-import { clearGravatarCache, GitLog, GitLogCommit, GitService } from '../gitService';
+import { clearGravatarCache, GitLog, GitLogCommit } from '../gitService';
 import { Logger } from '../logger';
 
 export * from './explorerNodes';
 
-let _instance: ResultsExplorer;
-
 export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
 
-    static get instance(): ResultsExplorer {
-        return _instance;
-    }
-
-    private _config: IExplorerConfig;
     private _roots: ExplorerNode[] = [];
 
     private _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
@@ -26,13 +20,7 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
         return this._onDidChangeTreeData.event;
     }
 
-    constructor(
-        public readonly context: ExtensionContext,
-        readonly explorerCommands: ExplorerCommands,
-        public readonly git: GitService
-    ) {
-        _instance = this;
-
+    constructor() {
         commands.registerCommand('gitlens.resultsExplorer.refresh', this.refreshNodes, this);
         commands.registerCommand('gitlens.resultsExplorer.refreshNode', this.refreshNode, this);
         commands.registerCommand('gitlens.resultsExplorer.setFilesLayoutToAuto', () => this.setFilesLayout(ExplorerFilesLayout.Auto), this);
@@ -46,7 +34,7 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
 
         setCommandContext(CommandContext.ResultsExplorerKeepResults, this.keepResults);
 
-        context.subscriptions.push(
+        Container.context.subscriptions.push(
             configuration.onDidChange(this.onConfigurationChanged, this)
         );
         this.onConfigurationChanged(configuration.initializingChangeEvent);
@@ -62,21 +50,17 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
             clearGravatarCache();
         }
 
-        const cfg = configuration.get<IExplorerConfig>(section.value);
-
         if (!initializing && this._roots.length !== 0) {
             this.refresh(RefreshReason.ConfigurationChanged);
         }
-
-        this._config = cfg;
     }
 
     get config(): IExplorerConfig {
-        return this._config;
+        return Container.config.resultsExplorer;
     }
 
     get keepResults(): boolean {
-        return this.context.workspaceState.get<boolean>(WorkspaceState.ResultsExplorerKeepResults, false);
+        return Container.context.workspaceState.get<boolean>(WorkspaceState.ResultsExplorerKeepResults, false);
     }
 
     close() {
@@ -199,7 +183,7 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
     }
 
     private setKeepResults(enabled: boolean) {
-        this.context.workspaceState.update(WorkspaceState.ResultsExplorerKeepResults, enabled);
+        Container.context.workspaceState.update(WorkspaceState.ResultsExplorerKeepResults, enabled);
         setCommandContext(CommandContext.ResultsExplorerKeepResults, enabled);
     }
 }

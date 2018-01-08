@@ -25,8 +25,6 @@ export declare interface KeyMapping {
 
 const mappings: KeyMapping[] = [];
 
-let _instance: Keyboard;
-
 export class KeyboardScope extends Disposable {
 
     constructor(
@@ -92,16 +90,10 @@ export class KeyboardScope extends Disposable {
 
 export class Keyboard extends Disposable {
 
-    static get instance(): Keyboard {
-        return _instance;
-    }
-
     private _disposable: Disposable;
 
     constructor() {
         super(() => this.dispose());
-
-        _instance = this;
 
         const subscriptions = keys.map(key => commands.registerCommand(`${ExtensionKey}.key.${key}`, () => this.execute(key), this));
         this._disposable = Disposable.from(...subscriptions);

@@ -1,6 +1,7 @@
 'use strict';
 import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { Container } from '../container';
 import { DiffWithCommandArgs } from './diffWith';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
@@ -15,9 +16,7 @@ export interface DiffWithWorkingCommandArgs {
 
 export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.DiffWithWorking);
     }
 
@@ -25,7 +24,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
 
-        const gitUri = await GitUri.fromUri(uri, this.git);
+        const gitUri = await GitUri.fromUri(uri);
 
         args = { ...args };
         if (args.line === undefined) {
@@ -40,7 +39,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
             if (GitService.isStagedUncommitted(gitUri.sha!)) {
                 gitUri.sha = undefined;
 
-                const status = await this.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
+                const status = await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
                 if (status !== undefined && status.indexStatus !== undefined) {
                     const diffArgs: DiffWithCommandArgs = {
                         repoPath: gitUri.repoPath,
@@ -61,7 +60,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
             }
 
             try {
-                args.commit = await this.git.getLogCommit(gitUri.repoPath, gitUri.fsPath, gitUri.sha, { firstIfMissing: true });
+                args.commit = await Container.git.getLogCommit(gitUri.repoPath, gitUri.fsPath, gitUri.sha, { firstIfMissing: true });
                 if (args.commit === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
             }
             catch (ex) {
@@ -70,7 +69,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
             }
         }
 
-        const workingFileName = await this.git.findWorkingFileName(gitUri.repoPath, gitUri.fsPath);
+        const workingFileName = await Container.git.findWorkingFileName(gitUri.repoPath, gitUri.fsPath);
         if (workingFileName === undefined) return undefined;
 
         const diffArgs: DiffWithCommandArgs = {

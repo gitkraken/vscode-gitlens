@@ -4,8 +4,9 @@ import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from
 import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandCommandArgs, DiffWithPreviousCommandArgs, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, QuickPickItem, ShowCommitInResultsQuickPickItem } from './common';
 import { GlyphChars } from '../constants';
-import { getGitStatusOcticon, GitLog, GitLogCommit, GitService, GitStashCommit, GitStatusFile, GitStatusFileStatus, GitUri, IGitStatusFile, RemoteResource } from '../gitService';
-import { Keyboard, KeyCommand, KeyNoopCommand, Keys } from '../keyboard';
+import { Container } from '../container';
+import { getGitStatusOcticon, GitLog, GitLogCommit, GitStashCommit, GitStatusFile, GitStatusFileStatus, GitUri, IGitStatusFile, RemoteResource } from '../gitService';
+import { KeyCommand, KeyNoopCommand, Keys } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as path from 'path';
 
@@ -88,8 +89,8 @@ export class OpenCommitFileRevisionsCommandQuickPickItem extends OpenFilesComman
 
 export class CommitDetailsQuickPick {
 
-    static async show(git: GitService, commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, repoLog?: GitLog): Promise<CommitWithFileStatusQuickPickItem | CommandQuickPickItem | undefined> {
-        await commit.resolvePreviousFileSha(git);
+    static async show(commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, repoLog?: GitLog): Promise<CommitWithFileStatusQuickPickItem | CommandQuickPickItem | undefined> {
+        await commit.resolvePreviousFileSha();
 
         const items: (CommitWithFileStatusQuickPickItem | CommandQuickPickItem)[] = commit.fileStatuses.map(fs => new CommitWithFileStatusQuickPickItem(commit, fs));
 
@@ -128,7 +129,7 @@ export class CommitDetailsQuickPick {
         else {
             items.splice(index++, 0, new ShowCommitInResultsQuickPickItem(commit));
 
-            const remotes = (await git.getRemotes(commit.repoPath)).filter(r => r.provider !== undefined);
+            const remotes = (await Container.git.getRemotes(commit.repoPath)).filter(r => r.provider !== undefined);
             if (remotes.length) {
                 items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, {
                     type: 'commit',
@@ -240,7 +241,7 @@ export class CommitDetailsQuickPick {
 
                     // If we can't find the commit or the previous commit isn't available (since it isn't trustworthy)
                     if (c === undefined || c.previousSha === undefined) {
-                        log = await git.getLogForRepo(commit.repoPath, { maxCount: git.config.advanced.maxQuickHistory, ref: commit.sha });
+                        log = await Container.git.getLogForRepo(commit.repoPath, { maxCount: Container.config.advanced.maxListItems, ref: commit.sha });
                         c = log && log.commits.get(commit.sha);
 
                         if (c) {
@@ -271,7 +272,7 @@ export class CommitDetailsQuickPick {
                         c = undefined;
 
                         // Try to find the next commit
-                        const nextLog = await git.getLogForRepo(commit.repoPath, { maxCount: 1, reverse: true, ref: commit.sha });
+                        const nextLog = await Container.git.getLogForRepo(commit.repoPath, { maxCount: 1, reverse: true, ref: commit.sha });
                         const next = nextLog && Iterables.first(nextLog.commits.values());
                         if (next !== undefined && next.sha !== commit.sha) {
                             c = commit;
@@ -293,7 +294,7 @@ export class CommitDetailsQuickPick {
             }
         }
 
-        const scope = await Keyboard.instance.beginScope({
+        const scope = await Container.keyboard.beginScope({
             left: goBackCommand,
             ',': previousCommand,
             '.': nextCommand

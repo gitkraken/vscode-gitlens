@@ -3,7 +3,8 @@ import { Strings } from '../system';
 import { MessageItem, window } from 'vscode';
 import { Command, CommandContext, Commands, isCommandViewContextWithCommit } from './common';
 import { GlyphChars } from '../constants';
-import { GitService, GitStashCommit } from '../gitService';
+import { Container } from '../container';
+import { GitStashCommit } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepositoriesQuickPick, StashListQuickPick } from '../quickPicks';
 
@@ -17,9 +18,7 @@ export interface StashApplyCommandArgs {
 
 export class StashApplyCommand extends Command {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.StashApply);
     }
 
@@ -39,9 +38,9 @@ export class StashApplyCommand extends Command {
         if (args.stashItem === undefined || args.stashItem.stashName === undefined) {
             let goBackToRepositoriesCommand: CommandQuickPickItem | undefined;
 
-            let repoPath = await this.git.getActiveRepoPath();
+            let repoPath = await Container.git.getActiveRepoPath();
             if (!repoPath) {
-                const pick = await RepositoriesQuickPick.show(this.git, `Apply stashed changes from which repository${GlyphChars.Ellipsis}`, args.goBackCommand);
+                const pick = await RepositoriesQuickPick.show(`Apply stashed changes from which repository${GlyphChars.Ellipsis}`, args.goBackCommand);
                 if (pick instanceof CommandQuickPickItem) return pick.execute();
                 if (pick === undefined) return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
 
@@ -56,7 +55,7 @@ export class StashApplyCommand extends Command {
             const progressCancellation = StashListQuickPick.showProgress('apply');
 
             try {
-                const stash = await this.git.getStashList(repoPath);
+                const stash = await Container.git.getStashList(repoPath);
                 if (stash === undefined) return window.showInformationMessage(`There are no stashed changes`);
 
                 if (progressCancellation.token.isCancellationRequested) return undefined;
@@ -66,7 +65,7 @@ export class StashApplyCommand extends Command {
                     description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to apply stashed changes`
                 }, Commands.StashApply, [args]);
 
-                const pick = await StashListQuickPick.show(this.git, stash, 'apply', progressCancellation, goBackToRepositoriesCommand || args.goBackCommand, currentCommand);
+                const pick = await StashListQuickPick.show(stash, 'apply', progressCancellation, goBackToRepositoriesCommand || args.goBackCommand, currentCommand);
                 if (pick instanceof CommandQuickPickItem) return pick.execute();
                 if (pick === undefined) return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
 
@@ -87,7 +86,7 @@ export class StashApplyCommand extends Command {
                 args.deleteAfter = result.title !== 'Yes';
             }
 
-            return await this.git.stashApply(args.stashItem.repoPath, args.stashItem.stashName, args.deleteAfter);
+            return await Container.git.stashApply(args.stashItem.repoPath, args.stashItem.stashName, args.deleteAfter);
         }
         catch (ex) {
             Logger.error(ex, 'StashApplyCommand');

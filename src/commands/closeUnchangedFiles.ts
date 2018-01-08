@@ -1,10 +1,10 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorTracker } from '../activeEditorTracker';
+import { ActiveEditorTracker } from '../trackers/activeEditorTracker';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { TextEditorComparer, UriComparer } from '../comparers';
 import { BuiltInCommands } from '../constants';
-import { GitService } from '../gitService';
+import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 
@@ -14,9 +14,7 @@ export interface CloseUnchangedFilesCommandArgs {
 
 export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.CloseUnchangedFiles);
     }
 
@@ -27,10 +25,10 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
             if (args.uris === undefined) {
                 args = { ...args };
 
-                const repoPath = await this.git.getRepoPath(uri);
+                const repoPath = await Container.git.getRepoPath(uri);
                 if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to close unchanged files`);
 
-                const status = await this.git.getStatusForRepo(repoPath);
+                const status = await Container.git.getStatusForRepo(repoPath);
                 if (status === undefined) return window.showWarningMessage(`Unable to close unchanged files`);
 
                 args.uris = status.files.map(f => f.uri);

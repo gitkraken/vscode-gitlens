@@ -1,11 +1,11 @@
 import { Arrays } from '../system';
-import { commands, Disposable, ExtensionContext, InputBoxOptions, Terminal, TextDocumentShowOptions, Uri, window } from 'vscode';
+import { commands, Disposable, InputBoxOptions, Terminal, TextDocumentShowOptions, Uri, window } from 'vscode';
 import { CommandContext, ExtensionTerminalName, setCommandContext } from '../constants';
+import { Container } from '../container';
 import { BranchNode, ExplorerNode, TagNode } from '../views/gitExplorer';
 import { CommitFileNode, CommitNode, ExplorerRefNode, RemoteNode, StashFileNode, StashNode, StatusFileCommitsNode, StatusUpstreamNode } from './explorerNodes';
 import { Commands, DiffWithCommandArgs, DiffWithCommandArgsRevision, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, OpenFileInRemoteCommandArgs, OpenFileRevisionCommandArgs } from '../commands';
 import { GitService, GitUri } from '../gitService';
-import { ResultsExplorer } from './resultsExplorer';
 
 export interface RefreshNodeCommandArgs {
     maxCount?: number;
@@ -22,10 +22,7 @@ export class ExplorerCommands extends Disposable {
     private _disposable: Disposable | undefined;
     private _terminal: Terminal | undefined;
 
-    constructor(
-        public readonly context: ExtensionContext,
-        public readonly git: GitService
-    ) {
+    constructor() {
         super(() => this.dispose());
 
         commands.registerCommand('gitlens.explorers.openChanges', this.openChanges, this);
@@ -65,43 +62,43 @@ export class ExplorerCommands extends Disposable {
     }
 
     private async applyChanges(node: CommitFileNode | StashFileNode) {
-        await this.git.checkoutFile(node.uri);
+        await Container.git.checkoutFile(node.uri);
         return this.openFile(node);
     }
 
     private compareWithHead(node: ExplorerNode) {
         if (!(node instanceof ExplorerRefNode)) return;
 
-        ResultsExplorer.instance.showComparisonInResults(node.repoPath, node.ref, 'HEAD');
+        Container.resultsExplorer.showComparisonInResults(node.repoPath, node.ref, 'HEAD');
     }
 
     private compareWithRemote(node: BranchNode) {
         if (!node.branch.tracking) return;
 
-        ResultsExplorer.instance.showComparisonInResults(node.repoPath, node.branch.tracking, node.ref);
+        Container.resultsExplorer.showComparisonInResults(node.repoPath, node.branch.tracking, node.ref);
     }
 
     private compareWithWorking(node: ExplorerNode) {
         if (!(node instanceof ExplorerRefNode)) return;
 
-        ResultsExplorer.instance.showComparisonInResults(node.repoPath, node.ref, '');
+        Container.resultsExplorer.showComparisonInResults(node.repoPath, node.ref, '');
     }
 
     private async compareSelectedAncestorWithWorking(node: BranchNode) {
         if (this._selection === undefined || !(node instanceof BranchNode)) return;
         if (this._selection.repoPath !== node.repoPath || this._selection.type !== 'branch') return;
 
-        const commonAncestor = await this.git.getMergeBase(this._selection.repoPath, this._selection.ref, node.ref);
+        const commonAncestor = await Container.git.getMergeBase(this._selection.repoPath, this._selection.ref, node.ref);
         if (commonAncestor === undefined) return;
 
-        ResultsExplorer.instance.showComparisonInResults(this._selection.repoPath, commonAncestor, '');
+        Container.resultsExplorer.showComparisonInResults(this._selection.repoPath, commonAncestor, '');
     }
 
     private compareWithSelected(node: ExplorerNode) {
         if (this._selection === undefined || !(node instanceof ExplorerRefNode)) return;
         if (this._selection.repoPath !== node.repoPath) return;
 
-        ResultsExplorer.instance.showComparisonInResults(this._selection.repoPath, this._selection.ref, node.ref);
+        Container.resultsExplorer.showComparisonInResults(this._selection.repoPath, this._selection.ref, node.ref);
     }
 
     private _selection: ICompareSelected | undefined;
@@ -347,7 +344,7 @@ export class ExplorerCommands extends Disposable {
                 }
             }, this);
 
-            this.context.subscriptions.push(this._disposable);
+            Container.context.subscriptions.push(this._disposable);
         }
 
         return this._terminal;

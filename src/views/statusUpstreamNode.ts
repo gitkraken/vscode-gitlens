@@ -2,6 +2,7 @@
 import { Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitNode } from './commitNode';
+import { Container } from '../container';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { GitStatus, GitUri } from '../gitService';
 
@@ -20,7 +21,7 @@ export class StatusUpstreamNode extends ExplorerNode {
             ? `${this.status.upstream}..${this.status.branch}`
             : `${this.status.branch}..${this.status.upstream}`;
 
-        let log = await this.explorer.git.getLogForRepo(this.uri.repoPath!, { maxCount: 0, ref: range });
+        let log = await Container.git.getLogForRepo(this.uri.repoPath!, { maxCount: 0, ref: range });
         if (log === undefined) return [];
 
         if (this.direction !== 'ahead') return [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer))];
@@ -29,7 +30,7 @@ export class StatusUpstreamNode extends ExplorerNode {
         const commits = Array.from(log.commits.values());
         const commit = commits[commits.length - 1];
         if (commit.previousSha === undefined) {
-            log = await this.explorer.git.getLogForRepo(this.uri.repoPath!, { maxCount: 2, ref: commit.sha });
+            log = await Container.git.getLogForRepo(this.uri.repoPath!, { maxCount: 2, ref: commit.sha });
             if (log !== undefined) {
                 commits[commits.length - 1] = Iterables.first(log.commits.values());
             }
@@ -47,8 +48,8 @@ export class StatusUpstreamNode extends ExplorerNode {
         item.contextValue = ResourceType.StatusUpstream;
 
         item.iconPath = {
-            dark: this.explorer.context.asAbsolutePath(`images/dark/icon-${this.direction === 'ahead' ? 'upload' : 'download'}.svg`),
-            light: this.explorer.context.asAbsolutePath(`images/light/icon-${this.direction === 'ahead' ? 'upload' : 'download'}.svg`)
+            dark: Container.context.asAbsolutePath(`images/dark/icon-${this.direction === 'ahead' ? 'upload' : 'download'}.svg`),
+            light: Container.context.asAbsolutePath(`images/light/icon-${this.direction === 'ahead' ? 'upload' : 'download'}.svg`)
         };
 
         return item;

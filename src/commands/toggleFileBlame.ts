@@ -1,9 +1,10 @@
 'use strict';
 import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { AnnotationController, FileAnnotationType } from '../annotations/annotationController';
+import { FileAnnotationType } from '../annotations/annotationController';
 import { Commands, EditorCommand } from './common';
 import { UriComparer } from '../comparers';
 import { configuration } from '../configuration';
+import { Container } from '../container';
 import { Logger } from '../logger';
 
 export interface ToggleFileBlameCommandArgs {
@@ -13,9 +14,7 @@ export interface ToggleFileBlameCommandArgs {
 
 export class ToggleFileBlameCommand extends EditorCommand {
 
-    constructor(
-        private readonly annotationController: AnnotationController
-    ) {
+    constructor() {
         super(Commands.ToggleFileBlame);
     }
 
@@ -35,7 +34,7 @@ export class ToggleFileBlameCommand extends EditorCommand {
                 args = { ...args, type: configuration.get<FileAnnotationType>(configuration.name('blame')('file')('annotationType').value) };
             }
 
-            return this.annotationController.toggleAnnotations(editor, args.type!, args.sha !== undefined ? args.sha : editor.selection.active.line);
+            return Container.annotations.toggleAnnotations(editor, args.type!, args.sha !== undefined ? args.sha : editor.selection.active.line);
         }
         catch (ex) {
             Logger.error(ex, 'ToggleFileBlameCommand');

@@ -3,7 +3,7 @@ import { Strings } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
-import { GitService } from '../gitService';
+import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, StashListQuickPick } from '../quickPicks';
@@ -15,9 +15,7 @@ export interface ShowQuickStashListCommandArgs {
 
 export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.ShowQuickStashList);
     }
 
@@ -27,10 +25,10 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
         const progressCancellation = StashListQuickPick.showProgress('list');
 
         try {
-            const repoPath = await this.git.getRepoPath(uri);
+            const repoPath = await Container.git.getRepoPath(uri);
             if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show stashed changes`);
 
-            const stash = await this.git.getStashList(repoPath);
+            const stash = await Container.git.getStashList(repoPath);
             if (stash === undefined) return window.showWarningMessage(`Unable to show stashed changes`);
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
@@ -46,7 +44,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
                     } as ShowQuickStashListCommandArgs
                 ]);
 
-            const pick = await StashListQuickPick.show(this.git, stash, 'list', progressCancellation, args.goBackCommand, currentCommand);
+            const pick = await StashListQuickPick.show(stash, 'list', progressCancellation, args.goBackCommand, currentCommand);
             if (pick === undefined) return undefined;
 
             if (pick instanceof CommandQuickPickItem) return pick.execute();

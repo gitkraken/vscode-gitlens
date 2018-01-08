@@ -2,6 +2,7 @@
 import { Strings } from '../system';
 import { Uri } from 'vscode';
 import { DocumentSchemes, GlyphChars } from '../constants';
+import { Container } from '../container';
 import { GitCommit, GitService, IGitStatusFile } from '../gitService';
 import * as path from 'path';
 
@@ -95,7 +96,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
         if (relativeTo !== undefined) {
             directory = path.relative(relativeTo, directory);
         }
-        directory = GitService.normalizePath(directory);
+        directory = Strings.normalizePath(directory);
 
         return (!directory || directory === '.')
             ? path.basename(this.fsPath)
@@ -107,7 +108,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
         if (relativeTo !== undefined) {
             relativePath = path.relative(relativeTo, relativePath);
         }
-        return GitService.normalizePath(relativePath);
+        return Strings.normalizePath(relativePath);
     }
 
     private static ensureValidUNCPath(authority: string, fsPath: string): [string, string] {
@@ -153,10 +154,10 @@ export class GitUri extends ((Uri as any) as UriEx) {
         return new GitUri(uri);
     }
 
-    static async fromUri(uri: Uri, git: GitService) {
+    static async fromUri(uri: Uri) {
         if (uri instanceof GitUri) return uri;
 
-        if (!git.isTrackable(uri)) return new GitUri(uri);
+        if (!Container.git.isTrackable(uri)) return new GitUri(uri);
 
         if (uri.scheme === DocumentSchemes.GitLensGit) return new GitUri(uri);
 
@@ -164,7 +165,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
         if (uri.scheme === DocumentSchemes.Git) {
             const data: { path: string, ref: string } = JSON.parse(uri.query);
 
-            const repoPath = await git.getRepoPath(data.path);
+            const repoPath = await Container.git.getRepoPath(data.path);
 
             let ref;
             switch (data.ref) {
@@ -189,10 +190,10 @@ export class GitUri extends ((Uri as any) as UriEx) {
             } as IGitCommitInfo);
         }
 
-        const gitUri = git.getGitUriForVersionedFile(uri);
-        if (gitUri) return gitUri;
+        const gitUri = await Container.git.getGitUri(uri);
+        if (gitUri !== undefined) return gitUri;
 
-        return new GitUri(uri, await git.getRepoPath(uri));
+        return new GitUri(uri, await Container.git.getRepoPath(uri));
     }
 
     static getDirectory(fileName: string, relativeTo?: string): string {
@@ -200,7 +201,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
         if (relativeTo !== undefined) {
             directory = path.relative(relativeTo, directory);
         }
-        directory = GitService.normalizePath(directory);
+        directory = Strings.normalizePath(directory);
         return (!directory || directory === '.') ? '' : directory;
     }
 
@@ -236,7 +237,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
         if (relativeTo !== undefined) {
             relativePath = path.relative(relativeTo, relativePath);
         }
-        return GitService.normalizePath(relativePath);
+        return Strings.normalizePath(relativePath);
     }
 
     static toRevisionUri(uri: GitUri): Uri;
@@ -266,7 +267,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
         }
 
         const data: IUriRevisionData = {
-            fileName: GitService.normalizePath(path.relative(repoPath!, fileName)),
+            fileName: Strings.normalizePath(path.relative(repoPath!, fileName)),
             repoPath: repoPath!,
             sha: sha
         };

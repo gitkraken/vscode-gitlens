@@ -2,6 +2,7 @@
 import { Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchNode } from './branchNode';
+import { Container } from '../container';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { GitUri, Repository } from '../gitService';
 
@@ -34,8 +35,8 @@ export class BranchesNode extends ExplorerNode {
                 : ResourceType.Branches;
 
             item.iconPath = {
-                dark: this.explorer.context.asAbsolutePath('images/dark/icon-branch.svg'),
-                light: this.explorer.context.asAbsolutePath('images/light/icon-branch.svg')
+                dark: Container.context.asAbsolutePath('images/dark/icon-branch.svg'),
+                light: Container.context.asAbsolutePath('images/light/icon-branch.svg')
             };
 
             return item;

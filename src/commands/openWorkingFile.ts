@@ -1,8 +1,9 @@
 'use strict';
 import { Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { AnnotationController, FileAnnotationType } from '../annotations/annotationController';
+import { FileAnnotationType } from '../annotations/annotationController';
 import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
-import { GitService, GitUri } from '../gitService';
+import { Container } from '../container';
+import { GitUri } from '../gitService';
 import { Logger } from '../logger';
 
 export interface OpenWorkingFileCommandArgs {
@@ -14,10 +15,7 @@ export interface OpenWorkingFileCommandArgs {
 
 export class OpenWorkingFileCommand extends ActiveEditorCommand {
 
-    constructor(
-        private readonly annotationController: AnnotationController,
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.OpenWorkingFile);
     }
 
@@ -32,7 +30,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
                 uri = getCommandUri(uri, editor);
                 if (uri === undefined) return undefined;
 
-                args.uri = await GitUri.fromUri(uri, this.git);
+                args.uri = await GitUri.fromUri(uri);
             }
 
             if (args.line !== undefined && args.line !== 0) {
@@ -45,7 +43,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
             const e = await openEditor(args.uri, { ...args.showOptions, rethrow: true });
             if (args.annotationType === undefined) return e;
 
-            return this.annotationController.showAnnotations(e!, args.annotationType, args.line);
+            return Container.annotations.showAnnotations(e!, args.annotationType, args.line);
         }
         catch (ex) {
             Logger.error(ex, 'OpenWorkingFileCommand');

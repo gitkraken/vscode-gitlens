@@ -1,10 +1,10 @@
 'use strict';
-import { Arrays, Iterables } from '../system';
+import { Arrays, Iterables, Strings } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerFilesLayout } from '../configuration';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { FolderNode, IFileExplorerNode } from './folderNode';
-import { GitService, GitStatusFile, GitUri } from '../gitService';
+import { GitStatusFile, GitUri } from '../gitService';
 import { StatusFileNode } from './statusFileNode';
 import * as path from 'path';
 
@@ -33,7 +33,7 @@ export class StatusFilesResultsNode extends ExplorerNode {
 
         if (this.explorer.config.files.layout !== ExplorerFilesLayout.List) {
             const hierarchy = Arrays.makeHierarchical(children, n => n.uri.getRelativePath().split('/'),
-                (...paths: string[]) => GitService.normalizePath(path.join(...paths)), this.explorer.config.files.compact);
+                (...paths: string[]) => Strings.normalizePath(path.join(...paths)), this.explorer.config.files.compact);
 
             const root = new FolderNode(this.repoPath, '', undefined, hierarchy, this.explorer);
             children = await root.getChildren() as IFileExplorerNode[];

@@ -3,8 +3,9 @@ import { Iterables, Strings } from '../system';
 import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
+import { Container } from '../container';
 import { DiffWithCommandArgs } from './diffWith';
-import { GitService, GitUri } from '../gitService';
+import { GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, FileHistoryQuickPick, ShowBranchesAndTagsQuickPickItem } from '../quickPicks';
@@ -19,9 +20,7 @@ export interface DiffWithRevisionCommandArgs {
 
 export class DiffWithRevisionCommand extends ActiveEditorCommand {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.DiffWithRevision);
     }
 
@@ -34,13 +33,13 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
             args.line = editor === undefined ? 0 : editor.selection.active.line;
         }
 
-        const gitUri = await GitUri.fromUri(uri, this.git);
+        const gitUri = await GitUri.fromUri(uri);
 
         const placeHolder = `Compare ${gitUri.getFormattedPath()}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''} with ${GlyphChars.Ellipsis}`;
         const progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
 
         try {
-            const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: args.maxCount, ref: gitUri.sha });
+            const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: args.maxCount, ref: gitUri.sha });
             if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open history compare');
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
@@ -62,7 +61,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
                 }
             }
 
-            const pick = await FileHistoryQuickPick.show(this.git, log, gitUri, placeHolder, {
+            const pick = await FileHistoryQuickPick.show(log, gitUri, placeHolder, {
                 pickerOnly: true,
                 progressCancellation: progressCancellation,
                 currentCommand: new CommandQuickPickItem({

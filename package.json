@@ -833,13 +833,19 @@
                 "gitlens.advanced.caching.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether git output will be cached",
+                    "description": "Specifies whether git output will be cached -- changing the default is not recommended",
                     "scope": "window"
                 },
-                "gitlens.advanced.caching.maxLines": {
+                "gitlens.advanced.blame.delayAfterEdit": {
                     "type": "number",
-                    "default": 0,
-                    "description": "Specifies the threshold for caching larger documents",
+                    "default": 5000,
+                    "description": "Specifies the time (in milliseconds) to wait before re-blaming an unsaved document after an edit. Use 0 to specify an infinite wait",
+                    "scope": "window"
+                },
+                "gitlens.advanced.blame.sizeThresholdAfterEdit": {
+                    "type": "number",
+                    "default": 5000,
+                    "description": "Specifies the maximum document size (in lines) allowed to be re-blamed after an edit while still unsaved. Use 0 to specify no maximum",
                     "scope": "window"
                 },
                 "gitlens.advanced.git": {
@@ -848,10 +854,10 @@
                     "description": "Specifies the git path to use",
                     "scope": "window"
                 },
-                "gitlens.advanced.maxQuickHistory": {
+                "gitlens.advanced.maxListItems": {
                     "type": "number",
                     "default": 200,
-                    "description": "Specifies the maximum number of QuickPick history entries to show",
+                    "description": "Specifies the maximum number of items to show in a list. Use 0 to specify no maximum",
                     "scope": "window"
                 },
                 "gitlens.advanced.menus": {
@@ -1065,7 +1071,7 @@
                 "gitlens.advanced.quickPick.closeOnFocusOut": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to close the QuickPick menu when focus is lost",
+                    "description": "Specifies whether or not to close QuickPick menus when focus is lost",
                     "scope": "window"
                 },
                 "gitlens.advanced.repositorySearchDepth": {

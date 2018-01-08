@@ -3,8 +3,8 @@ import { Dates, Strings } from '../../system';
 import { Uri } from 'vscode';
 import { configuration, DateStyle } from '../../configuration';
 import { GlyphChars } from '../../constants';
+import { Container } from '../../container';
 import { Git } from '../git';
-import { GitService } from '../../gitService';
 import { GitUri } from '../gitUri';
 import * as path from 'path';
 
@@ -165,10 +165,10 @@ export abstract class GitCommit {
         return GitUri.getFormattedPath(this.fileName, separator);
     }
 
-    async resolvePreviousFileSha(git: GitService): Promise<void> {
+    async resolvePreviousFileSha(): Promise<void> {
         if (this._resolvedPreviousFileSha !== undefined) return;
 
-        this._resolvedPreviousFileSha = await git.resolveReference(this.repoPath, this.previousFileSha, this.fileName ? this.previousUri : undefined);
+        this._resolvedPreviousFileSha = await Container.git.resolveReference(this.repoPath, this.previousFileSha, this.fileName ? this.previousUri : undefined);
     }
 
     toGitUri(previous: boolean = false): GitUri {

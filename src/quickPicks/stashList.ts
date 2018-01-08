@@ -3,8 +3,9 @@ import { Iterables, Strings } from '../system';
 import { CancellationTokenSource, QuickPickOptions, window } from 'vscode';
 import { Commands, StashSaveCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
-import { GitService, GitStash } from '../gitService';
-import { Keyboard, KeyNoopCommand } from '../keyboard';
+import { Container } from '../container';
+import { GitStash } from '../gitService';
+import { KeyNoopCommand } from '../keyboard';
 import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from '../quickPicks';
 
 export class StashListQuickPick {
@@ -21,7 +22,7 @@ export class StashListQuickPick {
             });
     }
 
-    static async show(git: GitService, stash: GitStash, mode: 'list' | 'apply', progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(stash: GitStash, mode: 'list' | 'apply', progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         const items = ((stash && Array.from(Iterables.map(stash.commits.values(), c => new CommitQuickPickItem(c)))) || []) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
         if (mode === 'list') {
@@ -41,7 +42,7 @@ export class StashListQuickPick {
 
         if (progressCancellation.token.isCancellationRequested) return undefined;
 
-        const scope = await Keyboard.instance.beginScope({ left: goBackCommand });
+        const scope = await Container.keyboard.beginScope({ left: goBackCommand });
 
         progressCancellation.cancel();
 

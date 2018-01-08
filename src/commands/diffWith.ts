@@ -2,6 +2,7 @@
 import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './common';
 import { BuiltInCommands, GlyphChars } from '../constants';
+import { Container } from '../container';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import * as path from 'path';
@@ -79,9 +80,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
         return super.getMarkdownCommandArgsCore<DiffWithCommandArgs>(Commands.DiffWith, args);
     }
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.DiffWith);
     }
 
@@ -92,16 +91,16 @@ export class DiffWithCommand extends ActiveEditorCommand {
         try {
             // If the shas aren't resolved (e.g. a2d24f^), resolve them
             if (GitService.isResolveRequired(args.lhs.sha)) {
-                args.lhs.sha = await this.git.resolveReference(args.repoPath, args.lhs.sha, args.lhs.uri);
+                args.lhs.sha = await Container.git.resolveReference(args.repoPath, args.lhs.sha, args.lhs.uri);
             }
 
             if (GitService.isResolveRequired(args.rhs.sha)) {
-                args.rhs.sha = await this.git.resolveReference(args.repoPath, args.rhs.sha, args.rhs.uri);
+                args.rhs.sha = await Container.git.resolveReference(args.repoPath, args.rhs.sha, args.rhs.uri);
             }
 
             const [lhs, rhs] = await Promise.all([
-                this.git.getVersionedFile(args.repoPath, args.lhs.uri.fsPath, args.lhs.sha),
-                this.git.getVersionedFile(args.repoPath, args.rhs.uri.fsPath, args.rhs.sha)
+                Container.git.getVersionedFile(args.repoPath, args.lhs.uri.fsPath, args.lhs.sha),
+                Container.git.getVersionedFile(args.repoPath, args.rhs.uri.fsPath, args.rhs.sha)
             ]);
 
             if (args.line !== undefined && args.line !== 0) {

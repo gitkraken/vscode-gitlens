@@ -1,7 +1,8 @@
 'use strict';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithBranch, isCommandViewContextWithCommit } from './common';
-import { GitService, GitUri } from '../gitService';
+import { Container } from '../container';
+import { GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { OpenInRemoteCommandArgs } from './openInRemote';
 
@@ -12,9 +13,7 @@ export interface OpenFileInRemoteCommandArgs {
 
 export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.OpenFileInRemote);
     }
 
@@ -35,18 +34,18 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
 
-        const gitUri = await GitUri.fromUri(uri, this.git);
+        const gitUri = await GitUri.fromUri(uri);
         if (!gitUri.repoPath) return undefined;
 
         if (args.branch === undefined) {
-            const branch = await this.git.getBranch(gitUri.repoPath);
+            const branch = await Container.git.getBranch(gitUri.repoPath);
             if (branch !== undefined) {
                 args.branch = branch.name;
             }
         }
 
         try {
-            const remotes = (await this.git.getRemotes(gitUri.repoPath)).filter(r => r.provider !== undefined);
+            const remotes = (await Container.git.getRemotes(gitUri.repoPath)).filter(r => r.provider !== undefined);
             const range = (args.range && editor !== undefined)
                 ? new Range(editor.selection.start.with({ line: editor.selection.start.line + 1 }), editor.selection.end.with({ line: editor.selection.end.line + 1 }))
                 : undefined;

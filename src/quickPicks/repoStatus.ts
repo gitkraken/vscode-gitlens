@@ -4,8 +4,9 @@ import { commands, QuickPickOptions, TextDocumentShowOptions, window } from 'vsc
 import { Commands, DiffWithPreviousCommandArgs, OpenChangedFilesCommandArgs, ShowQuickBranchHistoryCommandArgs, ShowQuickRepoStatusCommandArgs, ShowQuickStashListCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem, QuickPickItem } from './common';
 import { GlyphChars } from '../constants';
+import { Container } from '../container';
 import { GitCommitType, GitLogCommit, GitService, GitStatus, GitStatusFile, GitStatusFileStatus, GitUri } from '../gitService';
-import { Keyboard, Keys } from '../keyboard';
+import { Keys } from '../keyboard';
 import * as path from 'path';
 
 export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
@@ -308,7 +309,7 @@ export class RepoStatusQuickPick {
             items.splice(0, 0, goBackCommand);
         }
 
-        const scope = await Keyboard.instance.beginScope({ left: goBackCommand });
+        const scope = await Container.keyboard.beginScope({ left: goBackCommand });
 
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,

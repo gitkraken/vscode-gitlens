@@ -2,6 +2,7 @@
 import { Iterables } from '../system';
 import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { Container } from '../container';
 import { DiffWithCommandArgs } from './diffWith';
 import { DiffWithWorkingCommandArgs } from './diffWithWorking';
 import { GitCommit, GitService, GitUri } from '../gitService';
@@ -18,9 +19,7 @@ export interface DiffWithPreviousCommandArgs {
 
 export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.DiffWithPrevious);
     }
 
@@ -34,7 +33,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
         }
 
         if (args.commit === undefined || !args.commit.isFile || args.range !== undefined) {
-            const gitUri = await GitUri.fromUri(uri, this.git);
+            const gitUri = await GitUri.fromUri(uri);
 
             try {
                 let sha = args.commit === undefined ? gitUri.sha : args.commit.sha;
@@ -47,14 +46,14 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                     isStagedUncommitted = true;
                 }
 
-                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: 2, range: args.range!, ref: sha, skipMerges: true });
+                const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: 2, range: args.range!, ref: sha, skipMerges: true });
                 if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
 
                 args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
 
                 // If the sha is missing and the file is uncommitted, then treat it as a DiffWithWorking
                 if (gitUri.sha === undefined) {
-                    const status = await this.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
+                    const status = await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
                     if (status !== undefined) {
                         if (isStagedUncommitted) {
                             const diffArgs: DiffWithCommandArgs = {

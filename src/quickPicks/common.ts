@@ -5,9 +5,9 @@ import { BranchesAndTagsQuickPick, BranchOrTagQuickPickItem } from './branchesAn
 import { Commands, openEditor } from '../commands';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
-import { GitLog, GitLogCommit, GitService, GitStashCommit } from '../gitService';
-import { Keyboard, KeyboardScope, KeyMapping, Keys } from '../keyboard';
-import { ResultsExplorer } from '../views/resultsExplorer';
+import { Container } from '../container';
+import { GitLog, GitLogCommit, GitStashCommit } from '../gitService';
+import { KeyboardScope, KeyMapping, Keys } from '../keyboard';
 
 export function getQuickPickIgnoreFocusOut() {
     return !configuration.get<boolean>(configuration.name('advanced')('quickPick')('closeOnFocusOut').value);
@@ -20,7 +20,7 @@ export function showQuickPickProgress(message: string, mapping?: KeyMapping): Ca
 }
 
 async function _showQuickPickProgress(message: string, cancellation: CancellationTokenSource, mapping?: KeyMapping) {
-        const scope: KeyboardScope | undefined = mapping && await Keyboard.instance.beginScope(mapping);
+        const scope: KeyboardScope | undefined = mapping && await Container.keyboard.beginScope(mapping);
 
         try {
             await window.showQuickPick(_getInfiniteCancellablePromise(cancellation), {
@@ -186,7 +186,7 @@ export class ShowCommitInResultsQuickPickItem extends CommandQuickPickItem {
     }
 
     async execute(options: TextDocumentShowOptions = { preserveFocus: false, preview: false }): Promise<{} | undefined> {
-        ResultsExplorer.instance.showCommitInResults(this.commit);
+        Container.resultsExplorer.showCommitInResults(this.commit);
         return undefined;
     }
 }
@@ -205,7 +205,7 @@ export class ShowCommitsInResultsQuickPickItem extends CommandQuickPickItem {
     }
 
     async execute(options: TextDocumentShowOptions = { preserveFocus: false, preview: false }): Promise<{} | undefined> {
-        ResultsExplorer.instance.showCommitsInResults(this.results, this.resultsLabel);
+        Container.resultsExplorer.showCommitsInResults(this.results, this.resultsLabel);
         return undefined;
     }
 }
@@ -229,7 +229,6 @@ export class ShowBranchesAndTagsQuickPickItem extends CommandQuickPickItem {
     constructor(
         private readonly repoPath: string,
         private readonly placeHolder: string,
-        private readonly git: GitService,
         private readonly goBackCommand?: CommandQuickPickItem,
         item: QuickPickItem = {
             label: 'Show Branches and Tags',
@@ -244,8 +243,8 @@ export class ShowBranchesAndTagsQuickPickItem extends CommandQuickPickItem {
 
         try {
             const [branches, tags] = await Promise.all([
-                this.git.getBranches(this.repoPath),
-                this.git.getTags(this.repoPath)
+                Container.git.getBranches(this.repoPath),
+                Container.git.getTags(this.repoPath)
             ]);
 
             if (progressCancellation.token.isCancellationRequested) return undefined;

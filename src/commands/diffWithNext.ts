@@ -2,6 +2,7 @@
 import { Iterables } from '../system';
 import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { Container } from '../container';
 import { DiffWithCommandArgs } from './diffWith';
 import { GitLogCommit, GitService, GitStatusFile, GitUri } from '../gitService';
 import { Logger } from '../logger';
@@ -17,9 +18,7 @@ export interface DiffWithNextCommandArgs {
 
 export class DiffWithNextCommand extends ActiveEditorCommand {
 
-    constructor(
-        private readonly git: GitService
-    ) {
+    constructor() {
         super(Commands.DiffWithNext);
     }
 
@@ -32,7 +31,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
             args.line = editor === undefined ? 0 : editor.selection.active.line;
         }
 
-        const gitUri = await GitUri.fromUri(uri, this.git);
+        const gitUri = await GitUri.fromUri(uri);
         let status: GitStatusFile | undefined;
 
         if (args.commit === undefined || !(args.commit instanceof GitLogCommit) || args.range !== undefined) {
@@ -42,14 +41,14 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
                 // If we are a fake "staged" sha, treat it as a DiffWithWorking
                 if (GitService.isStagedUncommitted(sha!)) return commands.executeCommand(Commands.DiffWithWorking, uri);
 
-                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: sha !== undefined ? undefined : 2, range: args.range!, skipMerges: true });
+                const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: sha !== undefined ? undefined : 2, range: args.range!, skipMerges: true });
                 if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
 
                 args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
 
                 // If the sha is missing or the file is uncommitted, treat it as a DiffWithWorking
                 if (gitUri.sha === undefined) {
-                    status = await this.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
+                    status = await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
                     if (status !== undefined) return commands.executeCommand(Commands.DiffWithWorking, uri);
                 }
             }
@@ -61,7 +60,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 
         if (args.commit.nextSha === undefined) {
             // Check if the file is staged
-            status = status || await this.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
+            status = status || await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
             if (status !== undefined && status.indexStatus === 'M') {
                 const diffArgs: DiffWithCommandArgs = {
                     repoPath: args.commit.repoPath,

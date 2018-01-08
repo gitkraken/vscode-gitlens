@@ -1,4 +1,5 @@
 import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Container } from '../container';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
 import { GitUri, Repository, RepositoryFileSystemChangeEvent } from '../gitService';
@@ -101,8 +102,8 @@ export class StatusNode extends ExplorerNode {
         item.contextValue = ResourceType.Status;
 
         item.iconPath = {
-            dark: this.explorer.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
-            light: this.explorer.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`)
+            dark: Container.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
+            light: Container.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`)
         };
 
         return item;

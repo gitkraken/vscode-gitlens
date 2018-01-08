@@ -3,6 +3,7 @@ import { Strings } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitNode } from './commitNode';
 import { GlyphChars } from '../constants';
+import { Container } from '../container';
 import { Explorer, ExplorerNode, MessageNode, ResourceType } from './explorerNode';
 import { CommitFormatter, GitLogCommit } from '../gitService';
 
@@ -24,7 +25,7 @@ export class CommitResultsNode extends ExplorerNode {
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        const label = CommitFormatter.fromTemplate(`Commit \${sha} ${Strings.pad(GlyphChars.Dash, 1, 1)} \${authorAgo}`, this.commit, this.explorer.git.config.defaultDateFormat);
+        const label = CommitFormatter.fromTemplate(`Commit \${sha} ${Strings.pad(GlyphChars.Dash, 1, 1)} \${authorAgo}`, this.commit, Container.config.defaultDateFormat);
         const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
         item.contextValue = this.contextValue;
         return item;

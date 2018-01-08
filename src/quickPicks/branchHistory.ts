@@ -4,8 +4,9 @@ import { CancellationTokenSource, QuickPickOptions, window } from 'vscode';
 import { Commands, ShowCommitSearchCommandArgs, ShowQuickBranchHistoryCommandArgs } from '../commands';
 import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './common';
 import { GlyphChars } from '../constants';
-import { GitLog, GitService, GitUri, RemoteResource } from '../gitService';
-import { Keyboard, KeyNoopCommand } from '../keyboard';
+import { Container } from '../container';
+import { GitLog, GitUri, RemoteResource } from '../gitService';
+import { KeyNoopCommand } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 
 export class BranchHistoryQuickPick {
@@ -19,7 +20,7 @@ export class BranchHistoryQuickPick {
             });
     }
 
-    static async show(git: GitService, log: GitLog, uri: GitUri | undefined, branch: string, progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(log: GitLog, uri: GitUri | undefined, branch: string, progressCancellation: CancellationTokenSource, goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
         const currentCommand = new CommandQuickPickItem({
@@ -35,7 +36,7 @@ export class BranchHistoryQuickPick {
                 } as ShowQuickBranchHistoryCommandArgs
             ]);
 
-        const remotes = (await git.getRemotes((uri && uri.repoPath) || log.repoPath)).filter(r => r.provider !== undefined);
+        const remotes = (await Container.git.getRemotes((uri && uri.repoPath) || log.repoPath)).filter(r => r.provider !== undefined);
         if (remotes.length) {
             items.splice(0, 0, new OpenRemotesCommandQuickPickItem(remotes, {
                 type: 'branch',
@@ -125,7 +126,7 @@ export class BranchHistoryQuickPick {
 
         if (progressCancellation.token.isCancellationRequested) return undefined;
 
-        const scope = await Keyboard.instance.beginScope({
+        const scope = await Container.keyboard.beginScope({
             left: goBackCommand,
             ',': previousPageCommand,
             '.': nextPageCommand
