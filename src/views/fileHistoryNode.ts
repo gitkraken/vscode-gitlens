@@ -110,7 +110,7 @@ export class FileHistoryNode extends ExplorerNode {
     }
 
     private onRepoChanged(e: RepositoryChangeEvent) {
-        if (e.changed(RepositoryChange.Stashes, true)) return;
+        if (!e.changed(RepositoryChange.Repository)) return;
 
         Logger.log(`RepositoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
 

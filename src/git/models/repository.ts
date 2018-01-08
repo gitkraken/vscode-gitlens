@@ -12,7 +12,8 @@ export enum RepositoryChange {
     // FileSystem = 'file-system',
     Remotes = 'remotes',
     Repository = 'repository',
-    Stashes = 'stashes'
+    Stashes = 'stashes',
+    Tags = 'tags'
 }
 
 export class RepositoryChangeEvent {
@@ -154,6 +155,12 @@ export class Repository extends Disposable {
         if (uri !== undefined && uri.path.endsWith('refs/remotes')) {
             this._remotes = undefined;
             this.fireChange(RepositoryChange.Remotes);
+
+            return;
+        }
+
+        if (uri !== undefined && uri.path.endsWith('refs/tags')) {
+            this.fireChange(RepositoryChange.Tags);
 
             return;
         }

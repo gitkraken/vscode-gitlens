@@ -89,5 +89,12 @@ export class RepositoryNode extends ExplorerNode {
                 this.explorer.refreshNode(node);
             }
         }
+
+        if (e.changed(RepositoryChange.Tags)) {
+            const node = this.children.find(c => c instanceof TagsNode);
+            if (node !== undefined) {
+                this.explorer.refreshNode(node);
+            }
+        }
     }
 }
