@@ -98,7 +98,7 @@ export class Repository extends Disposable {
 
         this._suspended = suspended;
 
-        const watcher = workspace.createFileSystemWatcher(new RelativePattern(folder, '**/.git/{config,index,HEAD,refs/stash,refs/heads/**,refs/remotes/**,refs/tags/**}'));
+        const watcher = workspace.createFileSystemWatcher(new RelativePattern(folder, '{**/.git/config,**/.git/index,**/.git/HEAD,**/.git/refs/stash,**/.git/refs/heads/**,**/.git/refs/remotes/**,**/.git/refs/tags/**,**/.gitignore}'));
         this._disposable = Disposable.from(
             watcher,
             watcher.onDidChange(this.onRepositoryChanged, this),
