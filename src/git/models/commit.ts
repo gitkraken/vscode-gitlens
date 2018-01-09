@@ -134,7 +134,7 @@ export abstract class GitCommit {
     }
 
     get previousUri(): Uri {
-        return this.previousFileName ? Uri.file(path.resolve(this.repoPath, this.previousFileName || this.originalFileName)) : this.uri;
+        return this.previousFileName ? Uri.file(path.resolve(this.repoPath, (this.previousFileName || this.originalFileName)!)) : this.uri;
     }
 
     get uri(): Uri {
