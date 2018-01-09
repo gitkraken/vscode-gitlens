@@ -391,6 +391,12 @@
                             ]
                         },
                         {
+                            "language": "jsonc",
+                            "locations": [
+                                "document"
+                            ]
+                        },
+                        {
                             "language": "less",
                             "locations": [
                                 "document"
