@@ -166,12 +166,26 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
             const repoPath = await git.getRepoPath(data.path);
 
+            let ref;
+            switch (data.ref) {
+                case '':
+                case '~':
+                    ref = GitService.stagedUncommittedSha;
+                    break;
+
+                case null:
+                    ref = undefined;
+                    break;
+
+                default:
+                    ref = data.ref;
+                    break;
+            }
+
             return new GitUri(uri, {
                 fileName: data.path,
                 repoPath: repoPath,
-                sha: data.ref === '' || data.ref == null
-                    ? undefined
-                    : data.ref
+                sha: ref
             } as IGitCommitInfo);
         }
 
