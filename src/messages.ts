@@ -12,6 +12,7 @@ export enum SuppressedMessages {
     GitVersionWarning = 'suppressGitVersionWarning',
     LineUncommittedWarning = 'suppressLineUncommittedWarning',
     NoRepositoryWarning = 'suppressNoRepositoryWarning',
+    ResultsExplorerNotice = 'suppressResultsExplorerNotice',
     UpdateNotice = 'suppressUpdateNotice',
     WelcomeNotice = 'suppressWelcomeNotice'
 }
@@ -39,8 +40,12 @@ export class Messages {
         return Messages.showMessage('warn', `${message}. No repository could be found`, SuppressedMessages.NoRepositoryWarning);
     }
 
+    static showResultExplorerInfoMessage(): Promise<string | undefined> {
+        return Messages.showMessage('info', `If you can't find your results, click on "GITLENS RESULTS" at the bottom of the Explorer view`, SuppressedMessages.ResultsExplorerNotice, null);
+    }
+
     static showUnsupportedGitVersionErrorMessage(version: string): Promise<string | undefined> {
-        return Messages.showMessage('error', `GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git.`, SuppressedMessages.GitVersionWarning);
+        return Messages.showMessage('error', `GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git`, SuppressedMessages.GitVersionWarning);
     }
 
     static async showUpdateMessage(version: string): Promise<string | undefined> {
@@ -54,7 +59,7 @@ export class Messages {
 
     static async showWelcomeMessage(): Promise<string | undefined> {
         const viewDocs = 'View Docs';
-        const result = await Messages.showMessage('info', `Thank you for choosing GitLens! GitLens is powerful, feature rich, and highly configurable, so please be sure to view the docs and tailor it to suit your needs.`, SuppressedMessages.WelcomeNotice, null, viewDocs);
+        const result = await Messages.showMessage('info', `Thank you for choosing GitLens! GitLens is powerful, feature rich, and highly configurable, so please be sure to view the docs and tailor it to suit your needs`, SuppressedMessages.WelcomeNotice, null, viewDocs);
         if (result === viewDocs) {
             commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://marketplace.visualstudio.com/items/eamodio.gitlens'));
         }

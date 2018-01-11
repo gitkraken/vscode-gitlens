@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds *Revert Commit (via Terminal)* command (`gitlens.explorers.terminalRevertCommit`) to revision (commit) nodes in the **GitLens** & **GitLens Results** views
 - Adds *Create Tag (via Terminal)...* command (`gitlens.explorers.terminalCreateTag`) to branch and revision (commit) nodes in the **GitLens** & **GitLens Results** views
 - Adds *Delete Tag (via Terminal)* command (`gitlens.explorers.terminalDeleteTag`) to tag nodes in the **GitLens** view
+- Adds a helpful notification the first time the **GitLens Results** view is shown
 
 ### Changed
 - Renames *Rebase Commit (via Terminal)* command (`gitlens.terminalRebaseCommit`) to *Rebase to Commit (via Terminal)*

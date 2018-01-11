@@ -121,6 +121,7 @@ export interface IAdvancedConfig {
         suppressGitVersionWarning: boolean,
         suppressLineUncommittedWarning: boolean,
         suppressNoRepositoryWarning: boolean,
+        suppressResultsExplorerNotice: boolean,
         suppressUpdateNotice: boolean,
         suppressWelcomeNotice: boolean
     };
@@ -506,6 +507,7 @@ const emptyConfig: IConfig = {
             suppressGitVersionWarning: false,
             suppressLineUncommittedWarning: false,
             suppressNoRepositoryWarning: false,
+            suppressResultsExplorerNotice: false,
             suppressUpdateNotice: false,
             suppressWelcomeNotice: false
         },

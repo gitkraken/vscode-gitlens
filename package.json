@@ -1028,6 +1028,7 @@
                         "suppressGitVersionWarning": false,
                         "suppressLineUncommittedWarning": false,
                         "suppressNoRepositoryWarning": false,
+                        "suppressResultsExplorerNotice": false,
                         "suppressUpdateNotice": false,
                         "suppressWelcomeNotice": false
                     },
@@ -1053,6 +1054,10 @@
                             "default": false
                         },
                         "suppressNoRepositoryWarning": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "suppressResultsExplorerNotice": {
                             "type": "boolean",
                             "default": false
                         },

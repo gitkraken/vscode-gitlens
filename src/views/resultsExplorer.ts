@@ -8,6 +8,7 @@ import { RefreshNodeCommandArgs } from './explorerCommands';
 import { CommitResultsNode, CommitsResultsNode, ComparisionResultsNode, ExplorerNode, MessageNode, RefreshReason, ResourceType } from './explorerNodes';
 import { clearGravatarCache, GitLog, GitLogCommit } from '../gitService';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 
 export * from './explorerNodes';
 
@@ -115,12 +116,12 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
 
     async showComparisonInResults(repoPath: string, ref1: string, ref2: string) {
         this.addResults(new ComparisionResultsNode(repoPath, ref1, ref2, this));
-        setCommandContext(CommandContext.ResultsExplorer, true);
+        this.showResults();
     }
 
     showCommitInResults(commit: GitLogCommit) {
         this.addResults(new CommitResultsNode(commit, this));
-        setCommandContext(CommandContext.ResultsExplorer, true);
+        this.showResults();
     }
 
     showCommitsInResults(results: GitLog, resultsLabel: string | { label: string, resultsType?: { singular: string, plural: string } }) {
@@ -143,6 +144,11 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
         };
 
         this.addResults(new CommitsResultsNode(results.repoPath, labelFn, Functions.seeded(query, results), this, ResourceType.SearchResults));
+        this.showResults();
+    }
+
+    private showResults() {
+        Messages.showResultExplorerInfoMessage();
         setCommandContext(CommandContext.ResultsExplorer, true);
     }
 
