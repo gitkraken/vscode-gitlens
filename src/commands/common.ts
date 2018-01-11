@@ -295,7 +295,7 @@ export async function openEditor(uri: Uri, options: TextDocumentShowOptions & { 
     const { rethrow, ...opts } = options;
     try {
         if (uri instanceof GitUri) {
-            uri = uri.fileUri(false);
+            uri = uri.fileUri({ noSha: true });
         }
 
         const document = await workspace.openTextDocument(uri);

@@ -10,6 +10,7 @@ export interface IGitCommitInfo {
     fileName?: string;
     repoPath: string;
     sha?: string;
+    versionedPath?: string;
 }
 
 // Taken from https://github.com/Microsoft/vscode/blob/master/src/vs/base/common/uri.ts#L331-L337
@@ -30,8 +31,10 @@ interface UriEx {
 
 export class GitUri extends ((Uri as any) as UriEx) {
 
-    repoPath?: string | undefined;
-    sha?: string | undefined;
+    repoPath?: string;
+    sha?: string;
+
+    versionedPath?: string;
 
     constructor(uri?: Uri)
     constructor(uri: Uri, commit: IGitCommitInfo);
@@ -75,6 +78,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
         super({ scheme: uri.scheme, authority: authority, path: fsPath, query: uri.query, fragment: uri.fragment });
 
         this.repoPath = commitOrRepoPath.repoPath;
+        this.versionedPath = commitOrRepoPath.versionedPath;
         if (GitService.isStagedUncommitted(commitOrRepoPath.sha) || !GitService.isUncommitted(commitOrRepoPath.sha)) {
             this.sha = commitOrRepoPath.sha;
         }
@@ -84,8 +88,10 @@ export class GitUri extends ((Uri as any) as UriEx) {
         return this.sha && GitService.shortenSha(this.sha);
     }
 
-    fileUri(useSha: boolean = true) {
-        return Uri.file(useSha && this.sha ? this.path : this.fsPath);
+    fileUri(options: { noSha?: boolean, useVersionedPath?: boolean } = {}) {
+        if (options.useVersionedPath && this.versionedPath !== undefined) return Uri.file(this.versionedPath);
+
+        return Uri.file(!options.noSha && this.sha ? this.path : this.fsPath);
     }
 
     getFormattedPath(separator: string = Strings.pad(GlyphChars.Dot, 2, 2), relativeTo?: string): string {
@@ -190,8 +196,8 @@ export class GitUri extends ((Uri as any) as UriEx) {
             } as IGitCommitInfo);
         }
 
-        const gitUri = await Container.git.getGitUri(uri);
-        if (gitUri !== undefined) return gitUri;
+        const versionedUri = await Container.git.getVersionedUri(uri);
+        if (versionedUri !== undefined) return versionedUri;
 
         return new GitUri(uri, await Container.git.getRepoPath(uri));
     }
@@ -238,6 +244,13 @@ export class GitUri extends ((Uri as any) as UriEx) {
             relativePath = path.relative(relativeTo, relativePath);
         }
         return Strings.normalizePath(relativePath);
+    }
+
+    static toKey(fileName: string): string;
+    static toKey(uri: Uri): string;
+    static toKey(fileNameOrUri: string | Uri): string;
+    static toKey(fileNameOrUri: string | Uri): string {
+        return Strings.normalizePath(typeof fileNameOrUri === 'string' ? fileNameOrUri : fileNameOrUri.fsPath).toLowerCase();
     }
 
     static toRevisionUri(uri: GitUri): Uri;

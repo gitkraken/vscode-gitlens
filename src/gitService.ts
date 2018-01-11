@@ -4,7 +4,7 @@ import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, Range, TextE
 import { configuration, IRemotesConfig } from './configuration';
 import { CommandContext, DocumentSchemes, setCommandContext } from './constants';
 import { Container } from './container';
-import { CachedBlame, CachedDiff, CachedLog, DocumentTracker, GitDocumentState, TrackedDocument } from './trackers/documentTracker';
+import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from './trackers/documentTracker';
 import { RemoteProviderFactory, RemoteProviderMap } from './git/remotes/factory';
 import { CommitFormatting, Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitCommitType, GitDiff, GitDiffChunkLine, GitDiffParser, GitDiffShortStat, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, GitTag, GitTagParser, IGit, Repository } from './git/git';
 import { GitUri, IGitCommitInfo } from './git/gitUri';
@@ -45,12 +45,14 @@ export class GitService extends Disposable {
     private _repositoriesLoadingPromise: Promise<void> | undefined;
     private _suspended: boolean = false;
     private readonly _trackedCache: Map<string, boolean | Promise<boolean>>;
+    private _versionedUriCache: Map<string, GitUri>;
 
     constructor() {
         super(() => this.dispose());
 
         this._repositoryTree = TernarySearchTree.forPaths();
         this._trackedCache = new Map();
+        this._versionedUriCache = new Map();
 
         this._disposable = Disposable.from(
             window.onDidChangeWindowState(this.onWindowStateChanged, this),
@@ -65,6 +67,7 @@ export class GitService extends Disposable {
     dispose() {
         this._repositoryTree.forEach(r => r.dispose());
         this._trackedCache.clear();
+        this._versionedUriCache.clear();
 
         this._disposable && this._disposable.dispose();
     }
@@ -684,11 +687,6 @@ export class GitService extends Disposable {
         return await Git.config_get(key, repoPath);
     }
 
-    async getGitUri(uri: Uri) {
-        const doc = await Container.tracker.get(uri);
-        return doc !== undefined ? doc.uri : undefined;
-    }
-
     async getDiffForFile(uri: GitUri, sha1?: string, sha2?: string): Promise<GitDiff | undefined> {
         if (sha1 !== undefined && sha2 === undefined && uri.sha !== undefined) {
             sha2 = uri.sha;
@@ -1201,6 +1199,10 @@ export class GitService extends Disposable {
         }
 
         const file = await Git.getVersionedFile(repoPath, fileName, sha);
+        if (file === undefined) return undefined;
+
+        this._versionedUriCache.set(GitUri.toKey(file), new GitUri(Uri.file(fileName), { sha: sha, repoPath: repoPath!, versionedPath: file }));
+
         return file;
     }
 
@@ -1208,6 +1210,10 @@ export class GitService extends Disposable {
         Logger.log(`getVersionedFileText('${repoPath}', '${fileName}', ${sha})`);
 
         return Git.show(repoPath, fileName, sha, { encoding: GitService.getEncoding(repoPath, fileName) });
+    }
+
+    getVersionedUri(uri: Uri) {
+        return this._versionedUriCache.get(GitUri.toKey(uri));
     }
 
     isTrackable(scheme: string): boolean;
@@ -1233,7 +1239,7 @@ export class GitService extends Disposable {
         let fileName: string;
         if (typeof fileNameOrUri === 'string') {
             [fileName, repoPath] = Git.splitPath(fileNameOrUri, repoPath);
-            cacheKey = DocumentTracker.toStateKey(fileNameOrUri);
+            cacheKey = GitUri.toKey(fileNameOrUri);
         }
         else {
             if (!this.isTrackable(fileNameOrUri)) return false;
@@ -1241,7 +1247,7 @@ export class GitService extends Disposable {
             fileName = fileNameOrUri.fsPath;
             repoPath = fileNameOrUri.repoPath;
             sha = fileNameOrUri.sha;
-            cacheKey = DocumentTracker.toStateKey(fileName);
+            cacheKey = GitUri.toKey(fileName);
         }
 
         if (sha !== undefined) {

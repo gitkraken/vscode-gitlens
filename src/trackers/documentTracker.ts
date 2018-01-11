@@ -1,8 +1,9 @@
 'use strict';
-import { Functions, IDeferrable, Strings } from './../system';
+import { Functions, IDeferrable } from './../system';
 import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, window, workspace } from 'vscode';
 import { configuration } from './../configuration';
 import { CommandContext, DocumentSchemes, isActiveDocument, isTextEditor, setCommandContext } from './../constants';
+import { GitUri } from '../gitService';
 import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
 
 export { CachedBlame, CachedDiff, CachedLog, GitDocumentState } from './gitDocumentState';
@@ -47,6 +48,7 @@ export class DocumentTracker<T> extends Disposable {
         this._disposable = Disposable.from(
             configuration.onDidChange(this.onConfigurationChanged, this),
             window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 0), this),
+            // window.onDidChangeVisibleTextEditors(Functions.debounce(this.onVisibleEditorsChanged, 5000), this),
             workspace.onDidChangeTextDocument(Functions.debounce(this.onTextDocumentChanged, 50), this),
             workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
             workspace.onDidSaveTextDocument(this.onTextDocumentSaved, this)
@@ -159,6 +161,15 @@ export class DocumentTracker<T> extends Disposable {
         }
     }
 
+    // private onVisibleEditorsChanged(editors: TextEditor[]) {
+    //     if (this._documentMap.size === 0) return;
+
+    //     // If we have no visible editors, or no "real" visible editors reset our cache
+    //     if (editors.length === 0 || editors.every(e => !isTextEditor(e))) {
+    //         this.clear();
+    //     }
+    // }
+
     async add(fileName: string): Promise<TrackedDocument<T>>;
     async add(document: TextDocument): Promise<TrackedDocument<T>>;
     async add(uri: Uri): Promise<TrackedDocument<T>>;
@@ -193,7 +204,7 @@ export class DocumentTracker<T> extends Disposable {
     has(uri: Uri): boolean;
     has(key: string | TextDocument | Uri): boolean {
         if (typeof key === 'string' || key instanceof Uri) {
-            key = DocumentTracker.toStateKey(key);
+            key = GitUri.toKey(key);
         }
         return this._documentMap.has(key);
     }
@@ -201,6 +212,9 @@ export class DocumentTracker<T> extends Disposable {
     private async _add(documentOrId: string | TextDocument | Uri): Promise<TrackedDocument<T>> {
         if (typeof documentOrId === 'string') {
             documentOrId = await workspace.openTextDocument(documentOrId);
+        }
+        else if (documentOrId instanceof GitUri) {
+            documentOrId = await workspace.openTextDocument(documentOrId.fileUri({ useVersionedPath: true }));
         }
         else if (documentOrId instanceof Uri) {
             documentOrId = await workspace.openTextDocument(documentOrId);
@@ -213,8 +227,11 @@ export class DocumentTracker<T> extends Disposable {
     }
 
     private async _get(documentOrId: string | TextDocument | Uri) {
-        if (typeof documentOrId === 'string' || documentOrId instanceof Uri) {
-            documentOrId = DocumentTracker.toStateKey(documentOrId);
+        if (documentOrId instanceof GitUri) {
+            documentOrId = GitUri.toKey(documentOrId.fileUri({ useVersionedPath: true }));
+        }
+        else if (typeof documentOrId === 'string' || documentOrId instanceof Uri) {
+            documentOrId = GitUri.toKey(documentOrId);
         }
 
         const doc = this._documentMap.get(documentOrId);
@@ -225,7 +242,7 @@ export class DocumentTracker<T> extends Disposable {
     }
 
     private addCore(document: TextDocument): TrackedDocument<T> {
-        const key = DocumentTracker.toStateKey(document.uri);
+        const key = GitUri.toKey(document.uri);
 
         // Always start out false, so we will fire the event if needed
         const doc = new TrackedDocument<T>(document, key, false, {
@@ -280,12 +297,5 @@ export class DocumentTracker<T> extends Disposable {
         }
 
         this._dirtyStateChangedDebounced(e);
-    }
-
-    static toStateKey(fileName: string): string;
-    static toStateKey(uri: Uri): string;
-    static toStateKey(fileNameOrUri: string | Uri): string;
-    static toStateKey(fileNameOrUri: string | Uri): string {
-        return Strings.normalizePath(typeof fileNameOrUri === 'string' ? fileNameOrUri : fileNameOrUri.fsPath).toLowerCase();
     }
 }
