@@ -1201,7 +1201,7 @@
             },
             {
                 "command": "gitlens.diffLineWithWorking",
-                "title": "Compare Line Revision with Working",
+                "title": "Compare Line Revision with Working File",
                 "category": "GitLens"
             },
             {
@@ -1424,7 +1424,7 @@
             },
             {
                 "command": "gitlens.explorers.openChangesWithWorking",
-                "title": "Open Changes with Working Tree",
+                "title": "Open Changes with Working File",
                 "category": "GitLens"
             },
             {
@@ -1469,7 +1469,7 @@
             },
             {
                 "command": "gitlens.explorers.compareSelectedAncestorWithWorking",
-                "title": "Compare Selected Ancestor with Working",
+                "title": "Compare Selected Ancestor with Working Tree",
                 "category": "GitLens"
             },
             {
@@ -1489,7 +1489,7 @@
             },
             {
                 "command": "gitlens.explorers.compareWithWorking",
-                "title": "Compare with Working",
+                "title": "Compare with Working Tree",
                 "category": "GitLens"
             },
             {
