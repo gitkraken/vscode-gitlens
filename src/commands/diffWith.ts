@@ -86,7 +86,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
     }
 
     async execute(editor?: TextEditor, uri?: Uri, args: DiffWithCommandArgs = {}): Promise<any> {
-        args = { ...args };
+        args = { ...args, lhs: { ...args.lhs }, rhs: { ...args.rhs }, showOptions: { ...args.showOptions} } as DiffWithCommandArgs;
         if (args.repoPath === undefined || args.lhs === undefined || args.rhs === undefined) return undefined;
 
         try {
