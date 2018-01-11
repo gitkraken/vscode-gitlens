@@ -4,9 +4,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [7.3.0-beta2] - 2018-01-04
+## [7.3.0-beta3] - 2018-01-11
 ### Added
-- Adds experimental support for providing blame annotations, code lens, etc on files with unsaved changes (enabled via `"gitlens.insiders": true`) -- closes [#112](https://github.com/eamodio/vscode-gitlens/issues/112)
+- Adds support for providing blame annotations, code lens, etc on files with unsaved changes -- closes [#112](https://github.com/eamodio/vscode-gitlens/issues/112)
 - Adds `gitlens.defaultDateStyle` setting to specify how dates will be displayed by default -- closes [#89](https://github.com/eamodio/vscode-gitlens/issues/89)
 - Adds *Compare with Working* command (`gitlens.explorers.compareWithWorking`) to branch, tag, and revision (commit) nodes in the **GitLens** view to compare the current selection with the current working tree in the **GitLens Results** view
 - Adds *Compare Selected Ancestor with Working* command (`gitlens.explorers.compareSelectedAncestorWithWorking`) to branch nodes in the **GitLens** view once another branch within the same repository has been selected to compare the [merge base](https://git-scm.com/docs/git-merge-base) of current and previously selected branches with the working tree in the **GitLens Results** view -- closes [#240](https://github.com/eamodio/vscode-gitlens/issues/240)
@@ -27,6 +27,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issue where showing commit search (file-based) results in the **GitLens Results** view wouldn't only show the matching files -- closes [#197](https://github.com/eamodio/vscode-gitlens/issues/197)
 - Fixes [#238](https://github.com/eamodio/vscode-gitlens/issues/238) - Show merge commits in file history
 - Fixes issue where the Tags node of the **GitLens** view wasn't updated on changes
+- Fixes issue where changes to .gitignore weren't detected properly
+- Fixes [#241](https://github.com/eamodio/vscode-gitlens/issues/241) - Adds default setting for .jsonc files to match Git code lens of .json files
+- Fixes issue where blame annotations and commands were missing from vscode Git staged revision documents
+- Fixes issue where opening changes for renamed files in the **GitLens** and  **GitLens Results** views wouldn't work properly
 
 ## [7.2.0] - 2018-01-01
 ### Added
