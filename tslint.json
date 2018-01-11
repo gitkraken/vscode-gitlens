@@ -118,7 +118,6 @@
                 "variable-declaration": "nospace"
             }
         ],
-        "typeof-compare": true,
         "use-isnan": true,
         "variable-name": [
             true,
