@@ -133,7 +133,7 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
             }
         }
 
-        if (Versions.compare(previous, Versions.from(7, 3, 0)) !== 1) {
+        if (Versions.compare(previous, Versions.from(7, 3, 0, 'beta2')) !== 1) {
             const oldSection = 'advanced.maxQuickHistory';
             const inspection = configuration.inspect(oldSection);
             if (inspection !== undefined) {
