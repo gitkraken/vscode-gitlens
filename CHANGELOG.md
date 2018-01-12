@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [7.3.0-beta3] - 2018-01-11
+## [7.3.0-beta4] - 2018-01-11
 ### Added
 - Adds support for providing blame annotations, code lens, etc on files with unsaved changes -- closes [#112](https://github.com/eamodio/vscode-gitlens/issues/112)
 - Adds `gitlens.defaultDateStyle` setting to specify how dates will be displayed by default -- closes [#89](https://github.com/eamodio/vscode-gitlens/issues/89)
@@ -19,8 +19,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a helpful notification the first time the **GitLens Results** view is shown
 
 ### Changed
+- Switches to the explorer view before showing the **GitLens Results** view
 - Renames *Rebase Commit (via Terminal)* command (`gitlens.terminalRebaseCommit`) to *Rebase to Commit (via Terminal)*
 - Renames *Reset Commit (via Terminal)* command (`gitlens.terminalResetCommit`) to *Reset to Commit (via Terminal)*
+- Renames *Compare Line Revision with Working* command (`gitlens.diffLineWithWorking`) to *Compare Line Revision with Working File*
+- Renames *Open Changes with Working Tree* command (`gitlens.openChangesWithWorking`) to *Open Changes with Working File*
+- Renames *Compare Selected Ancestor with Working* command (`gitlens.compareSelectedAncestorWithWorking`) to *Compare Selected Ancestor with Working Tree*
+- Renames *Compare with Working* command (`gitlens.compareWithWorking`) to *Compare with Working Tree*
 
 ### Fixed
 - Fixes issue where the **GitLens Results** view wouldn't properly update when replacing existing results
@@ -31,6 +36,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#241](https://github.com/eamodio/vscode-gitlens/issues/241) - Adds default setting for .jsonc files to match Git code lens of .json files
 - Fixes issue where blame annotations and commands were missing from vscode Git staged revision documents
 - Fixes issue where opening changes for renamed files in the **GitLens** and  **GitLens Results** views wouldn't work properly
+- Fixes issue where file-specific menu commands show up on folders in the explorer
 
 ## [7.2.0] - 2018-01-01
 ### Added
