@@ -19,7 +19,7 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
         const now = Date.now();
         const renderOptions = Annotations.heatmapRenderOptions();
 
-        this._decorations = [];
+        this.decorations = [];
         const decorationsMap: { [sha: string]: DecorationOptions | undefined } = Object.create(null);
 
         let commit: GitBlameCommit | undefined;
@@ -35,7 +35,7 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
                     range: new Range(line, 0, line, 0)
                 } as DecorationOptions;
 
-                this._decorations.push(heatmap);
+                this.decorations.push(heatmap);
 
                 continue;
             }
@@ -46,12 +46,12 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
             heatmap = Annotations.heatmap(commit, now, renderOptions);
             heatmap.range = new Range(line, 0, line, 0);
 
-            this._decorations.push(heatmap);
+            this.decorations.push(heatmap);
             decorationsMap[l.sha] = heatmap;
         }
 
-        if (this._decorations.length) {
-            this.editor.setDecorations(this._decoration!, this._decorations);
+        if (this.decorations.length) {
+            this.editor.setDecorations(this.decoration!, this.decorations);
         }
 
         const duration = process.hrtime(start);

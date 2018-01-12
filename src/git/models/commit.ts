@@ -1,7 +1,7 @@
 'use strict';
 import { Dates, Strings } from '../../system';
 import { Uri } from 'vscode';
-import { configuration, DateStyle, GravatarDefault } from '../../configuration';
+import { configuration, DateStyle, GravatarDefaultStyle } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { Git } from '../git';
@@ -171,15 +171,15 @@ export abstract class GitCommit {
         return GitUri.getFormattedPath(this.fileName, separator);
     }
 
-    getGravatarUri(fallback: GravatarDefault): Uri {
+    getGravatarUri(fallback: GravatarDefaultStyle, size: number = 16): Uri {
         const key = this.email
-            ? `${ this.email.trim().toLowerCase() }`
+            ? `${this.email.trim().toLowerCase()}:${size}`
             : '';
 
         let gravatar = gravatarCache.get(key);
         if (gravatar !== undefined) return gravatar;
 
-        gravatar = Uri.parse(`https://www.gravatar.com/avatar/${this.email ? Strings.md5(this.email, 'hex') : '00000000000000000000000000000000'}.jpg?s=22&d=${fallback}`);
+        gravatar = Uri.parse(`https://www.gravatar.com/avatar/${this.email ? Strings.md5(this.email, 'hex') : '00000000000000000000000000000000'}.jpg?s=${size}&d=${fallback}`);
 
         // HACK: Monkey patch Uri.toString to avoid the unwanted query string encoding
         const originalToStringFn = gravatar.toString;

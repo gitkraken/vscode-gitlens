@@ -3,7 +3,7 @@ import { Arrays, Iterables, Strings } from '../system';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
-import { ExplorerFilesLayout, GravatarDefault } from '../configuration';
+import { ExplorerFilesLayout } from '../configuration';
 import { Container } from '../container';
 import { FolderNode, IFileExplorerNode } from './folderNode';
 import { Explorer, ExplorerNode, ExplorerRefNode, ResourceType } from './explorerNode';
@@ -54,7 +54,7 @@ export class CommitNode extends ExplorerRefNode {
             : ResourceType.Commit;
 
         if (this.explorer.config.gravatars) {
-            item.iconPath = this.commit.getGravatarUri(this.explorer.config.gravatarsDefault || GravatarDefault.Robot);
+            item.iconPath = this.commit.getGravatarUri(Container.config.defaultGravatarsStyle);
         } else {
             item.iconPath = {
                 dark: Container.context.asAbsolutePath('images/dark/icon-commit.svg'),

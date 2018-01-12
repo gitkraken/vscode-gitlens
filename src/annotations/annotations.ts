@@ -89,7 +89,7 @@ export class Annotations {
             showCommitDetailsCommand = `\`${commit.shortSha}\``;
         }
 
-        const markdown = new MarkdownString(`${showCommitDetailsCommand} &nbsp; __${commit.author}__, ${commit.fromNow()} &nbsp; _(${commit.formatDate(dateFormat)})_ ${message}${commandBar}`);
+        const markdown = new MarkdownString(`${showCommitDetailsCommand} &nbsp; ![](${commit.getGravatarUri(Container.config.defaultGravatarsStyle).toString()}) &nbsp;__${commit.author}__, ${commit.fromNow()} &nbsp; _(${commit.formatDate(dateFormat)})_ ${message}${commandBar}`);
         markdown.isTrusted = true;
         return markdown;
     }

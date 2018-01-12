@@ -141,11 +141,24 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
 
                 if (inspection.globalValue !== undefined) {
                     await configuration.update(section, inspection.globalValue, ConfigurationTarget.Global);
-                    await configuration.update(oldSection, undefined, ConfigurationTarget.Global);
                 }
                 else if (inspection.workspaceFolderValue !== undefined) {
                     await configuration.update(section, inspection.workspaceFolderValue, ConfigurationTarget.WorkspaceFolder);
-                    await configuration.update(oldSection, undefined, ConfigurationTarget.WorkspaceFolder);
+                }
+            }
+        }
+
+        if (Versions.compare(previous, Versions.from(7, 3, 0, 'beta4')) !== 1) {
+            const oldSection = 'gitExplorer.gravatarsDefault';
+            const inspection = configuration.inspect(oldSection);
+            if (inspection !== undefined) {
+                const section = configuration.name('defaultGravatarsStyle').value;
+
+                if (inspection.globalValue !== undefined) {
+                    await configuration.update(section, inspection.globalValue, ConfigurationTarget.Global);
+                }
+                else if (inspection.workspaceFolderValue !== undefined) {
+                    await configuration.update(section, inspection.workspaceFolderValue, ConfigurationTarget.WorkspaceFolder);
                 }
             }
         }

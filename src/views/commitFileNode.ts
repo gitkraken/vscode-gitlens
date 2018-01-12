@@ -1,7 +1,6 @@
 'use strict';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
-import { GravatarDefault } from '../configuration';
 import { Container } from '../container';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { CommitFormatter, getGitStatusIcon, GitLogCommit, GitUri, ICommitFormatOptions, IGitStatusFile, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
@@ -69,7 +68,7 @@ export class CommitFileNode extends ExplorerNode {
             };
         }
         else if ((this.displayAs & CommitFileNodeDisplayAs.Gravatar) === CommitFileNodeDisplayAs.Gravatar) {
-            item.iconPath = this.commit.getGravatarUri(this.explorer.config.gravatarsDefault || GravatarDefault.Robot);
+            item.iconPath = this.commit.getGravatarUri(Container.config.defaultGravatarsStyle);
         }
 
         item.command = this.getCommand();

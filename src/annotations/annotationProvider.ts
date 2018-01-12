@@ -17,21 +17,21 @@ export abstract class AnnotationProviderBase extends Disposable {
     public correlationKey: TextEditorCorrelationKey;
     public document: TextDocument;
 
-    protected _decorations: DecorationOptions[] | undefined;
-    protected _disposable: Disposable;
+    protected decorations: DecorationOptions[] | undefined;
+    protected disposable: Disposable;
 
     constructor(
         public editor: TextEditor,
         protected readonly trackedDocument: TrackedDocument<GitDocumentState>,
-        protected _decoration: TextEditorDecorationType | undefined,
-        protected _highlightDecoration: TextEditorDecorationType | undefined
+        protected decoration: TextEditorDecorationType | undefined,
+        protected highlightDecoration: TextEditorDecorationType | undefined
     ) {
         super(() => this.dispose());
 
         this.correlationKey = AnnotationProviderBase.getCorrelationKey(this.editor);
         this.document = this.editor.document;
 
-        this._disposable = Disposable.from(
+        this.disposable = Disposable.from(
             window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this)
         );
     }
@@ -39,7 +39,7 @@ export abstract class AnnotationProviderBase extends Disposable {
     async dispose() {
         await this.clear();
 
-        this._disposable && this._disposable.dispose();
+        this.disposable && this.disposable.dispose();
     }
 
     private async onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent) {
@@ -58,16 +58,32 @@ export abstract class AnnotationProviderBase extends Disposable {
         return this.editor.document.uri;
     }
 
-    async clear() {
-        if (this.editor !== undefined) {
-            try {
-                if (this._highlightDecoration !== undefined) {
-                    this.editor.setDecorations(this._highlightDecoration, []);
-                }
+    protected decorationTypes: TextEditorDecorationType[] | undefined;
 
-                if (this._decoration !== undefined) {
-                    this.editor.setDecorations(this._decoration, []);
+    async clear() {
+        if (this.editor === undefined || this.decorationTypes === undefined || this.decorationTypes.length === 0) return;
+
+        if (this.decoration !== undefined) {
+            try {
+                this.editor.setDecorations(this.decoration, []);
+            }
+            catch { }
+        }
+
+        if (this.decorationTypes !== undefined && this.decorationTypes.length > 0) {
+            for (const dt of this.decorationTypes) {
+                try {
+                    this.editor.setDecorations(dt, []);
                 }
+                catch { }
+            }
+
+            this.decorationTypes = undefined;
+        }
+
+        if (this.highlightDecoration !== undefined) {
+            try {
+                this.editor.setDecorations(this.highlightDecoration, []);
             }
             catch { }
         }
@@ -87,8 +103,8 @@ export abstract class AnnotationProviderBase extends Disposable {
         if (changes !== undefined) {
             await this.clear();
 
-            this._decoration = changes.decoration;
-            this._highlightDecoration = changes.highlightDecoration;
+            this.decoration = changes.decoration;
+            this.highlightDecoration = changes.highlightDecoration;
         }
 
         await this.provideAnnotation(this.editor === undefined ? undefined : this.editor.selection.active.line);
@@ -103,8 +119,8 @@ export abstract class AnnotationProviderBase extends Disposable {
         this.correlationKey = AnnotationProviderBase.getCorrelationKey(editor);
         this.document = editor.document;
 
-        if (this._decorations !== undefined && this._decorations.length) {
-            this.editor.setDecorations(this._decoration!, this._decorations);
+        if (this.decorations !== undefined && this.decorations.length) {
+            this.editor.setDecorations(this.decoration!, this.decorations);
         }
     }
 

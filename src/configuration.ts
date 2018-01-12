@@ -7,6 +7,7 @@ import { LineAnnotationType } from './currentLineController';
 import { GitExplorerView } from './views/gitExplorer';
 import { OutputLevel } from './logger';
 import { Container } from './container';
+import { clearGravatarCache } from './gitService';
 
 export { ExtensionKey };
 
@@ -50,7 +51,7 @@ export enum ExplorerFilesLayout {
     Tree = 'tree'
 }
 
-export enum GravatarDefault {
+export enum GravatarDefaultStyle {
     Faces = 'wavatar',
     Geometric = 'identicon',
     Monster = 'monsterid',
@@ -166,7 +167,6 @@ export interface IExplorerConfig {
     commitFileFormat: string;
     // dateFormat: string | null;
     gravatars: boolean;
-    gravatarsDefault: GravatarDefault;
     showTrackingBranch: boolean;
     stashFormat: string;
     stashFileFormat: string;
@@ -210,6 +210,7 @@ export interface IConfig {
                 format: string;
                 dateFormat: string | null;
                 compact: boolean;
+                gravatars: boolean;
                 heatmap: {
                     enabled: boolean;
                     location: 'left' | 'right';
@@ -285,6 +286,7 @@ export interface IConfig {
 
     defaultDateFormat: string | null;
     defaultDateStyle: DateStyle;
+    defaultGravatarsStyle: GravatarDefaultStyle;
 
     gitExplorer: IGitExplorerConfig;
 
@@ -341,6 +343,10 @@ export class Configuration {
         if (!e.affectsConfiguration(ExtensionKey, null!)) return;
 
         Container.resetConfig();
+
+        if (configuration.changed(e, configuration.name('defaultGravatarsStyle').value)) {
+            clearGravatarCache();
+        }
 
         const section = configuration.name('keymap').value;
         if (configuration.changed(e, section)) {

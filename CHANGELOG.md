@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [7.3.0-beta4] - 2018-01-11
 ### Added
+- Adds [Gravatar](https://en.gravatar.com/) support to gutter and hover blame annotations
+- Adds `gitlens.annotations.file.gutter.gravatars` setting to specify whether or not to show gravatar images in the gutter blame annotations
 - Adds support for providing blame annotations, code lens, etc on files with unsaved changes -- closes [#112](https://github.com/eamodio/vscode-gitlens/issues/112)
 - Adds `gitlens.defaultDateStyle` setting to specify how dates will be displayed by default -- closes [#89](https://github.com/eamodio/vscode-gitlens/issues/89)
 - Adds *Compare with Working* command (`gitlens.explorers.compareWithWorking`) to branch, tag, and revision (commit) nodes in the **GitLens** view to compare the current selection with the current working tree in the **GitLens Results** view
@@ -26,6 +28,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Renames *Open Changes with Working Tree* command (`gitlens.openChangesWithWorking`) to *Open Changes with Working File*
 - Renames *Compare Selected Ancestor with Working* command (`gitlens.compareSelectedAncestorWithWorking`) to *Compare Selected Ancestor with Working Tree*
 - Renames *Compare with Working* command (`gitlens.compareWithWorking`) to *Compare with Working Tree*
+- Deprecates `gitlens.gitExplorer.gravatarsDefault` setting, replaced by `gitlens.defaultGravatarsStyle`
+- Deprecates `gitlens.resultsExplorer.gravatarsDefault` setting, replaced by `gitlens.defaultGravatarsStyle`
 
 ### Fixed
 - Fixes issue where the **GitLens Results** view wouldn't properly update when replacing existing results

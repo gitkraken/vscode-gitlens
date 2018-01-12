@@ -1,9 +1,10 @@
 'use strict';
-import { Strings } from '../system';
-import { DecorationOptions, Range } from 'vscode';
+import { Objects, Strings } from '../system';
+import { DecorationOptions, DecorationRenderOptions, Range, TextEditorDecorationType, window } from 'vscode';
 import { FileAnnotationType } from './annotationController';
 import { Annotations } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
+import { GravatarDefaultStyle } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitBlameCommit, ICommitFormatOptions } from '../gitService';
@@ -34,11 +35,14 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         };
 
         const now = Date.now();
-        const separateLines = Container.config.annotations.file.gutter.separateLines;
+        const gravatars = cfg.gravatars;
+        const gravatarDefault = Container.config.defaultGravatarsStyle;
+        const separateLines = cfg.separateLines;
         const renderOptions = Annotations.gutterRenderOptions(separateLines, cfg.heatmap, cfg.format, options);
 
-        this._decorations = [];
+        this.decorations = [];
         const decorationsMap: { [sha: string]: DecorationOptions | undefined } = Object.create(null);
+        const avatarDecorationsMap: { [email: string]: { decoration: TextEditorDecorationType, ranges: Range[] } } | undefined = gravatars ? Object.create(null) : undefined;
 
         let commit: GitBlameCommit | undefined;
         let compacted = false;
@@ -70,13 +74,16 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
                 gutter.range = new Range(line, 0, line, 0);
 
-                this._decorations.push(gutter);
+                this.decorations.push(gutter);
 
                 continue;
             }
 
             compacted = false;
             previousSha = l.sha;
+
+            commit = blame.commits.get(l.sha);
+            if (commit === undefined) continue;
 
             gutter = decorationsMap[l.sha];
             if (gutter !== undefined) {
@@ -85,13 +92,14 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
                     range: new Range(line, 0, line, 0)
                 } as DecorationOptions;
 
-                this._decorations.push(gutter);
+                this.decorations.push(gutter);
+
+                if (gravatars && commit.email !== undefined) {
+                    this.addOrUpdateGravatarDecoration(commit, gutter.range, gravatarDefault, avatarDecorationsMap!);
+                }
 
                 continue;
             }
-
-            commit = blame.commits.get(l.sha);
-            if (commit === undefined) continue;
 
             gutter = Annotations.gutter(commit, cfg.format, options, renderOptions);
 
@@ -101,12 +109,25 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
             gutter.range = new Range(line, 0, line, 0);
 
-            this._decorations.push(gutter);
+            this.decorations.push(gutter);
+
+            if (gravatars && commit.email !== undefined) {
+                this.addOrUpdateGravatarDecoration(commit, gutter.range, gravatarDefault, avatarDecorationsMap!);
+            }
+
             decorationsMap[l.sha] = gutter;
         }
 
-        if (this._decorations.length) {
-            this.editor.setDecorations(this._decoration!, this._decorations);
+        if (this.decorations.length) {
+            this.editor.setDecorations(this.decoration!, this.decorations);
+
+            if (gravatars) {
+                this.decorationTypes = [];
+                for (const a of Objects.values(avatarDecorationsMap!)) {
+                    this.decorationTypes.push(a.decoration);
+                    this.editor.setDecorations(a.decoration, a.ranges);
+                }
+            }
         }
 
         const duration = process.hrtime(start);
@@ -115,5 +136,22 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         this.registerHoverProviders(cfg.hover);
         this.selection(shaOrLine, blame);
         return true;
+    }
+
+    addOrUpdateGravatarDecoration(commit: GitBlameCommit, range: Range, gravatarDefault: GravatarDefaultStyle, map: { [email: string]: { decoration: TextEditorDecorationType, ranges: Range[] } }) {
+        const avatarDecoration = map[commit.email!];
+        if (avatarDecoration !== undefined) {
+            avatarDecoration.ranges.push(range);
+
+            return;
+        }
+
+        map[commit.email!] = {
+            decoration: window.createTextEditorDecorationType({
+                gutterIconPath: commit.getGravatarUri(gravatarDefault),
+                gutterIconSize: '16px 16px'
+            } as DecorationRenderOptions),
+            ranges: [range]
+        };
     }
 }

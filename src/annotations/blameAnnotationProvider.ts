@@ -49,7 +49,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
     }
 
     async selection(shaOrLine?: string | number, blame?: GitBlame) {
-        if (!this._highlightDecoration) return;
+        if (!this.highlightDecoration) return;
 
         if (blame === undefined) {
             blame = await this._blame;
@@ -71,14 +71,14 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         }
 
         if (!sha) {
-            this.editor.setDecorations(this._highlightDecoration, []);
+            this.editor.setDecorations(this.highlightDecoration, []);
             return;
         }
 
         const highlightDecorationRanges = Arrays.filterMap(blame.lines,
             l => l.sha === sha ? this.editor.document.validateRange(new Range(l.line, 0, l.line, RangeEndOfLineIndex)) : undefined);
 
-        this.editor.setDecorations(this._highlightDecoration, highlightDecorationRanges);
+        this.editor.setDecorations(this.highlightDecoration, highlightDecorationRanges);
     }
 
     async validate(): Promise<boolean> {

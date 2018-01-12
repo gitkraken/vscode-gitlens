@@ -6,7 +6,7 @@ import { CommandContext, setCommandContext, WorkspaceState } from '../constants'
 import { Container } from '../container';
 import { RefreshNodeCommandArgs } from './explorerCommands';
 import { CommitResultsNode, CommitsResultsNode, ComparisionResultsNode, ExplorerNode, MessageNode, RefreshReason, ResourceType } from './explorerNodes';
-import { clearGravatarCache, GitLog, GitLogCommit } from '../gitService';
+import { GitLog, GitLogCommit } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 
@@ -44,13 +44,9 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
     private async onConfigurationChanged(e: ConfigurationChangeEvent) {
         const initializing = configuration.initializing(e);
 
-        if (!initializing && !configuration.changed(e, configuration.name('resultsExplorer').value)) return;
-
         if (!initializing &&
-            (configuration.changed(e, configuration.name('resultsExplorer')('gravatars').value) ||
-             configuration.changed(e, configuration.name('resultsExplorer')('gravatarsDefault').value))) {
-            clearGravatarCache();
-        }
+            !configuration.changed(e, configuration.name('resultsExplorer').value) &&
+            !configuration.changed(e, configuration.name('defaultGravatarsStyle').value)) return;
 
         if (!initializing && this._roots.length !== 0) {
             this.refresh(RefreshReason.ConfigurationChanged);
