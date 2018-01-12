@@ -44,10 +44,11 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
     private async onConfigurationChanged(e: ConfigurationChangeEvent) {
         const initializing = configuration.initializing(e);
 
-        const section = configuration.name('resultsExplorer');
-        if (!initializing && !configuration.changed(e, section.value)) return;
+        if (!initializing && !configuration.changed(e, configuration.name('resultsExplorer').value)) return;
 
-        if (!initializing && (configuration.changed(e, section('gravatars').value) || configuration.changed(e, section('gravatarsDefault').value))) {
+        if (!initializing &&
+            (configuration.changed(e, configuration.name('resultsExplorer')('gravatars').value) ||
+             configuration.changed(e, configuration.name('resultsExplorer')('gravatarsDefault').value))) {
             clearGravatarCache();
         }
 

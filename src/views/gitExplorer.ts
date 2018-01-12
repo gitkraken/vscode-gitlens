@@ -70,18 +70,19 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     private async onConfigurationChanged(e: ConfigurationChangeEvent) {
         const initializing = configuration.initializing(e);
 
-        const section = configuration.name('gitExplorer');
-        if (!initializing && !configuration.changed(e, section.value)) return;
+        if (!initializing && !configuration.changed(e, configuration.name('gitExplorer').value)) return;
 
-        if (!initializing && (configuration.changed(e, section('gravatars').value) || configuration.changed(e, section('gravatarsDefault').value))) {
+        if (!initializing &&
+            (configuration.changed(e, configuration.name('gitExplorer')('gravatars').value) ||
+             configuration.changed(e, configuration.name('gitExplorer')('gravatarsDefault').value))) {
             clearGravatarCache();
         }
 
-        if (initializing || configuration.changed(e, section('autoRefresh').value)) {
-            this.setAutoRefresh(configuration.get<boolean>(section('autoRefresh').value));
+        if (initializing || configuration.changed(e, configuration.name('gitExplorer')('autoRefresh').value)) {
+            this.setAutoRefresh(configuration.get<boolean>(configuration.name('gitExplorer')('autoRefresh').value));
         }
 
-        let view = configuration.get<GitExplorerView>(section('view').value);
+        let view = configuration.get<GitExplorerView>(configuration.name('gitExplorer')('view').value);
         if (view === GitExplorerView.Auto) {
             view = Container.context.workspaceState.get<GitExplorerView>(WorkspaceState.GitExplorerView, GitExplorerView.Repository);
         }
