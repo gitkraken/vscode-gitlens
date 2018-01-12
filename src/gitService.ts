@@ -361,7 +361,10 @@ export class GitService extends Disposable {
         editor = editor || window.activeTextEditor;
         if (editor === undefined) return undefined;
 
-        return this.getRepoPath(editor.document.uri);
+        const doc = await Container.tracker.getOrAdd(editor.document.uri);
+        if (doc === undefined) return undefined;
+
+        return doc.uri.repoPath;
     }
 
     getHighlanderRepoPath(): string | undefined {
