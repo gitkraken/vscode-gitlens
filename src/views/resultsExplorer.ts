@@ -114,7 +114,7 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
         this._onDidChangeTreeData.fire();
     }
 
-    async showComparisonInResults(repoPath: string, ref1: string, ref2: string) {
+    showComparisonInResults(repoPath: string, ref1: string, ref2: string) {
         this.addResults(new ComparisionResultsNode(repoPath, ref1, ref2, this));
         this.showResults();
     }
@@ -147,7 +147,8 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
         this.showResults();
     }
 
-    private showResults() {
+    private async showResults() {
+        await commands.executeCommand('workbench.view.explorer');
         Messages.showResultExplorerInfoMessage();
         setCommandContext(CommandContext.ResultsExplorer, true);
     }
