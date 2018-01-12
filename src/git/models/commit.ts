@@ -1,12 +1,17 @@
 'use strict';
 import { Dates, Strings } from '../../system';
 import { Uri } from 'vscode';
-import { configuration, DateStyle } from '../../configuration';
+import { configuration, DateStyle, GravatarDefault } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { Git } from '../git';
 import { GitUri } from '../gitUri';
 import * as path from 'path';
+
+const gravatarCache: Map<string, Uri> = new Map();
+export function clearGravatarCache() {
+    gravatarCache.clear();
+}
 
 export interface GitAuthor {
     name: string;
@@ -58,6 +63,7 @@ export abstract class GitCommit {
         public readonly repoPath: string,
         public readonly sha: string,
         public readonly author: string,
+        public readonly email: string | undefined,
         public readonly date: Date,
         public readonly message: string,
         fileName: string,
@@ -163,6 +169,27 @@ export abstract class GitCommit {
 
     getFormattedPath(separator: string = Strings.pad(GlyphChars.Dot, 2, 2)): string {
         return GitUri.getFormattedPath(this.fileName, separator);
+    }
+
+    getGravatarUri(fallback: GravatarDefault): Uri {
+        const key = this.email
+            ? `${ this.email.trim().toLowerCase() }`
+            : '';
+
+        let gravatar = gravatarCache.get(key);
+        if (gravatar !== undefined) return gravatar;
+
+        gravatar = Uri.parse(`https://www.gravatar.com/avatar/${this.email ? Strings.md5(this.email, 'hex') : '00000000000000000000000000000000'}.jpg?s=22&d=${fallback}`);
+
+        // HACK: Monkey patch Uri.toString to avoid the unwanted query string encoding
+        const originalToStringFn = gravatar.toString;
+        gravatar.toString = function(skipEncoding?: boolean | undefined) {
+            return originalToStringFn.call(gravatar, true);
+        };
+
+        gravatarCache.set(key, gravatar);
+
+        return gravatar;
     }
 
     async resolvePreviousFileSha(): Promise<void> {

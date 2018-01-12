@@ -9,8 +9,8 @@ interface LogEntry {
     sha: string;
 
     author: string;
-    authorEmail?: string;
     authorDate?: string;
+    authorEmail?: string;
 
     parentShas?: string[];
 
@@ -84,7 +84,7 @@ export class GitLogParser {
                         : lineParts.slice(1).join(' ').trim();
                     break;
 
-                case 'author-email':
+                case 'author-mail':
                     entry.authorEmail = lineParts.slice(1).join(' ').trim();
                     break;
 

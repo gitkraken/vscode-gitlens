@@ -23,7 +23,7 @@ export * from './remotes/provider';
 let git: IGit;
 
 const defaultBlameParams = ['blame', '--root', '--incremental'];
-const defaultLogParams = ['log', '--name-status', '--full-history', '-M', '--format=%H -%nauthor %an%nauthor-email %ae%nauthor-date %at%nparents %P%nsummary %B%nfilename ?'];
+const defaultLogParams = ['log', '--name-status', '--full-history', '-M', '--format=%H -%nauthor %an%nauthor-mail %ae%nauthor-date %at%nparents %P%nsummary %B%nfilename ?'];
 const defaultStashParams = ['stash', 'list', '--name-status', '--full-history', '-M', '--format=%H -%nauthor-date %at%nreflog-selector %gd%nsummary %B%nfilename ?'];
 
 const GitWarnings = [

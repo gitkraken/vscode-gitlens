@@ -13,6 +13,7 @@ interface BlameEntry {
     author: string;
     authorDate?: string;
     authorTimeZone?: string;
+    authorEmail?: string;
 
     previousSha?: string;
     previousFileName?: string;
@@ -59,6 +60,21 @@ export class GitBlameParser {
                     entry.author = Git.isUncommitted(entry.sha)
                         ? 'You'
                         : lineParts.slice(1).join(' ').trim();
+                    break;
+
+                case 'author-mail':
+                    entry.authorEmail = lineParts.slice(1).join(' ').trim();
+                    const start = entry.authorEmail.indexOf('<');
+                    if (start >= 0) {
+                        const end = entry.authorEmail.indexOf('>', start);
+                        if (end > start) {
+                            entry.authorEmail = entry.authorEmail.substring(start + 1, end);
+                        }
+                        else {
+                            entry.authorEmail = entry.authorEmail.substring(start + 1);
+                        }
+                    }
+
                     break;
 
                 case 'author-time':
@@ -135,6 +151,7 @@ export class GitBlameParser {
                 repoPath!,
                 entry.sha,
                 entry.author,
+                entry.authorEmail,
                 new Date(entry.authorDate as any * 1000),
                 entry.summary!,
                 fileName!,
