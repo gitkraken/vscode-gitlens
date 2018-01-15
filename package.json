@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "7.3.0-beta4",
+    "version": "7.5.0",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -3319,13 +3319,13 @@
         "@types/node": "9.3.0",
         "@types/tmp": "0.0.33",
         "husky": "0.14.3",
-        "rollup": "0.53.4",
-        "rollup-plugin-typescript2": "0.9.0",
+        "rollup": "0.54.0",
+        "rollup-plugin-typescript2": "0.10.0",
         "rollup-plugin-uglify": "2.0.1",
         "ts-loader": "3.2.0",
         "tslint": "5.9.1",
         "typescript": "2.6.2",
-        "uglify-es": "3.3.5",
+        "uglify-es": "3.3.7",
         "uglifyjs-webpack-plugin": "1.1.6",
         "vscode": "1.1.10",
         "webpack": "3.10.0",

@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [7.3.0-beta4] - 2018-01-11
+## [7.5.0] - 2018-01-15
 ### Added
 - Adds [Gravatar](https://en.gravatar.com/) support to gutter and hover blame annotations
 - Adds `gitlens.annotations.file.gutter.gravatars` setting to specify whether or not to show gravatar images in the gutter blame annotations
