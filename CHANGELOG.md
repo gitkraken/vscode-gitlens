@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [7.5.2] - 2018-01-15
+### Fixed
+- Fixes [#242](https://github.com/eamodio/vscode-gitlens/issues/242) - Broken "gitlens.blame.line.enabled" setting
+
 ## [7.5.1] - 2018-01-15
 ### Added
 - Adds [Gravatar](https://en.gravatar.com/) support to gutter and hover blame annotations

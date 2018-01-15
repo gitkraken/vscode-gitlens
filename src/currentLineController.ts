@@ -24,9 +24,55 @@ export enum LineAnnotationType {
     Hover = 'hover'
 }
 
+class AnnotationState {
+
+    constructor(private _enabled: boolean, private _annotationType: LineAnnotationType) { }
+
+    get annotationType(): LineAnnotationType {
+        return this._annotationType;
+    }
+
+    get enabled(): boolean {
+        return this.suspended ? false : this._enabled;
+    }
+
+    private _suspendReason?: 'debugging' | 'dirty';
+    get suspended(): boolean {
+        return this._suspendReason !== undefined;
+    }
+
+    reset(enabled: boolean, annotationType: LineAnnotationType): boolean {
+        // returns whether or not a refresh is required
+
+        if (this._enabled === enabled && this._annotationType === annotationType && !this.suspended) return false;
+
+        this._enabled = enabled;
+        this._annotationType = annotationType;
+        this._suspendReason = undefined;
+
+        return true;
+    }
+
+    resume(reason: 'debugging' | 'dirty'): boolean {
+        // returns whether or not a refresh is required
+
+        const refresh = this._suspendReason !== undefined;
+        this._suspendReason = undefined;
+        return refresh;
+    }
+
+    suspend(reason: 'debugging' | 'dirty'): boolean {
+        // returns whether or not a refresh is required
+
+        const refresh = this._suspendReason === undefined;
+        this._suspendReason = reason;
+        return refresh;
+    }
+}
+
 export class CurrentLineController extends Disposable {
 
-    private _blameAnnotationState: { enabled: boolean, annotationType: LineAnnotationType, reason: 'user' | 'debugging' | 'dirty' } | undefined;
+    private _blameAnnotationState: AnnotationState | undefined;
     private _editor: TextEditor | undefined;
     private _lineTracker: LineTracker<GitLineState>;
     private _statusBarItem: StatusBarItem | undefined;
@@ -149,11 +195,9 @@ export class CurrentLineController extends Disposable {
     }
 
     private onDebugSessionStarted() {
-        const state = this.getBlameAnnotationState();
-        if (!state.enabled) return;
-
-        this._debugSessionEndDisposable = debug.onDidTerminateDebugSession(this.onDebugSessionEnded, this);
-        this.setBlameAnnotationState(false, window.activeTextEditor, 'debugging');
+        if (this.suspendBlameAnnotations('debugging', window.activeTextEditor)) {
+            this._debugSessionEndDisposable = debug.onDidTerminateDebugSession(this.onDebugSessionEnded, this);
+        }
     }
 
     private onDebugSessionEnded() {
@@ -162,18 +206,23 @@ export class CurrentLineController extends Disposable {
             this._debugSessionEndDisposable = undefined;
         }
 
-        this.setBlameAnnotationState(true, window.activeTextEditor, 'debugging');
+        this.resumeBlameAnnotations('debugging', window.activeTextEditor);
     }
 
     private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
         const maxLines = configuration.get<number>(configuration.name('advanced')('blame')('sizeThresholdAfterEdit').value);
         if (maxLines > 0 && e.document.document.lineCount > maxLines) return;
 
-        this.setBlameAnnotationState(true, window.activeTextEditor, 'dirty');
+        this.resumeBlameAnnotations('dirty', window.activeTextEditor);
     }
 
     private async onDirtyStateChanged(e: DocumentDirtyStateChangeEvent<GitDocumentState>) {
-        this.setBlameAnnotationState(!e.dirty, window.activeTextEditor, 'dirty', { force: true });
+        if (e.dirty) {
+            this.suspendBlameAnnotations('dirty', window.activeTextEditor);
+        }
+        else {
+            this.resumeBlameAnnotations('dirty', window.activeTextEditor, { force: true });
+        }
     }
 
     private onFileAnnotationsToggled() {
@@ -280,31 +329,56 @@ export class CurrentLineController extends Disposable {
     }
 
     async showAnnotations(editor: TextEditor | undefined, type: LineAnnotationType) {
-        this.setBlameAnnotationState(true, editor, 'user', { type: type });
+        this.setBlameAnnotationState(true, type, editor);
     }
 
     async toggleAnnotations(editor: TextEditor | undefined, type: LineAnnotationType) {
         if (editor === undefined) return;
 
         const state = this.getBlameAnnotationState();
-        this.setBlameAnnotationState(!state.enabled, editor, 'user', { type: type });
+        this.setBlameAnnotationState(!state.enabled, type, editor);
     }
 
-    private async setBlameAnnotationState(enabled: boolean, editor: TextEditor | undefined, reason: 'user' | 'debugging' | 'dirty', options: { force?: boolean, type?: LineAnnotationType } = {}) {
-        if (editor === undefined) return;
+    private async resumeBlameAnnotations(reason: 'debugging' | 'dirty', editor: TextEditor | undefined, options: { force?: boolean } = {}) {
+        if (!options.force && (this._blameAnnotationState === undefined || !this._blameAnnotationState.suspended)) return;
 
-        // If we are trying to turn annotations on, check if it was the user, or a matching reason
-        if (enabled && reason !== 'user' && reason !== (this._blameAnnotationState && this._blameAnnotationState.reason)) return;
-
-        const state = this.getBlameAnnotationState();
-        if (options.type === undefined) {
-            options.type = state.annotationType;
+        let refresh = false;
+        if (this._blameAnnotationState !== undefined) {
+            refresh = this._blameAnnotationState.resume(reason);
         }
 
-        // If we are off and want it off or we are on and want it on with matching annotation type
-        if (!options.force && state.enabled === enabled && (!enabled || state.annotationType === options.type)) return;
+        if (editor === undefined || (!options.force && !refresh)) return;
 
-        this._blameAnnotationState = { enabled: enabled, annotationType: options.type, reason: reason };
+        await this.refresh(editor);
+    }
+
+    private async suspendBlameAnnotations(reason: 'debugging' | 'dirty', editor: TextEditor | undefined, options: { force?: boolean } = {}) {
+        const state = this.getBlameAnnotationState();
+
+        // If we aren't enabled, suspend doesn't matter
+        if (this._blameAnnotationState === undefined && !state.enabled) return false;
+
+        if (this._blameAnnotationState === undefined) {
+            this._blameAnnotationState = new AnnotationState(state.enabled, state.annotationType);
+        }
+        const refresh = this._blameAnnotationState.suspend(reason);
+
+        if (editor === undefined || (!options.force && !refresh)) return;
+
+        await this.refresh(editor);
+        return true;
+    }
+
+    private async setBlameAnnotationState(enabled: boolean, type: LineAnnotationType, editor: TextEditor | undefined) {
+        let refresh = true;
+        if (this._blameAnnotationState === undefined) {
+            this._blameAnnotationState = new AnnotationState(enabled, type);
+        }
+        else {
+            refresh = this._blameAnnotationState.reset(enabled, type);
+        }
+
+        if (editor === undefined || !refresh) return;
 
         await this.refresh(editor);
     }
