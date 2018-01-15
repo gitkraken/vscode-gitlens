@@ -10,8 +10,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `gitlens.annotations.file.gutter.gravatars` setting to specify whether or not to show gravatar images in the gutter blame annotations
 - Adds support for providing blame annotations, code lens, etc on files with unsaved changes -- closes [#112](https://github.com/eamodio/vscode-gitlens/issues/112)
 - Adds `gitlens.defaultDateStyle` setting to specify how dates will be displayed by default -- closes [#89](https://github.com/eamodio/vscode-gitlens/issues/89)
-- Adds *Compare with Working* command (`gitlens.explorers.compareWithWorking`) to branch, tag, and revision (commit) nodes in the **GitLens** view to compare the current selection with the current working tree in the **GitLens Results** view
-- Adds *Compare Selected Ancestor with Working* command (`gitlens.explorers.compareSelectedAncestorWithWorking`) to branch nodes in the **GitLens** view once another branch within the same repository has been selected to compare the [merge base](https://git-scm.com/docs/git-merge-base) of current and previously selected branches with the working tree in the **GitLens Results** view -- closes [#240](https://github.com/eamodio/vscode-gitlens/issues/240)
+- Adds *Compare with Working Tree* command (`gitlens.explorers.compareWithWorking`) to branch, tag, and revision (commit) nodes in the **GitLens** view to compare the current selection with the current working tree in the **GitLens Results** view
+- Adds *Compare Selected Ancestor with Working Tree* command (`gitlens.explorers.compareSelectedAncestorWithWorking`) to branch nodes in the **GitLens** view once another branch within the same repository has been selected to compare the [merge base](https://git-scm.com/docs/git-merge-base) of current and previously selected branches with the working tree in the **GitLens Results** view -- closes [#240](https://github.com/eamodio/vscode-gitlens/issues/240)
 - Adds *Merge Branch (via Terminal)* command (`gitlens.explorers.terminalMergeBranch`) to branch nodes in the **GitLens** view
 - Adds *Rebase (Interactive) Branch (via Terminal)* command (`gitlens.explorers.terminalRebaseBranch`) to branch nodes in the **GitLens** view
 - Adds *Cherry Pick Commit (via Terminal)* command (`gitlens.explorers.terminalRebaseBranch`) to revision (commit) nodes in the **GitLens** & **GitLens Results** views
@@ -26,8 +26,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Renames *Reset Commit (via Terminal)* command (`gitlens.terminalResetCommit`) to *Reset to Commit (via Terminal)*
 - Renames *Compare Line Revision with Working* command (`gitlens.diffLineWithWorking`) to *Compare Line Revision with Working File*
 - Renames *Open Changes with Working Tree* command (`gitlens.openChangesWithWorking`) to *Open Changes with Working File*
-- Renames *Compare Selected Ancestor with Working* command (`gitlens.compareSelectedAncestorWithWorking`) to *Compare Selected Ancestor with Working Tree*
-- Renames *Compare with Working* command (`gitlens.compareWithWorking`) to *Compare with Working Tree*
 - Deprecates `gitlens.gitExplorer.gravatarsDefault` setting, replaced by `gitlens.defaultGravatarsStyle`
 - Deprecates `gitlens.resultsExplorer.gravatarsDefault` setting, replaced by `gitlens.defaultGravatarsStyle`
 
