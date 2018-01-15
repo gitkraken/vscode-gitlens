@@ -321,10 +321,9 @@ export interface IConfig {
     advanced: IAdvancedConfig;
 }
 
-const emptyObj = {};
-const emptyConfig = new Proxy<IConfig>(emptyObj as IConfig, {
+const emptyConfig: any = new Proxy<any>({} as IConfig, {
     get(target, propKey, receiver) {
-        return emptyObj;
+        return emptyConfig;
     }
 });
 
@@ -379,7 +378,7 @@ export class Configuration {
     }
 
     name<K extends keyof IConfig>(name: K) {
-        return Functions.propOf(emptyConfig, name);
+        return Functions.propOf(emptyConfig as IConfig, name);
     }
 
     update(section: string, value: any, target: ConfigurationTarget) {
