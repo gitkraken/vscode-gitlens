@@ -1073,6 +1073,16 @@
             }
         ],
         "commands": [
+           {
+                "command": "gitlens.showSettingsPage",
+                "title": "Open Settings",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.showWelcomePage",
+                "title": "Welcome",
+                "category": "GitLens"
+            },
             {
                 "command": "gitlens.diffDirectory",
                 "title": "Directory Compare Working Tree with...",
@@ -3231,8 +3241,9 @@
         "*"
     ],
     "scripts": {
-        "build": "npm run lint && tsc -m commonjs -p ./",
-        "bundle": "npm run lint && webpack --env.production",
+        "build": "npm run lint && tsc -m commonjs -p ./ && npm run build-ui",
+        "build-ui": "webpack --context ./src/ui --config ./src/ui/webpack.config.js",
+        "bundle": "npm run lint && webpack --env.production --context ./src/ui --config ./src/ui/webpack.config.js && webpack --env.production",
         "clean": "git clean -Xdf",
         "lint": "tslint --project tslint.json",
         "pack": "vsce package",

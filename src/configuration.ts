@@ -1,10 +1,10 @@
 'use strict';
-export * from './config';
+export * from './ui/config';
 export { ExtensionKey };
 
 import { Functions } from './system';
 import { ConfigurationChangeEvent, ConfigurationTarget, Event, EventEmitter, ExtensionContext, Uri, workspace } from 'vscode';
-import { IConfig, KeyMap } from './config';
+import { IConfig, KeyMap } from './ui/config';
 import { CommandContext, ExtensionKey, setCommandContext } from './constants';
 import { Container } from './container';
 import { clearGravatarCache } from './gitService';
@@ -30,6 +30,7 @@ export class Configuration {
         if (!e.affectsConfiguration(ExtensionKey, null!)) return;
 
         Container.resetConfig();
+        Container.pages.refresh();
 
         if (configuration.changed(e, configuration.name('defaultGravatarsStyle').value)) {
             clearGravatarCache();

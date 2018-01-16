@@ -1,11 +1,16 @@
 !images/dark/**
 !images/light/**
 !images/gitlens-icon.png
+!images/screenshot-line-blame-annotation.png
+!images/screenshot-code-lens.png
+!images/screenshot-status-bar.png
+!images/screenshot-git-custom-view-repository.png
 images/**
 .vscode/**
 .vscode-test/**
 test/**
 src/**
+out/ui/**
 **/*.map
 .github/**
 .gitignore

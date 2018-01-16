@@ -11,6 +11,7 @@ import { GitExplorer } from './views/gitExplorer';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { GitService } from './gitService';
 import { Keyboard } from './keyboard';
+import { PageProvider } from './pageProvider';
 import { ResultsExplorer } from './views/resultsExplorer';
 
 export class Container {
@@ -29,6 +30,7 @@ export class Container {
         context.subscriptions.push(this._currentLineController = new CurrentLineController());
         context.subscriptions.push(this._codeLensController = new CodeLensController());
         context.subscriptions.push(this._keyboard = new Keyboard());
+        context.subscriptions.push(this._pageProvider = new PageProvider());
 
         if (config.gitExplorer.enabled) {
             context.subscriptions.push(this._gitExplorer = new GitExplorer());
@@ -96,6 +98,11 @@ export class Container {
     private static _currentLineController: CurrentLineController;
     static get lineAnnotations() {
         return this._currentLineController;
+    }
+
+    private static _pageProvider: PageProvider;
+    static get pages() {
+        return this._pageProvider;
     }
 
     private static _resultsExplorer: ResultsExplorer | undefined;

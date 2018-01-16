@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src *; style-src 'self'; script-src 'nonce-gitlens'"> -->
+</head>
+
+<body>
+    <div class="container">
+        <div class="content">
+            <header>
+                <div class="header__logo">
+                    <img class="image__logo" src="{{root}}/images/gitlens-icon.png">
+                    <div>
+                        <h1>GitLens</h1>
+                        <p class="header__subtitle">Git supercharged</p>
+                    </div>
+                </div>
+                <p class="header__blurb">
+                    GitLens <b>supercharges</b> the Git capabilities built into Visual Studio Code. It helps you to <b>visualize code authorship</b> at a glance via Git blame annotations and code lens, <b>seamlessly navigate and explore</b> Git repositories, <b>gain valuable insights</b> via powerful comparison commands, and so much more.
+                </p>
+            </header>
+
+            <section>
+                <div class="section__header">
+                    <h2 class="section__title">Line Annotations <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens#git-blame-annotations"><i class="icon icon__info"></i></a></h2>
+                    <p class="section__title-hint">Adds an unobtrusive Git blame annotation to the end of the current line</p>
+                </div>
+                <div class="section__settings">
+                    <div class="settings-group">
+                        <div class="settings-group__setting">
+                            <input id="blame.line.enabled" name="blame.line.enabled" type="checkbox"></input>
+                            <label for="blame.line.enabled">Show Git blame annotations for the current line</label>
+                            <select id="blame.line.annotationType" name="blame.line.annotationType" data-readonly="blame.line.enabled" disabled>
+                                <option value="trailing">at the end of the line</option>
+                                <option value="hover">on hover</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="section__preview">
+                        <img class="image__preview" src="{{root}}/images/screenshot-line-blame-annotation.png"></img>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <div class="section__header">
+                    <h2 class="section__title">Code Lens <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens#git-code-lens"><i class="icon icon__info"></i></a></h2>
+                    <p class="section__title-hint">Adds Git authorship code lens to the top of the file and on code blocks</p>
+                </div>
+                <p></p>
+                <div class="section__settings">
+                    <div class="settings-group">
+                        <div class="settings-group__setting">
+                            <input id="codeLens.enabled" name="codeLens.enabled" type="checkbox"></input>
+                            <label for="codeLens.enabled">Show Git Code Lens</label>
+                        </div>
+                    </div>
+                    <div class="section__preview">
+                        <img class="image__preview" src="{{root}}/images/screenshot-code-lens.png"></img>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <div class="section__header">
+                    <h2 class="section__title">Status Bar <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens#git-blame-annotations"><i class="icon icon__info"></i></a></h2>
+                    <p class="section__title-hint">Adds Git blame information about the current line to the status bar</p>
+                </div>
+                <div class="section__settings">
+                    <div class="settings-group">
+                        <div class="settings-group__setting">
+                            <input id="statusBar.enabled" name="statusBar.enabled" type="checkbox"></input>
+                            <label for="statusBar.enabled">Show Git blame information in the status bar</label>
+                        </div>
+                    </div>
+                    <div class="section__preview">
+                        <img class="image__preview" src="{{root}}/images/screenshot-status-bar.png"></img>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <div class="section__header">
+                    <h2 class="section__title">GitLens Explorer <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens#navigate-and-explore"><i class="icon icon__info"></i></a></h2>
+                    <p class="section__title-hint">Adds a GitLens view to the Explorer activity to explore repositories or file histories</p>
+                </div>
+                <p></p>
+                <div class="section__settings">
+                    <div class="settings-group">
+                        <div class="settings-group__setting">
+                            <input id="gitExplorer.enabled" name="gitExplorer.enabled" type="checkbox"></input>
+                            <label for="gitExplorer.enabled">Show the GitLens explorer</label>
+                        </div>
+                        <div class="settings-group__setting">
+                            <label for="gitExplorer.view">Start the GitLens explorer in</label>
+                            <select id="gitExplorer.view" name="gitExplorer.view">
+                                <option value="auto">the last selected view</option>
+                                <option value="repository">repository view</option>
+                                <option value="history">file history view</option>
+                            </select>
+                            <!-- <label class="label__hint" for="gitExplorer.view">Search for <b><i>gitlens</i></b> in the <a title="Open Keyboard Shortcuts" href="command:workbench.action.openGlobalKeybindings">Keyboard Shortcuts</a> editor to see the shortcuts and to customize them further</label> -->
+                        </div>
+                    </div>
+                    <div class="section__preview">
+                        <img class="image__preview" src="{{root}}/images/screenshot-git-custom-view-repository.png"></img>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <div class="section__header">
+                    <h2 class="section__title">Keyboard Shortcuts</h2>
+                </div>
+                <div class="section__settings">
+                    <div class="settings-group">
+                        <label for="keymap">Choose which set of keyboard shortcuts to use:</label>
+                        <select id="keymap" name="keymap">
+                            <option value="standard">standard shortcuts (<code>Alt</code> based)</option>
+                            <option value="chorded">chorded shortcuts (<code>Ctrl+Alt+G`</code> based)</option>
+                            <option value="none">no shortcuts</option>
+                        </select>
+                        <label class="label__hint" for="keymap">Search for <b><i>gitlens</i></b> in the <a title="Open Keyboard Shortcuts" href="command:workbench.action.openGlobalKeybindings">Keyboard Shortcuts</a> editor to see the shortcuts and to customize them further</label>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <a id="commandRelay" style="display: none"></a>
+    <script type="text/javascript">
+        window.gitlens = { config: '{{config}}' };
+    </script>
+</body>
+</html>
