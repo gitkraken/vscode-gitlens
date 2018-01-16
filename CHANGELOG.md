@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Fixed
+- Fixes issue where [Gravatars](https://en.gravatar.com/) in the gutter blame annotations weren't restored on tab switch
+
 ## [7.5.3] - 2018-01-15
 ### Fixed
 - Fixes [#245](https://github.com/eamodio/vscode-gitlens/issues/245) - CodeLens disappears/and reappears when auto-saving

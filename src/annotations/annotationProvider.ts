@@ -1,6 +1,6 @@
 'use strict';
 import { Functions } from '../system';
-import { DecorationOptions, Disposable, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, Uri, window } from 'vscode';
+import { DecorationOptions, Disposable, Range, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, Uri, window } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { TextDocumentComparer } from '../comparers';
 import { GitDocumentState, TrackedDocument } from '../trackers/documentTracker';
@@ -58,10 +58,10 @@ export abstract class AnnotationProviderBase extends Disposable {
         return this.editor.document.uri;
     }
 
-    protected decorationTypes: TextEditorDecorationType[] | undefined;
+    protected additionalDecorations: { decoration: TextEditorDecorationType, ranges: Range[] }[] | undefined;
 
     async clear() {
-        if (this.editor === undefined || this.decorationTypes === undefined || this.decorationTypes.length === 0) return;
+        if (this.editor === undefined || this.additionalDecorations === undefined || this.additionalDecorations.length === 0) return;
 
         if (this.decoration !== undefined) {
             try {
@@ -70,15 +70,15 @@ export abstract class AnnotationProviderBase extends Disposable {
             catch { }
         }
 
-        if (this.decorationTypes !== undefined && this.decorationTypes.length > 0) {
-            for (const dt of this.decorationTypes) {
+        if (this.additionalDecorations !== undefined && this.additionalDecorations.length > 0) {
+            for (const d of this.additionalDecorations) {
                 try {
-                    this.editor.setDecorations(dt, []);
+                    this.editor.setDecorations(d.decoration, []);
                 }
                 catch { }
             }
 
-            this.decorationTypes = undefined;
+            this.additionalDecorations = undefined;
         }
 
         if (this.highlightDecoration !== undefined) {
@@ -121,6 +121,12 @@ export abstract class AnnotationProviderBase extends Disposable {
 
         if (this.decorations !== undefined && this.decorations.length) {
             this.editor.setDecorations(this.decoration!, this.decorations);
+
+            if (this.additionalDecorations !== undefined && this.additionalDecorations.length) {
+                for (const d of this.additionalDecorations) {
+                    this.editor.setDecorations(d.decoration, d.ranges);
+                }
+            }
         }
     }
 

@@ -121,10 +121,10 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             this.editor.setDecorations(this.decoration!, this.decorations);
 
             if (gravatars) {
-                this.decorationTypes = [];
-                for (const a of Objects.values(avatarDecorationsMap!)) {
-                    this.decorationTypes.push(a.decoration);
-                    this.editor.setDecorations(a.decoration, a.ranges);
+                this.additionalDecorations = [];
+                for (const d of Objects.values(avatarDecorationsMap!)) {
+                    this.additionalDecorations.push(d);
+                    this.editor.setDecorations(d.decoration, d.ranges);
                 }
             }
         }
