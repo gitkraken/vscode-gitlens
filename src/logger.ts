@@ -1,16 +1,10 @@
 'use strict';
 import { ConfigurationChangeEvent, ExtensionContext, OutputChannel, window } from 'vscode';
-import { configuration } from './configuration';
+import { configuration, OutputLevel } from './configuration';
 import { ExtensionOutputChannelName } from './constants';
 // import { Telemetry } from './telemetry';
 
 const ConsolePrefix = `[${ExtensionOutputChannelName}]`;
-
-export enum OutputLevel {
-    Silent = 'silent',
-    Errors = 'errors',
-    Verbose = 'verbose'
-}
 
 export class Logger {
 

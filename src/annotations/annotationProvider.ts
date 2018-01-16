@@ -1,7 +1,7 @@
 'use strict';
 import { Functions } from '../system';
 import { DecorationOptions, Disposable, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, Uri, window } from 'vscode';
-import { FileAnnotationType } from '../annotations/annotationController';
+import { FileAnnotationType } from '../configuration';
 import { TextDocumentComparer } from '../comparers';
 import { GitDocumentState, TrackedDocument } from '../trackers/documentTracker';
 

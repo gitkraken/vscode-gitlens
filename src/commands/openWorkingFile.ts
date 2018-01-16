@@ -1,7 +1,7 @@
 'use strict';
 import { Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { FileAnnotationType } from '../annotations/annotationController';
 import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
+import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { GitUri } from '../gitService';
 import { Logger } from '../logger';

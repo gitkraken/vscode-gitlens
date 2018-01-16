@@ -1,9 +1,9 @@
 'use strict';
 import { Arrays, Iterables } from '../system';
 import { CancellationToken, Disposable, Hover, HoverProvider, languages, Position, Range, TextDocument, TextEditor, TextEditorDecorationType } from 'vscode';
-import { FileAnnotationType } from './annotationController';
 import { AnnotationProviderBase } from './annotationProvider';
 import { Annotations } from './annotations';
+import { FileAnnotationType } from './../configuration';
 import { RangeEndOfLineIndex } from '../constants';
 import { Container } from '../container';
 import { GitDocumentState, TrackedDocument } from '../trackers/documentTracker';

@@ -1,7 +1,7 @@
 import { Dates, Objects, Strings } from '../system';
 import { DecorationInstanceRenderOptions, DecorationOptions, MarkdownString, ThemableDecorationRenderOptions, ThemeColor, window } from 'vscode';
-import { FileAnnotationType } from './annotationController';
 import { DiffWithCommand, OpenCommitInRemoteCommand, OpenFileRevisionCommand, ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand } from '../commands';
+import { FileAnnotationType } from './../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter, GitCommit, GitDiffChunkLine, GitService, GitUri, ICommitFormatOptions } from '../gitService';

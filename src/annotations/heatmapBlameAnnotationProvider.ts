@@ -1,8 +1,8 @@
 'use strict';
 import { DecorationOptions, Range } from 'vscode';
-import { FileAnnotationType } from './annotationController';
 import { Annotations } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
+import { FileAnnotationType } from './../configuration';
 import { GitBlameCommit } from '../gitService';
 import { Logger } from '../logger';
 

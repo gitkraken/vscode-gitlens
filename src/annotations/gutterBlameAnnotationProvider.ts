@@ -1,10 +1,9 @@
 'use strict';
 import { Objects, Strings } from '../system';
 import { DecorationOptions, DecorationRenderOptions, Range, TextEditorDecorationType, window } from 'vscode';
-import { FileAnnotationType } from './annotationController';
 import { Annotations } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
-import { GravatarDefaultStyle } from '../configuration';
+import { FileAnnotationType, GravatarDefaultStyle } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitBlameCommit, ICommitFormatOptions } from '../gitService';

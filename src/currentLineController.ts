@@ -1,10 +1,9 @@
 'use strict';
 import { Functions, IDeferrable } from './system';
 import { CancellationToken, ConfigurationChangeEvent, debug, DecorationRangeBehavior, DecorationRenderOptions, Disposable, Hover, HoverProvider, languages, Position, Range, StatusBarAlignment, StatusBarItem, TextDocument, TextEditor, TextEditorDecorationType, window } from 'vscode';
-import { FileAnnotationType } from './annotations/annotationController';
 import { Annotations } from './annotations/annotations';
 import { Commands } from './commands';
-import { configuration, IConfig, StatusBarCommand } from './configuration';
+import { configuration, FileAnnotationType, IConfig, LineAnnotationType, StatusBarCommand } from './configuration';
 import { isTextEditor, RangeEndOfLineIndex } from './constants';
 import { Container } from './container';
 import { DocumentBlameStateChangeEvent, DocumentDirtyIdleTriggerEvent, DocumentDirtyStateChangeEvent, GitDocumentState, TrackedDocument } from './trackers/documentTracker';
@@ -18,11 +17,6 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
     },
     rangeBehavior: DecorationRangeBehavior.ClosedClosed
 } as DecorationRenderOptions);
-
-export enum LineAnnotationType {
-    Trailing = 'trailing',
-    Hover = 'hover'
-}
 
 class AnnotationState {
 

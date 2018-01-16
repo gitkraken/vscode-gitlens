@@ -1,8 +1,7 @@
 'use strict';
 import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { FileAnnotationType } from '../annotations/annotationController';
 import { Commands, EditorCommand } from './common';
-import { configuration } from '../configuration';
+import { configuration, FileAnnotationType  } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
 

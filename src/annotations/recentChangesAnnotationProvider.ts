@@ -1,8 +1,8 @@
 'use strict';
 import { DecorationOptions, MarkdownString, Position, Range, TextEditor, TextEditorDecorationType } from 'vscode';
-import { FileAnnotationType } from './annotationController';
 import { AnnotationProviderBase } from './annotationProvider';
 import { Annotations } from './annotations';
+import { FileAnnotationType } from './../configuration';
 import { RangeEndOfLineIndex } from '../constants';
 import { Container } from '../container';
 import { GitDocumentState, TrackedDocument } from '../trackers/documentTracker';

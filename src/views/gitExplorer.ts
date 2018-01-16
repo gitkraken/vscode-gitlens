@@ -2,7 +2,7 @@
 import { Functions } from '../system';
 import { commands, ConfigurationChangeEvent, ConfigurationTarget, Disposable, Event, EventEmitter, TextDocumentShowOptions, TextEditor, TreeDataProvider, TreeItem, Uri, window } from 'vscode';
 import { UriComparer } from '../comparers';
-import { configuration, ExplorerFilesLayout, IGitExplorerConfig } from '../configuration';
+import { configuration, ExplorerFilesLayout, GitExplorerView, IGitExplorerConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { RefreshNodeCommandArgs } from './explorerCommands';
@@ -11,12 +11,6 @@ import { GitUri } from '../gitService';
 import { Logger } from '../logger';
 
 export * from './explorerNodes';
-
-export enum GitExplorerView {
-    Auto = 'auto',
-    History = 'history',
-    Repository = 'repository'
-}
 
 export interface OpenFileRevisionCommandArgs {
     uri?: Uri;

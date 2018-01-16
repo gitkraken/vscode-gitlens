@@ -4,12 +4,12 @@ import { ConfigurationTarget, ExtensionContext, extensions, languages, window, w
 import { configuration, Configuration, IConfig } from './configuration';
 import { CommandContext, ExtensionKey, GlobalState, QualifiedExtensionId, setCommandContext } from './constants';
 import { configureCommands } from './commands';
+import { Container } from './container';
 import { GitContentProvider } from './gitContentProvider';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { GitService } from './gitService';
 import { Logger } from './logger';
 import { Messages, SuppressedMessages } from './messages';
-import { Container } from './container';
 // import { Telemetry } from './telemetry';
 
 // this method is called when your extension is activated

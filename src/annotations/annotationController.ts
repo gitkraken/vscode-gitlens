@@ -2,7 +2,7 @@
 import { Functions, Iterables } from '../system';
 import { ConfigurationChangeEvent, DecorationRangeBehavior, DecorationRenderOptions, Disposable, Event, EventEmitter, OverviewRulerLane, Progress, ProgressLocation, TextDocument, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, ThemeColor, window, workspace } from 'vscode';
 import { AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
-import { configuration, IConfig, LineHighlightLocations } from '../configuration';
+import { configuration, FileAnnotationType, IConfig, LineHighlightLocations } from '../configuration';
 import { CommandContext, isTextEditor, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { DocumentBlameStateChangeEvent, DocumentDirtyStateChangeEvent, GitDocumentState } from '../trackers/documentTracker';
@@ -13,13 +13,6 @@ import { KeyboardScope, KeyCommand, Keys } from '../keyboard';
 import { Logger } from '../logger';
 import { RecentChangesAnnotationProvider } from './recentChangesAnnotationProvider';
 import * as path from 'path';
-
-export enum FileAnnotationType {
-    Gutter = 'gutter',
-    Heatmap = 'heatmap',
-    Hover = 'hover',
-    RecentChanges = 'recentChanges'
-}
 
 export enum AnnotationClearReason {
     User = 'User',
