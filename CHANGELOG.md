@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [Unreleased]
 ### Fixed
 - Fixes issue where [Gravatars](https://en.gravatar.com/) in the gutter blame annotations weren't restored on tab switch
+- Fixes issue where the id (sha) was missing in the hover blame annotations for uncommitted changes
 
 ## [7.5.3] - 2018-01-15
 ### Fixed

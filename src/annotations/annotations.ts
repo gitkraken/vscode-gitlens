@@ -86,7 +86,7 @@ export class Annotations {
             message = `\n\n> ${message}`;
         }
         else {
-            showCommitDetailsCommand = `\`${commit.shortSha}\``;
+            showCommitDetailsCommand = `\`${commit.shortSha || '00000000'}\``;
         }
 
         const markdown = new MarkdownString(`${showCommitDetailsCommand} &nbsp; ![](${commit.getGravatarUri(Container.config.defaultGravatarsStyle).toString()}) &nbsp;__${commit.author}__, ${commit.fromNow()} &nbsp; _(${commit.formatDate(dateFormat)})_ ${message}${commandBar}`);
