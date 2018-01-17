@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [7.5.4] - 2018-01-17
 ### Fixed
 - Fixes [#249](https://github.com/eamodio/vscode-gitlens/issues/249) - Gitlens disappears from the status bar
 - Fixes issue where [Gravatars](https://en.gravatar.com/) in the gutter blame annotations weren't restored on tab switch
