@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 ### Fixed
+- Fixes [#249](https://github.com/eamodio/vscode-gitlens/issues/249) - Gitlens disappears from the status bar
 - Fixes issue where [Gravatars](https://en.gravatar.com/) in the gutter blame annotations weren't restored on tab switch
 - Fixes issue where the id (sha) was missing in the hover blame annotations for uncommitted changes
 

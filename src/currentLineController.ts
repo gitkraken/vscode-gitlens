@@ -142,8 +142,7 @@ export class CurrentLineController extends Disposable {
 
         if (!changed) return;
 
-        const trackCurrentLine = cfg.statusBar.enabled ||
-            cfg.blame.line.enabled ||
+        const trackCurrentLine = cfg.statusBar.enabled || cfg.blame.line.enabled ||
             (this._blameAnnotationState !== undefined && this._blameAnnotationState.enabled);
 
         if (trackCurrentLine) {
@@ -318,7 +317,7 @@ export class CurrentLineController extends Disposable {
             }
         }
 
-        this.updateStatusBar(commit);
+        this.updateStatusBar(commit, editor);
         this.updateTrailingAnnotation(commit, blameLine, editor, line);
     }
 
@@ -384,7 +383,12 @@ export class CurrentLineController extends Disposable {
     }
 
     private getBlameAnnotationState() {
-        return this._blameAnnotationState !== undefined ? this._blameAnnotationState : Container.config.blame.line;
+        if (this._blameAnnotationState !== undefined) return this._blameAnnotationState;
+
+        return {
+            enabled: Container.config.blame.line.enabled || Container.config.statusBar.enabled,
+            annotationType: Container.config.blame.line.annotationType
+        };
     }
 
     private _updateBlameDebounced: ((line: number, editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) => void) & IDeferrable;
@@ -489,9 +493,9 @@ export class CurrentLineController extends Disposable {
         this.clear(editor);
     }
 
-    private updateStatusBar(commit: GitCommit) {
+    private updateStatusBar(commit: GitCommit, editor: TextEditor) {
         const cfg = Container.config.statusBar;
-        if (!cfg.enabled || this._statusBarItem === undefined) return;
+        if (!cfg.enabled || this._statusBarItem === undefined || !isTextEditor(editor)) return;
 
         this._statusBarItem.text = `$(git-commit) ${CommitFormatter.fromTemplate(cfg.format, commit, {
             truncateMessageAtNewLine: true,
@@ -531,13 +535,13 @@ export class CurrentLineController extends Disposable {
     }
 
     private async updateTrailingAnnotation(commit: GitCommit, blameLine: GitCommitLine, editor: TextEditor, line?: number) {
-        const state = this.getBlameAnnotationState();
-        if (!state.enabled || state.annotationType !== LineAnnotationType.Trailing || !isTextEditor(editor)) return;
+        const cfg = Container.config.blame.line;
+        if (!cfg.enabled || cfg.annotationType !== LineAnnotationType.Trailing || !isTextEditor(editor)) return;
 
         line = line === undefined ? blameLine.line : line;
 
-        const cfg = Container.config.annotations.line.trailing;
-        const decoration = Annotations.trailing(commit, cfg.format, cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat);
+        const cfgTrailing = Container.config.annotations.line.trailing;
+        const decoration = Annotations.trailing(commit, cfgTrailing.format, cfgTrailing.dateFormat === null ? Container.config.defaultDateFormat : cfgTrailing.dateFormat);
         decoration.range = editor.document.validateRange(new Range(line, RangeEndOfLineIndex, line, RangeEndOfLineIndex));
 
         editor.setDecorations(annotationDecoration, [decoration]);
