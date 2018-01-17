@@ -4,6 +4,63 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [8.0.0-beta] - 2018-01-30
+### Added
+- Adds a GitLens welcome page via the *Welcome* (`gitlens.showWelcomePage`) command -- provides a welcome / onboarding experience
+- Adds a GitLens Settings page via the *Open Settings* (`gitlens.showSettingsPage`) command -- provides an easy-to-use settings editor for many of GitLen's features
+- Adds `gitlens.hovers.enabled` setting to specify whether or not to provide any hovers
+- Adds `gitlens.hovers.annotations.enabled` setting to specify whether or not to provide any hovers when showing blame annotations
+- Adds `gitlens.hovers.currentLine.enabled` setting to specify whether or not to provide any hovers for the current line
+
+### Changed
+- Overhauls GitLen's settings for better clarity and ease-of-use
+- Renames `gitlens.annotations.file.gutter.gravatars` setting to `gitlens.blame.avatars`
+- Renames `gitlens.annotations.file.gutter.compact` setting to `gitlens.blame.compact`
+- Renames `gitlens.annotations.file.gutter.dateFormat` setting to `gitlens.blame.dateFormat`
+- Renames `gitlens.annotations.file.gutter.format` setting to `gitlens.blame.format`
+- Renames `gitlens.annotations.file.gutter.heatmap.enabled` setting to `gitlens.blame.heatmap.enabled`
+- Renames `gitlens.annotations.file.gutter.heatmap.location` setting to `gitlens.blame.heatmap.location`
+- Renames `gitlens.blame.file.lineHighlight.enabled` setting to `gitlens.blame.highlight.enabled`
+- Renames `gitlens.blame.file.lineHighlight.locations` setting to `gitlens.blame.highlight.locations`
+- Renames `gitlens.annotations.file.gutter.separateLines` setting to `gitlens.blame.separateLines`
+- Renames `gitlens.codeLens.locations` setting to `gitlens.codeLens.scopes`
+- Renames `gitlens.codeLens.perLanguageLocations` setting to `gitlens.codeLens.scopesByLanguage`
+- Renames `gitlens.codeLens.customLocationSymbols` setting to `gitlens.codeLens.symbolScopes`
+- Renames `gitlens.annotations.line.trailing.dateFormat` setting to `gitlens.currentLine.dateFormat`
+- Renames `gitlens.blame.line.enabled` setting to `gitlens.currentLine.enabled`
+- Renames `gitlens.annotations.line.trailing.format` setting to `gitlens.currentLine.format`
+- Renames `gitlens.gitExplorer.gravatars` setting to `gitlens.explorers.avatars`
+- Renames `gitlens.gitExplorer.commitFileFormat` setting to `gitlens.explorers.commitFileFormat`
+- Renames `gitlens.gitExplorer.commitFormat` setting to `gitlens.explorers.commitFormat`
+- Renames `gitlens.gitExplorer.stashFileFormat` setting to `gitlens.explorers.stashFileFormat`
+- Renames `gitlens.gitExplorer.stashFormat` setting to `gitlens.explorers.stashFormat`
+- Renames `gitlens.gitExplorer.statusFileFormat` setting to `gitlens.explorers.statusFileFormat`
+- Renames `gitlens.annotations.file.gutter.hover.changes` setting to `gitlens.hovers.annotations.changes`
+- Renames `gitlens.annotations.file.gutter.hover.details` setting to `gitlens.hovers.annotations.details`
+- Renames `gitlens.annotations.file.gutter.hover.wholeLine` setting to `gitlens.hovers.annotations.over`
+- Renames `gitlens.annotations.line.trailing.hover.changes` setting to `gitlens.hovers.currentLine.changes`
+- Renames `gitlens.annotations.line.trailing.hover.details` setting to `gitlens.hovers.currentLine.details`
+- Renames `gitlens.annotations.line.trailing.hover.wholeLine` setting to `gitlens.hovers.currentLine.over`
+- Renames `gitlens.recentChanges.file.lineHighlight.locations` setting to `gitlens.recentChanges.highlight.locations`
+
+### Removed
+- Removes `gitlens.blame.file.annotationType` setting, use `gitlens.hovers.annotations.enabled`
+- Removes `gitlens.blame.line.annotationType` setting, use `gitlens.currentLine.enabled` or `gitlens.hovers.currentLine.enabled` instead
+- Removes `gitlens.resultsExplorer.gravatars` setting, use `gitlens.explorers.avatars` instead
+- Removes `gitlens.resultsExplorer.commitFileFormat` setting, use `gitlens.explorers.commitFileFormat` instead
+- Removes `gitlens.resultsExplorer.commitFormat` setting, use `gitlens.explorers.commitFormat` instead
+- Removes `gitlens.resultsExplorer.showTrackingBranch` setting
+- Removes `gitlens.resultsExplorer.stashFileFormat` setting, use `gitlens.explorers.stashFileFormat` instead
+- Removes `gitlens.resultsExplorer.stashFormat` setting, use `gitlens.explorers.stashFormat` instead
+- Removes `gitlens.resultsExplorer.statusFileFormat` setting, use `gitlens.explorers.statusFileFormat` instead
+- Removes `gitlens.annotations.file.hover.changes` setting, use `gitlens.hovers.annotations.changes` instead
+- Removes `gitlens.annotations.file.hover.details` setting, use `gitlens.hovers.annotations.details` instead
+- Removes `gitlens.annotations.file.hover.heatmap.enabled` setting
+- Removes `gitlens.annotations.file.recentChanges.hover.changes` setting, use `gitlens.hovers.annotations.changes` instead
+- Removes `gitlens.annotations.file.recentChanges.hover.details` setting, use `gitlens.hovers.annotations.details` instead
+- Removes `gitlens.annotations.line.hover.changes` setting, use `gitlens.hovers.annotations.changes` instead
+- Removes `gitlens.annotations.line.hover.details` setting, use `gitlens.hovers.annotations.details` instead
+
 ## [7.5.10] - 2018-02-01
 ### Added
 - Adds support for custom remotes with split project/repo url structure -- closes [#267](https://github.com/eamodio/vscode-gitlens/issues/267)
