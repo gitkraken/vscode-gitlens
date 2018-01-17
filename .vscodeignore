@@ -12,7 +12,6 @@ src/**
 .rpt2_cache/**
 CODE_OF_CONDUCT.md
 package-lock.json
-rollup.config.js
 tsconfig.json
 tslint.json
 webpack.config.js

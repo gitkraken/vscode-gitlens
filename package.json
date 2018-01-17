@@ -3293,7 +3293,6 @@
     ],
     "scripts": {
         "bundle": "npm run lint && webpack --env.production",
-        "bundle-rollup": "npm run lint && rollup -c",
         "clean": "git clean -xdf",
         "compile": "npm run lint && tsc -m commonjs -p ./",
         "watch": "tsc -watch -p ./",
@@ -3319,9 +3318,6 @@
         "@types/node": "9.3.0",
         "@types/tmp": "0.0.33",
         "husky": "0.14.3",
-        "rollup": "0.54.0",
-        "rollup-plugin-typescript2": "0.10.0",
-        "rollup-plugin-uglify": "2.0.1",
         "ts-loader": "3.2.0",
         "tslint": "5.9.1",
         "typescript": "2.6.2",
