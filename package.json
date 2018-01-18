@@ -1717,6 +1717,10 @@
                     "when": "gitlens:activeIsBlameable"
                 },
                 {
+                    "command": "gitlens.externalDiff",
+                    "when": "gitlens:enabled"
+                },
+                {
                     "command": "gitlens.externalDiffAll",
                     "when": "gitlens:enabled"
                 },
@@ -1758,6 +1762,10 @@
                 },
                 {
                     "command": "gitlens.showLastQuickPick",
+                    "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.showCommitSearch",
                     "when": "gitlens:enabled"
                 },
                 {
@@ -1835,6 +1843,10 @@
                 {
                     "command": "gitlens.stashApply",
                     "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.stashDelete",
+                    "when": "false"
                 },
                 {
                     "command": "gitlens.stashSave",
@@ -2002,11 +2014,11 @@
                 },
                 {
                     "command": "gitlens.gitExplorer.switchToHistoryView",
-                    "when": "gitlens:gitExplorer:view == repository"
+                    "when": "gitlens:enabled && gitlens:gitExplorer:view == repository"
                 },
                 {
                     "command": "gitlens.gitExplorer.switchToRepositoryView",
-                    "when": "gitlens:gitExplorer:view == history"
+                    "when": "gitlens:enabled &&  gitlens:gitExplorer:view == history"
                 },
                 {
                     "command": "gitlens.resultsExplorer.clearResultsNode",
@@ -3278,7 +3290,7 @@
                 {
                     "id": "gitlens.gitExplorer",
                     "name": "GitLens",
-                    "when": "gitlens:enabled && gitlens:gitExplorer && gitlens:hasRepository && config.gitlens.gitExplorer.enabled"
+                    "when": "gitlens:enabled && gitlens:gitExplorer && config.gitlens.gitExplorer.enabled"
                 },
                 {
                     "id": "gitlens.resultsExplorer",

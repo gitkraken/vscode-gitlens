@@ -50,8 +50,8 @@ export class StringIterator implements IKeyIterator {
 
 export class PathIterator implements IKeyIterator {
 
-    private static _fwd = '/'.charCodeAt(0);
-    private static _bwd = '\\'.charCodeAt(0);
+    private static readonly _fwd = '/'.charCodeAt(0);
+    private static readonly _bwd = '\\'.charCodeAt(0);
 
     private _value: string;
     private _from: number;
@@ -153,7 +153,7 @@ export class TernarySearchTree<E> {
         this._root = undefined;
     }
 
-    set(key: string, element: E): void {
+    set(key: string, element: E): E | undefined {
         const iter = this._iter.reset(key);
         let node: TernarySearchTreeNode<E>;
 
@@ -193,7 +193,9 @@ export class TernarySearchTree<E> {
                 break;
             }
         }
+        const oldElement = node.element;
         node.element = element;
+        return oldElement;
     }
 
     get(key: string): E | undefined {

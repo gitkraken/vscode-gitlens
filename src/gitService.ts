@@ -257,7 +257,7 @@ export class GitService extends Disposable {
 
     private async updateContext(repositoryTree: TernarySearchTree<Repository>) {
         const hasRepository = repositoryTree.any();
-        await setCommandContext(CommandContext.HasRepository, hasRepository);
+        await setCommandContext(CommandContext.Enabled, hasRepository);
 
         let hasRemotes = false;
         if (hasRepository) {
@@ -268,6 +268,33 @@ export class GitService extends Disposable {
         }
 
         await setCommandContext(CommandContext.HasRemotes, hasRemotes);
+
+        // If we have no repositories setup a watcher in case one is initialized
+        if (!hasRepository) {
+            const watcher = workspace.createFileSystemWatcher('**/.git', false, true, true);
+            const disposable = Disposable.from(
+                watcher,
+                watcher.onDidCreate(async uri => {
+                    const f = workspace.getWorkspaceFolder(uri);
+                    if (f === undefined) return;
+
+                    // Search for and add all repositories (nested and/or submodules)
+                    const repositories = await this.repositorySearch(f);
+                    if (repositories.length === 0) return;
+
+                    disposable.dispose();
+
+                    for (const r of repositories) {
+                        this._repositoryTree.set(r.path, r);
+                    }
+
+                    await this.updateContext(this._repositoryTree);
+
+                    // Defer the event trigger enough to let everything unwind
+                    setImmediate(() => this.fireRepositoriesChanged());
+                }, this)
+            );
+        }
     }
 
     private fireRepositoriesChanged() {
