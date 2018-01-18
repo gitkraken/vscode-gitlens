@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [Unreleased]
 ### Fixed
 - Fixes [#247](https://github.com/eamodio/vscode-gitlens/issues/247) - File annotations button or ESC key does not turn off file annotations
+- Fixes issue where sometimes blame context wasn't available for the open editor when starting vscode
 
 ## [7.5.4] - 2018-01-17
 ### Fixed

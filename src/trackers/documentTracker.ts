@@ -63,6 +63,10 @@ export class DocumentTracker<T> extends Disposable {
         this.clear();
     }
 
+    initialize() {
+        this.onActiveTextEditorChanged(window.activeTextEditor);
+    }
+
     private onConfigurationChanged(e: ConfigurationChangeEvent) {
         const initializing = configuration.initializing(e);
 
