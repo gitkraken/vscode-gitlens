@@ -3143,79 +3143,79 @@
             },
             {
                 "command": "gitlens.toggleFileBlame",
-                "key": "ctrl+alt+g b",
+                "key": "ctrl+shift+g b",
                 "mac": "cmd+alt+g b",
                 "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeIsBlameable"
             },
             {
                 "command": "gitlens.toggleCodeLens",
-                "key": "ctrl+alt+g shift+b",
+                "key": "ctrl+shift+g shift+b",
                 "mac": "cmd+alt+g shift+b",
                 "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeIsTracked && gitlens:canToggleCodeLens"
             },
             {
                 "command": "gitlens.showLastQuickPick",
-                "key": "ctrl+alt+g -",
+                "key": "ctrl+shift+g -",
                 "mac": "cmd+alt+g -",
                 "when": "gitlens:keymap == chorded && gitlens:enabled"
             },
             {
                 "command": "gitlens.showCommitSearch",
-                "key": "ctrl+alt+g /",
+                "key": "ctrl+shift+g /",
                 "mac": "cmd+alt+g /",
                 "when": "gitlens:keymap == chorded && gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickFileHistory",
-                "key": "ctrl+alt+g h",
+                "key": "ctrl+shift+g h",
                 "mac": "cmd+alt+g h",
                 "when": "gitlens:keymap == chorded && gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickRepoHistory",
-                "key": "ctrl+alt+g shift+h",
+                "key": "ctrl+shift+g shift+h",
                 "mac": "cmd+alt+g shift+h",
                 "when": "gitlens:keymap == chorded && gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickRepoStatus",
-                "key": "ctrl+alt+g s",
+                "key": "ctrl+shift+g s",
                 "mac": "cmd+alt+g s",
                 "when": "gitlens:keymap == chorded && gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickCommitFileDetails",
-                "key": "ctrl+alt+g c",
+                "key": "ctrl+shift+g c",
                 "mac": "cmd+alt+g c",
                 "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:enabled"
             },
             {
                 "command": "gitlens.diffWithNext",
-                "key": "ctrl+alt+g .",
+                "key": "ctrl+shift+g .",
                 "mac": "cmd+alt+g .",
                 "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeIsTracked"
             },
             {
                 "command": "gitlens.diffLineWithPrevious",
-                "key": "ctrl+alt+g shift+,",
+                "key": "ctrl+shift+g shift+,",
                 "mac": "cmd+alt+g shift+,",
                 "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeIsTracked"
             },
             {
                 "command": "gitlens.diffWithPrevious",
-                "key": "ctrl+alt+g ,",
+                "key": "ctrl+shift+g ,",
                 "mac": "cmd+alt+g ,",
                 "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeIsTracked"
             },
             {
                 "command": "gitlens.diffLineWithWorking",
-                "key": "ctrl+alt+g w",
+                "key": "ctrl+shift+g w",
                 "mac": "cmd+alt+g w",
                 "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeIsTracked"
             },
             {
                 "command": "gitlens.diffWithWorking",
-                "key": "ctrl+alt+g shift+w",
+                "key": "ctrl+shift+g shift+w",
                 "mac": "cmd+alt+g shift+w",
                 "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeIsTracked"
             },
@@ -3283,6 +3283,11 @@
                 "command": "gitlens.diffWithWorking",
                 "key": "shift+alt+w",
                 "when": "gitlens:keymap == standard && editorTextFocus && gitlens:activeIsTracked"
+            },
+            {
+                "command": "workbench.view.scm",
+                "key": "ctrl+shift+g g",
+                "when": "gitlens:keymap == chorded && gitlens:enabled"
             }
         ],
         "views": {
