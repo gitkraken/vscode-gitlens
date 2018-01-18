@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Fixed
+- Fixes [#247](https://github.com/eamodio/vscode-gitlens/issues/247) - File annotations button or ESC key does not turn off file annotations
+
 ## [7.5.4] - 2018-01-17
 ### Fixed
 - Fixes [#249](https://github.com/eamodio/vscode-gitlens/issues/249) - Gitlens disappears from the status bar

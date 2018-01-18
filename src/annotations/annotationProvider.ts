@@ -61,7 +61,7 @@ export abstract class AnnotationProviderBase extends Disposable {
     protected additionalDecorations: { decoration: TextEditorDecorationType, ranges: Range[] }[] | undefined;
 
     async clear() {
-        if (this.editor === undefined || this.additionalDecorations === undefined || this.additionalDecorations.length === 0) return;
+        if (this.editor === undefined) return;
 
         if (this.decoration !== undefined) {
             try {
