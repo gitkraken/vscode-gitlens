@@ -153,16 +153,21 @@ ul {
 
 .header__blurb {
     color: var(--color--75);
-    flex: 58% 2 1;
+    flex: 55% 2 1;
     font-size: 1.2em;
     font-weight: 200;
-    margin: 0 3em;
+    line-height: 1.3;
+    margin: 0 0 0 6em;
+
+    @media all and (max-width: 880px) {
+        margin: 0 2em;
+    }
 }
 
 .header__logo {
     display: flex;
     flex-wrap: nowrap;
-    padding-top: 2.5em;
+    padding-top: 1.75em;
 }
 
 .header__subtitle {
