@@ -18,62 +18,142 @@
                     </div>
                 </div>
                 <p class="header__blurb">
-                    GitLens <b>supercharges</b> the Git capabilities built into Visual Studio Code. It helps you to <b>visualize code authorship</b> at a glance via Git blame annotations and code lens, <b>seamlessly navigate and explore</b> Git repositories, <b>gain valuable insights</b> via powerful comparison commands, and so much more.
+                    GitLens
+                    <b>supercharges</b> the Git capabilities built into Visual Studio Code. It helps you to
+                    <b>visualize code authorship</b> at a glance via Git blame annotations and code lens,
+                    <b>seamlessly navigate and explore</b> Git repositories,
+                    <b>gain valuable insights</b> via powerful comparison commands, and so much more.
                 </p>
             </header>
 
+            <div class="page-header">
+                <h2 class="page-header__title">Welcome</h2>
+                <p class="page-header__subtitle">Thank you for taking the time to try GitLens!</p>
+            </div>
+
             <div class="section-groups">
-                <div class="section-group__main">
-                    <div class="section__welcome">
-                        <h2>Welcome</h2>
+                <div class="section-group__content">
+                    <div class="section-group-section">
                         <p>
-                            Thank you for taking the time to try GitLens!
-                            <br />
-                            GitLens is powerful, feature rich, and highly configurable, so please be sure to open the <a title="Open GitLens Settings" href="command:gitlens.showSettingsPage">GitLens settings page</a> to tailor it to suit your needs.
+                            GitLens simply helps you understand code better. Quickly glimpse into who, why, and when a line or code block was changed.
+                            Jump back through history to gain further insights as to how and why the code evolved. Explore
+                            the history and evolution of a codebase. Dive in and see how GitLens can help!
                         </p>
                     </div>
-                    <div class="section__customize">
+                    <div class="section-group-section">
+                        <h2>Features</h2>
+                        <p>Here are just some of the features that GitLens provides
+                            <ul class="features-list">
+                                <li>Adds a GitLens view to the Explorer activity to explore repositories or file histories</li>
+                                <li>Adds Git authorship code lens to the top of the file and on code blocks</li>
+                                <li>Adds an unobtrusive Git blame annotation to the end of the current line</li>
+                                <li>Adds detailed Git blame information accessible via hovers</li>
+                                <li>Adds a Git blame annotation about the current line to the status bar</li>
+                                <li>Adds many powerful commands for exploring commits and histories, comparing and navigating
+                                    revisions, stash access, repository status, and more</li>
+                            </ul>
+                        </p>
+                        <p>GitLens is powerful, feature rich, and highly customizable to meet your specific needs, so please
+                            be sure to visit the
+                            <a title="Open GitLens Settings" href="command:gitlens.showSettingsPage">GitLens settings page</a>.</p>
+                    </div>
+                    <div class="section-group-section">
                         <h2>Customize</h2>
                         <ul>
-                            <li><button class="list-button" data-href="command:gitlens.showSettingsPage"><h3>Open GitLens Settings</h3><span class="detail">Customize common GitLens settings in an easy to use editor</span></button></li>
-                            <li><button class="list-button" data-href="command:workbench.action.openGlobalSettings"><h3>Open User Settings</h3> <span class="detail">Search for <b><i>gitlens</i></b> to see and customize all GitLens settings</span></button></li>
-                            <li><button class="list-button" data-href="command:workbench.action.openGlobalKeybindings"><h3>Open Keyboard Shortcuts</h3> <span class="detail">Search for <b><i>gitlens</i></b> to see and customize GitLens keyboard shortcuts</span></button></li>
+                            <li>
+                                <button class="list-button" data-href="command:gitlens.showSettingsPage">
+                                    <h3>Open GitLens Settings</h3>
+                                    <span class="detail" title="Customize common GitLens settings in an easy to use editor">Customize common GitLens settings in an easy to use editor</span>
+                                </button>
+                            </li>
+                            <li>
+                                <button class="list-button" data-href="command:workbench.action.openGlobalSettings">
+                                    <h3>Open User Settings</h3>
+                                    <span class="detail" title="Find and customize all GitLens settings">Search for
+                                        <b>
+                                            <i>gitlens</i>
+                                        </b> to find and customize all GitLens settings</span>
+                                </button>
+                            </li>
+                            <li>
+                                <button class="list-button" data-href="command:workbench.action.openGlobalKeybindings">
+                                    <h3>Open Keyboard Shortcuts</h3>
+                                    <span class="detail" title="Find and customize GitLens keyboard shortcuts">Search for
+                                        <b>
+                                            <i>gitlens</i>
+                                        </b> to find and customize GitLens keyboard shortcuts</span>
+                                </button>
+                            </li>
                         </ul>
                     </div>
-                    <div class="section__learn">
+                    <div class="section-group-section">
                         <h2>Learn</h2>
                         <ul>
-                            <li class="showCommands"><button class="list-button" data-href="command:workbench.action.showCommands"><h3>Find and run all GitLens commands</h3><span class="detail">Search for <b><i>gitlens</i></b> to access and search for GitLens commands from the Command Palette</span></button></li>
+                            <li class="showCommands">
+                                <button class="list-button" data-href="command:workbench.action.showCommands">
+                                    <h3>Find and run all GitLens commands</h3>
+                                    <span class="detail" title="Find and access GitLens commands from the Command Palette">Search for
+                                        <b>
+                                            <i>gitlens</i>
+                                        </b> to find and access GitLens commands from the Command Palette</span>
+                                </button>
+                            </li>
                         </ul>
                     </div>
                 </div>
-                <div class="section-group__sidebar">
-                    <div class="sidebar-group sidebar-group__show-support">
+                <div class="section-group__sidebar section-group__sidebar--welcome">
+                    <div class="sidebar-group">
                         <h2>Show Your Support</h2>
                         <ul>
-                            <li><a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details">Write a Review</a></li>
-                            <li><a href="https://github.com/eamodio/vscode-gitlens">Star or Fork me on GitHub</a></li>
-                            <li><a href="https://twitter.com/eamodio">Follow me on Twitter</a></li>
+                            <li>
+                                <a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details">Write a Review</a>
+                            </li>
+                            <li>
+                                <a href="https://github.com/eamodio/vscode-gitlens">Star or Fork me on GitHub</a>
+                            </li>
+                            <li>
+                                <a href="https://twitter.com/eamodio">Follow me on Twitter</a>
+                            </li>
                             <!-- <li><a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details">Become a Patron</a></li> -->
-                            <li><a href="http://amod.io">Hire me</a></li>
+                            <li>
+                                <a href="http://amod.io">Hire me</a>
+                            </li>
                         </ul>
                     </div>
-                    <div class="sidebar-group sidebar-group__help">
+                    <div class="sidebar-group">
                         <h2>Help</h2>
                         <ul>
-                            <li><a href="https://github.com/eamodio/vscode-gitlens/blob/master/README.md">Documentation</a></li>
-                            <li><a href="https://github.com/eamodio/vscode-gitlens/issues">Questions &amp; Issues</a></li>
-                            <li><a href="https://join.slack.com/t/vscode-dev-community/shared_invite/enQtMjIxOTgxNDE3NzM0LWU5M2ZiZDU1YjBlMzdlZjA2YjBjYzRhYTM5NTgzMTAxMjdiNWU0ZmQzYWI3MWU5N2Q1YjBiYmQ4MzY0NDE1MzY">Slack</a><small> &nbsp;&nbsp;&mdash;&nbsp; #gitlens channel</small></li>
-                            <li><a href="https://twitter.com/eamodio">Twitter</a><small> &nbsp;&nbsp;&mdash;&nbsp; #gitlens hashtag</small></li>
+                            <li>
+                                <a href="https://github.com/eamodio/vscode-gitlens/blob/master/README.md">Documentation</a>
+                            </li>
+                            <li>
+                                <a href="https://github.com/eamodio/vscode-gitlens/issues">Questions &amp; Issues</a>
+                            </li>
+                            <li>
+                                <a href="https://join.slack.com/t/vscode-dev-community/shared_invite/enQtMjIxOTgxNDE3NzM0LWU5M2ZiZDU1YjBlMzdlZjA2YjBjYzRhYTM5NTgzMTAxMjdiNWU0ZmQzYWI3MWU5N2Q1YjBiYmQ4MzY0NDE1MzY">Slack</a>
+                                <small> &nbsp;&nbsp;&mdash;&nbsp; #gitlens channel</small>
+                            </li>
+                            <li>
+                                <a href="https://twitter.com/eamodio">Twitter</a>
+                                <small> &nbsp;&nbsp;&mdash;&nbsp; #gitlens hashtag</small>
+                            </li>
                         </ul>
                     </div>
-                    <div class="sidebar-group sidebar-group__resources">
+                    <div class="sidebar-group">
                         <h2>Resources</h2>
                         <ul>
-                            <li><a href="https://marketplace.visualstudio.com/items/eamodio.gitlens/changelog">Changelog</a></li>
-                            <li><a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens">Marketplace</a></li>
-                            <li><a href="https://github.com/eamodio/vscode-gitlens">GitHub</a></li>
-                            <li><a href="https://marketplace.visualstudio.com/items/eamodio.gitlens/license">License</a></li>
+                            <li>
+                                <a href="https://marketplace.visualstudio.com/items/eamodio.gitlens/changelog">Changelog</a>
+                            </li>
+                            <li>
+                                <a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens">Marketplace</a>
+                            </li>
+                            <li>
+                                <a href="https://github.com/eamodio/vscode-gitlens">GitHub</a>
+                            </li>
+                            <li>
+                                <a href="https://marketplace.visualstudio.com/items/eamodio.gitlens/license">License</a>
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -82,4 +162,5 @@
     </div>
     <a id="commandRelay" style="display: none"></a>
 </body>
+
 </html>
