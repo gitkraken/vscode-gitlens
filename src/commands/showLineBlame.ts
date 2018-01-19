@@ -1,18 +1,16 @@
 'use strict';
-import { TextEditor, TextEditorEdit, window } from 'vscode';
-import { Commands, EditorCommand } from './common';
+import { TextEditor, Uri, window } from 'vscode';
+import { ActiveEditorCommand, Commands } from './common';
 import { Container } from '../container';
 import { Logger } from '../logger';
 
-export class ShowLineBlameCommand extends EditorCommand {
+export class ShowLineBlameCommand extends ActiveEditorCommand {
 
     constructor() {
         super(Commands.ShowLineBlame);
     }
 
-    async execute(editor: TextEditor, edit: TextEditorEdit): Promise<any> {
-        if (editor === undefined) return undefined;
-
+    async execute(editor?: TextEditor, uri?: Uri): Promise<any> {
         try {
             return Container.lineAnnotations.showAnnotations(editor);
         }

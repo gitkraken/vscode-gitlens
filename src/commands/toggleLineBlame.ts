@@ -1,18 +1,16 @@
 'use strict';
-import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { Commands, EditorCommand } from './common';
+import { TextEditor, Uri, window } from 'vscode';
+import { ActiveEditorCommand, Commands } from './common';
 import { Container } from '../container';
 import { Logger } from '../logger';
 
-export class ToggleLineBlameCommand extends EditorCommand {
+export class ToggleLineBlameCommand extends ActiveEditorCommand {
 
     constructor() {
         super(Commands.ToggleLineBlame);
     }
 
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri): Promise<any> {
-        if (editor === undefined) return undefined;
-
+    async execute(editor: TextEditor, uri?: Uri): Promise<any> {
         try {
             return Container.lineAnnotations.toggleAnnotations(editor);
         }

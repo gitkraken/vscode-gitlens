@@ -1,15 +1,14 @@
 'use strict';
-import { TextEditor, TextEditorEdit } from 'vscode';
-import { Commands, EditorCommand } from './common';
+import { Command, Commands } from './common';
 import { Container } from '../container';
 
-export class ToggleCodeLensCommand extends EditorCommand {
+export class ToggleCodeLensCommand extends Command {
 
     constructor() {
         super(Commands.ToggleCodeLens);
     }
 
-    execute(editor: TextEditor, edit: TextEditorEdit) {
-        return Container.codeLens.toggleCodeLens(editor);
+    execute() {
+        return Container.codeLens.toggleCodeLens();
     }
 }

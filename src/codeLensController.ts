@@ -1,5 +1,5 @@
 'use strict';
-import { ConfigurationChangeEvent, Disposable, languages, TextEditor } from 'vscode';
+import { ConfigurationChangeEvent, Disposable, languages } from 'vscode';
 import { configuration, ICodeLensConfig } from './configuration';
 import { CommandContext, setCommandContext } from './constants';
 import { Container } from './container';
@@ -79,7 +79,7 @@ export class CodeLensController extends Disposable {
         this._provider.reset('idle');
     }
 
-    toggleCodeLens(editor: TextEditor) {
+    toggleCodeLens() {
         if (!this._canToggle) return;
 
         Logger.log(`toggleCodeLens()`);
