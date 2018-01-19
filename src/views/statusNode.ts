@@ -20,10 +20,10 @@ export class StatusNode extends ExplorerNode {
     async getChildren(): Promise<ExplorerNode[]> {
         this.resetChildren();
 
-        this.children = [];
-
         const status = await this.repo.getStatus();
-        if (status === undefined) return this.children;
+        if (status === undefined) return [];
+
+        this.children = [];
 
         if (status.state.behind) {
             this.children.push(new StatusUpstreamNode(status, 'behind', this.explorer));
