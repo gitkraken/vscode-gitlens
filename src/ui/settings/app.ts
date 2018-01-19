@@ -4,11 +4,11 @@ import { initializeColorPalette } from '../shared/colors';
 import { IConfig } from './../config';
 
 const config: IConfig = (window as any).gitlens.config;
-const changes: { [key: string]: any } = Object.create(null);
 
 export class App {
 
     private readonly _commandRelay: HTMLAnchorElement;
+    private readonly _changes: { [key: string]: any } = Object.create(null);
 
     constructor() {
         console.log('SettingsApp.ctor');
@@ -28,16 +28,19 @@ export class App {
     private onChecked(element: HTMLInputElement) {
         console.log(`SettingsApp.onChange: name=${element.name}, checked=${element.checked}, value=${element.value}`);
 
-        let value;
-        if (element.checked) {
-            value = element.value === 'on' ? true : element.value;
+        if (!element.name.startsWith('!')) {
+            let value;
+            if (element.checked) {
+                value = element.value === 'on' ? true : element.value;
+            }
+            else {
+                value = false;
+            }
+            this._changes[element.name] = value;
         }
-        else {
-            value = false;
-        }
-        changes[element.name] = value;
 
-        this.updateState(element.name, !!value);
+        this.setAdditionalSettings(element.checked ? element.dataset.addSettingsOn : element.dataset.addSettingsOff);
+        this.updateState(this._changes);
         this.applyChanges();
     }
 
@@ -46,14 +49,14 @@ export class App {
 
         console.log(`SettingsApp.onSelected: name=${element.name}, value=${value}`);
 
-        changes[element.name] = value;
+        this._changes[element.name] = ensureIfBoolean(value);
 
-        this.updateState(element.name, value);
+        this.updateState(this._changes);
         this.applyChanges();
     }
 
     private applyChanges() {
-        const args = JSON.stringify(changes);
+        const args = JSON.stringify(this._changes);
         console.log(`SettingsApp.applyChanges: changes=${args}`);
 
         const command = 'command:gitlens.saveSettings?' + encodeURI(args);
@@ -72,13 +75,15 @@ export class App {
     private initializeState() {
         console.log('SettingsApp.initializeState');
 
+        const changes: { [key: string]: string | boolean } = Object.create(null);
+
         for (const el of document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
             const name = el.name;
 
-            const checked = getSettingValue<boolean>(name);
+            const checked = name.startsWith('!') ? false : getSettingValue<boolean>(name);
             el.checked = checked;
 
-            this.updateState(name, checked);
+            changes[name] = checked;
         }
 
         for (const el of document.querySelectorAll<HTMLSelectElement>('select')) {
@@ -88,18 +93,30 @@ export class App {
 
             el.querySelector<HTMLOptionElement>(`option[value='${value}']`)!.selected = true;
 
-            this.updateState(name, value);
+            changes[name] = value;
+        }
+
+        this.updateState(changes);
+    }
+
+    private setAdditionalSettings(expression: string | undefined) {
+        if (!expression) return;
+
+        const addSettings = parseAdditionalSettingsExpression(expression);
+        for (const [s, v] of addSettings) {
+            this._changes[s] = v;
         }
     }
 
-    private updateState(setting: string, value: string | boolean) {
-        this.updateEnablement(setting, value);
-        this.updateVisibility(setting, value);
+    private updateState(changes: { [key: string]: string | boolean }) {
+        this.updateVisibility(changes);
+        this.updateEnablement(changes);
     }
 
-    private updateEnablement(setting: string, value: string | boolean) {
-        for (const el of document.querySelectorAll<HTMLElement>(`[data-enablement~="${setting}"]`)) {
-            const enabled = evaluateExpression(el.dataset.enablement!, setting, value);
+    private updateEnablement(changes: { [key: string]: string | boolean }) {
+        const selectors = Object.keys(changes).map(c => `[data-enablement~="${c}"]`).join(',');
+        for (const el of document.querySelectorAll<HTMLElement>(selectors)) {
+            const enabled = evaluateStateExpression(el.dataset.enablement!, changes);
             if (enabled) {
                 el.removeAttribute('disabled');
             }
@@ -107,34 +124,47 @@ export class App {
                 el.setAttribute('disabled', '');
             }
 
-            const input = el.querySelector<HTMLInputElement | HTMLSelectElement>('input,select');
-            if (input == null) continue;
+            if (el.matches('input,select')) {
+                (el as HTMLInputElement | HTMLSelectElement).disabled = !enabled;
+            }
+            else {
+                const input = el.querySelector<HTMLInputElement | HTMLSelectElement>('input,select');
+                if (input == null) continue;
 
-            input.disabled = !enabled;
+                input.disabled = !enabled;
+            }
         }
     }
 
-    private updateVisibility(setting: string, value: string | boolean) {
-        for (const el of document.querySelectorAll<HTMLElement>(`[data-visibility~="${setting}"]`)) {
-            const visible = evaluateExpression(el.dataset.visibility!, setting, value);
+    private updateVisibility(changes: { [key: string]: string | boolean }) {
+        const selectors = Object.keys(changes).map(c => `[data-visibility~="${c}"]`).join(',');
+        for (const el of document.querySelectorAll<HTMLElement>(selectors)) {
+            const visible = evaluateStateExpression(el.dataset.visibility!, changes);
             if (visible) {
-                el.removeAttribute('hidden');
+                el.classList.remove('hidden');
             }
             else {
-                el.setAttribute('hidden', '');
+                el.classList.add('hidden');
             }
         }
     }
 }
 
-function evaluateExpression(expression: string, setting: string, settingValue: string | boolean): boolean {
+function ensureIfBoolean(value: string | boolean): string | boolean {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+}
+
+function evaluateStateExpression(expression: string, changes: { [key: string]: string | boolean }): boolean {
     let state = false;
     for (const expr of expression.trim().split('&&')) {
-        const [lhs, rhs] = parseExpression(expr);
+        const [lhs, rhs] = parseStateExpression(expr);
 
-        const value = lhs !== setting
-            ? getSettingValue<string | boolean>(lhs)
-            : settingValue;
+        let value = changes[lhs];
+        if (value === undefined) {
+            value = getSettingValue<string | boolean>(lhs);
+        }
         state = rhs !== undefined ? rhs === '' + value : !!value;
 
         if (!state) break;
@@ -150,7 +180,15 @@ function getSettingValue<T>(path: string): T {
     return get<T>(config, path);
 }
 
-function parseExpression(expression: string): [string, string | boolean | undefined] {
+function parseAdditionalSettingsExpression(expression: string): [string, string | boolean][] {
+    const settingsExpression = expression.trim().split(',');
+    return settingsExpression.map<[string, string | boolean]>(s => {
+        const [setting, value] = s.split('=');
+        return [setting, ensureIfBoolean(value)];
+    });
+}
+
+function parseStateExpression(expression: string): [string, string | boolean | undefined] {
     const [lhs, rhs] = expression.trim().split('=');
     return [lhs.trim(), rhs !== undefined ? rhs.trim() : rhs];
 }

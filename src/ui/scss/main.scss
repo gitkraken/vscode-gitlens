@@ -39,11 +39,13 @@ b {
 }
 
 code,
-.shortcut-key {
+.shortcut-key,
+.command {
     background-color: var(--background-color--lighten-15);
     padding: 1px 5px;
     vertical-align: bottom;
     border-radius: 3px;
+    border-bottom: 2px solid var(--background-color--lighten-15);
 }
 
 h1 {
@@ -216,6 +218,12 @@ ul {
     mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125"><path fill="none" d="M0 0h100v100H0z"/><path d="M50 21a29 29 0 1 0 29 29 29 29 0 0 0-29-29zm0 55a26 26 0 1 1 26-26 26 26 0 0 1-26 26z"/><path d="M48 45l-1 1v18l1 1h4l1-1V46l-1-1zm0-10l-1 1v4l1 1h4l1-1v-4l-1-1z"/></svg>');
     -webkit-mask-repeat: no-repeat;
     mask-repeat: no-repeat;
+}
+
+.icon--lg {
+    width: 30px;
+    height: 36px;
+    margin-bottom: -16px;
 }
 
 .image__logo {
@@ -402,6 +410,11 @@ ul {
     min-width: 300px;
 }
 
+.settings-group__hint {
+    color: var(--color--75);
+    font-weight: 200;
+}
+
 .settings-group__setting {
     margin-bottom: 1em;
 
@@ -425,6 +438,6 @@ ul {
     margin-top: 1em;
 }
 
-[data-visibility][hidden] {
-    display: none;
+.hidden {
+    display: none !important;
 }
