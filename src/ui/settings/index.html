@@ -69,12 +69,12 @@
                                 </div>
                             </div>
                             <div class="section__preview">
-                                <img class="image__preview hidden" src="{{root}}/images/settings-gitlens-view-repository.png" data-visibility="gitExplorer.enabled &amp;&amp; gitExplorer.view =auto &amp;&amp; gitExplorer.gravatars =false"></img>
-                                <img class="image__preview hidden" src="{{root}}/images/settings-gitlens-view-repository-avatars.png" data-visibility="gitExplorer.enabled &amp;&amp; gitExplorer.view =auto &amp;&amp; gitExplorer.gravatars"></img>
-                                <img class="image__preview hidden" src="{{root}}/images/settings-gitlens-view-repository.png" data-visibility="gitExplorer.enabled &amp;&amp; gitExplorer.view =repository &amp;&amp; gitExplorer.gravatars =false"></img>
-                                <img class="image__preview hidden" src="{{root}}/images/settings-gitlens-view-repository-avatars.png" data-visibility="gitExplorer.enabled &amp;&amp; gitExplorer.view =repository &amp;&amp; gitExplorer.gravatars"></img>
-                                <img class="image__preview hidden" src="{{root}}/images/settings-gitlens-view-history.png" data-visibility="gitExplorer.enabled &amp;&amp; gitExplorer.view =history &amp;&amp; gitExplorer.gravatars =false"></img>
-                                <img class="image__preview hidden" src="{{root}}/images/settings-gitlens-view-history-avatars.png" data-visibility="gitExplorer.enabled &amp;&amp; gitExplorer.view =history &amp;&amp; gitExplorer.gravatars"></img>
+                                <img class="image__preview hidden" src="{{root}}/images/settings-gitlens-view-repository.png" data-visibility="gitExplorer.enabled &amp;&amp; gitExplorer.view =auto &amp;&amp; gitExplorer.avatars =false"></img>
+                                <img class="image__preview hidden" src="{{root}}/images/settings-gitlens-view-repository-avatars.png" data-visibility="gitExplorer.enabled &amp;&amp; gitExplorer.view =auto &amp;&amp; gitExplorer.avatars"></img>
+                                <img class="image__preview hidden" src="{{root}}/images/settings-gitlens-view-repository.png" data-visibility="gitExplorer.enabled &amp;&amp; gitExplorer.view =repository &amp;&amp; gitExplorer.avatars =false"></img>
+                                <img class="image__preview hidden" src="{{root}}/images/settings-gitlens-view-repository-avatars.png" data-visibility="gitExplorer.enabled &amp;&amp; gitExplorer.view =repository &amp;&amp; gitExplorer.avatars"></img>
+                                <img class="image__preview hidden" src="{{root}}/images/settings-gitlens-view-history.png" data-visibility="gitExplorer.enabled &amp;&amp; gitExplorer.view =history &amp;&amp; gitExplorer.avatars =false"></img>
+                                <img class="image__preview hidden" src="{{root}}/images/settings-gitlens-view-history-avatars.png" data-visibility="gitExplorer.enabled &amp;&amp; gitExplorer.view =history &amp;&amp; gitExplorer.avatars"></img>
                             </div>
                         </div>
                     </section>
@@ -99,8 +99,7 @@
                                     <input id="codeLens.recentChange.enabled" name="codeLens.recentChange.enabled" type="checkbox"></input>
                                     <label for="codeLens.recentChange.enabled">Show the author and date of the most recent change for the file or code block</label>
                                 </div>
-                                <div class="settings-group__setting settings-group__setting--nested2" data-enablement="codeLens.enabled &amp;&amp; codeLens.recentChange.enabled"
-                                    disabled>
+                                <div class="settings-group__setting settings-group__setting--nested2" data-enablement="codeLens.enabled &amp;&amp; codeLens.recentChange.enabled" disabled>
                                     <label for="codeLens.recentChange.command">Clicking on the recent change code lens will </label>
                                     <select id="codeLens.recentChange.command" name="codeLens.recentChange.command" disabled>
                                         <option value="gitlens.toggleFileBlame">toggle file blame annotations</option>
@@ -116,8 +115,7 @@
                                     <label for="codeLens.authors.enabled">Show the number of authors of the file or code block and the most prominent author, if
                                         there is more than one</label>
                                 </div>
-                                <div class="settings-group__setting settings-group__setting--nested2" data-enablement="codeLens.enabled &amp;&amp; codeLens.authors.enabled"
-                                    disabled>
+                                <div class="settings-group__setting settings-group__setting--nested2" data-enablement="codeLens.enabled &amp;&amp; codeLens.authors.enabled" disabled>
                                     <label for="codeLens.authors.command">Clicking on the authors code lens will </label>
                                     <select id="codeLens.authors.command" name="codeLens.authors.command" disabled>
                                         <option value="gitlens.toggleFileBlame">toggle file blame annotations</option>
@@ -138,7 +136,8 @@
                             </div>
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
-                                Use the <a class="command" title="Run Command" href="command:gitlens.toggleCodeLens">GitLens: Toggle Git Code Lens</a> command to override this setting for the current window
+                                Use the
+                                <a class="command" title="Run Command" href="command:gitlens.toggleCodeLens">GitLens: Toggle Git Code Lens</a> command to override this setting for the current window
                             </p>
                         </div>
                     </section>
@@ -154,34 +153,20 @@
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
-                                <div class="settings-group__setting" data-visibility="blame.line.enabled =false">
-                                    <input id="blame.line.enabled" name="blame.line.enabled" type="checkbox" data-add-settings-on="blame.line.annotationType=trailing"></input>
-                                    <label for="blame.line.enabled">Show a Git blame annotation at the end of the current line</label>
-                                </div>
-                                <div class="settings-group__setting" data-visibility="blame.line.enabled &amp;&amp; blame.line.annotationType =trailing">
-                                    <input id="blame.line.enabled" name="blame.line.enabled" type="checkbox"></input>
-                                    <label for="blame.line.enabled">Show a Git blame annotation at the end of the current line</label>
-                                </div>
-                                <div class="settings-group__setting" data-visibility="blame.line.enabled &amp;&amp; blame.line.annotationType =hover">
-                                    <input id="!blame.line.annotationType" name="!blame.line.annotationType" type="checkbox" data-add-settings-on="blame.line.annotationType=trailing"></input>
-                                    <label for="!blame.line.annotationType">Show a Git blame annotation at the end of the current line</label>
-                                </div>
-                                <!--
                                 <div class="settings-group__setting">
-                                     <select id="blame.line.annotationType" name="blame.line.annotationType" data-enablement="blame.line.enabled" disabled>
-                                    <option value="trailing">at the end of the line</option>
-                                    <option value="hover">on hover</option>
-                                    </select>
+                                    <input id="currentLine.enabled" name="currentLine.enabled" type="checkbox" data-add-settings-off="hovers.currentLine.over=line"></input>
+                                    <label for="currentLine.enabled">Show a Git blame annotation at the end of the current line</label>
                                 </div>
-                                -->
                             </div>
                             <div class="section__preview">
-                                <img class="image__preview hidden" src="{{root}}/images/settings-current-line-blame.png" data-visibility="blame.line.enabled"></img>
-                                <img class="image__preview hidden" src="{{root}}/images/settings-current-line-blame-off.png" data-visibility="blame.line.enabled =false"></img>
+                                <img class="image__preview hidden" src="{{root}}/images/settings-current-line-blame.png" data-visibility="currentLine.enabled"></img>
+                                <img class="image__preview hidden" src="{{root}}/images/settings-current-line-blame-off.png" data-visibility="currentLine.enabled =false"></img>
                             </div>
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
-                                Use the <a class="command" title="Run Command" href="command:gitlens.toggleLineBlame" class="command">GitLens: Toggle Line Blame Annotations</a> command to override this setting for the current window
+                                Use the
+                                <a class="command" title="Run Command" href="command:gitlens.toggleLineBlame" class="command">GitLens: Toggle Line Blame Annotations</a> command to override this setting for the current
+                                window
                             </p>
                         </div>
                     </section>
@@ -198,44 +183,50 @@
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting">
-                                    <div class="settings-group__setting hidden" data-visibility="blame.line.enabled &amp;&amp; blame.line.annotationType =trailing">
-                                        <input id="annotations.line.trailing.hover.details" name="annotations.line.trailing.hover.details" type="checkbox"></input>
-                                        <label for="annotations.line.trailing.hover.details">Show Git blame details on hover over the </label>
-                                        <!-- <div class="settings-group__setting"> -->
-                                            <select id="annotations.line.trailing.hover.wholeLine" name="annotations.line.trailing.hover.wholeLine" data-enablement="annotations.line.trailing.hover.details"
-                                            disabled>
-                                                <option value="false">blame annotation at end of the line</option>
-                                                <option value="true">whole line</option>
-                                            </select>
-                                        <!-- </div> -->
-                                        <label for="annotations.line.trailing.hover.details">current line</label>
-                                    </div>
-                                    <div class="settings-group__setting hidden" data-visibility="blame.line.enabled &amp;&amp; blame.line.annotationType =hover">
-                                        <input id="annotations.line.hover.details" name="annotations.line.hover.details" type="checkbox"></input>
-                                        <label for="annotations.line.hover.details">Show Git blame details on hover over the current line</label>
-                                    </div>
-                                    <div class="settings-group__setting hidden" data-visibility="blame.line.enabled =false">
-                                        <input id="annotations.line.hover.details" name="annotations.line.hover.details" type="checkbox" data-add-settings-on="blame.line.enabled=true,blame.line.annotationType=hover"></input>
-                                        <label for="annotations.line.hover.details">Show Git blame details on hover over the current line</label>
+                                    <div class="settings-group__setting">
+                                        <input id="hovers.enabled" name="hovers.enabled" type="checkbox"></input>
+                                        <label for="hovers.enabled">Show Git hovers</label>
                                     </div>
 
-                                    <!--
-                                    annotations.file.gutter.hover.details
-                                    annotations.file.gutter.hover.changes
-                                    annotations.file.hover.details
-                                    annotations.file.hover.changes
+                                    <div class="settings-group__setting settings-group__setting--nested hidden" data-visibility="currentLine.enabled" data-enablement="hovers.enabled" disabled>
+                                        <input id="hovers.currentLine.enabled" name="hovers.currentLine.enabled" type="checkbox"></input>
+                                        <label for="hovers.currentLine.enabled">Show hovers for the current line over the </label>
+                                        <select id="hovers.currentLine.over" name="hovers.currentLine.over" data-enablement="hovers.enabled &amp;&amp; hovers.currentLine.enabled" disabled>
+                                            <option value="annotation">annotation only</option>
+                                            <option value="line">whole line</option>
+                                        </select>
+                                    </div>
+                                    <div class="settings-group__setting settings-group__setting--nested hidden" data-visibility="currentLine.enabled =false" data-enablement="hovers.enabled" disabled>
+                                        <input id="hovers.currentLine.enabled-1" name="hovers.currentLine.enabled" type="checkbox" data-add-settings-on="hovers.currentLine.over=line"></input>
+                                        <label for="hovers.currentLine.enabled-1">Show hovers over the current line</label>
+                                    </div>
 
-                                    annotations.line.trailing.hover.details
-                                    annotations.line.trailing.hover.changes
-                                    annotations.line.trailing.hover.wholeLine
+                                    <div class="settings-group__setting settings-group__setting--nested2" data-enablement="hovers.enabled &amp;&amp; hovers.currentLine.enabled" disabled>
+                                        <input id="hovers.currentLine.details" name="hovers.currentLine.details" type="checkbox"></input>
+                                        <label for="hovers.currentLine.details">Show Git blame details</label>
+                                    </div>
+                                    <div class="settings-group__setting settings-group__setting--nested2" data-enablement="hovers.enabled &amp;&amp; hovers.currentLine.enabled" disabled>
+                                        <input id="hovers.currentLine.changes" name="hovers.currentLine.changes" type="checkbox"></input>
+                                        <label for="hovers.currentLine.changes">Show Git changes (diff)</label>
+                                    </div>
 
-                                    annotations.line.hover.details
-                                    annotations.line.hover.changes
+                                    <div class="settings-group__setting settings-group__setting--nested" data-enablement="hovers.enabled" disabled>
+                                        <input id="hovers.annotations.enabled" name="hovers.annotations.enabled" type="checkbox"></input>
+                                        <label for="hovers.annotations.enabled">When annotating, show hovers over the </label>
+                                        <select id="hovers.annotations.over" name="hovers.annotations.over" data-enablement="hovers.enabled" disabled>
+                                            <option value="annotation">annotations only</option>
+                                            <option value="line">whole line</option>
+                                        </select>
+                                    </div>
 
-                                    annotations.file.gutter.hover.wholeLine
-                                    -->
-                                    <!-- <input id="blame.line.enabled" name="blame.line.enabled" type="checkbox"></input>
-                            <label for="blame.line.enabled">Show a Git blame annotation at the end of the current line</label> -->
+                                    <div class="settings-group__setting settings-group__setting--nested2" data-enablement="hovers.enabled &amp;&amp; hovers.annotations.enabled" disabled>
+                                        <input id="hovers.annotations.details" name="hovers.annotations.details" type="checkbox"></input>
+                                        <label for="hovers.annotations.details">Show Git blame details</label>
+                                    </div>
+                                    <div class="settings-group__setting settings-group__setting--nested2" data-enablement="hovers.enabled &amp;&amp; hovers.annotations.enabled" disabled>
+                                        <input id="hovers.annotations.changes" name="hovers.annotations.changes" type="checkbox"></input>
+                                        <label for="hovers.annotations.changes">Show Git changes (diff)</label>
+                                    </div>
                                 </div>
                             </div>
                             <div class="section__preview">
@@ -288,7 +279,9 @@
                             </div>
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
-                                Use the <a class="command" title="Run Command" href="command:gitlens.toggleLineBlame" class="command">GitLens: Toggle Line Blame Annotations</a> command to override this setting for the current window
+                                Use the
+                                <a class="command" title="Run Command" href="command:gitlens.toggleLineBlame" class="command">GitLens: Toggle Line Blame Annotations</a> command to override this setting for the current
+                                window
                             </p>
                         </div>
                     </section>
@@ -349,6 +342,60 @@
                             </li>
                             <li>
                                 <a href="#shortcuts">Keyboard Shortcuts</a>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="sidebar-group">
+                        <h2>Show Your Support</h2>
+                        <ul>
+                            <li>
+                                <a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details">Write a Review</a>
+                            </li>
+                            <li>
+                                <a href="https://github.com/eamodio/vscode-gitlens">Star or Fork me on GitHub</a>
+                            </li>
+                            <li>
+                                <a href="https://twitter.com/eamodio">Follow me on Twitter</a>
+                            </li>
+                            <!-- <li><a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details">Become a Patron</a></li> -->
+                            <li>
+                                <a href="http://amod.io">Hire me</a>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="sidebar-group">
+                        <h2>Help</h2>
+                        <ul>
+                            <li>
+                                <a href="https://github.com/eamodio/vscode-gitlens/blob/master/README.md">Documentation</a>
+                            </li>
+                            <li>
+                                <a href="https://github.com/eamodio/vscode-gitlens/issues">Questions &amp; Issues</a>
+                            </li>
+                            <li>
+                                <a href="https://join.slack.com/t/vscode-dev-community/shared_invite/enQtMjIxOTgxNDE3NzM0LWU5M2ZiZDU1YjBlMzdlZjA2YjBjYzRhYTM5NTgzMTAxMjdiNWU0ZmQzYWI3MWU5N2Q1YjBiYmQ4MzY0NDE1MzY">Slack</a>
+                                <small> &nbsp;&nbsp;&mdash;&nbsp; #gitlens channel</small>
+                            </li>
+                            <li>
+                                <a href="https://twitter.com/eamodio">Twitter</a>
+                                <small> &nbsp;&nbsp;&mdash;&nbsp; #gitlens hashtag</small>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="sidebar-group">
+                        <h2>Resources</h2>
+                        <ul>
+                            <li>
+                                <a href="https://marketplace.visualstudio.com/items/eamodio.gitlens/changelog">Changelog</a>
+                            </li>
+                            <li>
+                                <a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens">Marketplace</a>
+                            </li>
+                            <li>
+                                <a href="https://github.com/eamodio/vscode-gitlens">GitHub</a>
+                            </li>
+                            <li>
+                                <a href="https://marketplace.visualstudio.com/items/eamodio.gitlens/license">License</a>
                             </li>
                         </ul>
                     </div>
