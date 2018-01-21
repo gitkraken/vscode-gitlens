@@ -1,6 +1,6 @@
 'use strict';
 import { Iterables } from '../system';
-import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { Container } from '../container';
 import { DiffWithCommandArgs } from './diffWith';
@@ -11,7 +11,6 @@ import { Messages } from '../messages';
 
 export interface DiffWithPreviousCommandArgs {
     commit?: GitCommit;
-    range?: Range;
 
     line?: number;
     showOptions?: TextDocumentShowOptions;
@@ -32,7 +31,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
             args.line = editor === undefined ? 0 : editor.selection.active.line;
         }
 
-        if (args.commit === undefined || !args.commit.isFile || args.range !== undefined) {
+        if (args.commit === undefined || !args.commit.isFile) {
             const gitUri = await GitUri.fromUri(uri);
 
             try {
@@ -46,7 +45,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                     isStagedUncommitted = true;
                 }
 
-                const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: 2, range: args.range!, ref: sha, skipMerges: true });
+                const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: 2, ref: sha, skipMerges: true });
                 if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
 
                 args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());

@@ -355,8 +355,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
             arguments: [
                 Uri.file(lens.uri!.fsPath),
                 {
-                    commit: commit,
-                    range: lens.isFullRange ? undefined : lens.blameRange
+                    commit: commit
                 } as DiffWithPreviousCommandArgs
             ]
         };
