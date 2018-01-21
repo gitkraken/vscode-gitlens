@@ -94,7 +94,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                 }
 
                 if (args.fileLog === undefined) {
-                    args.commit = await Container.git.getLogCommit(args.commit === undefined ? gitUri.repoPath : args.commit.repoPath, gitUri.fsPath, args.sha, { previous: true });
+                    args.commit = await Container.git.getLogCommitForFile(args.commit === undefined ? gitUri.repoPath : args.commit.repoPath, gitUri.fsPath, { ref: args.sha });
                     if (args.commit === undefined) return Messages.showCommitNotFoundWarningMessage(`Unable to show commit file details`);
                 }
             }

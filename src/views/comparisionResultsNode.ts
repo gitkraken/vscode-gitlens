@@ -22,7 +22,7 @@ export class ComparisionResultsNode extends ExplorerNode {
     async getChildren(): Promise<ExplorerNode[]> {
         this.resetChildren();
 
-        const commitsQueryFn = (maxCount: number | undefined) => Container.git.getLogForRepo(this.uri.repoPath!, { maxCount: maxCount, ref: `${this.ref1}...${this.ref2 || 'HEAD'}` });
+        const commitsQueryFn = (maxCount: number | undefined) => Container.git.getLog(this.uri.repoPath!, { maxCount: maxCount, ref: `${this.ref1}...${this.ref2 || 'HEAD'}` });
         const commitsLabelFn = (log: GitLog | undefined) => {
             const count = log !== undefined ? log.count : 0;
             const truncated = log !== undefined ? log.truncated : false;

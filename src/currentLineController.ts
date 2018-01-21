@@ -257,7 +257,7 @@ export class CurrentLineController extends Disposable {
         // Get the full commit message -- since blame only returns the summary
         let logCommit = this._lineTracker.state !== undefined ? this._lineTracker.state.logCommit : undefined;
         if (logCommit === undefined && !commit.isUncommitted) {
-            logCommit = await Container.git.getLogCommit(commit.repoPath, commit.uri.fsPath, commit.sha);
+            logCommit = await Container.git.getLogCommitForFile(commit.repoPath, commit.uri.fsPath, { ref: commit.sha });
             if (logCommit !== undefined) {
                 // Preserve the previous commit from the blame commit
                 logCommit.previousSha = commit.previousSha;

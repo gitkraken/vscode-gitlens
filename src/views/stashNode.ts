@@ -23,7 +23,7 @@ export class StashNode extends ExplorerRefNode {
         const statuses = (this.commit as GitStashCommit).fileStatuses;
 
         // Check for any untracked files -- since git doesn't return them via `git stash list` :(
-        const log = await Container.git.getLogForRepo(this.commit.repoPath, { maxCount: 1, ref: `${(this.commit as GitStashCommit).stashName}^3` });
+        const log = await Container.git.getLog(this.commit.repoPath, { maxCount: 1, ref: `${(this.commit as GitStashCommit).stashName}^3` });
         if (log !== undefined) {
             const commit = Iterables.first(log.commits.values());
             if (commit !== undefined && commit.fileStatuses.length !== 0) {

@@ -39,7 +39,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 const repoPath = await Container.git.getActiveRepoPath(editor);
                 if (!repoPath) return undefined;
 
-                const log = await Container.git.getLogForRepo(repoPath, { maxCount: 1 });
+                const log = await Container.git.getLog(repoPath, { maxCount: 1 });
                 if (!log) return undefined;
 
                 args.message = Iterables.first(log.commits.values()).message;
@@ -74,7 +74,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 }
 
                 // Get the full commit message -- since blame only returns the summary
-                const commit = await Container.git.getLogCommit(gitUri.repoPath, gitUri.fsPath, args.sha);
+                const commit = await Container.git.getLogCommit(gitUri.repoPath!, args.sha);
                 if (commit === undefined) return undefined;
 
                 args.message = commit.message;

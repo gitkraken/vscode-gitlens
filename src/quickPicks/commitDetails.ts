@@ -241,7 +241,7 @@ export class CommitDetailsQuickPick {
 
                     // If we can't find the commit or the previous commit isn't available (since it isn't trustworthy)
                     if (c === undefined || c.previousSha === undefined) {
-                        log = await Container.git.getLogForRepo(commit.repoPath, { maxCount: Container.config.advanced.maxListItems, ref: commit.sha });
+                        log = await Container.git.getLog(commit.repoPath, { maxCount: Container.config.advanced.maxListItems, ref: commit.sha });
                         c = log && log.commits.get(commit.sha);
 
                         if (c) {
@@ -272,7 +272,7 @@ export class CommitDetailsQuickPick {
                         c = undefined;
 
                         // Try to find the next commit
-                        const nextLog = await Container.git.getLogForRepo(commit.repoPath, { maxCount: 1, reverse: true, ref: commit.sha });
+                        const nextLog = await Container.git.getLog(commit.repoPath, { maxCount: 1, reverse: true, ref: commit.sha });
                         const next = nextLog && Iterables.first(nextLog.commits.values());
                         if (next !== undefined && next.sha !== commit.sha) {
                             c = commit;

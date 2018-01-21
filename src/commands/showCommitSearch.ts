@@ -114,7 +114,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
 
         const progressCancellation = CommitsQuickPick.showProgress(searchLabel!);
         try {
-            const log = await Container.git.getLogForRepoSearch(repoPath, args.search, args.searchBy, { maxCount: args.maxCount });
+            const log = await Container.git.getLogForSearch(repoPath, args.search, args.searchBy, { maxCount: args.maxCount });
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 

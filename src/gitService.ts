@@ -337,14 +337,14 @@ export class GitService extends Disposable {
     private async findNextFileNameCore(repoPath: string, fileName: string, sha?: string): Promise<string | undefined> {
         if (sha === undefined) {
             // Get the most recent commit for this file name
-            const c = await this.getLogCommit(repoPath, fileName);
+            const c = await this.getRecentLogCommitForFile(repoPath, fileName);
             if (c === undefined) return undefined;
 
             sha = c.sha;
         }
 
         // Get the full commit (so we can see if there are any matching renames in the file statuses)
-        const log = await this.getLogForRepo(repoPath, { maxCount: 1, ref: sha });
+        const log = await this.getLog(repoPath, { maxCount: 1, ref: sha });
         if (log === undefined) return undefined;
 
         const c = Iterables.first(log.commits.values());
@@ -819,37 +819,38 @@ export class GitService extends Disposable {
         }
     }
 
-    async getLogCommit(repoPath: string | undefined, fileName: string, options?: { firstIfMissing?: boolean, previous?: boolean }): Promise<GitLogCommit | undefined>;
-    async getLogCommit(repoPath: string | undefined, fileName: string, sha: string | undefined, options?: { firstIfMissing?: boolean, previous?: boolean }): Promise<GitLogCommit | undefined>;
-    async getLogCommit(repoPath: string | undefined, fileName: string, shaOrOptions?: string | undefined | { firstIfMissing?: boolean, previous?: boolean }, options?: { firstIfMissing?: boolean, previous?: boolean }): Promise<GitLogCommit | undefined> {
-        let sha: string | undefined = undefined;
-        if (typeof shaOrOptions === 'string') {
-            sha = shaOrOptions;
-        }
-        else if (options === undefined) {
-            options = shaOrOptions;
-        }
+    async getRecentLogCommitForFile(repoPath: string | undefined, fileName: string): Promise<GitLogCommit | undefined> {
+        return this.getLogCommitForFile(repoPath, fileName, undefined);
+    }
 
-        options = options || {};
+    async getLogCommit(repoPath: string, ref: string): Promise<GitLogCommit | undefined> {
+        Logger.log(`getLogCommit('${repoPath}', '${ref}'`);
 
-        Logger.log(`getLogCommit('${repoPath}', '${fileName}', '${sha}', ${options.firstIfMissing}, ${options.previous})`);
-
-        const log = await this.getLogForFile(repoPath, fileName, { maxCount: options.previous ? 2 : 1, ref: sha });
+        const log = await this.getLog(repoPath, { maxCount: 2, ref: ref });
         if (log === undefined) return undefined;
 
-        const commit = sha && log.commits.get(sha);
-        if (commit === undefined && sha && !options.firstIfMissing) {
-            // If the sha isn't resolved we will never find it, so don't kick out
-            if (!Git.isResolveRequired(sha)) return undefined;
+        return log.commits.get(ref);
+    }
+
+    async getLogCommitForFile(repoPath: string | undefined, fileName: string, options: { ref?: string, firstIfNotFound?: boolean } = {}): Promise<GitLogCommit | undefined> {
+        Logger.log(`getFileLogCommit('${repoPath}', '${fileName}', '${options.ref}', ${options.firstIfNotFound})`);
+
+        const log = await this.getLogForFile(repoPath, fileName, { maxCount: 2, ref: options.ref });
+        if (log === undefined) return undefined;
+
+        const commit = options.ref && log.commits.get(options.ref);
+        if (commit === undefined && !options.firstIfNotFound && options.ref) {
+            // If the sha isn't resolved we will never find it, so let it fall through so we return the first
+            if (!Git.isResolveRequired(options.ref)) return undefined;
         }
 
         return commit || Iterables.first(log.commits.values());
     }
 
-    async getLogForRepo(repoPath: string, options: { maxCount?: number, ref?: string, reverse?: boolean } = {}): Promise<GitLog | undefined> {
+    async getLog(repoPath: string, options: { maxCount?: number, ref?: string, reverse?: boolean } = {}): Promise<GitLog | undefined> {
         options = { reverse: false, ...options };
 
-        Logger.log(`getLogForRepo('${repoPath}', '${options.ref}', ${options.maxCount}, ${options.reverse})`);
+        Logger.log(`getLog('${repoPath}', '${options.ref}', ${options.maxCount}, ${options.reverse})`);
 
         const maxCount = options.maxCount == null
             ? Container.config.advanced.maxListItems || 0
@@ -861,7 +862,7 @@ export class GitService extends Disposable {
 
             if (log !== undefined) {
                 const opts = { ...options };
-                log.query = (maxCount: number | undefined) => this.getLogForRepo(repoPath, { ...opts, maxCount: maxCount });
+                log.query = (maxCount: number | undefined) => this.getLog(repoPath, { ...opts, maxCount: maxCount });
             }
 
             return log;
@@ -871,8 +872,8 @@ export class GitService extends Disposable {
         }
     }
 
-    async getLogForRepoSearch(repoPath: string, search: string, searchBy: GitRepoSearchBy, options: { maxCount?: number } = {}): Promise<GitLog | undefined> {
-        Logger.log(`getLogForRepoSearch('${repoPath}', '${search}', '${searchBy}', ${options.maxCount})`);
+    async getLogForSearch(repoPath: string, search: string, searchBy: GitRepoSearchBy, options: { maxCount?: number } = {}): Promise<GitLog | undefined> {
+        Logger.log(`getLogForSearch('${repoPath}', '${search}', '${searchBy}', ${options.maxCount})`);
 
         let maxCount = options.maxCount == null
             ? Container.config.advanced.maxListItems || 0
@@ -907,7 +908,7 @@ export class GitService extends Disposable {
 
             if (log !== undefined) {
                 const opts = { ...options };
-                log.query = (maxCount: number | undefined) => this.getLogForRepoSearch(repoPath, search, searchBy, { ...opts, maxCount: maxCount });
+                log.query = (maxCount: number | undefined) => this.getLogForSearch(repoPath, search, searchBy, { ...opts, maxCount: maxCount });
             }
 
             return log;
@@ -918,6 +919,8 @@ export class GitService extends Disposable {
     }
 
     async getLogForFile(repoPath: string | undefined, fileName: string, options: { maxCount?: number, range?: Range, ref?: string, reverse?: boolean, skipMerges?: boolean } = {}): Promise<GitLog | undefined> {
+        if (repoPath !== undefined && repoPath === Strings.normalizePath(fileName)) throw new Error(`File name cannot match the repository path; fileName=${fileName}`);
+
         options = { reverse: false, skipMerges: false, ...options };
 
         let key = 'log';

@@ -114,7 +114,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         // Get the full commit message -- since blame only returns the summary
         let logCommit: GitCommit | undefined = undefined;
         if (!commit.isUncommitted) {
-            logCommit = await Container.git.getLogCommit(commit.repoPath, commit.uri.fsPath, commit.sha);
+            logCommit = await Container.git.getLogCommitForFile(commit.repoPath, commit.uri.fsPath, { ref: commit.sha });
             if (logCommit !== undefined) {
                 // Preserve the previous commit from the blame commit
                 logCommit.previousFileName = commit.previousFileName;

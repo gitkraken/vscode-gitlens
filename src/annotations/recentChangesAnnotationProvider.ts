@@ -25,7 +25,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
     async onProvideAnnotation(shaOrLine?: string | number): Promise<boolean> {
         this.annotationType = FileAnnotationType.RecentChanges;
 
-        const commit = await Container.git.getLogCommit(this._uri.repoPath, this._uri.fsPath, { previous: true });
+        const commit = await Container.git.getRecentLogCommitForFile(this._uri.repoPath, this._uri.fsPath);
         if (commit === undefined) return false;
 
         const diff = await Container.git.getDiffForFile(this._uri, commit.previousSha);

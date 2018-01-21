@@ -60,7 +60,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
             }
 
             try {
-                args.commit = await Container.git.getLogCommit(gitUri.repoPath, gitUri.fsPath, gitUri.sha, { firstIfMissing: true });
+                args.commit = await Container.git.getLogCommitForFile(gitUri.repoPath, gitUri.fsPath, { ref: gitUri.sha, firstIfNotFound: true });
                 if (args.commit === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
             }
             catch (ex) {
