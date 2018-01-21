@@ -6,11 +6,11 @@ import { Git, GitAuthor, GitCommitType, GitLog, GitLogCommit, GitStatusFileStatu
 import * as path from 'path';
 
 interface LogEntry {
-    sha: string;
+    ref?: string;
 
-    author: string;
-    authorDate?: string;
-    authorEmail?: string;
+    author?: string;
+    date?: string;
+    email?: string;
 
     parentShas?: string[];
 
@@ -24,142 +24,105 @@ interface LogEntry {
 }
 
 const diffRegex = /diff --git a\/(.*) b\/(.*)/;
+const emptyEntry: LogEntry = {};
 
 export class GitLogParser {
 
     static parse(data: string, type: GitCommitType, repoPath: string | undefined, fileName: string | undefined, sha: string | undefined, maxCount: number | undefined, reverse: boolean, range: Range | undefined): GitLog | undefined {
         if (!data) return undefined;
 
-        const authors: Map<string, GitAuthor> = new Map();
-        const commits: Map<string, GitLogCommit> = new Map();
-
         let relativeFileName: string;
         let recentCommit: GitLogCommit | undefined = undefined;
+
+        let entry: LogEntry = emptyEntry;
+        let line: string | undefined = undefined;
+        let token: number;
+
+        let i = 0;
+        let first = true;
+
+        const lines = Strings.lines(data + '\n</f>');
+        // Skip the first line since it will always be </f>
+        let next = lines.next();
+        if (next.done) return undefined;
 
         if (repoPath !== undefined) {
             repoPath = Strings.normalizePath(repoPath);
         }
 
-        let entry: LogEntry | undefined = undefined;
-        let line: string | undefined = undefined;
-        let lineParts: string[];
-        let next: IteratorResult<string> | undefined = undefined;
+        const authors: Map<string, GitAuthor> = new Map();
+        const commits: Map<string, GitLogCommit> = new Map();
 
-        let i = 0;
-        let first = true;
-        let skip = false;
-
-        const lines = Strings.lines(data);
         while (true) {
-            if (!skip) {
-                next = lines.next();
-                if (next.done) break;
+            next = lines.next();
+            if (next.done) break;
 
-                line = next.value;
-            }
-            else {
-                skip = false;
-            }
+            line = next.value;
 
             // Since log --reverse doesn't properly honor a max count -- enforce it here
             if (reverse && maxCount && (i >= maxCount)) break;
 
-            lineParts = line!.split(' ');
-            if (lineParts.length < 2) continue;
+            // <<1-char token>> <data>
+            // e.g. <r> bd1452a2dc
+            token = line.charCodeAt(1);
 
-            if (entry === undefined) {
-                if (!Git.shaRegex.test(lineParts[0])) continue;
+            switch (token) {
+                case 114: // 'r': // ref
+                    entry = {
+                        ref: line.substring(4)
+                    };
+                    break;
 
-                entry = {
-                    sha: lineParts[0]
-                } as LogEntry;
-
-                continue;
-            }
-
-            switch (lineParts[0]) {
-                case 'author':
-                    entry.author = Git.isUncommitted(entry.sha)
+                case 97: // 'a': // author
+                    entry.author = Git.isUncommitted(entry.ref)
                         ? 'You'
-                        : lineParts.slice(1).join(' ').trim();
+                        : line.substring(4);
                     break;
 
-                case 'author-mail':
-                    entry.authorEmail = lineParts.slice(1).join(' ').trim();
+                case 101: // 'e': // author-mail
+                    entry.email = line.substring(4);
                     break;
 
-                case 'author-date':
-                    entry.authorDate = lineParts[1];
+                case 100: // 'd': // author-date
+                    entry.date = line.substring(4);
                     break;
 
-                case 'parents':
-                    entry.parentShas = lineParts.slice(1);
+                case 112: // 'p': // parents
+                    entry.parentShas = line.substring(4).split(' ');
                     break;
 
-                case 'summary':
-                    entry.summary = lineParts.slice(1).join(' ').trim();
+                case 115: // 's': // summary
                     while (true) {
                         next = lines.next();
                         if (next.done) break;
 
                         line = next.value;
-                        if (!line) break;
+                        if (line === '</s>') break;
 
-                        if (line === 'filename ?') {
-                            skip = true;
-                            break;
+                        if (entry.summary === undefined) {
+                            entry.summary = line;
                         }
-
-                        entry.summary += `\n${line}`;
+                        else {
+                            entry.summary += `\n${line}`;
+                        }
                     }
                     break;
 
-                case 'filename':
-                    if (type === GitCommitType.Branch) {
+                case 102: // 'f': // files
+                    // Skip the blank line git adds before the files
+                    next = lines.next();
+                    if (next.done || next.value === '</f>') break;
+
+                    while (true) {
                         next = lines.next();
                         if (next.done) break;
 
                         line = next.value;
+                        if (line === '</f>') break;
 
-                        // If the next line isn't blank, make sure it isn't starting a new commit or s git warning
-                        if (line && (Git.shaRegex.test(line) || line.startsWith('warning:'))) {
-                            skip = true;
-                            continue;
-                        }
+                        if (line.startsWith('warning:')) continue;
 
-                        let diff = false;
-                        while (true) {
-                            next = lines.next();
-                            if (next.done) break;
-
-                            line = next.value;
-                            lineParts = line.split(' ');
-
-                            // make sure the line isn't starting a new commit or s git warning
-                            if (Git.shaRegex.test(lineParts[0]) || line.startsWith('warning:')) {
-                                skip = true;
-                                break;
-                            }
-
-                            if (diff) continue;
-
-                            if (lineParts[0] === 'diff') {
-                                diff = true;
-                                const matches = diffRegex.exec(line);
-                                if (matches != null) {
-                                    entry.fileName = matches[1];
-                                    const originalFileName = matches[2];
-                                    if (entry.fileName !== originalFileName) {
-                                        entry.originalFileName = originalFileName;
-                                    }
-                                }
-                                continue;
-                            }
-
-                            if (entry.fileStatuses == null) {
-                                entry.fileStatuses = [];
-                            }
-
+                        if (type === GitCommitType.Branch) {
                             const status = {
                                 status: line[0] as GitStatusFileStatus,
                                 fileName: line.substring(1),
@@ -168,26 +131,39 @@ export class GitLogParser {
                             this.parseFileName(status);
 
                             if (status.fileName) {
+                                if (entry.fileStatuses === undefined) {
+                                    entry.fileStatuses = [];
+                                }
                                 entry.fileStatuses.push(status);
                             }
                         }
+                        else if (line.startsWith('diff')) {
+                            const matches = diffRegex.exec(line);
+                            if (matches != null) {
+                                entry.fileName = matches[1];
+                                const originalFileName = matches[2];
+                                if (entry.fileName !== originalFileName) {
+                                    entry.originalFileName = originalFileName;
+                                }
+                                entry.status = entry.fileName !== entry.originalFileName ? 'R' : 'M';
+                            }
 
-                        if (entry.fileStatuses) {
-                            entry.fileName = Arrays.filterMap(entry.fileStatuses,
-                                f => !!f.fileName ? f.fileName : undefined).join(', ');
+                            while (true) {
+                                next = lines.next();
+                                if (next.done || next.value === '</f>') break;
+                            }
+                            break;
                         }
-                    }
-                    else {
-                        lines.next();
-                        next = lines.next();
-
-                        line = next.value;
-
-                        if (line !== undefined && !line.startsWith('warning:')) {
+                        else {
                             entry.status = line[0] as GitStatusFileStatus;
                             entry.fileName = line.substring(1);
                             this.parseFileName(entry);
                         }
+                    }
+
+                    if (entry.fileStatuses !== undefined) {
+                        entry.fileName = Arrays.filterMap(entry.fileStatuses,
+                            f => !!f.fileName ? f.fileName : undefined).join(', ');
                     }
 
                     if (first && repoPath === undefined && type === GitCommitType.File && fileName !== undefined) {
@@ -200,18 +176,14 @@ export class GitLogParser {
                     }
                     first = false;
 
-                    const commit = commits.get(entry.sha);
+                    const commit = commits.get(entry.ref!);
                     if (commit === undefined) {
                         i++;
                     }
                     recentCommit = GitLogParser.parseEntry(entry, commit, type, repoPath, relativeFileName, commits, authors, recentCommit);
 
-                    entry = undefined;
                     break;
             }
-
-            if (next!.done) break;
-
         }
 
         return {
@@ -247,10 +219,10 @@ export class GitLogParser {
             commit = new GitLogCommit(
                 type,
                 repoPath!,
-                entry.sha,
-                entry.author,
-                entry.authorEmail,
-                new Date(entry.authorDate! as any * 1000),
+                entry.ref!,
+                entry.author!,
+                entry.email,
+                new Date(entry.date! as any * 1000),
                 entry.summary!,
                 relativeFileName,
                 entry.fileStatuses || [],
@@ -261,7 +233,7 @@ export class GitLogParser {
                 entry.parentShas!
             );
 
-            commits.set(entry.sha, commit);
+            commits.set(entry.ref!, commit);
         }
         // else {
         //     Logger.log(`merge commit? ${entry.sha}`);
@@ -282,7 +254,7 @@ export class GitLogParser {
         return commit;
     }
 
-    private static parseFileName(entry: { fileName?: string, originalFileName?: string }) {
+    static parseFileName(entry: { fileName?: string, originalFileName?: string }) {
         if (entry.fileName === undefined) return;
 
         const index = entry.fileName.indexOf('\t') + 1;

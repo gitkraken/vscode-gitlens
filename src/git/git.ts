@@ -23,8 +23,9 @@ export * from './remotes/provider';
 let git: IGit;
 
 const defaultBlameParams = ['blame', '--root', '--incremental'];
-const defaultLogParams = ['log', '--name-status', '--full-history', '-M', '--format=%H -%nauthor %an%nauthor-mail %ae%nauthor-date %at%nparents %P%nsummary %B%nfilename ?'];
-const defaultStashParams = ['stash', 'list', '--name-status', '--full-history', '-M', '--format=%H -%nauthor-date %at%nreflog-selector %gd%nsummary %B%nfilename ?'];
+// Using %x00 codes because some shells seem to try to expand things if not
+const defaultLogParams = ['log', '--name-status', '--full-history', '-M', '--format=%x3c%x2ff%x3e%n%x3cr%x3e %H%n%x3ca%x3e %an%n%x3ce%x3e %ae%n%x3cd%x3e %at%n%x3cp%x3e %P%n%x3cs%x3e%n%B%x3c%x2fs%x3e%n%x3cf%x3e'];
+const defaultStashParams = ['stash', 'list', '--name-status', '--full-history', '-M', '--format=%x3c%x2ff%x3e%n%x3cr%x3e %H%n%x3cd%x3e %at%n%x3cl%x3e %gd%n%x3cs%x3e%n%B%x3c%x2fs%x3e%n%x3cf%x3e'];
 
 const GitWarnings = [
     /Not a git repository/,
