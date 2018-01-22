@@ -4,15 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [7.5.6] - 2018-01-22
 ### Changed
 - Changes `chorded` keymap on Windows to use `Ctrl+Shift+G` rather than `Ctrl+Alt+G` to avoid [issues](https://blogs.msdn.microsoft.com/oldnewthing/20040329-00/?p=40003)
   - Also remaps `Show SCM` to `Ctrl+Shift+G G` since by default it is `Ctrl+Shift+G` if the `chorded` keymap is used
+- Refactors git log and stash output parsing -- should be faster and far more robust
 
 ### Fixed
+- Fixes [#256](https://github.com/eamodio/vscode-gitlens/issues/256) - Fails to copy commit message
+- Fixes [#255](https://github.com/eamodio/vscode-gitlens/issues/255) - Lines after an empty line in the commit message are not copied to clipboard
 - Fixes [#252](https://github.com/eamodio/vscode-gitlens/issues/252) - Cannot read property 'push' of undefined
 - Fixes issue where GitLens wouldn't detect the creation of a Git repository if there were no other repositories open
 - Fixes issue where some GitLens commands would show in the palette even though there was no repository
+- Fixes issue where navigating the history of a renamed file could cause errors
+- Fixes issue with using the `gitlens.diffWithPrevious` command option for Git code lens
 
 ## [7.5.5] - 2018-01-18
 ### Fixed
