@@ -199,7 +199,7 @@ export class AnnotationController extends Disposable {
 
     private onDirtyStateChanged(e: DocumentDirtyStateChangeEvent<GitDocumentState>) {
         for (const [key, p] of this._annotationProviders) {
-            if (p.document !== e.document.document) continue;
+            if (!e.document.is(p.document)) continue;
 
             this.clearCore(key, AnnotationClearReason.DocumentChanged);
         }

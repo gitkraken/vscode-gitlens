@@ -73,7 +73,7 @@ export class CodeLensController extends Disposable {
         if (this._provider === undefined || !e.document.isBlameable) return;
 
         const maxLines = configuration.get<number>(configuration.name('advanced')('blame')('sizeThresholdAfterEdit').value);
-        if (maxLines > 0 && e.document.document.lineCount > maxLines) return;
+        if (maxLines > 0 && e.document.lineCount > maxLines) return;
 
         Logger.log('Dirty idle triggered; resetting CodeLens provider');
         this._provider.reset('idle');

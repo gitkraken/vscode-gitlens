@@ -26,14 +26,14 @@ export class TrackedDocument<T> extends Disposable {
     private _uri: GitUri;
 
     constructor(
-        public readonly document: TextDocument,
+        private readonly _document: TextDocument,
         public readonly key: string,
         public dirty: boolean,
         private _eventDelegates: { onDidBlameStateChange: (e: DocumentBlameStateChangeEvent<T>) => void }
     ) {
         super(() => this.dispose());
 
-        this._repo = this.initialize(document.uri);
+        this._repo = this.initialize(_document.uri);
     }
 
     dispose() {
@@ -101,6 +101,10 @@ export class TrackedDocument<T> extends Disposable {
         return this._isTracked;
     }
 
+    get lineCount(): number {
+        return this._document.lineCount;
+    }
+
     get uri() {
         return this._uri;
     }
@@ -114,6 +118,10 @@ export class TrackedDocument<T> extends Disposable {
 
     async ensureInitialized() {
         await this._repo;
+    }
+
+    is(document: TextDocument) {
+        return document === this._document;
     }
 
     reset(reason: 'config' | 'dispose' | 'document' | 'repository') {

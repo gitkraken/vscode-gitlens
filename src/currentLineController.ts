@@ -204,7 +204,7 @@ export class CurrentLineController extends Disposable {
 
     private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
         const maxLines = configuration.get<number>(configuration.name('advanced')('blame')('sizeThresholdAfterEdit').value);
-        if (maxLines > 0 && e.document.document.lineCount > maxLines) return;
+        if (maxLines > 0 && e.document.lineCount > maxLines) return;
 
         this.resumeBlameAnnotations('dirty', window.activeTextEditor);
     }
