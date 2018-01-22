@@ -1181,7 +1181,7 @@ export class GitService extends Disposable {
 
         if (!options.skipTrackingCheck) {
             // Make sure the file is tracked in that repo, before returning
-            if (!await this.isTrackedCore(repo.path, path, options.ref)) return undefined;
+            if (!await this.isTracked(path, repo.path, options.ref)) return undefined;
         }
         return repo;
     }
