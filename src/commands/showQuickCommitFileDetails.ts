@@ -103,7 +103,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
 
             // Attempt to the most recent commit -- so that we can find the real working filename if there was a rename
             args.commit.workingFileName = workingFileName;
-            args.commit.workingFileName = await Container.git.findWorkingFileName(args.commit);
+            [args.commit.workingFileName] = await Container.git.findWorkingFileName(args.commit);
 
             const shortSha = GitService.shortenSha(args.sha!);
 

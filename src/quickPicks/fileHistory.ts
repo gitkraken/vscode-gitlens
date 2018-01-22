@@ -44,7 +44,7 @@ export class FileHistoryQuickPick {
                 items.splice(0, 0, options.showAllCommand);
             }
             else if (!options.pickerOnly) {
-                const workingFileName = await Container.git.findWorkingFileName(log.repoPath, path.relative(log.repoPath, uri.fsPath));
+                const [workingFileName] = await Container.git.findWorkingFileName(path.relative(log.repoPath, uri.fsPath), log.repoPath);
                 if (workingFileName) {
                     index++;
                     items.splice(0, 0, new CommandQuickPickItem({

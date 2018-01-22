@@ -334,17 +334,15 @@ export class GitService extends Disposable {
             : await this.findNextFileNameCore(repoPath, fileName, ref);
     }
 
-    private async findNextFileNameCore(repoPath: string, fileName: string, sha?: string): Promise<string | undefined> {
-        if (sha === undefined) {
+    private async findNextFileNameCore(repoPath: string, fileName: string, ref?: string): Promise<string | undefined> {
+        if (ref === undefined) {
             // Get the most recent commit for this file name
-            const c = await this.getRecentLogCommitForFile(repoPath, fileName);
-            if (c === undefined) return undefined;
-
-            sha = c.sha;
+            ref = await this.getRecentShaForFile(repoPath, fileName);
+            if (ref === undefined) return undefined;
         }
 
         // Get the full commit (so we can see if there are any matching renames in the file statuses)
-        const log = await this.getLog(repoPath, { maxCount: 1, ref: sha });
+        const log = await this.getLog(repoPath, { maxCount: 1, ref: ref });
         if (log === undefined) return undefined;
 
         const c = Iterables.first(log.commits.values());
@@ -354,28 +352,31 @@ export class GitService extends Disposable {
         return status.fileName;
     }
 
-    async findWorkingFileName(commit: GitCommit): Promise<string | undefined>;
-    async findWorkingFileName(repoPath: string | undefined, fileName: string): Promise<string | undefined>;
-    async findWorkingFileName(commitOrRepoPath: GitCommit | string | undefined, fileName?: string): Promise<string | undefined> {
-        let repoPath: string | undefined;
-        if (commitOrRepoPath === undefined || typeof commitOrRepoPath === 'string') {
-            repoPath = commitOrRepoPath;
-            if (fileName === undefined) throw new Error('Invalid fileName');
+    async findWorkingFileName(commit: GitCommit): Promise<[string | undefined, string | undefined]>;
+    async findWorkingFileName(fileName: string, repoPath?: string, ref?: string): Promise<[string | undefined, string | undefined]>;
+    async findWorkingFileName(commitOrFileName: GitCommit | string, repoPath?: string, ref?: string): Promise<[string | undefined, string | undefined]> {
+        let fileName;
+        if (typeof commitOrFileName === 'string') {
+            fileName = commitOrFileName;
+            if (repoPath === undefined) {
+                repoPath = await this.getRepoPath(fileName, { ref: ref });
+                [fileName, repoPath] = Git.splitPath(fileName, repoPath);
+            }
 
-            [fileName] = Git.splitPath(fileName, repoPath);
         }
         else {
-            const c = commitOrRepoPath;
+            const c = commitOrFileName;
             repoPath = c.repoPath;
-            if (c.workingFileName && await this.fileExists(repoPath, c.workingFileName)) return c.workingFileName;
+            if (c.workingFileName && await this.fileExists(repoPath, c.workingFileName)) return [c.workingFileName, repoPath];
             fileName = c.fileName;
         }
 
+        // Keep walking up to the most recent commit for a given filename, until it exists on disk
         while (true) {
-            if (await this.fileExists(repoPath!, fileName)) return fileName;
+            if (await this.fileExists(repoPath, fileName)) return [fileName, repoPath];
 
-            fileName = await this.findNextFileNameCore(repoPath!, fileName);
-            if (fileName === undefined) return undefined;
+            fileName = await this.findNextFileNameCore(repoPath, fileName);
+            if (fileName === undefined) return [undefined, undefined];
         }
     }
 
@@ -821,6 +822,10 @@ export class GitService extends Disposable {
 
     async getRecentLogCommitForFile(repoPath: string | undefined, fileName: string): Promise<GitLogCommit | undefined> {
         return this.getLogCommitForFile(repoPath, fileName, undefined);
+    }
+
+    async getRecentShaForFile(repoPath: string, fileName: string) {
+        return await Git.log_recent(repoPath, fileName);
     }
 
     async getLogCommit(repoPath: string, ref: string): Promise<GitLogCommit | undefined> {

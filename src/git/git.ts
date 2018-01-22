@@ -407,6 +407,16 @@ export class Git {
         return gitCommand({ cwd: root }, ...params);
     }
 
+    static async log_recent(repoPath: string, fileName: string) {
+        try {
+            const data = await gitCommandCore({ cwd: repoPath }, 'log', '--full-history', '-M', '-n1', '--format=%H', '--', fileName);
+            return data.trim();
+        }
+        catch {
+            return undefined;
+        }
+    }
+
     static async log_resolve(repoPath: string, fileName: string, ref: string) {
         try {
             const data = await gitCommandCore({ cwd: repoPath }, 'log', '--full-history', '-M', '-n1', '--format=%H', ref, '--', fileName);

@@ -69,7 +69,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
             }
         }
 
-        const workingFileName = await Container.git.findWorkingFileName(gitUri.repoPath, gitUri.fsPath);
+        const [workingFileName] = await Container.git.findWorkingFileName(gitUri.fsPath, gitUri.repoPath);
         if (workingFileName === undefined) return undefined;
 
         const diffArgs: DiffWithCommandArgs = {
