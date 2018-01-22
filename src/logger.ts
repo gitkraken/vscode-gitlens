@@ -77,4 +77,15 @@ export class Logger {
         const now = new Date();
         return `[${now.toISOString().replace(/T/, ' ').replace(/\..+/, '')}:${('00' + now.getUTCMilliseconds()).slice(-3)}]`;
     }
+
+    static gitOutput: OutputChannel | undefined;
+
+    static logGitCommand(command: string, cwd: string): void {
+        if (!this.debug) return;
+
+        if (this.gitOutput === undefined) {
+            this.gitOutput = window.createOutputChannel(`${ExtensionOutputChannelName} (Git)`);
+        }
+        this.gitOutput.appendLine(`${this.timestamp} ${command} (${cwd})`);
+    }
 }

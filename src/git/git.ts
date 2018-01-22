@@ -53,10 +53,6 @@ const pendingCommands: Map<string, Promise<string>> = new Map();
 async function gitCommandCore(options: CommandOptions & { readonly correlationKey?: string }, ...args: any[]): Promise<string> {
     const start = process.hrtime();
 
-    // Fixes https://github.com/eamodio/vscode-gitlens/issues/73 & https://github.com/eamodio/vscode-gitlens/issues/161
-    // See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
-    args.splice(0, 0, '-c', 'core.quotepath=false', '-c', 'color.ui=false');
-
     const { correlationKey, ...opts } = options;
 
     const encoding = options.encoding || 'utf8';
@@ -68,11 +64,16 @@ async function gitCommandCore(options: CommandOptions & { readonly correlationKe
         env: { ...(options.env || process.env), GCM_INTERACTIVE: 'NEVER', GCM_PRESERVE_CREDS: 'TRUE' }
     } as CommandOptions;
 
-    const command = `(${runOpts.cwd}${correlationKey !== undefined ? correlationKey : ''}): git ${args.join(' ')}`;
+    const gitCommand = `git ${args.join(' ')}`;
+    const command = `(${runOpts.cwd}${correlationKey !== undefined ? correlationKey : ''}): ${gitCommand}`;
 
     let promise = pendingCommands.get(command);
     if (promise === undefined) {
         Logger.log(`Running${command}`);
+        // Fixes https://github.com/eamodio/vscode-gitlens/issues/73 & https://github.com/eamodio/vscode-gitlens/issues/161
+        // See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
+        args.splice(0, 0, '-c', 'core.quotepath=false', '-c', 'color.ui=false');
+
         promise = runCommand(git.path, args, runOpts);
 
         pendingCommands.set(command, promise);
@@ -89,7 +90,10 @@ async function gitCommandCore(options: CommandOptions & { readonly correlationKe
         pendingCommands.delete(command);
 
         const duration = process.hrtime(start);
-        Logger.log(`Completed${command} in ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);
+        const completedIn = `in ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`;
+
+        Logger.log(`Completed${command} ${completedIn}`);
+        Logger.logGitCommand(`${gitCommand} ${completedIn}`, runOpts.cwd!);
     }
 
     if (encoding === 'utf8' || encoding === 'binary') return data;
