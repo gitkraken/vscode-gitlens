@@ -301,37 +301,37 @@ export class GitService extends Disposable {
         this._onDidChangeRepositories.fire();
     }
 
-    checkoutFile(uri: GitUri, sha?: string) {
-        sha = sha || uri.sha;
-        Logger.log(`checkoutFile('${uri.repoPath}', '${uri.fsPath}', '${sha}')`);
+    checkoutFile(uri: GitUri, ref?: string) {
+        ref = ref || uri.sha;
+        Logger.log(`checkoutFile('${uri.repoPath}', '${uri.fsPath}', '${ref}')`);
 
-        return Git.checkout(uri.repoPath!, uri.fsPath, sha!);
+        return Git.checkout(uri.repoPath!, uri.fsPath, ref!);
     }
 
     private async fileExists(repoPath: string, fileName: string): Promise<boolean> {
         return await new Promise<boolean>((resolve, reject) => fs.exists(path.resolve(repoPath, fileName), resolve));
     }
 
-    async findNextCommit(repoPath: string, fileName: string, sha?: string): Promise<GitLogCommit | undefined> {
-        let log = await this.getLogForFile(repoPath, fileName, { maxCount: 1, ref: sha, reverse: true });
+    async findNextCommit(repoPath: string, fileName: string, ref?: string): Promise<GitLogCommit | undefined> {
+        let log = await this.getLogForFile(repoPath, fileName, { maxCount: 1, ref: ref, reverse: true });
         let commit = log && Iterables.first(log.commits.values());
         if (commit) return commit;
 
-        const nextFileName = await this.findNextFileName(repoPath, fileName, sha);
+        const nextFileName = await this.findNextFileName(repoPath, fileName, ref);
         if (nextFileName) {
-            log = await this.getLogForFile(repoPath, nextFileName, { maxCount: 1, ref: sha, reverse: true });
+            log = await this.getLogForFile(repoPath, nextFileName, { maxCount: 1, ref: ref, reverse: true });
             commit = log && Iterables.first(log.commits.values());
         }
 
         return commit;
     }
 
-    async findNextFileName(repoPath: string | undefined, fileName: string, sha?: string): Promise<string | undefined> {
+    async findNextFileName(repoPath: string | undefined, fileName: string, ref?: string): Promise<string | undefined> {
         [fileName, repoPath] = Git.splitPath(fileName, repoPath);
 
         return (await this.fileExists(repoPath, fileName))
             ? fileName
-            : await this.findNextFileNameCore(repoPath, fileName, sha);
+            : await this.findNextFileNameCore(repoPath, fileName, ref);
     }
 
     private async findNextFileNameCore(repoPath: string, fileName: string, sha?: string): Promise<string | undefined> {
@@ -1301,17 +1301,17 @@ export class GitService extends Disposable {
         return tracked;
     }
 
-    private async isTrackedCore(repoPath: string, fileName: string, sha?: string) {
-        if (sha === GitService.deletedSha) return false;
+    private async isTrackedCore(repoPath: string, fileName: string, ref?: string) {
+        if (ref === GitService.deletedSha) return false;
 
         try {
             // Even if we have a sha, check first to see if the file exists (that way the cache will be better reused)
             let tracked = !!await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName);
-            if (!tracked && sha !== undefined) {
-                tracked = !!await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName, { ref: sha });
+            if (!tracked && ref !== undefined) {
+                tracked = !!await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName, { ref: ref });
                 // If we still haven't found this file, make sure it wasn't deleted in that sha (i.e. check the previous)
                 if (!tracked) {
-                    tracked = !!await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName, { ref: `${sha}^` });
+                    tracked = !!await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName, { ref: `${ref}^` });
                 }
             }
             return tracked;
