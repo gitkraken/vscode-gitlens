@@ -145,7 +145,7 @@ export class TrackedDocument<T> extends Disposable {
 
         this._blameFailed = true;
 
-        if (wasBlameable && isActiveDocument(this.document)) {
+        if (wasBlameable && isActiveDocument(this._document)) {
             this.update({ forceBlameChange: true});
         }
     }
@@ -168,7 +168,7 @@ export class TrackedDocument<T> extends Disposable {
 
         this._isDirtyIdle = false;
 
-        const active = getEditorIfActive(this.document);
+        const active = getEditorIfActive(this._document);
         const wasBlameable = options.forceBlameChange ? undefined : this.isBlameable;
 
         this._isTracked = await Container.git.isTracked(this._uri);

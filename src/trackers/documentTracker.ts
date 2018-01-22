@@ -1,6 +1,6 @@
 'use strict';
 import { Functions, IDeferrable } from './../system';
-import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, window, workspace } from 'vscode';
+import { ConfigurationChangeEvent, Disposable, EndOfLine, Event, EventEmitter, Position, Range, TextDocument, TextDocumentChangeEvent, TextEditor, TextLine, Uri, window, workspace } from 'vscode';
 import { configuration } from './../configuration';
 import { CommandContext, DocumentSchemes, isActiveDocument, isTextEditor, setCommandContext } from './../constants';
 import { GitUri } from '../gitService';
@@ -174,10 +174,9 @@ export class DocumentTracker<T> extends Disposable {
     //     }
     // }
 
-    async add(fileName: string): Promise<TrackedDocument<T>>;
     async add(document: TextDocument): Promise<TrackedDocument<T>>;
     async add(uri: Uri): Promise<TrackedDocument<T>>;
-    async add(documentOrId: string | TextDocument | Uri): Promise<TrackedDocument<T>> {
+    async add(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
         return this._add(documentOrId);
     }
 
@@ -196,10 +195,9 @@ export class DocumentTracker<T> extends Disposable {
         return await this._get(documentOrId);
     }
 
-    async getOrAdd(fileName: string): Promise<TrackedDocument<T>>;
     async getOrAdd(document: TextDocument): Promise<TrackedDocument<T>>;
     async getOrAdd(uri: Uri): Promise<TrackedDocument<T>>;
-    async getOrAdd(documentOrId: string | TextDocument | Uri): Promise<TrackedDocument<T>> {
+    async getOrAdd(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
         return await this._get(documentOrId) || await this._add(documentOrId);
     }
 
@@ -213,12 +211,22 @@ export class DocumentTracker<T> extends Disposable {
         return this._documentMap.has(key);
     }
 
-    private async _add(documentOrId: string | TextDocument | Uri): Promise<TrackedDocument<T>> {
-        if (typeof documentOrId === 'string') {
-            documentOrId = await workspace.openTextDocument(documentOrId);
-        }
-        else if (documentOrId instanceof GitUri) {
-            documentOrId = await workspace.openTextDocument(documentOrId.fileUri({ useVersionedPath: true }));
+    private async _add(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
+        if (documentOrId instanceof GitUri) {
+            try {
+                documentOrId = await workspace.openTextDocument(documentOrId.fileUri({ useVersionedPath: true }));
+            }
+            catch (ex) {
+                if (!ex.toString().includes('File not found')) throw ex;
+
+                // If we can't find the file, assume it is because the file has been renamed or deleted at some point
+                documentOrId = new MissingRevisionTextDocument(documentOrId);
+
+                // const [fileName, repoPath] = await Container.git.findWorkingFileName(documentOrId, undefined, ref);
+                // if (fileName === undefined) throw new Error(`Failed to add tracking for document: ${documentOrId}`);
+
+                // documentOrId = await workspace.openTextDocument(path.resolve(repoPath!, fileName));
+            }
         }
         else if (documentOrId instanceof Uri) {
             documentOrId = await workspace.openTextDocument(documentOrId);
@@ -301,5 +309,66 @@ export class DocumentTracker<T> extends Disposable {
         }
 
         this._dirtyStateChangedDebounced(e);
+    }
+}
+
+class MissingRevisionTextDocument implements TextDocument {
+
+    readonly eol: EndOfLine;
+    readonly fileName: string;
+    readonly isClosed: boolean;
+    readonly isDirty: boolean;
+    readonly isUntitled: boolean;
+    readonly languageId: string;
+    readonly lineCount: number;
+    readonly uri: Uri;
+    readonly version: number;
+
+    constructor(
+        public readonly gitUri: GitUri
+    ) {
+        this.uri = gitUri.fileUri({ useVersionedPath: true });
+
+        this.eol = EndOfLine.LF;
+        this.fileName = this.uri.fsPath;
+        this.isClosed = false;
+        this.isDirty = false;
+        this.isUntitled = false;
+        this.lineCount = 0;
+        this.version = 0;
+    }
+
+    getText(range?: Range | undefined): string {
+        throw new Error('Method not supported.');
+    }
+
+    getWordRangeAtPosition(position: Position, regex?: RegExp | undefined): Range | undefined {
+        throw new Error('Method not supported.');
+    }
+
+    lineAt(line: number): TextLine;
+    lineAt(position: Position): TextLine;
+    lineAt(position: any): TextLine {
+        throw new Error('Method not supported.');
+    }
+
+    offsetAt(position: Position): number {
+        throw new Error('Method not supported.');
+    }
+
+    positionAt(offset: number): Position {
+        throw new Error('Method not supported.');
+    }
+
+    save(): Thenable<boolean> {
+        throw new Error('Method not supported.');
+    }
+
+    validatePosition(position: Position): Position {
+        throw new Error('Method not supported.');
+    }
+
+    validateRange(range: Range): Range {
+        throw new Error('Method not supported.');
     }
 }

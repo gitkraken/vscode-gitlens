@@ -936,7 +936,7 @@ export class GitService extends Disposable {
             key += `:n${options.maxCount}`;
         }
 
-        const doc = await Container.tracker.getOrAdd(fileName);
+        const doc = await Container.tracker.getOrAdd(new GitUri(Uri.file(fileName), { repoPath: repoPath!, sha: options.ref }));
         if (this.UseCaching && options.range === undefined && !options.reverse) {
             if (doc.state !== undefined) {
                 const cachedLog = doc.state.get<CachedLog>(key);
@@ -1089,13 +1089,13 @@ export class GitService extends Disposable {
         }
     }
 
-    async getRepoPath(filePath: string): Promise<string | undefined>;
-    async getRepoPath(uri: Uri | undefined): Promise<string | undefined>;
-    async getRepoPath(filePathOrUri: string | Uri | undefined): Promise<string | undefined> {
+    async getRepoPath(filePath: string, options?: { ref?: string, skipTrackingCheck?: boolean }): Promise<string | undefined>;
+    async getRepoPath(uri: Uri | undefined, options?: { ref?: string, skipTrackingCheck?: boolean }): Promise<string | undefined>;
+    async getRepoPath(filePathOrUri: string | Uri | undefined, options: { ref?: string, skipTrackingCheck?: boolean } = {}): Promise<string | undefined> {
         if (filePathOrUri === undefined) return await this.getActiveRepoPath();
         if (filePathOrUri instanceof GitUri) return filePathOrUri.repoPath;
 
-        const repo = await this.getRepository(filePathOrUri);
+        const repo = await this.getRepository(filePathOrUri, options);
         if (repo !== undefined) return repo.path;
 
         const rp = await this.getRepoPathCore(typeof filePathOrUri === 'string' ? filePathOrUri : filePathOrUri.fsPath, false);
@@ -1149,10 +1149,10 @@ export class GitService extends Disposable {
         return this._repositoryTree;
     }
 
-    async getRepository(repoPath: string): Promise<Repository | undefined>;
-    async getRepository(uri: Uri): Promise<Repository | undefined>;
-    async getRepository(repoPathOrUri: string | Uri): Promise<Repository | undefined>;
-    async getRepository(repoPathOrUri: string | Uri): Promise<Repository | undefined> {
+    async getRepository(repoPath: string, options?: { ref?: string, skipTrackingCheck?: boolean }): Promise<Repository | undefined>;
+    async getRepository(uri: Uri, options?: { ref?: string, skipTrackingCheck?: boolean }): Promise<Repository | undefined>;
+    async getRepository(repoPathOrUri: string | Uri, options?: { ref?: string, skipTrackingCheck?: boolean }): Promise<Repository | undefined>;
+    async getRepository(repoPathOrUri: string | Uri, options: { ref?: string, skipTrackingCheck?: boolean } = {}): Promise<Repository | undefined> {
         const repositoryTree = await this.getRepositoryTree();
 
         let path: string;
@@ -1179,8 +1179,10 @@ export class GitService extends Disposable {
         const repo = repositoryTree.findSubstr(path);
         if (repo === undefined) return undefined;
 
-        // Make sure the file is tracked in that repo, before returning
-        if (!await this.isTrackedCore(repo.path, path)) return undefined;
+        if (!options.skipTrackingCheck) {
+            // Make sure the file is tracked in that repo, before returning
+            if (!await this.isTrackedCore(repo.path, path, options.ref)) return undefined;
+        }
         return repo;
     }
 
