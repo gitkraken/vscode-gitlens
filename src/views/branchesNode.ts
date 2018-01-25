@@ -1,11 +1,13 @@
 'use strict';
-import { Iterables } from '../system';
+import { Arrays, Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchNode } from './branchNode';
 import { Container } from '../container';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
 import { GitUri, Repository } from '../gitService';
+import { BranchFolderNode } from './branchFolderNode';
+import { ExplorerBranchesLayout } from '../configuration';
 
 export class BranchesNode extends ExplorerNode {
 
@@ -23,7 +25,23 @@ export class BranchesNode extends ExplorerNode {
             if (branches === undefined) return [];
 
             branches.sort((a, b) => (a.current ? -1 : 1) - (b.current ? -1 : 1) || a.name.localeCompare(b.name));
-            return [...Iterables.filterMap(branches, b => b.remote ? undefined : new BranchNode(b, this.uri, this.explorer))];
+
+            let children = [];
+            // filter local branches
+            const branchNodes = [...Iterables.filterMap(branches, b => b.remote ? undefined : new BranchNode(b, this.uri, this.explorer))];
+
+            if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) {
+                return branchNodes;
+            }
+
+            const hierarchy = Arrays.makeHierarchical(branchNodes,
+                n => !!n.branch.name.match(/\s/) ? [n.branch.name] : n.branch.name.split('/'),
+                (...paths: string[]) => paths.join('/'), this.explorer.config.files.compact);
+
+            const root = new BranchFolderNode(this.repo.path, '', undefined, hierarchy, this.explorer);
+            children = await root.getChildren() as (BranchFolderNode | BranchNode)[];
+
+            return children;
         }
 
         async getTreeItem(): Promise<TreeItem> {

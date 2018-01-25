@@ -40,6 +40,12 @@ export enum ExplorerFilesLayout {
     Tree = 'tree'
 }
 
+export enum ExplorerBranchesLayout {
+    List = 'list',
+    Tree = 'tree',
+    MixTree = 'mix-tree'
+}
+
 export enum FileAnnotationType {
     Blame = 'blame',
     Heatmap = 'heatmap',
@@ -174,6 +180,17 @@ export interface ICodeLensConfig {
 
 export interface IExplorersConfig {
     avatars: boolean;
+
+    branches: {
+        layout: ExplorerBranchesLayout;
+    };
+
+    files: {
+        layout: ExplorerFilesLayout;
+        compact: boolean;
+        threshold: number;
+    };
+
     commitFileFormat: string;
     commitFormat: string;
     // dateFormat: string | null;

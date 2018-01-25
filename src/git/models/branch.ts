@@ -10,6 +10,7 @@ export class GitBranch {
         ahead: number;
         behind: number;
     };
+    basename: string;
 
     constructor(
         public readonly repoPath: string,
@@ -29,6 +30,7 @@ export class GitBranch {
 
         this.current = current;
         this.name = branch;
+        this.basename = this.name.split('/').pop() || this.name;
         this.tracking = tracking === '' || tracking == null ? undefined : tracking;
         this.state = {
             ahead: ahead,
@@ -45,6 +47,10 @@ export class GitBranch {
         }
 
         return this._name;
+    }
+
+    getBasename(): string {
+        return this.basename;
     }
 
     getRemote(): string | undefined {

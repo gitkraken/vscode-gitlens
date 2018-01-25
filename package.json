@@ -397,6 +397,17 @@
                     "description": "Specifies whether or not to automatically refresh the `GitLens` explorer when the repository or the file system changes",
                     "scope": "window"
                 },
+                "gitlens.gitExplorer.branches.layout": {
+                    "type": "string",
+                    "default": "list",
+                    "enum": [
+                        "list",
+                        "tree",
+                        "mix-tree"
+                    ],
+                    "description": "Specifies how the `Branches` view will display branches\n `list` - display all branches \n`tree` - organize branch as folder if branch name contains slashes \"\/\"\n `mix-tree` - display branch folders along with normal branch alphabetically",
+                    "scope": "window"
+                },
                 "gitlens.gitExplorer.enabled": {
                     "type": "boolean",
                     "default": true,

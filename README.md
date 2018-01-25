@@ -491,6 +491,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |Name | Description
 |-----|------------
 |`gitlens.gitExplorer.autoRefresh`|Specifies whether or not to automatically refresh the **GitLens** view when the repository or the file system changes
+|`gitlens.gitExplorer.branches.layout`| Specifies how the **Branches** view will display branches<br />`list` - display all branches<br />`tree` - organize branch as folder if branch name contains slashes "/"<br />`mix-tree` - display branch folders along with normal branch alphabetically
 |`gitlens.gitExplorer.enabled`|Specifies whether or not to show the **GitLens** view"
 |`gitlens.gitExplorer.files.compact`|Specifies whether or not to compact (flatten) unnecessary file nesting in the **GitLens** view<br />Only applies when displaying files as a `tree` or `auto`
 |`gitlens.gitExplorer.files.layout`|Specifies how the **GitLens** view will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
