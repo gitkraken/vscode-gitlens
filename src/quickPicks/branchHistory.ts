@@ -70,18 +70,6 @@ export class BranchHistoryQuickPick {
                         } as ShowQuickBranchHistoryCommandArgs
                     ]));
             }
-            else {
-                items.splice(0, 0, new CommandQuickPickItem({
-                    label: `$(history) Show Branch History`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${GlyphChars.Space}$(git-branch) ${branch} history`
-                }, Commands.ShowQuickBranchHistory, [
-                        GitUri.fromRepoPath(log.repoPath),
-                        {
-                            branch,
-                            goBackCommand: currentCommand
-                        } as ShowQuickBranchHistoryCommandArgs
-                    ]));
-            }
 
             if (nextPageCommand) {
                 items.splice(0, 0, nextPageCommand);
