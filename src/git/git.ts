@@ -42,7 +42,7 @@ const logFormat = [
     `${lb}f${rb}`
 ].join('%n');
 
-const defaultLogParams = ['log', '--name-status', '--full-history', '-M', `--format=${logFormat}`];
+const defaultLogParams = ['log', '--name-status', '-M', `--format=${logFormat}`];
 
 const stashFormat = [
     `${lb}${sl}f${rb}`,
@@ -55,7 +55,7 @@ const stashFormat = [
     `${lb}f${rb}`
 ].join('%n');
 
-const defaultStashParams = ['stash', 'list', '--name-status', '--full-history', '-M', `--format=${stashFormat}`];
+const defaultStashParams = ['stash', 'list', '--name-status', '-M', `--format=${stashFormat}`];
 
 const GitWarnings = [
     /Not a git repository/,
@@ -389,7 +389,7 @@ export class Git {
     }
 
     static log(repoPath: string, options: { maxCount?: number, ref?: string, reverse?: boolean }) {
-        const params = [...defaultLogParams, '-m'];
+        const params = [...defaultLogParams, '--full-history', '-m'];
         if (options.maxCount && !options.reverse) {
             params.push(`-n${options.maxCount}`);
         }
@@ -412,16 +412,7 @@ export class Git {
             params.push(`-n${options.maxCount}`);
         }
 
-        if (options.skipMerges) {
-            params.push('--no-merges');
-        }
-        else {
-            params.push('-m');
-            // If we are looking for a specific sha don't simplify merges
-            if (!options.ref || options.maxCount! > 2) {
-                params.push('--simplify-merges');
-            }
-        }
+        params.push(options.skipMerges ? '--no-merges' : '-m');
 
         if (options.ref && !Git.isStagedUncommitted(options.ref)) {
             if (options.reverse) {
@@ -443,7 +434,7 @@ export class Git {
 
     static async log_recent(repoPath: string, fileName: string) {
         try {
-            const data = await gitCommandCore({ cwd: repoPath }, 'log', '--full-history', '-M', '-n1', '--format=%H', '--', fileName);
+            const data = await gitCommandCore({ cwd: repoPath }, 'log', '-M', '-n1', '--format=%H', '--', fileName);
             return data.trim();
         }
         catch {
@@ -453,7 +444,7 @@ export class Git {
 
     static async log_resolve(repoPath: string, fileName: string, ref: string) {
         try {
-            const data = await gitCommandCore({ cwd: repoPath }, 'log', '--full-history', '-M', '-n1', '--format=%H', ref, '--', fileName);
+            const data = await gitCommandCore({ cwd: repoPath }, 'log', '-M', '-n1', '--format=%H', ref, '--', fileName);
             return data.trim();
         }
         catch {

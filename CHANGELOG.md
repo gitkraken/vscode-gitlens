@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [Unreleased]
 ### Fixed
 - Fixes [#257](https://github.com/eamodio/vscode-gitlens/issues/257) - Some branches fail to show history
+- Fixes [#259](https://github.com/eamodio/vscode-gitlens/issues/259) - File history lists unrelated merge commits
 
 ## [7.5.6] - 2018-01-22
 ### Changed
