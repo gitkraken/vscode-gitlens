@@ -40,7 +40,6 @@ export class App {
         }
 
         this.setAdditionalSettings(element.checked ? element.dataset.addSettingsOn : element.dataset.addSettingsOff);
-        this.updateState(this._changes);
         this.applyChanges();
     }
 
@@ -51,7 +50,6 @@ export class App {
 
         this._changes[element.name] = ensureIfBoolean(value);
 
-        this.updateState(this._changes);
         this.applyChanges();
     }
 
@@ -75,28 +73,23 @@ export class App {
     private initializeState() {
         console.log('SettingsApp.initializeState');
 
-        const changes: { [key: string]: string | boolean } = Object.create(null);
-
         for (const el of document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
             const name = el.name;
 
             const checked = name.startsWith('!') ? false : getSettingValue<boolean>(name);
             el.checked = checked;
-
-            changes[name] = checked;
         }
 
         for (const el of document.querySelectorAll<HTMLSelectElement>('select')) {
             const name = el.name;
 
             const value = getSettingValue<string>(name);
-
             el.querySelector<HTMLOptionElement>(`option[value='${value}']`)!.selected = true;
-
-            changes[name] = value;
         }
 
-        this.updateState(changes);
+        const state = flatten(config);
+        this.setVisibility(state);
+        this.setEnablement(state);
     }
 
     private setAdditionalSettings(expression: string | undefined) {
@@ -108,44 +101,31 @@ export class App {
         }
     }
 
-    private updateState(changes: { [key: string]: string | boolean }) {
-        this.updateVisibility(changes);
-        this.updateEnablement(changes);
-    }
+    private setEnablement(state: { [key: string]: string | boolean }) {
+        for (const el of document.querySelectorAll<HTMLElement>('[data-enablement]')) {
+            // Since everything starts disabled, kick out if it still is
+            if (!evaluateStateExpression(el.dataset.enablement!, state)) continue;
 
-    private updateEnablement(changes: { [key: string]: string | boolean }) {
-        const selectors = Object.keys(changes).map(c => `[data-enablement~="${c}"]`).join(',');
-        for (const el of document.querySelectorAll<HTMLElement>(selectors)) {
-            const enabled = evaluateStateExpression(el.dataset.enablement!, changes);
-            if (enabled) {
-                el.removeAttribute('disabled');
-            }
-            else {
-                el.setAttribute('disabled', '');
-            }
+            el.removeAttribute('disabled');
 
             if (el.matches('input,select')) {
-                (el as HTMLInputElement | HTMLSelectElement).disabled = !enabled;
+                (el as HTMLInputElement | HTMLSelectElement).disabled = false;
             }
             else {
                 const input = el.querySelector<HTMLInputElement | HTMLSelectElement>('input,select');
                 if (input == null) continue;
 
-                input.disabled = !enabled;
+                input.disabled = false;
             }
         }
     }
 
-    private updateVisibility(changes: { [key: string]: string | boolean }) {
-        const selectors = Object.keys(changes).map(c => `[data-visibility~="${c}"]`).join(',');
-        for (const el of document.querySelectorAll<HTMLElement>(selectors)) {
-            const visible = evaluateStateExpression(el.dataset.visibility!, changes);
-            if (visible) {
-                el.classList.remove('hidden');
-            }
-            else {
-                el.classList.add('hidden');
-            }
+    private setVisibility(state: { [key: string]: string | boolean }) {
+        for (const el of document.querySelectorAll<HTMLElement>('[data-visibility]')) {
+            // Since everything starts hidden, kick out if it still is
+            if (!evaluateStateExpression(el.dataset.visibility!, state)) continue;
+
+            el.classList.remove('hidden');
         }
     }
 }
@@ -191,4 +171,22 @@ function parseAdditionalSettingsExpression(expression: string): [string, string 
 function parseStateExpression(expression: string): [string, string | boolean | undefined] {
     const [lhs, rhs] = expression.trim().split('=');
     return [lhs.trim(), rhs !== undefined ? rhs.trim() : rhs];
+}
+
+function flatten(o: { [key: string]: any }, path?: string): { [key: string]: any } {
+    const results: { [key: string]: any } = {};
+
+    for (const key in o) {
+        const value = o[key];
+        if (Array.isArray(value)) continue;
+
+        if (typeof value === 'object') {
+            Object.assign(results, flatten(value, path === undefined ? key : `${path}.${key}`));
+        }
+        else {
+            results[path === undefined ? key : `${path}.${key}`] = value;
+        }
+    }
+
+    return results;
 }

@@ -34,9 +34,7 @@ export class PageProvider extends Disposable implements TextDocumentContentProvi
     async provideTextDocumentContent(uri: Uri): Promise<string> {
         const doc = await workspace.openTextDocument(Uri.file(Container.context.asAbsolutePath(`${uri.path}.html`)));
 
-        let text = doc.getText()
-            .replace(/{{root}}/g, Uri.file(Container.context.asAbsolutePath('.')).toString());
-
+        let text = doc.getText().replace(/{{root}}/g, Uri.file(Container.context.asAbsolutePath('.')).toString());
         if (text.includes('\'{{config}}\'')) {
             text = text.replace(/'{{config}}'/g, JSON.stringify(Container.config));
         }

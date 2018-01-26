@@ -10,8 +10,8 @@
         "vscode": "^1.19.0"
     },
     "license": "SEE LICENSE IN LICENSE",
-    "displayName": "Git Lens \u2014 git blame annotations, code lens, and more",
-    "description": "Supercharge Visual Studio Code's Git capabilities \u2014 Visualize code authorship at a glance via Git blame annotations and code lens, seamlessly navigate and explore the history of a file or branch, gain valuable insights via powerful comparison commands, and so much more",
+    "displayName": "GitLens \u2014 git supercharged",
+    "description": "Supercharge Visual Studio Code's Git capabilities \u2014 Visualize code authorship at a glance via Git blame annotations and code lens, seamlessly navigate and explore Git repositories, gain valuable insights via powerful comparison commands, and so much more",
     "badges": [
         {
             "url": "https://img.shields.io/badge/vscode--dev--community-gitlens-blue.svg?logo=slack",
@@ -1073,7 +1073,7 @@
             }
         ],
         "commands": [
-           {
+            {
                 "command": "gitlens.showSettingsPage",
                 "title": "Open Settings",
                 "category": "GitLens"
@@ -3241,18 +3241,18 @@
         "*"
     ],
     "scripts": {
-        "build": "npm run lint && tsc -m commonjs -p ./ && npm run build-ui",
+        "build": "npm run lint && tsc -m commonjs -p ./ && npm run build-ui -- --env.quick",
         "build-ui": "webpack --context ./src/ui --config ./src/ui/webpack.config.js",
         "bundle": "npm run lint && webpack --env.production --context ./src/ui --config ./src/ui/webpack.config.js && webpack --env.production",
         "clean": "git clean -Xdf",
         "lint": "tslint --project tslint.json",
         "pack": "vsce package",
         "pub": "vsce publish",
-        "rebuild": "npm run reset && npm run build",
+        "rebuild": "npm run reset && npm run lint && tsc -m commonjs -p ./ && npm run build-ui",
         "reset": "npm run clean && npm install --no-save",
         "watch": "tsc -watch -p ./",
 
-        "postinstall": "node ./node_modules/vscode/bin/install",
+        "postinstall": "node ./node_modules/vscode/bin/install && pushd \"./src/ui\" && npm install --no-save && popd",
         "prepush": "npm run build",
         "vscode:prepublish": "npm run reset && npm run bundle"
     },

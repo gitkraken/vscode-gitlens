@@ -1,19 +1,23 @@
 'use strict';
 const webpack = require('webpack');
+const glob = require('glob');
 const path = require('path');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const HtmlWebpackInlineSourcePlugin = require('html-webpack-inline-source-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const UglifyJsPlugin = require('uglifyjs-webpack-plugin')
+const ImageminPlugin = require('imagemin-webpack-plugin').default;
+const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
 
 module.exports = function(env, argv) {
     if (env === undefined) {
         env = {};
     }
 
-    const minify = !!env.production;
-    const prefixCss = true;
-    const sourceMaps = !env.production;
+    const production = !!env.production;
+
+    const quick = !production && !!env.quick;
+    const minify = production;
+    const sourceMaps = !production;
 
     const plugins = [
         new webpack.optimize.ModuleConcatenationPlugin(),
@@ -26,7 +30,7 @@ module.exports = function(env, argv) {
             template: 'settings/index.html',
             filename: path.resolve(__dirname, '../..', 'settings.html'),
             inject: true,
-            inlineSource: env.production ? '.(js|css)$' : undefined,
+            inlineSource: production ? '.(js|css)$' : undefined,
             // inlineSource: '.(js|css)$',
             minify: minify
                 ? {
@@ -46,7 +50,7 @@ module.exports = function(env, argv) {
             template: 'welcome/index.html',
             filename: path.resolve(__dirname, '../..', 'welcome.html'),
             inject: true,
-            inlineSource: env.production ? '.(js|css)$' : undefined,
+            inlineSource: production ? '.(js|css)$' : undefined,
             // inlineSource: '.(js|css)$',
             minify: minify
                 ? {
@@ -73,10 +77,30 @@ module.exports = function(env, argv) {
                     comments: false,
                     ecma: 5
                 },
-                sourceMap: sourceMaps,
+                sourceMap: sourceMaps
             }
         })
     ];
+
+    if (!quick) {
+        plugins.push(
+            new ImageminPlugin({
+                disable: false,
+                externalImages: {
+                    sources: glob.sync(path.resolve(__dirname, 'images/settings/*.png')),
+                    destination: path.resolve(__dirname, '../..')
+                },
+                gifsicle: null,
+                jpegtran: null,
+                optipng: null,
+                pngquant: {
+                    quality: '85-100',
+                    speed: minify ? 1 : 10
+                },
+                svgo: null
+            })
+        );
+    }
 
     return {
         // This is ugly having main.scss on both bundles, but if it is added separately it will generate a js bundle :(

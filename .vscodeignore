@@ -1,7 +1,7 @@
 !images/dark/**
 !images/light/**
+!images/settings/**
 !images/gitlens-icon.png
-!images/settings-*.png
 images/**
 .vscode/**
 .vscode-test/**
