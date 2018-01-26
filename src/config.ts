@@ -172,7 +172,6 @@ export interface ICodeLensConfig {
     scopes: CodeLensScopes[];
     scopesByLanguage: CodeLensLanguageScope[];
     symbolScopes: string[];
-
 }
 
 export interface IExplorersConfig {

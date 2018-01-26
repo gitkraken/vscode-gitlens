@@ -6,7 +6,6 @@ import { CommandOptions, runCommand } from './shell';
 import * as fs from 'fs';
 import * as iconv from 'iconv-lite';
 import * as path from 'path';
-import * as tmp from 'tmp';
 
 export { IGit };
 export * from './models/models';
@@ -186,6 +185,8 @@ export class Git {
 
         const suffix = Strings.truncate(Strings.sanitizeForFileSystem(Git.isSha(ref) ? Git.shortenSha(ref) : ref), 50, '');
         const ext = path.extname(fileName);
+
+        const tmp = await import('tmp');
         return new Promise<string>((resolve, reject) => {
             tmp.file({ prefix: `${path.basename(fileName, ext)}-${suffix}__`, postfix: ext },
                 (err, destination, fd, cleanupCallback) => {
