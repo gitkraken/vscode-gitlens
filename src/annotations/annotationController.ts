@@ -1,7 +1,7 @@
 'use strict';
 import { Functions, Iterables } from '../system';
 import { ConfigurationChangeEvent, DecorationRangeBehavior, DecorationRenderOptions, Disposable, Event, EventEmitter, OverviewRulerLane, Progress, ProgressLocation, TextDocument, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, ThemeColor, window, workspace } from 'vscode';
-import { AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
+import { AnnotationProviderBase, AnnotationStatus, TextEditorCorrelationKey } from './annotationProvider';
 import { configuration, FileAnnotationType, IConfig, LineHighlightLocations } from '../configuration';
 import { CommandContext, isTextEditor, setCommandContext } from '../constants';
 import { Container } from '../container';
@@ -21,11 +21,6 @@ export enum AnnotationClearReason {
     Disposing = 'Disposing',
     DocumentChanged = 'DocumentChanged',
     DocumentClosed = 'DocumentClosed'
-}
-
-enum AnnotationStatus {
-    Computing = 'computing',
-    Computed = 'computed'
 }
 
 export const Decorations = {
@@ -49,6 +44,7 @@ export class AnnotationController extends Disposable {
     private _annotationsDisposable: Disposable | undefined;
     private _annotationProviders: Map<TextEditorCorrelationKey, AnnotationProviderBase> = new Map();
     private _disposable: Disposable;
+    private _editor: TextEditor | undefined;
     private _keyboardScope: KeyboardScope | undefined = undefined;
 
     constructor() {
@@ -174,6 +170,7 @@ export class AnnotationController extends Disposable {
     private onActiveTextEditorChanged(editor: TextEditor | undefined) {
         if (editor !== undefined && !isTextEditor(editor)) return;
 
+        this._editor = editor;
         // Logger.log('AnnotationController.onActiveTextEditorChanged', editor && editor.document.uri.fsPath);
 
         const provider = this.getProvider(editor);
@@ -182,7 +179,7 @@ export class AnnotationController extends Disposable {
             this.detachKeyboardHook();
         }
         else {
-            setCommandContext(CommandContext.AnnotationStatus, AnnotationStatus.Computed);
+            setCommandContext(CommandContext.AnnotationStatus, provider.status);
             this.attachKeyboardHook();
         }
     }
@@ -262,6 +259,7 @@ export class AnnotationController extends Disposable {
 
     async showAnnotations(editor: TextEditor | undefined, type: FileAnnotationType, shaOrLine?: string | number): Promise<boolean> {
         if (editor === undefined) return false; // || editor.viewColumn === undefined) return false;
+        this._editor = editor;
 
         const trackedDocument = await Container.tracker.getOrAdd(editor.document);
         if (!trackedDocument.isBlameable) return false;
@@ -272,19 +270,20 @@ export class AnnotationController extends Disposable {
             return true;
         }
 
-        return window.withProgress({ location: ProgressLocation.Window }, async (progress: Progress<{ message: string }>) => {
-            const active = editor === window.activeTextEditor;
-            await setCommandContext(CommandContext.AnnotationStatus, active ? AnnotationStatus.Computing : undefined);
+        const provider = await window.withProgress({ location: ProgressLocation.Window }, async (progress: Progress<{ message: string }>) => {
+            await setCommandContext(CommandContext.AnnotationStatus, AnnotationStatus.Computing);
 
             const computingAnnotations = this.showAnnotationsCore(currentProvider, editor, type, shaOrLine, progress);
-            const result = await computingAnnotations;
+            const provider = await computingAnnotations;
 
-            if (active) {
-                await setCommandContext(CommandContext.AnnotationStatus, result ? AnnotationStatus.Computed : undefined);
+            if (editor === this._editor) {
+                await setCommandContext(CommandContext.AnnotationStatus, provider && provider.status);
             }
 
             return computingAnnotations;
         });
+
+        return provider !== undefined;
     }
 
     async toggleAnnotations(editor: TextEditor | undefined, type: FileAnnotationType, shaOrLine?: string | number): Promise<boolean> {
@@ -310,7 +309,7 @@ export class AnnotationController extends Disposable {
             this._keyboardScope = await Container.keyboard.beginScope({
                 escape: {
                     onDidPressKey: async (key: Keys) => {
-                        const e = window.activeTextEditor;
+                        const e = this._editor;
                         if (e === undefined) return undefined;
 
                         await this.clear(e, AnnotationClearReason.User);
@@ -330,7 +329,7 @@ export class AnnotationController extends Disposable {
         this._annotationProviders.delete(key);
         await provider.dispose();
 
-        if (key === AnnotationProviderBase.getCorrelationKey(window.activeTextEditor)) {
+        if (this._annotationProviders.size === 0 || key === AnnotationProviderBase.getCorrelationKey(this._editor)) {
             await setCommandContext(CommandContext.AnnotationStatus, undefined);
             await this.detachKeyboardHook();
         }
@@ -352,7 +351,7 @@ export class AnnotationController extends Disposable {
         this._keyboardScope = undefined;
     }
 
-    private async showAnnotationsCore(currentProvider: AnnotationProviderBase | undefined, editor: TextEditor, type: FileAnnotationType, shaOrLine?: string | number, progress?: Progress<{ message: string}>): Promise<boolean> {
+    private async showAnnotationsCore(currentProvider: AnnotationProviderBase | undefined, editor: TextEditor, type: FileAnnotationType, shaOrLine?: string | number, progress?: Progress<{ message: string}>): Promise<AnnotationProviderBase | undefined> {
         if (progress !== undefined) {
             let annotationsLabel = 'annotations';
             switch (type) {
@@ -396,7 +395,7 @@ export class AnnotationController extends Disposable {
                 provider = new RecentChangesAnnotationProvider(editor, trackedDocument, undefined, Decorations.recentChangesHighlight!);
                 break;
         }
-        if (provider === undefined || !(await provider.validate())) return false;
+        if (provider === undefined || !(await provider.validate())) return undefined;
 
         if (currentProvider !== undefined) {
             await this.clearCore(currentProvider.correlationKey, AnnotationClearReason.User);
@@ -408,7 +407,7 @@ export class AnnotationController extends Disposable {
             this._annotationsDisposable = Disposable.from(
                 window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 50), this),
                 window.onDidChangeTextEditorViewColumn(this.onTextEditorViewColumnChanged, this),
-                window.onDidChangeVisibleTextEditors(this.onVisibleTextEditorsChanged, this),
+                window.onDidChangeVisibleTextEditors(Functions.debounce(this.onVisibleTextEditorsChanged, 50), this),
                 workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
                 Container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
                 Container.tracker.onDidChangeDirtyState(this.onDirtyStateChanged, this)
@@ -418,9 +417,9 @@ export class AnnotationController extends Disposable {
         this._annotationProviders.set(provider.correlationKey, provider);
         if (await provider.provideAnnotation(shaOrLine)) {
             this._onDidToggleAnnotations.fire();
-            return true;
+            return provider;
         }
 
-        return false;
+        return undefined;
     }
 }

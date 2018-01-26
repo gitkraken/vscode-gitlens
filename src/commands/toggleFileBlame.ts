@@ -37,7 +37,7 @@ export class ToggleFileBlameCommand extends EditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'ToggleFileBlameCommand');
-            return window.showErrorMessage(`Unable to toggle file blame annotations. See output channel for more details`);
+            return window.showErrorMessage(`Unable to toggle file ${args.type} annotations. See output channel for more details`);
         }
     }
 }

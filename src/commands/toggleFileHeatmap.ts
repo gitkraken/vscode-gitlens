@@ -1,10 +1,8 @@
 'use strict';
-import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
+import { commands, TextEditor, TextEditorEdit, Uri } from 'vscode';
+import { ToggleFileBlameCommandArgs } from '../commands';
 import { Commands, EditorCommand } from './common';
-import { UriComparer } from '../comparers';
 import { FileAnnotationType } from '../configuration';
-import { Container } from '../container';
-import { Logger } from '../logger';
 
 export class ToggleFileHeatmapCommand extends EditorCommand {
 
@@ -13,22 +11,6 @@ export class ToggleFileHeatmapCommand extends EditorCommand {
     }
 
     async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri): Promise<any> {
-        if (editor === undefined) return undefined;
-
-        // Handle the case where we are focused on a non-editor editor (output, debug console)
-        if (uri !== undefined && !UriComparer.equals(uri, editor.document.uri)) {
-            const e = window.visibleTextEditors.find(e => UriComparer.equals(uri, e.document.uri));
-            if (e !== undefined) {
-                editor = e;
-            }
-        }
-
-        try {
-            return Container.annotations.toggleAnnotations(editor, FileAnnotationType.Heatmap);
-        }
-        catch (ex) {
-            Logger.error(ex, 'ToggleFileHeatmapCommand');
-            return window.showErrorMessage(`Unable to toggle heatmap annotations. See output channel for more details`);
-        }
+        commands.executeCommand(Commands.ToggleFileBlame, uri, { type: FileAnnotationType.Heatmap } as ToggleFileBlameCommandArgs);
     }
 }

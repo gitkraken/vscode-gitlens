@@ -3,7 +3,13 @@ import { Functions } from '../system';
 import { DecorationOptions, Disposable, Range, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, Uri, window } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { TextDocumentComparer } from '../comparers';
+import { CommandContext, setCommandContext } from '../constants';
 import { GitDocumentState, TrackedDocument } from '../trackers/documentTracker';
+
+export enum AnnotationStatus {
+    Computing = 'computing',
+    Computed = 'computed'
+}
 
 export type TextEditorCorrelationKey = string;
 
@@ -13,9 +19,10 @@ export abstract class AnnotationProviderBase extends Disposable {
         return editor !== undefined ? (editor as any).id : '';
     }
 
-    public annotationType: FileAnnotationType;
-    public correlationKey: TextEditorCorrelationKey;
-    public document: TextDocument;
+    annotationType: FileAnnotationType;
+    correlationKey: TextEditorCorrelationKey;
+    document: TextDocument;
+    status: AnnotationStatus | undefined;
 
     protected decorations: DecorationOptions[] | undefined;
     protected disposable: Disposable;
@@ -61,6 +68,7 @@ export abstract class AnnotationProviderBase extends Disposable {
     protected additionalDecorations: { decoration: TextEditorDecorationType, ranges: Range[] }[] | undefined;
 
     async clear() {
+        this.status = undefined;
         if (this.editor === undefined) return;
 
         if (this.decoration !== undefined) {
@@ -110,10 +118,15 @@ export abstract class AnnotationProviderBase extends Disposable {
         await this.provideAnnotation(this.editor === undefined ? undefined : this.editor.selection.active.line);
     }
 
-    restore(editor: TextEditor, force: boolean = false) {
+    async restore(editor: TextEditor) {
         // If the editor isn't disposed then we don't need to do anything
         // Explicitly check for `false`
-        if (!force && (this.editor as any)._disposed === false) return;
+        if ((this.editor as any)._disposed === false) return;
+
+        this.status = AnnotationStatus.Computing;
+        if (editor === window.activeTextEditor) {
+            await setCommandContext(CommandContext.AnnotationStatus, this.status);
+        }
 
         this.editor = editor;
         this.correlationKey = AnnotationProviderBase.getCorrelationKey(editor);
@@ -128,10 +141,23 @@ export abstract class AnnotationProviderBase extends Disposable {
                 }
             }
         }
+
+        this.status = AnnotationStatus.Computed;
+        if (editor === window.activeTextEditor) {
+            await setCommandContext(CommandContext.AnnotationStatus, this.status);
+            await this.selection(editor.selection.active.line);
+        }
     }
 
-    provideAnnotation(shaOrLine?: string | number): Promise<boolean> {
-        return this.onProvideAnnotation(shaOrLine);
+    async provideAnnotation(shaOrLine?: string | number): Promise<boolean> {
+        this.status = AnnotationStatus.Computing;
+        if (await this.onProvideAnnotation(shaOrLine)) {
+            this.status = AnnotationStatus.Computed;
+            return true;
+        }
+
+        this.status = undefined;
+        return false;
     }
 
     abstract async onProvideAnnotation(shaOrLine?: string | number): Promise<boolean>;
