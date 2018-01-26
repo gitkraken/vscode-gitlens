@@ -1186,6 +1186,11 @@ export class GitService extends Disposable {
         return repo;
     }
 
+    async getRepositoryCount(): Promise<number> {
+        const repositoryTree = await this.getRepositoryTree();
+        return repositoryTree.count();
+    }
+
     async getStashList(repoPath: string | undefined): Promise<GitStash | undefined> {
         if (repoPath === undefined) return undefined;
 

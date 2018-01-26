@@ -1,6 +1,20 @@
 'use strict';
 
 export namespace Iterables {
+    export function count<T>(source: Iterable<T> | IterableIterator<T>): number {
+        let count = 0;
+        let next: IteratorResult<T>;
+
+        while (true) {
+            next = (source as IterableIterator<T>).next();
+            if (next.done) break;
+
+            count++;
+        }
+
+        return count;
+    }
+
     export function every<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): boolean {
         for (const item of source) {
             if (!predicate(item)) return false;

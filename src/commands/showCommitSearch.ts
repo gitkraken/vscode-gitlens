@@ -6,8 +6,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitRepoSearchBy, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { CommandQuickPickItem, CommitsQuickPick, ShowCommitsSearchInResultsQuickPickItem } from '../quickPicks';
+import { CommandQuickPickItem, CommitsQuickPick, RepositoriesQuickPick, ShowCommitsSearchInResultsQuickPickItem } from '../quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
 const searchByRegex = /^([@~=:#])/;
@@ -38,8 +37,14 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
 
         const gitUri = uri === undefined ? undefined : await GitUri.fromUri(uri);
 
-        const repoPath = gitUri === undefined ? Container.git.getHighlanderRepoPath() : gitUri.repoPath;
-        if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show commit search`);
+        let repoPath = gitUri === undefined ? Container.git.getHighlanderRepoPath() : gitUri.repoPath;
+        if (!repoPath) {
+            const pick = await RepositoriesQuickPick.show(`Search for commits in which repository${GlyphChars.Ellipsis}`, args.goBackCommand);
+            if (pick instanceof CommandQuickPickItem) return pick.execute();
+            if (pick === undefined) return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
+
+            repoPath = pick.repoPath;
+        }
 
         args = { ...args };
         const originalArgs = { ...args };

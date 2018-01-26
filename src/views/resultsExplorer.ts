@@ -1,8 +1,8 @@
 'use strict';
-import { Functions } from '../system';
+import { Functions, Strings } from '../system';
 import { commands, ConfigurationChangeEvent, ConfigurationTarget, Disposable, Event, EventEmitter, TreeDataProvider, TreeItem, window } from 'vscode';
 import { configuration, ExplorerFilesLayout, IExplorerConfig } from '../configuration';
-import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
+import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { RefreshNodeCommandArgs } from './explorerCommands';
 import { CommitResultsNode, CommitsResultsNode, ComparisionResultsNode, ExplorerNode, MessageNode, RefreshReason, ResourceType } from './explorerNodes';
@@ -138,7 +138,7 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
             ? (maxCount: number | undefined) => Promise.resolve(results)
             : results.query;
 
-        const labelFn = (log: GitLog | undefined) => {
+        const labelFn = async (log: GitLog | undefined) => {
             if (typeof resultsLabel === 'string') return resultsLabel;
 
             const count = log !== undefined ? log.count : 0;
@@ -148,8 +148,14 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
                 ? { singular: 'result', plural: 'results' }
                 : resultsLabel.resultsType;
 
-            if (count === 1) return `1 ${resultsType.singular} for ${resultsLabel.label}`;
-            return `${count === 0 ? 'No' : `${count}${truncated ? '+' : ''}`} ${resultsType.plural} for ${resultsLabel.label}`;
+            let repository = '';
+            if (await Container.git.getRepositoryCount() > 1) {
+                const repo = await Container.git.getRepository(results.repoPath);
+                repository = ` ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) || results.repoPath}`;
+            }
+
+            if (count === 1) return `1 ${resultsType.singular} for ${resultsLabel.label}${repository}`;
+            return `${count === 0 ? 'No' : `${count}${truncated ? '+' : ''}`} ${resultsType.plural} for ${resultsLabel.label}${repository}`;
         };
 
         this.addResults(new CommitsResultsNode(results.repoPath, labelFn, Functions.seeded(query, results), this, ResourceType.SearchResults));

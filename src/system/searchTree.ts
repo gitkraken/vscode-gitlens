@@ -339,6 +339,12 @@ export class TernarySearchTree<E> {
         return this._root !== undefined && !this._root.isEmpty();
     }
 
+    count(): number {
+        if (this._root === undefined || this._root.isEmpty()) return 0;
+
+        return Iterables.count(this.entries());
+    }
+
     entries(): Iterable<[E, string]> {
         return this._iterator(this._root!, []);
     }
