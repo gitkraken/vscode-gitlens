@@ -34,6 +34,12 @@ export enum ExplorerFilesLayout {
     Tree = 'tree'
 }
 
+export enum ExplorerBranchesLayout {
+    List = 'list',
+    Tree = 'tree',
+    MixTree = 'mix-tree'
+}
+
 export enum FileAnnotationType {
     Gutter = 'gutter',
     Heatmap = 'heatmap',
@@ -175,6 +181,9 @@ export interface IExplorerConfig {
         layout: ExplorerFilesLayout;
         compact: boolean;
         threshold: number;
+    };
+    branches: {
+        layout: ExplorerBranchesLayout;
     };
     commitFormat: string;
     commitFileFormat: string;

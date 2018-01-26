@@ -4,6 +4,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../container';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { BranchNode } from './branchNode';
+import { ExplorerBranchesLayout } from '../configuration';
 import { GitUri } from '../gitService';
 
 export class BranchFolderNode extends ExplorerNode {
@@ -31,12 +32,13 @@ export class BranchFolderNode extends ExplorerNode {
             children.push(folder.value);
         }
 
-        // sort strategy: branches (alphabetical order) - folder branches
-        // TODO: add alphabetical order branches as alternative
-        children.sort((a, b) => {
-            return ((a instanceof BranchNode) ? -1 : 1) - ((b instanceof BranchNode) ? -1 : 1) ||
-                a.label!.localeCompare(b.label!);
-        });
+        if (this.explorer.config.branches.layout === ExplorerBranchesLayout.Tree) {
+            // sort strategy: normal branches - folder branches (alphabetical order)
+            children.sort((a, b) => {
+                return ((a instanceof BranchNode) ? -1 : 1) - ((b instanceof BranchNode) ? -1 : 1) ||
+                    a.label!.localeCompare(b.label!);
+            });
+        }
 
         return children;
   }

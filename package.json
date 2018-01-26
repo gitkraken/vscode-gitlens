@@ -555,6 +555,17 @@
                     "description": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens` view\nOnly applies when displaying files as `auto`",
                     "scope": "window"
                 },
+                "gitlens.gitExplorer.branches.layout": {
+                    "type": "string",
+                    "default": "list",
+                    "enum": [
+                        "list",
+                        "tree",
+                        "mix-tree"
+                    ],
+                    "description": "Specifies how the `Branches` view will display branches\n `list` - display all branches \n`tree` - organize branch as folder if branch name contains slashes \"\/\"\n `mix-tree` - display branch folders along with normal branch alphabetically",
+                    "scope": "window"
+                },
                 "gitlens.gitExplorer.gravatars": {
                     "type": "boolean",
                     "default": true,

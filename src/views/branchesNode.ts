@@ -6,6 +6,7 @@ import { Container } from '../container';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { GitUri, Repository } from '../gitService';
 import { BranchFolderNode } from './branchFolderNode';
+import { ExplorerBranchesLayout } from '../configuration';
 
 export class BranchesNode extends ExplorerNode {
 
@@ -27,6 +28,10 @@ export class BranchesNode extends ExplorerNode {
             let children = [];
             // filter local branches
             const branchNodes = [...Iterables.filterMap(branches, b => b.remote ? undefined : new BranchNode(b, this.uri, this.explorer))];
+
+            if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) {
+                return branchNodes;
+            }
 
             const hierarchy = Arrays.makeHierarchical(branchNodes, n => n.branch.name.split('/'),
             (...paths: string[]) => paths.join('/'), this.explorer.config.files.compact);

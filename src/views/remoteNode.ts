@@ -6,6 +6,7 @@ import { GlyphChars } from '../constants';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { GitRemote, GitRemoteType, GitUri, Repository } from '../gitService';
 import { BranchFolderNode } from './branchFolderNode';
+import { ExplorerBranchesLayout } from '../configuration';
 
 export class RemoteNode extends ExplorerNode {
 
@@ -27,6 +28,10 @@ export class RemoteNode extends ExplorerNode {
             let children = [];
             // filter remote branches
             const branchNodes = [...Iterables.filterMap(branches, b => !b.remote || !b.name.startsWith(this.remote.name) ? undefined : new BranchNode(b, this.uri, this.explorer))];
+
+            if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) {
+                return branchNodes;
+            }
 
             const hierarchy = Arrays.makeHierarchical(
                 branchNodes,
