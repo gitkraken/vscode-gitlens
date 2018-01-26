@@ -20,6 +20,8 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
         highlightDecoration: TextEditorDecorationType | undefined
     ) {
         super(editor, trackedDocument, decoration, highlightDecoration);
+
+        this._uri = trackedDocument.uri;
     }
 
     async onProvideAnnotation(shaOrLine?: string | number): Promise<boolean> {

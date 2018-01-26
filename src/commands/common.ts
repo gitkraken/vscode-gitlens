@@ -8,6 +8,7 @@ import { Logger } from '../logger';
 export enum Commands {
     ClearFileAnnotations = 'gitlens.clearFileAnnotations',
     CloseUnchangedFiles = 'gitlens.closeUnchangedFiles',
+    ComputingFileAnnotations = 'gitlens.computingFileAnnotations',
     CopyMessageToClipboard = 'gitlens.copyMessageToClipboard',
     CopyShaToClipboard = 'gitlens.copyShaToClipboard',
     DiffDirectory = 'gitlens.diffDirectory',

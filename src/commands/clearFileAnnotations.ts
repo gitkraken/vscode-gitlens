@@ -7,7 +7,7 @@ import { Logger } from '../logger';
 export class ClearFileAnnotationsCommand extends EditorCommand {
 
     constructor() {
-        super(Commands.ClearFileAnnotations);
+        super([Commands.ClearFileAnnotations, Commands.ComputingFileAnnotations]);
     }
 
     async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri): Promise<any> {

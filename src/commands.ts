@@ -1,5 +1,5 @@
 'use strict';
-import { commands } from 'vscode';
+import { CommandContext, setCommandContext } from './constants';
 import { Container } from './container';
 
 export * from './commands/common';
@@ -49,12 +49,9 @@ export * from './commands/toggleFileRecentChanges';
 export * from './commands/toggleLineBlame';
 
 import * as Commands from './commands';
-import { CommandContext, setCommandContext } from './constants';
 
 export function configureCommands(): void {
     setCommandContext(CommandContext.KeyMap, Container.config.keymap);
-
-    Container.context.subscriptions.push(commands.registerTextEditorCommand('gitlens.computingFileAnnotations', () => { }));
 
     Container.context.subscriptions.push(new Commands.CloseUnchangedFilesCommand());
     Container.context.subscriptions.push(new Commands.OpenChangedFilesCommand());
