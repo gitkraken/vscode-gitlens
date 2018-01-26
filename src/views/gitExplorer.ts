@@ -17,8 +17,9 @@ export interface OpenFileRevisionCommandArgs {
     showOptions?: TextDocumentShowOptions;
 }
 
-export class GitExplorer implements TreeDataProvider<ExplorerNode> {
+export class GitExplorer extends Disposable implements TreeDataProvider<ExplorerNode> {
 
+    private _disposable: Disposable | undefined;
     private _root?: ExplorerNode;
     private _view: GitExplorerView | undefined;
 
@@ -33,14 +34,17 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     }
 
     constructor() {
+        super(() => this.dispose());
+
+        Container.explorerCommands;
         commands.registerCommand('gitlens.gitExplorer.refresh', this.refresh, this);
         commands.registerCommand('gitlens.gitExplorer.refreshNode', this.refreshNode, this);
         commands.registerCommand('gitlens.gitExplorer.setFilesLayoutToAuto', () => this.setFilesLayout(ExplorerFilesLayout.Auto), this);
         commands.registerCommand('gitlens.gitExplorer.setFilesLayoutToList', () => this.setFilesLayout(ExplorerFilesLayout.List), this);
         commands.registerCommand('gitlens.gitExplorer.setFilesLayoutToTree', () => this.setFilesLayout(ExplorerFilesLayout.Tree), this);
 
-        commands.registerCommand('gitlens.gitExplorer.setAutoRefreshToOn', () => this.setAutoRefresh(configuration.get<boolean>(configuration.name('gitExplorer')('autoRefresh').value), true), this);
-        commands.registerCommand('gitlens.gitExplorer.setAutoRefreshToOff', () => this.setAutoRefresh(configuration.get<boolean>(configuration.name('gitExplorer')('autoRefresh').value), false), this);
+        commands.registerCommand('gitlens.gitExplorer.setAutoRefreshToOn', () => this.setAutoRefresh(Container.config.gitExplorer.autoRefresh, true), this);
+        commands.registerCommand('gitlens.gitExplorer.setAutoRefreshToOff', () => this.setAutoRefresh(Container.config.gitExplorer.autoRefresh, false), this);
         commands.registerCommand('gitlens.gitExplorer.switchToHistoryView', () => this.switchTo(GitExplorerView.History), this);
         commands.registerCommand('gitlens.gitExplorer.switchToRepositoryView', () => this.switchTo(GitExplorerView.Repository), this);
 
@@ -50,6 +54,10 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
             configuration.onDidChange(this.onConfigurationChanged, this)
         );
         this.onConfigurationChanged(configuration.initializingChangeEvent);
+    }
+
+    dispose() {
+        this._disposable && this._disposable.dispose();
     }
 
     private async onActiveEditorChanged(editor: TextEditor | undefined) {
@@ -68,11 +76,15 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
             !configuration.changed(e, configuration.name('gitExplorer').value) &&
             !configuration.changed(e, configuration.name('defaultGravatarsStyle').value)) return;
 
-        if (initializing || configuration.changed(e, configuration.name('gitExplorer')('autoRefresh').value)) {
-            this.setAutoRefresh(configuration.get<boolean>(configuration.name('gitExplorer')('autoRefresh').value));
+        if (initializing || configuration.changed(e, configuration.name('gitExplorer')('enabled').value)) {
+            setCommandContext(CommandContext.GitExplorer, this.config.enabled);
         }
 
-        let view = configuration.get<GitExplorerView>(configuration.name('gitExplorer')('view').value);
+        if (initializing || configuration.changed(e, configuration.name('gitExplorer')('autoRefresh').value)) {
+            this.setAutoRefresh(Container.config.gitExplorer.autoRefresh);
+        }
+
+        let view = this.config.view;
         if (view === GitExplorerView.Auto) {
             view = Container.context.workspaceState.get<GitExplorerView>(WorkspaceState.GitExplorerView, GitExplorerView.Repository);
         }
@@ -82,6 +94,8 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
             setCommandContext(CommandContext.GitExplorerView, this._view);
 
             this.setRoot(await this.getRootNode(window.activeTextEditor));
+
+            this._disposable = window.registerTreeDataProvider('gitlens.gitExplorer', this);
         }
         else {
             this.reset(view);
@@ -110,7 +124,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     }
 
     get autoRefresh() {
-        return configuration.get<boolean>(configuration.name('gitExplorer')('autoRefresh').value) &&
+        return this.config.autoRefresh &&
             Container.context.workspaceState.get<boolean>(WorkspaceState.GitExplorerAutoRefresh, true);
     }
 
@@ -248,7 +262,7 @@ export class GitExplorer implements TreeDataProvider<ExplorerNode> {
     setView(view: GitExplorerView) {
         if (this._view === view) return;
 
-        if (configuration.get<GitExplorerView>(configuration.name('gitExplorer')('view').value) === GitExplorerView.Auto) {
+        if (Container.config.gitExplorer.view === GitExplorerView.Auto) {
             Container.context.workspaceState.update(WorkspaceState.GitExplorerView, view);
         }
 

@@ -3295,7 +3295,7 @@
                 {
                     "id": "gitlens.gitExplorer",
                     "name": "GitLens",
-                    "when": "gitlens:enabled && gitlens:gitExplorer && config.gitlens.gitExplorer.enabled"
+                    "when": "gitlens:enabled && gitlens:gitExplorer"
                 },
                 {
                     "id": "gitlens.resultsExplorer",

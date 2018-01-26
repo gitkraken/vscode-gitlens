@@ -1,12 +1,10 @@
 'use strict';
 import { Objects, Versions } from './system';
-import { ConfigurationTarget, ExtensionContext, extensions, languages, window, workspace } from 'vscode';
+import { ConfigurationTarget, ExtensionContext, extensions, window, workspace } from 'vscode';
 import { configuration, Configuration, IConfig } from './configuration';
 import { CommandContext, ExtensionKey, GlobalState, QualifiedExtensionId, setCommandContext } from './constants';
 import { configureCommands } from './commands';
 import { Container } from './container';
-import { GitContentProvider } from './gitContentProvider';
-import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { GitService } from './gitService';
 import { Logger } from './logger';
 import { Messages, SuppressedMessages } from './messages';
@@ -64,20 +62,10 @@ export async function activate(context: ExtensionContext) {
 
     Container.initialize(context, cfg);
 
-    context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider()));
-    context.subscriptions.push(languages.registerCodeLensProvider(GitRevisionCodeLensProvider.selector, new GitRevisionCodeLensProvider()));
-
-    context.subscriptions.push(window.registerTreeDataProvider('gitlens.gitExplorer', Container.gitExplorer));
-    context.subscriptions.push(window.registerTreeDataProvider('gitlens.resultsExplorer', Container.resultsExplorer));
-
     configureCommands();
 
     // Constantly over my data cap so stop collecting initialized event
     // Telemetry.trackEvent('initialized', Objects.flatten(cfg, 'config', true));
-
-    setCommandContext(CommandContext.KeyMap, configuration.get(configuration.name('keymap').value));
-    // Slightly delay enabling the explorer to not stop the rest of GitLens from being usable
-    setTimeout(() => setCommandContext(CommandContext.GitExplorer, true), 1000);
 
     const duration = process.hrtime(start);
     Logger.log(`GitLens(v${gitlensVersion}) activated in ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);

@@ -1,6 +1,6 @@
 'use strict';
 import { Functions } from '../system';
-import { commands, ConfigurationChangeEvent, ConfigurationTarget, Event, EventEmitter, TreeDataProvider, TreeItem } from 'vscode';
+import { commands, ConfigurationChangeEvent, ConfigurationTarget, Disposable, Event, EventEmitter, TreeDataProvider, TreeItem, window } from 'vscode';
 import { configuration, ExplorerFilesLayout, IExplorerConfig } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
@@ -12,8 +12,9 @@ import { Messages } from '../messages';
 
 export * from './explorerNodes';
 
-export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
+export class ResultsExplorer extends Disposable implements TreeDataProvider<ExplorerNode> {
 
+    private _disposable: Disposable | undefined;
     private _roots: ExplorerNode[] = [];
 
     private _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
@@ -22,6 +23,9 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
     }
 
     constructor() {
+        super(() => this.dispose());
+
+        Container.explorerCommands;
         commands.registerCommand('gitlens.resultsExplorer.refresh', this.refreshNodes, this);
         commands.registerCommand('gitlens.resultsExplorer.refreshNode', this.refreshNode, this);
         commands.registerCommand('gitlens.resultsExplorer.setFilesLayoutToAuto', () => this.setFilesLayout(ExplorerFilesLayout.Auto), this);
@@ -41,6 +45,10 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
         this.onConfigurationChanged(configuration.initializingChangeEvent);
     }
 
+    dispose() {
+        this._disposable && this._disposable.dispose();
+    }
+
     private async onConfigurationChanged(e: ConfigurationChangeEvent) {
         const initializing = configuration.initializing(e);
 
@@ -50,6 +58,10 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
 
         if (!initializing && this._roots.length !== 0) {
             this.refresh(RefreshReason.ConfigurationChanged);
+        }
+
+        if (initializing) {
+            this._disposable = window.registerTreeDataProvider('gitlens.resultsExplorer', this);
         }
     }
 

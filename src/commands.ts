@@ -49,8 +49,11 @@ export * from './commands/toggleFileRecentChanges';
 export * from './commands/toggleLineBlame';
 
 import * as Commands from './commands';
+import { CommandContext, setCommandContext } from './constants';
 
 export function configureCommands(): void {
+    setCommandContext(CommandContext.KeyMap, Container.config.keymap);
+
     Container.context.subscriptions.push(commands.registerTextEditorCommand('gitlens.computingFileAnnotations', () => { }));
 
     Container.context.subscriptions.push(new Commands.CloseUnchangedFilesCommand());
