@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [7.5.7] - 2018-01-25
 ### Added
 - Adds a repository quick pick menu to the *Show Commit Search* command (`gitlens.showCommitSearch`) when there is no active repository
 
