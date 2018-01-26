@@ -9,7 +9,13 @@ export enum CodeLensCommand {
     ToggleFileBlame = 'gitlens.toggleFileBlame'
 }
 
-export enum CodeLensLocations {
+export interface CodeLensLanguageScope {
+    language: string | undefined;
+    scopes: CodeLensScopes[];
+    symbolScopes?: string[];
+}
+
+export enum CodeLensScopes {
     Document = 'document',
     Containers = 'containers',
     Blocks = 'blocks'
@@ -35,9 +41,8 @@ export enum ExplorerFilesLayout {
 }
 
 export enum FileAnnotationType {
-    Gutter = 'gutter',
+    Blame = 'blame',
     Heatmap = 'heatmap',
-    Hover = 'hover',
     RecentChanges = 'recentChanges'
 }
 
@@ -56,21 +61,16 @@ export enum GravatarDefaultStyle {
     Robot = 'robohash'
 }
 
+export enum HighlightLocations {
+    Gutter = 'gutter',
+    Line = 'line',
+    OverviewRuler = 'overviewRuler'
+}
+
 export enum KeyMap {
     Standard = 'standard',
     Chorded = 'chorded',
     None = 'none'
-}
-
-export enum LineAnnotationType {
-    Trailing = 'trailing',
-    Hover = 'hover'
-}
-
-export enum LineHighlightLocations {
-    Gutter = 'gutter',
-    Line = 'line',
-    OverviewRuler = 'overviewRuler'
 }
 
 export enum OutputLevel {
@@ -95,11 +95,14 @@ export interface IAdvancedConfig {
         delayAfterEdit: number;
         sizeThresholdAfterEdit: number;
     };
+
     caching: {
         enabled: boolean;
     };
+
     git: string;
     maxListItems: number;
+
     menus: {
         explorerContext: {
             fileDiff: boolean;
@@ -128,6 +131,7 @@ export interface IAdvancedConfig {
             remote: boolean;
         };
     };
+
     messages: {
         suppressCommitHasNoPreviousCommitWarning: boolean,
         suppressCommitNotFoundWarning: boolean,
@@ -139,68 +143,73 @@ export interface IAdvancedConfig {
         suppressUpdateNotice: boolean,
         suppressWelcomeNotice: boolean
     };
+
     quickPick: {
         closeOnFocusOut: boolean;
     };
+
     repositorySearchDepth: number;
+
     telemetry: {
         enabled: boolean;
     };
 }
 
 export interface ICodeLensConfig {
-    enabled: boolean;
-    recentChange: {
-        enabled: boolean;
-        command: CodeLensCommand;
-    };
     authors: {
         enabled: boolean;
         command: CodeLensCommand;
     };
-    locations: CodeLensLocations[];
-    customLocationSymbols: string[];
-    perLanguageLocations: ICodeLensLanguageLocation[];
+
     debug: boolean;
-}
+    enabled: boolean;
 
-export interface ICodeLensLanguageLocation {
-    language: string | undefined;
-    locations: CodeLensLocations[];
-    customSymbols?: string[];
-}
-
-export interface IExplorerConfig {
-    files: {
-        layout: ExplorerFilesLayout;
-        compact: boolean;
-        threshold: number;
+    recentChange: {
+        enabled: boolean;
+        command: CodeLensCommand;
     };
-    commitFormat: string;
+
+    scopes: CodeLensScopes[];
+    scopesByLanguage: CodeLensLanguageScope[];
+    symbolScopes: string[];
+
+}
+
+export interface IExplorersConfig {
+    avatars: boolean;
     commitFileFormat: string;
+    commitFormat: string;
     // dateFormat: string | null;
-    gravatars: boolean;
-    showTrackingBranch: boolean;
-    stashFormat: string;
+
     stashFileFormat: string;
+    stashFormat: string;
     statusFileFormat: string;
 }
 
-export interface IGitExplorerConfig extends IExplorerConfig {
-    enabled: boolean;
+export interface IExplorersFilesConfig {
+    compact: boolean;
+    layout: ExplorerFilesLayout;
+    threshold: number;
+}
+
+export interface IGitExplorerConfig {
     autoRefresh: boolean;
+    enabled: boolean;
+    files: IExplorersFilesConfig;
     includeWorkingTree: boolean;
     showTrackingBranch: boolean;
     view: GitExplorerView;
 }
 
-export interface IResultsExplorerConfig extends IExplorerConfig { }
+export interface IResultsExplorerConfig {
+    files: IExplorersFilesConfig;
+}
 
 export interface IRemotesConfig {
-    type: CustomRemoteType;
     domain: string;
     name?: string;
     protocol?: string;
+    type: CustomRemoteType;
     urls?: IRemotesUrlsConfig;
 }
 
@@ -217,93 +226,67 @@ export interface IRemotesUrlsConfig {
 }
 
 export interface IConfig {
-    annotations: {
-        file: {
-            gutter: {
-                format: string;
-                dateFormat: string | null;
-                compact: boolean;
-                gravatars: boolean;
-                heatmap: {
-                    enabled: boolean;
-                    location: 'left' | 'right';
-                };
-                hover: {
-                    details: boolean;
-                    changes: boolean;
-                    wholeLine: boolean;
-                };
-                separateLines: boolean;
-            };
-
-            hover: {
-                details: boolean;
-                changes: boolean;
-                heatmap: {
-                    enabled: boolean;
-                };
-            };
-
-            recentChanges: {
-                hover: {
-                    details: boolean;
-                    changes: boolean;
-                };
-            };
-        };
-
-        line: {
-            hover: {
-                details: boolean;
-                changes: boolean;
-            };
-
-            trailing: {
-                format: string;
-                dateFormat: string | null;
-                hover: {
-                    details: boolean;
-                    changes: boolean;
-                    wholeLine: boolean;
-                };
-            };
-        };
-    };
-
     blame: {
-        ignoreWhitespace: boolean;
-
-        file: {
-            annotationType: FileAnnotationType;
-            lineHighlight: {
-                enabled: boolean;
-                locations: LineHighlightLocations[];
-            };
-        };
-
-        line: {
+        avatars: boolean;
+        compact: boolean;
+        dateFormat: string | null;
+        format: string;
+        heatmap: {
             enabled: boolean;
-            annotationType: LineAnnotationType;
+            location: 'left' | 'right';
         };
+        highlight: {
+            enabled: boolean;
+            locations: HighlightLocations[];
+        };
+        ignoreWhitespace: boolean;
+        separateLines: boolean;
     };
 
-    recentChanges: {
-        file: {
-            lineHighlight: {
-                locations: LineHighlightLocations[];
-            };
-        }
+    currentLine: {
+        dateFormat: string | null;
+        enabled: boolean;
+        format: string;
     };
 
     codeLens: ICodeLensConfig;
 
+    debug: boolean;
     defaultDateFormat: string | null;
     defaultDateStyle: DateStyle;
     defaultGravatarsStyle: GravatarDefaultStyle;
 
+    explorers: IExplorersConfig;
+
     gitExplorer: IGitExplorerConfig;
 
+    hovers: {
+        annotations: {
+            changes: boolean;
+            details: boolean;
+            enabled: boolean;
+            over: 'line' | 'annotation'
+        };
+
+        currentLine: {
+            changes: boolean;
+            details: boolean;
+            enabled: boolean;
+            over: 'line' | 'annotation'
+        };
+
+        enabled: boolean;
+    };
+
+    insiders: boolean;
     keymap: KeyMap;
+    outputLevel: OutputLevel;
+
+    recentChanges: {
+        highlight: {
+            locations: HighlightLocations[];
+        };
+    };
 
     remotes: IRemotesConfig[];
 
@@ -326,10 +309,6 @@ export interface IConfig {
             };
         };
     };
-
-    debug: boolean;
-    insiders: boolean;
-    outputLevel: OutputLevel;
 
     advanced: IAdvancedConfig;
 }

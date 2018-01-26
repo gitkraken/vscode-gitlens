@@ -3,7 +3,6 @@ import { Arrays, Iterables } from '../system';
 import { CancellationToken, Disposable, Hover, HoverProvider, languages, Position, Range, TextDocument, TextEditor, TextEditorDecorationType } from 'vscode';
 import { AnnotationProviderBase } from './annotationProvider';
 import { Annotations } from './annotations';
-import { FileAnnotationType } from './../configuration';
 import { RangeEndOfLineIndex } from '../constants';
 import { Container } from '../container';
 import { GitDocumentState, TrackedDocument } from '../trackers/documentTracker';
@@ -94,7 +93,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
     }
 
     registerHoverProviders(providers: { details: boolean, changes: boolean }) {
-        if (!providers.details && !providers.changes) return;
+        if (!Container.config.hovers.enabled || !Container.config.hovers.annotations.enabled || (!providers.details && !providers.changes)) return;
 
         const subscriptions: Disposable[] = [];
         if (providers.changes) {
@@ -122,7 +121,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
             }
         }
 
-        const message = Annotations.getHoverMessage(logCommit || commit, Container.config.defaultDateFormat, await Container.git.hasRemote(commit.repoPath), Container.config.blame.file.annotationType);
+        const message = Annotations.getHoverMessage(logCommit || commit, Container.config.defaultDateFormat, await Container.git.hasRemote(commit.repoPath), this.annotationType);
         return new Hover(message, document.validateRange(new Range(position.line, 0, position.line, RangeEndOfLineIndex)));
     }
 
@@ -135,9 +134,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
     }
 
     private async getCommitForHover(position: Position): Promise<GitCommit | undefined> {
-        const annotationType = Container.config.blame.file.annotationType;
-        const wholeLine = annotationType === FileAnnotationType.Hover || (annotationType === FileAnnotationType.Gutter && Container.config.annotations.file.gutter.hover.wholeLine);
-        if (!wholeLine && position.character !== 0) return undefined;
+        if (Container.config.hovers.annotations.over !== 'line' && position.character !== 0) return undefined;
 
         const blame = await this.getBlame();
         if (blame === undefined) return undefined;

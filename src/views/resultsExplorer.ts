@@ -1,7 +1,7 @@
 'use strict';
 import { Functions, Strings } from '../system';
 import { commands, ConfigurationChangeEvent, ConfigurationTarget, Disposable, Event, EventEmitter, TreeDataProvider, TreeItem, window } from 'vscode';
-import { configuration, ExplorerFilesLayout, IExplorerConfig } from '../configuration';
+import { configuration, ExplorerFilesLayout, IExplorersConfig, IResultsExplorerConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { RefreshNodeCommandArgs } from './explorerCommands';
@@ -65,8 +65,8 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
         }
     }
 
-    get config(): IExplorerConfig {
-        return Container.config.resultsExplorer;
+    get config(): IExplorersConfig & IResultsExplorerConfig {
+        return { ...Container.config.explorers, ...Container.config.resultsExplorer };
     }
 
     get keepResults(): boolean {

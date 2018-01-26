@@ -2,7 +2,7 @@
 import { Functions } from '../system';
 import { commands, ConfigurationChangeEvent, ConfigurationTarget, Disposable, Event, EventEmitter, TextDocumentShowOptions, TextEditor, TreeDataProvider, TreeItem, Uri, window } from 'vscode';
 import { UriComparer } from '../comparers';
-import { configuration, ExplorerFilesLayout, GitExplorerView, IGitExplorerConfig } from '../configuration';
+import { configuration, ExplorerFilesLayout, GitExplorerView, IExplorersConfig, IGitExplorerConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { RefreshNodeCommandArgs } from './explorerCommands';
@@ -128,8 +128,8 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
             Container.context.workspaceState.get<boolean>(WorkspaceState.GitExplorerAutoRefresh, true);
     }
 
-    get config(): IGitExplorerConfig {
-        return Container.config.gitExplorer;
+    get config(): IExplorersConfig & IGitExplorerConfig {
+        return { ...Container.config.explorers, ...Container.config.gitExplorer };
     }
 
     private _loading: Promise<void> | undefined;

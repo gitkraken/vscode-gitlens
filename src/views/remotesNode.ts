@@ -2,7 +2,8 @@
 import { Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../container';
-import { Explorer, ExplorerNode, MessageNode, ResourceType } from './explorerNode';
+import { ExplorerNode, MessageNode, ResourceType } from './explorerNode';
+import { GitExplorer } from './gitExplorer';
 import { GitUri, Repository } from '../gitService';
 import { RemoteNode } from './remoteNode';
 
@@ -11,7 +12,7 @@ export class RemotesNode extends ExplorerNode {
         constructor(
             uri: GitUri,
             private readonly repo: Repository,
-            private readonly explorer: Explorer
+            private readonly explorer: GitExplorer
         ) {
             super(uri);
         }

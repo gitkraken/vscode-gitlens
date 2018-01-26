@@ -1,13 +1,8 @@
 'use strict';
-import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
+import { TextEditor, TextEditorEdit, window } from 'vscode';
 import { Commands, EditorCommand } from './common';
 import { Container } from '../container';
-import { configuration, LineAnnotationType } from '../configuration';
 import { Logger } from '../logger';
-
-export interface ShowLineBlameCommandArgs {
-    type?: LineAnnotationType;
-}
 
 export class ShowLineBlameCommand extends EditorCommand {
 
@@ -15,15 +10,11 @@ export class ShowLineBlameCommand extends EditorCommand {
         super(Commands.ShowLineBlame);
     }
 
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, args: ShowLineBlameCommandArgs = {}): Promise<any> {
+    async execute(editor: TextEditor, edit: TextEditorEdit): Promise<any> {
         if (editor === undefined) return undefined;
 
         try {
-            if (args.type === undefined) {
-                args = { ...args, type: configuration.get<LineAnnotationType>(configuration.name('blame')('line')('annotationType').value) };
-            }
-
-            return Container.lineAnnotations.showAnnotations(editor, args.type!);
+            return Container.lineAnnotations.showAnnotations(editor);
         }
         catch (ex) {
             Logger.error(ex, 'ShowLineBlameCommand');

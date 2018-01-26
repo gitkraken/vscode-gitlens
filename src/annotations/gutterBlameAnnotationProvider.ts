@@ -12,14 +12,14 @@ import { Logger } from '../logger';
 export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
     async onProvideAnnotation(shaOrLine?: string | number, type?: FileAnnotationType): Promise<boolean> {
-        this.annotationType = FileAnnotationType.Gutter;
+        this.annotationType = FileAnnotationType.Blame;
 
         const blame = await this.getBlame();
         if (blame === undefined) return false;
 
         const start = process.hrtime();
 
-        const cfg = Container.config.annotations.file.gutter;
+        const cfg = Container.config.blame;
 
         // Precalculate the formatting options so we don't need to do it on each iteration
         const tokenOptions = Strings.getTokensFromTemplate(cfg.format)
@@ -34,14 +34,14 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         };
 
         const now = Date.now();
-        const gravatars = cfg.gravatars;
+        const avatars = cfg.avatars;
         const gravatarDefault = Container.config.defaultGravatarsStyle;
         const separateLines = cfg.separateLines;
         const renderOptions = Annotations.gutterRenderOptions(separateLines, cfg.heatmap, cfg.format, options);
 
         this.decorations = [];
         const decorationsMap: { [sha: string]: DecorationOptions | undefined } = Object.create(null);
-        const avatarDecorationsMap: { [email: string]: { decoration: TextEditorDecorationType, ranges: Range[] } } | undefined = gravatars ? Object.create(null) : undefined;
+        const avatarDecorationsMap: { [email: string]: { decoration: TextEditorDecorationType, ranges: Range[] } } | undefined = avatars ? Object.create(null) : undefined;
 
         let commit: GitBlameCommit | undefined;
         let compacted = false;
@@ -75,7 +75,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
                 this.decorations.push(gutter);
 
-                if (gravatars && !cfg.compact && commit !== undefined && commit.email !== undefined) {
+                if (avatars && !cfg.compact && commit !== undefined && commit.email !== undefined) {
                     this.addOrUpdateGravatarDecoration(commit, gutter.range, gravatarDefault, avatarDecorationsMap!);
                 }
 
@@ -97,7 +97,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
                 this.decorations.push(gutter);
 
-                if (gravatars && commit.email !== undefined) {
+                if (avatars && commit.email !== undefined) {
                     this.addOrUpdateGravatarDecoration(commit, gutter.range, gravatarDefault, avatarDecorationsMap!);
                 }
 
@@ -114,7 +114,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
             this.decorations.push(gutter);
 
-            if (gravatars && commit.email !== undefined) {
+            if (avatars && commit.email !== undefined) {
                 this.addOrUpdateGravatarDecoration(commit, gutter.range, gravatarDefault, avatarDecorationsMap!);
             }
 
@@ -124,7 +124,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         if (this.decorations.length) {
             this.editor.setDecorations(this.decoration!, this.decorations);
 
-            if (gravatars) {
+            if (avatars) {
                 this.additionalDecorations = [];
                 for (const d of Objects.values(avatarDecorationsMap!)) {
                     this.additionalDecorations.push(d);
@@ -136,7 +136,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         const duration = process.hrtime(start);
         Logger.log(`${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms to compute gutter blame annotations`);
 
-        this.registerHoverProviders(cfg.hover);
+        this.registerHoverProviders(Container.config.hovers.annotations);
         this.selection(shaOrLine, blame);
         return true;
     }

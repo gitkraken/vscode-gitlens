@@ -65,6 +65,23 @@ export class Configuration {
         return workspace.getConfiguration(section === undefined ? undefined : ExtensionKey, resource!).inspect(section === undefined ? ExtensionKey : section);
     }
 
+    async migrate<TFrom, TTo>(from: string, to: string, migrationFn?: (value: TFrom) => TTo) {
+        const inspection = configuration.inspect(from);
+        if (inspection === undefined) return;
+
+        if (inspection.globalValue !== undefined) {
+            await this.update(to, migrationFn ? migrationFn(inspection.globalValue as TFrom) : inspection.globalValue, ConfigurationTarget.Global);
+        }
+
+        if (inspection.workspaceValue !== undefined) {
+            await this.update(to, migrationFn ? migrationFn(inspection.workspaceValue as TFrom) : inspection.workspaceValue, ConfigurationTarget.Workspace);
+        }
+
+        if (inspection.workspaceFolderValue !== undefined) {
+            await this.update(to, migrationFn ? migrationFn(inspection.workspaceFolderValue as TFrom) : inspection.workspaceFolderValue, ConfigurationTarget.WorkspaceFolder);
+        }
+    }
+
     name<K extends keyof IConfig>(name: K) {
         return Functions.propOf(emptyConfig as IConfig, name);
     }

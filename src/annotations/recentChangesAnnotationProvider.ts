@@ -35,8 +35,8 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
         const start = process.hrtime();
 
-        const cfg = Container.config.annotations.file.recentChanges;
-        const dateFormat = Container.config.defaultDateFormat;
+        const cfg = Container.config;
+        const dateFormat = cfg.defaultDateFormat;
 
         this.decorations = [];
 
@@ -51,16 +51,19 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
                 const range = this.editor.document.validateRange(new Range(new Position(count, 0), new Position(count, RangeEndOfLineIndex)));
 
-                if (cfg.hover.details) {
-                    this.decorations.push({
-                        hoverMessage: Annotations.getHoverMessage(commit, dateFormat, await Container.git.hasRemote(commit.repoPath), Container.config.blame.file.annotationType),
-                        range: range
-                    } as DecorationOptions);
-                }
-
                 let message: MarkdownString | undefined = undefined;
-                if (cfg.hover.changes) {
-                    message = Annotations.getHoverDiffMessage(commit, this._uri, line);
+
+                if (cfg.hovers.enabled && cfg.hovers.annotations.enabled) {
+                    if (cfg.hovers.annotations.details) {
+                        this.decorations.push({
+                            hoverMessage: Annotations.getHoverMessage(commit, dateFormat, await Container.git.hasRemote(commit.repoPath), this.annotationType),
+                            range: range
+                        } as DecorationOptions);
+                    }
+
+                    if (cfg.hovers.annotations.changes) {
+                        message = Annotations.getHoverDiffMessage(commit, this._uri, line);
+                    }
                 }
 
                 this.decorations.push({

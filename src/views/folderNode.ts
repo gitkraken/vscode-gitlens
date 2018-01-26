@@ -1,7 +1,7 @@
 'use strict';
 import { Arrays, Objects } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ExplorerFilesLayout, IExplorerConfig } from '../configuration';
+import { ExplorerFilesLayout, IExplorersFilesConfig } from '../configuration';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { GitUri } from '../gitService';
 
@@ -32,7 +32,7 @@ export class FolderNode extends ExplorerNode {
 
         let children: (FolderNode | IFileExplorerNode)[];
 
-        const nesting = FolderNode.getFileNesting(this.explorer.config, this.root.descendants, this.relativePath === undefined);
+        const nesting = FolderNode.getFileNesting(this.explorer.config.files, this.root.descendants, this.relativePath === undefined);
         if (nesting !== ExplorerFilesLayout.List) {
             children = [];
             for (const folder of Objects.values(this.root.children)) {
@@ -70,11 +70,11 @@ export class FolderNode extends ExplorerNode {
         return this.folderName;
     }
 
-    static getFileNesting<T extends IFileExplorerNode>(config: IExplorerConfig, children: T[], isRoot: boolean): ExplorerFilesLayout {
-        const nesting = config.files.layout || ExplorerFilesLayout.Auto;
+    static getFileNesting<T extends IFileExplorerNode>(config: IExplorersFilesConfig, children: T[], isRoot: boolean): ExplorerFilesLayout {
+        const nesting = config.layout || ExplorerFilesLayout.Auto;
         if (nesting === ExplorerFilesLayout.Auto) {
-            if (isRoot || config.files.compact) {
-                const nestingThreshold = config.files.threshold || 5;
+            if (isRoot || config.compact) {
+                const nestingThreshold = config.threshold || 5;
                 if (children.length <= nestingThreshold) return ExplorerFilesLayout.List;
             }
             return ExplorerFilesLayout.Tree;

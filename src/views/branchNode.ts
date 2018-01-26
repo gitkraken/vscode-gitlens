@@ -4,7 +4,8 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitNode } from './commitNode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { Explorer, ExplorerNode, ExplorerRefNode, MessageNode, ResourceType, ShowAllNode } from './explorerNode';
+import { ExplorerNode, ExplorerRefNode, MessageNode, ResourceType, ShowAllNode } from './explorerNode';
+import { GitExplorer } from './gitExplorer';
 import { GitBranch, GitUri } from '../gitService';
 
 export class BranchNode extends ExplorerRefNode {
@@ -14,7 +15,7 @@ export class BranchNode extends ExplorerRefNode {
     constructor(
         public readonly branch: GitBranch,
         uri: GitUri,
-        private readonly explorer: Explorer
+        private readonly explorer: GitExplorer
     ) {
         super(uri);
     }

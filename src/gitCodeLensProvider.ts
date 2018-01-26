@@ -2,7 +2,7 @@
 import { Functions, Iterables } from './system';
 import { CancellationToken, CodeLens, CodeLensProvider, Command, commands, DocumentSelector, Event, EventEmitter, ExtensionContext, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from './commands';
-import { CodeLensCommand, CodeLensLocations, configuration, ICodeLensConfig, ICodeLensLanguageLocation } from './configuration';
+import { CodeLensCommand, CodeLensLanguageScope, CodeLensScopes, configuration, ICodeLensConfig } from './configuration';
 import { BuiltInCommands, DocumentSchemes } from './constants';
 import { DocumentTracker, GitDocumentState } from './trackers/documentTracker';
 import { GitBlame, GitBlameCommit, GitBlameLines, GitService, GitUri } from './gitService';
@@ -89,17 +89,17 @@ export class GitCodeLensProvider implements CodeLensProvider {
         const cfg = configuration.get<ICodeLensConfig>(configuration.name('codeLens').value, document.uri);
         this._debug = cfg.debug;
 
-        let languageLocations = cfg.perLanguageLocations && cfg.perLanguageLocations.find(ll => ll.language !== undefined && ll.language.toLowerCase() === document.languageId);
-        if (languageLocations == null) {
-            languageLocations = {
+        let languageScope = cfg.scopesByLanguage && cfg.scopesByLanguage.find(ll => ll.language !== undefined && ll.language.toLowerCase() === document.languageId);
+        if (languageScope == null) {
+            languageScope = {
                 language: undefined,
-                locations: cfg.locations,
-                customSymbols: cfg.customLocationSymbols
-            } as ICodeLensLanguageLocation;
+                scopes: cfg.scopes,
+                symbolScopes: cfg.symbolScopes
+            } as CodeLensLanguageScope;
         }
 
-        languageLocations.customSymbols = languageLocations.customSymbols != null
-            ? languageLocations.customSymbols = languageLocations.customSymbols.map(s => s.toLowerCase())
+        languageScope.symbolScopes = languageScope.symbolScopes != null
+            ? languageScope.symbolScopes = languageScope.symbolScopes.map(s => s.toLowerCase())
             : [];
 
         const lenses: CodeLens[] = [];
@@ -111,7 +111,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         if (!dirty) {
             if (token.isCancellationRequested) return lenses;
 
-            if (languageLocations.locations.length === 1 && languageLocations.locations.includes(CodeLensLocations.Document)) {
+            if (languageScope.scopes.length === 1 && languageScope.scopes.includes(CodeLensScopes.Document)) {
                 blame = document.isDirty
                     ? await this._git.getBlameForFileContents(gitUri, document.getText())
                     : await this._git.getBlameForFile(gitUri);
@@ -128,7 +128,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
             if (blame === undefined || blame.lines.length === 0) return lenses;
         }
         else {
-            if (languageLocations.locations.length !== 1 || !languageLocations.locations.includes(CodeLensLocations.Document)) {
+            if (languageScope.scopes.length !== 1 || !languageScope.scopes.includes(CodeLensScopes.Document)) {
                 symbols = await commands.executeCommand(BuiltInCommands.ExecuteDocumentSymbolProvider, document.uri) as SymbolInformation[];
             }
         }
@@ -142,10 +142,10 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
         if (symbols !== undefined) {
             Logger.log('GitCodeLensProvider.provideCodeLenses:', `${symbols.length} symbol(s) found`);
-            symbols.forEach(sym => this.provideCodeLens(lenses, document, sym, languageLocations!, documentRangeFn, blame, gitUri, cfg, dirty, dirtyCommand));
+            symbols.forEach(sym => this.provideCodeLens(lenses, document, sym, languageScope!, documentRangeFn, blame, gitUri, cfg, dirty, dirtyCommand));
         }
 
-        if ((languageLocations.locations.includes(CodeLensLocations.Document) || languageLocations.customSymbols.includes('file')) && !languageLocations.customSymbols.includes('!file')) {
+        if ((languageScope.scopes.includes(CodeLensScopes.Document) || languageScope.symbolScopes.includes('file')) && !languageScope.symbolScopes.includes('!file')) {
             // Check if we have a lens for the whole document -- if not add one
             if (!lenses.find(l => l.range.start.line === 0 && l.range.end.line === 0)) {
                 const blameRange = documentRangeFn();
@@ -186,15 +186,15 @@ export class GitCodeLensProvider implements CodeLensProvider {
         return lenses;
     }
 
-    private validateSymbolAndGetBlameRange(symbol: SymbolInformation, languageLocation: ICodeLensLanguageLocation, documentRangeFn: () => Range): Range | undefined {
+    private validateSymbolAndGetBlameRange(symbol: SymbolInformation, languageScope: CodeLensLanguageScope, documentRangeFn: () => Range): Range | undefined {
         let valid = false;
         let range: Range | undefined;
 
         const symbolName = SymbolKind[symbol.kind].toLowerCase();
         switch (symbol.kind) {
             case SymbolKind.File:
-                if (languageLocation.locations.includes(CodeLensLocations.Containers) || languageLocation.customSymbols!.includes(symbolName)) {
-                    valid = !languageLocation.customSymbols!.includes(`!${symbolName}`);
+                if (languageScope.scopes.includes(CodeLensScopes.Containers) || languageScope.symbolScopes!.includes(symbolName)) {
+                    valid = !languageScope.symbolScopes!.includes(`!${symbolName}`);
                 }
 
                 if (valid) {
@@ -204,8 +204,8 @@ export class GitCodeLensProvider implements CodeLensProvider {
                 break;
 
             case SymbolKind.Package:
-                if (languageLocation.locations.includes(CodeLensLocations.Containers) || languageLocation.customSymbols!.includes(symbolName)) {
-                    valid = !languageLocation.customSymbols!.includes(`!${symbolName}`);
+                if (languageScope.scopes.includes(CodeLensScopes.Containers) || languageScope.symbolScopes!.includes(symbolName)) {
+                    valid = !languageScope.symbolScopes!.includes(`!${symbolName}`);
                 }
 
                 if (valid) {
@@ -221,8 +221,8 @@ export class GitCodeLensProvider implements CodeLensProvider {
             case SymbolKind.Module:
             case SymbolKind.Namespace:
             case SymbolKind.Struct:
-                if (languageLocation.locations.includes(CodeLensLocations.Containers) || languageLocation.customSymbols!.includes(symbolName)) {
-                    valid = !languageLocation.customSymbols!.includes(`!${symbolName}`);
+                if (languageScope.scopes.includes(CodeLensScopes.Containers) || languageScope.symbolScopes!.includes(symbolName)) {
+                    valid = !languageScope.symbolScopes!.includes(`!${symbolName}`);
                 }
                 break;
 
@@ -230,14 +230,14 @@ export class GitCodeLensProvider implements CodeLensProvider {
             case SymbolKind.Enum:
             case SymbolKind.Function:
             case SymbolKind.Method:
-                if (languageLocation.locations.includes(CodeLensLocations.Blocks) || languageLocation.customSymbols!.includes(symbolName)) {
-                    valid = !languageLocation.customSymbols!.includes(`!${symbolName}`);
+                if (languageScope.scopes.includes(CodeLensScopes.Blocks) || languageScope.symbolScopes!.includes(symbolName)) {
+                    valid = !languageScope.symbolScopes!.includes(`!${symbolName}`);
                 }
                 break;
 
             default:
-                if (languageLocation.customSymbols!.includes(symbolName)) {
-                    valid = !languageLocation.customSymbols!.includes(`!${symbolName}`);
+                if (languageScope.symbolScopes!.includes(symbolName)) {
+                    valid = !languageScope.symbolScopes!.includes(`!${symbolName}`);
                 }
                 break;
         }
@@ -245,8 +245,8 @@ export class GitCodeLensProvider implements CodeLensProvider {
         return valid ? range || symbol.location.range : undefined;
     }
 
-    private provideCodeLens(lenses: CodeLens[], document: TextDocument, symbol: SymbolInformation, languageLocation: ICodeLensLanguageLocation, documentRangeFn: () => Range, blame: GitBlame | undefined, gitUri: GitUri | undefined, cfg: ICodeLensConfig, dirty: boolean, dirtyCommand: Command | undefined): void {
-        const blameRange = this.validateSymbolAndGetBlameRange(symbol, languageLocation, documentRangeFn);
+    private provideCodeLens(lenses: CodeLens[], document: TextDocument, symbol: SymbolInformation, languageScope: CodeLensLanguageScope, documentRangeFn: () => Range, blame: GitBlame | undefined, gitUri: GitUri | undefined, cfg: ICodeLensConfig, dirty: boolean, dirtyCommand: Command | undefined): void {
+        const blameRange = this.validateSymbolAndGetBlameRange(symbol, languageScope, documentRangeFn);
         if (blameRange === undefined) return;
 
         const line = document.lineAt(symbol.location.range.start);

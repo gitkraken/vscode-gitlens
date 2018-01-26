@@ -46,13 +46,13 @@ export class Annotations {
 
         if (commit.previousSha !== undefined) {
             if (annotationType === FileAnnotationType.RecentChanges) {
-                annotationType = FileAnnotationType.Gutter;
+                annotationType = FileAnnotationType.Blame;
             }
 
             const uri = GitUri.toRevisionUri(commit.previousSha, commit.previousUri.fsPath, commit.repoPath);
             const line = window.activeTextEditor!.selection.active.line;
 
-            commandBar += `[\`${GlyphChars.SquareWithTopShadow}\`](${OpenFileRevisionCommand.getMarkdownCommandArgs(uri, annotationType || FileAnnotationType.Gutter, line)} "Blame Previous Revision") `;
+            commandBar += `[\`${GlyphChars.SquareWithTopShadow}\`](${OpenFileRevisionCommand.getMarkdownCommandArgs(uri, annotationType || FileAnnotationType.Blame, line)} "Blame Previous Revision") `;
         }
 
         if (hasRemote) {
