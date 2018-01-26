@@ -36,6 +36,7 @@ export class BranchFolderNode extends ExplorerNode {
             // sort strategy: normal branches - folder branches (alphabetical order)
             children.sort((a, b) => {
                 return ((a instanceof BranchNode) ? -1 : 1) - ((b instanceof BranchNode) ? -1 : 1) ||
+                    ((a instanceof BranchNode && a.branch.current) ? -1 : 1) - ((b instanceof BranchNode && b.branch.current) ? -1 : 1) ||
                     a.label!.localeCompare(b.label!);
             });
         }
