@@ -25,10 +25,11 @@ export class BranchNode extends ExplorerRefNode {
     }
 
     get label(): string {
+        const branchName = this.branch.getName();
         if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) {
-            return this.branch.getName();
+            return branchName;
         } else {
-            return this.branch.getBasename();
+            return !!branchName.match(/\s/) ? branchName : this.branch.getBasename();
         }
     }
 

@@ -33,8 +33,9 @@ export class BranchesNode extends ExplorerNode {
                 return branchNodes;
             }
 
-            const hierarchy = Arrays.makeHierarchical(branchNodes, n => n.branch.name.split('/'),
-            (...paths: string[]) => paths.join('/'), this.explorer.config.files.compact);
+            const hierarchy = Arrays.makeHierarchical(branchNodes,
+                n => !!n.branch.name.match(/\s/) ? [n.branch.name] : n.branch.name.split('/'),
+                (...paths: string[]) => paths.join('/'), this.explorer.config.files.compact);
 
             const root = new BranchFolderNode(this.repo.path, '', undefined, hierarchy, this.explorer);
             children = await root.getChildren() as (BranchFolderNode | BranchNode)[];

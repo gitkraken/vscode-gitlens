@@ -35,7 +35,7 @@ export class RemoteNode extends ExplorerNode {
 
             const hierarchy = Arrays.makeHierarchical(
                 branchNodes,
-                n => n.branch.name.split('/').slice(1), // remove remote name
+                n => !!n.branch.name.match(/\s/) ? [n.branch.name] : n.branch.name.split('/').slice(1), // remove remote name
                 (...paths: string[]) => paths.join('/'),
                 this.explorer.config.files.compact
             );
