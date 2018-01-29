@@ -75,6 +75,10 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
                 this.decorations.push(gutter);
 
+                if (gravatars && !cfg.compact && commit !== undefined && commit.email !== undefined) {
+                    this.addOrUpdateGravatarDecoration(commit, gutter.range, gravatarDefault, avatarDecorationsMap!);
+                }
+
                 continue;
             }
 
