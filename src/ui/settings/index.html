@@ -51,11 +51,11 @@
                                     <label for="gitExplorer.enabled">Show the GitLens view</label>
                                 </div>
                                 <div class="settings-group__setting ml-2" data-enablement="gitExplorer.enabled" disabled>
-                                    <label for="gitExplorer.view">When opening the GitLens view</label>
+                                    <label for="gitExplorer.view">When opened, show the</label>
                                     <select id="gitExplorer.view" name="gitExplorer.view" disabled>
-                                        <option value="auto">show the last selected view</option>
-                                        <option value="repository">show the repository view</option>
-                                        <option value="history">show the file history view</option>
+                                        <option value="auto">last selected view</option>
+                                        <option value="repository">repository view</option>
+                                        <option value="history">file history view</option>
                                     </select>
                                 </div>
                                 <div class="settings-group__setting nowrap ml-2" data-enablement="gitExplorer.enabled" disabled>
@@ -64,7 +64,7 @@
                                 </div>
                                 <div class="settings-group__setting nowrap ml-2" data-enablement="gitExplorer.enabled" disabled>
                                     <input id="gitExplorer.autoRefresh" name="gitExplorer.autoRefresh" type="checkbox" disabled />
-                                    <label for="gitExplorer.autoRefresh">Automatically refresh the GitLens view when the file system or any repository changes</label>
+                                    <label for="gitExplorer.autoRefresh">Automatically refreshes when the file system or any repository changes</label>
                                 </div>
                             </div>
                             <div class="section__preview">
@@ -80,6 +80,101 @@
                                 />
                                 <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-view-history-avatars.png" data-visibility="gitExplorer.enabled &amp;&amp; gitExplorer.view =history &amp;&amp; gitExplorer.avatars"
                                 />
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="blame">
+                        <div class="section__header">
+                            <h2 class="section__title">Gutter Blame
+                                <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens#git-blame-annotations">
+                                    <i class="icon icon__info"></i>
+                                </a>
+                            </h2>
+                            <p class="section__title-hint">Adds Git blame annotations for the current file to the gutter</p>
+                        </div>
+                        <div class="section__settings">
+                            <div class="settings-group">
+                                <div class="settings-group__setting nowrap">
+                                    <input id="blame.heatmap.enabled" name="blame.heatmap.enabled" type="checkbox" />
+                                    <label for="blame.heatmap.enabled">Add a heatmap (age) indicator</label>
+                                </div>
+                                <p class="setting__hint">Quickly tell the age of a line &mdash; indicator ranges from bright yellow (newer) to dark brown (older)</p>
+
+                                <div class="settings-group__setting ml-2" data-enablement="blame.heatmap.enabled" disabled>
+                                    <label for="blame.heatmap.location">Position the heatmap on the</label>
+                                    <select id="blame.heatmap.location" name="blame.heatmap.location" disabled>
+                                        <option value="left">left</option>
+                                        <option value="right">right</option>
+                                    </select>
+                                </div>
+
+                                <div class="settings-group__setting nowrap">
+                                    <input id="blame.avatars" name="blame.avatars" type="checkbox" />
+                                    <label for="blame.avatars">Add author avatars in the gutter</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap">
+                                    <input id="blame.highlight.enabled" name="blame.highlight.enabled" type="checkbox" />
+                                    <label for="blame.highlight.enabled">Highlight other lines changed with the current line</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-2" data-enablement="blame.highlight.enabled" disabled>
+                                    <input id="blame.highlight.locations" name="blame.highlight.locations" type="checkbox" value="gutter" data-type="array" disabled />
+                                    <label for="blame.highlight.locations">Add gutter highlight</label>
+                                </div>
+                                <div class="settings-group__setting nowrap ml-2" data-enablement="blame.highlight.enabled" disabled>
+                                    <input id="blame.highlight.locations-1" name="blame.highlight.locations" type="checkbox" value="line" data-type="array" disabled />
+                                    <label for="blame.highlight.locations-1">Add line highlight</label>
+                                </div>
+                                <div class="settings-group__setting nowrap ml-2" data-enablement="blame.highlight.enabled" disabled>
+                                    <input id="blame.highlight.locations-2" name="blame.highlight.locations" type="checkbox" value="overviewRuler" data-type="array" disabled />
+                                    <label for="blame.highlight.locations-2">Add scroll bar highlight</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap">
+                                    <input id="blame.compact" name="blame.compact" type="checkbox" />
+                                    <label for="blame.compact">Use compact view</label>
+                                </div>
+                                <p class="setting__hint">Compacts (deduplicate) matching adjacent blame annotations</p>
+                            </div>
+                            <div class="section__preview">
+                                <!-- <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine.png" data-visibility="hovers.enabled &amp;&amp; hovers.currentLine.enabled &amp;&amp; hovers.currentLine.details &amp;&amp; hovers.currentLine.changes &amp;&amp; hovers.currentLine.over =annotation"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-off-currentLine.png" data-visibility="hovers.enabled =false &amp;&amp; hovers.currentLine.enabled &amp;&amp; hovers.currentLine.details &amp;&amp; hovers.currentLine.changes &amp;&amp; hovers.currentLine.over =annotation"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-off-currentLine.png" data-visibility="hovers.enabled &amp;&amp; hovers.currentLine.enabled =false &amp;&amp; hovers.currentLine.details &amp;&amp; hovers.currentLine.changes &amp;&amp; hovers.currentLine.over =annotation"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-off-currentLine.png" data-visibility="hovers.enabled =false &amp;&amp; hovers.currentLine.enabled =false &amp;&amp; hovers.currentLine.details &amp;&amp; hovers.currentLine.changes &amp;&amp; hovers.currentLine.over =annotation"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine-whole.png" data-visibility="currentLine.enabled &amp;&amp; hovers.enabled &amp;&amp; hovers.currentLine.enabled &amp;&amp; hovers.currentLine.details &amp;&amp; hovers.currentLine.changes &amp;&amp; hovers.currentLine.over =line"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-off-currentLine-whole.png" data-visibility="currentLine.enabled &amp;&amp; hovers.enabled =false &amp;&amp; hovers.currentLine.enabled &amp;&amp; hovers.currentLine.details &amp;&amp; hovers.currentLine.changes &amp;&amp; hovers.currentLine.over =line"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-off-currentLine-whole.png" data-visibility="currentLine.enabled &amp;&amp; hovers.enabled &amp;&amp; hovers.currentLine.enabled =false &amp;&amp; hovers.currentLine.details &amp;&amp; hovers.currentLine.changes &amp;&amp; hovers.currentLine.over =line"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-off-currentLine-whole.png" data-visibility="currentLine.enabled &amp;&amp; hovers.enabled =false &amp;&amp; hovers.currentLine.enabled =false &amp;&amp; hovers.currentLine.details &amp;&amp; hovers.currentLine.changes &amp;&amp; hovers.currentLine.over =line"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine-off-whole.png" data-visibility="currentLine.enabled =false &amp;&amp; hovers.enabled &amp;&amp; hovers.currentLine.enabled &amp;&amp; hovers.currentLine.details &amp;&amp; hovers.currentLine.changes &amp;&amp; hovers.currentLine.over =line"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-off-currentLine-off-whole.png" data-visibility="currentLine.enabled =false &amp;&amp; hovers.enabled =false &amp;&amp; hovers.currentLine.enabled &amp;&amp; hovers.currentLine.details &amp;&amp; hovers.currentLine.changes &amp;&amp; hovers.currentLine.over =line"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-off-currentLine-off-whole.png" data-visibility="currentLine.enabled =false &amp;&amp; hovers.enabled &amp;&amp; hovers.currentLine.enabled =false &amp;&amp; hovers.currentLine.details &amp;&amp; hovers.currentLine.changes &amp;&amp; hovers.currentLine.over =line"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-off-currentLine-off-whole.png" data-visibility="currentLine.enabled =false &amp;&amp; hovers.enabled =false &amp;&amp; hovers.currentLine.enabled =false &amp;&amp; hovers.currentLine.details &amp;&amp; hovers.currentLine.changes &amp;&amp; hovers.currentLine.over =line"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine-details.png" data-visibility="hovers.enabled &amp;&amp; hovers.currentLine.enabled &amp;&amp; hovers.currentLine.details &amp;&amp; hovers.currentLine.changes =false &amp;&amp; hovers.currentLine.over =annotation"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine-whole-details.png" data-visibility="currentLine.enabled &amp;&amp; hovers.enabled &amp;&amp; hovers.currentLine.enabled &amp;&amp; hovers.currentLine.details &amp;&amp; hovers.currentLine.changes =false &amp;&amp; hovers.currentLine.over =line"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine-off-whole-details.png" data-visibility="currentLine.enabled =false &amp;&amp; hovers.enabled &amp;&amp; hovers.currentLine.enabled &amp;&amp; hovers.currentLine.details &amp;&amp; hovers.currentLine.changes =false &amp;&amp; hovers.currentLine.over =line"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine-changes.png" data-visibility="hovers.enabled &amp;&amp; hovers.currentLine.enabled &amp;&amp; hovers.currentLine.details =false &amp;&amp; hovers.currentLine.changes &amp;&amp; hovers.currentLine.over =annotation"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine-whole-changes.png" data-visibility="currentLine.enabled &amp;&amp; hovers.enabled &amp;&amp; hovers.currentLine.enabled &amp;&amp; hovers.currentLine.details =false &amp;&amp; hovers.currentLine.changes &amp;&amp; hovers.currentLine.over =line"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine-off-whole-changes.png" data-visibility="currentLine.enabled =false &amp;&amp; hovers.enabled &amp;&amp; hovers.currentLine.enabled &amp;&amp; hovers.currentLine.details =false &amp;&amp; hovers.currentLine.changes &amp;&amp; hovers.currentLine.over =line"
+                                /> -->
                             </div>
                         </div>
                     </section>
@@ -101,35 +196,34 @@
                                 </div>
                                 <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled" disabled>
                                     <input id="codeLens.recentChange.enabled" name="codeLens.recentChange.enabled" type="checkbox" disabled />
-                                    <label for="codeLens.recentChange.enabled">Show the author and date of the most recent change for the file or code block</label>
+                                    <label for="codeLens.recentChange.enabled">Add the author and date of the most recent change for the file or code block</label>
                                 </div>
                                 <div class="settings-group__setting ml-4" data-enablement="codeLens.enabled &amp;&amp; codeLens.recentChange.enabled"
                                     disabled>
-                                    <label for="codeLens.recentChange.command">Clicking on the recent change code lens will </label>
+                                    <label for="codeLens.recentChange.command">When clicked</label>
                                     <select id="codeLens.recentChange.command" name="codeLens.recentChange.command" disabled>
-                                        <option value="gitlens.toggleFileBlame">toggle file blame annotations</option>
-                                        <option value="gitlens.diffWithPrevious">compare the commit with the previous</option>
-                                        <option value="gitlens.showQuickCommitDetails">show details of the commit</option>
-                                        <option value="gitlens.showQuickCommitFileDetails">show file details of the commit</option>
-                                        <option value="gitlens.showQuickFileHistory">show the current file history</option>
-                                        <option value="gitlens.showQuickRepoHistory">show the current branch history</option>
+                                        <option value="gitlens.toggleFileBlame">toggles the file blame annotations</option>
+                                        <option value="gitlens.diffWithPrevious">compares the commit with the previous</option>
+                                        <option value="gitlens.showQuickCommitDetails">shows details of the commit</option>
+                                        <option value="gitlens.showQuickCommitFileDetails">shows file details of the commit</option>
+                                        <option value="gitlens.showQuickFileHistory">shows the current file history</option>
+                                        <option value="gitlens.showQuickRepoHistory">shows the current branch history</option>
                                     </select>
                                 </div>
                                 <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled" disabled>
                                     <input id="codeLens.authors.enabled" name="codeLens.authors.enabled" type="checkbox" disabled />
-                                    <label for="codeLens.authors.enabled">Show the number of authors of the file or code block and the most prominent author, if
-                                        there is more than one</label>
+                                    <label for="codeLens.authors.enabled">Add the number of authors and the most prominent author of the file or code block</label>
                                 </div>
                                 <div class="settings-group__setting ml-4" data-enablement="codeLens.enabled &amp;&amp; codeLens.authors.enabled"
                                     disabled>
-                                    <label for="codeLens.authors.command">Clicking on the authors code lens will </label>
+                                    <label for="codeLens.authors.command">When clicked</label>
                                     <select id="codeLens.authors.command" name="codeLens.authors.command" disabled>
-                                        <option value="gitlens.toggleFileBlame">toggle file blame annotations</option>
-                                        <option value="gitlens.diffWithPrevious">compare the commit with the previous</option>
-                                        <option value="gitlens.showQuickCommitDetails">show details of the commit</option>
+                                        <option value="gitlens.toggleFileBlame">toggles the file blame annotations</option>
+                                        <option value="gitlens.diffWithPrevious">compares the commit with the previous</option>
+                                        <option value="gitlens.showQuickCommitDetails">shows details of the commit</option>
                                         <option value="gitlens.showQuickCommitFileDetails">show file details of the commit</option>
-                                        <option value="gitlens.showQuickFileHistory">show the current file history</option>
-                                        <option value="gitlens.showQuickRepoHistory">show the current branch history</option>
+                                        <option value="gitlens.showQuickFileHistory">shows the current file history</option>
+                                        <option value="gitlens.showQuickRepoHistory">shows the current branch history</option>
                                     </select>
                                 </div>
                             </div>
@@ -205,29 +299,32 @@
                                     <div class="settings-group__setting nowrap ml-2 hidden" data-visibility="currentLine.enabled" data-enablement="hovers.enabled"
                                         disabled>
                                         <input id="hovers.currentLine.enabled" name="hovers.currentLine.enabled" type="checkbox" disabled />
-                                        <label for="hovers.currentLine.enabled">Show hovers for the current line when over the </label>
-                                        <select id="hovers.currentLine.over" name="hovers.currentLine.over" data-enablement="hovers.enabled &amp;&amp; hovers.currentLine.enabled"
-                                            disabled>
-                                            <option value="annotation">annotation</option>
-                                            <option value="line">line</option>
-                                        </select>
+                                        <label for="hovers.currentLine.enabled">Show hovers for the current line</label>
                                     </div>
                                     <div class="settings-group__setting nowrap ml-2 hidden" data-visibility="currentLine.enabled =false"
                                         data-enablement="hovers.enabled" disabled>
                                         <input id="hovers.currentLine.enabled-1" name="hovers.currentLine.enabled" type="checkbox" data-add-settings-on="hovers.currentLine.over=line" disabled
                                         />
-                                        <label for="hovers.currentLine.enabled-1">Show hovers over the current line</label>
+                                        <label for="hovers.currentLine.enabled-1">Show hovers for the current line</label>
+                                    </div>
+                                    <div class="settings-group__setting ml-4 hidden" data-visibility="currentLine.enabled" data-enablement="hovers.enabled &amp;&amp; hovers.currentLine.enabled"
+                                        disabled>
+                                        <label for="hovers.currentLine.over">Shown when over the</label>
+                                        <select id="hovers.currentLine.over" name="hovers.currentLine.over" disabled>
+                                            <option value="annotation">annotation</option>
+                                            <option value="line">line</option>
+                                        </select>
                                     </div>
 
                                     <div class="settings-group__setting nowrap ml-4" data-enablement="hovers.enabled &amp;&amp; hovers.currentLine.enabled"
                                         disabled>
                                         <input id="hovers.currentLine.details" name="hovers.currentLine.details" type="checkbox" disabled />
-                                        <label for="hovers.currentLine.details">Show Git blame details</label>
+                                        <label for="hovers.currentLine.details">Add Git blame details</label>
                                     </div>
                                     <div class="settings-group__setting nowrap ml-4" data-enablement="hovers.enabled &amp;&amp; hovers.currentLine.enabled"
                                         disabled>
                                         <input id="hovers.currentLine.changes" name="hovers.currentLine.changes" type="checkbox" disabled />
-                                        <label for="hovers.currentLine.changes">Show Git changes (diff)</label>
+                                        <label for="hovers.currentLine.changes">Add Git changes (diff)</label>
                                     </div>
                                 </div>
                             </div>
@@ -273,8 +370,11 @@
                                 <div class="settings-group__setting">
                                     <div class="settings-group__setting nowrap ml-2" data-enablement="hovers.enabled" disabled>
                                         <input id="hovers.annotations.enabled" name="hovers.annotations.enabled" type="checkbox" disabled />
-                                        <label for="hovers.annotations.enabled">While annotating, show hovers when over the </label>
-                                        <select id="hovers.annotations.over" name="hovers.annotations.over" data-enablement="hovers.enabled &amp;&amp; hovers.annotations.enabled" disabled>
+                                        <label for="hovers.annotations.enabled">Show hovers while annotating</label>
+                                    </div>
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="hovers.enabled &amp;&amp; hovers.annotations.enabled" disabled>
+                                        <label for="hovers.annotations.over">Shown when over the</label>
+                                        <select id="hovers.annotations.over" name="hovers.annotations.over" disabled>
                                             <option value="annotation">annotation</option>
                                             <option value="line">line</option>
                                         </select>
@@ -283,12 +383,12 @@
                                     <div class="settings-group__setting nowrap ml-4" data-enablement="hovers.enabled &amp;&amp; hovers.annotations.enabled"
                                         disabled>
                                         <input id="hovers.annotations.details" name="hovers.annotations.details" type="checkbox" disabled />
-                                        <label for="hovers.annotations.details">Show Git blame details</label>
+                                        <label for="hovers.annotations.details">Add Git blame details</label>
                                     </div>
                                     <div class="settings-group__setting nowrap ml-4" data-enablement="hovers.enabled &amp;&amp; hovers.annotations.enabled"
                                         disabled>
                                         <input id="hovers.annotations.changes" name="hovers.annotations.changes" type="checkbox" disabled />
-                                        <label for="hovers.annotations.changes">Show Git changes (diff)</label>
+                                        <label for="hovers.annotations.changes">Add Git changes (diff)</label>
                                     </div>
                                 </div>
                             </div>
@@ -325,24 +425,23 @@
                                     <label for="statusBar.enabled">Show a Git blame annotation for the current line in the status bar</label>
                                 </div>
                                 <div class="settings-group__setting ml-2" data-enablement="statusBar.enabled" disabled>
-                                    <label for="statusBar.alignment">Position the annotation on the </label>
+                                    <label for="statusBar.alignment">Position the annotation on the</label>
                                     <select id="statusBar.alignment" name="statusBar.alignment" disabled>
-                                        <option value="left">left side</option>
-                                        <option value="right">right side</option>
+                                        <option value="left">left</option>
+                                        <option value="right">right</option>
                                     </select>
-                                    <label for="statusBar.alignment"> of the status bar</label>
                                 </div>
                                 <div class="settings-group__setting ml-2" data-enablement="statusBar.enabled" disabled>
-                                    <label for="statusBar.command">Clicking on the status bar item will </label>
+                                    <label for="statusBar.command">When clicked</label>
                                     <select id="statusBar.command" name="statusBar.command" disabled>
-                                        <option value="gitlens.toggleFileBlame">toggle file blame annotations</option>
-                                        <option value="gitlens.diffWithPrevious">compare the current line revision with the previous</option>
-                                        <option value="gitlens.diffWithWorking">compare the current line revision with the working file</option>
-                                        <option value="gitlens.toggleCodeLens">toggle the Git code lens</option>
-                                        <option value="gitlens.showQuickCommitDetails">show details of the commit</option>
-                                        <option value="gitlens.showQuickCommitFileDetails">show file details of the commit</option>
-                                        <option value="gitlens.showQuickFileHistory">show the current file history</option>
-                                        <option value="gitlens.showQuickRepoHistory">show the current branch history</option>
+                                        <option value="gitlens.toggleFileBlame">toggles the file blame annotations</option>
+                                        <option value="gitlens.diffWithPrevious">compares the line revision with the previous</option>
+                                        <option value="gitlens.diffWithWorking">compares the line revision with the working file</option>
+                                        <option value="gitlens.toggleCodeLens">toggles the Git code lens</option>
+                                        <option value="gitlens.showQuickCommitDetails">shows details of the commit</option>
+                                        <option value="gitlens.showQuickCommitFileDetails">shows file details of the commit</option>
+                                        <option value="gitlens.showQuickFileHistory">shows the current file history</option>
+                                        <option value="gitlens.showQuickRepoHistory">shows the current branch history</option>
                                     </select>
                                 </div>
                             </div>
@@ -374,7 +473,7 @@
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
-                                <label for="keymap">Use </label>
+                                <label for="keymap">Use</label>
                                 <select id="keymap" name="keymap">
                                     <option value="standard">the default set of</option>
                                     <option value="chorded">a chorded set of</option>
@@ -404,6 +503,9 @@
                         <ul>
                             <li>
                                 <a href="#gitlens-view">GitLens View</a>
+                            </li>
+                            <li>
+                                <a href="#blame">Gutter Blame</a>
                             </li>
                             <li>
                                 <a href="#code-lens">Code Lens</a>

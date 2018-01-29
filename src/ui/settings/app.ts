@@ -28,15 +28,30 @@ export class App {
     private onChecked(element: HTMLInputElement) {
         console.log(`SettingsApp.onChange: name=${element.name}, checked=${element.checked}, value=${element.value}`);
 
-        if (!element.name.startsWith('!')) {
-            let value;
+        if (element.dataset.type === 'array') {
+            const setting = getSettingValue(element.name);
+            if (Array.isArray(setting)) {
+                if (element.checked) {
+                    if (!setting.includes(element.value)) {
+                        setting.push(element.value);
+                    }
+                }
+                else {
+                    const i = setting.indexOf(element.value);
+                    if (i !== -1) {
+                        setting.splice(i, 1);
+                    }
+                }
+                this._changes[element.name] = setting;
+            }
+        }
+        else {
             if (element.checked) {
-                value = element.value === 'on' ? true : element.value;
+                this._changes[element.name] = element.value === 'on' ? true : element.value;
             }
             else {
-                value = false;
+                this._changes[element.name] = false;
             }
-            this._changes[element.name] = value;
         }
 
         this.setAdditionalSettings(element.checked ? element.dataset.addSettingsOn : element.dataset.addSettingsOff);
@@ -74,16 +89,14 @@ export class App {
         console.log('SettingsApp.initializeState');
 
         for (const el of document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
-            const name = el.name;
-
-            const checked = name.startsWith('!') ? false : getSettingValue<boolean>(name);
+            const checked = el.dataset.type === 'array'
+                ? getSettingValue<string[]>(el.name).includes(el.value)
+                : getSettingValue<boolean>(el.name);
             el.checked = checked;
         }
 
         for (const el of document.querySelectorAll<HTMLSelectElement>('select')) {
-            const name = el.name;
-
-            const value = getSettingValue<string>(name);
+            const value = getSettingValue<string>(el.name);
             el.querySelector<HTMLOptionElement>(`option[value='${value}']`)!.selected = true;
         }
 
