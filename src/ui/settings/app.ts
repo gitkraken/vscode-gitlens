@@ -18,14 +18,17 @@ export class App {
         initializeColorPalette();
         this.initializeState();
 
-        const onChecked = this.onChecked.bind(this);
-        DOM.listenAll('input[type="checkbox"],input[type="radio"]', 'change', function(this: HTMLInputElement) { onChecked(this); });
+        const onInputChecked = this.onInputChecked.bind(this);
+        DOM.listenAll('input[type="checkbox"],input[type="radio"]', 'change', function(this: HTMLInputElement) { onInputChecked(this); });
 
-        const onSelected = this.onSelected.bind(this);
-        DOM.listenAll('select', 'change', function(this: HTMLInputElement) { onSelected(this); });
+        const onInputSelected = this.onInputSelected.bind(this);
+        DOM.listenAll('select', 'change', function(this: HTMLInputElement) { onInputSelected(this); });
+
+        const onSectionHeaderClicked = this.onSectionHeaderClicked.bind(this);
+        DOM.listenAll('.section__header', 'click', function(this: HTMLInputElement) { onSectionHeaderClicked(this); });
     }
 
-    private onChecked(element: HTMLInputElement) {
+    private onInputChecked(element: HTMLInputElement) {
         console.log(`SettingsApp.onChange: name=${element.name}, checked=${element.checked}, value=${element.value}`);
 
         if (element.dataset.type === 'array') {
@@ -58,7 +61,7 @@ export class App {
         this.applyChanges();
     }
 
-    private onSelected(element: HTMLSelectElement) {
+    private onInputSelected(element: HTMLSelectElement) {
         const value = element.options[element.selectedIndex].value;
 
         console.log(`SettingsApp.onSelected: name=${element.name}, value=${value}`);
@@ -66,6 +69,10 @@ export class App {
         this._changes[element.name] = ensureIfBoolean(value);
 
         this.applyChanges();
+    }
+
+    private onSectionHeaderClicked(element: HTMLElement) {
+        element.classList.toggle('collapsed');
     }
 
     private applyChanges() {
@@ -152,13 +159,24 @@ function ensureIfBoolean(value: string | boolean): string | boolean {
 function evaluateStateExpression(expression: string, changes: { [key: string]: string | boolean }): boolean {
     let state = false;
     for (const expr of expression.trim().split('&&')) {
-        const [lhs, rhs] = parseStateExpression(expr);
+        const [lhs, op, rhs] = parseStateExpression(expr);
 
-        let value = changes[lhs];
-        if (value === undefined) {
-            value = getSettingValue<string | boolean>(lhs);
+        switch (op) {
+            case '=':
+                let value = changes[lhs];
+                if (value === undefined) {
+                    value = getSettingValue<string | boolean>(lhs);
+                }
+                state = rhs !== undefined ? rhs === '' + value : !!value;
+                break;
+
+            case '+':
+                if (rhs !== undefined) {
+                    const setting = getSettingValue<string[]>(lhs);
+                    state = setting.includes(rhs.toString());
+                }
+                break;
         }
-        state = rhs !== undefined ? rhs === '' + value : !!value;
 
         if (!state) break;
     }
@@ -181,9 +199,9 @@ function parseAdditionalSettingsExpression(expression: string): [string, string 
     });
 }
 
-function parseStateExpression(expression: string): [string, string | boolean | undefined] {
-    const [lhs, rhs] = expression.trim().split('=');
-    return [lhs.trim(), rhs !== undefined ? rhs.trim() : rhs];
+function parseStateExpression(expression: string): [string, string, string | boolean | undefined] {
+    const [lhs, op, rhs] = expression.trim().split(/([=\+])/);
+    return [lhs.trim(), op !== undefined ? op.trim() : '=', rhs !== undefined ? rhs.trim() : rhs];
 }
 
 function flatten(o: { [key: string]: any }, path?: string): { [key: string]: any } {
