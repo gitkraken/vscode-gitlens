@@ -33,9 +33,10 @@ export class BranchFolderNode extends ExplorerNode {
         }
 
         if (this.explorer.config.branches.layout === ExplorerBranchesLayout.Tree) {
-            // sort strategy: normal branches - folder branches (alphabetical order)
+            // sort strategy: current branch / current branch folder - normal branches - other folder branches (alphabetical order)
             children.sort((a, b) => {
-                return ((a instanceof BranchNode) ? -1 : 1) - ((b instanceof BranchNode) ? -1 : 1) ||
+                return (a.current ? -1 : 1) - (b.current ? -1 : 1) ||
+                    ((a instanceof BranchNode) ? -1 : 1) - ((b instanceof BranchNode) ? -1 : 1) ||
                     ((a instanceof BranchNode && a.branch.current) ? -1 : 1) - ((b instanceof BranchNode && b.branch.current) ? -1 : 1) ||
                     a.label!.localeCompare(b.label!);
             });
@@ -57,5 +58,22 @@ export class BranchFolderNode extends ExplorerNode {
 
     get label(): string {
         return this.branchFolderName;
+    }
+
+    get current(): boolean {
+        return this.findCurrent(this.root);
+    }
+
+    // collect whether branch folder containes the current branch recursively
+    findCurrent(tree: Arrays.IHierarchicalItem<BranchNode>): boolean {
+        if (tree.value !== undefined) { // BranchNode
+            return tree.value.branch.current;
+        } else if (tree.children !== undefined) { // BranchFolderNode
+            return Object.keys(tree.children).reduce((bool, key) => {
+                return bool || this.findCurrent(tree.children![key]);
+            }, false);
+        } else {
+            return false;
+        }
     }
 }
