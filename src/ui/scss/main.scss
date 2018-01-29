@@ -520,6 +520,10 @@ ul {
     margin-left: 4em;
 }
 
+.non-interactive {
+    cursor: default !important;
+}
+
 .nowrap {
     flex-wrap: nowrap !important;
 }

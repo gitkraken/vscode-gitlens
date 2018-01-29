@@ -98,6 +98,7 @@
                                     <input id="codeLens.enabled" name="codeLens.enabled" type="checkbox" />
                                     <label for="codeLens.enabled">Show the Git authorship code lenses</label>
                                 </div>
+
                                 <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled" disabled>
                                     <input id="codeLens.recentChange.enabled" name="codeLens.recentChange.enabled" type="checkbox" disabled />
                                     <label for="codeLens.recentChange.enabled">Add the author and date of the most recent change for the file or code block</label>
@@ -114,6 +115,7 @@
                                         <option value="gitlens.showQuickRepoHistory">shows the current branch history</option>
                                     </select>
                                 </div>
+
                                 <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled" disabled>
                                     <input id="codeLens.authors.enabled" name="codeLens.authors.enabled" type="checkbox" disabled />
                                     <label for="codeLens.authors.enabled">Add the number of authors and the most prominent author of the file or code block</label>
@@ -129,6 +131,22 @@
                                         <option value="gitlens.showQuickFileHistory">shows the current file history</option>
                                         <option value="gitlens.showQuickRepoHistory">shows the current branch history</option>
                                     </select>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled" disabled>
+                                    <label class="non-interactive">Add code lens to the following scopes</label>
+                                </div>
+                                <div class="settings-group__setting nowrap ml-4" data-enablement="codeLens.enabled" disabled>
+                                    <input id="codeLens.locations" name="codeLens.locations" type="checkbox" value="document" data-type="array" disabled />
+                                    <label for="codeLens.locations">File scope &mdash; added at the top of the file</label>
+                                </div>
+                                <div class="settings-group__setting nowrap ml-4" data-enablement="codeLens.enabled" disabled>
+                                    <input id="codeLens.locations-1" name="codeLens.locations" type="checkbox" value="containers" data-type="array" disabled />
+                                    <label for="codeLens.locations-1">Containers scope &mdash; added at the start of modules, classes, interfaces, etc</label>
+                                </div>
+                                <div class="settings-group__setting nowrap ml-4" data-enablement="codeLens.enabled" disabled>
+                                    <input id="codeLens.locations-2" name="codeLens.locations" type="checkbox" value="blocks" data-type="array" disabled />
+                                    <label for="codeLens.locations-2">Block scope &mdash; added at the start of functions, methods, etc</label>
                                 </div>
                             </div>
                             <div class="section__preview">
