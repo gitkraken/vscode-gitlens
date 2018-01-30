@@ -988,7 +988,7 @@ export class GitService extends Disposable {
     }
 
     private async getLogForFileCore(repoPath: string | undefined, fileName: string, options: { maxCount?: number, range?: Range, ref?: string, reverse?: boolean, skipMerges?: boolean }, document: TrackedDocument<GitDocumentState>, key: string): Promise<GitLog | undefined> {
-        if (!(await this.isTracked(fileName, repoPath, options.ref))) {
+        if (!(await this.isTracked(fileName, repoPath, { ref: options.ref }))) {
             Logger.log(`Skipping log; '${fileName}' is not tracked`);
             return GitService.emptyPromise as Promise<GitLog>;
         }
@@ -1089,13 +1089,14 @@ export class GitService extends Disposable {
         }
     }
 
-    async getRepoPath(filePath: string, options?: { ref?: string, skipTrackingCheck?: boolean }): Promise<string | undefined>;
-    async getRepoPath(uri: Uri | undefined, options?: { ref?: string, skipTrackingCheck?: boolean }): Promise<string | undefined>;
-    async getRepoPath(filePathOrUri: string | Uri | undefined, options: { ref?: string, skipTrackingCheck?: boolean } = {}): Promise<string | undefined> {
+    async getRepoPath(filePath: string, options?: { ref?: string }): Promise<string | undefined>;
+    async getRepoPath(uri: Uri | undefined, options?: { ref?: string }): Promise<string | undefined>;
+    async getRepoPath(filePathOrUri: string | Uri | undefined, options: { ref?: string } = {}): Promise<string | undefined> {
         if (filePathOrUri === undefined) return await this.getActiveRepoPath();
         if (filePathOrUri instanceof GitUri) return filePathOrUri.repoPath;
 
-        const repo = await this.getRepository(filePathOrUri, options);
+        // Don't save the tracking info to the cache, because we could be looking in the wrong place (e.g. looking in the root when the file is in a submodule)
+        const repo = await this.getRepository(filePathOrUri, { ...options, skipCacheUpdate: true });
         if (repo !== undefined) return repo.path;
 
         const rp = await this.getRepoPathCore(typeof filePathOrUri === 'string' ? filePathOrUri : filePathOrUri.fsPath, false);
@@ -1149,10 +1150,10 @@ export class GitService extends Disposable {
         return this._repositoryTree;
     }
 
-    async getRepository(repoPath: string, options?: { ref?: string, skipTrackingCheck?: boolean }): Promise<Repository | undefined>;
-    async getRepository(uri: Uri, options?: { ref?: string, skipTrackingCheck?: boolean }): Promise<Repository | undefined>;
-    async getRepository(repoPathOrUri: string | Uri, options?: { ref?: string, skipTrackingCheck?: boolean }): Promise<Repository | undefined>;
-    async getRepository(repoPathOrUri: string | Uri, options: { ref?: string, skipTrackingCheck?: boolean } = {}): Promise<Repository | undefined> {
+    async getRepository(repoPath: string, options?: { ref?: string, skipCacheUpdate?: boolean }): Promise<Repository | undefined>;
+    async getRepository(uri: Uri, options?: { ref?: string, skipCacheUpdate?: boolean }): Promise<Repository | undefined>;
+    async getRepository(repoPathOrUri: string | Uri, options?: { ref?: string, skipCacheUpdate?: boolean }): Promise<Repository | undefined>;
+    async getRepository(repoPathOrUri: string | Uri, options: { ref?: string, skipCacheUpdate?: boolean } = {}): Promise<Repository | undefined> {
         const repositoryTree = await this.getRepositoryTree();
 
         let path: string;
@@ -1179,10 +1180,8 @@ export class GitService extends Disposable {
         const repo = repositoryTree.findSubstr(path);
         if (repo === undefined) return undefined;
 
-        if (!options.skipTrackingCheck) {
-            // Make sure the file is tracked in that repo, before returning
-            if (!await this.isTracked(path, repo.path, options.ref)) return undefined;
-        }
+        // Make sure the file is tracked in this repo before returning -- it could be from a submodule
+        if (!await this.isTracked(path, repo.path, options)) return undefined;
         return repo;
     }
 
@@ -1275,10 +1274,12 @@ export class GitService extends Disposable {
         return scheme === DocumentSchemes.File || scheme === DocumentSchemes.Git || scheme === DocumentSchemes.GitLensGit;
     }
 
-    async isTracked(fileName: string, repoPath?: string, sha?: string): Promise<boolean>;
+    async isTracked(fileName: string, repoPath?: string, options?: { ref?: string, skipCacheUpdate?: boolean }): Promise<boolean>;
     async isTracked(uri: GitUri): Promise<boolean>;
-    async isTracked(fileNameOrUri: string | GitUri, repoPath?: string, sha?: string): Promise<boolean> {
-        if (sha === GitService.deletedSha) return false;
+    async isTracked(fileNameOrUri: string | GitUri, repoPath?: string, options: { ref?: string, skipCacheUpdate?: boolean } = {}): Promise<boolean> {
+        if (options.ref === GitService.deletedSha) return false;
+
+        let ref = options.ref;
 
         let cacheKey: string;
         let fileName: string;
@@ -1291,29 +1292,30 @@ export class GitService extends Disposable {
 
             fileName = fileNameOrUri.fsPath;
             repoPath = fileNameOrUri.repoPath;
-            sha = fileNameOrUri.sha;
+            ref = fileNameOrUri.sha;
             cacheKey = GitUri.toKey(fileName);
         }
 
-        if (sha !== undefined) {
-            cacheKey += `:${sha}`;
+        if (ref !== undefined) {
+            cacheKey += `:${ref}`;
         }
 
-        Logger.log(`isTracked('${fileName}', '${repoPath}', '${sha}')`);
+        Logger.log(`isTracked('${fileName}', '${repoPath}', '${ref}')`);
 
         let tracked = this._trackedCache.get(cacheKey);
         if (tracked !== undefined) return await tracked;
 
-        tracked = this.isTrackedCore(repoPath === undefined ? '' : repoPath, fileName, sha);
-        this._trackedCache.set(cacheKey, tracked);
+        tracked = this.isTrackedCore(fileName, repoPath === undefined ? '' : repoPath, ref);
+        if (options.skipCacheUpdate) return tracked;
 
+        this._trackedCache.set(cacheKey, tracked);
         tracked = await tracked;
         this._trackedCache.set(cacheKey, tracked);
 
         return tracked;
     }
 
-    private async isTrackedCore(repoPath: string, fileName: string, ref?: string) {
+    private async isTrackedCore(fileName: string, repoPath: string, ref?: string) {
         if (ref === GitService.deletedSha) return false;
 
         try {
