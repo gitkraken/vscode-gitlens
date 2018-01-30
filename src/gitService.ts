@@ -109,6 +109,8 @@ export class GitService extends Disposable {
                 added: workspace.workspaceFolders || [],
                 removed: []
             } as WorkspaceFoldersChangeEvent;
+
+            Logger.log(`Starting repository search in ${e.added.length} folders`);
         }
 
         for (const f of e.added) {
@@ -153,16 +155,27 @@ export class GitService extends Disposable {
     private async repositorySearch(folder: WorkspaceFolder): Promise<Repository[]> {
         const folderUri = folder.uri;
 
+        const depth = configuration.get<number>(configuration.name('advanced')('repositorySearchDepth').value, folderUri);
+
+        Logger.log(`Searching for repositories (depth=${depth}) in '${folderUri.fsPath}' ...`);
+
+        const start = process.hrtime();
+
         const repositories: Repository[] = [];
         const anyRepoChangedFn = this.onAnyRepositoryChanged.bind(this);
 
         const rootPath = await this.getRepoPathCore(folderUri.fsPath, true);
         if (rootPath !== undefined) {
+            Logger.log(`Repository found in '${rootPath}'`);
             repositories.push(new Repository(folder, rootPath, true, anyRepoChangedFn, this._suspended));
         }
 
-        const depth = configuration.get<number>(configuration.name('advanced')('repositorySearchDepth').value, folderUri);
-        if (depth <= 0) return repositories;
+        if (depth <= 0) {
+            const duration = process.hrtime(start);
+            Logger.log(`Searching for repositories (depth=${depth}) in '${folderUri.fsPath}' took ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);
+
+            return repositories;
+        }
 
         // Get any specified excludes -- this is a total hack, but works for some simple cases and something is better than nothing :)
         let excludes = {
@@ -181,12 +194,7 @@ export class GitService extends Disposable {
             return accumulator;
         }, Object.create(null) as any);
 
-        const start = process.hrtime();
-
         const paths = await this.repositorySearchCore(folderUri.fsPath, depth, excludes);
-
-        const duration = process.hrtime(start);
-        Logger.log(`Searching (depth=${depth}) for repositories in ${folderUri.fsPath} took ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);
 
         for (let p of paths) {
             p = path.dirname(p);
@@ -196,6 +204,7 @@ export class GitService extends Disposable {
             const rp = await this.getRepoPathCore(p, true);
             if (rp === undefined) continue;
 
+            Logger.log(`Repository found in '${rp}'`);
             repositories.push(new Repository(folder, rp, false, anyRepoChangedFn, this._suspended));
         }
 
@@ -206,6 +215,9 @@ export class GitService extends Disposable {
         //         repositories.push(new Repository(folder, rp, false, anyRepoChangedFn, this._suspended));
         //     }
         // }
+
+        const duration = process.hrtime(start);
+        Logger.log(`Searching for repositories (depth=${depth}) in '${folderUri.fsPath}' took ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);
 
         return repositories;
     }
