@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Fixed
+- Fixes [#266](https://github.com/eamodio/vscode-gitlens/issues/266) - Wrong time in Popup
+
 ## [7.5.9] - 2018-01-30
 ### Fixed
 - Fixes [#265](https://github.com/eamodio/vscode-gitlens/issues/265) - Delete line pushes screen to the right (even if word wrap is on)

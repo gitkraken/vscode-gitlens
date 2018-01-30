@@ -151,7 +151,7 @@ export abstract class GitCommit {
 
     formatDate(format?: string | null) {
         if (format == null) {
-            format = 'MMMM Do, YYYY h:MMa';
+            format = 'MMMM Do, YYYY h:mma';
         }
 
         if (this._dateFormatter === undefined) {

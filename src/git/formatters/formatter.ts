@@ -27,7 +27,7 @@ export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = I
         }
 
         if (options.dateFormat == null) {
-            options.dateFormat = 'MMMM Do, YYYY h:MMa';
+            options.dateFormat = 'MMMM Do, YYYY h:mma';
         }
 
         if (options.tokenOptions == null) {

@@ -66,7 +66,7 @@ export class Annotations {
 
     static getHoverMessage(commit: GitCommit, dateFormat: string | null, hasRemote: boolean, annotationType?: FileAnnotationType): MarkdownString {
         if (dateFormat === null) {
-            dateFormat = 'MMMM Do, YYYY h:MMa';
+            dateFormat = 'MMMM Do, YYYY h:mma';
         }
 
         let message = '';
