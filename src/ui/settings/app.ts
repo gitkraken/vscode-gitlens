@@ -32,7 +32,7 @@ export class App {
         console.log(`SettingsApp.onChange: name=${element.name}, checked=${element.checked}, value=${element.value}`);
 
         if (element.dataset.type === 'array') {
-            const setting = getSettingValue(element.name);
+            const setting = getSettingValue(element.name) || [];
             if (Array.isArray(setting)) {
                 if (element.checked) {
                     if (!setting.includes(element.value)) {
@@ -97,8 +97,8 @@ export class App {
 
         for (const el of document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
             const checked = el.dataset.type === 'array'
-                ? getSettingValue<string[]>(el.name).includes(el.value)
-                : getSettingValue<boolean>(el.name);
+                ? (getSettingValue<string[]>(el.name) || []).includes(el.value)
+                : getSettingValue<boolean>(el.name) || false;
             el.checked = checked;
         }
 
@@ -165,7 +165,7 @@ function evaluateStateExpression(expression: string, changes: { [key: string]: s
             case '=':
                 let value = changes[lhs];
                 if (value === undefined) {
-                    value = getSettingValue<string | boolean>(lhs);
+                    value = getSettingValue<string | boolean>(lhs) || false;
                 }
                 state = rhs !== undefined ? rhs === '' + value : !!value;
                 break;
@@ -173,7 +173,7 @@ function evaluateStateExpression(expression: string, changes: { [key: string]: s
             case '+':
                 if (rhs !== undefined) {
                     const setting = getSettingValue<string[]>(lhs);
-                    state = setting.includes(rhs.toString());
+                    state = setting !== undefined ? setting.includes(rhs.toString()) : false;
                 }
                 break;
         }
@@ -183,11 +183,11 @@ function evaluateStateExpression(expression: string, changes: { [key: string]: s
     return state;
 }
 
-function get<T>(o: { [key: string ]: any}, path: string): T {
+function get<T>(o: { [key: string ]: any}, path: string): T | undefined {
     return path.split('.').reduce((o = {}, key) => o[key], o) as T;
 }
 
-function getSettingValue<T>(path: string): T {
+function getSettingValue<T>(path: string): T | undefined {
     return get<T>(config, path);
 }
 
