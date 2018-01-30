@@ -15,7 +15,7 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
         margin: '0 0 0 3em',
         textDecoration: 'none'
     },
-    rangeBehavior: DecorationRangeBehavior.ClosedClosed
+    rangeBehavior: DecorationRangeBehavior.ClosedOpen
 } as DecorationRenderOptions);
 
 class AnnotationState {

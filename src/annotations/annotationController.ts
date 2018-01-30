@@ -26,7 +26,7 @@ export enum AnnotationClearReason {
 export const Decorations = {
     blameAnnotation: window.createTextEditorDecorationType({
         isWholeLine: true,
-        rangeBehavior: DecorationRangeBehavior.ClosedClosed,
+        rangeBehavior: DecorationRangeBehavior.ClosedOpen,
         textDecoration: 'none'
     } as DecorationRenderOptions),
     blameHighlight: undefined as TextEditorDecorationType | undefined,
