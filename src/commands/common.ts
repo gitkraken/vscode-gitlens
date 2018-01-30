@@ -45,6 +45,8 @@ export enum Commands {
     ShowQuickCurrentBranchHistory = 'gitlens.showQuickRepoHistory',
     ShowQuickRepoStatus = 'gitlens.showQuickRepoStatus',
     ShowQuickStashList = 'gitlens.showQuickStashList',
+    ShowSettingsPage = 'gitlens.showSettingsPage',
+    ShowWelcomePage = 'gitlens.showWelcomePage',
     StashApply = 'gitlens.stashApply',
     StashDelete = 'gitlens.stashDelete',
     StashSave = 'gitlens.stashSave',

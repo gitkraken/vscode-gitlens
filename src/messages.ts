@@ -57,15 +57,6 @@ export class Messages {
         return result;
     }
 
-    static async showWelcomeMessage(): Promise<string | undefined> {
-        const viewDocs = 'View Docs';
-        const result = await Messages.showMessage('info', `Thank you for choosing GitLens! GitLens is powerful, feature rich, and highly configurable, so please be sure to view the docs and tailor it to suit your needs`, SuppressedMessages.WelcomeNotice, null, viewDocs);
-        if (result === viewDocs) {
-            commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://marketplace.visualstudio.com/items/eamodio.gitlens'));
-        }
-        return result;
-    }
-
     private static async showMessage(type: 'info' | 'warn' | 'error', message: string, suppressionKey: SuppressedMessages, dontShowAgain: string | null = 'Don\'t Show Again', ...actions: any[]): Promise<string | undefined> {
         Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain})`);
 

@@ -1,9 +1,9 @@
 'use strict';
 import { Objects, Versions } from './system';
-import { ConfigurationTarget, ExtensionContext, extensions, window, workspace } from 'vscode';
+import { commands, ConfigurationTarget, ExtensionContext, extensions, window, workspace } from 'vscode';
 import { CodeLensLanguageScope, CodeLensScopes, configuration, Configuration, IConfig } from './configuration';
 import { CommandContext, ExtensionKey, GlobalState, QualifiedExtensionId, setCommandContext } from './constants';
-import { configureCommands } from './commands';
+import { Commands, configureCommands } from './commands';
 import { Container } from './container';
 import { GitService } from './gitService';
 import { Logger } from './logger';
@@ -46,6 +46,10 @@ export async function activate(context: ExtensionContext) {
         return;
     }
 
+    Container.initialize(context, cfg);
+
+    configureCommands();
+
     const gitVersion = GitService.getGitVersion();
 
     // Telemetry.configure(ApplicationInsightsKey);
@@ -55,14 +59,10 @@ export async function activate(context: ExtensionContext) {
     // telemetryContext['git.version'] = gitVersion;
     // Telemetry.setContext(telemetryContext);
 
-    notifyOnUnsupportedGitVersion(context, gitVersion);
-    notifyOnNewGitLensVersion(context, gitlensVersion, previousVersion);
+    notifyOnUnsupportedGitVersion(gitVersion);
+    notifyOnNewGitLensVersion(gitlensVersion, previousVersion);
 
     context.globalState.update(GlobalState.GitLensVersion, gitlensVersion);
-
-    Container.initialize(context, cfg);
-
-    configureCommands();
 
     // Constantly over my data cap so stop collecting initialized event
     // Telemetry.trackEvent('initialized', Objects.flatten(cfg, 'config', true));
@@ -120,7 +120,12 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
             await configuration.migrate('gitExplorer.gravatarsDefault', configuration.name('defaultGravatarsStyle').value);
         }
 
-        if (Versions.compare(previous, Versions.from(8, 0, 0, 'beta')) !== 1) {
+        if (Versions.compare(previous, Versions.from(7, 5, 9)) !== 1) {
+            const section = configuration.name('advanced')('messages').value;
+            const messages = configuration.get<{ [key: string]: boolean }>(section);
+            messages[SuppressedMessages.WelcomeNotice] = false;
+            await configuration.update(section, messages, ConfigurationTarget.Global);
+
             await configuration.migrate('annotations.file.gutter.gravatars', configuration.name('blame')('avatars').value);
             await configuration.migrate('annotations.file.gutter.compact', configuration.name('blame')('compact').value);
             await configuration.migrate('annotations.file.gutter.dateFormat', configuration.name('blame')('dateFormat').value);
@@ -174,19 +179,26 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
     }
 }
 
-async function notifyOnNewGitLensVersion(context: ExtensionContext, version: string, previousVersion: string | undefined) {
-    if (configuration.get<boolean>(configuration.name('advanced')('messages')(SuppressedMessages.UpdateNotice).value)) return;
-
+async function notifyOnNewGitLensVersion(version: string, previousVersion: string | undefined) {
     if (previousVersion === undefined) {
         Logger.log(`GitLens first-time install`);
-        await Messages.showWelcomeMessage();
+    }
+    else if (previousVersion !== version) {
+        Logger.log(`GitLens upgraded from v${previousVersion} to v${version}`);
+    }
+
+    if (!Container.config.advanced.messages.suppressWelcomeNotice) {
+        const section = configuration.name('advanced')('messages').value;
+        const messages = configuration.get<{ [key: string]: boolean }>(section);
+        messages[SuppressedMessages.WelcomeNotice] = true;
+        await configuration.update(section, messages, ConfigurationTarget.Global);
+
+        await commands.executeCommand(Commands.ShowWelcomePage);
 
         return;
     }
 
-    if (previousVersion !== version) {
-        Logger.log(`GitLens upgraded from v${previousVersion} to v${version}`);
-    }
+    if (previousVersion === undefined || Container.config.advanced.messages.suppressUpdateNotice) return;
 
     const [major, minor] = version.split('.');
     const [prevMajor, prevMinor] = previousVersion.split('.');
@@ -197,7 +209,7 @@ async function notifyOnNewGitLensVersion(context: ExtensionContext, version: str
     await Messages.showUpdateMessage(version);
 }
 
-async function notifyOnUnsupportedGitVersion(context: ExtensionContext, version: string) {
+async function notifyOnUnsupportedGitVersion(version: string) {
     if (GitService.validateGitVersion(2, 2)) return;
 
     // If git is less than v2.2.0
