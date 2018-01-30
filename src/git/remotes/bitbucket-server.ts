@@ -19,7 +19,7 @@ export class BitbucketServerService extends RemoteProvider {
     }
 
     protected get baseUrl() {
-        const [project, repo] = super.splitPath();
+        const [project, repo] = this.splitPath();
         return `https://${this.domain}/projects/${project}/repos/${repo}`;
     }
 
