@@ -70,4 +70,16 @@ export namespace Functions {
     export async function wait(ms: number) {
         await new Promise(resolve => setTimeout(resolve, ms));
     }
+
+    export async function waitUntil(fn: (...args: any[]) => boolean, timeout: number): Promise<boolean> {
+        const max = Math.round(timeout / 100);
+        let counter = 0;
+        while (true) {
+            if (fn()) return true;
+            if (counter > max) return false;
+
+            await wait(100);
+            counter++;
+        }
+    }
 }

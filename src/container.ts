@@ -22,7 +22,7 @@ export class Container {
         context.subscriptions.push(this._tracker = new DocumentTracker<GitDocumentState>());
         context.subscriptions.push(this._git = new GitService());
 
-        // Since there is a chicken/egg problem with the DocumentTracker and the GitService, initialize the tracker once the GitService is loaded
+        // Since there is a bit of a chicken & egg problem with the DocumentTracker and the GitService, initialize the tracker once the GitService is loaded
         this._tracker.initialize();
 
         context.subscriptions.push(this._annotationController = new AnnotationController());
