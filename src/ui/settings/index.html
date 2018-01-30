@@ -137,23 +137,31 @@
                                     <label class="non-interactive">Add code lens to the following scopes</label>
                                 </div>
                                 <div class="settings-group__setting nowrap ml-4" data-enablement="codeLens.enabled" disabled>
-                                    <input id="codeLens.locations" name="codeLens.locations" type="checkbox" value="document" data-type="array" disabled />
-                                    <label for="codeLens.locations">File scope &mdash; added at the top of the file</label>
+                                    <input id="codeLens.scopes" name="codeLens.scopes" type="checkbox" value="document" data-type="array" disabled />
+                                    <label for="codeLens.scopes">File scope &mdash; added at the top of the file</label>
                                 </div>
                                 <div class="settings-group__setting nowrap ml-4" data-enablement="codeLens.enabled" disabled>
-                                    <input id="codeLens.locations-1" name="codeLens.locations" type="checkbox" value="containers" data-type="array" disabled />
-                                    <label for="codeLens.locations-1">Containers scope &mdash; added at the start of modules, classes, interfaces, etc</label>
+                                    <input id="codeLens.scopes-1" name="codeLens.scopes" type="checkbox" value="containers" data-type="array" disabled />
+                                    <label for="codeLens.scopes-1">Containers scope &mdash; added at the start of modules, classes, interfaces, etc</label>
                                 </div>
                                 <div class="settings-group__setting nowrap ml-4" data-enablement="codeLens.enabled" disabled>
-                                    <input id="codeLens.locations-2" name="codeLens.locations" type="checkbox" value="blocks" data-type="array" disabled />
-                                    <label for="codeLens.locations-2">Block scope &mdash; added at the start of functions, methods, etc</label>
+                                    <input id="codeLens.scopes-2" name="codeLens.scopes" type="checkbox" value="blocks" data-type="array" disabled />
+                                    <label for="codeLens.scopes-2">Block scope &mdash; added at the start of functions, methods, etc</label>
                                 </div>
                             </div>
                             <div class="section__preview">
                                 <img class="image__preview" src="{{root}}/images/settings/code-lens.png" />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-recent+authors.png" data-visibility="codeLens.enabled &amp;&amp; codeLens.recentChange.enabled &amp;&amp; codeLens.authors.enabled" />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-recent.png" data-visibility="codeLens.enabled &amp;&amp; codeLens.recentChange.enabled &amp;&amp; codeLens.authors.enabled =false" />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-authors.png" data-visibility="codeLens.enabled &amp;&amp; codeLens.recentChange.enabled =false &amp;&amp; codeLens.authors.enabled" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-file-recent+authors.png" data-visibility="codeLens.enabled &amp;&amp; codeLens.recentChange.enabled &amp;&amp; codeLens.authors.enabled &amp;&amp; codeLens.scopes +document" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-file-recent.png" data-visibility="codeLens.enabled &amp;&amp; codeLens.recentChange.enabled &amp;&amp; codeLens.authors.enabled =false &amp;&amp; codeLens.scopes +document" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-file-authors.png" data-visibility="codeLens.enabled &amp;&amp; codeLens.recentChange.enabled =false &amp;&amp; codeLens.authors.enabled &amp;&amp; codeLens.scopes +document" />
+
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-containers-recent+authors.png" data-visibility="codeLens.enabled &amp;&amp; codeLens.recentChange.enabled &amp;&amp; codeLens.authors.enabled &amp;&amp; codeLens.scopes +containers" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-containers-recent.png" data-visibility="codeLens.enabled &amp;&amp; codeLens.recentChange.enabled &amp;&amp; codeLens.authors.enabled =false &amp;&amp; codeLens.scopes +containers" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-containers-authors.png" data-visibility="codeLens.enabled &amp;&amp; codeLens.recentChange.enabled =false &amp;&amp; codeLens.authors.enabled &amp;&amp; codeLens.scopes +containers" />
+
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-blocks-recent+authors.png" data-visibility="codeLens.enabled &amp;&amp; codeLens.recentChange.enabled &amp;&amp; codeLens.authors.enabled &amp;&amp; codeLens.scopes +blocks" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-blocks-recent.png" data-visibility="codeLens.enabled &amp;&amp; codeLens.recentChange.enabled &amp;&amp; codeLens.authors.enabled =false &amp;&amp; codeLens.scopes +blocks" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-blocks-authors.png" data-visibility="codeLens.enabled &amp;&amp; codeLens.recentChange.enabled =false &amp;&amp; codeLens.authors.enabled &amp;&amp; codeLens.scopes +blocks" />
                             </div>
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
