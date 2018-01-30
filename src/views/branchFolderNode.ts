@@ -46,8 +46,7 @@ export class BranchFolderNode extends ExplorerNode {
   }
 
   async getTreeItem(): Promise<TreeItem> {
-        // TODO: Change this to expanded once https://github.com/Microsoft/vscode/issues/30918 is fixed
-        const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
+        const item = new TreeItem(this.label, this.current ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.Folder;
         item.iconPath = {
             dark: Container.context.asAbsolutePath('images/dark/folder.svg'),
