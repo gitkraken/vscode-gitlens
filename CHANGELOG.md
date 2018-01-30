@@ -4,11 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [7.5.8] - 2018-01-29
 ### Fixed
 - Fixes regression working with submodules
 - Fixes [#262](https://github.com/eamodio/vscode-gitlens/issues/262) - GitLens only available in SCM diff windows
 - Fixes [#261](https://github.com/eamodio/vscode-gitlens/issues/261) - Unable to open compare. The file is probably not under source control
+- Fixes missing avatars in file blame annotations in non-compact mode
+- Fixes file blame annotation highlight not being restored properly on tab switch
 
 ## [7.5.7] - 2018-01-25
 ### Added
