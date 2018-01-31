@@ -13,7 +13,7 @@ body {
 a {
     border: 0;
     color: var(--link-color);
-    font-weight: 600;
+    font-weight: 400;
     outline: none;
     text-decoration: none;
 
@@ -88,11 +88,6 @@ input {
         outline: none;
     }
 
-    // &[type="checkbox"] {
-    //     margin: -2px .25em 0 .25em;
-    //     vertical-align: middle;
-    // }
-
     &[disabled] {
         color: var(--color--75);
         cursor: default;
@@ -156,6 +151,7 @@ ul {
 }
 
 .command {
+    font-weight: 600;
     padding: 1px 3px;
 }
 
@@ -408,10 +404,6 @@ ul {
     margin: -1em 0 0 3em;
     top: 0;
 
-    a {
-        font-weight: 400;
-    }
-
     li {
         white-space: nowrap;
     }
@@ -498,8 +490,20 @@ ul {
     margin: -1em 0 1em 3em;
 }
 
+.setting__hint--indent-2 {
+    margin-left: 5em;
+}
+
+.setting__hint--indent-4 {
+    margin-left: 7em;
+}
+
 .sidebar-group {
     margin-top: 1em;
+}
+
+.bold {
+    font-weight: 600;
 }
 
 .hidden {

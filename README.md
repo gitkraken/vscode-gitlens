@@ -3,35 +3,142 @@
 [![](https://vsmarketplacebadge.apphb.com/rating-short/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
 [![](https://img.shields.io/badge/vscode--dev--community-gitlens-blue.svg?logo=slack)](https://join.slack.com/t/vscode-dev-community/shared_invite/enQtMjIxOTgxNDE3NzM0LWU5M2ZiZDU1YjBlMzdlZjA2YjBjYzRhYTM5NTgzMTAxMjdiNWU0ZmQzYWI3MWU5N2Q1YjBiYmQ4MzY0NDE1MzY)
 
-<p align="center">
-  <br /><br />
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/gitlens-icon.png" alt="logo" width="192">
-</p>
+<div style="color:#23262a;display:flex; flex-wrap:wrap; align-items:center; margin:2em 0 1em 0;">
+    <div style="display:flex; flex-wrap:nowrap;">
+        <img style="max-width:64px; max-height:64px; margin:9px 1em 0 0;" src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/gitlens-icon.png" />
+        <div>
+            <h1 style="padding:0; margin:0; border:none; font-size:36px; white-space:nowrap;">GitLens</h1>
+            <p style="color:rgba(35, 38, 42, 0.75); display:block; font-size:26px; margin-top: -0.2em; white-space:nowrap;">Git supercharged</p>
+        </div>
+    </div>
+    <p style="flex:50% 2 1; font-size:1.2em; font-weight:200; margin:0 0 0 3em; min-width:345px;">
+        GitLens
+        <b style="font-weight: 600">supercharges</b> the Git capabilities built into Visual Studio Code. It helps you to
+        <b style="font-weight: 600">visualize code authorship</b> at a glance via Git blame annotations and code lens,
+        <b style="font-weight: 600">seamlessly navigate and explore</b> Git repositories,
+        <b style="font-weight: 600">gain valuable insights</b> via powerful comparison commands, and so much more.
+    </p>
+</div>
 
 # GitLens
 
-GitLens **supercharges** the Git capabilities built into Visual Studio Code. It helps you to **visualize code authorship** at a glance via Git blame annotations and code lens, **seamlessly navigate and explore** the history of a file or branch, **gain valuable insights** via powerful comparison commands, and so much more.
+GitLens is a free, [open-source](https://github.com/eamodio/vscode-gitlens "Open GitLens on GitHub") extension for [Visual Studio Code](https://code.visualstudio.com) created by [Eric Amodio](http://amod.io "Learn more about Eric").
 
-GitLens provides an unobtrusive blame annotation at the end of the current line, a status bar item showing the commit information (author and date, by default) of the current line, code lens showing the most recent commit and # of authors of the file and/or code block, and many commands for exploring commits and histories, comparing and navigating revisions, stash access, repository status, and more. GitLens is also [highly customizable](#extension-settings) to meet your specific needs — find code lens intrusive or the current line blame annotation distracting — no problem, it is easy to [turn them off or change how they behave](#extension-settings).
+GitLens simply helps you understand code better. Quickly glimpse into who, why, and when a line or code block was changed. Jump back through history to gain further insights as to how and why the code evolved. Explore the history and evolution of a codebase.
+
+Here are just some of the features that GitLens provides,
+ - a [*GitLens* explorer](#gitlens-explorer "Jump to the GitLens explorer") to navigate and explore repositories or file histories
+ - an on-demand [*GitLens Results* view](#gitlens-results-view "Jump to the GitLens Results view") to explore commit searches, visualize comparisions between branches, tags, commits, and more
+ - Git authorship code lens showing the most recent commit and # of authors to the top of files and/or on code blocks
+ - an unobtrusive Git blame annotation to the end of the current line
+ - detailed Git blame information accessible via hovers
+ - a status bar Git blame annotation showing author and date, by default, about the current line
+ - many powerful commands for exploring commits and histories, comparing and navigating revisions, stash access, repository status, and more
+
+GitLens is powerful, feature rich, and also [highly customizable](#gitlens-settings "Jump to the GitLens settings docs") to meet your specific needs &mdash; find code lens intrusive or the current line blame annotation distracting &mdash; no problem, it is quick and easy to turn them off or change how they behave via the built-in *GitLens Settings* editor, a WYSIWYG editor covering many of GitLens' powerful settings. While for more advanced customizations, refer to the [GitLens settings docs](#gitlens-settings "Jump to the GitLens settings docs") and edit your vscode [user settings](https://code.visualstudio.com/docs/getstarted/settings).
 
 ### Preview
 >![GitLens preview](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/gitlens-preview.gif)
 >###### Features blame annotations, code lens, status bar details, quick pick menus for navigation and exploration, compare with previous, and more
 
-### Quick Access Settings
-
-While GitLens is highly customizable and provides many [configuration settings](#extension-settings), here are the most important ones for controlling GitLens' behavior
-
-|Name | Description
-|-----|------------
-|`gitlens.blame.line.enabled`|Specifies whether or not to provide a blame annotation for the current line, by default<br />Use the *Toggle Line Blame Annotations* command (`gitlens.toggleLineBlame`) to toggle the annotations on and off for the current session
-|`gitlens.codeLens.enabled`|Specifies whether or not to provide any Git code lens, by default<br />Use the *Toggle Git Code Lens* command (`gitlens.toggleCodeLens`) to toggle the Git code lens on and off for the current session
-|`gitlens.gitExplorer.enabled`|Specifies whether or not to show the **GitLens** view
-|`gitlens.statusBar.enabled`|Specifies whether or not to provide blame information on the status bar
-|`gitlens.keymap`|Specifies the keymap to use for GitLens shortcut keys<br />`standard` - adds a standard set of shortcut keys<br />`chorded` - adds a chorded set of shortcut keys that all start with `Ctrl+Shift+G` (`⌥⌘G` on macOS)<br />`none` - no shortcut keys will be added
-
 ## Features
 
+### GitLens Explorer
+A [customizable](#gitlens-explorer-settings "Jump to the GitLens Explorer settings") explorer to navigate and explore repositories or file histories. The GitLens explorer provides two views (modes) &mdash; a Repository view and a History view.
+- Toolbar provides *Search Commits*, *Switch to Repository View* or *Switch to History View*, and *Refresh* commands
+- Quickly switch between views using the *Switch to Repository View* or *Switch to History View* commands
+
+#### Repository view
+![GitLens Explorer Repository view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-gitlens-explorer-repository.png)
+
+The repository view provides a full Git repository explorer, which has the following features,
+
+- **Repository Status**
+  - Provides the name of the current branch, [optionally](#gitlens-explorer-settings "Jump to the GitLens explorer settings") its working tree status, and its upstream tracking branch and status (if available)
+  - Provides indicator dots on the repository icon which denote the following:
+    - *None* - up-to-date with the upstream
+    - *Green* - ahead of the upstream
+    - *Red* - behind the upstream
+    - *Yellow* - both ahead of and behind the upstream
+  - Provides additional upstream status nodes, if the current branch is tracking a remote branch and,
+    - is behind the upstream &mdash; quickly see and explore the specific commits behind the upstream (i.e. commits that haven't been pulled)
+    - is ahead of the upstream &mdash; quickly see and explore the specific commits ahead of the upstream (i.e. commits that haven't been pushed)
+  - **Changed Files** node &mdash; provides a at-a-glance view of all "working" changes
+    - Expands to a file-based view of all changed files in the working tree ([optionally](#gitlens-explorer-settings "Jump to the GitLens explorer settings")) and/or all files in all commits ahead of the upstream
+  - Provides a context menu with *Open Repository in Remote*, and *Refresh* commands
+
+- **Branches** &mdash; lists the local branches
+  - Indicates which branch is the current branch and [optionally](#gitlens-explorer-settings "Jump to the GitLens explorer settings") shows the remote tracking branch
+  - Context menu provides *Open Branches in Remote*, and *Refresh* commands
+  - Branches expand to show its revision (commit) history
+    - Provides indicator dots on each branch icon which denote the following:
+      - *None* &mdash; no upstream or up-to-date with the upstream
+      - *Green* &mdash; ahead of the upstream
+      - *Red* &mdash; behind the upstream
+      - *Yellow* &mdash; both ahead of and behind the upstream
+    - Context menus for each branch provide
+      - *Open Branch in Remote* (if available), *Compare with Remote* (if available), *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected* (when available), *Compare Selected Ancestor with Working Tree* (when available), *Select for Compare*, *Open Directory Compare with Working Tree*, *Checkout Branch (via Terminal)*, *Merge Branch (via Terminal)*, *Rebase (Interactive) Branch (via Terminal)*, *Rebase (Interactive) Branch to Remote (via Terminal)*, *Squash Branch into Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Delete Branch (via Terminal)*, *Create Tag (via Terminal)...*, and *Refresh* commands
+    - Revisions (commits) expand to show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
+      - Context menus for each revision (commit) provide
+        -  *Open Commit in Remote* (if available), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, *Cherry Pick Commit (via Terminal)*, *Revert Commit (via Terminal)*, *Rebase to Commit (via Terminal)*, *Reset to Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
+      - Context menus for each changed file provide
+        - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
+
+- **Remotes** &mdash; lists the remotes
+  - Indicates the direction of the remote (fetch, push, both), remote service (if applicable), and repository path
+  - Context menu provides a *Refresh* command
+  - Remotes expands show its list of branches
+    - Context menus for each remote provide
+      - *Open Branches in Remote*, *Open Repository in Remote*, *Remove Remote (via Terminal)*, and *Refresh* commands
+    - Branches expand to show its revision (commit) history
+      - See the *Branches expand* section in the **Branches** above for more details
+
+- **Stashes** &mdash; lists the stashed changes
+  - Context menu provides *Stash Changes*, and *Refresh* commands
+  - Stashes expand to show the set of files stashed, complete with status indicators for adds, changes, renames, and deletes
+    - Context menus for each stash provide
+      - *Apply Stashed Changes* (confirmation required), *Delete Stashed Changes* (confirmation required), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit Message to Clipboard*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, and *Refresh* commands
+    - Context menus for each stashed file provide
+      - *Apply Changes*, *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote* (if available), and *Show File History* commands
+
+- **Tags** &mdash; lists the tags
+  - Context menu provides a *Refresh* command
+  - Tags expand to show its revision (commit) history
+    - Context menus for each tag provide
+      - *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected*, *Select for Compare*, *Open Directory Compare with Working Tree*, *Delete Tag (via Terminal)*, and *Refresh* commands
+    - Revisions (commits) expand to show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
+      - See the *Revisions (commits) expand* section in the **Branches** above for more details
+
+### History view
+![GitLens Explorer History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-gitlens-explorer-history.png)
+
+The history view provides the revision history of the active file, which has the following features,
+- Automatically updates to track the active editor
+- Context menu provides *Open File*, *Open File in Remote* (if available), and *Refresh* commands
+- Context menus for each revision (commit) provides
+  - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote* (if available), *Open Revision in Remote* (if available), *Apply Changes*, and *Show Commit File Details* commands
+
+### GitLens Results
+![GitLens Results view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-gitlens-results.png)
+An on-demand, [customizable](#gitlens-results-settings "Jump to the GitLens Results settings") view to explore commit searches, visualize comparisions between branches, tags, commits, and more
+
+  - Provides semi-persistent results for commit search, file history, and commit operations
+    - Accessible via the following: *Show Commit Search* command (`gitlens.showCommitSearch`), *Show File History* command (`gitlens.showQuickFileHistory`), and *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
+    - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
+      - Provides a context menu on each revision (commit) with *Open Commit in Remote*, *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected*, *Select for Compare*, *Cherry Pick Commit (via Terminal)*, *Revert Commit (via Terminal)*, *Rebase to Commit (via Terminal)*, *Reset to Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
+        - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
+
+  - Provides semi-persistent results for revision comparison operations
+    - Accessible via the following: *Compare with Index (HEAD)* command (`gitlens.explorers.compareWithHead`), *Compare with Remote* command (`gitlens.explorers.compareWithRemote`), *Compare with Working Tree* command (`gitlens.explorers.compareWithWorking`), *Compare with Selected* command (`gitlens.explorers.compareWithSelected`), and *Compare Selected Ancestor with Working Tree* command (`gitlens.explorers.compareSelectedAncestorWithWorking`)
+    - **Commits** node — provides a list of the commits between the compared revisions (branches or commits)
+      - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
+        - Provides a context menu on each revision (commit) with *Open Commit in Remote*, *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected*, *Select for Compare*, *Cherry Pick Commit (via Terminal)*, *Revert Commit (via Terminal)*, *Rebase to Commit (via Terminal)*, *Reset to Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
+          - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
+    - **Changed Files** node — provides a list of all the files changed between the compared revisions (branches or commits)
+        - Expands to a file-based view of all changed files
+           - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
+    - Provides a context menu with *Open Directory Compare* and *Refresh* commands
+  - Provides toolbar commands to *Search Commits*, *Keep Results*, *Refresh*, *Show Files in Automatic View* or *Show Files in List View* or *Show Files in Tree View*, and *Close*
 ### Git Blame Annotations
 
 - Adds an unobtrusive, highly [customizable](#line-blame-annotation-settings) and [themable](#themable-colors), **Git blame annotation** to the end of the current line ([optional](#line-blame-annotation-settings), on by default)
@@ -138,76 +245,6 @@ While GitLens is highly customizable and provides many [configuration settings](
 
 ### Navigate and Explore
 
-- Adds a [customizable](#gitlens-view-settings) **GitLens** view to the Explorer activity
-
-  - **Repository View** - provides a full repository explorer
-
-    ![GitLens Repository view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-repository.png)
-
-    - **Repository Status** node — provides the status of the repository
-      - Provides the name of the current branch, [optionally](#gitlens-view-settings) its working tree status, and its upstream tracking branch and status (if available)
-      - Provides indicator dots on the repository icon which denote the following:
-        - *None* - up-to-date with the upstream
-        - *Green* - ahead of the upstream
-        - *Red* - behind the upstream
-        - *Yellow* - both ahead of and behind the upstream
-      - Provides additional upstream status nodes, if the current branch is tracking a remote branch and
-        - is behind the upstream — quickly see and explore the specific commits behind the upstream (i.e. commits that haven't been pulled)
-        - is ahead of the upstream — quickly see and explore the specific commits ahead of the upstream (i.e. commits that haven't been pushed)
-      - **Changed Files** node — provides a at-a-glance view of all "working" changes
-        - Expands to a file-based view of all changed files in the working tree ([optionally](#gitlens-view-settings)) and/or all files in all commits ahead of the upstream
-      - Provides a context menu with *Open Repository in Remote*, and *Refresh* commands
-
-    - **Branches** node — provides a list of the local branches
-      - Indicates which branch is the current branch and [optionally](#gitlens-view-settings) shows the remote tracking branch
-      - Expand each branch to easily see its revision (commit) history
-        - Provides indicator dots on each branch icon which denote the following:
-          - *None* - no upstream or up-to-date with the upstream
-          - *Green* - ahead of the upstream
-          - *Red* - behind the upstream
-          - *Yellow* - both ahead of and behind the upstream
-        - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-          - Provides a context menu on each revision (commit) with *Open Commit in Remote*, *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected*, *Select for Compare*, *Cherry Pick Commit (via Terminal)*, *Revert Commit (via Terminal)*, *Rebase to Commit (via Terminal)*, *Reset to Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
-           - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
-        - Provides a context menu on each branch with *Open Branch in Remote*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Remote*, *Compare with Selected*, *Compare Selected Ancestor with Working Tree*, *Select for Compare*, *Open Directory Compare with Working Tree*, *Checkout Branch (via Terminal)*, *Merge Branch (via Terminal)*, *Rebase (Interactive) Branch (via Terminal)*, *Rebase (Interactive) Branch to Remote (via Terminal)*, *Squash Branch into Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Delete Branch (via Terminal)*, *Create Tag (via Terminal)...*, and *Refresh* commands
-      - Provides a context menu with *Open Branches in Remote*, and *Refresh* commands
-
-    - **Remotes** node — provides a list of remotes
-      - Indicates the direction of the remote (fetch, push, both), remote service (if applicable), and repository path
-      - Expand each remote to see its list of branches
-        - Expand each branch to easily see its revision (commit) history
-          - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-            - Provides a context menu on each revision (commit) with *Open Commit in Remote*, *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*,*Show Commit Details*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected*, *Select for Compare*, *Cherry Pick Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
-            - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, *Show File History*, and *Show Commit File Details* commands
-          - Provides a context menu on each remote branch with *Open Branch in Remote*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected*, *Compare Selected Ancestor with Working Tree*, *Select for Compare*, *Open Directory Compare with Working Tree*, *Checkout Branch (via Terminal)*, *Merge Branch (via Terminal)*, *Rebase (Interactive) Branch (via Terminal)*, *Squash Branch into Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Delete Branch (via Terminal)*, *Create Tag (via Terminal)...*, and *Refresh* commands
-        - Provides a context menu on each remote with *Open Branches in Remote*, *Open Repository in Remote*, *Remove Remote (via Terminal)*, and *Refresh* commands
-      - Provides a context menu with a *Refresh* command
-
-    - **Stashes** node — provides a list of stashed changes
-      - Expand each stash to quickly see the set of files stashed, complete with status indicators for adds, changes, renames, and deletes
-        - Provides a context menu on each stash with *Apply Stashed Changes* (confirmation required), *Delete Stashed Changes* (confirmation required), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit Message to Clipboard*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected*, *Select for Compare*, and *Refresh* commands
-         - Provides a context menu on each stashed file with *Apply Changes*, *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, and *Show File History* commands
-      - Provides a context menu with *Stash Changes*, and *Refresh* commands
-
-    - **Tags** node — provides a list of tags
-      - Expand each tag to easily see its revision (commit) history
-        - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-          - Provides a context menu on each revision (commit) with *Open Commit in Remote*, *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected*, *Select for Compare*, *Cherry Pick Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
-           - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
-        - Provides a context menu on each tag with *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected*, *Select for Compare*, *Open Directory Compare with Working Tree*, *Delete Tag (via Terminal)*, and *Refresh* commands
-      - Provides a context menu with a *Refresh* command
-
-  - **History View** - provides the revision history of the active file
-
-    ![GitLens History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-git-custom-view-history.png)
-
-    - Automatically updates to track the active editor
-    - Provides a context menu with *Open File*, *Open File in Remote*, and *Refresh* commands
-    - Provides a context menu on each revision (commit) with *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
-
-  - Quickly switch between views using the *Switch to Repository View* or *Switch to History View* commands
-  - Provides toolbar commands to *Search Commits*, *Switch to Repository View* or *Switch to History View*, and *Refresh*
-
 - Adds a *Search Commits* command (`gitlens.showCommitSearch`) with a shortcut of `alt+/` to search for commits by message, author, file(s), commit id, or code changes
   - Use `<message>` to search for commits with messages that match `<message>` -- See [Git docs](https://git-scm.com/docs/git-log#git-log---grepltpatterngt)
   - Use `@<pattern>` to search for commits with authors that match `<pattern>` -- See [Git docs](https://git-scm.com/docs/git-log#git-log---authorltpatterngt)
@@ -216,26 +253,6 @@ While GitLens is highly customizable and provides many [configuration settings](
   - Use `~<pattern>` to search for commits with differences whose patch text contains added/removed lines that match `<pattern>` -- See [Git docs](https://git-scm.com/docs/git-log#git-log--Gltregexgt)
   - Use `=<string>` to search for commits with differences that change the number of occurrences of the specified string (i.e. addition/deletion) in a file -- See [Git docs](https://git-scm.com/docs/git-log#git-log--Sltstringgt)
   - Provides a *Show in Results* option to show the search results in the **GitLens Results** view
-
-- Adds an on-demand, [customizable](#gitlens-results-view-settings) **GitLens Results** view to the Explorer activity
-
-  - Provides semi-persistent results for commit search, file history, and commit operations
-    - Accessible via the following: *Show Commit Search* command (`gitlens.showCommitSearch`), *Show File History* command (`gitlens.showQuickFileHistory`), and *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
-    - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-      - Provides a context menu on each revision (commit) with *Open Commit in Remote*, *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected*, *Select for Compare*, *Cherry Pick Commit (via Terminal)*, *Revert Commit (via Terminal)*, *Rebase to Commit (via Terminal)*, *Reset to Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
-        - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
-
-  - Provides semi-persistent results for revision comparison operations
-    - Accessible via the following: *Compare with Index (HEAD)* command (`gitlens.explorers.compareWithHead`), *Compare with Remote* command (`gitlens.explorers.compareWithRemote`), *Compare with Working Tree* command (`gitlens.explorers.compareWithWorking`), *Compare with Selected* command (`gitlens.explorers.compareWithSelected`), and *Compare Selected Ancestor with Working Tree* command (`gitlens.explorers.compareSelectedAncestorWithWorking`)
-    - **Commits** node — provides a list of the commits between the compared revisions (branches or commits)
-      - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-        - Provides a context menu on each revision (commit) with *Open Commit in Remote*, *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected*, *Select for Compare*, *Cherry Pick Commit (via Terminal)*, *Revert Commit (via Terminal)*, *Rebase to Commit (via Terminal)*, *Reset to Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
-          - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
-    - **Changed Files** node — provides a list of all the files changed between the compared revisions (branches or commits)
-        - Expands to a file-based view of all changed files
-           - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
-    - Provides a context menu with *Open Directory Compare* and *Refresh* commands
-  - Provides toolbar commands to *Search Commits*, *Keep Results*, *Refresh*, *Show Files in Automatic View* or *Show Files in List View* or *Show Files in Tree View*, and *Close*
 
 - Adds commands to open files, commits, branches, and the repository in the supported remote services, **BitBucket, GitHub, GitLab, and Visual Studio Team Services** or a [**user-defined** remote services](#custom-remotes-settings) — only available if a Git upstream service is configured in the repository
   - Also supports [remote services with custom domains](#custom-remotes-settings), such as **BitBucket, Bitbucket Server (previously called Stash), GitHub, GitHub Enterprise, GitLab**
@@ -377,7 +394,7 @@ GitLens defines a set of themable colors which can be provided by vscode themes 
 |`gitlens.lineHighlightBackgroundColor`|Specifies the background color of the associated line highlights in blame annotations
 |`gitlens.lineHighlightOverviewRulerColor`|Specifies the overview ruler color of the associated line highlights in blame annotations
 
-## Extension Settings
+## GitLens Settings
 
 GitLens is highly customizable and provides many configuration settings to allow the personalization of almost all features
 
@@ -391,6 +408,40 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.insiders`|Opts into the insiders channel -- provides access to upcoming features
 |`gitlens.keymap`|Specifies the keymap to use for GitLens shortcut keys<br />`standard` - adds a standard set of shortcut keys<br />`chorded` - adds a chorded set of shortcut keys that all start with `Ctrl+Shift+G` (`⌥⌘G` on macOS)<br />`none` - no shortcut keys will be added
 |`gitlens.outputLevel`|Specifies how much (if any) output will be sent to the GitLens output channel
+
+### GitLens Explorer Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.gitExplorer.enabled`|Specifies whether or not to show the **GitLens** view"
+|`gitlens.gitExplorer.view`|Specifies the starting view (mode) of the **GitLens** view<br /> `auto` - shows the last selected view, defaults to `repository`<br />`history` - shows the commit history of the active file<br />`repository` - shows a repository explorer"
+|`gitlens.gitExplorer.autoRefresh`|Specifies whether or not to automatically refresh the **GitLens** view when the repository or the file system changes
+|`gitlens.gitExplorer.files.layout`|Specifies how the **GitLens** view will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
+|`gitlens.gitExplorer.files.compact`|Specifies whether or not to compact (flatten) unnecessary file nesting in the **GitLens** view<br />Only applies when displaying files as a `tree` or `auto`
+|`gitlens.gitExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the **GitLens** view<br />Only applies when displaying files as `auto`
+|`gitlens.gitExplorer.commitFormat`|Specifies the format of committed changes in the **GitLens** view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
+|`gitlens.gitExplorer.commitFileFormat`|Specifies the format of a committed file in the **GitLens** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
+|`gitlens.gitExplorer.gravatars`|Specifies whether or not to show gravatar images instead of commit (or status) icons in the **GitLens** view
+|`gitlens.gitExplorer.includeWorkingTree`|Specifies whether or not to include working tree files inside the `Repository Status` node of the **GitLens** view
+|`gitlens.gitExplorer.showTrackingBranch`|Specifies whether or not to show the tracking branch when displaying local branches in the **GitLens** view"
+|`gitlens.gitExplorer.stashFormat`|Specifies the format of stashed changes in the **GitLens** view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
+|`gitlens.gitExplorer.stashFileFormat`|Specifies the format of a stashed file in the **GitLens** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
+|`gitlens.gitExplorer.statusFileFormat`|Specifies the format of the status of a working or committed file in the **GitLens** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path<br />${working} - optional indicator if the file is uncommitted
+
+### GitLens Results Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.resultsExplorer.files.layout`|Specifies how the **GitLens Results** view will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.resultsExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
+|`gitlens.resultsExplorer.files.compact`|Specifies whether or not to compact (flatten) unnecessary file nesting in the **GitLens Results** view<br />Only applies when displaying files as a `tree` or `auto`
+|`gitlens.resultsExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the **GitLens Results** view<br />Only applies when displaying files as `auto`
+|`gitlens.resultsExplorer.commitFormat`|Specifies the format of committed changes in the **GitLens Results** view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
+|`gitlens.resultsExplorer.commitFileFormat`|Specifies the format of a committed file in the **GitLens Results** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
+|`gitlens.resultsExplorer.gravatars`|Specifies whether or not to show gravatar images instead of commit (or status) icons in the **GitLens Results** view
+|`gitlens.resultsExplorer.showTrackingBranch`|Specifies whether or not to show the tracking branch when displaying local branches in the **GitLens Results** view"
+|`gitlens.resultsExplorer.stashFormat`|Specifies the format of stashed changes in the **GitLens Results** view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
+|`gitlens.resultsExplorer.stashFileFormat`|Specifies the format of a stashed file in the **GitLens Results** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
+|`gitlens.resultsExplorer.statusFileFormat`|Specifies the format of the status of a working or committed file in the **GitLens Results** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path<br />${working} - optional indicator if the file is uncommitted
 
 ### Blame Settings
 
@@ -453,40 +504,6 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.codeLens.scopes`|Specifies where Git code lens will be shown in the document<br />`document` - adds code lens at the top of the document<br />`containers` - adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)<br />`blocks` - adds code lens at the start of block-like symbols (functions, methods, etc) lines
 |`gitlens.codeLens.scopesByLanguage`|Specifies where Git code lens will be shown in the document for the specified languages
 |`gitlens.codeLens.symbolScopes`|Specifies a set of document symbols where Git code lens will or will not be shown in the document<br />Prefix with `!` to not show Git code lens for the symbol<br />Must be a member of `SymbolKind`
-
-### GitLens View Settings
-
-|Name | Description
-|-----|------------
-|`gitlens.gitExplorer.enabled`|Specifies whether or not to show the **GitLens** view"
-|`gitlens.gitExplorer.view`|Specifies the starting view (mode) of the **GitLens** view<br /> `auto` - shows the last selected view, defaults to `repository`<br />`history` - shows the commit history of the active file<br />`repository` - shows a repository explorer"
-|`gitlens.gitExplorer.autoRefresh`|Specifies whether or not to automatically refresh the **GitLens** view when the repository or the file system changes
-|`gitlens.gitExplorer.files.layout`|Specifies how the **GitLens** view will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
-|`gitlens.gitExplorer.files.compact`|Specifies whether or not to compact (flatten) unnecessary file nesting in the **GitLens** view<br />Only applies when displaying files as a `tree` or `auto`
-|`gitlens.gitExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the **GitLens** view<br />Only applies when displaying files as `auto`
-|`gitlens.gitExplorer.commitFormat`|Specifies the format of committed changes in the **GitLens** view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
-|`gitlens.gitExplorer.commitFileFormat`|Specifies the format of a committed file in the **GitLens** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
-|`gitlens.gitExplorer.gravatars`|Specifies whether or not to show gravatar images instead of commit (or status) icons in the **GitLens** view
-|`gitlens.gitExplorer.includeWorkingTree`|Specifies whether or not to include working tree files inside the `Repository Status` node of the **GitLens** view
-|`gitlens.gitExplorer.showTrackingBranch`|Specifies whether or not to show the tracking branch when displaying local branches in the **GitLens** view"
-|`gitlens.gitExplorer.stashFormat`|Specifies the format of stashed changes in the **GitLens** view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
-|`gitlens.gitExplorer.stashFileFormat`|Specifies the format of a stashed file in the **GitLens** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
-|`gitlens.gitExplorer.statusFileFormat`|Specifies the format of the status of a working or committed file in the **GitLens** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path<br />${working} - optional indicator if the file is uncommitted
-
-### GitLens Results View Settings
-
-|Name | Description
-|-----|------------
-|`gitlens.resultsExplorer.files.layout`|Specifies how the **GitLens Results** view will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.resultsExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
-|`gitlens.resultsExplorer.files.compact`|Specifies whether or not to compact (flatten) unnecessary file nesting in the **GitLens Results** view<br />Only applies when displaying files as a `tree` or `auto`
-|`gitlens.resultsExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the **GitLens Results** view<br />Only applies when displaying files as `auto`
-|`gitlens.resultsExplorer.commitFormat`|Specifies the format of committed changes in the **GitLens Results** view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
-|`gitlens.resultsExplorer.commitFileFormat`|Specifies the format of a committed file in the **GitLens Results** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
-|`gitlens.resultsExplorer.gravatars`|Specifies whether or not to show gravatar images instead of commit (or status) icons in the **GitLens Results** view
-|`gitlens.resultsExplorer.showTrackingBranch`|Specifies whether or not to show the tracking branch when displaying local branches in the **GitLens Results** view"
-|`gitlens.resultsExplorer.stashFormat`|Specifies the format of stashed changes in the **GitLens Results** view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
-|`gitlens.resultsExplorer.stashFileFormat`|Specifies the format of a stashed file in the **GitLens Results** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
-|`gitlens.resultsExplorer.statusFileFormat`|Specifies the format of the status of a working or committed file in the **GitLens Results** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path<br />${working} - optional indicator if the file is uncommitted
 
 ### Custom Remotes Settings
 

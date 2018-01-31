@@ -400,19 +400,19 @@
                 "gitlens.gitExplorer.autoRefresh": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to automatically refresh the `GitLens` view when the repository or the file system changes",
+                    "description": "Specifies whether or not to automatically refresh the `GitLens` explorer when the repository or the file system changes",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to show the `GitLens` view",
+                    "description": "Specifies whether or not to show the `GitLens` explorer",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.files.compact": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to compact (flatten) unnecessary file nesting in the `GitLens` view\nOnly applies when displaying files as a `tree` or `auto`",
+                    "description": "Specifies whether or not to compact (flatten) unnecessary file nesting in the `GitLens` explorer\nOnly applies when displaying files as a `tree` or `auto`",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.files.layout": {
@@ -423,25 +423,25 @@
                         "list",
                         "tree"
                     ],
-                    "description": "Specifies how the `GitLens` view will display files\n `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level\n `list` - displays files as a list\n `tree` - displays files as a tree",
+                    "description": "Specifies how the `GitLens` explorer will display files\n `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level\n `list` - displays files as a list\n `tree` - displays files as a tree",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.files.threshold": {
                     "type": "number",
                     "default": 5,
-                    "description": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens` view\nOnly applies when displaying files as `auto`",
+                    "description": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens` explorer\nOnly applies when displaying files as `auto`",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.includeWorkingTree": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to include working tree files inside the `Repository Status` node of the `GitLens` view",
+                    "description": "Specifies whether or not to include working tree files inside the `Repository Status` node of the `GitLens` explorer",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.showTrackingBranch": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to show the tracking branch when displaying local branches in the `GitLens` view",
+                    "description": "Specifies whether or not to show the tracking branch when displaying local branches in the `GitLens` explorer",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.view": {
@@ -452,7 +452,7 @@
                         "history",
                         "repository"
                     ],
-                    "description": "Specifies the starting view (mode) of the `GitLens` view\n `auto` - shows the last selected view, defaults to `repository`\n `history` - shows the commit history of the active file\n `repository` - shows a repository explorer",
+                    "description": "Specifies the starting view (mode) of the `GitLens` explorer\n `auto` - shows the last selected view, defaults to `repository`\n `history` - shows the commit history of the active file\n `repository` - shows a repository explorer",
                     "scope": "window"
                 },
                 "gitlens.hovers.annotations.changes": {

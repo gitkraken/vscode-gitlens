@@ -158,24 +158,33 @@ function ensureIfBoolean(value: string | boolean): string | boolean {
 
 function evaluateStateExpression(expression: string, changes: { [key: string]: string | boolean }): boolean {
     let state = false;
-    for (const expr of expression.trim().split('&&')) {
+    for (const expr of expression.trim().split('&')) {
         const [lhs, op, rhs] = parseStateExpression(expr);
 
         switch (op) {
-            case '=':
+            case '=': { // Equals
                 let value = changes[lhs];
                 if (value === undefined) {
                     value = getSettingValue<string | boolean>(lhs) || false;
                 }
                 state = rhs !== undefined ? rhs === '' + value : !!value;
                 break;
-
-            case '+':
+            }
+            case '!': { // Not equals
+                let value = changes[lhs];
+                if (value === undefined) {
+                    value = getSettingValue<string | boolean>(lhs) || false;
+                }
+                state = rhs !== undefined ? rhs !== '' + value : !value;
+                break;
+            }
+            case '+': { // Contains
                 if (rhs !== undefined) {
                     const setting = getSettingValue<string[]>(lhs);
                     state = setting !== undefined ? setting.includes(rhs.toString()) : false;
                 }
                 break;
+            }
         }
 
         if (!state) break;
@@ -200,7 +209,7 @@ function parseAdditionalSettingsExpression(expression: string): [string, string 
 }
 
 function parseStateExpression(expression: string): [string, string, string | boolean | undefined] {
-    const [lhs, op, rhs] = expression.trim().split(/([=\+])/);
+    const [lhs, op, rhs] = expression.trim().split(/([=\+\!])/);
     return [lhs.trim(), op !== undefined ? op.trim() : '=', rhs !== undefined ? rhs.trim() : rhs];
 }
 
