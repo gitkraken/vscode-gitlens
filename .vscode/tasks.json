@@ -17,9 +17,9 @@
     },
     "tasks": [
         {
-            "label": "compile",
+            "label": "build",
             "type": "npm",
-            "script": "compile",
+            "script": "build",
             "problemMatcher": [
                 "$tsc",
                 "$tslint5"
@@ -34,6 +34,16 @@
             "type": "npm",
             "script": "lint",
             "problemMatcher": [
+                "$tslint5"
+            ],
+            "group": "build"
+        },
+        {
+            "label": "rebuild",
+            "type": "npm",
+            "script": "rebuild",
+            "problemMatcher": [
+                "$tsc",
                 "$tslint5"
             ],
             "group": "build"
