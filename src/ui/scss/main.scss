@@ -189,7 +189,7 @@ ul {
     flex: 55% 2 1;
     font-size: 1.2em;
     font-weight: 200;
-    margin: 0 0 0 6em;
+    margin: -1em 0 0 6em;
     min-width: 345px;
 
     @media all and (max-width: 880px) {
@@ -200,14 +200,13 @@ ul {
 .header__logo {
     display: flex;
     flex-wrap: nowrap;
-    padding-top: 1.75em;
 }
 
 .header__subtitle {
     color: var(--color--50);
     display: block;
     font-size: 2em;
-    margin-top: .8em;
+    margin-top: -0.2em;
     white-space: nowrap;
 }
 
@@ -235,8 +234,7 @@ ul {
 .image__logo {
     max-width: 64px;
     max-height: 64px;
-    margin-top: -5px;
-    margin-right: 1em;
+    margin: 9px 1em 0 0;
 }
 
 .image__preview {
