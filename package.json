@@ -3310,7 +3310,7 @@
     ],
     "scripts": {
         "bundle": "npm run lint && webpack --env.production",
-        "clean": "git clean -xdf",
+        "clean": "git clean -Xdf",
         "compile": "npm run lint && tsc -m commonjs -p ./",
         "watch": "tsc -watch -p ./",
         "lint": "tslint --project tslint.json",
