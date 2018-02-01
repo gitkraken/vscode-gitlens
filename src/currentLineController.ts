@@ -391,7 +391,8 @@ export class CurrentLineController extends Disposable {
         };
     }
 
-    private _updateBlameDebounced: ((line: number, editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) => void) & IDeferrable;
+    private _updateBlameDebounced: (((line: number, editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) => void) & IDeferrable) | undefined;
+
     private async refresh(editor: TextEditor | undefined, options: { full?: boolean, trackedDocument?: TrackedDocument<GitDocumentState> } = {}) {
         if (editor === undefined && this._editor === undefined) return;
 
@@ -462,7 +463,7 @@ export class CurrentLineController extends Disposable {
         this._lineTracker.reset();
 
         // Make sure we are still on the same line and not pending
-        if (this._lineTracker.line !== line || this._updateBlameDebounced.pending!()) return;
+        if (this._lineTracker.line !== line || (this._updateBlameDebounced && this._updateBlameDebounced.pending!())) return;
 
         const blameLine = editor.document.isDirty
             ? await Container.git.getBlameForLineContents(trackedDocument.uri, line, editor.document.getText())
@@ -472,7 +473,7 @@ export class CurrentLineController extends Disposable {
         let commitLine;
 
         // Make sure we are still on the same line, blameable, and not pending, after the await
-        if (this._lineTracker.line === line && trackedDocument.isBlameable && !this._updateBlameDebounced.pending!()) {
+        if (this._lineTracker.line === line && trackedDocument.isBlameable && !(this._updateBlameDebounced && this._updateBlameDebounced.pending!())) {
             const state = this.getBlameAnnotationState();
             if (state.enabled) {
                 commitLine = blameLine === undefined ? undefined : blameLine.line;

@@ -19,7 +19,7 @@ export abstract class AnnotationProviderBase extends Disposable {
         return editor !== undefined ? (editor as any).id : '';
     }
 
-    annotationType: FileAnnotationType;
+    annotationType: FileAnnotationType | undefined;
     correlationKey: TextEditorCorrelationKey;
     document: TextDocument;
     status: AnnotationStatus | undefined;

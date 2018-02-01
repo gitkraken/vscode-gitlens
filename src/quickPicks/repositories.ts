@@ -9,7 +9,7 @@ export class RepositoryQuickPickItem implements QuickPickItem {
 
     label: string;
     description: string;
-    detail: string;
+    detail: string | undefined;
 
     constructor(
         public readonly repository: Repository

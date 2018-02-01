@@ -91,7 +91,8 @@ export class LineTracker<T> extends Disposable {
         this._disposable = undefined;
     }
 
-    private _lineChangedDebounced: ((e: LineChangeEvent) => void) & IDeferrable;
+    private _lineChangedDebounced: (((e: LineChangeEvent) => void) & IDeferrable) | undefined;
+
     private fireLineChanged(e: LineChangeEvent) {
         if (e.line === undefined) {
             setImmediate(() => {

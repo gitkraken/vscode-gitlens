@@ -53,8 +53,8 @@ export interface QuickPickItem extends QuickPickItem {
 
 export class CommandQuickPickItem implements QuickPickItem {
 
-    label: string;
-    description: string;
+    label!: string;
+    description!: string;
     detail?: string | undefined;
     protected command: Commands | undefined;
     protected args: any[] | undefined;

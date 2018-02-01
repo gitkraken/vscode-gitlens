@@ -21,10 +21,10 @@ export class TrackedDocument<T> extends Disposable {
 
     state: T | undefined;
 
-    private _disposable: Disposable;
+    private _disposable: Disposable | undefined;
     private _disposed: boolean = false;
     private _repo: (Repository | undefined) | Promise<Repository | undefined>;
-    private _uri: GitUri;
+    private _uri!: GitUri;
 
     constructor(
         private readonly _document: TextDocument,

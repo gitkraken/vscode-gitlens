@@ -53,9 +53,9 @@ export class PathIterator implements IKeyIterator {
     private static readonly _fwd = '/'.charCodeAt(0);
     private static readonly _bwd = '\\'.charCodeAt(0);
 
-    private _value: string;
-    private _from: number;
-    private _to: number;
+    private _value!: string;
+    private _from!: number;
+    private _to!: number;
 
     reset(key: string): this {
         this._value = key.replace(/\\$|\/$/, '');
@@ -121,7 +121,7 @@ export class PathIterator implements IKeyIterator {
 }
 
 class TernarySearchTreeNode<E> {
-    str: string;
+    str!: string;
     element: E | undefined;
     left: TernarySearchTreeNode<E> | undefined;
     mid: TernarySearchTreeNode<E> | undefined;

@@ -12,7 +12,7 @@ import { GitBlame, GitCommit, GitUri } from '../gitService';
 export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase {
 
     protected _blame: Promise<GitBlame | undefined>;
-    protected _hoverProviderDisposable: Disposable;
+    protected _hoverProviderDisposable: Disposable | undefined;
     protected readonly _uri: GitUri;
 
     constructor(

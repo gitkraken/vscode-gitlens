@@ -10,7 +10,7 @@ export class BranchOrTagQuickPickItem implements QuickPickItem {
 
     label: string;
     description: string;
-    detail: string;
+    detail: string | undefined;
 
     constructor(
         public readonly branchOrTag: GitBranch | GitTag

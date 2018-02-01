@@ -56,7 +56,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
     static selector: DocumentSelector = [{ scheme: DocumentSchemes.File }, { scheme: DocumentSchemes.Git }, { scheme: DocumentSchemes.GitLensGit }];
 
-    private _debug: boolean;
+    private _debug: boolean = false;
 
     constructor(
         context: ExtensionContext,

@@ -38,7 +38,7 @@ export class DocumentTracker<T> extends Disposable {
         return this._onDidTriggerDirtyIdle.event;
     }
 
-    private _dirtyIdleTriggerDelay: number;
+    private _dirtyIdleTriggerDelay!: number;
     private readonly _disposable: Disposable | undefined;
     private readonly _documentMap: Map<TextDocument | string, TrackedDocument<T>> = new Map();
 
@@ -334,6 +334,7 @@ class MissingRevisionTextDocument implements TextDocument {
         this.isClosed = false;
         this.isDirty = false;
         this.isUntitled = false;
+        this.languageId = '';
         this.lineCount = 0;
         this.version = 0;
     }

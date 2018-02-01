@@ -9,7 +9,7 @@ import { Logger } from './logger';
 
 export class CodeLensController extends Disposable {
 
-    private _canToggle: boolean;
+    private _canToggle: boolean = false;
     private _disposable: Disposable | undefined;
     private _provider: GitCodeLensProvider | undefined;
     private _providerDisposable: Disposable | undefined;

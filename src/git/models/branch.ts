@@ -23,6 +23,9 @@ export class GitBranch {
             branch = branch.substring(8);
             this.remote = true;
         }
+        else {
+            this.remote = false;
+        }
 
         this.current = current;
         this.name = branch;
