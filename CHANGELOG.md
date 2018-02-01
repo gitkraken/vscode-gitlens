@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes [#266](https://github.com/eamodio/vscode-gitlens/issues/266) - Wrong time in Popup
+- Fixes [#259](https://github.com/eamodio/vscode-gitlens/issues/259) (again) - File history lists unrelated merge commits
 
 ## [7.5.9] - 2018-01-30
 ### Fixed

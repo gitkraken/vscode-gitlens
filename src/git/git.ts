@@ -404,15 +404,17 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...params);
     }
 
-    static log_file(repoPath: string, fileName: string, options: { maxCount?: number, ref?: string, reverse?: boolean, startLine?: number, endLine?: number, skipMerges?: boolean } = { reverse: false, skipMerges: false }) {
+    static log_file(repoPath: string, fileName: string, options: { maxCount?: number, ref?: string, renames?: boolean, reverse?: boolean, startLine?: number, endLine?: number } = { renames: true, reverse: false }) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
-        const params = [...defaultLogParams, '--follow'];
+        const params = [...defaultLogParams];
         if (options.maxCount && !options.reverse) {
             params.push(`-n${options.maxCount}`);
         }
 
-        params.push(options.skipMerges ? '--no-merges' : '-m');
+        if (options.renames) {
+            params.push('--follow', '-m', '--first-parent');
+        }
 
         if (options.ref && !Git.isStagedUncommitted(options.ref)) {
             if (options.reverse) {

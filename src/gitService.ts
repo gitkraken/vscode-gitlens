@@ -935,10 +935,14 @@ export class GitService extends Disposable {
         }
     }
 
-    async getLogForFile(repoPath: string | undefined, fileName: string, options: { maxCount?: number, range?: Range, ref?: string, reverse?: boolean, skipMerges?: boolean } = {}): Promise<GitLog | undefined> {
+    async getLogForFile(repoPath: string | undefined, fileName: string, options: { maxCount?: number, range?: Range, ref?: string, renames?: boolean, reverse?: boolean } = {}): Promise<GitLog | undefined> {
         if (repoPath !== undefined && repoPath === Strings.normalizePath(fileName)) throw new Error(`File name cannot match the repository path; fileName=${fileName}`);
 
-        options = { reverse: false, skipMerges: false, ...options };
+        options = { reverse: false, ...options };
+
+        if (options.renames === undefined) {
+            options.renames = true;
+        }
 
         let key = 'log';
         if (options.ref !== undefined) {
@@ -947,13 +951,16 @@ export class GitService extends Disposable {
         if (options.maxCount !== undefined) {
             key += `:n${options.maxCount}`;
         }
+        if (options.renames) {
+            key += `:follow`;
+        }
 
         const doc = await Container.tracker.getOrAdd(new GitUri(Uri.file(fileName), { repoPath: repoPath!, sha: options.ref }));
         if (this.UseCaching && options.range === undefined && !options.reverse) {
             if (doc.state !== undefined) {
                 const cachedLog = doc.state.get<CachedLog>(key);
                 if (cachedLog !== undefined) {
-                    Logger.log(`getLogForFile[Cached(${key})]('${repoPath}', '${fileName}', '${options.ref}', ${options.maxCount}, undefined, ${options.reverse}, ${options.skipMerges})`);
+                    Logger.log(`getLogForFile[Cached(${key})]('${repoPath}', '${fileName}', '${options.ref}', ${options.maxCount}, undefined, ${options.renames}, ${options.reverse})`);
                     return cachedLog.item;
                 }
 
@@ -962,28 +969,28 @@ export class GitService extends Disposable {
                     const cachedLog = doc.state.get<CachedLog>('log');
                     if (cachedLog !== undefined) {
                         if (options.ref === undefined) {
-                            Logger.log(`getLogForFile[Cached(~${key})]('${repoPath}', '${fileName}', '', ${options.maxCount}, undefined, ${options.reverse}, ${options.skipMerges})`);
+                            Logger.log(`getLogForFile[Cached(~${key})]('${repoPath}', '${fileName}', '', ${options.maxCount}, undefined, ${options.renames}, ${options.reverse})`);
                             return cachedLog.item;
                         }
 
-                        Logger.log(`getLogForFile[? Cache(${key})]('${repoPath}', '${fileName}', '${options.ref}', ${options.maxCount}, undefined, ${options.reverse}, ${options.skipMerges})`);
+                        Logger.log(`getLogForFile[? Cache(${key})]('${repoPath}', '${fileName}', '${options.ref}', ${options.maxCount}, undefined, ${options.renames}, ${options.reverse})`);
                         const log = await cachedLog.item;
                         if (log !== undefined && log.commits.has(options.ref)) {
-                            Logger.log(`getLogForFile[Cached(${key})]('${repoPath}', '${fileName}', '${options.ref}', ${options.maxCount}, undefined, ${options.reverse}, ${options.skipMerges})`);
+                            Logger.log(`getLogForFile[Cached(${key})]('${repoPath}', '${fileName}', '${options.ref}', ${options.maxCount}, undefined, ${options.renames}, ${options.reverse})`);
                             return cachedLog.item;
                         }
                     }
                 }
             }
 
-            Logger.log(`getLogForFile[Not Cached(${key})]('${repoPath}', '${fileName}', ${options.ref}, ${options.maxCount}, undefined, ${options.reverse}, ${options.skipMerges})`);
+            Logger.log(`getLogForFile[Not Cached(${key})]('${repoPath}', '${fileName}', ${options.ref}, ${options.maxCount}, undefined, ${options.reverse})`);
 
             if (doc.state === undefined) {
                 doc.state = new GitDocumentState(doc.key);
             }
         }
         else {
-            Logger.log(`getLogForFile('${repoPath}', '${fileName}', ${options.ref}, ${options.maxCount}, ${options.range && `[${options.range.start.line}, ${options.range.end.line}]`}, ${options.reverse}, ${options.skipMerges})`);
+            Logger.log(`getLogForFile('${repoPath}', '${fileName}', ${options.ref}, ${options.maxCount}, ${options.range && `[${options.range.start.line}, ${options.range.end.line}]`}, ${options.reverse})`);
         }
 
         const promise = this.getLogForFileCore(repoPath, fileName, options, doc, key);
@@ -999,7 +1006,7 @@ export class GitService extends Disposable {
         return promise;
     }
 
-    private async getLogForFileCore(repoPath: string | undefined, fileName: string, options: { maxCount?: number, range?: Range, ref?: string, reverse?: boolean, skipMerges?: boolean }, document: TrackedDocument<GitDocumentState>, key: string): Promise<GitLog | undefined> {
+    private async getLogForFileCore(repoPath: string | undefined, fileName: string, options: { maxCount?: number, range?: Range, ref?: string, renames?: boolean, reverse?: boolean }, document: TrackedDocument<GitDocumentState>, key: string): Promise<GitLog | undefined> {
         if (!(await this.isTracked(fileName, repoPath, { ref: options.ref }))) {
             Logger.log(`Skipping log; '${fileName}' is not tracked`);
             return GitService.emptyPromise as Promise<GitLog>;
