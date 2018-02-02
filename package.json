@@ -152,7 +152,7 @@
                 "gitlens.codeLens.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to provide any Git code lens, by default\nUse the `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) to toggle the Git code lens on and off for the current session",
+                    "description": "Specifies whether or not to provide any Git code lens, by default\nUse the `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) to toggle the Git code lens on and off for the current window",
                     "scope": "window"
                 },
                 "gitlens.codeLens.recentChange.command": {

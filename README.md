@@ -3,22 +3,14 @@
 [![](https://vsmarketplacebadge.apphb.com/rating-short/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
 [![](https://img.shields.io/badge/vscode--dev--community-gitlens-blue.svg?logo=slack)](https://join.slack.com/t/vscode-dev-community/shared_invite/enQtMjIxOTgxNDE3NzM0LWU5M2ZiZDU1YjBlMzdlZjA2YjBjYzRhYTM5NTgzMTAxMjdiNWU0ZmQzYWI3MWU5N2Q1YjBiYmQ4MzY0NDE1MzY)
 
-<div style="color:#23262a;display:flex; flex-wrap:wrap; align-items:center; margin:2em 0 1em 0;">
-    <div style="display:flex; flex-wrap:nowrap;">
-        <img style="max-width:64px; max-height:64px; margin:9px 1em 0 0;" src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/gitlens-icon.png" />
-        <div>
-            <h1 style="padding:0; margin:0; border:none; font-size:36px; white-space:nowrap;">GitLens</h1>
-            <p style="color:rgba(35, 38, 42, 0.75); display:block; font-size:26px; margin-top: -0.2em; white-space:nowrap;">Git supercharged</p>
-        </div>
-    </div>
-    <p style="flex:50% 2 1; font-size:1.2em; font-weight:200; margin:0 0 0 3em; min-width:345px;">
-        GitLens
-        <b style="font-weight: 600">supercharges</b> the Git capabilities built into Visual Studio Code. It helps you to
-        <b style="font-weight: 600">visualize code authorship</b> at a glance via Git blame annotations and code lens,
-        <b style="font-weight: 600">seamlessly navigate and explore</b> Git repositories,
-        <b style="font-weight: 600">gain valuable insights</b> via powerful comparison commands, and so much more.
-    </p>
-</div>
+<p align="center">
+  <br />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/gitlens-header.png" alt="GitLens Logo" />
+</p>
+
+> GitLens **supercharges** the Git capabilities built into Visual Studio Code. It helps you to **visualize code authorship** at a glance via Git blame annotations and code lens, **seamlessly navigate and explore** Git repositories, **gain valuable insights** via powerful comparison commands, and so much more.
+
+<br />
 
 # GitLens
 
@@ -29,47 +21,53 @@ GitLens simply helps you understand code better. Quickly glimpse into who, why, 
 Here are just some of the features that GitLens provides,
  - a [*GitLens* explorer](#gitlens-explorer "Jump to the GitLens explorer") to navigate and explore repositories or file histories
  - an on-demand [*GitLens Results* view](#gitlens-results-view "Jump to the GitLens Results view") to explore commit searches, visualize comparisions between branches, tags, commits, and more
- - Git authorship code lens showing the most recent commit and # of authors to the top of files and/or on code blocks
- - an unobtrusive Git blame annotation to the end of the current line
- - detailed Git blame information accessible via hovers
+ - Git authorship [code lens](#code-lens "Jump to the Code Lens") showing the most recent commit and # of authors to the top of files and/or on code blocks
+ - an unobtrusive Git blame annotation to the end of the [current line](#current-line-blame "Jump to the Current Line Blame")
+ - on-demand [Git blame annotations](#gutter-blame "Jump to the Gutter Blame"), including a heatmap, to the gutter for the whole file
+ - detailed Git blame information accessible via [hovers](#hovers "Jump to the Hovers")
  - a status bar Git blame annotation showing author and date, by default, about the current line
  - many powerful commands for exploring commits and histories, comparing and navigating revisions, stash access, repository status, and more
 
 GitLens is powerful, feature rich, and also [highly customizable](#gitlens-settings "Jump to the GitLens settings docs") to meet your specific needs &mdash; find code lens intrusive or the current line blame annotation distracting &mdash; no problem, it is quick and easy to turn them off or change how they behave via the built-in *GitLens Settings* editor, a WYSIWYG editor covering many of GitLens' powerful settings. While for more advanced customizations, refer to the [GitLens settings docs](#gitlens-settings "Jump to the GitLens settings docs") and edit your vscode [user settings](https://code.visualstudio.com/docs/getstarted/settings).
 
-### Preview
->![GitLens preview](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/gitlens-preview.gif)
->###### Features blame annotations, code lens, status bar details, quick pick menus for navigation and exploration, compare with previous, and more
+<p align="center">
+  <br />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/gitlens-preview.gif" alt="GitLens Preview">
+  <br />
+</p>
 
 ## Features
 
 ### GitLens Explorer
 A [customizable](#gitlens-explorer-settings "Jump to the GitLens Explorer settings") explorer to navigate and explore repositories or file histories. The GitLens explorer provides two views (modes) &mdash; a Repository view and a History view.
-- Toolbar provides *Search Commits*, *Switch to Repository View* or *Switch to History View*, and *Refresh* commands
-- Quickly switch between views using the *Switch to Repository View* or *Switch to History View* commands
+- A toolbar provides *Search Commits*, *Switch to Repository View* or *Switch to History View*, and *Refresh* commands
+  - Quickly switch between views using the *Switch to Repository View* or *Switch to History View* commands
+  - A context menu provides *Automatic Layout*, *List Layout*, and *Tree Layout* commands
 
 #### Repository view
-![GitLens Explorer Repository view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-gitlens-explorer-repository.png)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-gitlens-explorer-repository.png" alt="GitLens Explorer Repository view">
+</p>
 
 The repository view provides a full Git repository explorer, which has the following features,
 
 - **Repository Status**
   - Provides the name of the current branch, [optionally](#gitlens-explorer-settings "Jump to the GitLens explorer settings") its working tree status, and its upstream tracking branch and status (if available)
   - Provides indicator dots on the repository icon which denote the following:
-    - *None* - up-to-date with the upstream
-    - *Green* - ahead of the upstream
-    - *Red* - behind the upstream
-    - *Yellow* - both ahead of and behind the upstream
+    - *None* &mdash; up-to-date with the upstream
+    - *Green* &mdash; ahead of the upstream
+    - *Red* &mdash; behind the upstream
+    - *Yellow* &mdash; both ahead of and behind the upstream
   - Provides additional upstream status nodes, if the current branch is tracking a remote branch and,
     - is behind the upstream &mdash; quickly see and explore the specific commits behind the upstream (i.e. commits that haven't been pulled)
     - is ahead of the upstream &mdash; quickly see and explore the specific commits ahead of the upstream (i.e. commits that haven't been pushed)
-  - **Changed Files** node &mdash; provides a at-a-glance view of all "working" changes
+  - A context menu provides *Open Repository in Remote*, and *Refresh* commands
+  - **Changed Files** &mdash; lists all of the "working" changes
     - Expands to a file-based view of all changed files in the working tree ([optionally](#gitlens-explorer-settings "Jump to the GitLens explorer settings")) and/or all files in all commits ahead of the upstream
-  - Provides a context menu with *Open Repository in Remote*, and *Refresh* commands
 
 - **Branches** &mdash; lists the local branches
   - Indicates which branch is the current branch and [optionally](#gitlens-explorer-settings "Jump to the GitLens explorer settings") shows the remote tracking branch
-  - Context menu provides *Open Branches in Remote*, and *Refresh* commands
+  - A context menu provides *Open Branches in Remote*, and *Refresh* commands
   - Branches expand to show its revision (commit) history
     - Provides indicator dots on each branch icon which denote the following:
       - *None* &mdash; no upstream or up-to-date with the upstream
@@ -86,15 +84,15 @@ The repository view provides a full Git repository explorer, which has the follo
 
 - **Remotes** &mdash; lists the remotes
   - Indicates the direction of the remote (fetch, push, both), remote service (if applicable), and repository path
-  - Context menu provides a *Refresh* command
+  - A context menu provides a *Refresh* command
   - Remotes expands show its list of branches
     - Context menus for each remote provide
       - *Open Branches in Remote*, *Open Repository in Remote*, *Remove Remote (via Terminal)*, and *Refresh* commands
     - Branches expand to show its revision (commit) history
-      - See the *Branches expand* section in the **Branches** above for more details
+      - See the *Branches expand* section under **Branches** above for more details
 
 - **Stashes** &mdash; lists the stashed changes
-  - Context menu provides *Stash Changes*, and *Refresh* commands
+  - A context menu provides *Stash Changes*, and *Refresh* commands
   - Stashes expand to show the set of files stashed, complete with status indicators for adds, changes, renames, and deletes
     - Context menus for each stash provide
       - *Apply Stashed Changes* (confirmation required), *Delete Stashed Changes* (confirmation required), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit Message to Clipboard*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, and *Refresh* commands
@@ -102,43 +100,135 @@ The repository view provides a full Git repository explorer, which has the follo
       - *Apply Changes*, *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote* (if available), and *Show File History* commands
 
 - **Tags** &mdash; lists the tags
-  - Context menu provides a *Refresh* command
+  - A context menu provides a *Refresh* command
   - Tags expand to show its revision (commit) history
     - Context menus for each tag provide
       - *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected*, *Select for Compare*, *Open Directory Compare with Working Tree*, *Delete Tag (via Terminal)*, and *Refresh* commands
     - Revisions (commits) expand to show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-      - See the *Revisions (commits) expand* section in the **Branches** above for more details
+      - See the *Revisions (commits) expand* section under **Branches** above for more details
 
 ### History view
-![GitLens Explorer History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-gitlens-explorer-history.png)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-gitlens-explorer-history.png" alt="GitLens Explorer History view">
+</p>
 
 The history view provides the revision history of the active file, which has the following features,
 - Automatically updates to track the active editor
-- Context menu provides *Open File*, *Open File in Remote* (if available), and *Refresh* commands
+- A context menu provides *Open File*, *Open File in Remote* (if available), and *Refresh* commands
 - Context menus for each revision (commit) provides
   - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote* (if available), *Open Revision in Remote* (if available), *Apply Changes*, and *Show Commit File Details* commands
 
-### GitLens Results
-![GitLens Results view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-gitlens-results.png)
-An on-demand, [customizable](#gitlens-results-settings "Jump to the GitLens Results settings") view to explore commit searches, visualize comparisions between branches, tags, commits, and more
+### GitLens Results View
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-gitlens-results.png" alt="GitLens Results view">
+</p>
 
-  - Provides semi-persistent results for commit search, file history, and commit operations
-    - Accessible via the following: *Show Commit Search* command (`gitlens.showCommitSearch`), *Show File History* command (`gitlens.showQuickFileHistory`), and *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
-    - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-      - Provides a context menu on each revision (commit) with *Open Commit in Remote*, *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected*, *Select for Compare*, *Cherry Pick Commit (via Terminal)*, *Revert Commit (via Terminal)*, *Rebase to Commit (via Terminal)*, *Reset to Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
-        - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
+An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens Results view settings") view to explore commits, histories, and searches, or visualize comparisions between branches, tags, commits, and more
+- A toolbar provides *Search Commits*, *Keep Results*, and *Refresh* commands
+  - A context menu provides *Automatic Layout*, *List Layout*, *Tree Layout*, and *Close* commands
 
-  - Provides semi-persistent results for revision comparison operations
-    - Accessible via the following: *Compare with Index (HEAD)* command (`gitlens.explorers.compareWithHead`), *Compare with Remote* command (`gitlens.explorers.compareWithRemote`), *Compare with Working Tree* command (`gitlens.explorers.compareWithWorking`), *Compare with Selected* command (`gitlens.explorers.compareWithSelected`), and *Compare Selected Ancestor with Working Tree* command (`gitlens.explorers.compareSelectedAncestorWithWorking`)
-    - **Commits** node — provides a list of the commits between the compared revisions (branches or commits)
-      - Expand each revision (commit) to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-        - Provides a context menu on each revision (commit) with *Open Commit in Remote*, *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected*, *Select for Compare*, *Cherry Pick Commit (via Terminal)*, *Revert Commit (via Terminal)*, *Rebase to Commit (via Terminal)*, *Reset to Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
-          - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
-    - **Changed Files** node — provides a list of all the files changed between the compared revisions (branches or commits)
+#### Explore
+  - Provides a semi-persistent results view for exploring histories, commits, and searchs
+    - Accessible via the following commands
+      - *Show Commit Search* command (`gitlens.showCommitSearch`)
+      - *Show File History* command (`gitlens.showQuickFileHistory`)
+      - *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
+    - Revisions (commits) expand show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
+      - Context menus for each revision (commit) provide
+        -  *Open Commit in Remote* (if available), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, *Cherry Pick Commit (via Terminal)*, *Revert Commit (via Terminal)*, *Rebase to Commit (via Terminal)*, *Reset to Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
+      - Context menus for each changed file provide
+        - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
+
+#### Compare
+  - Provides a semi-persistent results view for comparison operations
+    - Accessible via the following commands
+      - *Compare with Remote* command (`gitlens.explorers.compareWithRemote`)
+      - *Compare with Index (HEAD)* command (`gitlens.explorers.compareWithHead`)
+      - *Compare with Working Tree* command (`gitlens.explorers.compareWithWorking`)
+      - *Compare with Selected* command (`gitlens.explorers.compareWithSelected`)
+      - *Compare Selected Ancestor with Working Tree* command (`gitlens.explorers.compareSelectedAncestorWithWorking`)
+    - A context menu provides *Clear Results*, *Open Directory Compare*, and *Refresh* commands
+
+    - **Commits** &mdash; lists the commits between the compared revisions (branches or commits)
+      - Revisions (commits) expand to show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
+        - See the *Revisions (commits) expand* section under **Explore** above for more details
+
+    - **Changed Files** &mdash; lists the files changed between the compared revisions (branches or commits)
         - Expands to a file-based view of all changed files
-           - Provides a context menu on each changed file with *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
-    - Provides a context menu with *Open Directory Compare* and *Refresh* commands
-  - Provides toolbar commands to *Search Commits*, *Keep Results*, *Refresh*, *Show Files in Automatic View* or *Show Files in List View* or *Show Files in Tree View*, and *Close*
+           - Context menus for each changed file provide
+             - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
+
+### Code Lens
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-code-lens.png" alt="Code Lens">
+</p>
+
+- Adds Git authorship **code lens** to the top of the file and on code blocks ([optional](#code-lens-settings "Jump to the Code Lens settings"), on by default)
+
+  - **Recent Change** &mdash; author and date of the most recent commit for the file or code block
+    - Clicking the code lens will, by [default](#code-lens-settings "Jump to the Code Lens settings"), show a **commit file details quick pick menu** with commands for comparing, navigating and exploring commits, and more
+  - **Authors** &mdash; number of authors of the file or code block and the most prominent author (if there is more than one)
+    - Clicking the code lens will, by [default](#code-lens-settings "Jump to the Code Lens settings"), toggle the file Git blame annotations on and off of the whole file
+    - Will be hidden if the author of the most recent commit is also the only author of the file or block, to avoid duplicate information and reduce visual noise
+
+  - Provides [customizable](#code-lens-settings "Jump to the Code Lens settings") click behavior for each code lens — choose between one of the following
+    - Toggle file blame annotations on and off
+    - Compare the commit with the previous commit
+    - Show a quick pick menu with details and commands for the commit
+    - Show a quick pick menu with file details and commands for the commit
+    - Show a quick pick menu with the commit history of the file
+    - Show a quick pick menu with the commit history of the current branch
+
+- Adds a *Toggle Git Code Lens* command (`gitlens.toggleCodeLens`) with a shortcut of `shift+alt+b` to toggle the code lens on and off
+
+### Current Line Blame
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-current-line-blame.png" alt="Current Line Blame">
+</p>
+
+- Adds an unobtrusive, [customizable](#current-line-blame-settings "Jump to the Current Line Blame settings"), and [themable](#themable-colors "Jump to the Themable Colors"), **Git blame annotation** to the end of the current line
+  - Contains the author, date, and message of the current line's most recent commit, by [default](#current-line-blame-settings "Jump to the Current Line Blame settings")
+
+### Gutter Blame
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-gutter-blame.png" alt="Gutter Blame">
+</p>
+
+- Adds an on-demand, [customizable](#gutter-blame-settings "Jump to the Gutter Blame settings"), and [themable](#themable-colors "Jump to the Themable Colors"), **Git blame annotations** to the gutter of the whole file
+  - Contains the commit message and date, by [default](#gutter-blame-settings "Jump to the Gutter Blame settings")
+
+### Hovers
+- Adds [customizable](#hover-settings "Jump to the Hover settings") detailed Git blame information accessible via hovers
+
+#### Current Line
+
+
+#### Annotating
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ### Git Blame Annotations
 
 - Adds an unobtrusive, highly [customizable](#line-blame-annotation-settings) and [themable](#themable-colors), **Git blame annotation** to the end of the current line ([optional](#line-blame-annotation-settings), on by default)
@@ -221,27 +311,6 @@ An on-demand, [customizable](#gitlens-results-settings "Jump to the GitLens Resu
   - Press `Escape` to quickly toggle the annotations off
 
 - Adds *Toggle Recent File Changes Annotations* command (`gitlens.toggleFileRecentChanges`) to toggle the recent changes annotations on and off
-
-### Git Code Lens
-
-- Adds **code lens** to the top of the file and on code blocks ([optional](#code-lens-settings), on by default)
-
-  ![Git Code Lens](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-code-lens.png)
-  - **Recent Change** — author and date of the most recent commit for the file or code block
-    - Clicking the code lens will, by [default](#code-lens-settings), show a **commit file details quick pick menu** with commands for comparing, navigating and exploring commits, and more
-  - **Authors** — number of authors of the file or code block and the most prominent author (if there is more than one)
-    - Clicking the code lens will, by [default](#code-lens-settings), toggle the file Git blame annotations on and off of the whole file
-    - Will be hidden if the author of the most recent commit is also the only author of the file or block, to avoid duplicate information and reduce visual noise
-
-- Provides [customizable](#code-lens-settings) click behavior for each code lens — choose between one of the following
-  - Toggle file blame annotations on and off
-  - Compare the commit with the previous commit
-  - Show a quick pick menu with details and commands for the commit
-  - Show a quick pick menu with file details and commands for the commit
-  - Show a quick pick menu with the commit history of the file
-  - Show a quick pick menu with the commit history of the current branch
-
-- Adds a *Toggle Git Code Lens* command (`gitlens.toggleCodeLens`) with a shortcut of `shift+alt+b` to toggle the code lens on and off
 
 ### Navigate and Explore
 
@@ -396,7 +465,7 @@ GitLens defines a set of themable colors which can be provided by vscode themes 
 
 ## GitLens Settings
 
-GitLens is highly customizable and provides many configuration settings to allow the personalization of almost all features
+GitLens is highly customizable and provides many configuration settings to allow the personalization of almost all features.
 
 ### General Settings
 
@@ -411,43 +480,93 @@ GitLens is highly customizable and provides many configuration settings to allow
 
 ### GitLens Explorer Settings
 
+See also [Explorer Settings](#explorer-settings)
+
 |Name | Description
 |-----|------------
-|`gitlens.gitExplorer.enabled`|Specifies whether or not to show the **GitLens** view"
-|`gitlens.gitExplorer.view`|Specifies the starting view (mode) of the **GitLens** view<br /> `auto` - shows the last selected view, defaults to `repository`<br />`history` - shows the commit history of the active file<br />`repository` - shows a repository explorer"
 |`gitlens.gitExplorer.autoRefresh`|Specifies whether or not to automatically refresh the **GitLens** view when the repository or the file system changes
-|`gitlens.gitExplorer.files.layout`|Specifies how the **GitLens** view will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
+|`gitlens.gitExplorer.enabled`|Specifies whether or not to show the **GitLens** view"
 |`gitlens.gitExplorer.files.compact`|Specifies whether or not to compact (flatten) unnecessary file nesting in the **GitLens** view<br />Only applies when displaying files as a `tree` or `auto`
+|`gitlens.gitExplorer.files.layout`|Specifies how the **GitLens** view will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
 |`gitlens.gitExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the **GitLens** view<br />Only applies when displaying files as `auto`
-|`gitlens.gitExplorer.commitFormat`|Specifies the format of committed changes in the **GitLens** view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
-|`gitlens.gitExplorer.commitFileFormat`|Specifies the format of a committed file in the **GitLens** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
-|`gitlens.gitExplorer.gravatars`|Specifies whether or not to show gravatar images instead of commit (or status) icons in the **GitLens** view
 |`gitlens.gitExplorer.includeWorkingTree`|Specifies whether or not to include working tree files inside the `Repository Status` node of the **GitLens** view
 |`gitlens.gitExplorer.showTrackingBranch`|Specifies whether or not to show the tracking branch when displaying local branches in the **GitLens** view"
-|`gitlens.gitExplorer.stashFormat`|Specifies the format of stashed changes in the **GitLens** view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
-|`gitlens.gitExplorer.stashFileFormat`|Specifies the format of a stashed file in the **GitLens** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
-|`gitlens.gitExplorer.statusFileFormat`|Specifies the format of the status of a working or committed file in the **GitLens** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path<br />${working} - optional indicator if the file is uncommitted
+|`gitlens.gitExplorer.view`|Specifies the starting view (mode) of the **GitLens** view<br /> `auto` - shows the last selected view, defaults to `repository`<br />`history` - shows the commit history of the active file<br />`repository` - shows a repository explorer"
 
-### GitLens Results Settings
+### GitLens Results View Settings
+
+See also [Explorer Settings](#explorer-settings)
 
 |Name | Description
 |-----|------------
-|`gitlens.resultsExplorer.files.layout`|Specifies how the **GitLens Results** view will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.resultsExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
 |`gitlens.resultsExplorer.files.compact`|Specifies whether or not to compact (flatten) unnecessary file nesting in the **GitLens Results** view<br />Only applies when displaying files as a `tree` or `auto`
+|`gitlens.resultsExplorer.files.layout`|Specifies how the **GitLens Results** view will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.resultsExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
 |`gitlens.resultsExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the **GitLens Results** view<br />Only applies when displaying files as `auto`
-|`gitlens.resultsExplorer.commitFormat`|Specifies the format of committed changes in the **GitLens Results** view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
-|`gitlens.resultsExplorer.commitFileFormat`|Specifies the format of a committed file in the **GitLens Results** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
-|`gitlens.resultsExplorer.gravatars`|Specifies whether or not to show gravatar images instead of commit (or status) icons in the **GitLens Results** view
-|`gitlens.resultsExplorer.showTrackingBranch`|Specifies whether or not to show the tracking branch when displaying local branches in the **GitLens Results** view"
-|`gitlens.resultsExplorer.stashFormat`|Specifies the format of stashed changes in the **GitLens Results** view<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
-|`gitlens.resultsExplorer.stashFileFormat`|Specifies the format of a stashed file in the **GitLens Results** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
-|`gitlens.resultsExplorer.statusFileFormat`|Specifies the format of the status of a working or committed file in the **GitLens Results** view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path<br />${working} - optional indicator if the file is uncommitted
 
-### Blame Settings
+### Explorer Settings
 
 |Name | Description
 |-----|------------
+|`gitlens.explorers.avatars`|Specifies whether or not to show avatar images instead of commit (or status) icons in the **GitLens** and **GitLens Results** views
+|`gitlens.explorers.commitFileFormat`|Specifies the format of a committed file in the **GitLens** and **GitLens Results** views<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
+|`gitlens.explorers.commitFormat`|Specifies the format of committed changes in the **GitLens** and **GitLens Results** views<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
+|`gitlens.explorers.stashFileFormat`|Specifies the format of a stashed file in the **GitLens** and **GitLens Results** views<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
+|`gitlens.explorers.stashFormat`|Specifies the format of stashed changes in the **GitLens** and **GitLens Results** views<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
+|`gitlens.explorers.statusFileFormat`|Specifies the format of the status of a working or committed file in the **GitLens** and **GitLens Results** views<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path<br />${working} - optional indicator if the file is uncommitted
+
+### Code Lens Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.codeLens.authors.command`|Specifies the command to be executed when the `authors` code lens is clicked<br />`gitlens.toggleFileBlame` - toggles file blame annotations<br />`gitlens.diffWithPrevious` - compares the current committed file with the previous commit<br />`gitlens.showQuickCommitDetails` - shows a commit details quick pick<br />`gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick<br />`gitlens.showQuickFileHistory` - shows a file history quick pick<br />`gitlens.showQuickRepoHistory` - shows a branch history quick pick
+|`gitlens.codeLens.authors.enabled`|Specifies whether or not to show an `authors` code lens showing number of authors of the file or code block and the most prominent author (if there is more than one)
+|`gitlens.codeLens.enabled`|Specifies whether or not to provide any Git code lens, by default<br />Use the *Toggle Git Code Lens* command (`gitlens.toggleCodeLens`) to toggle the Git code lens on and off for the current window
+|`gitlens.codeLens.recentChange.command`|Specifies the command to be executed when the `recent change` code lens is clicked<br />`gitlens.toggleFileBlame` - toggles file blame annotations<br />`gitlens.diffWithPrevious` - compares the current committed file with the previous commit<br />`gitlens.showQuickCommitDetails` - shows a commit details quick pick<br />`gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick<br />`gitlens.showQuickFileHistory` - shows a file history quick pick<br />`gitlens.showQuickRepoHistory` - shows a branch history quick pick
+|`gitlens.codeLens.recentChange.enabled`|Specifies whether or not to show a `recent change` code lens showing the author and date of the most recent commit for the file or code block
+|`gitlens.codeLens.scopes`|Specifies where Git code lens will be shown in the document<br />`document` - adds code lens at the top of the document<br />`containers` - adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)<br />`blocks` - adds code lens at the start of block-like symbols (functions, methods, etc) lines
+|`gitlens.codeLens.scopesByLanguage`|Specifies where Git code lens will be shown in the document for the specified languages
+|`gitlens.codeLens.symbolScopes`|Specifies a set of document symbols where Git code lens will or will not be shown in the document<br />Prefix with `!` to not show Git code lens for the symbol<br />Must be a member of `SymbolKind`
+
+#### Current Line Blame Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.currentLine.dateFormat`|Specifies how to format absolute dates (using the `${date}` token) for the current line blame annotations<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
+|`gitlens.currentLine.enabled`|Specifies whether or not to provide a blame annotation for the current line, by default<br />Use the *Toggle Line Blame Annotations* command (`gitlens.toggleLineBlame`) to toggle the annotations on and off for the current window
+|`gitlens.currentLine.format`|Specifies the format of the current line blame annotation<br />Available tokens<br />`${id}` - commit id<br />`${author}` - commit author<br />`${message}` - commit message<br />`${ago}` - relative commit date (e.g. 1 day ago)<br />`${date}` - formatted commit date (format specified by `gitlens.annotations.line.trailing.dateFormat`)<br />`${authorAgo}` - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
+
+### Gutter Blame Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.blame.avatars`|Specifies whether or not to show avatar images in the gutter blame annotations
+|`gitlens.blame.compact`|Specifies whether or not to compact (deduplicate) matching adjacent gutter blame annotations
+|`gitlens.blame.dateFormat`|Specifies how to format absolute dates (using the `${date}` token) in gutter blame annotations<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
+|`gitlens.blame.format`|Specifies the format of the gutter blame annotations<br />Available tokens<br />`${id}` - commit id<br />`${author}` - commit author<br />`${message}` - commit message<br />`${ago}` - relative commit date (e.g. 1 day ago)<br />`${date}` - formatted commit date (format specified by `gitlens.blame.dateFormat`)<br />`${authorAgo}` - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
+|`gitlens.blame.heatmap.enabled`|Specifies whether or not to provide a heatmap indicator in the gutter blame annotations
+|`gitlens.blame.heatmap.location`|Specifies where the heatmap indicators will be shown in the gutter blame annotations<br />`left` - adds a heatmap indicator on the left edge of the gutter blame annotations<br />`right` - adds a heatmap indicator on the right edge of the gutter blame annotations
+|`gitlens.blame.highlight.enabled`|Specifies whether or not to highlight lines associated with the current line
+|`gitlens.blame.highlight.locations`|Specifies where the associated line highlights will be shown<br />`gutter` - adds a gutter glyph<br />`line` - adds a full-line highlight background color<br />`overviewRuler` - adds a decoration to the overviewRuler (scroll bar)
 |`gitlens.blame.ignoreWhitespace`|Specifies whether or not to ignore whitespace when comparing revisions during blame operations
+|`gitlens.blame.separateLines`|Specifies whether or not gutter blame annotations will have line separators
+
+#### Hover Settings
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #### File Blame Annotation Settings
 
@@ -459,7 +578,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.annotations.file.gutter.format`|Specifies the format of the gutter blame annotations<br />Available tokens<br />`${id}` - commit id<br />`${author}` - commit author<br />`${message}` - commit message<br />`${ago}` - relative commit date (e.g. 1 day ago)<br />`${date}` - formatted commit date (format specified by `gitlens.annotations.file.gutter.dateFormat`)<br />`${authorAgo}` - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
 |`gitlens.annotations.file.gutter.dateFormat`|Specifies how to format absolute dates (using the `${date}` token) in gutter blame annotations<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
 |`gitlens.annotations.file.gutter.compact`|Specifies whether or not to compact (deduplicate) matching adjacent gutter blame annotations
-|`gitlens.annotations.file.gutter.gravatars`|Specifies whether or not to show gravatar images in the gutter blame annotations
+|`gitlens.annotations.file.gutter.gravatars`|Specifies whether or not to show avatar images in the gutter blame annotations
 |`gitlens.annotations.file.gutter.heatmap.enabled`|Specifies whether or not to provide a heatmap indicator in the gutter blame annotations
 |`gitlens.annotations.file.gutter.heatmap.location`|Specifies where the heatmap indicators will be shown in the gutter blame annotations<br />`left` - adds a heatmap indicator on the left edge of the gutter blame annotations<br />`right` - adds a heatmap indicator on the right edge of the gutter blame annotations
 |`gitlens.annotations.file.gutter.hover.details`|Specifies whether or not to provide a commit details hover annotation over the gutter blame annotations
@@ -492,18 +611,6 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.annotations.file.recentChanges.hover.details`|Specifies whether or not to provide a commit details hover annotation
 |`gitlens.annotations.file.recentChanges.hover.changes`|Specifies whether or not to provide a changes (diff) hover annotation
 
-### Code Lens Settings
-
-|Name | Description
-|-----|------------
-|`gitlens.codeLens.enabled`|Specifies whether or not to provide any Git code lens, by default<br />Use the *Toggle Git Code Lens* command (`gitlens.toggleCodeLens`) to toggle the Git code lens on and off for the current session
-|`gitlens.codeLens.recentChange.enabled`|Specifies whether or not to show a `recent change` code lens showing the author and date of the most recent commit for the file or code block
-|`gitlens.codeLens.recentChange.command`|Specifies the command to be executed when the `recent change` code lens is clicked<br />`gitlens.toggleFileBlame` - toggles file blame annotations<br />`gitlens.diffWithPrevious` - compares the current committed file with the previous commit<br />`gitlens.showQuickCommitDetails` - shows a commit details quick pick<br />`gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick<br />`gitlens.showQuickFileHistory` - shows a file history quick pick<br />`gitlens.showQuickRepoHistory` - shows a branch history quick pick
-|`gitlens.codeLens.authors.enabled`|Specifies whether or not to show an `authors` code lens showing number of authors of the file or code block and the most prominent author (if there is more than one)
-|`gitlens.codeLens.authors.command`|Specifies the command to be executed when the `authors` code lens is clicked<br />`gitlens.toggleFileBlame` - toggles file blame annotations<br />`gitlens.diffWithPrevious` - compares the current committed file with the previous commit<br />`gitlens.showQuickCommitDetails` - shows a commit details quick pick<br />`gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick<br />`gitlens.showQuickFileHistory` - shows a file history quick pick<br />`gitlens.showQuickRepoHistory` - shows a branch history quick pick
-|`gitlens.codeLens.scopes`|Specifies where Git code lens will be shown in the document<br />`document` - adds code lens at the top of the document<br />`containers` - adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)<br />`blocks` - adds code lens at the start of block-like symbols (functions, methods, etc) lines
-|`gitlens.codeLens.scopesByLanguage`|Specifies where Git code lens will be shown in the document for the specified languages
-|`gitlens.codeLens.symbolScopes`|Specifies a set of document symbols where Git code lens will or will not be shown in the document<br />Prefix with `!` to not show Git code lens for the symbol<br />Must be a member of `SymbolKind`
 
 ### Custom Remotes Settings
 
