@@ -30,7 +30,9 @@ export class Configuration {
         if (!e.affectsConfiguration(ExtensionKey, null!)) return;
 
         Container.resetConfig();
-        Container.pages.refresh();
+        if (Container.pages !== undefined) {
+            Container.pages.refresh();
+        }
 
         if (configuration.changed(e, configuration.name('defaultGravatarsStyle').value)) {
             clearGravatarCache();
@@ -72,14 +74,38 @@ export class Configuration {
 
         if (inspection.globalValue !== undefined) {
             await this.update(to, migrationFn ? migrationFn(inspection.globalValue as TFrom) : inspection.globalValue, ConfigurationTarget.Global);
+            if (from !== to) {
+                try {
+                    await this.update(from, undefined, ConfigurationTarget.Global);
+                }
+                catch (ex) {
+                    debugger;
+                }
+            }
         }
 
         if (inspection.workspaceValue !== undefined) {
             await this.update(to, migrationFn ? migrationFn(inspection.workspaceValue as TFrom) : inspection.workspaceValue, ConfigurationTarget.Workspace);
+            if (from !== to) {
+                try {
+                    await this.update(from, undefined, ConfigurationTarget.Workspace);
+                }
+                catch (ex) {
+                    debugger;
+                }
+            }
         }
 
         if (inspection.workspaceFolderValue !== undefined) {
             await this.update(to, migrationFn ? migrationFn(inspection.workspaceFolderValue as TFrom) : inspection.workspaceFolderValue, ConfigurationTarget.WorkspaceFolder);
+            if (from !== to) {
+                try {
+                    await this.update(from, undefined, ConfigurationTarget.WorkspaceFolder);
+                }
+                catch (ex) {
+                    debugger;
+                }
+            }
         }
     }
 
