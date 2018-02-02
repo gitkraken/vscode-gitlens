@@ -10,13 +10,15 @@
     <div class="container">
         <div class="content">
             <header>
-                <div class="header__logo">
-                    <img class="image__logo" src="{{root}}/images/gitlens-icon.png" />
-                    <div>
-                        <h1>GitLens</h1>
-                        <p class="header__subtitle">Git supercharged</p>
+                <a class="header__link" title="Open the GitLens Welcome" href="command:gitlens.showWelcomePage">
+                    <div class="header__logo">
+                        <img class="image__logo" src="{{root}}/images/gitlens-icon.png" />
+                        <div>
+                            <h1>GitLens</h1>
+                            <p class="header__subtitle">Git supercharged</p>
+                        </div>
                     </div>
-                </div>
+                </a>
                 <p class="header__blurb">
                     GitLens
                     <b>supercharges</b> the Git capabilities built into Visual Studio Code. It helps you to
@@ -493,7 +495,6 @@
                                 <span>
                                     Use the
                                     <a class="command" title="Run command" href="command:gitlens.toggleLineBlame" class="command">GitLens: Toggle Line Blame Annotations</a> command to override this setting for the current window
-
                                 </span>
                             </p>
                         </div>
@@ -524,7 +525,7 @@
                                 <span class="label__hint hidden" data-visibility="keymap =chorded">
                                     Chorded shortcuts that start with
                                     <i class="shortcut-key">Ctrl+Shift+G</i> (
-                                    <i class="shortcut-key">⌥⌘G</i> on macOS). Better for non-English keyboard layouts
+                                    <i class="shortcut-key">&#x2325;&#x2318;G</i> on macOS). Better for non-English keyboard layouts
                                 </span>
                                 <span class="label__hint hidden" data-visibility="keymap =none">
                                     GitLens won't bind any keyboard shortcuts. Configure your own via the

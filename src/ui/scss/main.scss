@@ -150,6 +150,80 @@ ul {
     padding: 0;
 }
 
+.changelog {
+    border-radius: 1em;
+    margin: 2em 4em 2em 2em;
+
+    .vscode-light & {
+        background-color: var(--background-color--darken-05);
+        box-shadow: inset 0 0 6px 0px rgba(0, 0, 0, 0.05);
+    }
+
+    .vscode-dark & {
+        background-color: var(--background-color--lighten-15);
+        box-shadow: inset 0 0 6px 0px rgba(255, 255, 255, 0.075);
+    }
+}
+
+.changelog__badge {
+    background-color: #0366d6;
+    color: #e6e6e6;
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 3px;
+    padding: 2px 5px;
+    text-transform: uppercase;
+    text-align: center;
+    vertical-align: text-top;
+    margin-right: 1.25em;
+    width: 65px;
+}
+
+.changelog__badge--added {
+    background-color: #28a745;
+}
+
+.changelog__badge--changed,
+.changelog__badge--fixed {
+    background-color: #0366d6;
+}
+
+.changelog__hint {
+    color: var(--color--75);
+    font-weight: 200;
+    margin: 0 1em 1em 1em;
+}
+
+.changelog__list {
+    flex: 100% 0 1;
+    list-style-type: none;
+    margin: 1em;
+    font-size: 1.2em;
+    font-weight: 200;
+    line-height: 1.7;
+
+    & li {
+        margin-bottom: 0.5em;
+    }
+}
+
+.changelog__title {
+    flex: 100% 0 0;
+    text-align: center;
+}
+
+.changelog__version {
+    background-color: #914db3;
+    color: #f2f2f2;
+    padding: 2px 10px;
+    text-align: center;
+    vertical-align: bottom;
+    border-radius: 3px;
+    border-bottom: 2px solid #914db3;
+    margin: 0 0.25em;
+}
+
 .command {
     font-weight: 600;
     padding: 1px 3px;
@@ -190,6 +264,16 @@ ul {
 
     @media all and (max-width: 880px) {
         margin: 0 2em;
+    }
+}
+
+.header__link {
+    color: var(--color);
+    outline: none;
+
+    &:hover, &:active, &:focus {
+        color: var(--color);
+        outline: none;
     }
 }
 
