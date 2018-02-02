@@ -52,7 +52,13 @@ export class PageProvider extends Disposable implements TextDocumentContentProvi
         Logger.log(`PageProvider.save: changes=${JSON.stringify(changes)}`);
 
         for (const key in changes) {
-            await configuration.update(key, changes[key], ConfigurationTarget.Global);
+            const inspect = await configuration.inspect(key)!;
+            if (inspect.defaultValue === changes[key]) {
+                await configuration.update(key, undefined, ConfigurationTarget.Global);
+            }
+            else {
+                await configuration.update(key, changes[key], ConfigurationTarget.Global);
+            }
         }
     }
 
