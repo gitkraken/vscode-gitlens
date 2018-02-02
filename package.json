@@ -149,12 +149,6 @@
                     "description": "Specifies whether or not to show an `authors` code lens showing number of authors of the file or code block and the most prominent author (if there is more than one)",
                     "scope": "window"
                 },
-                "gitlens.codeLens.debug": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Specifies whether or not to show debug information in code lens",
-                    "scope": "window"
-                },
                 "gitlens.codeLens.enabled": {
                     "type": "boolean",
                     "default": true,
@@ -540,7 +534,8 @@
                     "enum": [
                         "silent",
                         "errors",
-                        "verbose"
+                        "verbose",
+                        "debug"
                     ],
                     "description": "Specifies how much (if any) output will be sent to the GitLens output channel",
                     "scope": "window"

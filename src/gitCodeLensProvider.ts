@@ -4,6 +4,7 @@ import { CancellationToken, CodeLens, CodeLensProvider, Command, commands, Docum
 import { Commands, DiffWithPreviousCommandArgs, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from './commands';
 import { CodeLensCommand, CodeLensLanguageScope, CodeLensScopes, configuration, ICodeLensConfig } from './configuration';
 import { BuiltInCommands, DocumentSchemes } from './constants';
+import { Container } from './container';
 import { DocumentTracker, GitDocumentState } from './trackers/documentTracker';
 import { GitBlame, GitBlameCommit, GitBlameLines, GitService, GitUri } from './gitService';
 import { Logger } from './logger';
@@ -56,8 +57,6 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
     static selector: DocumentSelector = [{ scheme: DocumentSchemes.File }, { scheme: DocumentSchemes.Git }, { scheme: DocumentSchemes.GitLensGit }];
 
-    private _debug: boolean = false;
-
     constructor(
         context: ExtensionContext,
         private readonly _git: GitService,
@@ -87,7 +86,6 @@ export class GitCodeLensProvider implements CodeLensProvider {
         }
 
         const cfg = configuration.get<ICodeLensConfig>(configuration.name('codeLens').value, document.uri);
-        this._debug = cfg.debug;
 
         let languageScope = cfg.scopesByLanguage && cfg.scopesByLanguage.find(ll => ll.language !== undefined && ll.language.toLowerCase() === document.languageId);
         if (languageScope == null) {
@@ -307,7 +305,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
         const recentCommit = Iterables.first(blame.commits.values());
         let title = `${recentCommit.author}, ${recentCommit.formattedDate}`;
-        if (this._debug) {
+        if (Container.config.debug) {
             title += ` [${SymbolKind[lens.symbolKind]}(${lens.range.start.character}-${lens.range.end.character}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Commit (${recentCommit.shortSha})]`;
         }
 
@@ -328,7 +326,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
         const count = blame.authors.size;
         let title = `${count} ${count > 1 ? 'authors' : 'author'} (${Iterables.first(blame.authors.values()).name}${count > 1 ? ' and others' : ''})`;
-        if (this._debug) {
+        if (Container.config.debug) {
             title += ` [${SymbolKind[lens.symbolKind]}(${lens.range.start.character}-${lens.range.end.character}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Authors (${Iterables.join(Iterables.map(blame.authors.values(), a => a.name), ', ')})]`;
         }
 

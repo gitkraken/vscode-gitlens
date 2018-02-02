@@ -81,7 +81,7 @@ export class Logger {
     static gitOutput: OutputChannel | undefined;
 
     static logGitCommand(command: string, cwd: string): void {
-        if (!this.debug) return;
+        if (this.level !== OutputLevel.Debug) return;
 
         if (this.gitOutput === undefined) {
             this.gitOutput = window.createOutputChannel(`${ExtensionOutputChannelName} (Git)`);

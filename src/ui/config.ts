@@ -76,7 +76,8 @@ export enum KeyMap {
 export enum OutputLevel {
     Silent = 'silent',
     Errors = 'errors',
-    Verbose = 'verbose'
+    Verbose = 'verbose',
+    Debug = 'debug'
 }
 
 export enum StatusBarCommand {
@@ -161,7 +162,6 @@ export interface ICodeLensConfig {
         command: CodeLensCommand;
     };
 
-    debug: boolean;
     enabled: boolean;
 
     recentChange: {
