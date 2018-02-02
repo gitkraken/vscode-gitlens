@@ -74,38 +74,35 @@ export class Configuration {
 
         if (inspection.globalValue !== undefined) {
             await this.update(to, migrationFn ? migrationFn(inspection.globalValue as TFrom) : inspection.globalValue, ConfigurationTarget.Global);
-            if (from !== to) {
-                try {
-                    await this.update(from, undefined, ConfigurationTarget.Global);
-                }
-                catch (ex) {
-                    debugger;
-                }
-            }
+            // Can't delete the old setting currently because it errors with `Unable to write to User Settings because <setting name> is not a registered configuration`
+            // if (from !== to) {
+            //     try {
+            //         await this.update(from, undefined, ConfigurationTarget.Global);
+            //     }
+            //     catch { }
+            // }
         }
 
         if (inspection.workspaceValue !== undefined) {
             await this.update(to, migrationFn ? migrationFn(inspection.workspaceValue as TFrom) : inspection.workspaceValue, ConfigurationTarget.Workspace);
-            if (from !== to) {
-                try {
-                    await this.update(from, undefined, ConfigurationTarget.Workspace);
-                }
-                catch (ex) {
-                    debugger;
-                }
-            }
+            // Can't delete the old setting currently because it errors with `Unable to write to User Settings because <setting name> is not a registered configuration`
+            // if (from !== to) {
+            //     try {
+            //         await this.update(from, undefined, ConfigurationTarget.Workspace);
+            //     }
+            //     catch { }
+            // }
         }
 
         if (inspection.workspaceFolderValue !== undefined) {
             await this.update(to, migrationFn ? migrationFn(inspection.workspaceFolderValue as TFrom) : inspection.workspaceFolderValue, ConfigurationTarget.WorkspaceFolder);
-            if (from !== to) {
-                try {
-                    await this.update(from, undefined, ConfigurationTarget.WorkspaceFolder);
-                }
-                catch (ex) {
-                    debugger;
-                }
-            }
+            // Can't delete the old setting currently because it errors with `Unable to write to User Settings because <setting name> is not a registered configuration`
+            // if (from !== to) {
+            //     try {
+            //         await this.update(from, undefined, ConfigurationTarget.WorkspaceFolder);
+            //     }
+            //     catch { }
+            // }
         }
     }
 

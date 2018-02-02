@@ -1,7 +1,7 @@
 'use strict';
 import { Objects, Versions } from './system';
 import { commands, ConfigurationTarget, ExtensionContext, extensions, window, workspace } from 'vscode';
-import { CodeLensLanguageScope, CodeLensScopes, configuration, Configuration, IConfig } from './configuration';
+import { CodeLensLanguageScope, CodeLensScopes, configuration, Configuration, IConfig, OutputLevel } from './configuration';
 import { CommandContext, ExtensionKey, GlobalState, QualifiedExtensionId, setCommandContext } from './constants';
 import { Commands, configureCommands } from './commands';
 import { Container } from './container';
@@ -121,11 +121,6 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
         }
 
         if (Versions.compare(previous, Versions.from(7, 5, 9)) !== 1) {
-            const section = configuration.name('advanced')('messages').value;
-            const messages = configuration.get<{ [key: string]: boolean }>(section);
-            messages[SuppressedMessages.WelcomeNotice] = false;
-            await configuration.update(section, messages, ConfigurationTarget.Global);
-
             await configuration.migrate('annotations.file.gutter.gravatars', configuration.name('blame')('avatars').value);
             await configuration.migrate('annotations.file.gutter.compact', configuration.name('blame')('compact').value);
             await configuration.migrate('annotations.file.gutter.dateFormat', configuration.name('blame')('dateFormat').value);
@@ -172,6 +167,16 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
             await configuration.migrate('gitExplorer.statusFileFormat', configuration.name('explorers')('statusFileFormat').value);
 
             await configuration.migrate('recentChanges.file.lineHighlight.locations', configuration.name('recentChanges')('highlight')('locations').value);
+        }
+
+        if (Versions.compare(previous, Versions.from(8, 0, 0, 'beta2')) !== 1) {
+            const section = configuration.name('advanced')('messages').value;
+            const messages = configuration.get<{ [key: string]: boolean }>(section);
+            messages[SuppressedMessages.WelcomeNotice] = false;
+            await configuration.update(section, messages, ConfigurationTarget.Global);
+
+            await configuration.migrate<boolean, OutputLevel>('debug', configuration.name('outputLevel').value, v => v ? OutputLevel.Debug : configuration.get(configuration.name('outputLevel').value));
+            await configuration.migrate('debug', configuration.name('debug').value, v => undefined);
         }
     }
     catch (ex) {
