@@ -54,6 +54,7 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
 
         if (!initializing &&
             !configuration.changed(e, configuration.name('resultsExplorer').value) &&
+            !configuration.changed(e, configuration.name('explorers').value) &&
             !configuration.changed(e, configuration.name('defaultGravatarsStyle').value)) return;
 
         if (!initializing && this._roots.length !== 0) {

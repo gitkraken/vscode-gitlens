@@ -74,6 +74,7 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
 
         if (!initializing &&
             !configuration.changed(e, configuration.name('gitExplorer').value) &&
+            !configuration.changed(e, configuration.name('explorers').value) &&
             !configuration.changed(e, configuration.name('defaultGravatarsStyle').value)) return;
 
         if (initializing || configuration.changed(e, configuration.name('gitExplorer')('enabled').value)) {
@@ -84,22 +85,27 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
             this.setAutoRefresh(Container.config.gitExplorer.autoRefresh);
         }
 
-        let view = this.config.view;
-        if (view === GitExplorerView.Auto) {
-            view = Container.context.workspaceState.get<GitExplorerView>(WorkspaceState.GitExplorerView, GitExplorerView.Repository);
+        let view = this._view;
+
+        if (initializing || configuration.changed(e, configuration.name('gitExplorer')('view').value)) {
+            view = this.config.view;
+            if (view === GitExplorerView.Auto) {
+                view = Container.context.workspaceState.get<GitExplorerView>(WorkspaceState.GitExplorerView, GitExplorerView.Repository);
+            }
+
+            if (initializing) {
+                this._view = view;
+                setCommandContext(CommandContext.GitExplorerView, this._view);
+
+                this.setRoot(await this.getRootNode(window.activeTextEditor));
+
+                this._disposable = window.registerTreeDataProvider('gitlens.gitExplorer', this);
+
+                return;
+            }
         }
 
-        if (initializing) {
-            this._view = view;
-            setCommandContext(CommandContext.GitExplorerView, this._view);
-
-            this.setRoot(await this.getRootNode(window.activeTextEditor));
-
-            this._disposable = window.registerTreeDataProvider('gitlens.gitExplorer', this);
-        }
-        else {
-            this.reset(view);
-        }
+        this.reset(view!);
     }
 
     private onRepositoriesChanged() {
