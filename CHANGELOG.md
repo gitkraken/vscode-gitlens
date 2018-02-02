@@ -4,15 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [8.0.0-beta] - 2018-01-30
+## [8.0.0-beta2] - 2018-02-02
 ### Added
-- Adds a GitLens welcome page via the *Welcome* (`gitlens.showWelcomePage`) command -- provides a welcome / onboarding experience
-- Adds a GitLens Settings page via the *Open Settings* (`gitlens.showSettingsPage`) command -- provides an easy-to-use settings editor for many of GitLen's features
+- Adds an all-new GitLens welcome page via the *Welcome* (`gitlens.showWelcomePage`) command -- provides a welcome / onboarding experience
+- Adds an all-new GitLens Settings editor via the *Open Settings* (`gitlens.showSettingsPage`) command -- provides an easy-to-use WYSIWYG settings editor for many of GitLen's features
 - Adds `gitlens.hovers.enabled` setting to specify whether or not to provide any hovers
 - Adds `gitlens.hovers.annotations.enabled` setting to specify whether or not to provide any hovers when showing blame annotations
 - Adds `gitlens.hovers.currentLine.enabled` setting to specify whether or not to provide any hovers for the current line
+- Adds `debug` option to the `gitlens.outputLevel` setting -- outputs git commands to a new output channel called *GitLens (Git)*
 
 ### Changed
+- Renames *GitLens* view to *GitLens* explorer
+- Renames *Show Files in Automatic View* (`gitlens.gitExplorer.setFilesLayoutToAuto`) command to *Automatic Layout*
+- Renames *Show Files in List View* (`gitlens.gitExplorer.setFilesLayoutToList`) command to *List Layout*
+- Renames *Show Files in Tree View* (`gitlens.gitExplorer.setFilesLayoutToTree`) command to *Tree Layout*
+- Renames *Show Files in Automatic View* (`gitlens.resultsExplorer.setFilesLayoutToAuto`) command to *Automatic Layout*
+- Renames *Show Files in List View* (`gitlens.resultsExplorer.setFilesLayoutToAuto`) command to *List Layout*
+- Renames *Show Files in Tree View* (`gitlens.resultsExplorer.setFilesLayoutToAuto`) command to *Tree Layout*
 - Overhauls GitLen's settings for better clarity and ease-of-use
 - Renames `gitlens.annotations.file.gutter.gravatars` setting to `gitlens.blame.avatars`
 - Renames `gitlens.annotations.file.gutter.compact` setting to `gitlens.blame.compact`
@@ -44,6 +52,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Renames `gitlens.recentChanges.file.lineHighlight.locations` setting to `gitlens.recentChanges.highlight.locations`
 
 ### Removed
+- Removes `gitlens.codeLens.debug` setting, use `gitlens.debug` instead
 - Removes `gitlens.blame.file.annotationType` setting, use `gitlens.hovers.annotations.enabled`
 - Removes `gitlens.blame.line.annotationType` setting, use `gitlens.currentLine.enabled` or `gitlens.hovers.currentLine.enabled` instead
 - Removes `gitlens.resultsExplorer.gravatars` setting, use `gitlens.explorers.avatars` instead
