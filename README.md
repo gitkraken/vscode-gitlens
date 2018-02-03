@@ -5,7 +5,7 @@
 
 <p align="center">
   <br />
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/gitlens-header.png" alt="GitLens Logo" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/gitlens-header.png" alt="GitLens Logo" />
 </p>
 
 > GitLens **supercharges** the Git capabilities built into Visual Studio Code. It helps you to **visualize code authorship** at a glance via Git blame annotations and code lens, **seamlessly navigate and explore** Git repositories, **gain valuable insights** via powerful comparison commands, and so much more.
@@ -21,18 +21,21 @@ GitLens simply helps you understand code better. Quickly glimpse into who, why, 
 Here are just some of the features that GitLens provides,
  - a [*GitLens* explorer](#gitlens-explorer "Jump to the GitLens explorer") to navigate and explore repositories or file histories
  - an on-demand [*GitLens Results* view](#gitlens-results-view "Jump to the GitLens Results view") to explore commit searches, visualize comparisions between branches, tags, commits, and more
- - Git authorship [code lens](#code-lens "Jump to the Code Lens") showing the most recent commit and # of authors to the top of files and/or on code blocks
- - an unobtrusive Git blame annotation to the end of the [current line](#current-line-blame "Jump to the Current Line Blame")
- - on-demand [Git blame annotations](#gutter-blame "Jump to the Gutter Blame"), including a heatmap, to the gutter for the whole file
- - detailed Git blame information accessible via [hovers](#hovers "Jump to the Hovers")
- - a status bar Git blame annotation showing author and date, by default, about the current line
- - many powerful commands for exploring commits and histories, comparing and navigating revisions, stash access, repository status, and more
+ - authorship [code lens](#code-lens "Jump to the Code Lens") showing the most recent commit and # of authors to the top of files and/or on code blocks
+ - an unobtrusive [current line blame](#current-line-blame "Jump to the Current Line Blame") annotation at the end of the line
+ - on-demand [gutter blame](#gutter-blame "Jump to the Gutter Blame") annotations, including a heatmap, for the whole file
+ - detailed blame information accessible via [hovers](#hovers "Jump to the Hovers")
+ - on-demand [recent changes](#recent-changes "Jump to the Recent Changes") annotations to highlight lines changed by the most recent commit
+ - a [status bar blame](#status-bar-blame "Jump to the Status Bar Blame") annotation showing author and date for the current line
+ - [commit search](#commit-search "Jump to the Commit Search") &mdash; by message, author, filename, commit id, or code changes
+ - many powerful commands for exploring commits and histories, comparing and navigating revisions, stash access, repository status, etc
+- and so much more
 
-GitLens is powerful, feature rich, and also [highly customizable](#gitlens-settings "Jump to the GitLens settings docs") to meet your specific needs &mdash; find code lens intrusive or the current line blame annotation distracting &mdash; no problem, it is quick and easy to turn them off or change how they behave via the built-in *GitLens Settings* editor, a WYSIWYG editor covering many of GitLens' powerful settings. While for more advanced customizations, refer to the [GitLens settings docs](#gitlens-settings "Jump to the GitLens settings docs") and edit your vscode [user settings](https://code.visualstudio.com/docs/getstarted/settings).
+GitLens is powerful, feature rich, and also [highly customizable](#gitlens-settings "Jump to the GitLens settings docs") to meet your specific needs &mdash; find code lens intrusive or the current line blame annotation distracting &mdash; no problem, it is quick and easy to turn them off or change how they behave via the built-in *GitLens Settings* editor, a WYSIWYG editor covering many of GitLens' powerful settings. While for more advanced customizations, refer to the [GitLens settings docs](#gitlens-settings "Jump to the GitLens settings docs") and edit your vscode [user settings](https://code.visualstudio.com/docs/getstarted/settings "Open User settings").
 
 <p align="center">
   <br />
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/gitlens-preview.gif" alt="GitLens Preview">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/gitlens-preview.gif" alt="GitLens Preview" />
   <br />
 </p>
 
@@ -46,7 +49,7 @@ A [customizable](#gitlens-explorer-settings "Jump to the GitLens Explorer settin
 
 #### Repository view
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-gitlens-explorer-repository.png" alt="GitLens Explorer Repository view">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-gitlens-explorer-repository.png" alt="GitLens Explorer Repository view" />
 </p>
 
 The repository view provides a full Git repository explorer, which has the following features,
@@ -109,7 +112,7 @@ The repository view provides a full Git repository explorer, which has the follo
 
 ### History view
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-gitlens-explorer-history.png" alt="GitLens Explorer History view">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-gitlens-explorer-history.png" alt="GitLens Explorer History view" />
 </p>
 
 The history view provides the revision history of the active file, which has the following features,
@@ -118,9 +121,10 @@ The history view provides the revision history of the active file, which has the
 - Context menus for each revision (commit) provides
   - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote* (if available), *Open Revision in Remote* (if available), *Apply Changes*, and *Show Commit File Details* commands
 
+---
 ### GitLens Results View
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-gitlens-results.png" alt="GitLens Results view">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-gitlens-results.png" alt="GitLens Results view" />
 </p>
 
 An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens Results view settings") view to explore commits, histories, and searches, or visualize comparisions between branches, tags, commits, and more
@@ -158,20 +162,21 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
            - Context menus for each changed file provide
              - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
 
+---
 ### Code Lens
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-code-lens.png" alt="Code Lens">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-code-lens.png" alt="Code Lens" />
 </p>
 
 - Adds Git authorship **code lens** to the top of the file and on code blocks ([optional](#code-lens-settings "Jump to the Code Lens settings"), on by default)
 
   - **Recent Change** &mdash; author and date of the most recent commit for the file or code block
-    - Clicking the code lens will, by [default](#code-lens-settings "Jump to the Code Lens settings"), show a **commit file details quick pick menu** with commands for comparing, navigating and exploring commits, and more
+    - Click the code lens to show a **commit file details quick pick menu** with commands for comparing, navigating and exploring commits, and more (by [default](#code-lens-settings "Jump to the Code Lens settings"))
   - **Authors** &mdash; number of authors of the file or code block and the most prominent author (if there is more than one)
-    - Clicking the code lens will, by [default](#code-lens-settings "Jump to the Code Lens settings"), toggle the file Git blame annotations on and off of the whole file
+    - Click the code lens to toggle the file Git blame annotations on and off of the whole file (by [default](#code-lens-settings "Jump to the Code Lens settings"))
     - Will be hidden if the author of the most recent commit is also the only author of the file or block, to avoid duplicate information and reduce visual noise
 
-  - Provides [customizable](#code-lens-settings "Jump to the Code Lens settings") click behavior for each code lens — choose between one of the following
+  - Provides [customizable](#code-lens-settings "Jump to the Code Lens settings") click behavior for each code lens &mdash; choose between one of the following
     - Toggle file blame annotations on and off
     - Compare the commit with the previous commit
     - Show a quick pick menu with details and commands for the commit
@@ -181,100 +186,116 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
 
 - Adds a *Toggle Git Code Lens* command (`gitlens.toggleCodeLens`) with a shortcut of `shift+alt+b` to toggle the code lens on and off
 
+---
 ### Current Line Blame
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-current-line-blame.png" alt="Current Line Blame">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-current-line-blame.png" alt="Current Line Blame" />
 </p>
 
-- Adds an unobtrusive, [customizable](#current-line-blame-settings "Jump to the Current Line Blame settings"), and [themable](#themable-colors "Jump to the Themable Colors"), **Git blame annotation** to the end of the current line
-  - Contains the author, date, and message of the current line's most recent commit, by [default](#current-line-blame-settings "Jump to the Current Line Blame settings")
+- Adds an unobtrusive, [customizable](#current-line-blame-settings "Jump to the Current Line Blame settings"), and [themable](#themable-colors "Jump to the Themable Colors"), **blame annotation** at the end of the current line
+  - Contains the author, date, and message of the current line's most recent commit (by [default](#current-line-blame-settings "Jump to the Current Line Blame settings"))
+  - Adds a *Show Line Blame Annotations* command (`gitlens.showLineBlame`)
+  - Adds a *Toggle Line Blame Annotations* command (`gitlens.toggleLineBlame`) to toggle the blame annotation on and off
 
+---
 ### Gutter Blame
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/feature-settings/images/screenshot-gutter-blame.png" alt="Gutter Blame">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-gutter-blame.png" alt="Gutter Blame">
 </p>
 
-- Adds an on-demand, [customizable](#gutter-blame-settings "Jump to the Gutter Blame settings"), and [themable](#themable-colors "Jump to the Themable Colors"), **Git blame annotations** to the gutter of the whole file
+- Adds on-demand, [customizable](#gutter-blame-settings "Jump to the Gutter Blame settings"), and [themable](#themable-colors "Jump to the Themable Colors"), **gutter blame annotations** for the whole file
   - Contains the commit message and date, by [default](#gutter-blame-settings "Jump to the Gutter Blame settings")
-
-### Hovers
-- Adds [customizable](#hover-settings "Jump to the Hover settings") detailed Git blame information accessible via hovers
-
-#### Current Line
-
-
-#### Annotating
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-### Git Blame Annotations
-
-- Adds an unobtrusive, highly [customizable](#line-blame-annotation-settings) and [themable](#themable-colors), **Git blame annotation** to the end of the current line ([optional](#line-blame-annotation-settings), on by default)
-
-  ![Line Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotation.png)
-  ![Line Blame Annotations (hover)](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotations.png)
-  - Contains the author, date, and message of the line's most recent commit, by [default](#line-blame-annotation-settings)
-  - Adds a **details** hover annotation to the current line annotation, which provides more commit details ([optional](#line-blame-annotation-settings), on by default)
-
-    ![Details Blame Annotation (hover)](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotations-details.png)
-
-    - Provides a **quick-access command bar** with *Open Changes*, *Blame Previous Revision*, *Open in Remote*, and *Show More Actions* command buttons
-    - Clicking the commit id will run the *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
-
-  - Adds a **changes** (diff) hover annotation to the current line annotation, which provides **instant access** to the line's previous version ([optional](#line-blame-annotation-settings), on by default)
-
-    ![Changes Blame Annotation (hover)](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-line-blame-annotations-changes.png)
-
-    - Clicking on **Changes** will run the *Compare File Revisions* command (`gitlens.diffWith`)
-    - Clicking the current and previous commit ids will run the *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
-
-- Adds on-demand, beautiful, highly [customizable](#file-blame-annotation-settings) and [themable](#themable-colors), **Git blame annotations** of the whole file
-
-  ![File Blame Annotation](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-file-blame-annotation.png)
-
-  - Choose between *gutter* (default) and *hover* [annotation styles](#file-blame-annotation-settings)
-  - Contains the commit message and date, by [default](#file-blame-annotation-settings)
-  - Adds a **details** hover annotation to the line's annotation, which provides more commit details ([optional](#file-blame-annotation-settings), on by default)
-
-    ![File Details Blame Annotations (hover)](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-file-blame-annotations.png)
-
-    - Provides a **quick-access command bar** with *Open Changes*, *Blame Previous Revision*, *Open in Remote*, and *Show More Actions* command buttons
-    - Clicking the commit id will run the *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
-  - Adds a **changes**` (diff) hover annotation to the line's annotation, which provides **instant access** to the line's previous version ([optional](#file-blame-annotation-settings), on by default)
-    - Clicking on **Changes** will run the *Compare File Revisions* command (`gitlens.diffWith`)
-    - Clicking the current and previous commit ids will run the *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
-  - Adds a **heatmap** (age) indicator to the gutter annotations (on right edge by [default](#file-blame-annotation-settings)), which provides an easy, at-a-glance way to tell the age of a line ([optional](#file-blame-annotation-settings), on by default)
+  - Adds a **heatmap** (age) indicator on right edge (by [default](#gutter-blame-settings "Jump to the Gutter Blame settings")) of the gutter to provide an easy, at-a-glance way to tell the age of a line ([optional](#gutter-blame-settings "Jump to the Gutter Blame settings"), on by default)
     - Indicator ranges from bright yellow (newer) to dark brown (older)
-  - Press `Escape` to quickly toggle the annotations off
+  - Adds a *Show File Blame Annotations* command (`gitlens.showFileBlame`)
+  - Adds a *Toggle File Blame Annotations* command (`gitlens.toggleFileBlame`) with a shortcut of `alt+b` to toggle the blame annotations on and off
+  - Press `Escape` to turn off the annotations
 
-- Adds [customizable](#status-bar-settings) **blame information** about the current line to the **status bar**  ([optional](#status-bar-settings), on by default)
+---
+### Gutter Heatmap
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-heatmap.png" alt="Gutter Heatmap" />
+</p>
 
-  ![Status Bar Blame](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-status-bar.png)
-  - Contains the commit author and date, by [default](#status-bar-settings)
-  - Clicking the status bar item will, by [default](#status-bar-settings), show a **commit details quick pick menu** with commands for comparing, navigating and exploring commits, and more
-  - Provides [customizable](#status-bar-settings) click behavior — choose between one of the following
+- Adds an on-demand **heatmap** to the edge of the gutter to show the relative age of a line
+  - Indicator ranges from bright yellow (newer) to dark brown (older)
+  - Adds *Toggle File Heatmap Annotations* command (`gitlens.toggleFileHeatmap`) to toggle the heatmap on and off
+  - Press `Escape` to turn off the annotations
+
+---
+### Hovers
+#### Current Line Hovers
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-hovers-current-line.png" alt="Current Line Hovers" />
+</p>
+
+- Adds [customizable](#hover-settings "Jump to the Hover settings") Git blame hovers accessible over the current line
+
+##### Details Hover
+  <p align="center">
+    <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-hovers-current-line-details.png" alt="Current Line Details Hover" />
+  </p>
+
+- Adds a **details hover** annotation to the current line to show more commit details ([optional](#hover-settings "Jump to the Hover settings"), on by default)
+  - Provides a **quick-access command bar** with *Open Changes*, *Blame Previous Revision*, *Open in Remote*, and *Show More Actions* command buttons
+  - Click the commit id to execute the *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
+
+##### Changes (diff) Hover
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-hovers-current-line-changes.png" alt="Current Line Changes (diff) Hover" />
+</p>
+
+- Adds a **changes (diff) hover** annotation to the current line to show the line's previous version ([optional](#hover-settings "Jump to the Hover settings"), on by default)
+  - Click the **Changes** to execute the *Compare File Revisions* command (`gitlens.diffWith`)
+  - Click the current and previous commit ids to execute the *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
+
+#### Annotation Hovers
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-hovers-annotations.png" alt="Annotation Hovers" />
+</p>
+
+- Adds [customizable](#hover-settings "Jump to the Hover settings") Git blame hovers accessible when annotating
+
+##### Details Hover
+  <p align="center">
+    <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-hovers-annotations-details.png" alt="Annotations Details Hover" />
+  </p>
+
+- Adds a **details hover** annotation to each line while annotating to show more commit details ([optional](#hover-settings "Jump to the Hover settings"), on by default)
+  - Provides a **quick-access command bar** with *Open Changes*, *Blame Previous Revision*, *Open in Remote*, and *Show More Actions* command buttons
+  - Click the commit id to execute the *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
+
+##### Changes (diff) Hover
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-hovers-annotations-changes.png" alt="Annotations Changes (diff) Hover" />
+</p>
+
+- Adds a **changes (diff) hover** annotation to each line while annotating to show the line's previous version ([optional](#hover-settings "Jump to the Hover settings"), on by default)
+  - Click the **Changes** to execute the *Compare File Revisions* command (`gitlens.diffWith`)
+  - Click the current and previous commit ids to execute the *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
+
+---
+### Recent Changes
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-recent-changes.png" alt="Recent Changes" />
+</p>
+
+- Adds an on-demand, [customizable](#recent-changes-settings "Jump to the Recent Changes settings") and [themable](#themable-colors "Jump to the Themable Colors"), **recent changes annotation** to highlight lines changed by the most recent commit
+  - Adds *Toggle Recent File Changes Annotations* command (`gitlens.toggleFileRecentChanges`) to toggle the recent changes annotations on and off
+  - Press `Escape` to turn off the annotations
+
+---
+### Status Bar Blame
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-status-bar.png" alt="Status Bar Blame" />
+</p>
+
+- Adds a [customizable](#status-bar-settings "Jump to the Status Bar Blame settings") **Git blame annotation** about the current line to the **status bar** ([optional](#status-bar-settings "Jump to the Status Bar Blame settings"), on by default)
+
+  - Contains the commit author and date (by [default](#status-bar-settings "Jump to the Status Bar Blame settings"))
+  - Click the status bar item to show a **commit details quick pick menu** with commands for comparing, navigating and exploring commits, and more (by [default](#status-bar-settings "Jump to the Status Bar Blame settings"))
+
+  - Provides [customizable](#status-bar-settings "Jump to the Status Bar Blame settings") click behavior &mdash; choose between one of the following
     - Toggle file blame annotations on and off
     - Toggle code lens on and off
     - Compare the line commit with the previous commit
@@ -284,121 +305,115 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
     - Show a quick pick menu with the commit history of the file
     - Show a quick pick menu with the commit history of the current branch
 
-- Adds a *Toggle File Blame Annotations* command (`gitlens.toggleFileBlame`) with a shortcut of `alt+b` to toggle the file blame annotations on and off
-  - Also adds a *Show File Blame Annotations* command (`gitlens.showFileBlame`)
-
-- Adds a *Toggle Line Blame Annotations* command (`gitlens.toggleLineBlame`) to toggle the current line blame annotations on and off
-  - Also adds a *Show Line Blame Annotations* command (`gitlens.showLineBlame`)
-
-### Git Heatmap Annotations
-
-- Adds on-demand **heatmap annotations** of the whole file
-  - Displays a **heatmap** (age) indicator near the gutter, which provides an easy, at-a-glance way to tell the age of a line
-    - Indicator ranges from bright yellow (newer) to dark brown (older)
-  - Press `Escape` to quickly toggle the annotations off
-
-- Adds *Toggle File Heatmap Annotations* command (`gitlens.toggleFileHeatmap`) to toggle the heatmap annotations on and off
-
-### Git Recent Changes Annotations
-
-- Adds on-demand, [customizable](#file-recent-changes-annotation-settings) and [themable](#themable-colors), **recent changes annotations** of the whole file
-  - Highlights all of lines changed in the most recent commit
-  - Adds a **details** hover annotation to each line, which provides more commit details ([optional](#file-recent-changes-annotation-settings), on by default)
-    - Clicking the commit id will run the *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
-  - Adds a **changes** (diff) hover annotation to each line, which provides **instant** access to the line's previous version ([optional](#file-recent-changes-annotation-settings), on by default)
-    - Clicking on **Changes** will run the *Compare File Revisions* command (`gitlens.diffWith`)
-    - Clicking the current and previous commit ids will run the *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
-  - Press `Escape` to quickly toggle the annotations off
-
-- Adds *Toggle Recent File Changes Annotations* command (`gitlens.toggleFileRecentChanges`) to toggle the recent changes annotations on and off
-
-### Navigate and Explore
-
+---
+### Commit Search
 - Adds a *Search Commits* command (`gitlens.showCommitSearch`) with a shortcut of `alt+/` to search for commits by message, author, file(s), commit id, or code changes
-  - Use `<message>` to search for commits with messages that match `<message>` -- See [Git docs](https://git-scm.com/docs/git-log#git-log---grepltpatterngt)
-  - Use `@<pattern>` to search for commits with authors that match `<pattern>` -- See [Git docs](https://git-scm.com/docs/git-log#git-log---authorltpatterngt)
-  - Use `:<pattern>` to search for commits with file names that match `<pattern>` -- See [Git docs](https://git-scm.com/docs/git-log)
-  - Use `#<sha>` to search for a commit with id of `<sha>` -- See [Git docs](https://git-scm.com/docs/git-log)
-  - Use `~<pattern>` to search for commits with differences whose patch text contains added/removed lines that match `<pattern>` -- See [Git docs](https://git-scm.com/docs/git-log#git-log--Gltregexgt)
-  - Use `=<string>` to search for commits with differences that change the number of occurrences of the specified string (i.e. addition/deletion) in a file -- See [Git docs](https://git-scm.com/docs/git-log#git-log--Sltstringgt)
+  - Use `<message>` to search for commits with messages that match `<message>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log---grepltpatterngt "Open Git docs")
+  - Use `@<pattern>` to search for commits with authors that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log---authorltpatterngt "Open Git docs")
+  - Use `:<pattern>` to search for commits with file names that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log "Open Git docs")
+  - Use `#<sha>` to search for a commit with id of `<sha>` &mdash; See [Git docs](https://git-scm.com/docs/git-log "Open Git docs")
+  - Use `~<pattern>` to search for commits with differences whose patch text contains added/removed lines that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log--Gltregexgt "Open Git docs")
+  - Use `=<string>` to search for commits with differences that change the number of occurrences of the specified string (i.e. addition/deletion) in a file &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log--Sltstringgt "Open Git docs")
   - Provides a *Show in Results* option to show the search results in the **GitLens Results** view
 
-- Adds commands to open files, commits, branches, and the repository in the supported remote services, **BitBucket, GitHub, GitLab, and Visual Studio Team Services** or a [**user-defined** remote services](#custom-remotes-settings) — only available if a Git upstream service is configured in the repository
-  - Also supports [remote services with custom domains](#custom-remotes-settings), such as **BitBucket, Bitbucket Server (previously called Stash), GitHub, GitHub Enterprise, GitLab**
-  - *Open Branches in Remote* command (`gitlens.openBranchesInRemote`) — opens the branches in the supported remote service
-  - *Open Branch in Remote* command (`gitlens.openBranchInRemote`) — opens the current branch commits in the supported remote service
-  - *Open Commit in Remote* command (`gitlens.openCommitInRemote`) — opens the commit revision of the active line in the supported remote service
-  - *Open File in Remote* command (`gitlens.openFileInRemote`) — opens the active file/revision in the supported remote service
-  - *Open Repository in Remote* command (`gitlens.openRepoInRemote`) — opens the repository in the supported remote service
+---
+### Navigate and Explore
+
+- Adds a *Show Last Opened Quick Pick* command (`gitlens.showLastQuickPick`) with a shortcut of `alt+-` to quickly get back to where you were when the last GitLens quick pick menu closed
+
+- Adds commands to open files, commits, branches, and the repository in the supported remote services, **BitBucket, GitHub, GitLab, and Visual Studio Team Services** or a [**user-defined** remote services](#custom-remotes-settings "Jump to Custom Remotes settings") &mdash; only available if a Git upstream service is configured in the repository
+  - Also supports [remote services with custom domains](#custom-remotes-settings "Jump to Custom Remotes settings"), such as **BitBucket, Bitbucket Server (previously called Stash), GitHub, GitHub Enterprise, GitLab**
+  - *Open Branches in Remote* command (`gitlens.openBranchesInRemote`) &mdash; opens the branches in the supported remote service
+  - *Open Branch in Remote* command (`gitlens.openBranchInRemote`) &mdash; opens the current branch commits in the supported remote service
+  - *Open Commit in Remote* command (`gitlens.openCommitInRemote`) &mdash; opens the commit revision of the active line in the supported remote service
+  - *Open File in Remote* command (`gitlens.openFileInRemote`) &mdash; opens the active file/revision in the supported remote service
+  - *Open Repository in Remote* command (`gitlens.openRepoInRemote`) &mdash; opens the repository in the supported remote service
+
+#### Branch History
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-menu-branch-history.png" alt="Branch History Quick Pick Menu" />
+</p>
 
 - Adds a *Show Current Branch History* command (`gitlens.showQuickRepoHistory`) with a shortcut of `shift+alt+h` to show a paged **branch history quick pick menu** of the current branch for exploring its commit history
-
-  ![Branch History Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-branch-history.png)
-
-  - Provides entries to *Show Commit Search* and *Open Branch in <remote-service>* when available
+  - Provides entries to *Show Commit Search* and *Open Branch in \<remote-service\>* when available
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Navigate pages via `alt+,` and `alt+.` to go backward and forward respectively
 
 - Adds a *Show Branch History* command (`gitlens.showQuickBranchHistory`) to show a paged **branch history quick pick menu** of the selected branch for exploring its commit history
   - Provides the same features as *Show Current Branch History* above
 
+#### File History
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-menu-file-history.png" alt="File History Quick Pick Menu" />
+</p>
+
 - Adds a *Show File History* command (`gitlens.showQuickFileHistory`) to show a paged **file history quick pick menu** of the active file for exploring its commit history
-
-  ![File History Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-file-history.png)
-
-  - Provides additional entries to *Show in Results*, *Show Branch History*, and *Open File in <remote-service>* when available
+  - Provides additional entries to *Show in Results*, *Show Branch History*, and *Open File in \<remote-service\>* when available
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Navigate pages via `alt+,` and `alt+.` to go backward and forward respectively
 
+#### Commit Details
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-menu-commit-details.png" alt="Commit Details Quick Pick Menu" />
+</p>
+
 - Adds a *Show Commit Details* command (`gitlens.showQuickCommitDetails`) to show a **commit details quick pick menu** of the most recent commit of the active file
-
-  ![Commit Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-commit-details.png)
-
   - Quickly see the set of files changed in the commit, complete with status indicators for adds, changes, renames, and deletes
-  - Provides additional entries to *Show in Results*, *Open Commit in <remote-service>* when available, *Open Files*, *Open Revisions*, *Open Directory Compare with Previous Revision*, *Open Directory Compare with Working Tree*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*
+  - Provides additional entries to *Show in Results*, *Open Commit in \<remote-service\>* when available, *Open Files*, *Open Revisions*, *Open Directory Compare with Previous Revision*, *Open Directory Compare with Working Tree*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
-  - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings) is set
+  - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible &mdash; commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings "Jump to Advanced settings") is set
   - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the comparison of the current revision with the previous one
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-menu-commit-file-details.png" alt="Commit File Details Quick Pick Menu" />
+</p>
+
 - Adds a *Show Commit File Details* command (`gitlens.showQuickCommitFileDetails`) with a shortcut of `alt+c` to show a **file commit details quick pick menu** of the most recent commit of the active file
-
-  ![Commit File Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-commit-file-details.png)
-
-  - Provides entries to *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in <remote-service>* when available, *Open Revision in <remote-service>* when available, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Show File History*, and *Show Previous File History*
+  - Provides entries to *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in \<remote-service\>* when available, *Open Revision in \<remote-service\>* when available, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Show File History*, and *Show Previous File History*
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
-  - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings) is set
+  - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible &mdash; commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings "Jump to Advanced settings") is set
+
+#### Repository Status
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-menu-repo-status.png" alt="Repository Status Quick Pick Menu" />
+</p>
 
 - Adds a *Show Repository Status* command (`gitlens.showQuickRepoStatus`) with a shortcut of `alt+s` to show a **repository status quick pick menu** for visualizing the current repository status
-
-  ![Repository Status Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-repo-status.png)
-
-  - Quickly see upstream status (if an Git upstream is configured) — complete with ahead and behind information
+  - Quickly see upstream status (if an Git upstream is configured) &mdash; complete with ahead and behind information
     - If you are ahead of the upstream, an entry will be shown with the number of commits ahead. Choosing it will show a limited **branch history quick pick menu** containing just the commits ahead of the upstream
     - If you are behind the upstream, an entry will be shown with the number of commits behind. Choosing it will show a limited **branch history quick pick menu** containing just the commits behind the upstream
   - Quickly see all working changes, both staged and unstaged, complete with status indicators for adds, changes, renames, and deletes
   - Provides entries to *Show Stashed Changes*, *Open Changed Files*, and *Close Unchanged Files*
-  - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings) is set
+  - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible &mdash; commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings "Jump to Advanced settings") is set
   - Use the `alt+right arrow` shortcut on a file entry in the `Staged Files` or `Unstaged Files` sections to preview the comparison of the working file with the previous revision
 
+#### Stashes
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-menu-stash-list.png" alt="Stashed Changes Quick Pick Menu" />
+</p>
+
 - Adds a *Show Stashed Changes* command (`gitlens.showQuickStashList`) to show a **stashed changes quick pick menu** for exploring your repository stash history
-
-  ![Stashed Changes Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-stash-list.png)
-
   - Provides additional entries to *Stash Changes*
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
 
-  - Choosing a stash entry shows a **stash details quick pick menu** which is very similar to the **commit details quick pick menu** above
+- Adds a *Stash Changes* command (`gitlens.stashSave`) to save any working tree changes to the stash &mdash; can optionally provide a stash message
+  - Also adds the command to the Source Control items context menu to stash an individual or group of files, works with multi-select too!
 
-    ![Stash Details Quick Pick Menu](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/screenshot-stash-details.png)
+#### Stash Details
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-menu-stash-details.png" alt="Stash Details Quick Pick Menu" />
+</p>
 
+  - Stashed changes show a **stash details quick pick menu** which is very similar to the **commit details quick pick menu** above
     - Quickly see the set of files changed in the stash, complete with status indicators for adds, changes, renames, and deletes
     - Provides additional entries to *Apply Stashed Changes* (requires confirmation), *Delete Stashed Changes* (requires confirmation), *Open Files*, *Open Revisions*, *Open Directory Compare with Previous Revision*, *Open Directory Compare with Working Tree*, *Copy Commit Message to Clipboard*
     - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
-    - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible — commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings) is set
+    - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible &mdash; commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings "Jump to Advanced settings") is set
     - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to  preview the comparison of the current revision with the previous one
 
-- Adds a *Show Last Opened Quick Pick* command (`gitlens.showLastQuickPick`) with a shortcut of `alt+-` to quickly get back to where you were when the last GitLens quick pick menu closed
+- Adds a *Apply Stashed Changes* command (`gitlens.stashApply`) to chose a stash entry to apply to the working tree from a quick pick menu
 
+---
 ### Powerful Comparison Tools
 
 - Effortlessly navigate between comparisons via the `alt+,` and `alt+.` shortcut keys to go back and forth through a file's revisions
@@ -421,6 +436,7 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
 
 - Adds a *Compare Line Revision with Working File* command (`gitlens.diffLineWithWorking`) with a shortcut of `alt+w` to compare the commit revision of the active line with the working tree
 
+---
 ### And More
 
 - Adds a *Copy Commit ID to Clipboard* command (`gitlens.copyShaToClipboard`) to copy the commit id (sha) of the active line to the clipboard or from the most recent commit to the current branch, if there is no active editor
@@ -440,29 +456,7 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
 
 - Adds a *Close Unchanged Files* command (`gitlens.closeUnchangedFiles`) to close any files without working tree changes
 
-- Adds a *Apply Stashed Changes* command (`gitlens.stashApply`) to chose a stash entry to apply to the working tree from a quick pick menu
-
-- Adds a *Stash Changes* command (`gitlens.stashSave`) to save any working tree changes to the stash — can optionally provide a stash message
-  - Also adds the command to the Source Control items context menu to stash an individual or group of files, works with multi-select too!
-
-## Insiders
-
-Add [`"gitlens.insiders": true`](#general-settings) to your settings to join the insiders channel and get early access to upcoming features. Be aware that because this provides early access expect there to be issues.
-
-## Themable Colors
-
-GitLens defines a set of themable colors which can be provided by vscode themes or directly by the user using [`workbench.colorCustomization`](https://code.visualstudio.com/docs/getstarted/themes#_customize-a-color-theme).
-
-|Name | Description
-|-----|------------
-|`gitlens.gutterBackgroundColor`|Specifies the background color of the gutter blame annotations
-|`gitlens.gutterForegroundColor`|Specifies the foreground color of the gutter blame annotations
-|`gitlens.gutterUncommittedForegroundColor`|Specifies the foreground color of an uncommitted line in the gutter blame annotations
-|`gitlens.trailingLineBackgroundColor`|Specifies the background color of the trailing blame annotation
-|`gitlens.trailingLineForegroundColor`|Specifies the foreground color of the trailing blame annotation
-|`gitlens.lineHighlightBackgroundColor`|Specifies the background color of the associated line highlights in blame annotations
-|`gitlens.lineHighlightOverviewRulerColor`|Specifies the overview ruler color of the associated line highlights in blame annotations
-
+---
 ## GitLens Settings
 
 GitLens is highly customizable and provides many configuration settings to allow the personalization of almost all features.
@@ -474,7 +468,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.defaultDateFormat`|Specifies how absolute dates will be formatted by default<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
 |`gitlens.defaultDateStyle`|Specifies how dates will be displayed by default
 |`gitlens.defaultGravatarsStyle`|Specifies the style of the gravatar default (fallback) images<br />`identicon` - a geometric pattern<br />`mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)<br />`monsterid` - a monster with different colors, faces, etc<br />`retro` - 8-bit arcade-style pixelated faces<br />`robohash` - a robot with different colors, faces, etc<br />`wavatar` - faces with differing features and backgrounds
-|`gitlens.insiders`|Opts into the insiders channel -- provides access to upcoming features
+|`gitlens.insiders`|Opts into the insiders channel &mdash; provides access to upcoming features
 |`gitlens.keymap`|Specifies the keymap to use for GitLens shortcut keys<br />`standard` - adds a standard set of shortcut keys<br />`chorded` - adds a chorded set of shortcut keys that all start with `Ctrl+Shift+G` (`⌥⌘G` on macOS)<br />`none` - no shortcut keys will be added
 |`gitlens.outputLevel`|Specifies how much (if any) output will be sent to the GitLens output channel
 
@@ -550,91 +544,35 @@ See also [Explorer Settings](#explorer-settings)
 |`gitlens.blame.ignoreWhitespace`|Specifies whether or not to ignore whitespace when comparing revisions during blame operations
 |`gitlens.blame.separateLines`|Specifies whether or not gutter blame annotations will have line separators
 
-#### Hover Settings
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#### File Blame Annotation Settings
+### Hover Settings
 
 |Name | Description
 |-----|------------
-|`gitlens.blame.file.annotationType`|Specifies the type of blame annotations that will be shown for the current file<br />`gutter` - adds an annotation to the beginning of each line<br />`hover` - shows annotations when hovering over each line
-|`gitlens.blame.file.lineHighlight.enabled`|Specifies whether or not to highlight lines associated with the current line
-|`gitlens.blame.file.lineHighlight.locations`|Specifies where the associated line highlights will be shown<br />`gutter` - adds a gutter glyph<br />`line` - adds a full-line highlight background color<br />`overviewRuler` - adds a decoration to the overviewRuler (scroll bar)
-|`gitlens.annotations.file.gutter.format`|Specifies the format of the gutter blame annotations<br />Available tokens<br />`${id}` - commit id<br />`${author}` - commit author<br />`${message}` - commit message<br />`${ago}` - relative commit date (e.g. 1 day ago)<br />`${date}` - formatted commit date (format specified by `gitlens.annotations.file.gutter.dateFormat`)<br />`${authorAgo}` - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
-|`gitlens.annotations.file.gutter.dateFormat`|Specifies how to format absolute dates (using the `${date}` token) in gutter blame annotations<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
-|`gitlens.annotations.file.gutter.compact`|Specifies whether or not to compact (deduplicate) matching adjacent gutter blame annotations
-|`gitlens.annotations.file.gutter.gravatars`|Specifies whether or not to show avatar images in the gutter blame annotations
-|`gitlens.annotations.file.gutter.heatmap.enabled`|Specifies whether or not to provide a heatmap indicator in the gutter blame annotations
-|`gitlens.annotations.file.gutter.heatmap.location`|Specifies where the heatmap indicators will be shown in the gutter blame annotations<br />`left` - adds a heatmap indicator on the left edge of the gutter blame annotations<br />`right` - adds a heatmap indicator on the right edge of the gutter blame annotations
-|`gitlens.annotations.file.gutter.hover.details`|Specifies whether or not to provide a commit details hover annotation over the gutter blame annotations
-|`gitlens.annotations.file.gutter.hover.changes`|Specifies whether or not to provide a changes (diff) hover annotation over the gutter blame annotations
-|`gitlens.annotations.file.gutter.hover.wholeLine`|Specifies whether or not to trigger hover annotations over the whole line
-|`gitlens.annotations.file.gutter.separateLines`|Specifies whether or not gutter blame annotations will have line separators
-|`gitlens.annotations.file.hover.details`|Specifies whether or not to provide a commit details hover annotation over each line
-|`gitlens.annotations.file.hover.changes`|Specifies whether or not to provide a changes (diff) hover annotation over each line
-|`gitlens.annotations.file.hover.heatmap.enabled`|Specifies whether or not to provide heatmap indicators on the left edge of each line
+|`gitlens.hovers.annotations.changes`|Specifies whether or not to provide a changes (diff) hover for all lines when showing blame annotations
+|`gitlens.hovers.annotations.details`|Specifies whether or not to provide a commit details hover for all lines when showing blame annotations
+|`gitlens.hovers.annotations.enabled`|Specifies whether or not to provide any hovers when showing blame annotations
+|`gitlens.hovers.annotations.over`|Specifies when to trigger hovers when showing blame annotations<br /> `annotation` - only shown when hovering over the line annotation<br /> `line` - shown when hovering anywhere over the line
+|`gitlens.hovers.currentLine.changes`|Specifies whether or not to provide a changes (diff) hover for the current line
+|`gitlens.hovers.currentLine.details`|Specifies whether or not to provide a commit details hover for the current line
+|`gitlens.hovers.currentLine.enabled`|Specifies whether or not to provide any hovers for the current line
+|`gitlens.hovers.currentLine.over`|Specifies when to trigger hovers for the current line<br /> `annotation` - only shown when hovering over the line annotation<br /> `line` - shown when hovering anywhere over the line
+|`gitlens.hovers.enabled`|Specifies whether or not to provide any hovers
 
-#### Line Blame Annotation Settings
+### Recent Changes Settings
 
 |Name | Description
 |-----|------------
-|`gitlens.blame.line.enabled`|Specifies whether or not to provide a blame annotation for the current line, by default<br />Use the *Toggle Line Blame Annotations* command (`gitlens.toggleLineBlame`) to toggle the annotations on and off for the current session
-|`gitlens.blame.line.annotationType`|Specifies the type of blame annotations that will be shown for the current line<br />`trailing` - adds an annotation to the end of the current line<br />`hover` - shows annotations when hovering over the current line
-|`gitlens.annotations.line.trailing.format`|Specifies the format of the trailing blame annotations<br />Available tokens<br />`${id}` - commit id<br />`${author}` - commit author<br />`${message}` - commit message<br />`${ago}` - relative commit date (e.g. 1 day ago)<br />`${date}` - formatted commit date (format specified by `gitlens.annotations.line.trailing.dateFormat`)<br />`${authorAgo}` - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
-|`gitlens.annotations.line.trailing.dateFormat`|Specifies how to format absolute dates (using the `${date}` token) in trailing blame annotations<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
-|`gitlens.annotations.line.trailing.hover.details`|Specifies whether or not to provide a commit details hover annotation over the trailing blame annotations
-|`gitlens.annotations.line.trailing.hover.changes`|Specifies whether or not to provide a changes (diff) hover annotation over the trailing blame annotations
-|`gitlens.annotations.line.trailing.hover.wholeLine`|Specifies whether or not to trigger hover annotations over the whole line
-|`gitlens.annotations.line.hover.details`|Specifies whether or not to provide a commit details hover annotation for the current line
-|`gitlens.annotations.line.hover.changes`|Specifies whether or not to provide a changes (diff) hover annotation for the current line
-
-### File Recent Changes Annotation Settings
-
-|Name | Description
-|-----|------------
-|`gitlens.recentChanges.file.lineHighlight.locations`|Specifies where the highlights of the recently changed lines will be shown<br />`gutter` - adds a gutter glyph<br />`line` - adds a full-line highlight background color<br />`overviewRuler` - adds a decoration to the overviewRuler (scroll bar)
-|`gitlens.annotations.file.recentChanges.hover.details`|Specifies whether or not to provide a commit details hover annotation
-|`gitlens.annotations.file.recentChanges.hover.changes`|Specifies whether or not to provide a changes (diff) hover annotation
-
-
-### Custom Remotes Settings
-
-|Name | Description
-|-----|------------
-|`gitlens.remotes`|Specifies user-defined remote (code-hosting) services or custom domains for built-in remote services<br /><br />Example:<br />```"gitlens.remotes": [{ "domain": "git.corporate-url.com", "type": "GitHub" }]```<br /><br />Example:<br />```"gitlens.remotes": [{ ```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"domain": "git.corporate-url.com",```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"type": "Custom",```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"name": "My Company", ```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"protocol": "https",```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"urls": {```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"repository": "https://git.corporate-url.com/${repo}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"branches": "https://git.corporate-url.com/${repo}/branches",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"branch": "https://git.corporate-url.com/${repo}/commits/${branch}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"commit": "https://git.corporate-url.com/${repo}/commit/${id}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"file": "https://git.corporate-url.com/${repo}?path=${file}${line}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"fileInBranch": "https://git.corporate-url.com/${repo}/blob/${branch}/${file}${line}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"fileInCommit": "https://git.corporate-url.com/${repo}/blob/${id}/${file}${line}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"fileLine": "#L${line}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"fileRange": "#L${start}-L${end}"```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```}```<br />&nbsp;&nbsp;&nbsp;&nbsp;```}]```<br /><br />Example:<br />```"gitlens.remotes": [{ ```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"domain": "git.corporate-url.com",```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"type": "Custom",```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"name": "My Company", ```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"protocol": "https",```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"urls": {```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"repository": "https://git.corporate-url.com/projects/${repoBase}/repos/${repoPath}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"branches": "https://git.corporate-url.com/projects/${repoBase}/repos/${repoPath}/branches",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"branch": "https://git.corporate-url.com/projects/${repoBase}/repos/${repoPath}/commits/${branch}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"commit": "https://git.corporate-url.com/projects/${repoBase}/repos/${repoPath}/commit/${id}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"file": "https://git.corporate-url.com/projects/${repoBase}/repos/${repoPath}?path=${file}${line}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"fileInBranch": "https://git.corporate-url.com/projects/${repoBase}/repos/${repoPath}/blob/${branch}/${file}${line}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"fileInCommit": "https://git.corporate-url.com/projects/${repoBase}/repos/${repoPath}/blob/${id}/${file}${line}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"fileLine": "#L${line}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"fileRange": "#L${start}-L${end}"```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```}```<br />&nbsp;&nbsp;&nbsp;&nbsp;```}]```
+|`gitlens.recentChanges.highlight.locations`|Specifies where the highlights of the recently changed lines will be shown<br />`gutter` - adds a gutter glyph<br />`line` - adds a full-line highlight background color<br />`overviewRuler` - adds a decoration to the overviewRuler (scroll bar)
 
 ### Status Bar Settings
 
 |Name | Description
 |-----|------------
-|`gitlens.statusBar.enabled`|Specifies whether or not to provide blame information on the status bar
 |`gitlens.statusBar.alignment`|Specifies the blame alignment in the status bar<br />`left` - align to the left,  `right` - align to the right
 |`gitlens.statusBar.command`|Specifies the command to be executed when the blame status bar item is clicked<br />`gitlens.toggleFileBlame` - toggles file blame annotations<br />`gitlens.diffWithPrevious` - compares the current line commit with the previous<br />`gitlens.diffWithWorking` - compares the current line commit with the working tree<br />`gitlens.toggleCodeLens` - toggles Git code lens<br />`gitlens.showQuickCommitDetails` - shows a commit details quick pick<br />`gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick<br />`gitlens.showQuickFileHistory` - shows a file history quick pick<br />`gitlens.showQuickRepoHistory` - shows a branch history quick pick
-|`gitlens.statusBar.format`|Specifies the format of the blame information on the status bar<br />Available tokens<br />`${id}` - commit id<br />`${author}` - commit author<br />`${message}` - commit message<br />`${ago}` - relative commit date (e.g. 1 day ago)<br />`${date}` - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
 |`gitlens.statusBar.dateFormat`|Specifies the date format of absolute dates shown in the blame information on the status bar<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
-
-### Strings Settings
-
-|Name | Description
-|-----|------------
-|`gitlens.strings.codeLens.unsavedChanges.recentChangeAndAuthors`|Specifies the string to be shown in place of both the `recent change` and `authors` code lens when there are unsaved changes
-|`gitlens.strings.codeLens.unsavedChanges.recentChangeOnly`|Specifies the string to be shown in place of the `recent change` code lens when there are unsaved changes
-|`gitlens.strings.codeLens.unsavedChanges.authorsOnly`|Specifies the string to be shown in place of the `authors` code lens when there are unsaved changes
+|`gitlens.statusBar.enabled`|Specifies whether or not to provide blame information on the status bar
+|`gitlens.statusBar.format`|Specifies the format of the blame information on the status bar<br />Available tokens<br />`${id}` - commit id<br />`${author}` - commit author<br />`${message}` - commit message<br />`${ago}` - relative commit date (e.g. 1 day ago)<br />`${date}` - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
 
 ### Advanced Settings
 
@@ -642,7 +580,7 @@ See also [Explorer Settings](#explorer-settings)
 |-----|------------
 |`gitlens.advanced.blame.delayAfterEdit`|Specifies the time (in milliseconds) to wait before re-blaming an unsaved document after an edit. Use 0 to specify an infinite wait
 |`gitlens.advanced.blame.sizeThresholdAfterEdit`|Specifies the maximum document size (in lines) allowed to be re-blamed after an edit while still unsaved. Use 0 to specify no maximum
-|`gitlens.advanced.caching.enabled`|Specifies whether git output will be cached -- changing the default is not recommended
+|`gitlens.advanced.caching.enabled`|Specifies whether git output will be cached &mdash; changing the default is not recommended
 |`gitlens.advanced.git`|Specifies the git path to use
 |`gitlens.advanced.maxListItems`|Specifies the maximum number of items to show in a list. Use 0 to specify no maximum
 |`gitlens.advanced.menus`|Specifies which commands will be added to which menus
@@ -651,23 +589,59 @@ See also [Explorer Settings](#explorer-settings)
 |`gitlens.advanced.repositorySearchDepth`|Specifies how many folders deep to search for repositories
 |`gitlens.advanced.telemetry.enabled`|Specifies whether or not to enable GitLens telemetry (even if enabled still abides by the overall `telemetry.enableTelemetry` setting
 
+#### Custom Remotes Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.remotes`|Specifies user-defined remote (code-hosting) services or custom domains for built-in remote services<br /><br />Example:<br />```"gitlens.remotes": [{ "domain": "git.corporate-url.com", "type": "GitHub" }]```<br /><br />Example:<br />```"gitlens.remotes": [{ ```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"domain": "git.corporate-url.com",```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"type": "Custom",```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"name": "My Company", ```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"protocol": "https",```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"urls": {```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"repository": "https://git.corporate-url.com/${repo}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"branches": "https://git.corporate-url.com/${repo}/branches",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"branch": "https://git.corporate-url.com/${repo}/commits/${branch}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"commit": "https://git.corporate-url.com/${repo}/commit/${id}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"file": "https://git.corporate-url.com/${repo}?path=${file}${line}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"fileInBranch": "https://git.corporate-url.com/${repo}/blob/${branch}/${file}${line}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"fileInCommit": "https://git.corporate-url.com/${repo}/blob/${id}/${file}${line}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"fileLine": "#L${line}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"fileRange": "#L${start}-L${end}"```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```}```<br />&nbsp;&nbsp;&nbsp;&nbsp;```}]```<br /><br />Example:<br />```"gitlens.remotes": [{ ```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"domain": "git.corporate-url.com",```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"type": "Custom",```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"name": "My Company", ```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"protocol": "https",```<br />&nbsp;&nbsp;&nbsp;&nbsp;```"urls": {```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"repository": "https://git.corporate-url.com/projects/${repoBase}/repos/${repoPath}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"branches": "https://git.corporate-url.com/projects/${repoBase}/repos/${repoPath}/branches",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"branch": "https://git.corporate-url.com/projects/${repoBase}/repos/${repoPath}/commits/${branch}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"commit": "https://git.corporate-url.com/projects/${repoBase}/repos/${repoPath}/commit/${id}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"file": "https://git.corporate-url.com/projects/${repoBase}/repos/${repoPath}?path=${file}${line}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"fileInBranch": "https://git.corporate-url.com/projects/${repoBase}/repos/${repoPath}/blob/${branch}/${file}${line}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"fileInCommit": "https://git.corporate-url.com/projects/${repoBase}/repos/${repoPath}/blob/${id}/${file}${line}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"fileLine": "#L${line}",```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"fileRange": "#L${start}-L${end}"```<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```}```<br />&nbsp;&nbsp;&nbsp;&nbsp;```}]```
+
+#### Strings Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.strings.codeLens.unsavedChanges.recentChangeAndAuthors`|Specifies the string to be shown in place of both the `recent change` and `authors` code lens when there are unsaved changes
+|`gitlens.strings.codeLens.unsavedChanges.recentChangeOnly`|Specifies the string to be shown in place of the `recent change` code lens when there are unsaved changes
+|`gitlens.strings.codeLens.unsavedChanges.authorsOnly`|Specifies the string to be shown in place of the `authors` code lens when there are unsaved changes
+
+---
+## Themable Colors
+
+GitLens defines a set of themable colors which can be provided by vscode themes or directly by the user using [`workbench.colorCustomization`](https://code.visualstudio.com/docs/getstarted/themes#_customize-a-color-theme).
+
+|Name | Description
+|-----|------------
+|`gitlens.gutterBackgroundColor`|Specifies the background color of the gutter blame annotations
+|`gitlens.gutterForegroundColor`|Specifies the foreground color of the gutter blame annotations
+|`gitlens.gutterUncommittedForegroundColor`|Specifies the foreground color of an uncommitted line in the gutter blame annotations
+|`gitlens.trailingLineBackgroundColor`|Specifies the background color of the trailing blame annotation
+|`gitlens.trailingLineForegroundColor`|Specifies the foreground color of the trailing blame annotation
+|`gitlens.lineHighlightBackgroundColor`|Specifies the background color of the associated line highlights in blame annotations
+|`gitlens.lineHighlightOverviewRulerColor`|Specifies the overview ruler color of the associated line highlights in blame annotations
+
+---
+## Insiders
+
+Add [`"gitlens.insiders": true`](#general-settings "Jump to GitLens settings") to your settings to join the insiders channel and get early access to upcoming features. Be aware that because this provides early access expect there to be issues.
+
+---
 ## Known Issues
 
-- If the `Copy to * clipboard` commands don't work on Linux -- `xclip` needs to be installed. You can install it via `sudo apt-get install xclip`
+- If the `Copy to * clipboard` commands don't work on Linux &mdash; `xclip` needs to be installed. You can install it via `sudo apt-get install xclip`
 
+---
 ## Contributors
 
 A big thanks to the people that have contributed to this project:
 
-- Amanda Cameron ([@AmandaCameron](https://github.com/AmandaCameron)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=AmandaCameron))
-- Helmut Januschka ([@hjanuschka](https://github.com/hjanuschka)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=hjanuschka))
-- Chris Kaczor ([@ckaczor](https://github.com/ckaczor)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=ckaczor))
-- Peng Lyu ([@rebornix](https://github.com/rebornix)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=rebornix))
-- Aurelio Ogliari ([@nobitagit](https://github.com/nobitagit)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=nobitagit)
-- Johannes Rieken ([@jrieken](https://github.com/jrieken)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=jrieken))
-- Zack Schuster ([@zackschuster](https://github.com/zackschuster)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=zackschuster)
-- SpaceEEC ([@SpaceEEC](https://github.com/SpaceEEC)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=SpaceEEC)
-- Alexey Vasyukov ([@notmedia](https://github.com/notmedia)) — [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=notmedia))
+- Amanda Cameron ([@AmandaCameron](https://github.com/AmandaCameron)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=AmandaCameron))
+- Helmut Januschka ([@hjanuschka](https://github.com/hjanuschka)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=hjanuschka))
+- Chris Kaczor ([@ckaczor](https://github.com/ckaczor)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=ckaczor))
+- Peng Lyu ([@rebornix](https://github.com/rebornix)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=rebornix))
+- Aurelio Ogliari ([@nobitagit](https://github.com/nobitagit)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=nobitagit)
+- Johannes Rieken ([@jrieken](https://github.com/jrieken)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=jrieken))
+- Zack Schuster ([@zackschuster](https://github.com/zackschuster)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=zackschuster)
+- SpaceEEC ([@SpaceEEC](https://github.com/SpaceEEC)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=SpaceEEC)
+- Alexey Vasyukov ([@notmedia](https://github.com/notmedia)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=notmedia))
 
 Also special thanks to the people that have provided support, testing, brainstorming, etc:
 

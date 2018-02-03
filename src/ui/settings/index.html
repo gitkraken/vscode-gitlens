@@ -30,7 +30,7 @@
 
             <div class="page-header">
                 <h2 class="page-header__title">Settings</h2>
-                <p class="page-header__subtitle">For advanced customizations refer to the <a title="See the GitLens settings docs" href="https://github.com/eamodio/vscode-gitlens/tree/feature-settings#gitlens-settings">GitLens settings docs</a> and edit your
+                <p class="page-header__subtitle">For advanced customizations refer to the <a title="See the GitLens settings docs" href="https://github.com/eamodio/vscode-gitlens/tree/develop#gitlens-settings">GitLens settings docs</a> and edit your
                     <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a>
                 </p>
             </div>
@@ -40,7 +40,7 @@
                     <section id="gitlens-explorer">
                         <div class="section__header">
                             <h2 class="section__title">GitLens Explorer
-                                <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens/tree/feature-settings#gitlens-explorer">
+                                <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens/tree/develop#gitlens-explorer">
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
@@ -107,7 +107,7 @@
                     <section id="gitlens-results">
                         <div class="section__header">
                             <h2 class="section__title">GitLens Results
-                                <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens/tree/feature-settings#gitlens-results">
+                                <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens/tree/develop#gitlens-results-view">
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
@@ -152,17 +152,17 @@
                     <section id="code-lens">
                         <div class="section__header">
                             <h2 class="section__title">Code Lens
-                                <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens/tree/feature-settings#git-code-lens">
+                                <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens/tree/develop#code-lens">
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
-                            <p class="section__title-hint">Adds Git authorship code lens to the top of files and on code blocks</p>
+                            <p class="section__title-hint">Adds authorship code lens to the top of files and on code blocks</p>
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
                                     <input id="codeLens.enabled" name="codeLens.enabled" type="checkbox" />
-                                    <label for="codeLens.enabled">Show the Git authorship code lenses</label>
+                                    <label for="codeLens.enabled">Show the authorship code lenses</label>
                                 </div>
 
                                 <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled" disabled>
@@ -243,18 +243,18 @@
                     <section id="current-line">
                         <div class="section__header">
                             <h2 class="section__title">Current Line Blame
-                                <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens/tree/feature-settings#git-blame-annotations">
+                                <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens/tree/develop#current-line-blame">
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
-                            <p class="section__title-hint">Adds an unobtrusive Git blame annotation to the end of the current line</p>
+                            <p class="section__title-hint">Adds an unobtrusive blame annotation at the end of the current line</p>
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
                                     <input id="currentLine.enabled" name="currentLine.enabled" type="checkbox" data-add-settings-off="hovers.currentLine.over=line"
                                     />
-                                    <label for="currentLine.enabled">Show a Git blame annotation at the end of the current line</label>
+                                    <label for="currentLine.enabled">Show a blame annotation at the end of the current line</label>
                                 </div>
                             </div>
                             <div class="section__preview">
@@ -276,11 +276,11 @@
                     <section id="blame">
                         <div class="section__header">
                             <h2 class="section__title">Gutter Blame
-                                <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens/tree/feature-settings#git-blame-annotations">
+                                <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens/tree/develop#gutter-blame">
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
-                            <p class="section__title-hint">Adds on-demand Git blame annotations to the gutter for the whole file</p>
+                            <p class="section__title-hint">Adds on-demand gutter blame annotations for the whole file</p>
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
@@ -341,6 +341,9 @@
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
                                 For more advanced customizations open <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for <b><i>gitlens.blame</i></b>
+                                <span>
+                                    Press <span class="shortcut-key">Esc</span> to quickly turn off the annotations
+                                </span>
                             </p>
                         </div>
                     </section>
@@ -348,18 +351,18 @@
                     <section id="hovers">
                         <div class="section__header">
                             <h2 class="section__title">Hovers
-                                <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens/tree/feature-settings#git-blame-annotations">
+                                <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens/tree/develop#hovers">
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
-                            <p class="section__title-hint">Adds detailed Git blame information accessible via hovers</p>
+                            <p class="section__title-hint">Adds detailed blame information accessible via hovers</p>
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting">
                                     <div class="settings-group__setting nowrap">
                                         <input id="hovers.enabled" name="hovers.enabled" type="checkbox" />
-                                        <label for="hovers.enabled">Show Git hovers</label>
+                                        <label for="hovers.enabled">Show blame hovers</label>
                                     </div>
                                 </div>
                                 <div class="settings-group__setting">
@@ -386,12 +389,12 @@
                                     <div class="settings-group__setting nowrap ml-4" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled"
                                         disabled>
                                         <input id="hovers.currentLine.details" name="hovers.currentLine.details" type="checkbox" disabled />
-                                        <label for="hovers.currentLine.details">Add Git blame details</label>
+                                        <label for="hovers.currentLine.details">Add blame details</label>
                                     </div>
                                     <div class="settings-group__setting nowrap ml-4" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled"
                                         disabled>
                                         <input id="hovers.currentLine.changes" name="hovers.currentLine.changes" type="checkbox" disabled />
-                                        <label for="hovers.currentLine.changes">Add Git changes (diff)</label>
+                                        <label for="hovers.currentLine.changes">Add changes (diff)</label>
                                     </div>
                                 </div>
                             </div>
@@ -428,12 +431,12 @@
                                     <div class="settings-group__setting nowrap ml-4" data-enablement="hovers.enabled &amp; hovers.annotations.enabled"
                                         disabled>
                                         <input id="hovers.annotations.details" name="hovers.annotations.details" type="checkbox" disabled />
-                                        <label for="hovers.annotations.details">Add Git blame details</label>
+                                        <label for="hovers.annotations.details">Add blame details</label>
                                     </div>
                                     <div class="settings-group__setting nowrap ml-4" data-enablement="hovers.enabled &amp; hovers.annotations.enabled"
                                         disabled>
                                         <input id="hovers.annotations.changes" name="hovers.annotations.changes" type="checkbox" disabled />
-                                        <label for="hovers.annotations.changes">Add Git changes (diff)</label>
+                                        <label for="hovers.annotations.changes">Add changes (diff)</label>
                                     </div>
                                 </div>
                             </div>
@@ -448,10 +451,47 @@
                         </div>
                     </section>
 
+                    <section id="recent-changes">
+                        <div class="section__header">
+                            <h2 class="section__title">Recent Changes
+                                <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens/tree/develop#recent-changes">
+                                    <i class="icon icon__info"></i>
+                                </a>
+                            </h2>
+                            <p class="section__title-hint">Adds on-demand recent changes annotations to highlight lines changed by the most recent commit</p>
+                        </div>
+                        <div class="section__settings">
+                            <div class="settings-group">
+                                <div class="settings-group__setting nowrap">
+                                    <input id="recentChanges.highlight.locations" name="recentChanges.highlight.locations" type="checkbox" value="gutter" data-type="array" />
+                                    <label for="recentChanges.highlight.locations">Add gutter highlight</label>
+                                </div>
+                                <div class="settings-group__setting nowrap">
+                                    <input id="recentChanges.highlight.locations-1" name="recentChanges.highlight.locations" type="checkbox" value="line" data-type="array" />
+                                    <label for="recentChanges.highlight.locations-1">Add line highlight</label>
+                                </div>
+                                <div class="settings-group__setting nowrap">
+                                    <input id="recentChanges.highlight.locations-2" name="recentChanges.highlight.locations" type="checkbox" value="overviewRuler" data-type="array" />
+                                    <label for="recentChanges.highlight.locations-2">Add scroll bar highlight</label>
+                                </div>
+                            </div>
+                            <div class="section__preview">
+                                <img class="image__preview" src="{{root}}/images/settings/recent-changes.png" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/recent-changes-highlight-gutter.png" data-visibility="recentChanges.highlight.locations +gutter" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/recent-changes-highlight-line.png" data-visibility="recentChanges.highlight.locations +line" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/recent-changes-highlight-scrollbar.png" data-visibility="recentChanges.highlight.locations +overviewRuler" />
+                            </div>
+                            <p class="settings-group__hint">
+                                <i class="icon icon--lg icon__info"></i>
+                                Press <span class="shortcut-key">Esc</span> to quickly turn off the annotations
+                            </p>
+                        </div>
+                    </section>
+
                     <section id="status-bar">
                         <div class="section__header">
                             <h2 class="section__title">Status Bar Blame
-                                <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens/tree/feature-settings#git-blame-annotations">
+                                <a title="Learn more" href="https://github.com/eamodio/vscode-gitlens/tree/develop#status-bar-blame">
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
@@ -524,8 +564,8 @@
                                 </span>
                                 <span class="label__hint hidden" data-visibility="keymap =chorded">
                                     Chorded shortcuts that start with
-                                    <i class="shortcut-key">Ctrl+Shift+G</i> (
-                                    <i class="shortcut-key">&#x2325;&#x2318;G</i> on macOS). Better for non-English keyboard layouts
+                                    <span class="shortcut-key">Ctrl+Shift+G</span> (
+                                    <span class="shortcut-key">&#x2325;&#x2318;G</span> on macOS). Better for non-English keyboard layouts
                                 </span>
                                 <span class="label__hint hidden" data-visibility="keymap =none">
                                     GitLens won't bind any keyboard shortcuts. Configure your own via the
@@ -539,30 +579,15 @@
                     <div class="sidebar-group">
                         <h2>Jump to</h2>
                         <ul>
-                            <li>
-                                <a href="#gitlens-explorer">GitLens Explorer</a>
-                            </li>
-                            <li>
-                                <a href="#gitlens-results">GitLens Results</a>
-                            </li>
-                            <li>
-                                <a href="#code-lens">Code Lens</a>
-                            </li>
-                            <li>
-                                <a href="#current-line">Current Line Blame</a>
-                            </li>
-                            <li>
-                                <a href="#blame">Gutter Blame</a>
-                            </li>
-                            <li>
-                                <a href="#hovers">Hovers</a>
-                            </li>
-                            <li>
-                                <a href="#status-bar">Status Bar Blame</a>
-                            </li>
-                            <li>
-                                <a href="#shortcuts">Keyboard Shortcuts</a>
-                            </li>
+                            <li><a href="#gitlens-explorer">GitLens Explorer</a></li>
+                            <li><a href="#gitlens-results">GitLens Results</a></li>
+                            <li><a href="#code-lens">Code Lens</a></li>
+                            <li><a href="#current-line">Current Line Blame</a></li>
+                            <li><a href="#blame">Gutter Blame</a></li>
+                            <li><a href="#hovers">Hovers</a></li>
+                            <li><a href="#recent-changes">Recent Changes</a></li>
+                            <li><a href="#status-bar">Status Bar Blame</a></li>
+                            <li><a href="#shortcuts">Keyboard Shortcuts</a></li>
                         </ul>
                     </div>
                     <div class="sidebar-group">
@@ -579,7 +604,7 @@
                             </li>
                             <!-- <li><a href="#">Become a Patron</a></li> -->
                             <li>
-                                <a href="http://amod.io">Hire me</a>
+                                <a href="http://amod.io/?utm_source=gitlens">Hire me</a>
                             </li>
                         </ul>
                     </div>
@@ -587,7 +612,7 @@
                         <h2>Help</h2>
                         <ul>
                             <li>
-                                <a href="https://github.com/eamodio/vscode-gitlens/blob/feature-settings/README.md">Documentation</a>
+                                <a href="https://github.com/eamodio/vscode-gitlens/blob/develop/README.md">Documentation</a>
                             </li>
                             <li>
                                 <a href="https://github.com/eamodio/vscode-gitlens/issues">Questions &amp; Issues</a>
