@@ -4,13 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [8.0.0-beta2] - 2018-02-02
+## [8.0.0-beta3] - 2018-02-03
 ### Added
 - Adds an all-new GitLens welcome page via the *Welcome* (`gitlens.showWelcomePage`) command &mdash; provides a welcome / onboarding experience
 - Adds an all-new GitLens Settings editor via the *Open Settings* (`gitlens.showSettingsPage`) command &mdash; provides an easy-to-use WYSIWYG settings editor for many of GitLen's features
 - Adds `gitlens.hovers.enabled` setting to specify whether or not to provide any hovers
 - Adds `gitlens.hovers.annotations.enabled` setting to specify whether or not to provide any hovers when showing blame annotations
 - Adds `gitlens.hovers.currentLine.enabled` setting to specify whether or not to provide any hovers for the current line
+- Adds `gitlens.showWhatsNewAfterUpgrades` setting to specify whether or not to show What's New after upgrading to new feature releases
 - Adds `debug` option to the `gitlens.outputLevel` setting &mdash; outputs git commands to a new output channel called *GitLens (Git)*
 
 ### Changed
