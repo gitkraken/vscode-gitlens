@@ -16,11 +16,11 @@
 
 GitLens is a free, [open-source](https://github.com/eamodio/vscode-gitlens "Open GitLens on GitHub") extension for [Visual Studio Code](https://code.visualstudio.com) created by [Eric Amodio](http://amod.io "Learn more about Eric").
 
-GitLens simply helps you understand code better. Quickly glimpse into who, why, and when a line or code block was changed. Jump back through history to gain further insights as to how and why the code evolved. Explore the history and evolution of a codebase.
+GitLens simply helps you understand code better. Quickly glimpse into whom, why, and when a line or code block was changed. Jump back through history to gain further insights as to how and why the code evolved. Explore the history and evolution of a codebase.
 
 Here are just some of the features that GitLens provides,
  - a [*GitLens* explorer](#gitlens-explorer "Jump to the GitLens explorer") to navigate and explore repositories or file histories
- - an on-demand [*GitLens Results* view](#gitlens-results-view "Jump to the GitLens Results view") to explore commit searches, visualize comparisions between branches, tags, commits, and more
+ - an on-demand [*GitLens Results* view](#gitlens-results-view "Jump to the GitLens Results view") to explore commit searches, visualize comparisons between branches, tags, commits, and more
  - authorship [code lens](#code-lens "Jump to the Code Lens") showing the most recent commit and # of authors to the top of files and/or on code blocks
  - an unobtrusive [current line blame](#current-line-blame "Jump to the Current Line Blame") annotation at the end of the line
  - on-demand [gutter blame](#gutter-blame "Jump to the Gutter Blame") annotations, including a heatmap, for the whole file
@@ -65,7 +65,7 @@ The repository view provides a full Git repository explorer, which has the follo
     - is behind the upstream &mdash; quickly see and explore the specific commits behind the upstream (i.e. commits that haven't been pulled)
     - is ahead of the upstream &mdash; quickly see and explore the specific commits ahead of the upstream (i.e. commits that haven't been pushed)
   - A context menu provides *Open Repository in Remote*, and *Refresh* commands
-  - **Changed Files** &mdash; lists all of the "working" changes
+  - **Changed Files** &mdash; lists all the "working" changes
     - Expands to a file-based view of all changed files in the working tree ([optionally](#gitlens-explorer-settings "Jump to the GitLens explorer settings")) and/or all files in all commits ahead of the upstream
 
 - **Branches** &mdash; lists the local branches
@@ -127,12 +127,12 @@ The history view provides the revision history of the active file, which has the
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-gitlens-results.png" alt="GitLens Results view" />
 </p>
 
-An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens Results view settings") view to explore commits, histories, and searches, or visualize comparisions between branches, tags, commits, and more
+An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens Results view settings") view to explore commits, histories, and searches, or visualize comparisons between branches, tags, commits, and more
 - A toolbar provides *Search Commits*, *Keep Results*, and *Refresh* commands
   - A context menu provides *Automatic Layout*, *List Layout*, *Tree Layout*, and *Close* commands
 
 #### Explore
-  - Provides a semi-persistent results view for exploring histories, commits, and searchs
+  - Provides a semi-persistent results view for exploring histories, commits, and searches
     - Accessible via the following commands
       - *Show Commit Search* command (`gitlens.showCommitSearch`)
       - *Show File History* command (`gitlens.showQuickFileHistory`)

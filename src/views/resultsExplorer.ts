@@ -5,7 +5,7 @@ import { configuration, ExplorerFilesLayout, IExplorersConfig, IResultsExplorerC
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { RefreshNodeCommandArgs } from './explorerCommands';
-import { CommitResultsNode, CommitsResultsNode, ComparisionResultsNode, ExplorerNode, MessageNode, RefreshReason, ResourceType } from './explorerNodes';
+import { CommitResultsNode, CommitsResultsNode, ComparisonResultsNode, ExplorerNode, MessageNode, RefreshReason, ResourceType } from './explorerNodes';
 import { GitLog, GitLogCommit } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
@@ -125,7 +125,7 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
     }
 
     showComparisonInResults(repoPath: string, ref1: string, ref2: string) {
-        this.addResults(new ComparisionResultsNode(repoPath, ref1, ref2, this));
+        this.addResults(new ComparisonResultsNode(repoPath, ref1, ref2, this));
         this.showResults();
     }
 

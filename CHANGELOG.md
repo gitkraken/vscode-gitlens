@@ -225,7 +225,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds `gitlens.resultsExplorer.gravatars` setting to specify whether or not to show gravatar images instead of commit (or status) icons in the **GitLens Results** view
   - Adds `gitlens.resultsExplorer.gravatarsDefault` setting to specify the style of the gravatar default (fallback) images in the **GitLens Results** view<br />`identicon` - a geometric pattern<br />`mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)<br />`monsterid` - a monster with different colors, faces, etc<br />`retro` - 8-bit arcade-style pixelated faces<br />`robohash` - a robot with different colors, faces, etc<br />`wavatar` - faces with differing features and backgrounds
 
-- Adds *Select for Compare* command (`gitlens.explorers.selectForCompare`) to branch, remote branch, tag, and revision (commit) nodes in the **GitLens** view to mark the base reference of a comparision
+- Adds *Select for Compare* command (`gitlens.explorers.selectForCompare`) to branch, remote branch, tag, and revision (commit) nodes in the **GitLens** view to mark the base reference of a comparison
 - Adds *Compare with Selected* command (`gitlens.explorers.compareWithSelected`) to branch, remote branch, tag, and revision (commit) nodes in the **GitLens** view once another reference within the same repository has been selected to compare the current selection with the previously selected reference in the **GitLens Results** view
 
 - Adds an all-new, on-demand **GitLens Results** view to the Explorer activity

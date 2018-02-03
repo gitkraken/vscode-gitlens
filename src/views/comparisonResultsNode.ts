@@ -8,7 +8,7 @@ import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { GitLog, GitService, GitStatusFile, GitUri } from '../gitService';
 import { StatusFilesResultsNode } from './statusFilesResultsNode';
 
-export class ComparisionResultsNode extends ExplorerNode {
+export class ComparisonResultsNode extends ExplorerNode {
 
     constructor(
         repoPath: string,
