@@ -471,10 +471,11 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.insiders`|Opts into the insiders channel &mdash; provides access to upcoming features
 |`gitlens.keymap`|Specifies the keymap to use for GitLens shortcut keys<br />`standard` - adds a standard set of shortcut keys<br />`chorded` - adds a chorded set of shortcut keys that all start with `Ctrl+Shift+G` (`⌥⌘G` on macOS)<br />`none` - no shortcut keys will be added
 |`gitlens.outputLevel`|Specifies how much (if any) output will be sent to the GitLens output channel
+|`gitlens.showWhatsNewAfterUpgrades`|Specifies whether or not to show What's New after upgrading to new feature releases
 
 ### GitLens Explorer Settings
 
-See also [Explorer Settings](#explorer-settings)
+See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 
 |Name | Description
 |-----|------------
@@ -489,7 +490,7 @@ See also [Explorer Settings](#explorer-settings)
 
 ### GitLens Results View Settings
 
-See also [Explorer Settings](#explorer-settings)
+See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 
 |Name | Description
 |-----|------------

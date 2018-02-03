@@ -1,17 +1,15 @@
 'use strict';
 import { DOM } from './../shared/dom';
-import { initializeColorPalette } from '../shared/colors';
+import { App } from '../shared/app-base';
 
-export class App {
-
-    private readonly _commandRelay: HTMLAnchorElement;
+export class WelcomeApp extends App {
 
     constructor() {
-        console.log('WelcomeApp.ctor');
+        super('WelcomeApp');
+    }
 
-        this._commandRelay = DOM.getElementById<HTMLAnchorElement>('commandRelay');
-
-        initializeColorPalette();
+    protected bind() {
+        super.bind();
 
         const onClicked = this.onClicked.bind(this);
         DOM.listenAll('button[data-href]', 'click', function(this: HTMLButtonElement) { onClicked(this); });
@@ -19,14 +17,5 @@ export class App {
 
     private onClicked(element: HTMLButtonElement) {
         this.executeCommand(element.dataset.href);
-    }
-
-    private executeCommand(command: string | undefined) {
-        if (command === undefined) return;
-
-        console.log(`WelcomeApp.executeCommand: command=${command}`);
-
-        this._commandRelay.setAttribute('href', command);
-        this._commandRelay.click();
     }
 }

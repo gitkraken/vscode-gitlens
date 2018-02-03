@@ -134,15 +134,13 @@ export interface IAdvancedConfig {
     };
 
     messages: {
-        suppressCommitHasNoPreviousCommitWarning: boolean,
-        suppressCommitNotFoundWarning: boolean,
-        suppressFileNotUnderSourceControlWarning: boolean,
-        suppressGitVersionWarning: boolean,
-        suppressLineUncommittedWarning: boolean,
-        suppressNoRepositoryWarning: boolean,
-        suppressResultsExplorerNotice: boolean,
-        suppressUpdateNotice: boolean,
-        suppressWelcomeNotice: boolean
+        suppressCommitHasNoPreviousCommitWarning: boolean;
+        suppressCommitNotFoundWarning: boolean;
+        suppressFileNotUnderSourceControlWarning: boolean;
+        suppressGitVersionWarning: boolean;
+        suppressLineUncommittedWarning: boolean;
+        suppressNoRepositoryWarning: boolean;
+        suppressResultsExplorerNotice: boolean;
     };
 
     quickPick: {
@@ -290,6 +288,8 @@ export interface IConfig {
     remotes: IRemotesConfig[];
 
     resultsExplorer: IResultsExplorerConfig;
+
+    showWhatsNewAfterUpgrades: boolean;
 
     statusBar: {
         enabled: boolean;

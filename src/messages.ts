@@ -1,6 +1,5 @@
 'use strict';
-import { commands, ConfigurationTarget, Uri, window } from 'vscode';
-import { BuiltInCommands } from './constants';
+import { ConfigurationTarget, window } from 'vscode';
 import { GitCommit } from './gitService';
 import { Logger } from './logger';
 import { configuration } from './configuration';
@@ -12,9 +11,7 @@ export enum SuppressedMessages {
     GitVersionWarning = 'suppressGitVersionWarning',
     LineUncommittedWarning = 'suppressLineUncommittedWarning',
     NoRepositoryWarning = 'suppressNoRepositoryWarning',
-    ResultsExplorerNotice = 'suppressResultsExplorerNotice',
-    UpdateNotice = 'suppressUpdateNotice',
-    WelcomeNotice = 'suppressWelcomeNotice'
+    ResultsExplorerNotice = 'suppressResultsExplorerNotice'
 }
 
 export class Messages {
@@ -46,15 +43,6 @@ export class Messages {
 
     static showUnsupportedGitVersionErrorMessage(version: string): Promise<string | undefined> {
         return Messages.showMessage('error', `GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git`, SuppressedMessages.GitVersionWarning);
-    }
-
-    static async showUpdateMessage(version: string): Promise<string | undefined> {
-        const viewReleaseNotes = 'View Release Notes';
-        const result = await Messages.showMessage('info', `GitLens has been updated to v${version}`, SuppressedMessages.UpdateNotice, undefined, viewReleaseNotes);
-        if (result === viewReleaseNotes) {
-            commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://marketplace.visualstudio.com/items/eamodio.gitlens/changelog'));
-        }
-        return result;
     }
 
     private static async showMessage(type: 'info' | 'warn' | 'error', message: string, suppressionKey: SuppressedMessages, dontShowAgain: string | null = 'Don\'t Show Again', ...actions: any[]): Promise<string | undefined> {

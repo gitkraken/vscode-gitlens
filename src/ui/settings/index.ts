@@ -1,4 +1,4 @@
 'use strict';
-import { App } from './app';
+import { SettingsApp } from './app';
 
-new App();
+new SettingsApp();

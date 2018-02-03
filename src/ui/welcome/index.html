@@ -38,9 +38,15 @@
                     <li><span class="changelog__badge changelog__badge--added">NEW</span>Brand new WYSIWYG <a class="command" title="Open GitLens Settings" href="command:gitlens.showSettingsPage">GitLens Settings</a> editor &mdash; GitLens is easier than ever to customize to suit your needs</li>
                     <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>Reworked settings &mdash; clearer, simpler settings</li>
                 </ul>
+
                 <p class="changelog__hint">
                     See the <a title="Open Release Notes" href="https://github.com/eamodio/vscode-gitlens/blob/develop/CHANGELOG.md">Release Notes</a> for the full set of changes
                 </p>
+
+                <div class="settings-group__setting nowrap ml-1">
+                    <input id="showWhatsNewAfterUpgrades" name="showWhatsNewAfterUpgrades" type="checkbox" />
+                    <label for="showWhatsNewAfterUpgrades">Show What's New after upgrading to new feature releases</label>
+                </div>
             </section>
 
             <div class="section-groups">
@@ -184,6 +190,9 @@
         </div>
     </div>
     <a id="commandRelay" style="display: none"></a>
+    <script type="text/javascript">
+        window.gitlens = { config: '{{config}}' };
+    </script>
 </body>
 
 </html>

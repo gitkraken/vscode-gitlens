@@ -60,7 +60,7 @@ export async function activate(context: ExtensionContext) {
     // Telemetry.setContext(telemetryContext);
 
     notifyOnUnsupportedGitVersion(gitVersion);
-    notifyOnNewGitLensVersion(gitlensVersion, previousVersion);
+    showWelcomePage(gitlensVersion, previousVersion);
 
     context.globalState.update(GlobalState.GitLensVersion, gitlensVersion);
 
@@ -170,11 +170,6 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
         }
 
         if (Versions.compare(previous, Versions.from(8, 0, 0, 'beta2')) !== 1) {
-            const section = configuration.name('advanced')('messages').value;
-            const messages = configuration.get<{ [key: string]: boolean }>(section);
-            messages[SuppressedMessages.WelcomeNotice] = false;
-            await configuration.update(section, messages, ConfigurationTarget.Global);
-
             await configuration.migrate<boolean, OutputLevel>('debug', configuration.name('outputLevel').value, v => v ? OutputLevel.Debug : configuration.get(configuration.name('outputLevel').value));
             await configuration.migrate('debug', configuration.name('debug').value, v => undefined);
         }
@@ -184,26 +179,29 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
     }
 }
 
-async function notifyOnNewGitLensVersion(version: string, previousVersion: string | undefined) {
+function notifyOnUnsupportedGitVersion(version: string) {
+    if (GitService.validateGitVersion(2, 2)) return;
+
+    // If git is less than v2.2.0
+    Messages.showUnsupportedGitVersionErrorMessage(version);
+}
+
+async function showWelcomePage(version: string, previousVersion: string | undefined) {
     if (previousVersion === undefined) {
         Logger.log(`GitLens first-time install`);
-    }
-    else if (previousVersion !== version) {
-        Logger.log(`GitLens upgraded from v${previousVersion} to v${version}`);
-    }
 
-    if (!Container.config.advanced.messages.suppressWelcomeNotice) {
-        const section = configuration.name('advanced')('messages').value;
-        const messages = configuration.get<{ [key: string]: boolean }>(section);
-        messages[SuppressedMessages.WelcomeNotice] = true;
-        await configuration.update(section, messages, ConfigurationTarget.Global);
-
-        await commands.executeCommand(Commands.ShowWelcomePage);
+        if (Container.config.showWhatsNewAfterUpgrades) {
+            await commands.executeCommand(Commands.ShowWelcomePage);
+        }
 
         return;
     }
 
-    if (previousVersion === undefined || Container.config.advanced.messages.suppressUpdateNotice) return;
+    if (previousVersion !== version) {
+        Logger.log(`GitLens upgraded from v${previousVersion} to v${version}`);
+    }
+
+    if (!Container.config.showWhatsNewAfterUpgrades) return;
 
     const [major, minor] = version.split('.');
     const [prevMajor, prevMinor] = previousVersion.split('.');
@@ -211,12 +209,5 @@ async function notifyOnNewGitLensVersion(version: string, previousVersion: strin
     // Don't notify on downgrades
     if (major < prevMajor || (major === prevMajor && minor < prevMinor)) return;
 
-    await Messages.showUpdateMessage(version);
-}
-
-async function notifyOnUnsupportedGitVersion(version: string) {
-    if (GitService.validateGitVersion(2, 2)) return;
-
-    // If git is less than v2.2.0
-    await Messages.showUnsupportedGitVersionErrorMessage(version);
+    await commands.executeCommand(Commands.ShowWelcomePage);
 }

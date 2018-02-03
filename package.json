@@ -677,6 +677,12 @@
                     "description": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens Results` view\nOnly applies when displaying files as `auto`",
                     "scope": "window"
                 },
+                "gitlens.showWhatsNewAfterUpgrades": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether or not to show What's New after upgrading to new feature releases",
+                    "scope": "window"
+                },
                 "gitlens.statusBar.alignment": {
                     "type": "string",
                     "default": "right",
@@ -937,9 +943,7 @@
                         "suppressGitVersionWarning": false,
                         "suppressLineUncommittedWarning": false,
                         "suppressNoRepositoryWarning": false,
-                        "suppressResultsExplorerNotice": false,
-                        "suppressUpdateNotice": false,
-                        "suppressWelcomeNotice": false
+                        "suppressResultsExplorerNotice": false
                     },
                     "properties": {
                         "suppressCommitHasNoPreviousCommitWarning": {
@@ -967,14 +971,6 @@
                             "default": false
                         },
                         "suppressResultsExplorerNotice": {
-                            "type": "boolean",
-                            "default": false
-                        },
-                        "suppressUpdateNotice": {
-                            "type": "boolean",
-                            "default": false
-                        },
-                        "suppressWelcomeNotice": {
                             "type": "boolean",
                             "default": false
                         }

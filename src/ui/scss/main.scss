@@ -193,7 +193,7 @@ ul {
 .changelog__hint {
     color: var(--color--75);
     font-weight: 200;
-    margin: 0 1em 1em 1em;
+    margin: 0 1em 2em 1em;
 }
 
 .changelog__list {
@@ -597,6 +597,10 @@ ul {
 
 .mb-2 {
     margin-bottom: 2em !important;
+}
+
+.ml-1 {
+    margin-left: 1em;
 }
 
 .ml-2 {
