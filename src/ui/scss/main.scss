@@ -532,12 +532,12 @@ ul {
 .settings-group__hint {
     color: var(--color--75);
     font-weight: 200;
+}
 
-    span {
-        display: inline-block;
-        margin-left: 34px;
-        margin-top: 0.5em;
-    }
+.settings-group__hint--more {
+    display: block;
+    margin-left: 34px;
+    margin-top: 0.5em;
 }
 
 .settings-group__setting {
