@@ -10,8 +10,8 @@ type Constructor<T = {}> = new (...args: any[]) => T;
 
 export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = IFormatOptions> {
 
-    protected _item: TItem;
-    protected _options: TOptions;
+    protected _item!: TItem;
+    protected _options!: TOptions;
 
     constructor(item: TItem, options?: TOptions) {
         this.reset(item, options);
@@ -27,7 +27,7 @@ export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = I
         }
 
         if (options.dateFormat == null) {
-            options.dateFormat = 'MMMM Do, YYYY h:MMa';
+            options.dateFormat = 'MMMM Do, YYYY h:mma';
         }
 
         if (options.tokenOptions == null) {

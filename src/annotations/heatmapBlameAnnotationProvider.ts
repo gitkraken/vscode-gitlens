@@ -3,6 +3,7 @@ import { DecorationOptions, Range } from 'vscode';
 import { Annotations } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { FileAnnotationType } from './../configuration';
+import { Container } from '../container';
 import { GitBlameCommit } from '../gitService';
 import { Logger } from '../logger';
 
@@ -57,6 +58,7 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
         const duration = process.hrtime(start);
         Logger.log(`${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms to compute heatmap annotations`);
 
+        this.registerHoverProviders(Container.config.hovers.annotations);
         this.selection(shaOrLine, blame);
         return true;
     }

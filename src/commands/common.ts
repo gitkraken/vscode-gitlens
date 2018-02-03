@@ -8,6 +8,7 @@ import { Logger } from '../logger';
 export enum Commands {
     ClearFileAnnotations = 'gitlens.clearFileAnnotations',
     CloseUnchangedFiles = 'gitlens.closeUnchangedFiles',
+    ComputingFileAnnotations = 'gitlens.computingFileAnnotations',
     CopyMessageToClipboard = 'gitlens.copyMessageToClipboard',
     CopyShaToClipboard = 'gitlens.copyShaToClipboard',
     DiffDirectory = 'gitlens.diffDirectory',
@@ -44,6 +45,8 @@ export enum Commands {
     ShowQuickCurrentBranchHistory = 'gitlens.showQuickRepoHistory',
     ShowQuickRepoStatus = 'gitlens.showQuickRepoStatus',
     ShowQuickStashList = 'gitlens.showQuickStashList',
+    ShowSettingsPage = 'gitlens.showSettingsPage',
+    ShowWelcomePage = 'gitlens.showWelcomePage',
     StashApply = 'gitlens.stashApply',
     StashDelete = 'gitlens.stashDelete',
     StashSave = 'gitlens.stashSave',

@@ -53,7 +53,7 @@ export class CommitNode extends ExplorerRefNode {
             ? ResourceType.CommitOnCurrentBranch
             : ResourceType.Commit;
 
-        if (this.explorer.config.gravatars) {
+        if (this.explorer.config.avatars) {
             item.iconPath = this.commit.getGravatarUri(Container.config.defaultGravatarsStyle);
         } else {
             item.iconPath = {

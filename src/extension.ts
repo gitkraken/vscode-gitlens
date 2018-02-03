@@ -1,12 +1,10 @@
 'use strict';
 import { Objects, Versions } from './system';
-import { ConfigurationTarget, ExtensionContext, extensions, languages, window, workspace } from 'vscode';
-import { configuration, Configuration, IConfig } from './configuration';
+import { commands, ConfigurationTarget, ExtensionContext, extensions, window, workspace } from 'vscode';
+import { CodeLensLanguageScope, CodeLensScopes, configuration, Configuration, IConfig, OutputLevel } from './configuration';
 import { CommandContext, ExtensionKey, GlobalState, QualifiedExtensionId, setCommandContext } from './constants';
-import { configureCommands } from './commands';
+import { Commands, configureCommands } from './commands';
 import { Container } from './container';
-import { GitContentProvider } from './gitContentProvider';
-import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { GitService } from './gitService';
 import { Logger } from './logger';
 import { Messages, SuppressedMessages } from './messages';
@@ -31,6 +29,9 @@ export async function activate(context: ExtensionContext) {
 
     Configuration.configure(context);
 
+    const previousVersion = context.globalState.get<string>(GlobalState.GitLensVersion);
+    await migrateSettings(context, previousVersion);
+
     const cfg = configuration.get<IConfig>();
 
     try {
@@ -45,6 +46,10 @@ export async function activate(context: ExtensionContext) {
         return;
     }
 
+    Container.initialize(context, cfg);
+
+    configureCommands();
+
     const gitVersion = GitService.getGitVersion();
 
     // Telemetry.configure(ApplicationInsightsKey);
@@ -54,30 +59,13 @@ export async function activate(context: ExtensionContext) {
     // telemetryContext['git.version'] = gitVersion;
     // Telemetry.setContext(telemetryContext);
 
-    const previousVersion = context.globalState.get<string>(GlobalState.GitLensVersion);
-
-    await migrateSettings(context, previousVersion);
-    notifyOnUnsupportedGitVersion(context, gitVersion);
-    notifyOnNewGitLensVersion(context, gitlensVersion, previousVersion);
+    notifyOnUnsupportedGitVersion(gitVersion);
+    showWelcomePage(gitlensVersion, previousVersion);
 
     context.globalState.update(GlobalState.GitLensVersion, gitlensVersion);
 
-    Container.initialize(context, cfg);
-
-    context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider()));
-    context.subscriptions.push(languages.registerCodeLensProvider(GitRevisionCodeLensProvider.selector, new GitRevisionCodeLensProvider()));
-
-    context.subscriptions.push(window.registerTreeDataProvider('gitlens.gitExplorer', Container.gitExplorer));
-    context.subscriptions.push(window.registerTreeDataProvider('gitlens.resultsExplorer', Container.resultsExplorer));
-
-    configureCommands();
-
     // Constantly over my data cap so stop collecting initialized event
     // Telemetry.trackEvent('initialized', Objects.flatten(cfg, 'config', true));
-
-    setCommandContext(CommandContext.KeyMap, configuration.get(configuration.name('keymap').value));
-    // Slightly delay enabling the explorer to not stop the rest of GitLens from being usable
-    setTimeout(() => setCommandContext(CommandContext.GitExplorer, true), 1000);
 
     const duration = process.hrtime(start);
     Logger.log(`GitLens(v${gitlensVersion}) activated in ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);
@@ -121,45 +109,69 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
         if (Versions.compare(previous, Versions.from(7, 1, 0)) !== 1) {
             // https://github.com/eamodio/vscode-gitlens/issues/239
             const section = configuration.name('advanced')('quickPick')('closeOnFocusOut').value;
-            const inspection = configuration.inspect(section);
-            if (inspection !== undefined) {
-                if (inspection.globalValue !== undefined) {
-                    await configuration.update(section, !inspection.globalValue, ConfigurationTarget.Global);
-                }
-                else if (inspection.workspaceFolderValue !== undefined) {
-                    await configuration.update(section, !inspection.workspaceFolderValue, ConfigurationTarget.WorkspaceFolder);
-                }
-            }
+            await configuration.migrate<boolean, boolean>(section, section, v => !v);
         }
 
         if (Versions.compare(previous, Versions.from(7, 3, 0, 'beta2')) !== 1) {
-            const oldSection = 'advanced.maxQuickHistory';
-            const inspection = configuration.inspect(oldSection);
-            if (inspection !== undefined) {
-                const section = configuration.name('advanced')('maxListItems').value;
-
-                if (inspection.globalValue !== undefined) {
-                    await configuration.update(section, inspection.globalValue, ConfigurationTarget.Global);
-                }
-                else if (inspection.workspaceFolderValue !== undefined) {
-                    await configuration.update(section, inspection.workspaceFolderValue, ConfigurationTarget.WorkspaceFolder);
-                }
-            }
+            await configuration.migrate('advanced.maxQuickHistory', configuration.name('advanced')('maxListItems').value);
         }
 
         if (Versions.compare(previous, Versions.from(7, 3, 0, 'beta4')) !== 1) {
-            const oldSection = 'gitExplorer.gravatarsDefault';
-            const inspection = configuration.inspect(oldSection);
-            if (inspection !== undefined) {
-                const section = configuration.name('defaultGravatarsStyle').value;
+            await configuration.migrate('gitExplorer.gravatarsDefault', configuration.name('defaultGravatarsStyle').value);
+        }
 
-                if (inspection.globalValue !== undefined) {
-                    await configuration.update(section, inspection.globalValue, ConfigurationTarget.Global);
-                }
-                else if (inspection.workspaceFolderValue !== undefined) {
-                    await configuration.update(section, inspection.workspaceFolderValue, ConfigurationTarget.WorkspaceFolder);
-                }
-            }
+        if (Versions.compare(previous, Versions.from(7, 5, 9)) !== 1) {
+            await configuration.migrate('annotations.file.gutter.gravatars', configuration.name('blame')('avatars').value);
+            await configuration.migrate('annotations.file.gutter.compact', configuration.name('blame')('compact').value);
+            await configuration.migrate('annotations.file.gutter.dateFormat', configuration.name('blame')('dateFormat').value);
+            await configuration.migrate('annotations.file.gutter.format', configuration.name('blame')('format').value);
+            await configuration.migrate('annotations.file.gutter.heatmap.enabled', configuration.name('blame')('heatmap')('enabled').value);
+            await configuration.migrate('annotations.file.gutter.heatmap.location', configuration.name('blame')('heatmap')('location').value);
+            await configuration.migrate('annotations.file.gutter.lineHighlight.enabled', configuration.name('blame')('highlight')('enabled').value);
+            await configuration.migrate('annotations.file.gutter.lineHighlight.locations', configuration.name('blame')('highlight')('locations').value);
+            await configuration.migrate('annotations.file.gutter.separateLines', configuration.name('blame')('separateLines').value);
+
+            await configuration.migrate('codeLens.locations', configuration.name('codeLens')('scopes').value);
+            await configuration.migrate<{ customSymbols?: string[], language: string | undefined, locations: CodeLensScopes[] }[], CodeLensLanguageScope[]>('codeLens.perLanguageLocations', configuration.name('codeLens')('scopesByLanguage').value,
+                v => {
+                    const scopes = v.map(ls => {
+                        return {
+                            language: ls.language,
+                            scopes: ls.locations,
+                            symbolScopes: ls.customSymbols
+                        };
+                    });
+                    return scopes;
+                });
+            await configuration.migrate('codeLens.customLocationSymbols', configuration.name('codeLens')('symbolScopes').value);
+
+            await configuration.migrate('annotations.line.trailing.dateFormat', configuration.name('currentLine')('dateFormat').value);
+            await configuration.migrate('blame.line.enabled', configuration.name('currentLine')('enabled').value);
+            await configuration.migrate('annotations.line.trailing.format', configuration.name('currentLine')('format').value);
+
+            await configuration.migrate('annotations.file.gutter.hover.changes', configuration.name('hovers')('annotations')('changes').value);
+            await configuration.migrate('annotations.file.gutter.hover.details', configuration.name('hovers')('annotations')('details').value);
+            await configuration.migrate('annotations.file.gutter.hover.details', configuration.name('hovers')('annotations')('enabled').value);
+            await configuration.migrate<boolean, 'line' | 'annotation'>('annotations.file.gutter.hover.wholeLine', configuration.name('hovers')('annotations')('over').value, v => v ? 'line' : 'annotation');
+
+            await configuration.migrate('annotations.line.trailing.hover.changes', configuration.name('hovers')('currentLine')('changes').value);
+            await configuration.migrate('annotations.line.trailing.hover.details', configuration.name('hovers')('currentLine')('details').value);
+            await configuration.migrate('blame.line.enabled', configuration.name('hovers')('currentLine')('enabled').value);
+            await configuration.migrate<boolean, 'line' | 'annotation'>('annotations.line.trailing.hover.wholeLine', configuration.name('hovers')('currentLine')('over').value, v => v ? 'line' : 'annotation');
+
+            await configuration.migrate('gitExplorer.gravatars', configuration.name('explorers')('avatars').value);
+            await configuration.migrate('gitExplorer.commitFileFormat', configuration.name('explorers')('commitFileFormat').value);
+            await configuration.migrate('gitExplorer.commitFormat', configuration.name('explorers')('commitFormat').value);
+            await configuration.migrate('gitExplorer.stashFileFormat', configuration.name('explorers')('stashFileFormat').value);
+            await configuration.migrate('gitExplorer.stashFormat', configuration.name('explorers')('stashFormat').value);
+            await configuration.migrate('gitExplorer.statusFileFormat', configuration.name('explorers')('statusFileFormat').value);
+
+            await configuration.migrate('recentChanges.file.lineHighlight.locations', configuration.name('recentChanges')('highlight')('locations').value);
+        }
+
+        if (Versions.compare(previous, Versions.from(8, 0, 0, 'beta2')) !== 1) {
+            await configuration.migrate<boolean, OutputLevel>('debug', configuration.name('outputLevel').value, v => v ? OutputLevel.Debug : configuration.get(configuration.name('outputLevel').value));
+            await configuration.migrate('debug', configuration.name('debug').value, v => undefined);
         }
     }
     catch (ex) {
@@ -167,12 +179,20 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
     }
 }
 
-async function notifyOnNewGitLensVersion(context: ExtensionContext, version: string, previousVersion: string | undefined) {
-    if (configuration.get<boolean>(configuration.name('advanced')('messages')(SuppressedMessages.UpdateNotice).value)) return;
+function notifyOnUnsupportedGitVersion(version: string) {
+    if (GitService.validateGitVersion(2, 2)) return;
 
+    // If git is less than v2.2.0
+    Messages.showUnsupportedGitVersionErrorMessage(version);
+}
+
+async function showWelcomePage(version: string, previousVersion: string | undefined) {
     if (previousVersion === undefined) {
         Logger.log(`GitLens first-time install`);
-        await Messages.showWelcomeMessage();
+
+        if (Container.config.showWhatsNewAfterUpgrades) {
+            await commands.executeCommand(Commands.ShowWelcomePage);
+        }
 
         return;
     }
@@ -181,18 +201,13 @@ async function notifyOnNewGitLensVersion(context: ExtensionContext, version: str
         Logger.log(`GitLens upgraded from v${previousVersion} to v${version}`);
     }
 
+    if (!Container.config.showWhatsNewAfterUpgrades) return;
+
     const [major, minor] = version.split('.');
     const [prevMajor, prevMinor] = previousVersion.split('.');
     if (major === prevMajor && minor === prevMinor) return;
     // Don't notify on downgrades
     if (major < prevMajor || (major === prevMajor && minor < prevMinor)) return;
 
-    await Messages.showUpdateMessage(version);
-}
-
-async function notifyOnUnsupportedGitVersion(context: ExtensionContext, version: string) {
-    if (GitService.validateGitVersion(2, 2)) return;
-
-    // If git is less than v2.2.0
-    await Messages.showUnsupportedGitVersionErrorMessage(version);
+    await commands.executeCommand(Commands.ShowWelcomePage);
 }

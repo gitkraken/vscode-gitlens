@@ -8,7 +8,7 @@ export class BranchQuickPickItem implements QuickPickItem {
 
     label: string;
     description: string;
-    detail: string;
+    detail: string | undefined;
 
     constructor(
         public readonly branch: GitBranch

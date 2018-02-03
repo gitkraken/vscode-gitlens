@@ -18,13 +18,12 @@ module.exports = function(env, argv) {
             parallel: true,
             sourceMap: sourceMaps,
             uglifyOptions: {
-                ecma: 7,
-                compress: minify,
+                ecma: 8,
+                compress: minify ? {} : false,
                 mangle: minify,
                 output: {
                     beautify: !minify,
-                    comments: false,
-                    ecma: 7
+                    comments: false
                 },
                 sourceMap: sourceMaps,
             }
@@ -50,7 +49,7 @@ module.exports = function(env, argv) {
             rules: [
                 {
                     test: /\.ts$/,
-                    use: 'ts-loader',
+                    use: [{ loader: 'ts-loader' }],
                     exclude: /node_modules/
                 }
             ]

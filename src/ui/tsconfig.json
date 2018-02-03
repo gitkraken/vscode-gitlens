@@ -1,0 +1,23 @@
+{
+    "version": "2.0.0",
+    "compileOnSave": false,
+    "compilerOptions": {
+        "forceConsistentCasingInFileNames": true,
+        "lib": [ "es5", "dom", "dom.iterable",  "es2015", "es2015.iterable", "es2016" ],
+        "module": "es2015",
+        "moduleResolution": "node",
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitReturns": true,
+        "noUnusedLocals": true,
+        "outDir": "out",
+        "removeComments": true,
+        "rootDir": ".",
+        "skipLibCheck": true,
+        "sourceMap": true,
+        "strict": true,
+        "target": "es2016"
+    },
+    "exclude": [
+        "node_modules"
+    ]
+}

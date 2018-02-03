@@ -9,7 +9,7 @@ export * from './commitNode';
 export * from './commitResultsNode';
 export * from './commitsNode';
 export * from './commitsResultsNode';
-export * from './comparisionResultsNode';
+export * from './comparisonResultsNode';
 export * from './fileHistoryNode';
 export * from './historyNode';
 export * from './remoteNode';

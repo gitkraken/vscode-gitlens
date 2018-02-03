@@ -109,6 +109,8 @@ export class GitService extends Disposable {
                 added: workspace.workspaceFolders || [],
                 removed: []
             } as WorkspaceFoldersChangeEvent;
+
+            Logger.log(`Starting repository search in ${e.added.length} folders`);
         }
 
         for (const f of e.added) {
@@ -153,16 +155,27 @@ export class GitService extends Disposable {
     private async repositorySearch(folder: WorkspaceFolder): Promise<Repository[]> {
         const folderUri = folder.uri;
 
+        const depth = configuration.get<number>(configuration.name('advanced')('repositorySearchDepth').value, folderUri);
+
+        Logger.log(`Searching for repositories (depth=${depth}) in '${folderUri.fsPath}' ...`);
+
+        const start = process.hrtime();
+
         const repositories: Repository[] = [];
         const anyRepoChangedFn = this.onAnyRepositoryChanged.bind(this);
 
         const rootPath = await this.getRepoPathCore(folderUri.fsPath, true);
         if (rootPath !== undefined) {
+            Logger.log(`Repository found in '${rootPath}'`);
             repositories.push(new Repository(folder, rootPath, true, anyRepoChangedFn, this._suspended));
         }
 
-        const depth = configuration.get<number>(configuration.name('advanced')('repositorySearchDepth').value, folderUri);
-        if (depth <= 0) return repositories;
+        if (depth <= 0) {
+            const duration = process.hrtime(start);
+            Logger.log(`Searching for repositories (depth=${depth}) in '${folderUri.fsPath}' took ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);
+
+            return repositories;
+        }
 
         // Get any specified excludes -- this is a total hack, but works for some simple cases and something is better than nothing :)
         let excludes = {
@@ -181,12 +194,7 @@ export class GitService extends Disposable {
             return accumulator;
         }, Object.create(null) as any);
 
-        const start = process.hrtime();
-
         const paths = await this.repositorySearchCore(folderUri.fsPath, depth, excludes);
-
-        const duration = process.hrtime(start);
-        Logger.log(`Searching (depth=${depth}) for repositories in ${folderUri.fsPath} took ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);
 
         for (let p of paths) {
             p = path.dirname(p);
@@ -196,6 +204,7 @@ export class GitService extends Disposable {
             const rp = await this.getRepoPathCore(p, true);
             if (rp === undefined) continue;
 
+            Logger.log(`Repository found in '${rp}'`);
             repositories.push(new Repository(folder, rp, false, anyRepoChangedFn, this._suspended));
         }
 
@@ -206,6 +215,9 @@ export class GitService extends Disposable {
         //         repositories.push(new Repository(folder, rp, false, anyRepoChangedFn, this._suspended));
         //     }
         // }
+
+        const duration = process.hrtime(start);
+        Logger.log(`Searching for repositories (depth=${depth}) in '${folderUri.fsPath}' took ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);
 
         return repositories;
     }
@@ -923,10 +935,14 @@ export class GitService extends Disposable {
         }
     }
 
-    async getLogForFile(repoPath: string | undefined, fileName: string, options: { maxCount?: number, range?: Range, ref?: string, reverse?: boolean, skipMerges?: boolean } = {}): Promise<GitLog | undefined> {
+    async getLogForFile(repoPath: string | undefined, fileName: string, options: { maxCount?: number, range?: Range, ref?: string, renames?: boolean, reverse?: boolean } = {}): Promise<GitLog | undefined> {
         if (repoPath !== undefined && repoPath === Strings.normalizePath(fileName)) throw new Error(`File name cannot match the repository path; fileName=${fileName}`);
 
-        options = { reverse: false, skipMerges: false, ...options };
+        options = { reverse: false, ...options };
+
+        if (options.renames === undefined) {
+            options.renames = true;
+        }
 
         let key = 'log';
         if (options.ref !== undefined) {
@@ -935,13 +951,16 @@ export class GitService extends Disposable {
         if (options.maxCount !== undefined) {
             key += `:n${options.maxCount}`;
         }
+        if (options.renames) {
+            key += `:follow`;
+        }
 
         const doc = await Container.tracker.getOrAdd(new GitUri(Uri.file(fileName), { repoPath: repoPath!, sha: options.ref }));
         if (this.UseCaching && options.range === undefined && !options.reverse) {
             if (doc.state !== undefined) {
                 const cachedLog = doc.state.get<CachedLog>(key);
                 if (cachedLog !== undefined) {
-                    Logger.log(`getLogForFile[Cached(${key})]('${repoPath}', '${fileName}', '${options.ref}', ${options.maxCount}, undefined, ${options.reverse}, ${options.skipMerges})`);
+                    Logger.log(`getLogForFile[Cached(${key})]('${repoPath}', '${fileName}', '${options.ref}', ${options.maxCount}, undefined, ${options.renames}, ${options.reverse})`);
                     return cachedLog.item;
                 }
 
@@ -950,28 +969,28 @@ export class GitService extends Disposable {
                     const cachedLog = doc.state.get<CachedLog>('log');
                     if (cachedLog !== undefined) {
                         if (options.ref === undefined) {
-                            Logger.log(`getLogForFile[Cached(~${key})]('${repoPath}', '${fileName}', '', ${options.maxCount}, undefined, ${options.reverse}, ${options.skipMerges})`);
+                            Logger.log(`getLogForFile[Cached(~${key})]('${repoPath}', '${fileName}', '', ${options.maxCount}, undefined, ${options.renames}, ${options.reverse})`);
                             return cachedLog.item;
                         }
 
-                        Logger.log(`getLogForFile[? Cache(${key})]('${repoPath}', '${fileName}', '${options.ref}', ${options.maxCount}, undefined, ${options.reverse}, ${options.skipMerges})`);
+                        Logger.log(`getLogForFile[? Cache(${key})]('${repoPath}', '${fileName}', '${options.ref}', ${options.maxCount}, undefined, ${options.renames}, ${options.reverse})`);
                         const log = await cachedLog.item;
                         if (log !== undefined && log.commits.has(options.ref)) {
-                            Logger.log(`getLogForFile[Cached(${key})]('${repoPath}', '${fileName}', '${options.ref}', ${options.maxCount}, undefined, ${options.reverse}, ${options.skipMerges})`);
+                            Logger.log(`getLogForFile[Cached(${key})]('${repoPath}', '${fileName}', '${options.ref}', ${options.maxCount}, undefined, ${options.renames}, ${options.reverse})`);
                             return cachedLog.item;
                         }
                     }
                 }
             }
 
-            Logger.log(`getLogForFile[Not Cached(${key})]('${repoPath}', '${fileName}', ${options.ref}, ${options.maxCount}, undefined, ${options.reverse}, ${options.skipMerges})`);
+            Logger.log(`getLogForFile[Not Cached(${key})]('${repoPath}', '${fileName}', ${options.ref}, ${options.maxCount}, undefined, ${options.reverse})`);
 
             if (doc.state === undefined) {
                 doc.state = new GitDocumentState(doc.key);
             }
         }
         else {
-            Logger.log(`getLogForFile('${repoPath}', '${fileName}', ${options.ref}, ${options.maxCount}, ${options.range && `[${options.range.start.line}, ${options.range.end.line}]`}, ${options.reverse}, ${options.skipMerges})`);
+            Logger.log(`getLogForFile('${repoPath}', '${fileName}', ${options.ref}, ${options.maxCount}, ${options.range && `[${options.range.start.line}, ${options.range.end.line}]`}, ${options.reverse})`);
         }
 
         const promise = this.getLogForFileCore(repoPath, fileName, options, doc, key);
@@ -987,8 +1006,8 @@ export class GitService extends Disposable {
         return promise;
     }
 
-    private async getLogForFileCore(repoPath: string | undefined, fileName: string, options: { maxCount?: number, range?: Range, ref?: string, reverse?: boolean, skipMerges?: boolean }, document: TrackedDocument<GitDocumentState>, key: string): Promise<GitLog | undefined> {
-        if (!(await this.isTracked(fileName, repoPath, options.ref))) {
+    private async getLogForFileCore(repoPath: string | undefined, fileName: string, options: { maxCount?: number, range?: Range, ref?: string, renames?: boolean, reverse?: boolean }, document: TrackedDocument<GitDocumentState>, key: string): Promise<GitLog | undefined> {
+        if (!(await this.isTracked(fileName, repoPath, { ref: options.ref }))) {
             Logger.log(`Skipping log; '${fileName}' is not tracked`);
             return GitService.emptyPromise as Promise<GitLog>;
         }
@@ -1089,13 +1108,14 @@ export class GitService extends Disposable {
         }
     }
 
-    async getRepoPath(filePath: string, options?: { ref?: string, skipTrackingCheck?: boolean }): Promise<string | undefined>;
-    async getRepoPath(uri: Uri | undefined, options?: { ref?: string, skipTrackingCheck?: boolean }): Promise<string | undefined>;
-    async getRepoPath(filePathOrUri: string | Uri | undefined, options: { ref?: string, skipTrackingCheck?: boolean } = {}): Promise<string | undefined> {
+    async getRepoPath(filePath: string, options?: { ref?: string }): Promise<string | undefined>;
+    async getRepoPath(uri: Uri | undefined, options?: { ref?: string }): Promise<string | undefined>;
+    async getRepoPath(filePathOrUri: string | Uri | undefined, options: { ref?: string } = {}): Promise<string | undefined> {
         if (filePathOrUri === undefined) return await this.getActiveRepoPath();
         if (filePathOrUri instanceof GitUri) return filePathOrUri.repoPath;
 
-        const repo = await this.getRepository(filePathOrUri, options);
+        // Don't save the tracking info to the cache, because we could be looking in the wrong place (e.g. looking in the root when the file is in a submodule)
+        const repo = await this.getRepository(filePathOrUri, { ...options, skipCacheUpdate: true });
         if (repo !== undefined) return repo.path;
 
         const rp = await this.getRepoPathCore(typeof filePathOrUri === 'string' ? filePathOrUri : filePathOrUri.fsPath, false);
@@ -1149,10 +1169,10 @@ export class GitService extends Disposable {
         return this._repositoryTree;
     }
 
-    async getRepository(repoPath: string, options?: { ref?: string, skipTrackingCheck?: boolean }): Promise<Repository | undefined>;
-    async getRepository(uri: Uri, options?: { ref?: string, skipTrackingCheck?: boolean }): Promise<Repository | undefined>;
-    async getRepository(repoPathOrUri: string | Uri, options?: { ref?: string, skipTrackingCheck?: boolean }): Promise<Repository | undefined>;
-    async getRepository(repoPathOrUri: string | Uri, options: { ref?: string, skipTrackingCheck?: boolean } = {}): Promise<Repository | undefined> {
+    async getRepository(repoPath: string, options?: { ref?: string, skipCacheUpdate?: boolean }): Promise<Repository | undefined>;
+    async getRepository(uri: Uri, options?: { ref?: string, skipCacheUpdate?: boolean }): Promise<Repository | undefined>;
+    async getRepository(repoPathOrUri: string | Uri, options?: { ref?: string, skipCacheUpdate?: boolean }): Promise<Repository | undefined>;
+    async getRepository(repoPathOrUri: string | Uri, options: { ref?: string, skipCacheUpdate?: boolean } = {}): Promise<Repository | undefined> {
         const repositoryTree = await this.getRepositoryTree();
 
         let path: string;
@@ -1179,11 +1199,14 @@ export class GitService extends Disposable {
         const repo = repositoryTree.findSubstr(path);
         if (repo === undefined) return undefined;
 
-        if (!options.skipTrackingCheck) {
-            // Make sure the file is tracked in that repo, before returning
-            if (!await this.isTrackedCore(repo.path, path, options.ref)) return undefined;
-        }
+        // Make sure the file is tracked in this repo before returning -- it could be from a submodule
+        if (!await this.isTracked(path, repo.path, options)) return undefined;
         return repo;
+    }
+
+    async getRepositoryCount(): Promise<number> {
+        const repositoryTree = await this.getRepositoryTree();
+        return repositoryTree.count();
     }
 
     async getStashList(repoPath: string | undefined): Promise<GitStash | undefined> {
@@ -1270,10 +1293,12 @@ export class GitService extends Disposable {
         return scheme === DocumentSchemes.File || scheme === DocumentSchemes.Git || scheme === DocumentSchemes.GitLensGit;
     }
 
-    async isTracked(fileName: string, repoPath?: string, sha?: string): Promise<boolean>;
+    async isTracked(fileName: string, repoPath?: string, options?: { ref?: string, skipCacheUpdate?: boolean }): Promise<boolean>;
     async isTracked(uri: GitUri): Promise<boolean>;
-    async isTracked(fileNameOrUri: string | GitUri, repoPath?: string, sha?: string): Promise<boolean> {
-        if (sha === GitService.deletedSha) return false;
+    async isTracked(fileNameOrUri: string | GitUri, repoPath?: string, options: { ref?: string, skipCacheUpdate?: boolean } = {}): Promise<boolean> {
+        if (options.ref === GitService.deletedSha) return false;
+
+        let ref = options.ref;
 
         let cacheKey: string;
         let fileName: string;
@@ -1286,29 +1311,30 @@ export class GitService extends Disposable {
 
             fileName = fileNameOrUri.fsPath;
             repoPath = fileNameOrUri.repoPath;
-            sha = fileNameOrUri.sha;
+            ref = fileNameOrUri.sha;
             cacheKey = GitUri.toKey(fileName);
         }
 
-        if (sha !== undefined) {
-            cacheKey += `:${sha}`;
+        if (ref !== undefined) {
+            cacheKey += `:${ref}`;
         }
 
-        Logger.log(`isTracked('${fileName}', '${repoPath}', '${sha}')`);
+        Logger.log(`isTracked('${fileName}', '${repoPath}', '${ref}')`);
 
         let tracked = this._trackedCache.get(cacheKey);
         if (tracked !== undefined) return await tracked;
 
-        tracked = this.isTrackedCore(repoPath === undefined ? '' : repoPath, fileName, sha);
-        this._trackedCache.set(cacheKey, tracked);
+        tracked = this.isTrackedCore(fileName, repoPath === undefined ? '' : repoPath, ref);
+        if (options.skipCacheUpdate) return tracked;
 
+        this._trackedCache.set(cacheKey, tracked);
         tracked = await tracked;
         this._trackedCache.set(cacheKey, tracked);
 
         return tracked;
     }
 
-    private async isTrackedCore(repoPath: string, fileName: string, ref?: string) {
+    private async isTrackedCore(fileName: string, repoPath: string, ref?: string) {
         if (ref === GitService.deletedSha) return false;
 
         try {

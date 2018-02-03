@@ -3,7 +3,8 @@ import { Arrays, Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchNode } from './branchNode';
 import { Container } from '../container';
-import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
+import { ExplorerNode, ResourceType } from './explorerNode';
+import { GitExplorer } from './gitExplorer';
 import { GitUri, Repository } from '../gitService';
 import { BranchFolderNode } from './branchFolderNode';
 import { ExplorerBranchesLayout } from '../configuration';
@@ -13,7 +14,7 @@ export class BranchesNode extends ExplorerNode {
         constructor(
             uri: GitUri,
             private readonly repo: Repository,
-            private readonly explorer: Explorer,
+            private readonly explorer: GitExplorer,
             private readonly active: boolean = false
         ) {
             super(uri);

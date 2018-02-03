@@ -24,19 +24,19 @@ export class CustomService extends RemoteProvider {
     }
 
     protected getUrlForRepository(): string {
-        return Strings.interpolate(this.urls.repository, { repo: this.path });
+        return Strings.interpolate(this.urls.repository, this.getContext());
     }
 
     protected getUrlForBranches(): string {
-        return Strings.interpolate(this.urls.branches, { repo: this.path });
+        return Strings.interpolate(this.urls.branches, this.getContext());
     }
 
     protected getUrlForBranch(branch: string): string {
-        return Strings.interpolate(this.urls.branch, { repo: this.path, branch: branch });
+        return Strings.interpolate(this.urls.branch, this.getContext({ branch: branch }));
     }
 
     protected getUrlForCommit(sha: string): string {
-        return Strings.interpolate(this.urls.commit, { repo: this.path, id: sha });
+        return Strings.interpolate(this.urls.commit, this.getContext({ id: sha }));
     }
 
     protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
@@ -50,8 +50,18 @@ export class CustomService extends RemoteProvider {
             }
         }
 
-        if (sha) return Strings.interpolate(this.urls.fileInCommit, { repo: this.path, id: sha, file: fileName, line: line });
-        if (branch) return Strings.interpolate(this.urls.fileInBranch, { repo: this.path, branch: branch, file: fileName, line: line });
-        return Strings.interpolate(this.urls.file, { repo: this.path, file: fileName, line: line });
+        if (sha) return Strings.interpolate(this.urls.fileInCommit, this.getContext({ id: sha, file: fileName, line: line }));
+        if (branch) return Strings.interpolate(this.urls.fileInBranch, this.getContext({ branch: branch, file: fileName, line: line }));
+        return Strings.interpolate(this.urls.file, this.getContext({ file: fileName, line: line }));
+    }
+
+    private getContext(context?: {}) {
+        const [repoBase, repoPath] = this.splitPath();
+        return {
+            repo: this.path,
+            repoBase: repoBase,
+            repoPath: repoPath,
+            ...(context || {})
+        };
     }
 }

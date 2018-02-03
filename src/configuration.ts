@@ -1,10 +1,10 @@
 'use strict';
-export * from './config';
+export * from './ui/config';
 export { ExtensionKey };
 
 import { Functions } from './system';
 import { ConfigurationChangeEvent, ConfigurationTarget, Event, EventEmitter, ExtensionContext, Uri, workspace } from 'vscode';
-import { IConfig, KeyMap } from './config';
+import { IConfig, KeyMap } from './ui/config';
 import { CommandContext, ExtensionKey, setCommandContext } from './constants';
 import { Container } from './container';
 import { clearGravatarCache } from './gitService';
@@ -30,6 +30,9 @@ export class Configuration {
         if (!e.affectsConfiguration(ExtensionKey, null!)) return;
 
         Container.resetConfig();
+        if (Container.pages !== undefined) {
+            Container.pages.refresh();
+        }
 
         if (configuration.changed(e, configuration.name('defaultGravatarsStyle').value)) {
             clearGravatarCache();
@@ -63,6 +66,44 @@ export class Configuration {
 
     inspect(section?: string, resource?: Uri | null) {
         return workspace.getConfiguration(section === undefined ? undefined : ExtensionKey, resource!).inspect(section === undefined ? ExtensionKey : section);
+    }
+
+    async migrate<TFrom, TTo>(from: string, to: string, migrationFn?: (value: TFrom) => TTo) {
+        const inspection = configuration.inspect(from);
+        if (inspection === undefined) return;
+
+        if (inspection.globalValue !== undefined) {
+            await this.update(to, migrationFn ? migrationFn(inspection.globalValue as TFrom) : inspection.globalValue, ConfigurationTarget.Global);
+            // Can't delete the old setting currently because it errors with `Unable to write to User Settings because <setting name> is not a registered configuration`
+            // if (from !== to) {
+            //     try {
+            //         await this.update(from, undefined, ConfigurationTarget.Global);
+            //     }
+            //     catch { }
+            // }
+        }
+
+        if (inspection.workspaceValue !== undefined) {
+            await this.update(to, migrationFn ? migrationFn(inspection.workspaceValue as TFrom) : inspection.workspaceValue, ConfigurationTarget.Workspace);
+            // Can't delete the old setting currently because it errors with `Unable to write to User Settings because <setting name> is not a registered configuration`
+            // if (from !== to) {
+            //     try {
+            //         await this.update(from, undefined, ConfigurationTarget.Workspace);
+            //     }
+            //     catch { }
+            // }
+        }
+
+        if (inspection.workspaceFolderValue !== undefined) {
+            await this.update(to, migrationFn ? migrationFn(inspection.workspaceFolderValue as TFrom) : inspection.workspaceFolderValue, ConfigurationTarget.WorkspaceFolder);
+            // Can't delete the old setting currently because it errors with `Unable to write to User Settings because <setting name> is not a registered configuration`
+            // if (from !== to) {
+            //     try {
+            //         await this.update(from, undefined, ConfigurationTarget.WorkspaceFolder);
+            //     }
+            //     catch { }
+            // }
+        }
     }
 
     name<K extends keyof IConfig>(name: K) {

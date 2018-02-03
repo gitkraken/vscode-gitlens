@@ -5,7 +5,6 @@ import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommand
 import { Container } from '../container';
 import { GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { copy } from 'copy-paste';
 
 export interface CopyShaToClipboardCommandArgs {
     sha?: string;
@@ -30,6 +29,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: CopyShaToClipboardCommandArgs = {}): Promise<any> {
         uri = getCommandUri(uri, editor);
 
+        const clipboard = await import('copy-paste');
         try {
             args = { ...args };
 
@@ -42,7 +42,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
                 if (!log) return undefined;
 
                 args.sha = Iterables.first(log.commits.values()).sha;
-                copy(args.sha);
+                clipboard.copy(args.sha);
                 return undefined;
             }
 
@@ -66,7 +66,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
                 }
             }
 
-            copy(args.sha);
+            clipboard.copy(args.sha);
             return undefined;
         }
         catch (ex) {

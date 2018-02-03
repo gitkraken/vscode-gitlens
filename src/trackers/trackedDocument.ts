@@ -1,4 +1,5 @@
 'use strict';
+import { Functions } from '../system';
 import { Disposable, Event, EventEmitter, TextDocument, TextEditor, Uri } from 'vscode';
 import { CommandContext, getEditorIfActive, isActiveDocument, setCommandContext } from './../constants';
 import { Container } from './../container';
@@ -20,10 +21,10 @@ export class TrackedDocument<T> extends Disposable {
 
     state: T | undefined;
 
-    private _disposable: Disposable;
+    private _disposable: Disposable | undefined;
     private _disposed: boolean = false;
     private _repo: (Repository | undefined) | Promise<Repository | undefined>;
-    private _uri: GitUri;
+    private _uri!: GitUri;
 
     constructor(
         private readonly _document: TextDocument,
@@ -43,6 +44,14 @@ export class TrackedDocument<T> extends Disposable {
     }
 
     private async initialize(uri: Uri) {
+        // Since there is a bit of a chicken & egg problem with the DocumentTracker and the GitService, wait for the GitService to load if it isn't
+        if (Container.git === undefined) {
+            if (!await Functions.waitUntil(() => Container.git !== undefined, 2000)) {
+                Logger.log(`TrackedDocument.initialize(${uri.toString()})`, 'Timed out waiting for the GitService to start');
+                throw new Error('TrackedDocument timed out waiting for the GitService to start');
+            }
+        }
+
         this._uri = await GitUri.fromUri(uri);
         if (this._disposed) return;
 

@@ -1,19 +1,20 @@
 'use strict';
-import { Functions } from '../system';
-import { commands, ConfigurationChangeEvent, ConfigurationTarget, Event, EventEmitter, TreeDataProvider, TreeItem } from 'vscode';
-import { configuration, ExplorerFilesLayout, IExplorerConfig } from '../configuration';
-import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
+import { Functions, Strings } from '../system';
+import { commands, ConfigurationChangeEvent, ConfigurationTarget, Disposable, Event, EventEmitter, TreeDataProvider, TreeItem, window } from 'vscode';
+import { configuration, ExplorerFilesLayout, IExplorersConfig, IResultsExplorerConfig } from '../configuration';
+import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { RefreshNodeCommandArgs } from './explorerCommands';
-import { CommitResultsNode, CommitsResultsNode, ComparisionResultsNode, ExplorerNode, MessageNode, RefreshReason, ResourceType } from './explorerNodes';
+import { CommitResultsNode, CommitsResultsNode, ComparisonResultsNode, ExplorerNode, MessageNode, RefreshReason, ResourceType } from './explorerNodes';
 import { GitLog, GitLogCommit } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 
 export * from './explorerNodes';
 
-export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
+export class ResultsExplorer extends Disposable implements TreeDataProvider<ExplorerNode> {
 
+    private _disposable: Disposable | undefined;
     private _roots: ExplorerNode[] = [];
 
     private _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
@@ -22,6 +23,9 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
     }
 
     constructor() {
+        super(() => this.dispose());
+
+        Container.explorerCommands;
         commands.registerCommand('gitlens.resultsExplorer.refresh', this.refreshNodes, this);
         commands.registerCommand('gitlens.resultsExplorer.refreshNode', this.refreshNode, this);
         commands.registerCommand('gitlens.resultsExplorer.setFilesLayoutToAuto', () => this.setFilesLayout(ExplorerFilesLayout.Auto), this);
@@ -41,20 +45,29 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
         this.onConfigurationChanged(configuration.initializingChangeEvent);
     }
 
+    dispose() {
+        this._disposable && this._disposable.dispose();
+    }
+
     private async onConfigurationChanged(e: ConfigurationChangeEvent) {
         const initializing = configuration.initializing(e);
 
         if (!initializing &&
             !configuration.changed(e, configuration.name('resultsExplorer').value) &&
+            !configuration.changed(e, configuration.name('explorers').value) &&
             !configuration.changed(e, configuration.name('defaultGravatarsStyle').value)) return;
 
         if (!initializing && this._roots.length !== 0) {
             this.refresh(RefreshReason.ConfigurationChanged);
         }
+
+        if (initializing) {
+            this._disposable = window.registerTreeDataProvider('gitlens.resultsExplorer', this);
+        }
     }
 
-    get config(): IExplorerConfig {
-        return Container.config.resultsExplorer;
+    get config(): IExplorersConfig & IResultsExplorerConfig {
+        return { ...Container.config.explorers, ...Container.config.resultsExplorer };
     }
 
     get keepResults(): boolean {
@@ -112,7 +125,7 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
     }
 
     showComparisonInResults(repoPath: string, ref1: string, ref2: string) {
-        this.addResults(new ComparisionResultsNode(repoPath, ref1, ref2, this));
+        this.addResults(new ComparisonResultsNode(repoPath, ref1, ref2, this));
         this.showResults();
     }
 
@@ -126,7 +139,7 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
             ? (maxCount: number | undefined) => Promise.resolve(results)
             : results.query;
 
-        const labelFn = (log: GitLog | undefined) => {
+        const labelFn = async (log: GitLog | undefined) => {
             if (typeof resultsLabel === 'string') return resultsLabel;
 
             const count = log !== undefined ? log.count : 0;
@@ -136,8 +149,14 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode> {
                 ? { singular: 'result', plural: 'results' }
                 : resultsLabel.resultsType;
 
-            if (count === 1) return `1 ${resultsType.singular} for ${resultsLabel.label}`;
-            return `${count === 0 ? 'No' : `${count}${truncated ? '+' : ''}`} ${resultsType.plural} for ${resultsLabel.label}`;
+            let repository = '';
+            if (await Container.git.getRepositoryCount() > 1) {
+                const repo = await Container.git.getRepository(results.repoPath);
+                repository = ` ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) || results.repoPath}`;
+            }
+
+            if (count === 1) return `1 ${resultsType.singular} for ${resultsLabel.label}${repository}`;
+            return `${count === 0 ? 'No' : `${count}${truncated ? '+' : ''}`} ${resultsType.plural} for ${resultsLabel.label}${repository}`;
         };
 
         this.addResults(new CommitsResultsNode(results.repoPath, labelFn, Functions.seeded(query, results), this, ResourceType.SearchResults));

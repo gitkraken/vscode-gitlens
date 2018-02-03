@@ -3,7 +3,8 @@ import { Arrays, Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchNode } from './branchNode';
 import { GlyphChars } from '../constants';
-import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
+import { ExplorerNode, ResourceType } from './explorerNode';
+import { GitExplorer } from './gitExplorer';
 import { GitRemote, GitRemoteType, GitUri, Repository } from '../gitService';
 import { BranchFolderNode } from './branchFolderNode';
 import { ExplorerBranchesLayout } from '../configuration';
@@ -14,7 +15,7 @@ export class RemoteNode extends ExplorerNode {
             public readonly remote: GitRemote,
             uri: GitUri,
             private readonly repo: Repository,
-            private readonly explorer: Explorer
+            private readonly explorer: GitExplorer
         ) {
             super(uri);
         }

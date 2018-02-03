@@ -1,11 +1,13 @@
 !images/dark/**
 !images/light/**
+!images/settings/**
 !images/gitlens-icon.png
 images/**
 .vscode/**
 .vscode-test/**
 test/**
 src/**
+out/ui/**
 **/*.map
 .github/**
 .gitignore

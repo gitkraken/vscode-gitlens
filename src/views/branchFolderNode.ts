@@ -2,7 +2,8 @@
 import { Arrays, Objects } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../container';
-import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
+import { ExplorerNode, ResourceType } from './explorerNode';
+import { GitExplorer } from './gitExplorer';
 import { BranchNode } from './branchNode';
 import { ExplorerBranchesLayout } from '../configuration';
 import { GitUri } from '../gitService';
@@ -14,7 +15,7 @@ export class BranchFolderNode extends ExplorerNode {
         public readonly branchFolderName: string,
         public readonly relativePath: string | undefined,
         public readonly root: Arrays.IHierarchicalItem<BranchNode>,
-        private readonly explorer: Explorer
+        private readonly explorer: GitExplorer
   ) {
     super(GitUri.fromRepoPath(repoPath));
   }

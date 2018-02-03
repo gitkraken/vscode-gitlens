@@ -72,6 +72,11 @@ export class GitStashParser {
                             entry.summary += `\n${line}`;
                         }
                     }
+
+                    if (entry.summary !== undefined) {
+                        // Remove the trailing newline
+                        entry.summary = entry.summary.slice(0, -1);
+                    }
                     break;
 
                 case 102: // 'f': // files
@@ -127,7 +132,7 @@ export class GitStashParser {
                 repoPath,
                 entry.ref!,
                 new Date(entry.date! as any * 1000),
-                entry.summary!,
+                entry.summary === undefined ? '' : entry.summary,
                 entry.fileNames!,
                 entry.fileStatuses || []
             );

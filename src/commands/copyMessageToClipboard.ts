@@ -5,7 +5,6 @@ import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommand
 import { Container } from '../container';
 import { GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { copy } from 'copy-paste';
 
 export interface CopyMessageToClipboardCommandArgs {
     message?: string;
@@ -31,6 +30,8 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: CopyMessageToClipboardCommandArgs = {}): Promise<any> {
         uri = getCommandUri(uri, editor);
 
+        const clipboard = await import('copy-paste');
+
         try {
             args = { ...args };
 
@@ -43,7 +44,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 if (!log) return undefined;
 
                 args.message = Iterables.first(log.commits.values()).message;
-                copy(args.message);
+                clipboard.copy(args.message);
                 return undefined;
             }
 
@@ -80,7 +81,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 args.message = commit.message;
             }
 
-            copy(args.message);
+            clipboard.copy(args.message);
             return undefined;
         }
         catch (ex) {

@@ -2,7 +2,7 @@
 import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { Commands, EditorCommand } from './common';
 import { UriComparer } from '../comparers';
-import { configuration, FileAnnotationType } from '../configuration';
+import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
 
@@ -30,14 +30,14 @@ export class ToggleFileBlameCommand extends EditorCommand {
 
         try {
             if (args.type === undefined) {
-                args = { ...args, type: configuration.get<FileAnnotationType>(configuration.name('blame')('file')('annotationType').value) };
+                args = { ...args, type: FileAnnotationType.Blame };
             }
 
             return Container.annotations.toggleAnnotations(editor, args.type!, args.sha !== undefined ? args.sha : editor.selection.active.line);
         }
         catch (ex) {
             Logger.error(ex, 'ToggleFileBlameCommand');
-            return window.showErrorMessage(`Unable to toggle file blame annotations. See output channel for more details`);
+            return window.showErrorMessage(`Unable to toggle file ${args.type} annotations. See output channel for more details`);
         }
     }
 }

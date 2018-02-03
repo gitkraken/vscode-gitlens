@@ -3,7 +3,17 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch Extension",
+            "name": "Launch GitLens",
+            "type": "extensionHost",
+            "request": "launch",
+            "runtimeExecutable": "${execPath}",
+            "args": ["--extensionDevelopmentPath=${workspaceRoot}" ],
+            "stopOnEntry": false,
+            "sourceMaps": true,
+            "outFiles": ["${workspaceRoot}/out/src/**/*.js"]
+        },
+        {
+            "name": "Build & Launch GitLens",
             "type": "extensionHost",
             "request": "launch",
             "runtimeExecutable": "${execPath}",
@@ -11,7 +21,7 @@
             "stopOnEntry": false,
             "sourceMaps": true,
             "outFiles": ["${workspaceRoot}/out/src/**/*.js"],
-            "preLaunchTask": "compile"
+            "preLaunchTask": "build"
         },
         {
             "name": "Launch Tests",
@@ -22,7 +32,7 @@
             "stopOnEntry": false,
             "sourceMaps": true,
             "outFiles": ["${workspaceRoot}/out/test/**/*.js"],
-            "preLaunchTask": "compile"
+            "preLaunchTask": "build"
         }
     ]
 }

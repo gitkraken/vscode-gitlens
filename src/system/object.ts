@@ -53,6 +53,22 @@ export namespace Objects {
         }
     }
 
+    export function paths(o: { [key: string]: any }, path?: string): string[] {
+        const results = [];
+
+        for (const key in o) {
+            const child = o[key];
+            if (typeof child === 'object') {
+                results.push(...paths(child, path === undefined ? key : `${path}.${key}`));
+            }
+            else {
+                results.push(path === undefined ? key : `${path}.${key}`);
+            }
+        }
+
+        return results;
+    }
+
     export function values<T>(o: { [key: string]: T }): IterableIterator<T>;
     export function values<T>(o: { [key: number]: T }): IterableIterator<T>;
     export function* values<T>(o: any): IterableIterator<T> {

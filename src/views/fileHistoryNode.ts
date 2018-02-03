@@ -23,7 +23,7 @@ export class FileHistoryNode extends ExplorerNode {
 
         const children: ExplorerNode[] = [];
 
-        const displayAs = CommitFileNodeDisplayAs.CommitLabel | (this.explorer.config.gravatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
+        const displayAs = CommitFileNodeDisplayAs.CommitLabel | (this.explorer.config.avatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
 
         const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
         if (status !== undefined && (status.indexStatus !== undefined || status.workTreeStatus !== undefined)) {

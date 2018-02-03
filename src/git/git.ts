@@ -6,7 +6,6 @@ import { CommandOptions, runCommand } from './shell';
 import * as fs from 'fs';
 import * as iconv from 'iconv-lite';
 import * as path from 'path';
-import * as tmp from 'tmp';
 
 export { IGit };
 export * from './models/models';
@@ -23,9 +22,39 @@ export * from './remotes/provider';
 let git: IGit;
 
 const defaultBlameParams = ['blame', '--root', '--incremental'];
+
 // Using %x00 codes because some shells seem to try to expand things if not
-const defaultLogParams = ['log', '--name-status', '--full-history', '-M', '--format=%x3c%x2ff%x3e%n%x3cr%x3e %H%n%x3ca%x3e %an%n%x3ce%x3e %ae%n%x3cd%x3e %at%n%x3cp%x3e %P%n%x3cs%x3e%n%B%x3c%x2fs%x3e%n%x3cf%x3e'];
-const defaultStashParams = ['stash', 'list', '--name-status', '--full-history', '-M', '--format=%x3c%x2ff%x3e%n%x3cr%x3e %H%n%x3cd%x3e %at%n%x3cl%x3e %gd%n%x3cs%x3e%n%B%x3c%x2fs%x3e%n%x3cf%x3e'];
+const lb = '%x3c'; // `%x${'<'.charCodeAt(0).toString(16)}`;
+const rb = '%x3e'; // `%x${'>'.charCodeAt(0).toString(16)}`;
+const sl = '%x2f'; // `%x${'/'.charCodeAt(0).toString(16)}`;
+
+const logFormat = [
+    `${lb}${sl}f${rb}`,
+    `${lb}r${rb} %H`,   // ref
+    `${lb}a${rb} %an`,  // author
+    `${lb}e${rb} %ae`,  // email
+    `${lb}d${rb} %at`,  // date
+    `${lb}p${rb} %P`,   // parents
+    `${lb}s${rb}`,
+    `%B`,               // summary
+    `${lb}${sl}s${rb}`,
+    `${lb}f${rb}`
+].join('%n');
+
+const defaultLogParams = ['log', '--name-status', '-M', `--format=${logFormat}`];
+
+const stashFormat = [
+    `${lb}${sl}f${rb}`,
+    `${lb}r${rb} %H`,   // ref
+    `${lb}d${rb} %at`,  // date
+    `${lb}l${rb} %gd`,  // reflog-selector
+    `${lb}s${rb}`,
+    `%B`,               // summary
+    `${lb}${sl}s${rb}`,
+    `${lb}f${rb}`
+].join('%n');
+
+const defaultStashParams = ['stash', 'list', '--name-status', '-M', `--format=${stashFormat}`];
 
 const GitWarnings = [
     /Not a git repository/,
@@ -53,10 +82,6 @@ const pendingCommands: Map<string, Promise<string>> = new Map();
 async function gitCommandCore(options: CommandOptions & { readonly correlationKey?: string }, ...args: any[]): Promise<string> {
     const start = process.hrtime();
 
-    // Fixes https://github.com/eamodio/vscode-gitlens/issues/73 & https://github.com/eamodio/vscode-gitlens/issues/161
-    // See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
-    args.splice(0, 0, '-c', 'core.quotepath=false', '-c', 'color.ui=false');
-
     const { correlationKey, ...opts } = options;
 
     const encoding = options.encoding || 'utf8';
@@ -68,11 +93,16 @@ async function gitCommandCore(options: CommandOptions & { readonly correlationKe
         env: { ...(options.env || process.env), GCM_INTERACTIVE: 'NEVER', GCM_PRESERVE_CREDS: 'TRUE' }
     } as CommandOptions;
 
-    const command = `(${runOpts.cwd}${correlationKey !== undefined ? correlationKey : ''}): git ${args.join(' ')}`;
+    const gitCommand = `git ${args.join(' ')}`;
+    const command = `(${runOpts.cwd}${correlationKey !== undefined ? correlationKey : ''}): ${gitCommand}`;
 
     let promise = pendingCommands.get(command);
     if (promise === undefined) {
         Logger.log(`Running${command}`);
+        // Fixes https://github.com/eamodio/vscode-gitlens/issues/73 & https://github.com/eamodio/vscode-gitlens/issues/161
+        // See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
+        args.splice(0, 0, '-c', 'core.quotepath=false', '-c', 'color.ui=false');
+
         promise = runCommand(git.path, args, runOpts);
 
         pendingCommands.set(command, promise);
@@ -89,7 +119,10 @@ async function gitCommandCore(options: CommandOptions & { readonly correlationKe
         pendingCommands.delete(command);
 
         const duration = process.hrtime(start);
-        Logger.log(`Completed${command} in ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);
+        const completedIn = `in ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`;
+
+        Logger.log(`Completed${command} ${completedIn}`);
+        Logger.logGitCommand(`${gitCommand} ${completedIn}`, runOpts.cwd!);
     }
 
     if (encoding === 'utf8' || encoding === 'binary') return data;
@@ -152,6 +185,8 @@ export class Git {
 
         const suffix = Strings.truncate(Strings.sanitizeForFileSystem(Git.isSha(ref) ? Git.shortenSha(ref) : ref), 50, '');
         const ext = path.extname(fileName);
+
+        const tmp = await import('tmp');
         return new Promise<string>((resolve, reject) => {
             tmp.file({ prefix: `${path.basename(fileName, ext)}-${suffix}__`, postfix: ext },
                 (err, destination, fd, cleanupCallback) => {
@@ -355,7 +390,7 @@ export class Git {
     }
 
     static log(repoPath: string, options: { maxCount?: number, ref?: string, reverse?: boolean }) {
-        const params = [...defaultLogParams, '-m'];
+        const params = [...defaultLogParams, '--full-history', '-m'];
         if (options.maxCount && !options.reverse) {
             params.push(`-n${options.maxCount}`);
         }
@@ -370,23 +405,16 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...params);
     }
 
-    static log_file(repoPath: string, fileName: string, options: { maxCount?: number, ref?: string, reverse?: boolean, startLine?: number, endLine?: number, skipMerges?: boolean } = { reverse: false, skipMerges: false }) {
+    static log_file(repoPath: string, fileName: string, options: { maxCount?: number, ref?: string, renames?: boolean, reverse?: boolean, startLine?: number, endLine?: number } = { renames: true, reverse: false }) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
-        const params = [...defaultLogParams, '--follow'];
+        const params = [...defaultLogParams];
         if (options.maxCount && !options.reverse) {
             params.push(`-n${options.maxCount}`);
         }
 
-        if (options.skipMerges) {
-            params.push('--no-merges');
-        }
-        else {
-            params.push('-m');
-            // If we are looking for a specific sha don't simplify merges
-            if (!options.ref || options.maxCount! > 2) {
-                params.push('--simplify-merges');
-            }
+        if (options.renames) {
+            params.push('--follow', '-m', '--first-parent');
         }
 
         if (options.ref && !Git.isStagedUncommitted(options.ref)) {
@@ -409,7 +437,7 @@ export class Git {
 
     static async log_recent(repoPath: string, fileName: string) {
         try {
-            const data = await gitCommandCore({ cwd: repoPath }, 'log', '--full-history', '-M', '-n1', '--format=%H', '--', fileName);
+            const data = await gitCommandCore({ cwd: repoPath }, 'log', '-M', '-n1', '--format=%H', '--', fileName);
             return data.trim();
         }
         catch {
@@ -419,7 +447,7 @@ export class Git {
 
     static async log_resolve(repoPath: string, fileName: string, ref: string) {
         try {
-            const data = await gitCommandCore({ cwd: repoPath }, 'log', '--full-history', '-M', '-n1', '--format=%H', ref, '--', fileName);
+            const data = await gitCommandCore({ cwd: repoPath }, 'log', '-M', '-n1', '--format=%H', ref, '--', fileName);
             return data.trim();
         }
         catch {

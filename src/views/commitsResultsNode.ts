@@ -13,7 +13,7 @@ export class CommitsResultsNode extends ExplorerNode {
 
     constructor(
         readonly repoPath: string,
-        private readonly labelFn: (log: GitLog | undefined) => string,
+        private readonly labelFn: (log: GitLog | undefined) => Promise<string>,
         private readonly logFn: (maxCount: number | undefined) => Promise<GitLog | undefined>,
         private readonly explorer: Explorer,
         private readonly contextValue: ResourceType = ResourceType.Results
@@ -49,7 +49,7 @@ export class CommitsResultsNode extends ExplorerNode {
             const log = await this.logFn(this.maxCount);
 
             this._cache = {
-                label: this.labelFn(log),
+                label: await this.labelFn(log),
                 log: log
             };
         }
