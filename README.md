@@ -29,7 +29,7 @@ Here are just some of the features that GitLens provides,
  - a [status bar blame](#status-bar-blame "Jump to the Status Bar Blame") annotation showing author and date for the current line
  - [commit search](#commit-search "Jump to the Commit Search") &mdash; by message, author, filename, commit id, or code changes
  - many powerful commands for exploring commits and histories, comparing and navigating revisions, stash access, repository status, etc
-- and so much more
+- and so much [more](#features "Jump to Features")
 
 GitLens is powerful, feature rich, and also [highly customizable](#gitlens-settings "Jump to the GitLens settings docs") to meet your specific needs &mdash; find code lens intrusive or the current line blame annotation distracting &mdash; no problem, it is quick and easy to turn them off or change how they behave via the built-in *GitLens Settings* editor, a WYSIWYG editor covering many of GitLens' powerful settings. While for more advanced customizations, refer to the [GitLens settings docs](#gitlens-settings "Jump to the GitLens settings docs") and edit your vscode [user settings](https://code.visualstudio.com/docs/getstarted/settings "Open User settings").
 
@@ -38,6 +38,17 @@ GitLens is powerful, feature rich, and also [highly customizable](#gitlens-setti
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/gitlens-preview.gif" alt="GitLens Preview" />
   <br />
 </p>
+
+## Show Your Support &#x2764;
+
+GitLens can use your help to realize its mission &mdash; making developer's lives easier, further its reach, as well as support its development.
+
+Here are a few ways you can help &mdash; feel free to choose more than one &#x1F609;
+- [Become a Patron](https://www.patreon.com/eamodio "Become a Patron")
+- [Write a Review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details "Write a Review")
+- [Star or Fork me on GitHub](https://github.com/eamodio/vscode-gitlens "Star or Fork me on GitHub")
+- [Follow me on Twitter](https://twitter.com/eamodio "Follow me on Twitter")
+- [Hire me](http://amod.io/?utm_source=gitlens "Hire me")
 
 ## Features
 
@@ -630,7 +641,7 @@ Add [`"gitlens.insiders": true`](#general-settings "Jump to GitLens settings") t
 - If the `Copy to * clipboard` commands don't work on Linux &mdash; `xclip` needs to be installed. You can install it via `sudo apt-get install xclip`
 
 ---
-## Contributors
+## Contributors &#x1F64F;&#x2764;
 
 A big thanks to the people that have contributed to this project:
 
