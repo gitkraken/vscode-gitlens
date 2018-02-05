@@ -399,13 +399,12 @@
                 },
                 "gitlens.gitExplorer.branches.layout": {
                     "type": "string",
-                    "default": "list",
+                    "default": "tree",
                     "enum": [
                         "list",
-                        "tree",
-                        "mix-tree"
+                        "tree"
                     ],
-                    "description": "Specifies how the `Branches` view will display branches\n `list` - display all branches \n`tree` - organize branch as folder if branch name contains slashes \"\/\"\n `mix-tree` - display branch folders along with normal branch alphabetically",
+                    "description": "Specifies how the `GitLens` explorer will display branches\n `list` - displays branches as a list \n`tree` - displays branches as a tree when branch names contain slashes `/`",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.enabled": {

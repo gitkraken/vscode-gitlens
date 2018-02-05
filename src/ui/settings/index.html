@@ -63,6 +63,14 @@
                                 </div>
 
                                 <div class="settings-group__setting ml-2" data-enablement="gitExplorer.enabled" disabled>
+                                    <label for="gitExplorer.branches.layout">Layout branches</label>
+                                    <select id="gitExplorer.branches.layout" name="gitExplorer.branches.layout" disabled>
+                                        <option value="list">as a list</option>
+                                        <option value="tree">as a tree</option>
+                                    </select>
+                                </div>
+
+                                <div class="settings-group__setting ml-2" data-enablement="gitExplorer.enabled" disabled>
                                     <label for="gitExplorer.files.layout">Layout files</label>
                                     <select id="gitExplorer.files.layout" name="gitExplorer.files.layout" disabled>
                                         <option value="auto">automatically</option>
@@ -72,11 +80,11 @@
                                 </div>
                                 <p class="setting__hint hidden" data-visibility="gitExplorer.files.layout =auto">Chooses the best layout based on the number of files at each nesting level</p>
 
-                                <div class="settings-group__setting nowrap ml-4" data-enablement="gitExplorer.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-2" data-enablement="gitExplorer.enabled" disabled>
                                     <input id="gitExplorer.files.compact" name="gitExplorer.files.compact" type="checkbox" disabled />
                                     <label for="gitExplorer.files.compact">Use compact layout</label>
                                 </div>
-                                <p class="setting__hint setting__hint--indent-4">Compacts (flattens) unnecessary file nesting when using a tree layout</p>
+                                <p class="setting__hint setting__hint--indent-1">Compacts (flattens) unnecessary nesting when using a tree layouts</p>
 
                                 <div class="settings-group__setting nowrap ml-2" data-enablement="gitExplorer.enabled" disabled>
                                     <input id="gitExplorer.avatars" name="explorers.avatars" type="checkbox" disabled />
@@ -124,11 +132,11 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2">
+                                <div class="settings-group__setting nowrap">
                                     <input id="resultsExplorer.files.compact" name="resultsExplorer.files.compact" type="checkbox" />
                                     <label for="resultsExplorer.files.compact">Use compact layout</label>
                                 </div>
-                                <p class="setting__hint setting__hint--indent-2">Compacts (flattens) unnecessary file nesting when using a tree layout</p>
+                                <p class="setting__hint setting__hint">Compacts (flattens) unnecessary nesting when using a tree layouts</p>
 
                                 <div class="settings-group__setting nowrap">
                                     <input id="resultsExplorer.avatars" name="explorers.avatars" type="checkbox" />

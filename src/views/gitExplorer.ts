@@ -1,6 +1,6 @@
 'use strict';
 import { Functions } from '../system';
-import { commands, ConfigurationChangeEvent, ConfigurationTarget, Disposable, Event, EventEmitter, TextDocumentShowOptions, TextEditor, TreeDataProvider, TreeItem, Uri, window } from 'vscode';
+import { commands, ConfigurationChangeEvent, ConfigurationTarget, Disposable, Event, EventEmitter, TextDocumentShowOptions, TextEditor, TreeDataProvider, TreeItem, Uri, window, workspace } from 'vscode';
 import { UriComparer } from '../comparers';
 import { configuration, ExplorerFilesLayout, GitExplorerView, IExplorersConfig, IGitExplorerConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
@@ -136,6 +136,13 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
 
     get config(): IExplorersConfig & IGitExplorerConfig {
         return { ...Container.config.explorers, ...Container.config.gitExplorer };
+    }
+
+    get folderResourceUri(): Uri | undefined {
+        // Return the uri of any workspace folder -- we just need a folder so that we can use the uri has an icon resourceUri
+        if (workspace.workspaceFolders === undefined || workspace.workspaceFolders.length === 0) return undefined;
+
+        return workspace.workspaceFolders[0].uri;
     }
 
     private _loading: Promise<void> | undefined;

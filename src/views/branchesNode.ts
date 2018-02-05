@@ -1,13 +1,13 @@
 'use strict';
 import { Arrays, Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { BranchFolderNode } from './branchFolderNode';
 import { BranchNode } from './branchNode';
+import { ExplorerBranchesLayout } from '../configuration';
 import { Container } from '../container';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
 import { GitUri, Repository } from '../gitService';
-import { BranchFolderNode } from './branchFolderNode';
-import { ExplorerBranchesLayout } from '../configuration';
 
 export class BranchesNode extends ExplorerNode {
 
@@ -26,20 +26,27 @@ export class BranchesNode extends ExplorerNode {
 
             branches.sort((a, b) => (a.current ? -1 : 1) - (b.current ? -1 : 1) || a.name.localeCompare(b.name));
 
-            let children = [];
             // filter local branches
             const branchNodes = [...Iterables.filterMap(branches, b => b.remote ? undefined : new BranchNode(b, this.uri, this.explorer))];
+            if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) return branchNodes;
 
-            if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) {
-                return branchNodes;
-            }
+            // Take out the current branch, since that should always be first and un-nested
+            const current = (branchNodes.length > 0 && branchNodes[0].current)
+                ? branchNodes.splice(0, 1)[0]
+                : undefined;
 
             const hierarchy = Arrays.makeHierarchical(branchNodes,
-                n => !!n.branch.name.match(/\s/) ? [n.branch.name] : n.branch.name.split('/'),
-                (...paths: string[]) => paths.join('/'), this.explorer.config.files.compact);
+                n => n.branch.isValid() ? n.branch.getName().split('/') : [n.branch.name],
+                (...paths: string[]) => paths.join('/'),
+                this.explorer.config.files.compact);
 
             const root = new BranchFolderNode(this.repo.path, '', undefined, hierarchy, this.explorer);
-            children = await root.getChildren() as (BranchFolderNode | BranchNode)[];
+            const children = await root.getChildren() as (BranchFolderNode | BranchNode)[];
+
+            // If we found a current branch, insert it at the start
+            if (current !== undefined) {
+                children.splice(0, 0, current);
+            }
 
             return children;
         }

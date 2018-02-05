@@ -1,6 +1,6 @@
 'use strict';
 import { Functions, Strings } from '../system';
-import { commands, ConfigurationChangeEvent, ConfigurationTarget, Disposable, Event, EventEmitter, TreeDataProvider, TreeItem, window } from 'vscode';
+import { commands, ConfigurationChangeEvent, ConfigurationTarget, Disposable, Event, EventEmitter, TreeDataProvider, TreeItem, Uri, window, workspace } from 'vscode';
 import { configuration, ExplorerFilesLayout, IExplorersConfig, IResultsExplorerConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
@@ -68,6 +68,13 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
 
     get config(): IExplorersConfig & IResultsExplorerConfig {
         return { ...Container.config.explorers, ...Container.config.resultsExplorer };
+    }
+
+    get folderResourceUri(): Uri | undefined {
+        // Return the uri of any workspace folder -- we just need a folder so that we can use the uri has an icon resourceUri
+        if (workspace.workspaceFolders === undefined || workspace.workspaceFolders.length === 0) return undefined;
+
+        return workspace.workspaceFolders[0].uri;
     }
 
     get keepResults(): boolean {

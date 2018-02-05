@@ -2,12 +2,12 @@
 import { Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitNode } from './commitNode';
+import { ExplorerBranchesLayout } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { ExplorerNode, ExplorerRefNode, MessageNode, ResourceType, ShowAllNode } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
 import { GitBranch, GitUri } from '../gitService';
-import { ExplorerBranchesLayout } from '../configuration';
 
 export class BranchNode extends ExplorerRefNode {
 
@@ -21,21 +21,19 @@ export class BranchNode extends ExplorerRefNode {
         super(uri);
     }
 
-    get ref(): string {
-        return this.branch.name;
+    get current(): boolean {
+        return this.branch.current;
     }
 
     get label(): string {
         const branchName = this.branch.getName();
-        if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) {
-            return branchName;
-        } else {
-            return !!branchName.match(/\s/) ? branchName : this.branch.getBasename();
-        }
+        if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) return branchName;
+
+        return GitBranch.isValid(branchName) && !this.current ? this.branch.getBasename() : branchName;
     }
 
-    get current(): boolean {
-        return this.branch.current;
+    get ref(): string {
+        return this.branch.name;
     }
 
     async getChildren(): Promise<ExplorerNode[]> {

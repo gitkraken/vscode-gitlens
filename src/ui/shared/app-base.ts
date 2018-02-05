@@ -32,7 +32,10 @@ export abstract class App {
 
         for (const el of document.querySelectorAll<HTMLSelectElement>('select')) {
             const value = getSettingValue<string>(el.name);
-            el.querySelector<HTMLOptionElement>(`option[value='${value}']`)!.selected = true;
+            const input = el.querySelector<HTMLOptionElement>(`option[value='${value}']`);
+            if (input != null) {
+                input.selected = true;
+            }
         }
 
         const state = flatten(config);

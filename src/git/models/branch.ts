@@ -10,7 +10,6 @@ export class GitBranch {
         ahead: number;
         behind: number;
     };
-    basename: string;
 
     constructor(
         public readonly repoPath: string,
@@ -30,12 +29,24 @@ export class GitBranch {
 
         this.current = current;
         this.name = branch;
-        this.basename = this.name.split('/').pop() || this.name;
         this.tracking = tracking === '' || tracking == null ? undefined : tracking;
         this.state = {
             ahead: ahead,
             behind: behind
         };
+    }
+
+    private _basename: string | undefined;
+    getBasename(): string {
+        if (this._basename === undefined) {
+            const name = this.getName();
+            const index = name.lastIndexOf('/');
+            this._basename = index !== -1
+                ? name.substring(index + 1)
+                : name;
+        }
+
+        return this._basename;
     }
 
     private _name: string | undefined;
@@ -49,10 +60,6 @@ export class GitBranch {
         return this._name;
     }
 
-    getBasename(): string {
-        return this.basename;
-    }
-
     getRemote(): string | undefined {
         if (this.remote) return GitBranch.getRemote(this.name);
         if (this.tracking !== undefined) return GitBranch.getRemote(this.tracking);
@@ -60,7 +67,17 @@ export class GitBranch {
         return undefined;
     }
 
+    isValid(): boolean {
+        return GitBranch.isValid(this.name);
+    }
+
     static getRemote(branch: string): string {
         return branch.substring(0, branch.indexOf('/'));
+    }
+
+    static isValid(name: string): boolean {
+        // If there is whitespace in the name assume this is not a valid branch name
+        // Deals with detached HEAD states
+        return name.match(/\s/) === null;
     }
 }

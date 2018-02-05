@@ -34,16 +34,15 @@ export enum DateStyle {
     Relative = 'relative'
 }
 
-export enum ExplorerFilesLayout {
-    Auto = 'auto',
+export enum ExplorerBranchesLayout {
     List = 'list',
     Tree = 'tree'
 }
 
-export enum ExplorerBranchesLayout {
+export enum ExplorerFilesLayout {
+    Auto = 'auto',
     List = 'list',
-    Tree = 'tree',
-    MixTree = 'mix-tree'
+    Tree = 'tree'
 }
 
 export enum FileAnnotationType {
@@ -181,10 +180,6 @@ export interface ICodeLensConfig {
 export interface IExplorersConfig {
     avatars: boolean;
 
-    branches: {
-        layout: ExplorerBranchesLayout;
-    };
-
     files: {
         layout: ExplorerFilesLayout;
         compact: boolean;
@@ -208,6 +203,11 @@ export interface IExplorersFilesConfig {
 
 export interface IGitExplorerConfig {
     autoRefresh: boolean;
+
+    branches: {
+        layout: ExplorerBranchesLayout;
+    };
+
     enabled: boolean;
     files: IExplorersFilesConfig;
     includeWorkingTree: boolean;
