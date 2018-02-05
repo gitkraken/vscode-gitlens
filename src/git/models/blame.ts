@@ -3,24 +3,24 @@ import { GitAuthor, GitCommitLine } from './commit';
 import { GitBlameCommit } from './blameCommit';
 
 export interface GitBlame {
-    repoPath: string;
-    authors: Map<string, GitAuthor>;
-    commits: Map<string, GitBlameCommit>;
-    lines: GitCommitLine[];
+    readonly repoPath: string;
+    readonly authors: Map<string, GitAuthor>;
+    readonly commits: Map<string, GitBlameCommit>;
+    readonly lines: GitCommitLine[];
 }
 
 export interface GitBlameLine {
-    author: GitAuthor;
-    commit: GitBlameCommit;
-    line: GitCommitLine;
+    readonly author: GitAuthor;
+    readonly commit: GitBlameCommit;
+    readonly line: GitCommitLine;
 }
 
 export interface GitBlameLines extends GitBlame {
-    allLines: GitCommitLine[];
+    readonly allLines: GitCommitLine[];
 }
 
 export interface GitBlameCommitLines {
-    author: GitAuthor;
-    commit: GitBlameCommit;
-    lines: GitCommitLine[];
+    readonly author: GitAuthor;
+    readonly commit: GitBlameCommit;
+    readonly lines: GitCommitLine[];
 }

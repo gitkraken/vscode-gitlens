@@ -8,30 +8,30 @@ import * as path from 'path';
 
 export interface GitStatus {
 
-    branch: string;
-    repoPath: string;
-    sha: string;
-    state: {
+    readonly branch: string;
+    readonly repoPath: string;
+    readonly sha: string;
+    readonly state: {
         ahead: number;
         behind: number;
     };
-    upstream?: string;
+    readonly upstream?: string;
 
-    files: GitStatusFile[];
+    readonly files: GitStatusFile[];
 }
 
 export declare type GitStatusFileStatus = '!' | '?' | 'A' | 'C' | 'D' | 'M' | 'R' | 'T' | 'U' | 'X' | 'B';
 
 export interface IGitStatusFile {
     status: GitStatusFileStatus;
-    fileName: string;
-    originalFileName?: string;
-    workTreeStatus: GitStatusFileStatus;
-    indexStatus: GitStatusFileStatus;
+    readonly fileName: string;
+    readonly originalFileName?: string;
+    readonly workTreeStatus: GitStatusFileStatus;
+    readonly indexStatus: GitStatusFileStatus;
 }
 
 export interface IGitStatusFileWithCommit extends IGitStatusFile {
-    commit: GitLogCommit;
+    readonly commit: GitLogCommit;
 }
 
 export class GitStatusFile implements IGitStatusFile {

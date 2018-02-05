@@ -4,15 +4,15 @@ import { GitAuthor } from './commit';
 import { GitLogCommit } from './logCommit';
 
 export interface GitLog {
-    repoPath: string;
-    authors: Map<string, GitAuthor>;
-    commits: Map<string, GitLogCommit>;
+    readonly repoPath: string;
+    readonly authors: Map<string, GitAuthor>;
+    readonly commits: Map<string, GitLogCommit>;
 
-    sha: string | undefined;
-    count: number;
-    maxCount: number | undefined;
-    range: Range;
-    truncated: boolean;
+    readonly sha: string | undefined;
+    readonly count: number;
+    readonly maxCount: number | undefined;
+    readonly range: Range;
+    readonly truncated: boolean;
 
     query: (maxCount: number | undefined) => Promise<GitLog | undefined>;
 }

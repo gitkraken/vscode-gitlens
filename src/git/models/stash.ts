@@ -2,6 +2,6 @@
 import { GitStashCommit } from './stashCommit';
 
 export interface GitStash {
-    repoPath: string;
-    commits: Map<string, GitStashCommit>;
+    readonly repoPath: string;
+    readonly commits: Map<string, GitStashCommit>;
 }

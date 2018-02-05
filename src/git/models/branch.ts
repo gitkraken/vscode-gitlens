@@ -2,11 +2,11 @@
 
 export class GitBranch {
 
-    current: boolean;
-    name: string;
-    remote: boolean;
-    tracking?: string;
-    state: {
+    readonly current: boolean;
+    readonly name: string;
+    readonly remote: boolean;
+    readonly tracking?: string;
+    readonly state: {
         ahead: number;
         behind: number;
     };
@@ -36,15 +36,21 @@ export class GitBranch {
         };
     }
 
+    private _name: string | undefined;
     getName(): string {
-        return this.remote
-            ? this.name.substring(this.name.indexOf('/') + 1)
-            : this.name;
+        if (this._name === undefined) {
+            this._name = this.remote
+                ? this.name.substring(this.name.indexOf('/') + 1)
+                : this.name;
+        }
+
+        return this._name;
     }
 
     getRemote(): string | undefined {
         if (this.remote) return GitBranch.getRemote(this.name);
         if (this.tracking !== undefined) return GitBranch.getRemote(this.tracking);
+
         return undefined;
     }
 

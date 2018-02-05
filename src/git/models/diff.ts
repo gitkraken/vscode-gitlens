@@ -34,13 +34,13 @@ export class GitDiffChunk {
 }
 
 export interface GitDiff {
-    chunks: GitDiffChunk[];
+    readonly chunks: GitDiffChunk[];
 
-    diff?: string;
+    readonly diff?: string;
 }
 
 export interface GitDiffShortStat {
-    files: number;
-    insertions: number;
-    deletions: number;
+    readonly files: number;
+    readonly insertions: number;
+    readonly deletions: number;
 }
