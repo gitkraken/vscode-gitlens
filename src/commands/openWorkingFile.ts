@@ -5,6 +5,7 @@ import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { GitUri } from '../gitService';
 import { Logger } from '../logger';
+import * as path from 'path';
 
 export interface OpenWorkingFileCommandArgs {
     uri?: Uri;
@@ -31,6 +32,12 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
                 if (uri === undefined) return undefined;
 
                 args.uri = await GitUri.fromUri(uri);
+                if (args.uri instanceof GitUri && args.uri.sha) {
+                    const [fileName, repoPath] = await Container.git.findWorkingFileName(args.uri.fsPath, args.uri.repoPath);
+                    if (fileName !== undefined && repoPath !== undefined) {
+                        args.uri = new GitUri(Uri.file(path.resolve(repoPath, fileName)), repoPath);
+                    }
+                }
             }
 
             if (args.line !== undefined && args.line !== 0) {

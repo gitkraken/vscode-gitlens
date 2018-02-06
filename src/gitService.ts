@@ -374,7 +374,9 @@ export class GitService extends Disposable {
                 repoPath = await this.getRepoPath(fileName, { ref: ref });
                 [fileName, repoPath] = Git.splitPath(fileName, repoPath);
             }
-
+            else {
+                fileName = Strings.normalizePath(path.relative(repoPath, fileName));
+            }
         }
         else {
             const c = commitOrFileName;
