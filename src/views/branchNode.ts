@@ -7,6 +7,7 @@ import { Container } from '../container';
 import { ExplorerNode, ExplorerRefNode, MessageNode, ResourceType, ShowAllNode } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
 import { GitBranch, GitUri } from '../gitService';
+import { ExplorerBranchesLayout } from '../configuration';
 
 export class BranchNode extends ExplorerRefNode {
 
@@ -24,6 +25,19 @@ export class BranchNode extends ExplorerRefNode {
         return this.branch.name;
     }
 
+    get label(): string {
+        const branchName = this.branch.getName();
+        if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) {
+            return branchName;
+        } else {
+            return !!branchName.match(/\s/) ? branchName : this.branch.getBasename();
+        }
+    }
+
+    get current(): boolean {
+        return this.branch.current;
+    }
+
     async getChildren(): Promise<ExplorerNode[]> {
         const log = await Container.git.getLog(this.uri.repoPath!, { maxCount: this.maxCount, ref: this.branch.name });
         if (log === undefined) return [new MessageNode('No commits yet')];
@@ -36,7 +50,7 @@ export class BranchNode extends ExplorerRefNode {
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        let name = this.branch.getName();
+        let name = this.label;
         if (!this.branch.remote && this.branch.tracking !== undefined && this.explorer.config.showTrackingBranch) {
             name += ` ${GlyphChars.Space}${GlyphChars.ArrowLeftRight}${GlyphChars.Space} ${this.branch.tracking}`;
         }

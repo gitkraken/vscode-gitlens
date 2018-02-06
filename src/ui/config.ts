@@ -40,6 +40,12 @@ export enum ExplorerFilesLayout {
     Tree = 'tree'
 }
 
+export enum ExplorerBranchesLayout {
+    List = 'list',
+    Tree = 'tree',
+    MixTree = 'mix-tree'
+}
+
 export enum FileAnnotationType {
     Blame = 'blame',
     Heatmap = 'heatmap',
@@ -189,10 +195,15 @@ export interface IExplorersFilesConfig {
     threshold: number;
 }
 
+export interface IExplorersBranchesConfig {
+    layout: ExplorerBranchesLayout;
+}
+
 export interface IGitExplorerConfig {
     autoRefresh: boolean;
     enabled: boolean;
     files: IExplorersFilesConfig;
+    branches: IExplorersBranchesConfig;
     includeWorkingTree: boolean;
     showTrackingBranch: boolean;
     view: GitExplorerView;
