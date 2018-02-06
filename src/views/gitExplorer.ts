@@ -45,6 +45,8 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
 
         commands.registerCommand('gitlens.gitExplorer.setAutoRefreshToOn', () => this.setAutoRefresh(Container.config.gitExplorer.autoRefresh, true), this);
         commands.registerCommand('gitlens.gitExplorer.setAutoRefreshToOff', () => this.setAutoRefresh(Container.config.gitExplorer.autoRefresh, false), this);
+        commands.registerCommand('gitlens.gitExplorer.setRenameFollowingOn', () => this.setRenameFollowing(true), this);
+        commands.registerCommand('gitlens.gitExplorer.setRenameFollowingOff', () => this.setRenameFollowing(false), this);
         commands.registerCommand('gitlens.gitExplorer.switchToHistoryView', () => this.switchTo(GitExplorerView.History), this);
         commands.registerCommand('gitlens.gitExplorer.switchToRepositoryView', () => this.switchTo(GitExplorerView.Repository), this);
 
@@ -75,7 +77,8 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         if (!initializing &&
             !configuration.changed(e, configuration.name('gitExplorer').value) &&
             !configuration.changed(e, configuration.name('explorers').value) &&
-            !configuration.changed(e, configuration.name('defaultGravatarsStyle').value)) return;
+            !configuration.changed(e, configuration.name('defaultGravatarsStyle').value) &&
+            !configuration.changed(e, configuration.name('advanced')('fileHistoryFollowsRenames').value)) return;
 
         if (initializing || configuration.changed(e, configuration.name('gitExplorer')('enabled').value)) {
             setCommandContext(CommandContext.GitExplorer, this.config.enabled);
@@ -105,7 +108,7 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
             }
         }
 
-        this.reset(view!);
+        this.reset(view!, configuration.changed(e, configuration.name('advanced')('fileHistoryFollowsRenames').value));
     }
 
     private onRepositoriesChanged() {
@@ -324,5 +327,9 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         if (toggled) {
             this.refresh(RefreshReason.AutoRefreshChanged);
         }
+    }
+
+    setRenameFollowing(enabled: boolean) {
+        configuration.updateEffective(configuration.name('advanced')('fileHistoryFollowsRenames').value, enabled);
     }
 }

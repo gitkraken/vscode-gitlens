@@ -107,6 +107,7 @@ export interface IAdvancedConfig {
     };
 
     git: string;
+    fileHistoryFollowsRenames: boolean;
     maxListItems: number;
 
     menus: {

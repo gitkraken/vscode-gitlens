@@ -779,6 +779,12 @@
                     "description": "Specifies the git path to use",
                     "scope": "window"
                 },
+                "gitlens.advanced.fileHistoryFollowsRenames": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether file histories will follow renames -- will affect how merge commits are shown in histories",
+                    "scope": "window"
+                },
                 "gitlens.advanced.maxListItems": {
                     "type": "number",
                     "default": 200,
@@ -1532,6 +1538,16 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.gitExplorer.setRenameFollowingOn",
+                "title": "Follow Renames",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.gitExplorer.setRenameFollowingOff",
+                "title": "Don't Follow Renames",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.gitExplorer.switchToHistoryView",
                 "title": "Switch to History View",
                 "category": "GitLens",
@@ -1946,6 +1962,14 @@
                     "when": "false"
                 },
                 {
+                    "command": "gitlens.gitExplorer.setRenameFollowingOn",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.gitExplorer.setRenameFollowingOff",
+                    "when": "false"
+                },
+                {
                     "command": "gitlens.gitExplorer.switchToHistoryView",
                     "when": "gitlens:enabled && gitlens:gitExplorer:view == repository"
                 },
@@ -2253,6 +2277,16 @@
                     "command": "gitlens.gitExplorer.setAutoRefreshToOff",
                     "when": "view == gitlens.gitExplorer && config.gitlens.gitExplorer.autoRefresh && gitlens:gitExplorer:autoRefresh",
                     "group": "2_gitlens"
+                },
+                {
+                    "command": "gitlens.gitExplorer.setRenameFollowingOn",
+                    "when": "view == gitlens.gitExplorer && gitlens:gitExplorer:view == history && !config.gitlens.advanced.fileHistoryFollowsRenames",
+                    "group": "2_gitlens_1"
+                },
+                {
+                    "command": "gitlens.gitExplorer.setRenameFollowingOff",
+                    "when": "view == gitlens.gitExplorer && gitlens:gitExplorer:view == history && config.gitlens.advanced.fileHistoryFollowsRenames",
+                    "group": "2_gitlens_1"
                 },
                 {
                     "command": "gitlens.showCommitSearch",

@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [Unreleased]
 ### Added
 - Adds a tree layout option to branches in the *GitLens* explorer &mdash; closes [#258](https://github.com/eamodio/vscode-gitlens/issues/258) thanks to [PR #260](https://github.com/eamodio/vscode-gitlens/pull/260) by Yukai Huang ([@Yukaii](https://github.com/Yukaii))!
+- Adds *Follow Renames* command (`gitlens.gitExplorer.setRenameFollowingOn`) to the **GitLens** explorer *History* view to follow file renames in the history
+- Adds *Don't Follow Renames* command (`gitlens.gitExplorer.setRenameFollowingOff`) to the **GitLens** explorer *History* view to not follow file renames in the history
+- Adds `gitlens.advanced.fileHistoryFollowsRenames` setting to specify whether file histories will follow renames -- will affect how merge commits are shown in histories &mdash; closes [#259](https://github.com/eamodio/vscode-gitlens/issues/259)
 
 ### Fixed
 - Fixes [#35](https://github.com/eamodio/vscode-gitlens/issues/35) - Copy Commit Sha to Clipboard not working (linux)

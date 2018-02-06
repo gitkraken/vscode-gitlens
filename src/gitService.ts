@@ -325,13 +325,13 @@ export class GitService extends Disposable {
     }
 
     async findNextCommit(repoPath: string, fileName: string, ref?: string): Promise<GitLogCommit | undefined> {
-        let log = await this.getLogForFile(repoPath, fileName, { maxCount: 1, ref: ref, reverse: true });
+        let log = await this.getLogForFile(repoPath, fileName, { maxCount: 1, ref: ref, renames: true, reverse: true });
         let commit = log && Iterables.first(log.commits.values());
         if (commit) return commit;
 
         const nextFileName = await this.findNextFileName(repoPath, fileName, ref);
         if (nextFileName) {
-            log = await this.getLogForFile(repoPath, nextFileName, { maxCount: 1, ref: ref, reverse: true });
+            log = await this.getLogForFile(repoPath, nextFileName, { maxCount: 1, ref: ref, renames: true, reverse: true });
             commit = log && Iterables.first(log.commits.values());
         }
 
@@ -943,7 +943,7 @@ export class GitService extends Disposable {
         options = { reverse: false, ...options };
 
         if (options.renames === undefined) {
-            options.renames = true;
+            options.renames = Container.config.advanced.fileHistoryFollowsRenames;
         }
 
         let key = 'log';

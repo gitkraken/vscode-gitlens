@@ -56,7 +56,7 @@ Here are a few ways you can help &mdash; feel free to choose more than one &#x1F
 A [customizable](#gitlens-explorer-settings "Jump to the GitLens Explorer settings") explorer to navigate and explore repositories or file histories. The GitLens explorer provides two views (modes) &mdash; a Repository view and a History view.
 - A toolbar provides *Search Commits*, *Switch to Repository View* or *Switch to History View*, and *Refresh* commands
   - Quickly switch between views using the *Switch to Repository View* or *Switch to History View* commands
-  - A context menu provides *Automatic Layout*, *List Layout*, and *Tree Layout* commands
+  - A context menu provides *Automatic Layout*, *List Layout*, *Tree Layout*, *Enable Automatic Refresh* or *Disable Automatic Refresh*, and *Follow Renames* or *Don't Follow Renames* commands
 
 #### Repository view
 <p align="center">
@@ -595,6 +595,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |`gitlens.advanced.blame.sizeThresholdAfterEdit`|Specifies the maximum document size (in lines) allowed to be re-blamed after an edit while still unsaved. Use 0 to specify no maximum
 |`gitlens.advanced.caching.enabled`|Specifies whether git output will be cached &mdash; changing the default is not recommended
 |`gitlens.advanced.git`|Specifies the git path to use
+|`gitlens.advanced.fileHistoryFollowsRenames`|Specifies whether file histories will follow renames -- will affect how merge commits are shown in histories
 |`gitlens.advanced.maxListItems`|Specifies the maximum number of items to show in a list. Use 0 to specify no maximum
 |`gitlens.advanced.menus`|Specifies which commands will be added to which menus
 |`gitlens.advanced.messages`|Specifies which messages should be suppressed

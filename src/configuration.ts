@@ -110,8 +110,23 @@ export class Configuration {
         return Functions.propOf(emptyConfig as IConfig, name);
     }
 
-    update(section: string, value: any, target: ConfigurationTarget) {
-        return workspace.getConfiguration(ExtensionKey).update(section, value, target);
+    update(section: string, value: any, target: ConfigurationTarget, resource?: Uri | null) {
+        return workspace
+            .getConfiguration(ExtensionKey, target === ConfigurationTarget.Global ? undefined : resource!)
+            .update(section, value, target);
+    }
+
+    async updateEffective(section: string, value: any, resource: Uri | null = null) {
+        const inspect = await configuration.inspect(section, resource)!;
+        if (inspect.workspaceFolderValue !== undefined) {
+            await configuration.update(section, value, ConfigurationTarget.WorkspaceFolder, resource);
+        }
+        else if (inspect.workspaceValue !== undefined) {
+            await configuration.update(section, value, ConfigurationTarget.Workspace);
+        }
+        else {
+            await configuration.update(section, value, ConfigurationTarget.Global);
+        }
     }
 }
 
