@@ -122,7 +122,7 @@ export abstract class GitCommit {
     protected _resolvedPreviousFileSha: string | undefined;
 
     get previousFileShortSha(): string {
-        return Git.shortenSha(this.previousFileSha);
+        return Git.shortenSha(this.previousFileSha)!;
     }
 
     get previousSha(): string | undefined {

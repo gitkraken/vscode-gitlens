@@ -1452,12 +1452,15 @@ export class GitService extends Disposable {
         return Git.isUncommitted(sha);
     }
 
-    static shortenSha(sha: string | undefined) {
+    static shortenSha(sha: string | undefined, strings: { deleted?: string, stagedUncommitted?: string, uncommitted?: string } = {}) {
         if (sha === undefined) return undefined;
-        if (sha === GitService.deletedSha) return '(deleted)';
+
+        strings = { deleted: '(deleted)', ...strings };
+
+        if (sha === GitService.deletedSha) return strings.deleted;
 
         return Git.isSha(sha) || Git.isStagedUncommitted(sha)
-            ? Git.shortenSha(sha)
+            ? Git.shortenSha(sha, strings)
             : sha;
     }
 

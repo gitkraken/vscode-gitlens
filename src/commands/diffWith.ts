@@ -136,7 +136,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
                 args.lhs.title = `${path.basename(args.lhs.uri.fsPath)}${suffix !== '' ? ` (${lhsPrefix}${suffix})` : ''}`;
             }
             if (args.rhs.title === undefined && args.rhs.sha !== GitService.deletedSha) {
-                const suffix = GitService.shortenSha(args.rhs.sha) || '';
+                const suffix = GitService.shortenSha(args.rhs.sha, { uncommitted: 'working tree' }) || '';
                 args.rhs.title = `${path.basename(args.rhs.uri.fsPath)}${suffix !== '' ? ` (${rhsPrefix}${suffix})` : rhsPrefix}`;
             }
 
