@@ -53,13 +53,13 @@
                 "gitlens.blame.avatars": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to show avatar images in the gutter blame annotations",
+                    "description": "Specifies whether to show avatar images in the gutter blame annotations",
                     "scope": "window"
                 },
                 "gitlens.blame.compact": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to compact (deduplicate) matching adjacent gutter blame annotations",
+                    "description": "Specifies whether to compact (deduplicate) matching adjacent gutter blame annotations",
                     "scope": "window"
                 },
                 "gitlens.blame.dateFormat": {
@@ -77,7 +77,7 @@
                 "gitlens.blame.heatmap.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to provide a heatmap indicator in the gutter blame annotations",
+                    "description": "Specifies whether to provide a heatmap indicator in the gutter blame annotations",
                     "scope": "window"
                 },
                 "gitlens.blame.heatmap.location": {
@@ -93,7 +93,7 @@
                 "gitlens.blame.highlight.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to highlight lines associated with the current line",
+                    "description": "Specifies whether to highlight lines associated with the current line",
                     "scope": "window"
                 },
                 "gitlens.blame.highlight.locations": {
@@ -120,13 +120,13 @@
                 "gitlens.blame.ignoreWhitespace": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Specifies whether or not to ignore whitespace when comparing revisions during blame operations",
+                    "description": "Specifies whether to ignore whitespace when comparing revisions during blame operations",
                     "scope": "resource"
                 },
                 "gitlens.blame.separateLines": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not gutter blame annotations will be separated by a small gap",
+                    "description": "Specifies whether gutter blame annotations will be separated by a small gap",
                     "scope": "window"
                 },
                 "gitlens.codeLens.authors.command": {
@@ -146,13 +146,13 @@
                 "gitlens.codeLens.authors.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to show an `authors` code lens showing number of authors of the file or code block and the most prominent author (if there is more than one)",
+                    "description": "Specifies whether to show an `authors` code lens showing number of authors of the file or code block and the most prominent author (if there is more than one)",
                     "scope": "window"
                 },
                 "gitlens.codeLens.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to provide any Git code lens, by default\nUse the `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) to toggle the Git code lens on and off for the current window",
+                    "description": "Specifies whether to provide any Git code lens, by default\nUse the `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) to toggle the Git code lens on and off for the current window",
                     "scope": "window"
                 },
                 "gitlens.codeLens.recentChange.command": {
@@ -172,7 +172,7 @@
                 "gitlens.codeLens.recentChange.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to show a `recent change` code lens showing the author and date of the most recent commit for the file or code block",
+                    "description": "Specifies whether to show a `recent change` code lens showing the author and date of the most recent commit for the file or code block",
                     "scope": "window"
                 },
                 "gitlens.codeLens.scopes": {
@@ -310,7 +310,7 @@
                 "gitlens.currentLine.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to provide a blame annotation for the current line, by default\nUse the `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`) to toggle the annotations on and off for the current window",
+                    "description": "Specifies whether to provide a blame annotation for the current line, by default\nUse the `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`) to toggle the annotations on and off for the current window",
                     "scope": "window"
                 },
                 "gitlens.currentLine.format": {
@@ -358,7 +358,7 @@
                 "gitlens.explorers.avatars": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to show avatar images instead of commit (or status) icons in the `GitLens` and `GitLens Results` views",
+                    "description": "Specifies whether to show avatar images instead of commit (or status) icons in the `GitLens` and `GitLens Results` views",
                     "scope": "window"
                 },
                 "gitlens.explorers.commitFileFormat": {
@@ -394,7 +394,7 @@
                 "gitlens.gitExplorer.autoRefresh": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to automatically refresh the `GitLens` explorer when the repository or the file system changes",
+                    "description": "Specifies whether to automatically refresh the `GitLens` explorer when the repository or the file system changes",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.branches.layout": {
@@ -410,13 +410,13 @@
                 "gitlens.gitExplorer.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to show the `GitLens` explorer",
+                    "description": "Specifies whether to show the `GitLens` explorer",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.files.compact": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to compact (flatten) unnecessary file nesting in the `GitLens` explorer\nOnly applies when displaying files as a `tree` or `auto`",
+                    "description": "Specifies whether to compact (flatten) unnecessary file nesting in the `GitLens` explorer\nOnly applies when displaying files as a `tree` or `auto`",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.files.layout": {
@@ -439,13 +439,13 @@
                 "gitlens.gitExplorer.includeWorkingTree": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to include working tree files inside the `Repository Status` node of the `GitLens` explorer",
+                    "description": "Specifies whether to include working tree files inside the `Repository Status` node of the `GitLens` explorer",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.showTrackingBranch": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to show the tracking branch when displaying local branches in the `GitLens` explorer",
+                    "description": "Specifies whether to show the tracking branch when displaying local branches in the `GitLens` explorer",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.view": {
@@ -462,19 +462,19 @@
                 "gitlens.hovers.annotations.changes": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to provide a changes (diff) hover for all lines when showing blame annotations",
+                    "description": "Specifies whether to provide a changes (diff) hover for all lines when showing blame annotations",
                     "scope": "window"
                 },
                 "gitlens.hovers.annotations.details": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to provide a commit details hover for all lines when showing blame annotations",
+                    "description": "Specifies whether to provide a commit details hover for all lines when showing blame annotations",
                     "scope": "window"
                 },
                 "gitlens.hovers.annotations.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to provide any hovers when showing blame annotations",
+                    "description": "Specifies whether to provide any hovers when showing blame annotations",
                     "scope": "window"
                 },
                 "gitlens.hovers.annotations.over": {
@@ -490,19 +490,19 @@
                 "gitlens.hovers.currentLine.changes": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to provide a changes (diff) hover for the current line",
+                    "description": "Specifies whether to provide a changes (diff) hover for the current line",
                     "scope": "window"
                 },
                 "gitlens.hovers.currentLine.details": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to provide a commit details hover for the current line",
+                    "description": "Specifies whether to provide a commit details hover for the current line",
                     "scope": "window"
                 },
                 "gitlens.hovers.currentLine.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to provide any hovers for the current line",
+                    "description": "Specifies whether to provide any hovers for the current line",
                     "scope": "window"
                 },
                 "gitlens.hovers.currentLine.over": {
@@ -518,13 +518,13 @@
                 "gitlens.hovers.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to provide any hovers",
+                    "description": "Specifies whether to provide any hovers",
                     "scope": "window"
                 },
                 "gitlens.insiders": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Specifies whether or not to enable new experimental features (expect there to be issues)",
+                    "description": "Specifies whether to enable new experimental features (expect there to be issues)",
                     "scope": "window"
                 },
                 "gitlens.keymap": {
@@ -667,7 +667,7 @@
                 "gitlens.resultsExplorer.files.compact": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to compact (flatten) unnecessary file nesting in the `GitLens Results` view\nOnly applies when displaying files as a `tree` or `auto`",
+                    "description": "Specifies whether to compact (flatten) unnecessary file nesting in the `GitLens Results` view\nOnly applies when displaying files as a `tree` or `auto`",
                     "scope": "window"
                 },
                 "gitlens.resultsExplorer.files.layout": {
@@ -690,7 +690,7 @@
                 "gitlens.showWhatsNewAfterUpgrades": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to show What's New after upgrading to new feature releases",
+                    "description": "Specifies whether to show What's New after upgrading to new feature releases",
                     "scope": "window"
                 },
                 "gitlens.statusBar.alignment": {
@@ -728,7 +728,7 @@
                 "gitlens.statusBar.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to provide blame information on the status bar",
+                    "description": "Specifies whether to provide blame information on the status bar",
                     "scope": "window"
                 },
                 "gitlens.statusBar.format": {
@@ -997,7 +997,7 @@
                 "gitlens.advanced.quickPick.closeOnFocusOut": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to close QuickPick menus when focus is lost",
+                    "description": "Specifies whether to close QuickPick menus when focus is lost",
                     "scope": "window"
                 },
                 "gitlens.advanced.repositorySearchDepth": {
@@ -1009,7 +1009,7 @@
                 "gitlens.advanced.telemetry.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether or not to enable GitLens telemetry (even if enabled still abides by the overall `telemetry.enableTelemetry` setting",
+                    "description": "Specifies whether to enable GitLens telemetry (even if enabled still abides by the overall `telemetry.enableTelemetry` setting",
                     "scope": "window"
                 }
             }

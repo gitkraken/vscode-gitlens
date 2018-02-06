@@ -32,7 +32,7 @@ class AnnotationState {
     }
 
     reset(enabled: boolean): boolean {
-        // returns whether or not a refresh is required
+        // returns whether a refresh is required
 
         if (this._enabled === enabled && !this.suspended) return false;
 
@@ -43,7 +43,7 @@ class AnnotationState {
     }
 
     resume(reason: 'debugging' | 'dirty'): boolean {
-        // returns whether or not a refresh is required
+        // returns whether a refresh is required
 
         const refresh = this._suspendReason !== undefined;
         this._suspendReason = undefined;
@@ -51,7 +51,7 @@ class AnnotationState {
     }
 
     suspend(reason: 'debugging' | 'dirty'): boolean {
-        // returns whether or not a refresh is required
+        // returns whether a refresh is required
 
         const refresh = this._suspendReason === undefined;
         this._suspendReason = reason;

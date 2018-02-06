@@ -482,7 +482,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.insiders`|Opts into the insiders channel &mdash; provides access to upcoming features
 |`gitlens.keymap`|Specifies the keymap to use for GitLens shortcut keys<br />`standard` - adds a standard set of shortcut keys<br />`chorded` - adds a chorded set of shortcut keys that all start with `Ctrl+Shift+G` (`⌥⌘G` on macOS)<br />`none` - no shortcut keys will be added
 |`gitlens.outputLevel`|Specifies how much (if any) output will be sent to the GitLens output channel
-|`gitlens.showWhatsNewAfterUpgrades`|Specifies whether or not to show What's New after upgrading to new feature releases
+|`gitlens.showWhatsNewAfterUpgrades`|Specifies whether to show What's New after upgrading to new feature releases
 
 ### GitLens Explorer Settings
 
@@ -490,14 +490,14 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 
 |Name | Description
 |-----|------------
-|`gitlens.gitExplorer.autoRefresh`|Specifies whether or not to automatically refresh the *GitLens* explorer when the repository or the file system changes
+|`gitlens.gitExplorer.autoRefresh`|Specifies whether to automatically refresh the *GitLens* explorer when the repository or the file system changes
 |`gitlens.gitExplorer.branches.layout`|Specifies how the *GitLens* explorer will display branches<br /> `list` - displays branches as a list<br /> `tree` - displays branches as a tree when branch names contain slashes `/`
-|`gitlens.gitExplorer.enabled`|Specifies whether or not to show the *GitLens* explorer"
-|`gitlens.gitExplorer.files.compact`|Specifies whether or not to compact (flatten) unnecessary file nesting in the *GitLens* explorer<br />Only applies when displaying files as a `tree` or `auto`
+|`gitlens.gitExplorer.enabled`|Specifies whether to show the *GitLens* explorer"
+|`gitlens.gitExplorer.files.compact`|Specifies whether to compact (flatten) unnecessary file nesting in the *GitLens* explorer<br />Only applies when displaying files as a `tree` or `auto`
 |`gitlens.gitExplorer.files.layout`|Specifies how the *GitLens* explorer will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
 |`gitlens.gitExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the *GitLens* explorer<br />Only applies when displaying files as `auto`
-|`gitlens.gitExplorer.includeWorkingTree`|Specifies whether or not to include working tree files inside the `Repository Status` node of the *GitLens* explorer
-|`gitlens.gitExplorer.showTrackingBranch`|Specifies whether or not to show the tracking branch when displaying local branches in the *GitLens* explorer"
+|`gitlens.gitExplorer.includeWorkingTree`|Specifies whether to include working tree files inside the `Repository Status` node of the *GitLens* explorer
+|`gitlens.gitExplorer.showTrackingBranch`|Specifies whether to show the tracking branch when displaying local branches in the *GitLens* explorer"
 |`gitlens.gitExplorer.view`|Specifies the starting view (mode) of the *GitLens* explorer<br /> `auto` - shows the last selected view, defaults to `repository`<br />`history` - shows the commit history of the active file<br />`repository` - shows a repository explorer"
 
 ### GitLens Results View Settings
@@ -506,7 +506,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 
 |Name | Description
 |-----|------------
-|`gitlens.resultsExplorer.files.compact`|Specifies whether or not to compact (flatten) unnecessary file nesting in the *GitLens Results* view<br />Only applies when displaying files as a `tree` or `auto`
+|`gitlens.resultsExplorer.files.compact`|Specifies whether to compact (flatten) unnecessary file nesting in the *GitLens Results* view<br />Only applies when displaying files as a `tree` or `auto`
 |`gitlens.resultsExplorer.files.layout`|Specifies how the *GitLens Results* view will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.resultsExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
 |`gitlens.resultsExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the *GitLens Results* view<br />Only applies when displaying files as `auto`
 
@@ -514,7 +514,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 
 |Name | Description
 |-----|------------
-|`gitlens.explorers.avatars`|Specifies whether or not to show avatar images instead of commit (or status) icons in the *GitLens* and *GitLens Results* views
+|`gitlens.explorers.avatars`|Specifies whether to show avatar images instead of commit (or status) icons in the *GitLens* and *GitLens Results* views
 |`gitlens.explorers.commitFileFormat`|Specifies the format of a committed file in the *GitLens* and *GitLens Results* views<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
 |`gitlens.explorers.commitFormat`|Specifies the format of committed changes in the *GitLens* and *GitLens Results* views<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${authorAgo} - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
 |`gitlens.explorers.stashFileFormat`|Specifies the format of a stashed file in the *GitLens* and *GitLens Results* views<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
@@ -526,10 +526,10 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |Name | Description
 |-----|------------
 |`gitlens.codeLens.authors.command`|Specifies the command to be executed when the `authors` code lens is clicked<br />`gitlens.toggleFileBlame` - toggles file blame annotations<br />`gitlens.diffWithPrevious` - compares the current committed file with the previous commit<br />`gitlens.showQuickCommitDetails` - shows a commit details quick pick<br />`gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick<br />`gitlens.showQuickFileHistory` - shows a file history quick pick<br />`gitlens.showQuickRepoHistory` - shows a branch history quick pick
-|`gitlens.codeLens.authors.enabled`|Specifies whether or not to show an `authors` code lens showing number of authors of the file or code block and the most prominent author (if there is more than one)
-|`gitlens.codeLens.enabled`|Specifies whether or not to provide any Git code lens, by default<br />Use the *Toggle Git Code Lens* command (`gitlens.toggleCodeLens`) to toggle the Git code lens on and off for the current window
+|`gitlens.codeLens.authors.enabled`|Specifies whether to show an `authors` code lens showing number of authors of the file or code block and the most prominent author (if there is more than one)
+|`gitlens.codeLens.enabled`|Specifies whether to provide any Git code lens, by default<br />Use the *Toggle Git Code Lens* command (`gitlens.toggleCodeLens`) to toggle the Git code lens on and off for the current window
 |`gitlens.codeLens.recentChange.command`|Specifies the command to be executed when the `recent change` code lens is clicked<br />`gitlens.toggleFileBlame` - toggles file blame annotations<br />`gitlens.diffWithPrevious` - compares the current committed file with the previous commit<br />`gitlens.showQuickCommitDetails` - shows a commit details quick pick<br />`gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick<br />`gitlens.showQuickFileHistory` - shows a file history quick pick<br />`gitlens.showQuickRepoHistory` - shows a branch history quick pick
-|`gitlens.codeLens.recentChange.enabled`|Specifies whether or not to show a `recent change` code lens showing the author and date of the most recent commit for the file or code block
+|`gitlens.codeLens.recentChange.enabled`|Specifies whether to show a `recent change` code lens showing the author and date of the most recent commit for the file or code block
 |`gitlens.codeLens.scopes`|Specifies where Git code lens will be shown in the document<br />`document` - adds code lens at the top of the document<br />`containers` - adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)<br />`blocks` - adds code lens at the start of block-like symbols (functions, methods, etc) lines
 |`gitlens.codeLens.scopesByLanguage`|Specifies where Git code lens will be shown in the document for the specified languages
 |`gitlens.codeLens.symbolScopes`|Specifies a set of document symbols where Git code lens will or will not be shown in the document<br />Prefix with `!` to not show Git code lens for the symbol<br />Must be a member of `SymbolKind`
@@ -539,37 +539,37 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |Name | Description
 |-----|------------
 |`gitlens.currentLine.dateFormat`|Specifies how to format absolute dates (using the `${date}` token) for the current line blame annotations<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
-|`gitlens.currentLine.enabled`|Specifies whether or not to provide a blame annotation for the current line, by default<br />Use the *Toggle Line Blame Annotations* command (`gitlens.toggleLineBlame`) to toggle the annotations on and off for the current window
+|`gitlens.currentLine.enabled`|Specifies whether to provide a blame annotation for the current line, by default<br />Use the *Toggle Line Blame Annotations* command (`gitlens.toggleLineBlame`) to toggle the annotations on and off for the current window
 |`gitlens.currentLine.format`|Specifies the format of the current line blame annotation<br />Available tokens<br />`${id}` - commit id<br />`${author}` - commit author<br />`${message}` - commit message<br />`${ago}` - relative commit date (e.g. 1 day ago)<br />`${date}` - formatted commit date (format specified by `gitlens.annotations.line.trailing.dateFormat`)<br />`${authorAgo}` - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
 
 ### Gutter Blame Settings
 
 |Name | Description
 |-----|------------
-|`gitlens.blame.avatars`|Specifies whether or not to show avatar images in the gutter blame annotations
-|`gitlens.blame.compact`|Specifies whether or not to compact (deduplicate) matching adjacent gutter blame annotations
+|`gitlens.blame.avatars`|Specifies whether to show avatar images in the gutter blame annotations
+|`gitlens.blame.compact`|Specifies whether to compact (deduplicate) matching adjacent gutter blame annotations
 |`gitlens.blame.dateFormat`|Specifies how to format absolute dates (using the `${date}` token) in gutter blame annotations<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
 |`gitlens.blame.format`|Specifies the format of the gutter blame annotations<br />Available tokens<br />`${id}` - commit id<br />`${author}` - commit author<br />`${message}` - commit message<br />`${ago}` - relative commit date (e.g. 1 day ago)<br />`${date}` - formatted commit date (format specified by `gitlens.blame.dateFormat`)<br />`${authorAgo}` - commit author, relative commit date<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
-|`gitlens.blame.heatmap.enabled`|Specifies whether or not to provide a heatmap indicator in the gutter blame annotations
+|`gitlens.blame.heatmap.enabled`|Specifies whether to provide a heatmap indicator in the gutter blame annotations
 |`gitlens.blame.heatmap.location`|Specifies where the heatmap indicators will be shown in the gutter blame annotations<br />`left` - adds a heatmap indicator on the left edge of the gutter blame annotations<br />`right` - adds a heatmap indicator on the right edge of the gutter blame annotations
-|`gitlens.blame.highlight.enabled`|Specifies whether or not to highlight lines associated with the current line
+|`gitlens.blame.highlight.enabled`|Specifies whether to highlight lines associated with the current line
 |`gitlens.blame.highlight.locations`|Specifies where the associated line highlights will be shown<br />`gutter` - adds a gutter glyph<br />`line` - adds a full-line highlight background color<br />`overviewRuler` - adds a decoration to the overviewRuler (scroll bar)
-|`gitlens.blame.ignoreWhitespace`|Specifies whether or not to ignore whitespace when comparing revisions during blame operations
-|`gitlens.blame.separateLines`|Specifies whether or not gutter blame annotations will have line separators
+|`gitlens.blame.ignoreWhitespace`|Specifies whether to ignore whitespace when comparing revisions during blame operations
+|`gitlens.blame.separateLines`|Specifies whether gutter blame annotations will have line separators
 
 ### Hover Settings
 
 |Name | Description
 |-----|------------
-|`gitlens.hovers.annotations.changes`|Specifies whether or not to provide a changes (diff) hover for all lines when showing blame annotations
-|`gitlens.hovers.annotations.details`|Specifies whether or not to provide a commit details hover for all lines when showing blame annotations
-|`gitlens.hovers.annotations.enabled`|Specifies whether or not to provide any hovers when showing blame annotations
+|`gitlens.hovers.annotations.changes`|Specifies whether to provide a changes (diff) hover for all lines when showing blame annotations
+|`gitlens.hovers.annotations.details`|Specifies whether to provide a commit details hover for all lines when showing blame annotations
+|`gitlens.hovers.annotations.enabled`|Specifies whether to provide any hovers when showing blame annotations
 |`gitlens.hovers.annotations.over`|Specifies when to trigger hovers when showing blame annotations<br /> `annotation` - only shown when hovering over the line annotation<br /> `line` - shown when hovering anywhere over the line
-|`gitlens.hovers.currentLine.changes`|Specifies whether or not to provide a changes (diff) hover for the current line
-|`gitlens.hovers.currentLine.details`|Specifies whether or not to provide a commit details hover for the current line
-|`gitlens.hovers.currentLine.enabled`|Specifies whether or not to provide any hovers for the current line
+|`gitlens.hovers.currentLine.changes`|Specifies whether to provide a changes (diff) hover for the current line
+|`gitlens.hovers.currentLine.details`|Specifies whether to provide a commit details hover for the current line
+|`gitlens.hovers.currentLine.enabled`|Specifies whether to provide any hovers for the current line
 |`gitlens.hovers.currentLine.over`|Specifies when to trigger hovers for the current line<br /> `annotation` - only shown when hovering over the line annotation<br /> `line` - shown when hovering anywhere over the line
-|`gitlens.hovers.enabled`|Specifies whether or not to provide any hovers
+|`gitlens.hovers.enabled`|Specifies whether to provide any hovers
 
 ### Recent Changes Settings
 
@@ -584,7 +584,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |`gitlens.statusBar.alignment`|Specifies the blame alignment in the status bar<br />`left` - align to the left,  `right` - align to the right
 |`gitlens.statusBar.command`|Specifies the command to be executed when the blame status bar item is clicked<br />`gitlens.toggleFileBlame` - toggles file blame annotations<br />`gitlens.diffWithPrevious` - compares the current line commit with the previous<br />`gitlens.diffWithWorking` - compares the current line commit with the working tree<br />`gitlens.toggleCodeLens` - toggles Git code lens<br />`gitlens.showQuickCommitDetails` - shows a commit details quick pick<br />`gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick<br />`gitlens.showQuickFileHistory` - shows a file history quick pick<br />`gitlens.showQuickRepoHistory` - shows a branch history quick pick
 |`gitlens.statusBar.dateFormat`|Specifies the date format of absolute dates shown in the blame information on the status bar<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
-|`gitlens.statusBar.enabled`|Specifies whether or not to provide blame information on the status bar
+|`gitlens.statusBar.enabled`|Specifies whether to provide blame information on the status bar
 |`gitlens.statusBar.format`|Specifies the format of the blame information on the status bar<br />Available tokens<br />`${id}` - commit id<br />`${author}` - commit author<br />`${message}` - commit message<br />`${ago}` - relative commit date (e.g. 1 day ago)<br />`${date}` - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
 
 ### Advanced Settings
@@ -599,9 +599,9 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |`gitlens.advanced.maxListItems`|Specifies the maximum number of items to show in a list. Use 0 to specify no maximum
 |`gitlens.advanced.menus`|Specifies which commands will be added to which menus
 |`gitlens.advanced.messages`|Specifies which messages should be suppressed
-|`gitlens.advanced.quickPick.closeOnFocusOut`|Specifies whether or not to close QuickPick menus when focus is lost
+|`gitlens.advanced.quickPick.closeOnFocusOut`|Specifies whether to close QuickPick menus when focus is lost
 |`gitlens.advanced.repositorySearchDepth`|Specifies how many folders deep to search for repositories
-|`gitlens.advanced.telemetry.enabled`|Specifies whether or not to enable GitLens telemetry (even if enabled still abides by the overall `telemetry.enableTelemetry` setting
+|`gitlens.advanced.telemetry.enabled`|Specifies whether to enable GitLens telemetry (even if enabled still abides by the overall `telemetry.enableTelemetry` setting
 
 #### Custom Remotes Settings
 

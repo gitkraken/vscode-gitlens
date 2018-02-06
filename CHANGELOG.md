@@ -20,10 +20,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds an all-new GitLens welcome page via the *Welcome* (`gitlens.showWelcomePage`) command &mdash; provides a welcome / onboarding experience
 - Adds an all-new GitLens Settings editor via the *Open Settings* (`gitlens.showSettingsPage`) command &mdash; provides an easy-to-use WYSIWYG settings editor for many of GitLen's features
-- Adds `gitlens.hovers.enabled` setting to specify whether or not to provide any hovers
-- Adds `gitlens.hovers.annotations.enabled` setting to specify whether or not to provide any hovers when showing blame annotations
-- Adds `gitlens.hovers.currentLine.enabled` setting to specify whether or not to provide any hovers for the current line
-- Adds `gitlens.showWhatsNewAfterUpgrades` setting to specify whether or not to show What's New after upgrading to new feature releases
+- Adds `gitlens.hovers.enabled` setting to specify whether to provide any hovers
+- Adds `gitlens.hovers.annotations.enabled` setting to specify whether to provide any hovers when showing blame annotations
+- Adds `gitlens.hovers.currentLine.enabled` setting to specify whether to provide any hovers for the current line
+- Adds `gitlens.showWhatsNewAfterUpgrades` setting to specify whether to show What's New after upgrading to new feature releases
 - Adds `debug` option to the `gitlens.outputLevel` setting &mdash; outputs git commands to a new output channel called *GitLens (Git)*
 
 ### Changed
@@ -148,7 +148,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [7.5.1] - 2018-01-15
 ### Added
 - Adds [Gravatar](https://en.gravatar.com/) support to gutter and hover blame annotations
-- Adds `gitlens.annotations.file.gutter.gravatars` setting to specify whether or not to show gravatar images in the gutter blame annotations
+- Adds `gitlens.annotations.file.gutter.gravatars` setting to specify whether to show gravatar images in the gutter blame annotations
 - Adds support for providing blame annotations, code lens, etc on files with unsaved changes &mdash; closes [#112](https://github.com/eamodio/vscode-gitlens/issues/112)
 - Adds `gitlens.defaultDateStyle` setting to specify how dates will be displayed by default &mdash; closes [#89](https://github.com/eamodio/vscode-gitlens/issues/89)
 - Adds *Compare with Working Tree* command (`gitlens.explorers.compareWithWorking`) to branch, tag, and revision (commit) nodes in the **GitLens** view to compare the current selection with the current working tree in the **GitLens Results** view
@@ -233,9 +233,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Provides a context menu with a *Refresh* command
 
 - Adds [Gravatar](https://en.gravatar.com/) support to the **GitLens** view
-  - Adds `gitlens.gitExplorer.gravatars` setting to specify whether or not to show gravatar images instead of commit (or status) icons in the **GitLens** view
+  - Adds `gitlens.gitExplorer.gravatars` setting to specify whether to show gravatar images instead of commit (or status) icons in the **GitLens** view
   - Adds `gitlens.gitExplorer.gravatarsDefault` setting to specify the style of the gravatar default (fallback) images in the **GitLens** view<br />`identicon` - a geometric pattern<br />`mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)<br />`monsterid` - a monster with different colors, faces, etc<br />`retro` - 8-bit arcade-style pixelated faces<br />`robohash` - a robot with different colors, faces, etc<br />`wavatar` - faces with differing features and backgrounds
-  - Adds `gitlens.resultsExplorer.gravatars` setting to specify whether or not to show gravatar images instead of commit (or status) icons in the **GitLens Results** view
+  - Adds `gitlens.resultsExplorer.gravatars` setting to specify whether to show gravatar images instead of commit (or status) icons in the **GitLens Results** view
   - Adds `gitlens.resultsExplorer.gravatarsDefault` setting to specify the style of the gravatar default (fallback) images in the **GitLens Results** view<br />`identicon` - a geometric pattern<br />`mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)<br />`monsterid` - a monster with different colors, faces, etc<br />`retro` - 8-bit arcade-style pixelated faces<br />`robohash` - a robot with different colors, faces, etc<br />`wavatar` - faces with differing features and backgrounds
 
 - Adds *Select for Compare* command (`gitlens.explorers.selectForCompare`) to branch, remote branch, tag, and revision (commit) nodes in the **GitLens** view to mark the base reference of a comparison
@@ -416,7 +416,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds *Open All Changes (with difftool)* command (`gitlens.externalDiffAll`) - opens all working changes with the configured git difftool &mdash; closes [#164](https://github.com/eamodio/vscode-gitlens/issues/164)
   - Also adds the command to the Source Control group context menu
-- Adds `gitlens.gitExplorer.autoRefresh` setting to specify whether or not to automatically refresh the **GitLens** view when the repository or the file system changes
+- Adds `gitlens.gitExplorer.autoRefresh` setting to specify whether to automatically refresh the **GitLens** view when the repository or the file system changes
 - Adds *Enable Automatic Refresh* command (`gitlens.gitExplorer.setAutoRefreshToOn`) to enable the automatic refresh of the **GitLens** view
 - Adds *Disable Automatic Refresh* command (`gitlens.gitExplorer.setAutoRefreshToOff`) to disable the automatic refresh of the **GitLens** view
 - Adds *Show Files in Automatic View* command (`gitlens.gitExplorer.setFilesLayoutToAuto`) to change to an automatic layout for the files in the **GitLens** view
@@ -464,9 +464,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [5.6.0] - 2017-10-11
 ### Added
 - Adds **changes** (diff) hover annotation support to both the *gutter* and *hover* file blame annotations
-- Adds `gitlens.annotations.file.gutter.hover.changes` setting to specify whether or not to provide a changes (diff) hover annotation over the gutter blame annotations
-- Adds `gitlens.annotations.file.hover.details` setting to specify whether or not to provide a commit details hover annotation over each line
-- Adds `gitlens.annotations.file.hover.changes` setting to specify whether or not to provide a changes (diff) hover annotation over each line
+- Adds `gitlens.annotations.file.gutter.hover.changes` setting to specify whether to provide a changes (diff) hover annotation over the gutter blame annotations
+- Adds `gitlens.annotations.file.hover.details` setting to specify whether to provide a commit details hover annotation over each line
+- Adds `gitlens.annotations.file.hover.changes` setting to specify whether to provide a changes (diff) hover annotation over each line
 
 ### Changed
 - Changes `gitlens.codeLens.customLocationSymbols` setting to both include and exclude (using a `!` prefix) symbols and therefore is always applied
@@ -526,7 +526,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - `list` - displays files as a list
   - `tree` - displays files as a tree
 - Adds `gitlens.gitExplorer.files.layout` setting to specify how the **GitLens** view will display files
-- Adds `gitlens.gitExplorer.files.compact` setting to specify whether or not to compact (flatten) unnecessary file nesting in the **GitLens** view
+- Adds `gitlens.gitExplorer.files.compact` setting to specify whether to compact (flatten) unnecessary file nesting in the **GitLens** view
 - Adds `gitlens.gitExplorer.files.threshold` setting to specify when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the **GitLens** view
 - Adds `${directory}` token to the file formatting settings
 
@@ -543,8 +543,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Expands to a file-based view of all changed files in the working tree (enabled via `"gitlens.insiders": true`) and/or all files in all commits ahead of the upstream
 - Adds optional (on by default) working tree status information to the **Repository Status** node in the **GitLens** view
 - Adds `auto` value to `gitlens.gitExplorer.view` setting - closes [#150](https://github.com/eamodio/vscode-gitlens/issues/150)
-- Adds `gitlens.gitExplorer.enabled` setting to specify whether or not to show the **GitLens** view - closes [#144](https://github.com/eamodio/vscode-gitlens/issues/144)
-- Adds `gitlens.gitExplorer.includeWorkingTree` setting to specify whether or not to include working tree files inside the **Repository Status** node of the **GitLens** view
+- Adds `gitlens.gitExplorer.enabled` setting to specify whether to show the **GitLens** view - closes [#144](https://github.com/eamodio/vscode-gitlens/issues/144)
+- Adds `gitlens.gitExplorer.includeWorkingTree` setting to specify whether to include working tree files inside the **Repository Status** node of the **GitLens** view
 - Adds `gitlens.gitExplorer.statusFileFormat` setting to the format of the status of a working or committed file in the **GitLens** view
 
 ### Changed
@@ -640,13 +640,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds support for remote services with custom domains &mdash; closes [#120](https://github.com/eamodio/vscode-gitlens/issues/120)
 - Adds support for the Bitbucket Server (previously called Stash) remote service &mdash; closes [#120](https://github.com/eamodio/vscode-gitlens/issues/120)
-- Adds `gitlens.blame.ignoreWhitespace` setting to specify whether or not to ignore whitespace when comparing revisions during blame operations &mdash; closes [#138](https://github.com/eamodio/vscode-gitlens/issues/138)
+- Adds `gitlens.blame.ignoreWhitespace` setting to specify whether to ignore whitespace when comparing revisions during blame operations &mdash; closes [#138](https://github.com/eamodio/vscode-gitlens/issues/138)
 - Adds *Compare File Revisions* command (`gitlens.diffWith`) - compares the specified file revisions
 - Adds *Open Branches in Remote* command (`gitlens.openBranchesInRemote`) - opens the branches in the supported remote service
 - Adds *Stash Changes* command (`gitlens.stashSave`) to the source control group context menu &mdash; can now stash a group of files
 - Adds *Stash Changes* command (`gitlens.stashSave`) to the source control resource context menu &mdash; can now stash individual files (works with multi-select too!)
 - Adds `gitlens.gitExplorer.view` setting to specify the starting view (mode) of the **GitLens** view
-- Adds `gitlens.gitExplorer.showTrackingBranch` setting to specify whether or not to show the tracking branch when displaying local branches in the **GitLens** view
+- Adds `gitlens.gitExplorer.showTrackingBranch` setting to specify whether to show the tracking branch when displaying local branches in the **GitLens** view
 - Adds `gitlens.gitExplorer.commitFormat` setting to specify the format of committed changes in the **GitLens** view
 - Adds `gitlens.gitExplorer.commitFileFormat` setting to specify the format of a committed file in the **GitLens** view
 - Adds `gitlens.gitExplorer.stashFormat` setting to specify the format of stashed changes in the **GitLens** view
@@ -723,7 +723,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [4.3.1] - 2017-07-03
 ## Added
-- Adds `gitlens.stashExplorer.enabled` setting to specify whether or not to show the **Git Stashes** view
+- Adds `gitlens.stashExplorer.enabled` setting to specify whether to show the **Git Stashes** view
 - Adds *Toggle Git Stashes Explorer* command (`gitlens.stashExplorer.toggle`) - toggles the **Git Stashes** view on and off
 
 ## Changed
@@ -1084,7 +1084,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [2.12.1]
 ### Added
-- Adds `gitlens.advanced.codeLens.debug` setting to control whether or not to show debug information in code lens
+- Adds `gitlens.advanced.codeLens.debug` setting to control whether to show debug information in code lens
 
 ### Fixed
 - Fixes issue where `gitlens.showQuickRepoHistory` command fails to open when there is no active editor
