@@ -41,7 +41,7 @@ export class GitLogParser {
         let i = 0;
         let first = true;
 
-        const lines = Strings.lines(data + '\n</f>');
+        const lines = Strings.lines(data + '</f>');
         // Skip the first line since it will always be </f>
         let next = lines.next();
         if (next.done) return undefined;

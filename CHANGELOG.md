@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes [#35](https://github.com/eamodio/vscode-gitlens/issues/35) - Copy Commit Sha to Clipboard not working (linux)
+- Fixes issue where the last commit of a file history would be broken (failed to parse correctly)
 
 ## [8.0.0-beta3] - 2018-02-03
 ### Added

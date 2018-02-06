@@ -17,7 +17,9 @@ const emptyEntry: StashEntry = {};
 export class GitStashParser {
 
     static parse(data: string, repoPath: string): GitStash | undefined {
-        const lines = Strings.lines(data + '\n</f>');
+        if (!data) return undefined;
+
+        const lines = Strings.lines(data + '</f>');
         // Skip the first line since it will always be </f>
         let next = lines.next();
         if (next.done) return undefined;
