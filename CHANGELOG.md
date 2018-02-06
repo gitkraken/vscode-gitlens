@@ -4,22 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [8.0.0-rc] - 2018-02-06
 ### Added
+- Adds an all-new GitLens welcome page via the *Welcome* (`gitlens.showWelcomePage`) command &mdash; provides a welcome / onboarding experience
+- Adds an all-new GitLens Settings editor via the *Open Settings* (`gitlens.showSettingsPage`) command &mdash; provides an easy-to-use WYSIWYG settings editor for many of GitLen's features
 - Adds a tree layout option to branches in the *GitLens* explorer &mdash; closes [#258](https://github.com/eamodio/vscode-gitlens/issues/258) thanks to [PR #260](https://github.com/eamodio/vscode-gitlens/pull/260) by Yukai Huang ([@Yukaii](https://github.com/Yukaii))!
 - Adds *Follow Renames* command (`gitlens.gitExplorer.setRenameFollowingOn`) to the **GitLens** explorer *History* view to follow file renames in the history
 - Adds *Don't Follow Renames* command (`gitlens.gitExplorer.setRenameFollowingOff`) to the **GitLens** explorer *History* view to not follow file renames in the history
 - Adds `gitlens.advanced.fileHistoryFollowsRenames` setting to specify whether file histories will follow renames -- will affect how merge commits are shown in histories &mdash; closes [#259](https://github.com/eamodio/vscode-gitlens/issues/259)
-
-### Fixed
-- Fixes [#35](https://github.com/eamodio/vscode-gitlens/issues/35) - Copy Commit Sha to Clipboard not working (linux)
-- Fixes issue where the last commit of a file history would be broken (failed to parse correctly)
-- Fixes issue with *Open Working File* command (`gitlens.openWorkingFile`) failing when a file was renamed
-
-## [8.0.0-beta3] - 2018-02-03
-### Added
-- Adds an all-new GitLens welcome page via the *Welcome* (`gitlens.showWelcomePage`) command &mdash; provides a welcome / onboarding experience
-- Adds an all-new GitLens Settings editor via the *Open Settings* (`gitlens.showSettingsPage`) command &mdash; provides an easy-to-use WYSIWYG settings editor for many of GitLen's features
 - Adds `gitlens.hovers.enabled` setting to specify whether to provide any hovers
 - Adds `gitlens.hovers.annotations.enabled` setting to specify whether to provide any hovers when showing blame annotations
 - Adds `gitlens.hovers.currentLine.enabled` setting to specify whether to provide any hovers for the current line
@@ -82,6 +74,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes `gitlens.annotations.file.recentChanges.hover.details` setting, use `gitlens.hovers.annotations.details` instead
 - Removes `gitlens.annotations.line.hover.changes` setting, use `gitlens.hovers.annotations.changes` instead
 - Removes `gitlens.annotations.line.hover.details` setting, use `gitlens.hovers.annotations.details` instead
+
+### Fixed
+- Fixes [#35](https://github.com/eamodio/vscode-gitlens/issues/35) - Copy Commit Sha to Clipboard not working (linux)
+- Fixes issue where the last commit of a file history would be broken (failed to parse correctly)
+- Fixes issue with *Open Working File* command (`gitlens.openWorkingFile`) failing when a file was renamed
 
 ## [7.5.10] - 2018-02-01
 ### Added
@@ -275,13 +272,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes incorrect blame highlighting &mdash; thanks to [PR #231](https://github.com/eamodio/vscode-gitlens/pull/231) by Alexey Vasyukov ([@notmedia](https://github.com/notmedia))!
 - Fixes issue with the *Open in File/Revision* option in the file history quick pick menu
 - Fixes issues with Git warnings when parsing log status output (can cause the **GitLens** view to not show data in some cases)
-- Fixes 🤞 [#226](https://github.com/eamodio/vscode-gitlens/issues/226) - Annotations show in Debug Console
+- Fixes &#x1F91E; [#226](https://github.com/eamodio/vscode-gitlens/issues/226) - Annotations show in Debug Console
 
 ## [6.4.0] - 2017-12-12
 ### Added
 - Adds `gitlens.keymap` setting to specify the keymap to use for GitLens shortcut keys &mdash; closes [#104](https://github.com/eamodio/vscode-gitlens/issues/104)
   - `standard` - adds a standard set of shortcut keys
-  - `chorded` - adds a chorded set of shortcut keys that all start with `Ctrl+Alt+G` (`⌥⌘G` on macOS)
+  - `chorded` - adds a chorded set of shortcut keys that all start with `Ctrl+Alt+G` (<code>&#x2325;&#x2318;G</code> on macOS)
   - `none` - no shortcut keys will be added
 - Adds progress indicator to the *Show Stashed Changes* command (`gitlens.showQuickStashList`)
 - Adds progress indicator to the *Apply Stashed Changes* command (`gitlens.stashApply`)
@@ -306,8 +303,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds Git code lens to Git file revisions (GitLens or vscode's)
 
 ### Fixed
-- Fixes 🤞 [#202](https://github.com/eamodio/vscode-gitlens/issues/202) - Staged change's vscode diff side-by-side view shows the wrong history
-- Fixes 🤞 [#216](https://github.com/eamodio/vscode-gitlens/issues/216) - PowerShell session not started if GitLen is enabled
+- Fixes &#x1F91E; [#202](https://github.com/eamodio/vscode-gitlens/issues/202) - Staged change's vscode diff side-by-side view shows the wrong history
+- Fixes &#x1F91E; [#216](https://github.com/eamodio/vscode-gitlens/issues/216) - PowerShell session not started if GitLen is enabled
 - Fixes [#217](https://github.com/eamodio/vscode-gitlens/issues/217) - empty editor has git lens in status bar with old information
 - Fixes [#218](https://github.com/eamodio/vscode-gitlens/issues/218) - Cannot read property 'replace' of undefined
 - Fixes issue with feedback when searching for commits without any matches
