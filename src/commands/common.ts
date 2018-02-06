@@ -1,5 +1,5 @@
 'use strict';
-import { commands, Disposable, SourceControlResourceGroup, SourceControlResourceState, TextDocumentShowOptions, TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
+import { commands, Disposable, SourceControlResourceGroup, SourceControlResourceState, TextDocumentShowOptions, TextEditor, TextEditorEdit, Uri, ViewColumn, window, workspace } from 'vscode';
 import { ExplorerNode, ExplorerRefNode } from '../views/explorerNodes';
 import { GitBranch, GitCommit, GitRemote, GitUri } from '../gitService';
 import { Logger } from '../logger';
@@ -305,7 +305,7 @@ export async function openEditor(uri: Uri, options: TextDocumentShowOptions & { 
         return window.showTextDocument(document, {
             preserveFocus: false,
             preview: true,
-            viewColumn: (window.activeTextEditor && window.activeTextEditor.viewColumn) || 1,
+            viewColumn: ViewColumn.Active,
             ...opts
         });
     }

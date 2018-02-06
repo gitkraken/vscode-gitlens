@@ -1,5 +1,5 @@
 'use strict';
-import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, ViewColumn, window } from 'vscode';
 import { ActiveEditorCommand, Commands } from './common';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -103,13 +103,6 @@ export class DiffWithCommand extends ActiveEditorCommand {
                 Container.git.getVersionedFile(args.repoPath, args.rhs.uri.fsPath, args.rhs.sha)
             ]);
 
-            if (args.line !== undefined && args.line !== 0) {
-                if (args.showOptions === undefined) {
-                    args.showOptions = {};
-                }
-                args.showOptions.selection = new Range(args.line, 0, args.line, 0);
-            }
-
             let rhsPrefix = '';
             if (rhs === undefined) {
                 rhsPrefix = GitService.isUncommitted(args.rhs.sha)
@@ -143,6 +136,18 @@ export class DiffWithCommand extends ActiveEditorCommand {
             const title = (args.lhs.title !== undefined && args.rhs.title !== undefined)
                 ? `${args.lhs.title} ${GlyphChars.ArrowLeftRight} ${args.rhs.title}`
                 : args.lhs.title || args.rhs.title;
+
+            if (args.showOptions === undefined) {
+                args.showOptions = {};
+            }
+
+            if (args.showOptions.viewColumn === undefined) {
+                args.showOptions.viewColumn = ViewColumn.Active;
+            }
+
+            if (args.line !== undefined && args.line !== 0) {
+                args.showOptions.selection = new Range(args.line, 0, args.line, 0);
+            }
 
             return await commands.executeCommand(BuiltInCommands.Diff,
                 lhs === undefined
