@@ -66,7 +66,17 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
                 }
             }
 
-            clipboard.copy(args.sha);
+            clipboard.copy(args.sha, (err: Error) => {
+                if (err) {
+                    if (err.message.includes('xclip')) {
+                        window.showErrorMessage(`Unable to copy commit id, xclip is not installed. You can install it via \`sudo apt-get install xclip\``);
+                        return;
+                    }
+
+                    Logger.error(err, 'CopyShaToClipboardCommand');
+                    window.showErrorMessage(`Unable to copy commit id. See output channel for more details`);
+                }
+            });
             return undefined;
         }
         catch (ex) {

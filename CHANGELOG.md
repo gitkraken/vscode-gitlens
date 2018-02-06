@@ -71,6 +71,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes `gitlens.annotations.line.hover.changes` setting, use `gitlens.hovers.annotations.changes` instead
 - Removes `gitlens.annotations.line.hover.details` setting, use `gitlens.hovers.annotations.details` instead
 
+### Fixed
+- Fixes [#35](https://github.com/eamodio/vscode-gitlens/issues/35) - Copy Commit Sha to Clipboard not working (linux)
+
 ## [7.5.10] - 2018-02-01
 ### Added
 - Adds support for custom remotes with split project/repo url structure &mdash; closes [#267](https://github.com/eamodio/vscode-gitlens/issues/267)

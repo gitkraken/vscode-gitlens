@@ -81,7 +81,17 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 args.message = commit.message;
             }
 
-            clipboard.copy(args.message);
+            clipboard.copy(args.message, (err: Error) => {
+                if (err) {
+                    if (err.message.includes('xclip')) {
+                        window.showErrorMessage(`Unable to copy message, xclip is not installed. You can install it via \`sudo apt-get install xclip\``);
+                        return;
+                    }
+
+                    Logger.error(err, 'CopyMessageToClipboardCommand');
+                    window.showErrorMessage(`Unable to copy message. See output channel for more details`);
+                }
+            });
             return undefined;
         }
         catch (ex) {
