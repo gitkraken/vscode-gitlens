@@ -4,10 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [8.0.0-rc] - 2018-02-06
+## [8.0.0] - 2018-02-07
 ### Added
-- Adds an all-new GitLens welcome page via the *Welcome* (`gitlens.showWelcomePage`) command &mdash; provides a welcome / onboarding experience
-- Adds an all-new GitLens Settings editor via the *Open Settings* (`gitlens.showSettingsPage`) command &mdash; provides an easy-to-use WYSIWYG settings editor for many of GitLen's features
+- Adds an all-new GitLens welcome page via the *Welcome* (`gitlens.showWelcomePage`) command &mdash; provides a welcome / onboarding experience &mdash; closes [#51](https://github.com/eamodio/vscode-gitlens/issues/51)
+- Adds an all-new GitLens Settings editor via the *Open Settings* (`gitlens.showSettingsPage`) command &mdash; provides an easy-to-use WYSIWYG settings editor for many of GitLen's features &mdash; closes [#167](https://github.com/eamodio/vscode-gitlens/issues/167)
 - Adds a tree layout option to branches in the *GitLens* explorer &mdash; closes [#258](https://github.com/eamodio/vscode-gitlens/issues/258) thanks to [PR #260](https://github.com/eamodio/vscode-gitlens/pull/260) by Yukai Huang ([@Yukaii](https://github.com/Yukaii))!
 - Adds *Follow Renames* command (`gitlens.gitExplorer.setRenameFollowingOn`) to the **GitLens** explorer *History* view to follow file renames in the history
 - Adds *Don't Follow Renames* command (`gitlens.gitExplorer.setRenameFollowingOff`) to the **GitLens** explorer *History* view to not follow file renames in the history
@@ -481,7 +481,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds a **quick-access** command bar to the bottom of the **details** hover annotations
 
-  ![Details Blame Annotation (hover)](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-hovers-current-line-details.png)
+  ![Details Blame Annotation (hover)](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-hovers-current-line-details.png)
 
   - Provides *Open Changes*, *Blame Previous Revision*, *Open in Remote*, and *Show More Actions* command buttons
 - Adds support for remembering file annotations when switching tabs
@@ -577,7 +577,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
   - **Repository View** - provides a full repository explorer
 
-    ![GitLens Repository view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-gitlens-explorer-repository.png)
+    ![GitLens Repository view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-explorer-repository.png)
 
     - **Repository Status** node &mdash; provides the status of the repository
       - Provides the name of the current branch, its upstream tracking branch (if available), and its upstream status (if available)
@@ -616,7 +616,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
   - **History View** - provides the revision history of the active file
 
-    ![GitLens History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-gitlens-explorer-history.png)
+    ![GitLens History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-explorer-history.png)
 
     - Automatically updates to track the active editor
     - Provides a context menu with *Open File*, *Open File in Remote*, and *Refresh* commands
@@ -627,7 +627,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds all-new interactivity to the hover annotations
 
-  ![Hover Annotations](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/ss-hovers-annotations.png)
+  ![Hover Annotations](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-hovers-annotations.png)
 
   - Adds the following command-links to the **details** hover annotation
     - Clicking the commit id will run the *Show Commit Details* command (`gitlens.showQuickCommitDetails`)

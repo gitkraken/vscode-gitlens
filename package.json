@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "8.0.0-rc",
+    "version": "8.0.0",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -3302,7 +3302,7 @@
     },
     "devDependencies": {
         "@types/copy-paste": "1.1.30",
-        "@types/node": "9.4.0",
+        "@types/node": "9.4.1",
         "@types/tmp": "0.0.33",
         "husky": "0.14.3",
         "ts-loader": "3.4.0",
