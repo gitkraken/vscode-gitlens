@@ -737,6 +737,12 @@
                     "description": "Specifies the format of the status bar blame information\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)\n ${authorAgo} - commit author, relative commit date\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting",
                     "scope": "window"
                 },
+                "gitlens.statusBar.reduceFlicker": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Specifies whether to reduce the status bar \"flickering\" when changing lines by not first clearing the previous blame information",
+                    "scope": "window"
+                },
                 "gitlens.strings.codeLens.unsavedChanges.recentChangeAndAuthors": {
                     "type": "string",
                     "default": "Unsaved changes (cannot determine recent change or authors)",

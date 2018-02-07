@@ -310,11 +310,12 @@ export interface IConfig {
     showWhatsNewAfterUpgrades: boolean;
 
     statusBar: {
-        enabled: boolean;
         alignment: 'left' | 'right';
         command: StatusBarCommand;
-        format: string;
         dateFormat: string | null;
+        enabled: boolean;
+        format: string;
+        reduceFlicker: boolean;
     };
 
     strings: {

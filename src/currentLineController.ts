@@ -167,7 +167,7 @@ export class CurrentLineController extends Disposable {
             return;
         }
 
-        this.clear(e.editor);
+        this.clear(e.editor, (Container.config.statusBar.reduceFlicker && e.reason === 'line' && e.line !== undefined) ? 'line' : undefined);
     }
 
     private onBlameStateChanged(e: DocumentBlameStateChangeEvent<GitDocumentState>) {
@@ -215,7 +215,7 @@ export class CurrentLineController extends Disposable {
         this.refresh(window.activeTextEditor);
     }
 
-    async clear(editor: TextEditor | undefined) {
+    async clear(editor: TextEditor | undefined, reason?: 'line') {
         if (this._editor !== editor && this._editor !== undefined) {
             this.clearAnnotations(this._editor);
         }
@@ -223,7 +223,10 @@ export class CurrentLineController extends Disposable {
 
         this._lineTracker.reset();
         this.unregisterHoverProviders();
-        this._statusBarItem && this._statusBarItem.hide();
+
+        if (this._statusBarItem !== undefined && reason !== 'line') {
+            this._statusBarItem.hide();
+        }
     }
 
     async provideDetailsHover(document: TextDocument, position: Position, token: CancellationToken): Promise<Hover | undefined> {
