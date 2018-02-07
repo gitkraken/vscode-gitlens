@@ -3,17 +3,35 @@ import { DOM } from './../shared/dom';
 import { initializeColorPalette } from '../shared/colors';
 import { IConfig } from './../config';
 
-const config: IConfig = (window as any).gitlens.config;
+const gitlens: { config: IConfig, scope: 'user' | 'workspace', scopes: ['user' | 'workspace', string][], uri: string } = (window as any).gitlens;
 
 export abstract class App {
 
     private readonly _commandRelay: HTMLAnchorElement;
     private readonly _changes: { [key: string]: any } = Object.create(null);
+    private readonly _scopes: HTMLSelectElement | null = null;
 
     constructor(private _appName: string) {
         this.log(`${this._appName}.ctor`);
 
         this._commandRelay = DOM.getElementById<HTMLAnchorElement>('commandRelay');
+
+        // Add scopes if available
+        const scopes = DOM.getElementById<HTMLSelectElement>('scopes');
+        if (scopes && gitlens.scopes.length > 1) {
+            for (const [scope, text] of gitlens.scopes) {
+                const option = document.createElement('option');
+                option.value = scope;
+                option.innerHTML = text;
+                if (gitlens.scope === scope) {
+                    option.selected = true;
+                }
+                scopes.appendChild(option);
+            }
+
+            scopes.parentElement!.classList.remove('hidden');
+            this._scopes = scopes;
+        }
 
         initializeColorPalette();
         this.initialize();
@@ -23,32 +41,32 @@ export abstract class App {
     protected initialize() {
         this.log(`${this._appName}.initializeState`);
 
-        for (const el of document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
+        for (const el of document.querySelectorAll<HTMLInputElement>('input[type="checkbox"].setting')) {
             const checked = el.dataset.type === 'array'
                 ? (getSettingValue<string[]>(el.name) || []).includes(el.value)
                 : getSettingValue<boolean>(el.name) || false;
             el.checked = checked;
         }
 
-        for (const el of document.querySelectorAll<HTMLSelectElement>('select')) {
+        for (const el of document.querySelectorAll<HTMLSelectElement>('select.setting')) {
             const value = getSettingValue<string>(el.name);
-            const input = el.querySelector<HTMLOptionElement>(`option[value='${value}']`);
-            if (input != null) {
-                input.selected = true;
+            const option = el.querySelector<HTMLOptionElement>(`option[value='${value}']`);
+            if (option != null) {
+                option.selected = true;
             }
         }
 
-        const state = flatten(config);
+        const state = flatten(gitlens.config);
         this.setVisibility(state);
         this.setEnablement(state);
     }
 
     protected bind() {
         const onInputChecked = this.onInputChecked.bind(this);
-        DOM.listenAll('input[type="checkbox"],input[type="radio"]', 'change', function(this: HTMLInputElement) { onInputChecked(this); });
+        DOM.listenAll('input[type="checkbox"].setting', 'change', function(this: HTMLInputElement) { onInputChecked(this); });
 
         const onInputSelected = this.onInputSelected.bind(this);
-        DOM.listenAll('select', 'change', function(this: HTMLInputElement) { onInputSelected(this); });
+        DOM.listenAll('select.setting', 'change', function(this: HTMLInputElement) { onInputSelected(this); });
     }
 
     protected log(message: string) {
@@ -89,6 +107,8 @@ export abstract class App {
     }
 
     private onInputSelected(element: HTMLSelectElement) {
+        if (element === this._scopes) return;
+
         const value = element.options[element.selectedIndex].value;
 
         this.log(`${this._appName}.onInputSelected: name=${element.name}, value=${value}`);
@@ -99,8 +119,12 @@ export abstract class App {
     }
 
     private applyChanges() {
-        const args = JSON.stringify(this._changes);
-        this.log(`${this._appName}.applyChanges: changes=${args}`);
+        const args = JSON.stringify({
+            changes: this._changes,
+            scope: this.getScope(),
+            uri: gitlens.uri
+        });
+        this.log(`${this._appName}.applyChanges: args=${args}`);
 
         const command = 'command:gitlens.saveSettings?' + encodeURI(args);
         setTimeout(() => this.executeCommand(command), 0);
@@ -113,6 +137,12 @@ export abstract class App {
 
         this._commandRelay.setAttribute('href', command);
         this._commandRelay.click();
+    }
+
+    private getScope(): 'user' | 'workspace' {
+        return this._scopes != null
+            ? this._scopes.options[this._scopes.selectedIndex].value as 'user' | 'workspace'
+            : 'user';
     }
 
     private setAdditionalSettings(expression: string | undefined) {
@@ -200,7 +230,7 @@ function get<T>(o: { [key: string ]: any}, path: string): T | undefined {
 }
 
 function getSettingValue<T>(path: string): T | undefined {
-    return get<T>(config, path);
+    return get<T>(gitlens.config, path);
 }
 
 function parseAdditionalSettingsExpression(expression: string): [string, string | boolean][] {

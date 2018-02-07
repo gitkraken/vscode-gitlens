@@ -72,6 +72,8 @@ header {
 }
 
 input, select, button {
+    font-family: var(--font-family);
+    font-size: inherit;
     margin: 0;
 }
 
@@ -401,6 +403,7 @@ ul {
 
 .page-header {
     margin: 1em 0 2em 0;
+    position: relative;
 }
 
 .page-header__title {
@@ -581,6 +584,22 @@ ul {
 
 .setting__hint--indent-4 {
     margin-left: 7em;
+}
+
+.settings-scope {
+    margin: 1.6em 185px 0 0;
+    position: absolute;
+    right: 0;
+    top: -2px;
+    white-space: nowrap;
+
+    select, option {
+        background-color: var(--background-color) !important;
+    }
+
+    @media all and (max-width: 860px) {
+        margin-right: -9px;
+    }
 }
 
 .sidebar-group {
