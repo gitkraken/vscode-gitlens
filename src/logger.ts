@@ -46,7 +46,7 @@ export class Logger {
             console.log(this.timestamp, ConsolePrefix, message, ...params);
         }
 
-        if (this.output !== undefined && this.level === OutputLevel.Verbose) {
+        if (this.output !== undefined && (this.level === OutputLevel.Verbose || this.level === OutputLevel.Debug)) {
             this.output.appendLine((this.debug ? [this.timestamp, message, ...params] : [message, ...params]).join(' '));
         }
     }
