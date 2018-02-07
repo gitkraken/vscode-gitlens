@@ -83,7 +83,7 @@ export class AnnotationController extends Disposable {
                     backgroundColor: cfgHighlight.locations.includes(HighlightLocations.Line)
                         ? new ThemeColor('gitlens.lineHighlightBackgroundColor')
                         : undefined,
-                    overviewRulerColor: cfgHighlight.locations.includes(HighlightLocations.OverviewRuler)
+                    overviewRulerColor: cfgHighlight.locations.includes(HighlightLocations.Overview)
                         ? new ThemeColor('gitlens.lineHighlightOverviewRulerColor')
                         : undefined,
                     dark: {
@@ -115,7 +115,7 @@ export class AnnotationController extends Disposable {
                 backgroundColor: cfgHighlight.locations.includes(HighlightLocations.Line)
                     ? new ThemeColor('gitlens.lineHighlightBackgroundColor')
                     : undefined,
-                overviewRulerColor: cfgHighlight.locations.includes(HighlightLocations.OverviewRuler)
+                overviewRulerColor: cfgHighlight.locations.includes(HighlightLocations.Overview)
                     ? new ThemeColor('gitlens.lineHighlightOverviewRulerColor')
                     : undefined,
                 dark: {

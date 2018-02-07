@@ -1,7 +1,7 @@
 'use strict';
 import { Objects, Versions } from './system';
 import { commands, ConfigurationTarget, ExtensionContext, extensions, window, workspace } from 'vscode';
-import { CodeLensLanguageScope, CodeLensScopes, configuration, Configuration, IConfig, OutputLevel } from './configuration';
+import { CodeLensLanguageScope, CodeLensScopes, configuration, Configuration, HighlightLocations, IConfig, OutputLevel } from './configuration';
 import { CommandContext, ExtensionKey, GlobalState, QualifiedExtensionId, setCommandContext } from './constants';
 import { Commands, configureCommands } from './commands';
 import { Container } from './container';
@@ -172,6 +172,28 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
         if (Versions.compare(previous, Versions.from(8, 0, 0, 'beta2')) !== 1) {
             await configuration.migrate<boolean, OutputLevel>('debug', configuration.name('outputLevel').value, v => v ? OutputLevel.Debug : configuration.get(configuration.name('outputLevel').value));
             await configuration.migrate('debug', configuration.name('debug').value, v => undefined);
+        }
+
+        if (Versions.compare(previous, Versions.from(8, 0, 0, 'rc')) !== 1) {
+            let section = configuration.name('blame')('highlight')('locations').value;
+            await configuration.migrate<('gutter' | 'line' | 'overviewRuler')[], HighlightLocations[]>(section, section,
+                v => {
+                    const index = v.indexOf('overviewRuler');
+                    if (index !== -1) {
+                        v.splice(index, 1, 'overview' as 'overviewRuler');
+                    }
+                    return v as HighlightLocations[];
+                });
+
+            section = configuration.name('recentChanges')('highlight')('locations').value;
+            await configuration.migrate<('gutter' | 'line' | 'overviewRuler')[], HighlightLocations[]>(section, section,
+                v => {
+                    const index = v.indexOf('overviewRuler');
+                    if (index !== -1) {
+                        v.splice(index, 1, 'overview' as 'overviewRuler');
+                    }
+                    return v as HighlightLocations[];
+                });
         }
     }
     catch (ex) {

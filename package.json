@@ -101,20 +101,20 @@
                     "default": [
                         "gutter",
                         "line",
-                        "overviewRuler"
+                        "overview"
                     ],
                     "items": {
                         "type": "string",
                         "enum": [
                             "gutter",
                             "line",
-                            "overviewRuler"
+                            "overview"
                         ]
                     },
                     "minItems": 1,
                     "maxItems": 3,
                     "uniqueItems": true,
-                    "description": "Specifies where the associated line highlights will be shown\n `gutter` - adds a gutter glyph\n `line` - adds a full-line highlight background color\n `overviewRuler` - adds a decoration to the overviewRuler (scroll bar)",
+                    "description": "Specifies where the associated line highlights will be shown\n `gutter` - adds a gutter glyph\n `line` - adds a full-line highlight background color\n `overview` - adds a decoration to the overview ruler (scroll bar)",
                     "scope": "window"
                 },
                 "gitlens.blame.ignoreWhitespace": {
@@ -555,20 +555,20 @@
                     "default": [
                         "gutter",
                         "line",
-                        "overviewRuler"
+                        "overview"
                     ],
                     "items": {
                         "type": "string",
                         "enum": [
                             "gutter",
                             "line",
-                            "overviewRuler"
+                            "overview"
                         ]
                     },
                     "minItems": 1,
                     "maxItems": 3,
                     "uniqueItems": true,
-                    "description": "Specifies where the highlights of the recently changed lines will be shown\n `gutter` - adds a gutter glyph\n `line` - adds a full-line highlight background color\n `overviewRuler` - adds a decoration to the overviewRuler (scroll bar)",
+                    "description": "Specifies where the highlights of the recently changed lines will be shown\n `gutter` - adds a gutter glyph\n `line` - adds a full-line highlight background color\n `overview` - adds a decoration to the overview ruler (scroll bar)",
                     "scope": "window"
                 },
                 "gitlens.remotes": {

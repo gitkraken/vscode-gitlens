@@ -69,7 +69,7 @@ export enum GravatarDefaultStyle {
 export enum HighlightLocations {
     Gutter = 'gutter',
     Line = 'line',
-    OverviewRuler = 'overviewRuler'
+    Overview = 'overview'
 }
 
 export enum KeyMap {
