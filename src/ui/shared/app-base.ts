@@ -63,10 +63,10 @@ export abstract class App {
 
     protected bind() {
         const onInputChecked = this.onInputChecked.bind(this);
-        DOM.listenAll('input[type="checkbox"].setting', 'change', function(this: HTMLInputElement) { onInputChecked(this); });
+        DOM.listenAll('input[type="checkbox"].setting', 'change', function(this: HTMLInputElement) { return onInputChecked(this, ...arguments); });
 
         const onInputSelected = this.onInputSelected.bind(this);
-        DOM.listenAll('select.setting', 'change', function(this: HTMLInputElement) { onInputSelected(this); });
+        DOM.listenAll('select.setting', 'change', function(this: HTMLInputElement) { return onInputSelected(this, ...arguments); });
     }
 
     protected log(message: string) {
