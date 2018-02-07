@@ -10,7 +10,7 @@
         "vscode": "^1.19.0"
     },
     "license": "SEE LICENSE IN LICENSE",
-    "displayName": "GitLens \u2014 git supercharged",
+    "displayName": "GitLens \u2014 Git supercharged",
     "description": "Supercharge Visual Studio Code's Git capabilities \u2014 Visualize code authorship at a glance via Git blame annotations and code lens, seamlessly navigate and explore Git repositories, gain valuable insights via powerful comparison commands, and so much more",
     "badges": [
         {
