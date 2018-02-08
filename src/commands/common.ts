@@ -12,6 +12,7 @@ export enum Commands {
     CopyMessageToClipboard = 'gitlens.copyMessageToClipboard',
     CopyShaToClipboard = 'gitlens.copyShaToClipboard',
     DiffDirectory = 'gitlens.diffDirectory',
+    DiffHeadWithBranch = 'gitlens.diffHeadWithBranch',
     ExternalDiffAll = 'gitlens.externalDiffAll',
     DiffWith = 'gitlens.diffWith',
     DiffWithBranch = 'gitlens.diffWithBranch',

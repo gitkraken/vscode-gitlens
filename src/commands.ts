@@ -9,6 +9,7 @@ export * from './commands/closeUnchangedFiles';
 export * from './commands/copyMessageToClipboard';
 export * from './commands/copyShaToClipboard';
 export * from './commands/diffDirectory';
+export * from './commands/diffHeadWithBranch';
 export * from './commands/diffLineWithPrevious';
 export * from './commands/diffLineWithWorking';
 export * from './commands/diffWith';
@@ -59,6 +60,7 @@ export function configureCommands(): void {
     Container.context.subscriptions.push(new Commands.CopyMessageToClipboardCommand());
     Container.context.subscriptions.push(new Commands.CopyShaToClipboardCommand());
     Container.context.subscriptions.push(new Commands.DiffDirectoryCommand());
+    Container.context.subscriptions.push(new Commands.DiffHeadWithBranchCommand());
     Container.context.subscriptions.push(new Commands.DiffLineWithPreviousCommand());
     Container.context.subscriptions.push(new Commands.DiffLineWithWorkingCommand());
     Container.context.subscriptions.push(new Commands.DiffWithCommand());
