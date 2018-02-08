@@ -37,7 +37,7 @@ export class BranchFolderNode extends ExplorerNode {
     async getTreeItem(): Promise<TreeItem> {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.Folder;
-        (item as any).resourceUri = this.explorer.folderResourceUri;
+        item.resourceUri = this.explorer.folderResourceUri;
         return item;
     }
 

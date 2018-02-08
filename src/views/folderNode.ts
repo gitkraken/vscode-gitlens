@@ -63,7 +63,7 @@ export class FolderNode extends ExplorerNode {
         // TODO: Change this to expanded once https://github.com/Microsoft/vscode/issues/30918 is fixed
         const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.Folder;
-        (item as any).resourceUri = this.explorer.folderResourceUri;
+        item.resourceUri = this.explorer.folderResourceUri;
         return item;
     }
 

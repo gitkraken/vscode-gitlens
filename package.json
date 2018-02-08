@@ -7,7 +7,7 @@
     },
     "publisher": "eamodio",
     "engines": {
-        "vscode": "^1.19.0"
+        "vscode": "^1.20.0"
     },
     "license": "SEE LICENSE IN LICENSE",
     "displayName": "GitLens \u2014 Git supercharged",
@@ -1306,8 +1306,8 @@
                 "title": "Open Working File",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/open-file.svg",
-                    "light": "images/light/open-file.svg"
+                    "dark": "images/dark/icon-open-working-file.svg",
+                    "light": "images/light/icon-open-working-file.svg"
                 }
             },
             {
@@ -1367,7 +1367,11 @@
             {
                 "command": "gitlens.explorers.openFile",
                 "title": "Open File",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-open-file.svg",
+                    "light": "images/light/icon-open-file.svg"
+                }
             },
             {
                 "command": "gitlens.explorers.openFileRevision",
@@ -1574,7 +1578,11 @@
             {
                 "command": "gitlens.resultsExplorer.clearResultsNode",
                 "title": "Clear Results",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-close-small.svg",
+                    "light": "images/light/icon-close-small.svg"
+                }
             },
             {
                 "command": "gitlens.resultsExplorer.close",
@@ -2797,6 +2805,11 @@
                     "group": "8_gitlens@5"
                 },
                 {
+                    "command": "gitlens.explorers.openFile",
+                    "when": "viewItem == gitlens:commit-file",
+                    "group": "inline"
+                },
+                {
                     "command": "gitlens.explorers.openChanges",
                     "when": "viewItem == gitlens:commit-file",
                     "group": "1_gitlens@1"
@@ -2844,6 +2857,11 @@
                 {
                     "command": "gitlens.explorers.openFile",
                     "when": "viewItem == gitlens:file-history",
+                    "group": "inline"
+                },
+                {
+                    "command": "gitlens.explorers.openFile",
+                    "when": "viewItem == gitlens:file-history",
                     "group": "1_gitlens@1"
                 },
                 {
@@ -2874,12 +2892,22 @@
                 {
                     "command": "gitlens.resultsExplorer.clearResultsNode",
                     "when": "viewItem == gitlens:comparison-results",
+                    "group": "inline"
+                },
+                {
+                    "command": "gitlens.resultsExplorer.clearResultsNode",
+                    "when": "viewItem == gitlens:comparison-results",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.explorers.openDirectoryDiff",
                     "when": "viewItem == gitlens:comparison-results",
                     "group": "7_gitlens@1"
+                },
+                {
+                    "command": "gitlens.resultsExplorer.clearResultsNode",
+                    "when": "viewItem == gitlens:search-results",
+                    "group": "inline"
                 },
                 {
                     "command": "gitlens.resultsExplorer.clearResultsNode",
@@ -2947,6 +2975,11 @@
                     "group": "7_gitlens_@2"
                 },
                 {
+                    "command": "gitlens.explorers.openFile",
+                    "when": "viewItem == gitlens:stash-file",
+                    "group": "inline"
+                },
+                {
                     "command": "gitlens.explorers.applyChanges",
                     "when": "viewItem == gitlens:stash-file",
                     "group": "1_gitlens@1"
@@ -2987,6 +3020,11 @@
                     "group": "1_gitlens@1"
                 },
                 {
+                    "command": "gitlens.explorers.openFile",
+                    "when": "viewItem == gitlens:status-file",
+                    "group": "inline"
+                },
+                {
                     "command": "gitlens.explorers.openChanges",
                     "when": "viewItem == gitlens:status-file",
                     "group": "1_gitlens@1"
@@ -3020,6 +3058,11 @@
                     "command": "gitlens.showQuickCommitFileDetails",
                     "when": "viewItem == gitlens:status-file",
                     "group": "5_gitlens@2"
+                },
+                {
+                    "command": "gitlens.explorers.openFile",
+                    "when": "viewItem == gitlens:stash-file-commits",
+                    "group": "inline"
                 },
                 {
                     "command": "gitlens.explorers.openFile",
