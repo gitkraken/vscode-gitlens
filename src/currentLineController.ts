@@ -364,6 +364,7 @@ export class CurrentLineController extends Disposable {
 
     private clearAnnotations(editor: TextEditor | undefined) {
         if (editor === undefined) return;
+        if ((editor as any)._disposed === true) return;
 
         editor.setDecorations(annotationDecoration, []);
     }
