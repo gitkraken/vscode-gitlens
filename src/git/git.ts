@@ -1,5 +1,5 @@
 'use strict';
-import { Strings } from '../system';
+import { Objects, Strings } from '../system';
 import { findGitPath, IGit } from './gitLocator';
 import { Logger } from '../logger';
 import { CommandOptions, runCommand } from './shell';
@@ -56,16 +56,17 @@ const stashFormat = [
 
 const defaultStashParams = ['stash', 'list', '--name-status', '-M', `--format=${stashFormat}`];
 
-const GitWarnings = [
-    /Not a git repository/,
-    /is outside repository/,
-    /no such path/,
-    /does not have any commits/,
-    /Path \'.*?\' does not exist in/,
-    /Path \'.*?\' exists on disk, but not in/,
-    /no upstream configured for branch/,
-    /ambiguous argument '.*?': unknown revision or path not in the working tree/
-];
+const GitWarnings = {
+    notARepository: /Not a git repository/,
+    outsideRepository: /is outside repository/,
+    noPath: /no such path/,
+    noCommits: /does not have any commits/,
+    notFound: /Path \'.*?\' does not exist in/,
+    foundButNotInRevision: /Path \'.*?\' exists on disk, but not in/,
+    headNotABranch: /HEAD does not point to a branch/,
+    noUpstream: /no upstream configured for branch \'(.*?)\'/,
+    unknownRevision: /ambiguous argument \'.*?\': unknown revision or path not in the working tree/
+};
 
 async function gitCommand(options: CommandOptions & { readonly correlationKey?: string }, ...args: any[]): Promise<string> {
     try {
@@ -133,7 +134,7 @@ async function gitCommandCore(options: CommandOptions & { readonly correlationKe
 function gitCommandDefaultErrorHandler(ex: Error, options: CommandOptions, ...args: any[]): string {
     const msg = ex && ex.toString();
     if (msg) {
-        for (const warning of GitWarnings) {
+        for (const warning of Objects.values(GitWarnings)) {
             if (warning.test(msg)) {
                 Logger.warn('git', ...args, `  cwd='${options.cwd}'`, `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
                 return '';
@@ -526,10 +527,12 @@ export class Git {
         }
         catch (ex) {
             const msg = ex && ex.toString();
-            if (/HEAD does not point to a branch/.test(msg)) return undefined;
-            if (/no upstream configured for branch/.test(msg)) return ex.message.split('\n')[0];
+            if (GitWarnings.headNotABranch.test(msg)) return undefined;
 
-            if (/ambiguous argument '.*?': unknown revision or path not in the working tree/.test(msg)) {
+            const result = GitWarnings.noUpstream.exec(msg);
+            if (result !== null) return result[1];
+
+            if (GitWarnings.unknownRevision.test(msg)) {
                 try {
                     const params = ['symbolic-ref', '-q', '--short', 'HEAD'];
                     const data = await gitCommandCore(opts, ...params);
@@ -573,9 +576,7 @@ export class Git {
         }
         catch (ex) {
             const msg = ex && ex.toString();
-            if (/Path \'.*?\' does not exist in/.test(msg) || /Path \'.*?\' exists on disk, but not in /.test(msg)) {
-                return undefined;
-            }
+            if (GitWarnings.notFound.test(msg) || GitWarnings.foundButNotInRevision.test(msg)) return undefined;
 
             return gitCommandDefaultErrorHandler(ex, opts, args);
         }

@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds `gitlens.statusBar.reduceFlicker` setting to specify whether to reduce the status bar "flickering" when changing lines by not first clearing the previous blame information -- closes [#272](https://github.com/eamodio/vscode-gitlens/issues/272)
 
+### Fixed
+- Fixes [#276](https://github.com/eamodio/vscode-gitlens/issues/276) - Lookup for branches without upstreams fails
+
 ## [8.0.0] - 2018-02-07
 ### Added
 - Adds an all-new GitLens welcome page via the *Welcome* (`gitlens.showWelcomePage`) command &mdash; provides a welcome / onboarding experience &mdash; closes [#51](https://github.com/eamodio/vscode-gitlens/issues/51)
