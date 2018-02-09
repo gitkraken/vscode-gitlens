@@ -45,6 +45,7 @@ GitLens can use your help to realize its mission &mdash; making developer's live
 
 Here are a few ways you can help &mdash; feel free to choose more than one &#x1F609;
 - [Become a Patron](https://www.patreon.com/eamodio "Become a Patron") &mdash; join the growing group of generous [backers](https://github.com/eamodio/vscode-gitlens/blob/master/BACKERS.md)
+- [Donate via PayPal](https://www.paypal.me/eamodio)
 - [Write a Review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details "Write a Review")
 - [Star or Fork me on GitHub](https://github.com/eamodio/vscode-gitlens "Star or Fork me on GitHub")
 - [Follow me on Twitter](https://twitter.com/eamodio "Follow me on Twitter")
