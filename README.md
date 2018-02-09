@@ -31,7 +31,7 @@ Here are just some of the features that GitLens provides,
  - many powerful commands for exploring commits and histories, comparing and navigating revisions, stash access, repository status, etc
 - and so much [more](#features "Jump to Features")
 
-GitLens is powerful, feature rich, and also [highly customizable](#gitlens-settings "Jump to the GitLens settings docs") to meet your specific needs &mdash; find code lens intrusive or the current line blame annotation distracting &mdash; no problem, it is quick and easy to turn them off or change how they behave via the built-in *GitLens Settings* editor, a WYSIWYG editor covering many of GitLens' powerful settings. While for more advanced customizations, refer to the [GitLens settings docs](#gitlens-settings "Jump to the GitLens settings docs") and edit your vscode [user settings](https://code.visualstudio.com/docs/getstarted/settings "Open User settings").
+GitLens is powerful, feature rich, and also [highly customizable](#gitlens-settings "Jump to the GitLens settings docs") to meet your specific needs &mdash; find code lens intrusive or the current line blame annotation distracting &mdash; no problem, it is quick and easy to turn them off or change how they behave via the built-in [*GitLens Settings* editor](#configuration "Jump to Configuration"), a WYSIWYG editor covering many of GitLens' powerful settings. While for more advanced customizations, refer to the [GitLens settings docs](#gitlens-settings "Jump to the GitLens settings docs") and edit your vscode [user settings](https://code.visualstudio.com/docs/getstarted/settings "Open User settings").
 
 <p align="center">
   <br />
@@ -50,6 +50,15 @@ Here are a few ways you can help &mdash; feel free to choose more than one &#x1F
 - [Star or Fork me on GitHub](https://github.com/eamodio/vscode-gitlens "Star or Fork me on GitHub")
 - [Follow me on Twitter](https://twitter.com/eamodio "Follow me on Twitter")
 - [Hire me](http://amod.io/?utm_source=gitlens "Hire me")
+
+## Configuration
+<p align="center">
+  <img src="./images/teaser-settings.png" alt="GitLens Explorer Repository view" />
+</p>
+
+GitLens has a built-in [WYSIWYG](https://en.wikipedia.org/wiki/WYSIWYG) settings editor which provides an easy-to-use interface to configure many of GitLens' powerful features. It can be accessed via the *Open Settings* (`gitlens.showSettingsPage`) command from the [*Command Palette*](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette).
+
+For more advanced customizations, refer to the [settings documentation](#gitlens-settings "Jump to the GitLens settings docs") below.
 
 ## Features
 

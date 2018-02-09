@@ -14,7 +14,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [8.0.0] - 2018-02-07
 ### Added
 - Adds an all-new GitLens welcome page via the *Welcome* (`gitlens.showWelcomePage`) command &mdash; provides a welcome / onboarding experience &mdash; closes [#51](https://github.com/eamodio/vscode-gitlens/issues/51)
-- Adds an all-new GitLens Settings editor via the *Open Settings* (`gitlens.showSettingsPage`) command &mdash; provides an easy-to-use WYSIWYG settings editor for many of GitLen's features &mdash; closes [#167](https://github.com/eamodio/vscode-gitlens/issues/167)
+
+  ![GitLens Welcome](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/teaser-welcome.png)
+
+- Adds an all-new GitLens Settings editor via the *Open Settings* (`gitlens.showSettingsPage`) command &mdash; provides an easy-to-use WYSIWYG settings editor for many of GitLens' features &mdash; closes [#167](https://github.com/eamodio/vscode-gitlens/issues/167)
+
+  ![GitLens Settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/teaser-settings.png)
+
 - Adds a tree layout option to branches in the *GitLens* explorer &mdash; closes [#258](https://github.com/eamodio/vscode-gitlens/issues/258) thanks to [PR #260](https://github.com/eamodio/vscode-gitlens/pull/260) by Yukai Huang ([@Yukaii](https://github.com/Yukaii))!
 - Adds *Follow Renames* command (`gitlens.gitExplorer.setRenameFollowingOn`) to the **GitLens** explorer *History* view to follow file renames in the history
 - Adds *Don't Follow Renames* command (`gitlens.gitExplorer.setRenameFollowingOff`) to the **GitLens** explorer *History* view to not follow file renames in the history
@@ -33,7 +39,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Renames *Show Files in Automatic View* (`gitlens.resultsExplorer.setFilesLayoutToAuto`) command to *Automatic Layout*
 - Renames *Show Files in List View* (`gitlens.resultsExplorer.setFilesLayoutToAuto`) command to *List Layout*
 - Renames *Show Files in Tree View* (`gitlens.resultsExplorer.setFilesLayoutToAuto`) command to *Tree Layout*
-- Overhauls GitLen's settings for better clarity and ease-of-use
+- Overhauls GitLens' settings for better clarity and ease-of-use
 - Renames `gitlens.annotations.file.gutter.gravatars` setting to `gitlens.blame.avatars`
 - Renames `gitlens.annotations.file.gutter.compact` setting to `gitlens.blame.compact`
 - Renames `gitlens.annotations.file.gutter.dateFormat` setting to `gitlens.blame.dateFormat`
