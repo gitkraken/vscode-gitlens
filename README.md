@@ -5,16 +5,22 @@
 
 <p align="center">
   <br />
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/gitlens-header.png" alt="GitLens Logo" />
+  <a title="Learn more about GitLens" href="http://gitlens.amod.io"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/gitlens-logo.png" alt="GitLens Logo" /></a>
 </p>
 
 > GitLens **supercharges** the Git capabilities built into Visual Studio Code. It helps you to **visualize code authorship** at a glance via Git blame annotations and code lens, **seamlessly navigate and explore** Git repositories, **gain valuable insights** via powerful comparison commands, and so much more.
 
 <br />
 
+# What's new in GitLens 8
+- Brand new welcome experience
+- Brand new WYSIWYG [settings editor](#configuration) &mdash; GitLens is easier than ever to customize to suit your needs
+- Adds a tree layout option to branches in the <i>GitLens</i> explorer &mdash; thanks to Yukai Huang ([@Yukaii](https://github.com/Yukaii))!
+- Reworked settings &mdash; clearer, simpler settings
+
 # GitLens
 
-GitLens is a free, [open-source](https://github.com/eamodio/vscode-gitlens "Open GitLens on GitHub") extension for [Visual Studio Code](https://code.visualstudio.com) created by [Eric Amodio](http://amod.io "Learn more about Eric").
+[GitLens](http://gitlens.amod.io "Learn more about GitLens") is a free, [open-source](https://github.com/eamodio/vscode-gitlens "Open GitLens on GitHub") extension for [Visual Studio Code](https://code.visualstudio.com) created by [Eric Amodio](http://www.amod.io "Learn more about Eric").
 
 GitLens simply helps you understand code better. Quickly glimpse into whom, why, and when a line or code block was changed. Jump back through history to gain further insights as to how and why the code evolved. Explore the history and evolution of a codebase.
 
@@ -41,15 +47,15 @@ GitLens is powerful, feature rich, and also [highly customizable](#gitlens-setti
 
 ## Show Your Support &#x2764;
 
-GitLens can use your help to realize its mission &mdash; making developer's lives easier, further its reach, as well as support its development.
+To my incredible backers &mdash; thank you so much for your contributions. I am truly humbled by your generosity and support. Please know that your support plays a important role in helping me realize GitLens' potential in making developer's lives easier.
 
-Here are a few ways you can help &mdash; feel free to choose more than one &#x1F609;
+If you'd like to join them in supporting GitLens, please consider the following &mdash; feel free to choose more than one. &#x1F609;
 - [Become a Patron](https://www.patreon.com/eamodio "Become a Patron") &mdash; join the growing group of generous [backers](https://github.com/eamodio/vscode-gitlens/blob/master/BACKERS.md)
 - [Donate via PayPal](https://www.paypal.me/eamodio)
 - [Write a Review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details "Write a Review")
 - [Star or Fork me on GitHub](https://github.com/eamodio/vscode-gitlens "Star or Fork me on GitHub")
 - [Follow me on Twitter](https://twitter.com/eamodio "Follow me on Twitter")
-- [Hire me](http://amod.io/?utm_source=gitlens "Hire me")
+- [Hire me](http://www.amod.io/?utm_source=gitlens "Hire me")
 
 ## Configuration
 <p align="center">

@@ -10,13 +10,15 @@
     <div class="container">
         <div class="content">
             <header>
-                <div class="header__logo">
-                    <img class="image__logo" src="{{root}}/images/gitlens-icon.png" />
-                    <div>
-                        <h1>GitLens</h1>
-                        <p class="header__subtitle">Git supercharged</p>
+                <a class="header__link" title="Learn more about GitLens" href="http://gitlens.amod.io">
+                    <div class="header__logo">
+                        <img class="image__logo" src="{{root}}/images/gitlens-icon.png" />
+                        <div>
+                            <h1>GitLens</h1>
+                            <p class="header__subtitle">Git supercharged</p>
+                        </div>
                     </div>
-                </div>
+                </a>
                 <p class="header__blurb">
                     GitLens
                     <b>supercharges</b> the Git capabilities built into Visual Studio Code. It helps you to
@@ -26,16 +28,11 @@
                 </p>
             </header>
 
-            <div class="page-header">
-                <h2 class="page-header__title">Welcome</h2>
-                <p class="page-header__subtitle">Thank you for taking the time to try GitLens!</p>
-            </div>
-
             <section id="whats-new" class="changelog">
                 <h2 class="changelog__title">What's New in <span class="changelog__version">GitLens 8</span> &#x1F389;&#x1F388;</h2>
                 <ul class="changelog__list">
-                    <li><span class="changelog__badge changelog__badge--added">NEW</span>Brand new Welcome experience &mdash; you're looking at it</li>
-                    <li><span class="changelog__badge changelog__badge--added">NEW</span>Brand new WYSIWYG <a class="command" title="Open GitLens Settings" href="command:gitlens.showSettingsPage">GitLens Settings</a> editor &mdash; GitLens is easier than ever to customize to suit your needs</li>
+                    <li><span class="changelog__badge changelog__badge--added">NEW</span>Brand new welcome experience &mdash; you're looking at it</li>
+                    <li><span class="changelog__badge changelog__badge--added">NEW</span>Brand new WYSIWYG <a class="command" title="Open GitLens Settings" href="command:gitlens.showSettingsPage">settings editor</a> &mdash; GitLens is easier than ever to customize to suit your needs</li>
                     <li><span class="changelog__badge changelog__badge--added">NEW</span>Adds a tree layout option to branches in the <i>GitLens</i> explorer &mdash; thanks to Yukai Huang (<a href="https://github.com/Yukaii">@Yukaii</a>)!</li>
                     <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>Reworked settings &mdash; clearer, simpler settings</li>
                 </ul>
@@ -50,14 +47,21 @@
                 </div>
             </section>
 
+            <div class="page-header">
+                <h2 class="page-header__title">Welcome</h2>
+                <p class="page-header__subtitle">Thank you for taking the time to try GitLens!</p>
+            </div>
+
             <div class="section-groups">
                 <div class="section-group__content">
+                    <div class="section-group-section center">
+                        <a class="button button--flat-primary button--big" href="command:gitlens.showSettingsPage">Configure GitLens</a>
+                    </div>
                     <div class="section-group-section">
                         <p>
-                            GitLens is a free,
+                            <a class="bold" title="Learn more about GitLens" href="http://gitlens.amod.io">GitLens</a> is a free,
                             <a class="bold" title="Open GitLens on GitHub" href="https://github.com/eamodio/vscode-gitlens">open-source</a> extension for Visual Studio Code created by
-                            <a class="bold" title="Learn more about Eric"
-                                href="http://amod.io/?utm_source=gitlens">Eric Amodio</a>.
+                            <a class="bold" title="Learn more about Eric" href="http://www.amod.io/?utm_source=gitlens">Eric Amodio</a>.
                         </p>
                         <p>
                             GitLens simply helps you understand code better. Quickly glimpse into whom, why, and when a line or code block was changed.
@@ -65,7 +69,7 @@
                             the history and evolution of a codebase. Dive right in and see how GitLens can help!
                         </p>
                         <p>Here are just some of the features that GitLens provides,
-                            <ul class="features-list">
+                            <ul class="section-list">
                                 <li>a <a title="Open the GitLens docs" href="https://github.com/eamodio/vscode-gitlens/#gitlens-explorer"><i>GitLens</i> explorer</a> to navigate and explore repositories or file histories</li>
                                 <li>an on-demand <a title="Open the GitLens docs" href="https://github.com/eamodio/vscode-gitlens/#gitlens-results-view"><i>GitLens Results</i> view</a> to explore commits, histories, and searches, or visualize comparisons between branches, tags, commits, and more</li>
                                 <li>authorship <a title="Open the GitLens docs" href="https://github.com/eamodio/vscode-gitlens/#code-lens">code lens</a> showing the most recent commit and # of authors to the top of files and/or on code blocks</li>
@@ -89,74 +93,64 @@
                     </div>
                     <div class="section-group-section">
                         <h2>Show Your Support &#x2764;</h2>
-                            <p>
-                            GitLens can use your help to realize its mission &mdash; making developer's lives easier, further its reach, as well as support its development.
-
-                            Here are a few ways you can help &mdash; feel free to choose more than one &#x1F609;
-                            <ul class="features-list">
-                                <li><a href="https://www.patreon.com/eamodio">Become a Patron</a></li>
-                                <li><a href="https://www.paypal.me/eamodio">Donate via PayPal</a></li>
-                                <li><a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details">Write a Review</a></li>
-                                <li><a href="https://github.com/eamodio/vscode-gitlens">Star or Fork me on GitHub</a></li>
-                                <li><a href="https://twitter.com/eamodio">Follow me on Twitter</a></li>
-                                <li><a href="http://amod.io/?utm_source=gitlens">Hire me</a></li>
-                            </ul>
+                        <p>
+                            To my incredible backers &mdash; thank you so much for your contributions.
+                            I am truly humbled by your generosity and support.
+                            Please know that your support plays a important role in helping me realize GitLens' potential in making developer's lives easier.
                         </p>
+                        <p>
+                            If you'd like to join them in supporting GitLens, please consider the following &mdash; feel free to choose more than one. &#x1F609;
+                        </p>
+                        <div class="button-group button-group--donate">
+                            <a class="button button--flat-primary" title="Become a patron on Patreon" href="https://www.patreon.com/eamodio" target="_blank">Become a Patron</a>
+                            <a class="button button--flat-primary" title="Donate via PayPal" href="https://www.paypal.me/eamodio" target="_blank">Donate via PayPal</a>
+                        </div>
+                        <ul class="section-list">
+                            <li><a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details">Write a Review</a></li>
+                            <li><a href="https://github.com/eamodio/vscode-gitlens">Star or Fork me on GitHub</a></li>
+                            <li><a href="https://twitter.com/eamodio">Follow me on Twitter</a></li>
+                            <li><a href="http://www.amod.io/?utm_source=gitlens">Hire me</a></li>
+                        </ul>
                     </div>
                     <div class="section-group-section">
-                        <h2>Customize</h2>
-                        <ul>
-                            <li>
+                        <div class="section-group-section__cols">
+                            <div class="section-group-section__col">
+                                <h2>Customize</h2>
                                 <button class="list-button" data-href="command:gitlens.showSettingsPage">
-                                    <h3>Open GitLens Settings</h3>
-                                    <span class="detail" title="Customize common GitLens settings in an easy to use editor">Customize common GitLens settings in an easy to use editor</span>
+                                    <h3 class="list-button__title">Open GitLens Settings</h3>
+                                    <span class="list-button__detail" title="Customize common GitLens settings in an easy to use editor">Customize common GitLens settings in an easy to use editor</span>
                                 </button>
-                            </li>
-                            <li>
                                 <button class="list-button" data-href="command:workbench.action.openGlobalSettings">
-                                    <h3>Open User Settings</h3>
-                                    <span class="detail" title="Find and customize all GitLens settings">Search for
-                                        <b>
-                                            <i>gitlens</i>
-                                        </b> to find and customize all GitLens settings</span>
+                                    <h3 class="list-button__title">Open User Settings</h3>
+                                    <span class="list-button__detail" title="Find and customize all GitLens settings">Search for <b><i>gitlens</i></b> to find and customize all GitLens settings</span>
                                 </button>
-                            </li>
-                            <li>
                                 <button class="list-button" data-href="command:workbench.action.openGlobalKeybindings">
-                                    <h3>Open Keyboard Shortcuts</h3>
-                                    <span class="detail" title="Find and customize GitLens keyboard shortcuts">Search for
-                                        <b>
-                                            <i>gitlens</i>
-                                        </b> to find and customize GitLens keyboard shortcuts</span>
+                                    <h3 class="list-button__title">Open Keyboard Shortcuts</h3>
+                                    <span class="list-button__detail" title="Find and customize GitLens keyboard shortcuts">Search for <b><i>gitlens</i></b> to find and customize GitLens keyboard shortcuts</span>
                                 </button>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="section-group-section">
-                        <h2>Learn</h2>
-                        <ul>
-                            <li class="showCommands">
+                            </div>
+                            <div class="section-group-section__col">
+                                <h2>Learn</h2>
                                 <button class="list-button" data-href="command:workbench.action.showCommands">
-                                    <h3>Find and run all GitLens commands</h3>
-                                    <span class="detail" title="Find and access GitLens commands from the Command Palette">Search for
-                                        <b>
-                                            <i>gitlens</i>
-                                        </b> to find and access GitLens commands from the Command Palette</span>
+                                    <h3 class="list-button__title">Find and run all GitLens commands</h3>
+                                    <span class="list-button__detail" title="Find and access GitLens commands from the Command Palette">Search for <b><i>gitlens</i></b> to find and access GitLens commands from the Command Palette</span>
                                 </button>
-                            </li>
-                        </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="section-group__sidebar section-group__sidebar--welcome">
                     <div class="sidebar-group">
                         <h2>Show Your Support</h2>
+                        <div class="button-group button-group--donate-sidebar">
+                            <a class="button button--flat-primary" title="Become a patron on Patreon" href="https://www.patreon.com/eamodio" target="_blank">Become a Patron</a>
+                            <a class="button button--flat-primary" title="Donate via PayPal" href="https://www.paypal.me/eamodio" target="_blank">Donate via PayPal</a>
+                        </div>
                         <ul>
-                            <li><a href="https://www.patreon.com/eamodio">Become a Patron</a></li>
-                            <li><a href="https://www.paypal.me/eamodio">Donate via PayPal</a></li>
                             <li><a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details">Write a Review</a></li>
                             <li><a href="https://github.com/eamodio/vscode-gitlens">Star or Fork me on GitHub</a></li>
                             <li><a href="https://twitter.com/eamodio">Follow me on Twitter</a></li>
-                            <li><a href="http://amod.io/?utm_source=gitlens">Hire me</a></li>
+                            <li><a href="http://www.amod.io/?utm_source=gitlens">Hire me</a></li>
                         </ul>
                     </div>
                     <div class="sidebar-group">
