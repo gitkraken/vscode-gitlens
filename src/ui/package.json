@@ -24,8 +24,8 @@
         "build-dev": "webpack"
     },
     "devDependencies": {
-        "@types/node": "9.4.1",
-        "@types/webpack": "3.8.5",
+        "@types/node": "9.4.6",
+        "@types/webpack": "3.8.7",
         "css-loader": "0.28.9",
         "extract-text-webpack-plugin": "3.0.2",
         "html-webpack-inline-source-plugin": "0.0.9",
@@ -38,6 +38,6 @@
         "ts-loader": "3.5.0",
         "typescript": "2.7.1",
         "uglifyjs-webpack-plugin": "1.1.8",
-        "webpack": "3.10.0"
+        "webpack": "3.11.0"
     }
 }
