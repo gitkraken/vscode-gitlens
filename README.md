@@ -135,7 +135,7 @@ The repository view provides a full Git repository explorer, which has the follo
   - A context menu provides a *Refresh* command
   - Tags expand to show its revision (commit) history
     - Context menus for each tag provide
-      - *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected*, *Select for Compare*, *Open Directory Compare with Working Tree*, *Delete Tag (via Terminal)*, and *Refresh* commands
+      - *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected*, *Select for Compare*, *Open Directory Compare with Working Tree*, *Delete Tag (via Terminal)*, *Create Branch (via Terminal)*, and *Refresh* commands
     - Revisions (commits) expand to show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
       - See the *Revisions (commits) expand* section under **Branches** above for more details
 
