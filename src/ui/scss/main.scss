@@ -172,7 +172,7 @@ ul {
 }
 
 .button--big {
-    font-size: 1em;
+    font-size: 1.25em;
 }
 
 .button--flat-inverse {
@@ -272,10 +272,22 @@ ul {
     background-color: #0366d6;
 }
 
+.changelog__details {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+    position: relative;
+}
+
 .changelog__hint {
     color: var(--color--75);
     font-weight: 200;
     margin: 0 1em 2em 1em;
+}
+
+.changelog__image {
+    margin: 1em 0;
+    max-width: 65%;
 }
 
 .changelog__list {
@@ -325,6 +337,15 @@ ul {
     max-width: 1200px;
     min-width: 450px;
     width: 90%;
+}
+
+.cta-container {
+    margin-bottom: 3em;
+
+    & p {
+        margin-top: -1em;
+        opacity: 0.4;
+    }
 }
 
 .section-list {

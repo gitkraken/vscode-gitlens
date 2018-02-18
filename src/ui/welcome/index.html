@@ -28,13 +28,32 @@
                 </p>
             </header>
 
+            <div class="cta-container center">
+                <a class="button button--flat-primary button--big" title="Open GitLens Settings" href="command:gitlens.showSettingsPage">Configure GitLens</a>
+                <p>Don't miss how easy it is to configure GitLens!</p>
+            </div>
+
             <section id="whats-new" class="changelog">
                 <h2 class="changelog__title">What's New in <span class="changelog__version">GitLens 8</span> &#x1F389;&#x1F388;</h2>
                 <ul class="changelog__list">
-                    <li><span class="changelog__badge changelog__badge--added">NEW</span>Brand new welcome experience &mdash; you're looking at it</li>
-                    <li><span class="changelog__badge changelog__badge--added">NEW</span>Brand new WYSIWYG <a class="command" title="Open GitLens Settings" href="command:gitlens.showSettingsPage">settings editor</a> &mdash; GitLens is easier than ever to customize to suit your needs</li>
-                    <li><span class="changelog__badge changelog__badge--added">NEW</span>Adds a tree layout option to branches in the <i>GitLens</i> explorer &mdash; thanks to Yukai Huang (<a href="https://github.com/Yukaii">@Yukaii</a>)!</li>
-                    <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>Reworked settings &mdash; clearer, simpler settings</li>
+                    <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                        Brand new welcome experience &mdash; you're looking at it
+                    </li>
+                    <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                        Brand new WYSIWYG <a class="command" title="Open GitLens Settings" href="command:gitlens.showSettingsPage">settings editor</a> &mdash; GitLens is easier than ever to customize to suit your needs
+                        <div class="changelog__details">
+                            <img class="changelog__image" src="{{root}}/images/teaser-settings.png"/>
+                        </div>
+                    </li>
+                    <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                        Adds a tree layout option to branches in the <i>GitLens</i> explorer &mdash; thanks to Yukai Huang (<a href="https://github.com/Yukaii">@Yukaii</a>)!
+                    </li>
+                    <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>
+                        Reworked settings &mdash; clearer, simpler settings
+                    </li>
+                    <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                        Previous settings will now be migrated properly &mdash; sorry everyone &#x1F622;
+                    </li>
                 </ul>
 
                 <p class="changelog__hint">
@@ -54,9 +73,9 @@
 
             <div class="section-groups">
                 <div class="section-group__content">
-                    <div class="section-group-section center">
+                    <!-- <div class="section-group-section center">
                         <a class="button button--flat-primary button--big" href="command:gitlens.showSettingsPage">Configure GitLens</a>
-                    </div>
+                    </div> -->
                     <div class="section-group-section">
                         <p>
                             <a class="bold" title="Learn more about GitLens" href="http://gitlens.amod.io">GitLens</a> is a free,
