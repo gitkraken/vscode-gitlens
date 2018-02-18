@@ -4,11 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [8.0.1] - 2018-02-18
 ### Added
-- Adds `gitlens.statusBar.reduceFlicker` setting to specify whether to reduce the status bar "flickering" when changing lines by not first clearing the previous blame information &mdash; closes [#272](https://github.com/eamodio/vscode-gitlens/issues/272)
 - Adds *Compare Index (HEAD) with Branch or Tag...* (`gitlens.explorers.diffHeadWithBranch`) command - compares the index (HEAD) to the selected branch or tag &mdash; thanks to [PR #278](https://github.com/eamodio/vscode-gitlens/pull/278) by Geoffrey ([@g3offrey](https://github.com/g3offrey))!
 - Adds *Compare Working Tree with Branch or Tag...* (`gitlens.explorers.diffWorkingWithBranch`) command - compares the working tree to the selected branch or tag
+- Adds `gitlens.statusBar.reduceFlicker` setting to specify whether to reduce the status bar "flickering" when changing lines by not first clearing the previous blame information &mdash; closes [#272](https://github.com/eamodio/vscode-gitlens/issues/272)
 - Adds the *Open File* (`gitlens.explorers.openFile`) command to the *GitLens* explorer's inline toolbar for file nodes
 - Adds the *Clear Results* (`gitlen.resultsExplorer.clearResultsNode`) command to the *GitLens Results* view's inline toolbar for results nodes
 - Adds the *Swap Comparision* (`gitlen.resultsExplorer.swapComparision`) command to the *GitLens Results* view's inline toolbar and context menu for comparision results nodes
@@ -27,11 +27,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds an all-new GitLens welcome page via the *Welcome* (`gitlens.showWelcomePage`) command &mdash; provides a welcome / onboarding experience &mdash; closes [#51](https://github.com/eamodio/vscode-gitlens/issues/51)
 
-  ![GitLens Welcome](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/teaser-welcome.png)
+  ![GitLens Welcome](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/teaser-welcome.png)
 
 - Adds an all-new GitLens Settings editor via the *Open Settings* (`gitlens.showSettingsPage`) command &mdash; provides an easy-to-use WYSIWYG settings editor for many of GitLens' features &mdash; closes [#167](https://github.com/eamodio/vscode-gitlens/issues/167)
 
-  ![GitLens Settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/teaser-settings.png)
+  ![GitLens Settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/teaser-settings.png)
 
 - Adds a tree layout option to branches in the *GitLens* explorer &mdash; closes [#258](https://github.com/eamodio/vscode-gitlens/issues/258) thanks to [PR #260](https://github.com/eamodio/vscode-gitlens/pull/260) by Yukai Huang ([@Yukaii](https://github.com/Yukaii))!
 - Adds *Follow Renames* command (`gitlens.gitExplorer.setRenameFollowingOn`) to the **GitLens** explorer *History* view to follow file renames in the history

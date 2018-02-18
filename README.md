@@ -61,7 +61,7 @@ If you'd like to join them in supporting GitLens, please consider the following 
 
 ## Configuration
 <p align="center">
-  <img src="./images/teaser-settings.png" alt="GitLens Explorer Repository view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/teaser-settings.png" alt="GitLens Explorer Repository view" />
 </p>
 
 GitLens has a built-in [WYSIWYG](https://en.wikipedia.org/wiki/WYSIWYG) settings editor which provides an easy-to-use interface to configure many of GitLens' powerful features. It can be accessed via the *Open Settings* (`gitlens.showSettingsPage`) command from the [*Command Palette*](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette).

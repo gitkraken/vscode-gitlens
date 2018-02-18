@@ -270,6 +270,12 @@ async function showWelcomePage(version: string, previousVersion: string | undefi
 
     if (previousVersion !== version) {
         Logger.log(`GitLens upgraded from v${previousVersion} to v${version}`);
+
+        if (Versions.compare(Versions.fromString(previousVersion), Versions.from(8, 0, 0)) === 0) {
+            await commands.executeCommand(Commands.ShowWelcomePage);
+
+            return;
+        }
     }
 
     if (!Container.config.showWhatsNewAfterUpgrades) return;
