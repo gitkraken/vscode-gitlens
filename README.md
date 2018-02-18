@@ -18,6 +18,8 @@
 - Adds a tree layout option to branches in the <i>GitLens</i> explorer &mdash; thanks to Yukai Huang ([@Yukaii](https://github.com/Yukaii))!
 - Reworked settings &mdash; clearer, simpler settings
 
+See the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md "Open Release Notes") for the full set of changes
+
 # GitLens
 
 [GitLens](http://gitlens.amod.io "Learn more about GitLens") is a free, [open-source](https://github.com/eamodio/vscode-gitlens "Open GitLens on GitHub") extension for [Visual Studio Code](https://code.visualstudio.com) created by [Eric Amodio](http://www.amod.io "Learn more about Eric").
