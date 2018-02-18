@@ -106,6 +106,51 @@ export class Configuration {
         }
     }
 
+    async migrateIfMissing<TFrom, TTo>(from: string, to: string, migrationFn?: (value: TFrom) => TTo) {
+        const fromInspection = configuration.inspect(from);
+        if (fromInspection === undefined) return;
+
+        const toInspection = configuration.inspect(to);
+        if (fromInspection.globalValue !== undefined) {
+            if (toInspection === undefined || toInspection.globalValue === undefined) {
+                await this.update(to, migrationFn ? migrationFn(fromInspection.globalValue as TFrom) : fromInspection.globalValue, ConfigurationTarget.Global);
+                // Can't delete the old setting currently because it errors with `Unable to write to User Settings because <setting name> is not a registered configuration`
+                // if (from !== to) {
+                //     try {
+                //         await this.update(from, undefined, ConfigurationTarget.Global);
+                //     }
+                //     catch { }
+                // }
+            }
+        }
+
+        if (fromInspection.workspaceValue !== undefined) {
+            if (toInspection === undefined || toInspection.workspaceValue === undefined) {
+                await this.update(to, migrationFn ? migrationFn(fromInspection.workspaceValue as TFrom) : fromInspection.workspaceValue, ConfigurationTarget.Workspace);
+                // Can't delete the old setting currently because it errors with `Unable to write to User Settings because <setting name> is not a registered configuration`
+                // if (from !== to) {
+                //     try {
+                //         await this.update(from, undefined, ConfigurationTarget.Workspace);
+                //     }
+                //     catch { }
+                // }
+            }
+        }
+
+        if (fromInspection.workspaceFolderValue !== undefined) {
+            if (toInspection === undefined || toInspection.workspaceFolderValue === undefined) {
+                await this.update(to, migrationFn ? migrationFn(fromInspection.workspaceFolderValue as TFrom) : fromInspection.workspaceFolderValue, ConfigurationTarget.WorkspaceFolder);
+                // Can't delete the old setting currently because it errors with `Unable to write to User Settings because <setting name> is not a registered configuration`
+                // if (from !== to) {
+                //     try {
+                //         await this.update(from, undefined, ConfigurationTarget.WorkspaceFolder);
+                //     }
+                //     catch { }
+                // }
+            }
+        }
+    }
+
     name<K extends keyof IConfig>(name: K) {
         return Functions.propOf(emptyConfig as IConfig, name);
     }

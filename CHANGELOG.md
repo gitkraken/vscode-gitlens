@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#276](https://github.com/eamodio/vscode-gitlens/issues/276) - Lookup for branches without upstreams fails
 - Fixes [#274](https://github.com/eamodio/vscode-gitlens/issues/274) - TextEditor is closed/disposed occurs when this extension is enabled
 - Fixes [#288](https://github.com/eamodio/vscode-gitlens/issues/288) - CSS errors on welcome page (mask-* properties)
+- Fixes issues with settings migration &mdash; should now migrate any existing settings that haven't already been set
 
 ## [8.0.0] - 2018-02-07
 ### Added

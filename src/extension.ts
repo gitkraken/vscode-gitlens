@@ -120,7 +120,7 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
             await configuration.migrate('gitExplorer.gravatarsDefault', configuration.name('defaultGravatarsStyle').value);
         }
 
-        if (Versions.compare(previous, Versions.from(7, 5, 9)) !== 1) {
+        if (Versions.compare(previous, Versions.from(7, 5, 10)) !== 1) {
             await configuration.migrate('annotations.file.gutter.gravatars', configuration.name('blame')('avatars').value);
             await configuration.migrate('annotations.file.gutter.compact', configuration.name('blame')('compact').value);
             await configuration.migrate('annotations.file.gutter.dateFormat', configuration.name('blame')('dateFormat').value);
@@ -194,6 +194,55 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
                     }
                     return v as HighlightLocations[];
                 });
+        }
+
+        if (Versions.compare(previous, Versions.from(8, 0, 0)) !== 1) {
+            await configuration.migrateIfMissing('annotations.file.gutter.gravatars', configuration.name('blame')('avatars').value);
+            await configuration.migrateIfMissing('annotations.file.gutter.compact', configuration.name('blame')('compact').value);
+            await configuration.migrateIfMissing('annotations.file.gutter.dateFormat', configuration.name('blame')('dateFormat').value);
+            await configuration.migrateIfMissing('annotations.file.gutter.format', configuration.name('blame')('format').value);
+            await configuration.migrateIfMissing('annotations.file.gutter.heatmap.enabled', configuration.name('blame')('heatmap')('enabled').value);
+            await configuration.migrateIfMissing('annotations.file.gutter.heatmap.location', configuration.name('blame')('heatmap')('location').value);
+            await configuration.migrateIfMissing('annotations.file.gutter.lineHighlight.enabled', configuration.name('blame')('highlight')('enabled').value);
+            await configuration.migrateIfMissing('annotations.file.gutter.lineHighlight.locations', configuration.name('blame')('highlight')('locations').value);
+            await configuration.migrateIfMissing('annotations.file.gutter.separateLines', configuration.name('blame')('separateLines').value);
+
+            await configuration.migrateIfMissing('codeLens.locations', configuration.name('codeLens')('scopes').value);
+            await configuration.migrateIfMissing<{ customSymbols?: string[], language: string | undefined, locations: CodeLensScopes[] }[], CodeLensLanguageScope[]>('codeLens.perLanguageLocations', configuration.name('codeLens')('scopesByLanguage').value,
+                v => {
+                    const scopes = v.map(ls => {
+                        return {
+                            language: ls.language,
+                            scopes: ls.locations,
+                            symbolScopes: ls.customSymbols
+                        };
+                    });
+                    return scopes;
+                });
+            await configuration.migrateIfMissing('codeLens.customLocationSymbols', configuration.name('codeLens')('symbolScopes').value);
+
+            await configuration.migrateIfMissing('annotations.line.trailing.dateFormat', configuration.name('currentLine')('dateFormat').value);
+            await configuration.migrateIfMissing('blame.line.enabled', configuration.name('currentLine')('enabled').value);
+            await configuration.migrateIfMissing('annotations.line.trailing.format', configuration.name('currentLine')('format').value);
+
+            await configuration.migrateIfMissing('annotations.file.gutter.hover.changes', configuration.name('hovers')('annotations')('changes').value);
+            await configuration.migrateIfMissing('annotations.file.gutter.hover.details', configuration.name('hovers')('annotations')('details').value);
+            await configuration.migrateIfMissing('annotations.file.gutter.hover.details', configuration.name('hovers')('annotations')('enabled').value);
+            await configuration.migrateIfMissing<boolean, 'line' | 'annotation'>('annotations.file.gutter.hover.wholeLine', configuration.name('hovers')('annotations')('over').value, v => v ? 'line' : 'annotation');
+
+            await configuration.migrateIfMissing('annotations.line.trailing.hover.changes', configuration.name('hovers')('currentLine')('changes').value);
+            await configuration.migrateIfMissing('annotations.line.trailing.hover.details', configuration.name('hovers')('currentLine')('details').value);
+            await configuration.migrateIfMissing('blame.line.enabled', configuration.name('hovers')('currentLine')('enabled').value);
+            await configuration.migrateIfMissing<boolean, 'line' | 'annotation'>('annotations.line.trailing.hover.wholeLine', configuration.name('hovers')('currentLine')('over').value, v => v ? 'line' : 'annotation');
+
+            await configuration.migrateIfMissing('gitExplorer.gravatars', configuration.name('explorers')('avatars').value);
+            await configuration.migrateIfMissing('gitExplorer.commitFileFormat', configuration.name('explorers')('commitFileFormat').value);
+            await configuration.migrateIfMissing('gitExplorer.commitFormat', configuration.name('explorers')('commitFormat').value);
+            await configuration.migrateIfMissing('gitExplorer.stashFileFormat', configuration.name('explorers')('stashFileFormat').value);
+            await configuration.migrateIfMissing('gitExplorer.stashFormat', configuration.name('explorers')('stashFormat').value);
+            await configuration.migrateIfMissing('gitExplorer.statusFileFormat', configuration.name('explorers')('statusFileFormat').value);
+
+            await configuration.migrateIfMissing('recentChanges.file.lineHighlight.locations', configuration.name('recentChanges')('highlight')('locations').value);
         }
     }
     catch (ex) {
