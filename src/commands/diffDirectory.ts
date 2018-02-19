@@ -9,7 +9,7 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickPicks';
 
-export interface DiffDirectoryCommandCommandArgs {
+export interface DiffDirectoryCommandArgs {
     ref1?: string;
     ref2?: string;
 }
@@ -20,7 +20,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
         super([Commands.DiffDirectory, Commands.ExternalDiffAll, Commands.ExplorersOpenDirectoryDiff, Commands.ExplorersOpenDirectoryDiffWithWorking]);
     }
 
-    protected async preExecute(context: CommandContext, args: DiffDirectoryCommandCommandArgs = {}): Promise<any> {
+    protected async preExecute(context: CommandContext, args: DiffDirectoryCommandArgs = {}): Promise<any> {
         switch (context.command) {
             case Commands.ExternalDiffAll:
                 args.ref1 = 'HEAD';
@@ -45,7 +45,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
         return this.execute(context.editor, context.uri, args);
     }
 
-    async execute(editor?: TextEditor, uri?: Uri, args: DiffDirectoryCommandCommandArgs = {}): Promise<any> {
+    async execute(editor?: TextEditor, uri?: Uri, args: DiffDirectoryCommandArgs = {}): Promise<any> {
         uri = getCommandUri(uri, editor);
 
         let progressCancellation: CancellationTokenSource | undefined;

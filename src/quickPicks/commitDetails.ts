@@ -1,7 +1,7 @@
 'use strict';
 import { Arrays, Iterables, Strings } from '../system';
 import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from 'vscode';
-import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandCommandArgs, DiffWithPreviousCommandArgs, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
+import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandArgs, DiffWithPreviousCommandArgs, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, QuickPickItem, ShowCommitInResultsQuickPickItem } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -149,7 +149,7 @@ export class CommitDetailsQuickPick {
                 {
                     ref1: commit.previousFileSha,
                     ref2: commit.sha
-                } as DiffDirectoryCommandCommandArgs
+                } as DiffDirectoryCommandArgs
             ])
         );
 
@@ -160,7 +160,7 @@ export class CommitDetailsQuickPick {
                 uri,
                 {
                     ref1: commit.sha
-                } as DiffDirectoryCommandCommandArgs
+                } as DiffDirectoryCommandArgs
             ])
         );
 
