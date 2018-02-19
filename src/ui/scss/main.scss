@@ -190,8 +190,8 @@ ul {
 }
 
 .button--flat-primary {
-    background-color: #914db3;
-    border: 1px solid #914db3;
+    background-color: var(--link-color--darken-20);
+    border: 1px solid var(--link-color--darken-20);
     color: white !important;
     font-weight: 600;
     transition: background-color 250ms, border-color 250ms, color 250ms;
@@ -309,8 +309,8 @@ ul {
 }
 
 .changelog__version {
-    background-color: #914db3;
-    border-bottom: 2px solid #914db3;
+    background-color: var(--link-color--darken-20);
+    border-bottom: 2px solid var(--link-color--darken-20);
     border-radius: 3px;
     color: #f2f2f2;
     margin: 0 0.25em;

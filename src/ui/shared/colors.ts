@@ -46,6 +46,9 @@ export function initializeColorPalette() {
         bodyStyle.setProperty('--background-color--darken-15', darken(color, 15));
         bodyStyle.setProperty('--background-color--lighten-30', lighten(color, 30));
         bodyStyle.setProperty('--background-color--darken-30', darken(color, 30));
+
+        color = computedStyle.getPropertyValue('--link-color').trim();
+        bodyStyle.setProperty('--link-color--darken-20', darken(color, 20));
     };
 
     const observer = new MutationObserver(onColorThemeChanged);
