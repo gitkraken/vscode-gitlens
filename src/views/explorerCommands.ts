@@ -49,6 +49,7 @@ export class ExplorerCommands extends Disposable {
         commands.registerCommand('gitlens.explorers.terminalRebaseBranchToRemote', this.terminalRebaseBranchToRemote, this);
         commands.registerCommand('gitlens.explorers.terminalSquashBranchIntoCommit', this.terminalSquashBranchIntoCommit, this);
         commands.registerCommand('gitlens.explorers.terminalCherryPickCommit', this.terminalCherryPickCommit, this);
+        commands.registerCommand('gitlens.explorers.terminalPushCommit', this.terminalPushCommit, this);
         commands.registerCommand('gitlens.explorers.terminalRebaseCommit', this.terminalRebaseCommit, this);
         commands.registerCommand('gitlens.explorers.terminalResetCommit', this.terminalResetCommit, this);
         commands.registerCommand('gitlens.explorers.terminalRevertCommit', this.terminalRevertCommit, this);
@@ -277,6 +278,16 @@ export class ExplorerCommands extends Disposable {
         if (!(node instanceof CommitNode)) return;
 
         const command = `cherry-pick -e ${node.ref}`;
+        this.sendTerminalCommand(command, node.repoPath);
+    }
+
+    async terminalPushCommit(node: ExplorerNode) {
+        if (!(node instanceof CommitNode)) return;
+
+        const branch = node.branch || await Container.git.getBranch(node.repoPath);
+        if (branch === undefined) return;
+
+        const command = `push ${branch.getRemote()} ${node.ref}:${branch.getName()}`;
         this.sendTerminalCommand(command, node.repoPath);
     }
 

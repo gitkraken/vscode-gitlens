@@ -1479,6 +1479,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.explorers.terminalPushCommit",
+                "title": "Push to Commit (via Terminal)",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.explorers.terminalRebaseCommit",
                 "title": "Rebase to Commit (via Terminal)",
                 "category": "GitLens"
@@ -1921,6 +1926,10 @@
                 },
                 {
                     "command": "gitlens.explorers.terminalCherryPickCommit",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.explorers.terminalPushCommit",
                     "when": "false"
                 },
                 {
@@ -2472,6 +2481,11 @@
                 {
                     "command": "gitlens.explorers.terminalCherryPickCommit",
                     "when": "viewItem == gitlens:commit",
+                    "group": "8_gitlens@1"
+                },
+                {
+                    "command": "gitlens.explorers.terminalPushCommit",
+                    "when": "viewItem == gitlens:commit:current",
                     "group": "8_gitlens@1"
                 },
                 {

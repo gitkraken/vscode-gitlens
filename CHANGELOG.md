@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `gitlens.statusBar.reduceFlicker` setting to specify whether to reduce the status bar "flickering" when changing lines by not first clearing the previous blame information -- closes [#272](https://github.com/eamodio/vscode-gitlens/issues/272)
 - Adds the *Open File* (`gitlens.explorers.openFile`) command to the *GitLens* explorer inline for file nodes
 - Adds the *Clear Results* (`gitlen.resultsExplorer.clearResultsNode`) command to the *GitLens Results* view inline for results nodes
+- Adds *Push to Commit (via Terminal)* (`gitlens.explorers.terminalPushCommit`) command to commit nodes on the current branch in the *GitLens* explorer
 
 ### Fixed
 - Fixes [#276](https://github.com/eamodio/vscode-gitlens/issues/276) - Lookup for branches without upstreams fails

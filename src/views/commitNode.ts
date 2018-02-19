@@ -15,7 +15,7 @@ export class CommitNode extends ExplorerRefNode {
     constructor(
         public readonly commit: GitLogCommit,
         private readonly explorer: Explorer,
-        private readonly branch?: GitBranch
+        public readonly branch?: GitBranch
     ) {
         super(commit.toGitUri());
     }
