@@ -85,11 +85,11 @@ export class ExternalDiffCommand extends Command {
     async execute(args: ExternalDiffCommandArgs = {}) {
         try {
             const repoPath = await Container.git.getRepoPath(undefined);
-            if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open changed files`);
+            if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open external file compare`);
 
             const tool = await Container.git.getDiffTool(repoPath);
             if (tool === undefined) {
-                const result = await window.showWarningMessage(`Unable to open file compare because there is no Git diff tool configured`, 'View Git Docs');
+                const result = await window.showWarningMessage(`Unable to open external file compare because there is no Git diff tool configured`, 'View Git Docs');
                 if (!result) return undefined;
 
                 return commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://git-scm.com/docs/git-config#git-config-difftool'));
@@ -97,7 +97,7 @@ export class ExternalDiffCommand extends Command {
 
             if (args.files === undefined) {
                 const status = await Container.git.getStatusForRepo(repoPath);
-                if (status === undefined) return window.showWarningMessage(`Unable to open changed files`);
+                if (status === undefined) return window.showWarningMessage(`Unable to open external file compare`);
 
                 args.files = [];
 
@@ -120,7 +120,7 @@ export class ExternalDiffCommand extends Command {
         }
         catch (ex) {
             Logger.error(ex, 'ExternalDiffCommand');
-            return window.showErrorMessage(`Unable to open external diff. See output channel for more details`);
+            return window.showErrorMessage(`Unable to open external file compare. See output channel for more details`);
         }
     }
 }

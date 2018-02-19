@@ -33,7 +33,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
         }
 
         const gitUri = await GitUri.fromUri(uri);
-        if (!gitUri.repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open branch compare`);
+        if (!gitUri.repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open file compare`);
 
         const placeHolder = `Compare ${path.basename(gitUri.fsPath)} with ${GlyphChars.Ellipsis}`;
         const progressCancellation = BranchesAndTagsQuickPick.showProgress(placeHolder);
