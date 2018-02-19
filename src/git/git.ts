@@ -225,9 +225,10 @@ export class Git {
         return sha === undefined ? false : Git.uncommittedRegex.test(sha);
     }
 
-    static shortenSha(sha: string, strings: { deleted?: string, stagedUncommitted?: string, uncommitted?: string } = {}) {
-        strings = { uncommitted: '', stagedUncommitted: 'index', ...strings };
+    static shortenSha(sha: string, strings: { stagedUncommitted?: string, uncommitted?: string, working?: string } = {}) {
+        strings = { stagedUncommitted: 'index', uncommitted: '', working: '', ...strings };
 
+        if (sha === '') return strings.working;
         if (Git.isStagedUncommitted(sha)) return strings.stagedUncommitted;
         if (Git.isUncommitted(sha)) return strings.uncommitted;
 

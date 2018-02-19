@@ -54,7 +54,7 @@ export class ComparisonResultsNode extends ExplorerNode {
             repository = ` ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) || this.uri.repoPath}`;
         }
 
-        const item = new TreeItem(`Comparing ${GitService.shortenSha(this.ref1)} to ${this.ref2 !== '' ? GitService.shortenSha(this.ref2) : 'Working Tree'}${repository}`, TreeItemCollapsibleState.Expanded);
+        const item = new TreeItem(`Comparing ${GitService.shortenSha(this.ref1, { working: 'Working Tree' })} to ${GitService.shortenSha(this.ref2, { working: 'Working Tree' })}${repository}`, TreeItemCollapsibleState.Expanded);
         item.contextValue = ResourceType.ComparisonResults;
         return item;
     }
