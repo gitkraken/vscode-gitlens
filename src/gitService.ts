@@ -1120,6 +1120,11 @@ export class GitService extends Disposable {
         const repo = await this.getRepository(filePathOrUri, { ...options, skipCacheUpdate: true });
         if (repo !== undefined) return repo.path;
 
+        if (typeof filePathOrUri !== 'string') {
+            const versionedUri = await Container.git.getVersionedUri(filePathOrUri);
+            if (versionedUri !== undefined) return versionedUri.repoPath;
+        }
+
         const rp = await this.getRepoPathCore(typeof filePathOrUri === 'string' ? filePathOrUri : filePathOrUri.fsPath, false);
         if (rp === undefined) return undefined;
 
