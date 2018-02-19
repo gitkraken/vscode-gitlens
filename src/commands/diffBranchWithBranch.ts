@@ -7,10 +7,10 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickPicks';
 
-export class DiffHeadWithBranchCommand extends ActiveEditorCommand {
+export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
 
     constructor() {
-        super([Commands.DiffHeadWithBranch]);
+        super(Commands.DiffHeadWithBranch);
     }
 
     async execute(editor?: TextEditor, uri?: Uri): Promise<any> {
@@ -20,7 +20,7 @@ export class DiffHeadWithBranchCommand extends ActiveEditorCommand {
 
         try {
             const repoPath = await Container.git.getRepoPath(uri);
-            if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open directory compare`);
+            if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open branch compare`);
 
             const placeHolder = `Compare Index (HEAD) to ${GlyphChars.Ellipsis}`;
 
@@ -44,10 +44,12 @@ export class DiffHeadWithBranchCommand extends ActiveEditorCommand {
             Container.resultsExplorer.showComparisonInResults(repoPath, compareWith, 'HEAD');
 
             return undefined;
-        } catch (ex) {
-            Logger.error(ex, 'DiffHeadWithBranchCommand');
-            return window.showErrorMessage(`Unable to open directory compare. See output channel for more details`);
-        } finally {
+        }
+        catch (ex) {
+            Logger.error(ex, 'DiffBranchWithBranchCommand');
+            return window.showErrorMessage(`Unable to open branch compare. See output channel for more details`);
+        }
+        finally {
             progressCancellation && progressCancellation.dispose();
         }
     }
