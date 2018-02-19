@@ -36,6 +36,7 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
         commands.registerCommand('gitlens.resultsExplorer.close', this.close, this);
         commands.registerCommand('gitlens.resultsExplorer.setKeepResultsToOn', () => this.setKeepResults(true), this);
         commands.registerCommand('gitlens.resultsExplorer.setKeepResultsToOff', () => this.setKeepResults(false), this);
+        commands.registerCommand('gitlens.resultsExplorer.swapComparision', this.swapComparision, this);
 
         setCommandContext(CommandContext.ResultsExplorerKeepResults, this.keepResults);
 
@@ -215,5 +216,11 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
     private setKeepResults(enabled: boolean) {
         Container.context.workspaceState.update(WorkspaceState.ResultsExplorerKeepResults, enabled);
         setCommandContext(CommandContext.ResultsExplorerKeepResults, enabled);
+    }
+
+    private swapComparision(node: ExplorerNode) {
+        if (!(node instanceof ComparisonResultsNode)) return;
+
+        this.showComparisonInResults(node.repoPath, node.ref2, node.ref1);
     }
 }

@@ -49,7 +49,7 @@ export class StatusFilesResultsNode extends ExplorerNode {
         const diff = await this.getDiff();
 
         const item = new TreeItem(await this.getLabel(), diff && diff.length > 0 ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.None);
-        item.contextValue = ResourceType.Results;
+        item.contextValue = ResourceType.ResultsFiles;
         return item;
     }
 

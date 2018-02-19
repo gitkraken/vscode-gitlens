@@ -113,6 +113,7 @@ The repository view provides a full Git repository explorer, which has the follo
         -  *Open Commit in Remote* (if available), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, *Cherry Pick Commit (via Terminal)* (when available), *Push to Commit (via Terminal)* (when available), *Revert Commit (via Terminal)* (when available), *Rebase to Commit (via Terminal)* (when available), *Reset to Commit (via Terminal)*  (when available), *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
       - Context menus for each changed file provide
         - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
+      - Inline toolbars for each changed file provide an *Open File* command
 
 - **Remotes** &mdash; lists the remotes
   - Indicates the direction of the remote (fetch, push, both), remote service (if applicable), and repository path
@@ -147,6 +148,7 @@ The repository view provides a full Git repository explorer, which has the follo
 The history view provides the revision history of the active file, which has the following features,
 - Automatically updates to track the active editor
 - A context menu provides *Open File*, *Open File in Remote* (if available), and *Refresh* commands
+- An inline toolbar provides an *Open File* command
 - Context menus for each revision (commit) provides
   - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote* (if available), *Open Revision in Remote* (if available), *Apply Changes*, and *Show Commit File Details* commands
 
@@ -166,6 +168,8 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
       - *Show Commit Search* command (`gitlens.showCommitSearch`)
       - *Show File History* command (`gitlens.showQuickFileHistory`)
       - *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
+    - An inline toolbar provides a *Clear Results* command
+    - A context menu provides *Clear Results*, and *Refresh* commands
     - Revisions (commits) expand show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
       - Context menus for each revision (commit) provide
         -  *Open Commit in Remote* (if available), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, *Cherry Pick Commit (via Terminal)* (when available), *Push to Commit (via Terminal)* (when available), *Revert Commit (via Terminal)* (when available), *Rebase to Commit (via Terminal)* (when available), *Reset to Commit (via Terminal)*  (when available), *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
@@ -180,7 +184,8 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
       - *Compare with Working Tree* command (`gitlens.explorers.compareWithWorking`)
       - *Compare with Selected* command (`gitlens.explorers.compareWithSelected`)
       - *Compare Selected Ancestor with Working Tree* command (`gitlens.explorers.compareSelectedAncestorWithWorking`)
-    - A context menu provides *Clear Results*, *Open Directory Compare*, and *Refresh* commands
+    - An inline toolbar provides *Swap Comparision*, and *Clear Results* commands
+    - A context menu provides *Clear Results*, *Swap Comparision*, *Open Directory Compare*, and *Refresh* commands
 
     - **Commits** &mdash; lists the commits between the compared revisions (branches or commits)
       - Revisions (commits) expand to show the set of files changed, complete with status indicators for adds, changes, renames, and deletes

@@ -16,7 +16,7 @@ export class CommitsResultsNode extends ExplorerNode {
         private readonly labelFn: (log: GitLog | undefined) => Promise<string>,
         private readonly logFn: (maxCount: number | undefined) => Promise<GitLog | undefined>,
         private readonly explorer: Explorer,
-        private readonly contextValue: ResourceType = ResourceType.Results
+        private readonly contextValue: ResourceType = ResourceType.ResultsCommits
     ) {
         super(GitUri.fromRepoPath(repoPath));
     }

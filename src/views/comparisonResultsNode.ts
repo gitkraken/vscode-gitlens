@@ -11,7 +11,7 @@ import { StatusFilesResultsNode } from './statusFilesResultsNode';
 export class ComparisonResultsNode extends ExplorerNode {
 
     constructor(
-        repoPath: string,
+        public readonly repoPath: string,
         public readonly ref1: string,
         public readonly ref2: string,
         private readonly explorer: Explorer
