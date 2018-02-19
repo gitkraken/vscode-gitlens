@@ -6,7 +6,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 ### Added
-- Adds `gitlens.statusBar.reduceFlicker` setting to specify whether to reduce the status bar "flickering" when changing lines by not first clearing the previous blame information -- closes [#272](https://github.com/eamodio/vscode-gitlens/issues/272)
+- Adds `gitlens.statusBar.reduceFlicker` setting to specify whether to reduce the status bar "flickering" when changing lines by not first clearing the previous blame information &mdash; closes [#272](https://github.com/eamodio/vscode-gitlens/issues/272)
+- Adds *Compare Index (HEAD) with Branch or Tag...* (`gitlens.explorers.diffHeadWithBranch`) command - compares the index (HEAD) to the selected branch or tag &mdash; thanks to [PR #278](https://github.com/eamodio/vscode-gitlens/pull/278) by Geoffrey ([@g3offrey](https://github.com/g3offrey))!
+- Adds *Compare Working Tree with Branch or Tag...* (`gitlens.explorers.diffWorkingWithBranch`) command - compares the working tree to the selected branch or tag
 - Adds the *Open File* (`gitlens.explorers.openFile`) command to the *GitLens* explorer inline for file nodes
 - Adds the *Clear Results* (`gitlen.resultsExplorer.clearResultsNode`) command to the *GitLens Results* view inline for results nodes
 - Adds *Push to Commit (via Terminal)* (`gitlens.explorers.terminalPushCommit`) command to commit nodes on the current branch in the *GitLens* explorer

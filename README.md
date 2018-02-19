@@ -451,6 +451,10 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
 
 - Adds a *Directory Compare Working Tree with...* command (`gitlens.diffDirectory`) to open the configured Git difftool to compare the working tree with the selected branch or tag
 
+- Adds a *Compare Index (HEAD) with Branch or Tag...* command (`gitlens.diffHeadWithBranch`) to compare the index (HEAD) with the selected branch or tag
+
+- Adds a *Compare Working Tree with Branch or Tag...* command (`gitlens.diffWorkingWithBranch`) to compare the working tree with the selected branch or tag
+
 - Adds a *Compare File with Branch or Tag...* command (`gitlens.diffWithBranch`) to compare the active file with the same file on the selected branch or tag
 
 - Adds a *Compare File with Next Revision* command (`gitlens.diffWithNext`) with a shortcut of `alt+.` to compare the active file/diff with the next commit revision
@@ -667,6 +671,7 @@ Add [`"gitlens.insiders": true`](#general-settings "Jump to GitLens settings") t
 A big thanks to the people that have contributed to this project:
 
 - Amanda Cameron ([@AmandaCameron](https://github.com/AmandaCameron)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=AmandaCameron))
+- Geoffrey ([@g3offrey](https://github.com/g3offrey)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=g3offrey))
 - Yukai Huang ([@Yukaii](https://github.com/Yukaii)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=Yukaii))
 - Helmut Januschka ([@hjanuschka](https://github.com/hjanuschka)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=hjanuschka))
 - Chris Kaczor ([@ckaczor](https://github.com/ckaczor)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=ckaczor))

@@ -1107,6 +1107,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.diffWorkingWithBranch",
+                "title": "Compare Working Tree with Branch or Tag...",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.diffWith",
                 "title": "Compare File Revisions",
                 "category": "GitLens"
@@ -1659,6 +1664,10 @@
                 },
                 {
                     "command": "gitlens.diffHeadWithBranch",
+                    "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.diffWorkingWithBranch",
                     "when": "gitlens:enabled"
                 },
                 {
