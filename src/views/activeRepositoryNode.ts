@@ -33,6 +33,10 @@ export class ActiveRepositoryNode extends ExplorerNode {
         }
     }
 
+    get id(): string {
+        return 'gitlens:repository:active';
+    }
+
     private async onActiveEditorChanged(editor: TextEditor | undefined) {
         if (editor !== undefined && !isTextEditor(editor)) return;
 
@@ -86,8 +90,10 @@ export class ActiveRepositoryNode extends ExplorerNode {
     }
 
     getTreeItem(): TreeItem {
-        return this._repositoryNode !== undefined
+        const item = this._repositoryNode !== undefined
             ? this._repositoryNode.getTreeItem()
             : new TreeItem('No active repository', TreeItemCollapsibleState.None);
+        item.id = this.id;
+        return item;
     }
 }

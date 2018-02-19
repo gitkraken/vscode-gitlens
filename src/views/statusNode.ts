@@ -17,6 +17,10 @@ export class StatusNode extends ExplorerNode {
         super(uri);
     }
 
+    get id(): string {
+        return `gitlens:repository(${this.repo.path})${this.active ? ':active' : ''}:status`;
+    }
+
     async getChildren(): Promise<ExplorerNode[]> {
         this.resetChildren();
 
@@ -26,18 +30,18 @@ export class StatusNode extends ExplorerNode {
         this.children = [];
 
         if (status.state.behind) {
-            this.children.push(new StatusUpstreamNode(status, 'behind', this.explorer));
+            this.children.push(new StatusUpstreamNode(status, 'behind', this.explorer, this.active));
         }
 
         if (status.state.ahead) {
-            this.children.push(new StatusUpstreamNode(status, 'ahead', this.explorer));
+            this.children.push(new StatusUpstreamNode(status, 'ahead', this.explorer, this.active));
         }
 
         if (status.state.ahead || (status.files.length !== 0 && this.includeWorkingTree)) {
             const range = status.upstream
                 ? `${status.upstream}..${status.branch}`
                 : undefined;
-            this.children.push(new StatusFilesNode(status, range, this.explorer));
+            this.children.push(new StatusFilesNode(status, range, this.explorer, this.active));
         }
 
         return this.children;
@@ -99,6 +103,7 @@ export class StatusNode extends ExplorerNode {
         }
 
         const item = new TreeItem(label, state);
+        item.id = this.id;
         item.contextValue = ResourceType.Status;
 
         item.iconPath = {

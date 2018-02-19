@@ -23,6 +23,10 @@ export class RepositoryNode extends ExplorerNode {
         super(uri);
     }
 
+    get id(): string {
+        return `gitlens:repository(${this.repo.path})${this.active ? ':active' : ''}`;
+    }
+
     async getChildren(): Promise<ExplorerNode[]> {
         this.resetChildren();
         this.updateSubscription();
@@ -45,6 +49,7 @@ export class RepositoryNode extends ExplorerNode {
             : `${this.repo.formattedName || this.uri.repoPath}`;
 
         const item = new TreeItem(label, this.active ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed);
+        item.id = this.id;
         item.contextValue = ResourceType.Repository;
         return item;
     }

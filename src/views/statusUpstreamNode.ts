@@ -11,9 +11,14 @@ export class StatusUpstreamNode extends ExplorerNode {
     constructor(
         public readonly status: GitStatus,
         public readonly direction: 'ahead' | 'behind',
-        private readonly explorer: Explorer
+        private readonly explorer: Explorer,
+        private readonly active: boolean = false
     ) {
         super(GitUri.fromRepoPath(status.repoPath));
+    }
+
+    get id(): string {
+        return `gitlens:repository(${this.status.repoPath})${this.active ? ':active' : ''}:status:upstream`;
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
@@ -45,6 +50,7 @@ export class StatusUpstreamNode extends ExplorerNode {
             : `${this.status.state.behind} commit${this.status.state.behind > 1 ? 's' : ''} (behind ${this.status.upstream})`;
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
+        item.id = this.id;
         item.contextValue = ResourceType.StatusUpstream;
 
         item.iconPath = {

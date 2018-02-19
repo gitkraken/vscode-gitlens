@@ -18,10 +18,15 @@ export class StatusFilesNode extends ExplorerNode {
     constructor(
         public readonly status: GitStatus,
         public readonly range: string | undefined,
-        private readonly explorer: GitExplorer
+        private readonly explorer: GitExplorer,
+        private readonly active: boolean = false
     ) {
         super(GitUri.fromRepoPath(status.repoPath));
         this.repoPath = status.repoPath;
+    }
+
+    get id(): string {
+        return `gitlens:repository(${this.status.repoPath})${this.active ? ':active' : ''}:status:files`;
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
@@ -119,6 +124,7 @@ export class StatusFilesNode extends ExplorerNode {
 
         const label = `${files} file${files > 1 ? 's' : ''} changed`; // ${this.status.upstream === undefined ? '' : ` (ahead of ${this.status.upstream})`}`;
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
+        item.id = this.id;
         item.contextValue = ResourceType.StatusFiles;
         item.iconPath = {
             dark: Container.context.asAbsolutePath(`images/dark/icon-diff.svg`),
