@@ -9,10 +9,14 @@ If you'd like to join them in supporting GitLens, please consider:
 
 <h2 align="center">Generous Backers ($10+)</h2>
 
+- TypeScript Types (Ken Howard)
 - Borek Bernard
+- Michael Scott-Nelson
+- MrG0lden
 
 <h2 align="center">Backers</h2>
 
-- Pavel Khlopin
 - Guido Kessels
+- Pavel Khlopin
 - Eugen Grue
+- Andreas Fertsch-Röver
