@@ -10,7 +10,7 @@ export interface GitBlame {
 }
 
 export interface GitBlameLine {
-    readonly author: GitAuthor;
+    readonly author?: GitAuthor;
     readonly commit: GitBlameCommit;
     readonly line: GitCommitLine;
 }
