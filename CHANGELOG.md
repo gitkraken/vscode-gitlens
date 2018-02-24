@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds multi-cursor support to current line annotations &mdash; closes [#291](https://github.com/eamodio/vscode-gitlens/issues/291)
 
+### Fixed
+- Fixes [#294](https://github.com/eamodio/vscode-gitlens/issues/294) - Keyboard shortcuts will now default to *chorded* to avoid conflicts. FYI, only affects new installs or if you remove the `gitlens.keymap` setting)
+
 ## [8.0.2] - 2018-02-19
 ### Fixed
 - Fixes button colors on the Welcome and Settings pages to follow the color theme properly

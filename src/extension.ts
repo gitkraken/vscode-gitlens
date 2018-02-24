@@ -1,13 +1,13 @@
 'use strict';
-import { Objects, Versions } from './system';
-import { commands, ConfigurationTarget, ExtensionContext, extensions, window, workspace } from 'vscode';
-import { CodeLensLanguageScope, CodeLensScopes, configuration, Configuration, HighlightLocations, IConfig, OutputLevel } from './configuration';
+import { Versions } from './system';
+import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
+import { CodeLensLanguageScope, CodeLensScopes, configuration, Configuration, HighlightLocations, IConfig, KeyMap, OutputLevel } from './configuration';
 import { CommandContext, ExtensionKey, GlobalState, QualifiedExtensionId, setCommandContext } from './constants';
 import { Commands, configureCommands } from './commands';
 import { Container } from './container';
 import { GitService } from './gitService';
 import { Logger } from './logger';
-import { Messages, SuppressedMessages } from './messages';
+import { Messages } from './messages';
 // import { Telemetry } from './telemetry';
 
 // this method is called when your extension is activated
@@ -80,46 +80,6 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
     const previous = Versions.fromString(previousVersion);
 
     try {
-        if (Versions.compare(previous, Versions.from(6, 1, 2)) !== 1) {
-            try {
-                const section = configuration.name('advanced')('messages').value;
-                const messages: { [key: string]: boolean } = configuration.get(section);
-
-                let migrated = false;
-
-                for (const m of Objects.values(SuppressedMessages)) {
-                    const suppressed = context.globalState.get<boolean>(m);
-                    if (suppressed === undefined) continue;
-
-                    migrated = true;
-                    messages[m] = suppressed;
-
-                    context.globalState.update(m, undefined);
-                }
-
-                if (!migrated) return;
-
-                await configuration.update(section, messages, ConfigurationTarget.Global);
-            }
-            catch (ex) {
-                Logger.error(ex, 'migrateSettings - messages');
-            }
-        }
-
-        if (Versions.compare(previous, Versions.from(7, 1, 0)) !== 1) {
-            // https://github.com/eamodio/vscode-gitlens/issues/239
-            const section = configuration.name('advanced')('quickPick')('closeOnFocusOut').value;
-            await configuration.migrate<boolean, boolean>(section, section, v => !v);
-        }
-
-        if (Versions.compare(previous, Versions.from(7, 3, 0, 'beta2')) !== 1) {
-            await configuration.migrate('advanced.maxQuickHistory', configuration.name('advanced')('maxListItems').value);
-        }
-
-        if (Versions.compare(previous, Versions.from(7, 3, 0, 'beta4')) !== 1) {
-            await configuration.migrate('gitExplorer.gravatarsDefault', configuration.name('defaultGravatarsStyle').value);
-        }
-
         if (Versions.compare(previous, Versions.from(7, 5, 10)) !== 1) {
             await configuration.migrate('annotations.file.gutter.gravatars', configuration.name('blame')('avatars').value);
             await configuration.migrate('annotations.file.gutter.compact', configuration.name('blame')('compact').value);
@@ -132,16 +92,18 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
             await configuration.migrate('annotations.file.gutter.separateLines', configuration.name('blame')('separateLines').value);
 
             await configuration.migrate('codeLens.locations', configuration.name('codeLens')('scopes').value);
-            await configuration.migrate<{ customSymbols?: string[], language: string | undefined, locations: CodeLensScopes[] }[], CodeLensLanguageScope[]>('codeLens.perLanguageLocations', configuration.name('codeLens')('scopesByLanguage').value,
-                v => {
-                    const scopes = v.map(ls => {
-                        return {
-                            language: ls.language,
-                            scopes: ls.locations,
-                            symbolScopes: ls.customSymbols
-                        };
-                    });
-                    return scopes;
+            await configuration.migrate<{ customSymbols?: string[], language: string | undefined, locations: CodeLensScopes[] }[], CodeLensLanguageScope[]>(
+                'codeLens.perLanguageLocations', configuration.name('codeLens')('scopesByLanguage').value, {
+                    migrationFn: v => {
+                        const scopes = v.map(ls => {
+                            return {
+                                language: ls.language,
+                                scopes: ls.locations,
+                                symbolScopes: ls.customSymbols
+                            };
+                        });
+                        return scopes;
+                    }
                 });
             await configuration.migrate('codeLens.customLocationSymbols', configuration.name('codeLens')('symbolScopes').value);
 
@@ -152,12 +114,16 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
             await configuration.migrate('annotations.file.gutter.hover.changes', configuration.name('hovers')('annotations')('changes').value);
             await configuration.migrate('annotations.file.gutter.hover.details', configuration.name('hovers')('annotations')('details').value);
             await configuration.migrate('annotations.file.gutter.hover.details', configuration.name('hovers')('annotations')('enabled').value);
-            await configuration.migrate<boolean, 'line' | 'annotation'>('annotations.file.gutter.hover.wholeLine', configuration.name('hovers')('annotations')('over').value, v => v ? 'line' : 'annotation');
+            await configuration.migrate<boolean, 'line' | 'annotation'>(
+                'annotations.file.gutter.hover.wholeLine', configuration.name('hovers')('annotations')('over').value,
+                { migrationFn: v => v ? 'line' : 'annotation' });
 
             await configuration.migrate('annotations.line.trailing.hover.changes', configuration.name('hovers')('currentLine')('changes').value);
             await configuration.migrate('annotations.line.trailing.hover.details', configuration.name('hovers')('currentLine')('details').value);
             await configuration.migrate('blame.line.enabled', configuration.name('hovers')('currentLine')('enabled').value);
-            await configuration.migrate<boolean, 'line' | 'annotation'>('annotations.line.trailing.hover.wholeLine', configuration.name('hovers')('currentLine')('over').value, v => v ? 'line' : 'annotation');
+            await configuration.migrate<boolean, 'line' | 'annotation'>(
+                'annotations.line.trailing.hover.wholeLine', configuration.name('hovers')('currentLine')('over').value,
+                { migrationFn: v => v ? 'line' : 'annotation' });
 
             await configuration.migrate('gitExplorer.gravatars', configuration.name('explorers')('avatars').value);
             await configuration.migrate('gitExplorer.commitFileFormat', configuration.name('explorers')('commitFileFormat').value);
@@ -170,30 +136,34 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
         }
 
         if (Versions.compare(previous, Versions.from(8, 0, 0, 'beta2')) !== 1) {
-            await configuration.migrate<boolean, OutputLevel>('debug', configuration.name('outputLevel').value, v => v ? OutputLevel.Debug : configuration.get(configuration.name('outputLevel').value));
-            await configuration.migrate('debug', configuration.name('debug').value, v => undefined);
+            await configuration.migrate<boolean, OutputLevel>(
+                'debug', configuration.name('outputLevel').value,
+                { migrationFn: v => v ? OutputLevel.Debug : configuration.get(configuration.name('outputLevel').value) });
+            await configuration.migrate('debug', configuration.name('debug').value, { migrationFn: v => undefined });
         }
 
         if (Versions.compare(previous, Versions.from(8, 0, 0, 'rc')) !== 1) {
             let section = configuration.name('blame')('highlight')('locations').value;
-            await configuration.migrate<('gutter' | 'line' | 'overviewRuler')[], HighlightLocations[]>(section, section,
-                v => {
+            await configuration.migrate<('gutter' | 'line' | 'overviewRuler')[], HighlightLocations[]>(section, section, {
+                migrationFn: v => {
                     const index = v.indexOf('overviewRuler');
                     if (index !== -1) {
                         v.splice(index, 1, 'overview' as 'overviewRuler');
                     }
                     return v as HighlightLocations[];
-                });
+                }
+            });
 
             section = configuration.name('recentChanges')('highlight')('locations').value;
-            await configuration.migrate<('gutter' | 'line' | 'overviewRuler')[], HighlightLocations[]>(section, section,
-                v => {
+            await configuration.migrate<('gutter' | 'line' | 'overviewRuler')[], HighlightLocations[]>(section, section, {
+                migrationFn: v => {
                     const index = v.indexOf('overviewRuler');
                     if (index !== -1) {
                         v.splice(index, 1, 'overview' as 'overviewRuler');
                     }
                     return v as HighlightLocations[];
-                });
+                }
+            });
         }
 
         if (Versions.compare(previous, Versions.from(8, 0, 0)) !== 1) {
@@ -208,16 +178,18 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
             await configuration.migrateIfMissing('annotations.file.gutter.separateLines', configuration.name('blame')('separateLines').value);
 
             await configuration.migrateIfMissing('codeLens.locations', configuration.name('codeLens')('scopes').value);
-            await configuration.migrateIfMissing<{ customSymbols?: string[], language: string | undefined, locations: CodeLensScopes[] }[], CodeLensLanguageScope[]>('codeLens.perLanguageLocations', configuration.name('codeLens')('scopesByLanguage').value,
-                v => {
-                    const scopes = v.map(ls => {
-                        return {
-                            language: ls.language,
-                            scopes: ls.locations,
-                            symbolScopes: ls.customSymbols
-                        };
-                    });
-                    return scopes;
+            await configuration.migrateIfMissing<{ customSymbols?: string[], language: string | undefined, locations: CodeLensScopes[] }[], CodeLensLanguageScope[]>(
+                'codeLens.perLanguageLocations', configuration.name('codeLens')('scopesByLanguage').value, {
+                    migrationFn: v => {
+                        const scopes = v.map(ls => {
+                            return {
+                                language: ls.language,
+                                scopes: ls.locations,
+                                symbolScopes: ls.customSymbols
+                            };
+                        });
+                        return scopes;
+                    }
                 });
             await configuration.migrateIfMissing('codeLens.customLocationSymbols', configuration.name('codeLens')('symbolScopes').value);
 
@@ -228,12 +200,16 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
             await configuration.migrateIfMissing('annotations.file.gutter.hover.changes', configuration.name('hovers')('annotations')('changes').value);
             await configuration.migrateIfMissing('annotations.file.gutter.hover.details', configuration.name('hovers')('annotations')('details').value);
             await configuration.migrateIfMissing('annotations.file.gutter.hover.details', configuration.name('hovers')('annotations')('enabled').value);
-            await configuration.migrateIfMissing<boolean, 'line' | 'annotation'>('annotations.file.gutter.hover.wholeLine', configuration.name('hovers')('annotations')('over').value, v => v ? 'line' : 'annotation');
+            await configuration.migrateIfMissing<boolean, 'line' | 'annotation'>(
+                'annotations.file.gutter.hover.wholeLine', configuration.name('hovers')('annotations')('over').value,
+                { migrationFn: v => v ? 'line' : 'annotation' });
 
             await configuration.migrateIfMissing('annotations.line.trailing.hover.changes', configuration.name('hovers')('currentLine')('changes').value);
             await configuration.migrateIfMissing('annotations.line.trailing.hover.details', configuration.name('hovers')('currentLine')('details').value);
             await configuration.migrateIfMissing('blame.line.enabled', configuration.name('hovers')('currentLine')('enabled').value);
-            await configuration.migrateIfMissing<boolean, 'line' | 'annotation'>('annotations.line.trailing.hover.wholeLine', configuration.name('hovers')('currentLine')('over').value, v => v ? 'line' : 'annotation');
+            await configuration.migrateIfMissing<boolean, 'line' | 'annotation'>(
+                'annotations.line.trailing.hover.wholeLine', configuration.name('hovers')('currentLine')('over').value,
+                { migrationFn: v => v ? 'line' : 'annotation' });
 
             await configuration.migrateIfMissing('gitExplorer.gravatars', configuration.name('explorers')('avatars').value);
             await configuration.migrateIfMissing('gitExplorer.commitFileFormat', configuration.name('explorers')('commitFileFormat').value);
@@ -243,6 +219,14 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
             await configuration.migrateIfMissing('gitExplorer.statusFileFormat', configuration.name('explorers')('statusFileFormat').value);
 
             await configuration.migrateIfMissing('recentChanges.file.lineHighlight.locations', configuration.name('recentChanges')('highlight')('locations').value);
+        }
+
+        if (Versions.compare(previous, Versions.from(8, 0, 2)) !== 1) {
+            const section = configuration.name('keymap').value;
+            await configuration.migrate<'standard' | 'chorded' | 'none', KeyMap>(section, section, {
+                fallbackValue: KeyMap.Alternate,
+                migrationFn: v => v === 'standard' ? KeyMap.Alternate : v as KeyMap
+            });
         }
     }
     catch (ex) {

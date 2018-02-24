@@ -507,7 +507,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.defaultDateStyle`|Specifies how dates will be displayed by default
 |`gitlens.defaultGravatarsStyle`|Specifies the style of the gravatar default (fallback) images<br />`identicon` - a geometric pattern<br />`mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)<br />`monsterid` - a monster with different colors, faces, etc<br />`retro` - 8-bit arcade-style pixelated faces<br />`robohash` - a robot with different colors, faces, etc<br />`wavatar` - faces with differing features and backgrounds
 |`gitlens.insiders`|Opts into the insiders channel &mdash; provides access to upcoming features
-|`gitlens.keymap`|Specifies the keymap to use for GitLens shortcut keys<br />`standard` - adds a standard set of shortcut keys<br />`chorded` - adds a chorded set of shortcut keys that all start with `Ctrl+Shift+G` (<code>&#x2325;&#x2318;G</code> on macOS)<br />`none` - no shortcut keys will be added
+|`gitlens.keymap`|Specifies the keymap to use for GitLens shortcut keys<br />`alternate` - adds an alternate set of shortcut keys that start with `Alt` (&#x2325; on macOS)<br />`chorded` - adds a chorded set of shortcut keys that start with `Ctrl+Shift+G` (<code>&#x2325;&#x2318;G</code> on macOS)<br />`none` - no shortcut keys will be added
 |`gitlens.outputLevel`|Specifies how much (if any) output will be sent to the GitLens output channel
 |`gitlens.showWhatsNewAfterUpgrades`|Specifies whether to show What's New after upgrading to new feature releases
 

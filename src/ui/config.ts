@@ -73,7 +73,7 @@ export enum HighlightLocations {
 }
 
 export enum KeyMap {
-    Standard = 'standard',
+    Alternate = 'alternate',
     Chorded = 'chorded',
     None = 'none'
 }

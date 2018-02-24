@@ -571,19 +571,19 @@
                             <div class="settings-group">
                                 <label for="keymap">Use</label>
                                 <select class="setting" id="keymap" name="keymap">
-                                    <option value="standard">the default set of</option>
+                                    <option value="alternate">an alternate set of</option>
                                     <option value="chorded">a chorded set of</option>
                                     <option value="none">a custom set of</option>
                                 </select>
                                 <label for="keymap"> keyboard shortcuts</label>
-                                <span class="label__hint hidden" data-visibility="keymap =standard">
-                                    <span class="shortcut-key">Alt</span>
-                                    based shortcuts. Not great for non-English keyboard layouts
+                                <span class="label__hint hidden" data-visibility="keymap =alternate">
+                                    <span class="shortcut-key">Alt</span> based (<span class="shortcut-key">&#x2325;</span> on macOS) shortcuts.
+                                    Not great for non-English keyboard layouts
                                 </span>
                                 <span class="label__hint hidden" data-visibility="keymap =chorded">
                                     Chorded shortcuts that start with
-                                    <span class="shortcut-key">Ctrl+Shift+G</span> (
-                                    <span class="shortcut-key">&#x2325;&#x2318;G</span> on macOS). Better for non-English keyboard layouts
+                                    <span class="shortcut-key">Ctrl+Shift+G</span> (<span class="shortcut-key">&#x2325;&#x2318;G</span> on macOS).
+                                    Better for non-English keyboard layouts
                                 </span>
                                 <span class="label__hint hidden" data-visibility="keymap =none">
                                     GitLens won't bind any keyboard shortcuts. Configure your own via the
