@@ -26,7 +26,7 @@
     "devDependencies": {
         "@types/node": "9.4.6",
         "@types/webpack": "3.8.8",
-        "css-loader": "0.28.9",
+        "css-loader": "0.28.10",
         "extract-text-webpack-plugin": "3.0.2",
         "html-webpack-inline-source-plugin": "0.0.9",
         "html-webpack-plugin": "2.30.1",
@@ -37,7 +37,7 @@
         "tslint": "5.9.1",
         "ts-loader": "3.5.0",
         "typescript": "2.7.2",
-        "uglifyjs-webpack-plugin": "1.2.0",
+        "uglifyjs-webpack-plugin": "1.2.2",
         "webpack": "3.11.0"
     }
 }

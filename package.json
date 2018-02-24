@@ -2898,7 +2898,7 @@
         "tslint": "5.9.1",
         "typescript": "2.7.2",
         "uglify-es": "3.3.9",
-        "uglifyjs-webpack-plugin": "1.2.0",
+        "uglifyjs-webpack-plugin": "1.2.2",
         "vscode": "1.1.10",
         "webpack": "3.11.0",
         "webpack-node-externals": "1.6.0"
