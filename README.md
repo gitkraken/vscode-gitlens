@@ -107,7 +107,7 @@ The repository view provides a full Git repository explorer, which has the follo
       - *Red* &mdash; behind the upstream
       - *Yellow* &mdash; both ahead of and behind the upstream
     - Context menus for each branch provide
-      - *Open Branch in Remote* (if available), *Compare with Remote* (if available), *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected* (when available), *Compare Selected Ancestor with Working Tree* (when available), *Select for Compare*, *Open Directory Compare with Working Tree*, *Checkout Branch (via Terminal)*, *Merge Branch (via Terminal)*, *Rebase (Interactive) Branch (via Terminal)*, *Rebase (Interactive) Branch to Remote (via Terminal)*, *Squash Branch into Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Delete Branch (via Terminal)*, *Create Tag (via Terminal)...*, and *Refresh* commands
+      - *Open Branch in Remote* (if available), *Compare with Remote* (if available), *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected* (when available), *Compare  Ancestry with Working Tree* (when available), *Select for Compare*, *Open Directory Compare with Working Tree*, *Checkout Branch (via Terminal)*, *Merge Branch (via Terminal)*, *Rebase (Interactive) Branch (via Terminal)*, *Rebase (Interactive) Branch to Remote (via Terminal)*, *Squash Branch into Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Delete Branch (via Terminal)*, *Create Tag (via Terminal)...*, and *Refresh* commands
     - Revisions (commits) expand to show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
       - Context menus for each revision (commit) provide
         -  *Open Commit in Remote* (if available), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, *Cherry Pick Commit (via Terminal)* (when available), *Push to Commit (via Terminal)* (when available), *Revert Commit (via Terminal)* (when available), *Rebase to Commit (via Terminal)* (when available), *Reset to Commit (via Terminal)*  (when available), *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
@@ -183,7 +183,7 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
       - *Compare with Index (HEAD)* command (`gitlens.explorers.compareWithHead`)
       - *Compare with Working Tree* command (`gitlens.explorers.compareWithWorking`)
       - *Compare with Selected* command (`gitlens.explorers.compareWithSelected`)
-      - *Compare Selected Ancestor with Working Tree* command (`gitlens.explorers.compareSelectedAncestorWithWorking`)
+      - *Compare Ancestry with Working Tree* command (`gitlens.explorers.compareAncestryWithWorking`)
     - An inline toolbar provides *Swap Comparision*, and *Clear Results* commands
     - A context menu provides *Clear Results*, *Swap Comparision*, *Open Directory Compare*, and *Refresh* commands
 

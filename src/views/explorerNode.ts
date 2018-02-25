@@ -7,6 +7,11 @@ import { GitUri } from '../gitService';
 import { GitExplorer } from './gitExplorer';
 import { ResultsExplorer } from './resultsExplorer';
 
+export interface NamedRef {
+    label?: string;
+    ref: string;
+}
+
 export enum RefreshReason {
     ActiveEditorChanged = 'active-editor-changed',
     AutoRefreshChanged = 'auto-refresh-changed',

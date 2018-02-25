@@ -35,7 +35,7 @@ export class ExplorerCommands extends Disposable {
         commands.registerCommand('gitlens.explorers.openChangedFileChangesWithWorking', this.openChangedFileChangesWithWorking, this);
         commands.registerCommand('gitlens.explorers.openChangedFileRevisions', this.openChangedFileRevisions, this);
         commands.registerCommand('gitlens.explorers.applyChanges', this.applyChanges, this);
-        commands.registerCommand('gitlens.explorers.compareSelectedAncestorWithWorking', this.compareSelectedAncestorWithWorking, this);
+        commands.registerCommand('gitlens.explorers.compareAncestryWithWorking', this.compareAncestryWithWorking, this);
         commands.registerCommand('gitlens.explorers.compareWithHead', this.compareWithHead, this);
         commands.registerCommand('gitlens.explorers.compareWithRemote', this.compareWithRemote, this);
         commands.registerCommand('gitlens.explorers.compareWithSelected', this.compareWithSelected, this);
@@ -85,14 +85,14 @@ export class ExplorerCommands extends Disposable {
         Container.resultsExplorer.showComparisonInResults(node.repoPath, node.ref, '');
     }
 
-    private async compareSelectedAncestorWithWorking(node: BranchNode) {
-        if (this._selection === undefined || !(node instanceof BranchNode)) return;
-        if (this._selection.repoPath !== node.repoPath || this._selection.type !== 'branch') return;
+    private async compareAncestryWithWorking(node: BranchNode) {
+        const branch = await Container.git.getBranch(node.repoPath);
+        if (branch === undefined) return;
 
-        const commonAncestor = await Container.git.getMergeBase(this._selection.repoPath, this._selection.ref, node.ref);
+        const commonAncestor = await Container.git.getMergeBase(node.repoPath, branch.name, node.ref);
         if (commonAncestor === undefined) return;
 
-        Container.resultsExplorer.showComparisonInResults(this._selection.repoPath, commonAncestor, '');
+        Container.resultsExplorer.showComparisonInResults(node.repoPath, { ref: commonAncestor, label: `ancestry with ${node.ref} (${GitService.shortenSha(commonAncestor)})` }, '');
     }
 
     private compareWithSelected(node: ExplorerNode) {

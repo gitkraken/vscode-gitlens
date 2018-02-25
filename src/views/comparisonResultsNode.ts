@@ -4,7 +4,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitsResultsNode } from './commitsResultsNode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
+import { Explorer, ExplorerNode, NamedRef, ResourceType } from './explorerNode';
 import { GitLog, GitService, GitStatusFile, GitUri } from '../gitService';
 import { StatusFilesResultsNode } from './statusFilesResultsNode';
 
@@ -12,8 +12,8 @@ export class ComparisonResultsNode extends ExplorerNode {
 
     constructor(
         public readonly repoPath: string,
-        public readonly ref1: string,
-        public readonly ref2: string,
+        public readonly ref1: NamedRef,
+        public readonly ref2: NamedRef,
         private readonly explorer: Explorer
     ) {
         super(GitUri.fromRepoPath(repoPath));
@@ -22,7 +22,7 @@ export class ComparisonResultsNode extends ExplorerNode {
     async getChildren(): Promise<ExplorerNode[]> {
         this.resetChildren();
 
-        const commitsQueryFn = (maxCount: number | undefined) => Container.git.getLog(this.uri.repoPath!, { maxCount: maxCount, ref: `${this.ref1}...${this.ref2 || 'HEAD'}` });
+        const commitsQueryFn = (maxCount: number | undefined) => Container.git.getLog(this.uri.repoPath!, { maxCount: maxCount, ref: `${this.ref1.ref}...${this.ref2.ref || 'HEAD'}` });
         const commitsLabelFn = async (log: GitLog | undefined) => {
             const count = log !== undefined ? log.count : 0;
             const truncated = log !== undefined ? log.truncated : false;
@@ -31,7 +31,7 @@ export class ComparisonResultsNode extends ExplorerNode {
             return `${count === 0 ? 'No' : `${count}${truncated ? '+' : ''}`} commits`;
         };
 
-        const filesQueryFn = () => Container.git.getDiffStatus(this.uri.repoPath!, this.ref1, this.ref2);
+        const filesQueryFn = () => Container.git.getDiffStatus(this.uri.repoPath!, this.ref1.ref, this.ref2.ref);
         const filesLabelFn = (diff: GitStatusFile[] | undefined) => {
             const count = diff !== undefined ? diff.length : 0;
 
@@ -41,7 +41,7 @@ export class ComparisonResultsNode extends ExplorerNode {
 
         this.children = [
             new CommitsResultsNode(this.uri.repoPath!, commitsLabelFn, commitsQueryFn, this.explorer),
-            new StatusFilesResultsNode(this.uri.repoPath!, this.ref1, this.ref2, filesLabelFn, filesQueryFn, this.explorer)
+            new StatusFilesResultsNode(this.uri.repoPath!, this.ref1.ref, this.ref2.ref, filesLabelFn, filesQueryFn, this.explorer)
         ];
 
         return this.children;
@@ -54,7 +54,7 @@ export class ComparisonResultsNode extends ExplorerNode {
             repository = ` ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) || this.uri.repoPath}`;
         }
 
-        const item = new TreeItem(`Comparing ${GitService.shortenSha(this.ref1, { working: 'Working Tree' })} to ${GitService.shortenSha(this.ref2, { working: 'Working Tree' })}${repository}`, TreeItemCollapsibleState.Expanded);
+        const item = new TreeItem(`Comparing ${this.ref1.label || GitService.shortenSha(this.ref1.ref, { working: 'Working Tree' })} to ${this.ref2.label || GitService.shortenSha(this.ref2.ref, { working: 'Working Tree' })}${repository}`, TreeItemCollapsibleState.Expanded);
         item.contextValue = ResourceType.ComparisonResults;
         return item;
     }

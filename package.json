@@ -1419,8 +1419,8 @@
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.explorers.compareSelectedAncestorWithWorking",
-                "title": "Compare Selected Ancestor with Working Tree",
+                "command": "gitlens.explorers.compareAncestryWithWorking",
+                "title": "Compare Ancestry with Working Tree",
                 "category": "GitLens"
             },
             {
@@ -1900,7 +1900,7 @@
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.explorers.compareSelectedAncestorWithWorking",
+                    "command": "gitlens.explorers.compareAncestryWithWorking",
                     "when": "false"
                 },
                 {
@@ -2410,19 +2410,19 @@
                     "group": "7_gitlens@3"
                 },
                 {
+                    "command": "gitlens.explorers.compareAncestryWithWorking",
+                    "when": "viewItem =~ /gitlens:branch\\b/",
+                    "group": "7_gitlens@4"
+                },
+                {
                     "command": "gitlens.explorers.compareWithSelected",
                     "when": "viewItem =~ /gitlens:(branch|commit|stash|tag)\\b/ && gitlens:explorers:canCompare",
                     "group": "7_gitlens_@1"
                 },
                 {
-                    "command": "gitlens.explorers.compareSelectedAncestorWithWorking",
-                    "when": "viewItem =~ /gitlens:branch\\b/ && gitlens:explorers:canCompare == branch",
-                    "group": "7_gitlens_@2"
-                },
-                {
                     "command": "gitlens.explorers.selectForCompare",
                     "when": "viewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
-                    "group": "7_gitlens_@3"
+                    "group": "7_gitlens_@2"
                 },
                 {
                     "command": "gitlens.explorers.openDirectoryDiffWithWorking",

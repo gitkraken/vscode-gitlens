@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds multi-cursor support to current line annotations &mdash; closes [#291](https://github.com/eamodio/vscode-gitlens/issues/291)
 
+### Changed
+- Renames *Compare Selected Ancestor with Working Tree* command to *Compare Ancestry with Working Tree* and removes the need to select a branch first, since all compares are done to the working tree &mdash; closes [#279](https://github.com/eamodio/vscode-gitlens/issues/279)
+
 ### Fixed
 - Fixes [#294](https://github.com/eamodio/vscode-gitlens/issues/294) - Keyboard shortcuts will now default to *chorded* to avoid conflicts. FYI, only affects new installs or if you remove the `gitlens.keymap` setting)
 
