@@ -24,11 +24,12 @@ export enum AnnotationClearReason {
 
 export const Decorations = {
     blameAnnotation: window.createTextEditorDecorationType({
-        isWholeLine: true,
         rangeBehavior: DecorationRangeBehavior.ClosedOpen,
         textDecoration: 'none'
     } as DecorationRenderOptions),
     blameHighlight: undefined as TextEditorDecorationType | undefined,
+    heatmapAnnotation: window.createTextEditorDecorationType({} as DecorationRenderOptions),
+    heatmapHighlight: undefined as TextEditorDecorationType | undefined,
     recentChangesAnnotation: undefined as TextEditorDecorationType | undefined,
     recentChangesHighlight: undefined as TextEditorDecorationType | undefined
 };
@@ -104,11 +105,11 @@ export class AnnotationController extends Disposable {
         }
 
         if (initializing || configuration.changed(e, configuration.name('recentChanges')('highlight').value)) {
-            Decorations.recentChangesHighlight && Decorations.recentChangesHighlight.dispose();
+            Decorations.recentChangesAnnotation && Decorations.recentChangesAnnotation.dispose();
 
             const cfgHighlight = cfg.recentChanges.highlight;
 
-            Decorations.recentChangesHighlight = window.createTextEditorDecorationType({
+            Decorations.recentChangesAnnotation = window.createTextEditorDecorationType({
                 gutterIconSize: 'contain',
                 isWholeLine: true,
                 overviewRulerLane: OverviewRulerLane.Right,
@@ -141,7 +142,7 @@ export class AnnotationController extends Disposable {
                 if (provider === undefined) continue;
 
                 if (provider.annotationType === FileAnnotationType.RecentChanges) {
-                    provider.reset({ decoration: Decorations.recentChangesAnnotation, highlightDecoration: Decorations.recentChangesHighlight });
+                    provider.reset({ decoration: Decorations.recentChangesAnnotation!, highlightDecoration: Decorations.recentChangesHighlight });
                 }
                 else if (provider.annotationType === FileAnnotationType.Blame) {
                     provider.reset({ decoration: Decorations.blameAnnotation, highlightDecoration: Decorations.blameHighlight });
@@ -369,11 +370,11 @@ export class AnnotationController extends Disposable {
                 break;
 
             case FileAnnotationType.Heatmap:
-                provider = new HeatmapBlameAnnotationProvider(editor, trackedDocument, Decorations.blameAnnotation, undefined);
+                provider = new HeatmapBlameAnnotationProvider(editor, trackedDocument, Decorations.heatmapAnnotation, Decorations.heatmapHighlight);
                 break;
 
             case FileAnnotationType.RecentChanges:
-                provider = new RecentChangesAnnotationProvider(editor, trackedDocument, undefined, Decorations.recentChangesHighlight!);
+                provider = new RecentChangesAnnotationProvider(editor, trackedDocument, Decorations.recentChangesAnnotation!, Decorations.recentChangesHighlight);
                 break;
         }
         if (provider === undefined || !(await provider.validate())) return undefined;

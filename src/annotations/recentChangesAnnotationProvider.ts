@@ -16,7 +16,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
     constructor(
         editor: TextEditor,
         trackedDocument: TrackedDocument<GitDocumentState>,
-        decoration: TextEditorDecorationType | undefined,
+        decoration: TextEditorDecorationType,
         highlightDecoration: TextEditorDecorationType | undefined
     ) {
         super(editor, trackedDocument, decoration, highlightDecoration);
@@ -73,7 +73,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
             }
         }
 
-        this.editor.setDecorations(this.highlightDecoration!, this.decorations);
+        this.editor.setDecorations(this.decoration, this.decorations);
 
         const duration = process.hrtime(start);
         Logger.log(`${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms to compute recent changes annotations`);

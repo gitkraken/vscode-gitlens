@@ -17,7 +17,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
     constructor(
         editor: TextEditor,
         trackedDocument: TrackedDocument<GitDocumentState>,
-        decoration: TextEditorDecorationType | undefined,
+        decoration: TextEditorDecorationType,
         highlightDecoration: TextEditorDecorationType | undefined
     ) {
         super(editor, trackedDocument, decoration, highlightDecoration);
@@ -37,7 +37,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         super.clear();
     }
 
-    async onReset(changes?: { decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined }) {
+    async onReset(changes?: { decoration: TextEditorDecorationType, highlightDecoration: TextEditorDecorationType | undefined }) {
         if (this.editor !== undefined) {
             this._blame = this.editor.document.isDirty
                 ? Container.git.getBlameForFileContents(this._uri, this.editor.document.getText())

@@ -30,7 +30,7 @@ export abstract class AnnotationProviderBase extends Disposable {
     constructor(
         public editor: TextEditor,
         protected readonly trackedDocument: TrackedDocument<GitDocumentState>,
-        protected decoration: TextEditorDecorationType | undefined,
+        protected decoration: TextEditorDecorationType,
         protected highlightDecoration: TextEditorDecorationType | undefined
     ) {
         super(() => this.dispose());
@@ -97,9 +97,9 @@ export abstract class AnnotationProviderBase extends Disposable {
         }
     }
 
-    private _resetDebounced: ((changes?: { decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined }) => Promise<void>) | undefined;
+    private _resetDebounced: ((changes?: { decoration: TextEditorDecorationType, highlightDecoration: TextEditorDecorationType | undefined }) => Promise<void>) | undefined;
 
-    async reset(changes?: { decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined }) {
+    async reset(changes?: { decoration: TextEditorDecorationType, highlightDecoration: TextEditorDecorationType | undefined }) {
         if (this._resetDebounced === undefined) {
             this._resetDebounced = Functions.debounce(this.onReset, 250);
         }
@@ -107,7 +107,7 @@ export abstract class AnnotationProviderBase extends Disposable {
         this._resetDebounced(changes);
     }
 
-    async onReset(changes?: { decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined }) {
+    async onReset(changes?: { decoration: TextEditorDecorationType, highlightDecoration: TextEditorDecorationType | undefined }) {
         if (changes !== undefined) {
             await this.clear();
 
@@ -133,7 +133,7 @@ export abstract class AnnotationProviderBase extends Disposable {
         this.document = editor.document;
 
         if (this.decorations !== undefined && this.decorations.length) {
-            this.editor.setDecorations(this.decoration!, this.decorations);
+            this.editor.setDecorations(this.decoration, this.decorations);
 
             if (this.additionalDecorations !== undefined && this.additionalDecorations.length) {
                 for (const d of this.additionalDecorations) {
