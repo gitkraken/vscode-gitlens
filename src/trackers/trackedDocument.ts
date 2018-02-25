@@ -23,7 +23,7 @@ export class TrackedDocument<T> extends Disposable {
 
     private _disposable: Disposable | undefined;
     private _disposed: boolean = false;
-    private _repo: (Repository | undefined) | Promise<Repository | undefined>;
+    private _repo: Promise<Repository | undefined>;
     private _uri!: GitUri;
 
     constructor(
@@ -43,7 +43,7 @@ export class TrackedDocument<T> extends Disposable {
         this._disposable && this._disposable.dispose();
     }
 
-    private async initialize(uri: Uri) {
+    private async initialize(uri: Uri): Promise<Repository | undefined> {
         // Since there is a bit of a chicken & egg problem with the DocumentTracker and the GitService, wait for the GitService to load if it isn't
         if (Container.git === undefined) {
             if (!await Functions.waitUntil(() => Container.git !== undefined, 2000)) {
@@ -53,18 +53,16 @@ export class TrackedDocument<T> extends Disposable {
         }
 
         this._uri = await GitUri.fromUri(uri);
-        if (this._disposed) return;
+        if (this._disposed) return undefined;
 
         const repo = await Container.git.getRepository(this._uri);
-        if (this._disposed) return;
-
-        this._repo = repo;
+        if (this._disposed) return undefined;
 
         if (repo !== undefined) {
             this._disposable = repo.onDidChange(this.onRepositoryChanged, this);
         }
 
-        await this.update({ initializing: true });
+        await this.update({ initializing: true, repo: repo });
 
         return repo;
     }
@@ -155,7 +153,7 @@ export class TrackedDocument<T> extends Disposable {
         this._blameFailed = true;
 
         if (wasBlameable && isActiveDocument(this._document)) {
-            this.update({ forceBlameChange: true});
+            this.update({ forceBlameChange: true });
         }
     }
 
@@ -167,7 +165,7 @@ export class TrackedDocument<T> extends Disposable {
         this._forceDirtyStateChangeOnNextDocumentChange = true;
     }
 
-    async update(options: { forceBlameChange?: boolean, initializing?: boolean } = {}) {
+    async update(options: { forceBlameChange?: boolean, initializing?: boolean, repo?: Repository } = {}) {
         if (this._disposed || this._uri === undefined) {
             this._hasRemotes = false;
             this._isTracked = false;
@@ -184,7 +182,10 @@ export class TrackedDocument<T> extends Disposable {
 
         let repo = undefined;
         if (this._isTracked) {
-            repo = await this._repo;
+            repo = options.repo;
+            if (repo === undefined) {
+                repo = await this._repo;
+            }
         }
 
         if (repo !== undefined) {

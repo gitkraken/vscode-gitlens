@@ -174,9 +174,9 @@ export class DocumentTracker<T> extends Disposable {
     //     }
     // }
 
-    async add(document: TextDocument): Promise<TrackedDocument<T>>;
-    async add(uri: Uri): Promise<TrackedDocument<T>>;
-    async add(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
+    add(document: TextDocument): Promise<TrackedDocument<T>>;
+    add(uri: Uri): Promise<TrackedDocument<T>>;
+    add(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
         return this._add(documentOrId);
     }
 
@@ -188,17 +188,21 @@ export class DocumentTracker<T> extends Disposable {
         this._documentMap.clear();
     }
 
-    async get(fileName: string): Promise<TrackedDocument<T> | undefined>;
-    async get(document: TextDocument): Promise<TrackedDocument<T> | undefined>;
-    async get(uri: Uri): Promise<TrackedDocument<T> | undefined>;
-    async get(documentOrId: string | TextDocument | Uri): Promise<TrackedDocument<T> | undefined> {
-        return await this._get(documentOrId);
+    get(fileName: string): Promise<TrackedDocument<T> | undefined>;
+    get(document: TextDocument): Promise<TrackedDocument<T> | undefined>;
+    get(uri: Uri): Promise<TrackedDocument<T> | undefined>;
+    get(documentOrId: string | TextDocument | Uri): Promise<TrackedDocument<T> | undefined> {
+        return this._get(documentOrId);
     }
 
     async getOrAdd(document: TextDocument): Promise<TrackedDocument<T>>;
     async getOrAdd(uri: Uri): Promise<TrackedDocument<T>>;
     async getOrAdd(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
-        return await this._get(documentOrId) || await this._add(documentOrId);
+        let doc = await this._get(documentOrId);
+        if (doc === undefined) {
+            doc = await this._add(documentOrId);
+        }
+        return doc;
     }
 
     has(fileName: string): boolean;
