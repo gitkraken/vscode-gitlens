@@ -2,7 +2,7 @@
 import { Functions, Iterables } from '../system';
 import { ConfigurationChangeEvent, DecorationRangeBehavior, DecorationRenderOptions, Disposable, Event, EventEmitter, OverviewRulerLane, Progress, ProgressLocation, TextDocument, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, ThemeColor, window, workspace } from 'vscode';
 import { AnnotationProviderBase, AnnotationStatus, TextEditorCorrelationKey } from './annotationProvider';
-import { configuration, FileAnnotationType, HighlightLocations } from '../configuration';
+import { AnnotationsToggleMode, configuration, FileAnnotationType, HighlightLocations } from '../configuration';
 import { CommandContext, isTextEditor, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { DocumentBlameStateChangeEvent, DocumentDirtyStateChangeEvent, GitDocumentState } from '../trackers/documentTracker';
@@ -46,6 +46,8 @@ export class AnnotationController extends Disposable {
     private _disposable: Disposable;
     private _editor: TextEditor | undefined;
     private _keyboardScope: KeyboardScope | undefined = undefined;
+    private readonly _toggleModes: Map<FileAnnotationType, AnnotationsToggleMode>;
+    private _annotationType: FileAnnotationType | undefined = undefined;
 
     constructor() {
         super(() => this.dispose());
@@ -53,11 +55,13 @@ export class AnnotationController extends Disposable {
         this._disposable = Disposable.from(
             configuration.onDidChange(this.onConfigurationChanged, this)
         );
+
+        this._toggleModes = new Map();
         this.onConfigurationChanged(configuration.initializingChangeEvent);
     }
 
     dispose() {
-        this._annotationProviders.forEach(async (p, key) => await this.clearCore(key, AnnotationClearReason.Disposing));
+        this.clearAll();
 
         Decorations.blameAnnotation && Decorations.blameAnnotation.dispose();
         Decorations.blameHighlight && Decorations.blameHighlight.dispose();
@@ -132,6 +136,27 @@ export class AnnotationController extends Disposable {
             });
         }
 
+        if (initializing || configuration.changed(e, configuration.name('blame')('toggleMode').value)) {
+            this._toggleModes.set(FileAnnotationType.Blame, cfg.blame.toggleMode);
+            if (!initializing && cfg.blame.toggleMode === AnnotationsToggleMode.File) {
+                this.clearAll();
+            }
+        }
+
+        if (initializing || configuration.changed(e, configuration.name('heatmap')('toggleMode').value)) {
+            this._toggleModes.set(FileAnnotationType.Heatmap, cfg.heatmap.toggleMode);
+            if (!initializing && cfg.heatmap.toggleMode === AnnotationsToggleMode.File) {
+                this.clearAll();
+            }
+        }
+
+        if (initializing || configuration.changed(e, configuration.name('recentChanges')('toggleMode').value)) {
+            this._toggleModes.set(FileAnnotationType.RecentChanges, cfg.recentChanges.toggleMode);
+            if (!initializing && cfg.recentChanges.toggleMode === AnnotationsToggleMode.File) {
+                this.clearAll();
+            }
+        }
+
         if (initializing) return;
 
         if (configuration.changed(e, configuration.name('blame').value) ||
@@ -154,11 +179,17 @@ export class AnnotationController extends Disposable {
         }
     }
 
-    private onActiveTextEditorChanged(editor: TextEditor | undefined) {
+    private async onActiveTextEditorChanged(editor: TextEditor | undefined) {
         if (editor !== undefined && !isTextEditor(editor)) return;
 
         this._editor = editor;
         // Logger.log('AnnotationController.onActiveTextEditorChanged', editor && editor.document.uri.fsPath);
+
+        if (this.isInWindowToggle()) {
+            await this.showAnnotations(editor, this._annotationType!);
+
+            return;
+        }
 
         const provider = this.getProvider(editor);
         if (provider === undefined) {
@@ -215,7 +246,7 @@ export class AnnotationController extends Disposable {
         provider.restore(e.textEditor);
     }
 
-    private async onVisibleTextEditorsChanged(editors: TextEditor[]) {
+    private onVisibleTextEditorsChanged(editors: TextEditor[]) {
         let provider: AnnotationProviderBase | undefined;
         for (const e of editors) {
             provider = this.getProvider(e);
@@ -225,8 +256,29 @@ export class AnnotationController extends Disposable {
         }
     }
 
-    async clear(editor: TextEditor, reason: AnnotationClearReason = AnnotationClearReason.User) {
-        this.clearCore(AnnotationProviderBase.getCorrelationKey(editor), reason);
+    isInWindowToggle(): boolean {
+        return this.getToggleMode(this._annotationType) === AnnotationsToggleMode.Window;
+    }
+
+    private getToggleMode(annotationType: FileAnnotationType | undefined): AnnotationsToggleMode {
+        if (annotationType === undefined) return AnnotationsToggleMode.File;
+
+        return this._toggleModes.get(annotationType) || AnnotationsToggleMode.File;
+    }
+
+    clear(editor: TextEditor, reason: AnnotationClearReason = AnnotationClearReason.User) {
+        if (this.isInWindowToggle()) {
+            return this.clearAll();
+        }
+
+        return this.clearCore(AnnotationProviderBase.getCorrelationKey(editor), reason);
+    }
+
+    async clearAll() {
+        this._annotationType = undefined;
+        for (const [key] of this._annotationProviders) {
+            await this.clearCore(key, AnnotationClearReason.Disposing);
+        }
     }
 
     async getAnnotationType(editor: TextEditor | undefined): Promise<FileAnnotationType | undefined> {
@@ -245,6 +297,26 @@ export class AnnotationController extends Disposable {
     }
 
     async showAnnotations(editor: TextEditor | undefined, type: FileAnnotationType, shaOrLine?: string | number): Promise<boolean> {
+        if (this.getToggleMode(type) === AnnotationsToggleMode.Window) {
+            let first = this._annotationType === undefined;
+            const reset = !first && this._annotationType !== type;
+
+            this._annotationType = type;
+
+            if (reset) {
+                await this.clearAll();
+                first = true;
+            }
+
+            if (first) {
+                for (const e of window.visibleTextEditors) {
+                    if (e === editor) continue;
+
+                    this.showAnnotations(e, type);
+                }
+            }
+        }
+
         if (editor === undefined) return false; // || editor.viewColumn === undefined) return false;
         this._editor = editor;
 
@@ -283,7 +355,13 @@ export class AnnotationController extends Disposable {
         if (provider === undefined) return this.showAnnotations(editor!, type, shaOrLine);
 
         const reopen = provider.annotationType !== type;
-        await this.clearCore(provider.correlationKey, AnnotationClearReason.User);
+
+        if (this.isInWindowToggle()) {
+            await this.clearAll();
+        }
+        else {
+            await this.clearCore(provider.correlationKey, AnnotationClearReason.User);
+        }
 
         if (!reopen) return false;
 

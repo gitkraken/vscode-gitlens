@@ -583,6 +583,13 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |`gitlens.blame.highlight.locations`|Specifies where the associated line highlights will be shown<br />`gutter` - adds a gutter glyph<br />`line` - adds a full-line highlight background color<br />`overview` - adds a decoration to the overview ruler (scroll bar)
 |`gitlens.blame.ignoreWhitespace`|Specifies whether to ignore whitespace when comparing revisions during blame operations
 |`gitlens.blame.separateLines`|Specifies whether gutter blame annotations will have line separators
+|`gitlens.blame.toggleMode`|Specifies how the gutter blame annotations will be toggled<br />`file` - toggle each file individually<br />`window` - toggle the window, i.e. all files at once
+
+### Gutter Heatmap Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.heatmap.toggleMode`|Specifies how the gutter heatmap annotations will be toggled<br />`file` - toggle each file individually<br />`window` - toggle the window, i.e. all files at once
 
 ### Hover Settings
 
@@ -603,6 +610,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |Name | Description
 |-----|------------
 |`gitlens.recentChanges.highlight.locations`|Specifies where the highlights of the recently changed lines will be shown<br />`gutter` - adds a gutter glyph<br />`line` - adds a full-line highlight background color<br />`overview` - adds a decoration to the overview ruler (scroll bar)
+|`gitlens.recentChanges.toggleMode`|Specifies how the recently changed lines annotations will be toggled<br />`file` - toggle each file individually<br />`window` - toggle the window, i.e. all files at once
 
 ### Status Bar Settings
 

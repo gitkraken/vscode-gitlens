@@ -263,7 +263,7 @@ export class CurrentLineController extends Disposable {
         const trackedDocument = await Container.tracker.get(document);
         if (trackedDocument === undefined) return undefined;
 
-        const message = Annotations.getHoverMessage(logCommit || commit, Container.config.defaultDateFormat, trackedDocument.hasRemotes, fileAnnotations);
+        const message = Annotations.getHoverMessage(logCommit || commit, Container.config.defaultDateFormat, trackedDocument.hasRemotes, fileAnnotations, position.line);
         return new Hover(message, range);
     }
 

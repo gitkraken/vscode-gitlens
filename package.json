@@ -129,6 +129,16 @@
                     "description": "Specifies whether gutter blame annotations will be separated by a small gap",
                     "scope": "window"
                 },
+                "gitlens.blame.toggleMode": {
+                    "type": "string",
+                    "default": "file",
+                    "enum": [
+                        "file",
+                        "window"
+                    ],
+                    "description": "Specifies how the gutter blame annotations will be toggled\n `file` - toggle each file individually\n `window` - toggle the window, i.e. all files at once",
+                    "scope": "window"
+                },
                 "gitlens.codeLens.authors.command": {
                     "type": "string",
                     "default": "gitlens.toggleFileBlame",
@@ -459,6 +469,16 @@
                     "description": "Specifies the starting view (mode) of the `GitLens` explorer\n `auto` - shows the last selected view, defaults to `repository`\n `history` - shows the commit history of the active file\n `repository` - shows a repository explorer",
                     "scope": "window"
                 },
+                "gitlens.heatmap.toggleMode": {
+                    "type": "string",
+                    "default": "file",
+                    "enum": [
+                        "file",
+                        "window"
+                    ],
+                    "description": "Specifies how the gutter heatmap annotations will be toggled\n `file` - toggle each file individually\n `window` - toggle the window, i.e. all files at once",
+                    "scope": "window"
+                },
                 "gitlens.hovers.annotations.changes": {
                     "type": "boolean",
                     "default": true,
@@ -569,6 +589,16 @@
                     "maxItems": 3,
                     "uniqueItems": true,
                     "description": "Specifies where the highlights of the recently changed lines will be shown\n `gutter` - adds a gutter glyph\n `line` - adds a full-line highlight background color\n `overview` - adds a decoration to the overview ruler (scroll bar)",
+                    "scope": "window"
+                },
+                "gitlens.recentChanges.toggleMode": {
+                    "type": "string",
+                    "default": "file",
+                    "enum": [
+                        "file",
+                        "window"
+                    ],
+                    "description": "Specifies how the recently changed lines annotations will be toggled\n `file` - toggle each file individually\n `window` - toggle the window, i.e. all files at once",
                     "scope": "window"
                 },
                 "gitlens.remotes": {
@@ -1733,7 +1763,7 @@
                 },
                 {
                     "command": "gitlens.clearFileAnnotations",
-                    "when": "gitlens:annotationStatus == computed"
+                    "when": "gitlens:activeIsBlameable && gitlens:annotationStatus == computed"
                 },
                 {
                     "command": "gitlens.computingFileAnnotations",
@@ -2134,12 +2164,12 @@
                 },
                 {
                     "command": "gitlens.computingFileAnnotations",
-                    "when": "gitlens:annotationStatus == computing && config.gitlens.advanced.menus.editorTitle.blame",
+                    "when": "gitlens:activeIsBlameable && gitlens:annotationStatus == computing && config.gitlens.advanced.menus.editorTitle.blame",
                     "group": "navigation@100"
                 },
                 {
                     "command": "gitlens.clearFileAnnotations",
-                    "when": "gitlens:annotationStatus == computed && config.gitlens.advanced.menus.editorTitle.blame",
+                    "when": "gitlens:activeIsBlameable && gitlens:annotationStatus == computed && config.gitlens.advanced.menus.editorTitle.blame",
                     "group": "navigation@100"
                 },
                 {

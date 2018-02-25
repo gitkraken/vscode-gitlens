@@ -1,5 +1,10 @@
 'use strict';
 
+export enum AnnotationsToggleMode {
+    File = 'file',
+    Window = 'window'
+}
+
 export enum CodeLensCommand {
     DiffWithPrevious = 'gitlens.diffWithPrevious',
     ShowQuickCommitDetails = 'gitlens.showQuickCommitDetails',
@@ -256,6 +261,7 @@ export interface IConfig {
         };
         ignoreWhitespace: boolean;
         separateLines: boolean;
+        toggleMode: AnnotationsToggleMode;
     };
 
     currentLine: {
@@ -274,6 +280,10 @@ export interface IConfig {
     explorers: IExplorersConfig;
 
     gitExplorer: IGitExplorerConfig;
+
+    heatmap: {
+        toggleMode: AnnotationsToggleMode;
+    };
 
     hovers: {
         annotations: {
@@ -301,6 +311,7 @@ export interface IConfig {
         highlight: {
             locations: HighlightLocations[];
         };
+        toggleMode: AnnotationsToggleMode;
     };
 
     remotes: IRemotesConfig[];

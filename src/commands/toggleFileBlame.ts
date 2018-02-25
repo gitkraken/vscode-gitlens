@@ -1,6 +1,6 @@
 'use strict';
-import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { Commands, EditorCommand } from './common';
+import { TextEditor, Uri, window } from 'vscode';
+import { ActiveEditorCommand, Commands } from './common';
 import { UriComparer } from '../comparers';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
@@ -11,20 +11,22 @@ export interface ToggleFileBlameCommandArgs {
     type?: FileAnnotationType;
 }
 
-export class ToggleFileBlameCommand extends EditorCommand {
+export class ToggleFileBlameCommand extends ActiveEditorCommand {
 
     constructor() {
         super(Commands.ToggleFileBlame);
     }
 
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri, args: ToggleFileBlameCommandArgs = {}): Promise<any> {
-        if (editor === undefined) return undefined;
+    async execute(editor: TextEditor, uri?: Uri, args: ToggleFileBlameCommandArgs = {}): Promise<any> {
+        // if (editor === undefined) return undefined;
 
-        // Handle the case where we are focused on a non-editor editor (output, debug console)
-        if (uri !== undefined && !UriComparer.equals(uri, editor.document.uri)) {
-            const e = window.visibleTextEditors.find(e => UriComparer.equals(uri, e.document.uri));
-            if (e !== undefined) {
-                editor = e;
+        if (editor !== undefined) {
+            // Handle the case where we are focused on a non-editor editor (output, debug console)
+            if (uri !== undefined && !UriComparer.equals(uri, editor.document.uri)) {
+                const e = window.visibleTextEditors.find(e => UriComparer.equals(uri, e.document.uri));
+                if (e !== undefined) {
+                    editor = e;
+                }
             }
         }
 
@@ -33,7 +35,7 @@ export class ToggleFileBlameCommand extends EditorCommand {
                 args = { ...args, type: FileAnnotationType.Blame };
             }
 
-            return Container.annotations.toggleAnnotations(editor, args.type!, args.sha !== undefined ? args.sha : editor.selection.active.line);
+            return Container.annotations.toggleAnnotations(editor, args.type!, args.sha !== undefined ? args.sha : editor && editor.selection.active.line);
         }
         catch (ex) {
             Logger.error(ex, 'ToggleFileBlameCommand');
