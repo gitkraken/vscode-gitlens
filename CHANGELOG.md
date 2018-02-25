@@ -13,13 +13,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds `gitlens.heatmap.toggleMode` setting to specify how the gutter heatmap annotations will be toggled, per file or window
   - Adds `gitlens.recentChanges.toggleMode` setting to specify how the recently changed lines annotations will be toggled, per file or window
 
-
 ### Changed
 - Renames *Compare Selected Ancestor with Working Tree* command to *Compare Ancestry with Working Tree* and removes the need to select a branch first, since all compares are done to the working tree &mdash; closes [#279](https://github.com/eamodio/vscode-gitlens/issues/279)
 
 ### Fixed
 - Fixes [#294](https://github.com/eamodio/vscode-gitlens/issues/294) - Keyboard shortcuts will now default to *chorded* to avoid conflicts. FYI, only affects new installs or if you remove the `gitlens.keymap` setting)
 - Fixes issue where Recent Changes annotations weren't restored properly on tab switch
+- Fixes quick pick menu issue with commits with newlines in the message
 
 ## [8.0.2] - 2018-02-19
 ### Fixed

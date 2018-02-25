@@ -155,12 +155,7 @@ export class CommitQuickPickItem implements QuickPickItem {
     detail: string;
 
     constructor(public readonly commit: GitLogCommit) {
-        let message = commit.message;
-        const index = message.indexOf('\n');
-        if (index !== -1) {
-            message = `${message.substring(0, index)}${GlyphChars.Space}$(ellipsis)`;
-        }
-
+        const message = commit.getShortMessage(`${GlyphChars.Space}$(ellipsis)`);
         if (commit.isStash) {
             this.label = message;
             this.description = '';

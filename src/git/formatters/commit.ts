@@ -2,7 +2,6 @@
 import { Strings } from '../../system';
 import { GitCommit } from '../models/commit';
 import { Formatter, IFormatOptions } from './formatter';
-import { GlyphChars } from '../../constants';
 
 export interface ICommitFormatOptions extends IFormatOptions {
     truncateMessageAtNewLine?: boolean;
@@ -46,10 +45,7 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
     get message() {
         let message = this._item.isUncommitted ? 'Uncommitted change' : this._item.message;
         if (this._options.truncateMessageAtNewLine) {
-            const index = message.indexOf('\n');
-            if (index !== -1) {
-                message = `${message.substring(0, index)}${GlyphChars.Space}${GlyphChars.Ellipsis}`;
-            }
+            message = this._item.getShortMessage();
         }
 
         return this._padOrTruncate(message, this._options.tokenOptions!.message);

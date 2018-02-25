@@ -192,6 +192,13 @@ export abstract class GitCommit {
         return gravatar;
     }
 
+    getShortMessage(truncationSuffix: string = `${GlyphChars.Space}${GlyphChars.Ellipsis}`) {
+        const index = this.message.indexOf('\n');
+        if (index === -1) return this.message;
+
+        return `${this.message.substring(0, index)}${truncationSuffix}`;
+    }
+
     async resolvePreviousFileSha(): Promise<void> {
         if (this._resolvedPreviousFileSha !== undefined) return;
 
