@@ -14,7 +14,7 @@
 
 # What's new in GitLens 8
 - Brand new welcome experience
-- Brand new WYSIWYG [settings editor](#configuration) &mdash; GitLens is easier than ever to customize to suit your needs
+- Brand new interactive [settings editor](#configuration) &mdash; GitLens is easier than ever to customize to suit your needs
 - Adds a tree layout option to branches in the <i>GitLens</i> explorer &mdash; thanks to Yukai Huang ([@Yukaii](https://github.com/Yukaii))!
 - Reworked settings &mdash; clearer, simpler settings
 
@@ -39,7 +39,7 @@ Here are just some of the features that GitLens provides,
  - many powerful commands for exploring commits and histories, comparing and navigating revisions, stash access, repository status, etc
 - and so much [more](#features "Jump to Features")
 
-GitLens is powerful, feature rich, and also [highly customizable](#gitlens-settings "Jump to the GitLens settings docs") to meet your specific needs &mdash; find code lens intrusive or the current line blame annotation distracting &mdash; no problem, it is quick and easy to turn them off or change how they behave via the built-in [*GitLens Settings* editor](#configuration "Jump to Configuration"), a WYSIWYG editor covering many of GitLens' powerful settings. While for more advanced customizations, refer to the [GitLens settings docs](#gitlens-settings "Jump to the GitLens settings docs") and edit your vscode [user settings](https://code.visualstudio.com/docs/getstarted/settings "Open User settings").
+GitLens is powerful, feature rich, and also [highly customizable](#gitlens-settings "Jump to the GitLens settings docs") to meet your specific needs &mdash; find code lens intrusive or the current line blame annotation distracting &mdash; no problem, it is quick and easy to turn them off or change how they behave via the built-in [*GitLens Settings* editor](#configuration "Jump to Configuration"), an interactive editor covering many of GitLens' powerful settings. While for more advanced customizations, refer to the [GitLens settings docs](#gitlens-settings "Jump to the GitLens settings docs") and edit your vscode [user settings](https://code.visualstudio.com/docs/getstarted/settings "Open User settings").
 
 <p align="center">
   <br />
@@ -64,7 +64,7 @@ If you'd like to join them in supporting GitLens, please consider the following 
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/teaser-settings.png" alt="GitLens Explorer Repository view" />
 </p>
 
-GitLens has a built-in [WYSIWYG](https://en.wikipedia.org/wiki/WYSIWYG) settings editor which provides an easy-to-use interface to configure many of GitLens' powerful features. It can be accessed via the *Open Settings* (`gitlens.showSettingsPage`) command from the [*Command Palette*](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette).
+GitLens has a built-in interactive settings editor which provides an easy-to-use interface to configure many of GitLens' powerful features. It can be accessed via the *Open Settings* (`gitlens.showSettingsPage`) command from the [*Command Palette*](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette).
 
 For more advanced customizations, refer to the [settings documentation](#gitlens-settings "Jump to the GitLens settings docs") below.
 
@@ -608,7 +608,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 
 |Name | Description
 |-----|------------
-|`gitlens.statusBar.alignment`|Specifies the blame alignment in the status bar<br />`left` - align to the left,  `right` - align to the right
+|`gitlens.statusBar.alignment`|Specifies the blame alignment in the status bar<br />`left` - align to the left<br />`right` - align to the right
 |`gitlens.statusBar.command`|Specifies the command to be executed when the blame status bar item is clicked<br />`gitlens.toggleFileBlame` - toggles file blame annotations<br />`gitlens.diffWithPrevious` - compares the current line commit with the previous<br />`gitlens.diffWithWorking` - compares the current line commit with the working tree<br />`gitlens.toggleCodeLens` - toggles Git code lens<br />`gitlens.showQuickCommitDetails` - shows a commit details quick pick<br />`gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick<br />`gitlens.showQuickFileHistory` - shows a file history quick pick<br />`gitlens.showQuickRepoHistory` - shows a branch history quick pick
 |`gitlens.statusBar.dateFormat`|Specifies the date format of absolute dates shown in the blame information on the status bar<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
 |`gitlens.statusBar.enabled`|Specifies whether to provide blame information on the status bar

@@ -44,7 +44,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
   ![GitLens Welcome](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/teaser-welcome.png)
 
-- Adds an all-new GitLens Settings editor via the *Open Settings* (`gitlens.showSettingsPage`) command &mdash; provides an easy-to-use WYSIWYG settings editor for many of GitLens' features &mdash; closes [#167](https://github.com/eamodio/vscode-gitlens/issues/167)
+- Adds an all-new GitLens Settings editor via the *Open Settings* (`gitlens.showSettingsPage`) command &mdash; provides an easy-to-use interactive settings editor for many of GitLens' features &mdash; closes [#167](https://github.com/eamodio/vscode-gitlens/issues/167)
 
   ![GitLens Settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/teaser-settings.png)
 
