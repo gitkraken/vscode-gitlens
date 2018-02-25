@@ -36,6 +36,10 @@ export abstract class App {
         initializeColorPalette();
         this.initialize();
         this.bind();
+
+        setTimeout(() => {
+            document.body.classList.remove('preload');
+        }, 500);
     }
 
     protected initialize() {

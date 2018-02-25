@@ -187,6 +187,10 @@ ul {
         border-color: rgba(255, 255, 255, 0.6);
         color: white !important;
     }
+
+    .preload & {
+        transition-duration: 0s !important;
+    }
 }
 
 .button--flat-primary {
@@ -200,6 +204,10 @@ ul {
         background-color: white;
         border-color: white;
         color: black !important;
+    }
+
+    .preload & {
+        transition-duration: 0s !important;
     }
 }
 
