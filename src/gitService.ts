@@ -208,14 +208,6 @@ export class GitService extends Disposable {
             repositories.push(new Repository(folder, rp, false, anyRepoChangedFn, this._suspended));
         }
 
-        // const uris = await workspace.findFiles(new RelativePattern(folder, '**/.git/HEAD'));
-        // for (const uri of uris) {
-        //     const rp = await this.getRepoPathCore(path.resolve(path.dirname(uri.fsPath), '../'), true);
-        //     if (rp !== undefined && rp !== rootPath) {
-        //         repositories.push(new Repository(folder, rp, false, anyRepoChangedFn, this._suspended));
-        //     }
-        // }
-
         const duration = process.hrtime(start);
         Logger.log(`Searching for repositories (depth=${depth}) in '${folderUri.fsPath}' took ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);
 
