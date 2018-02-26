@@ -165,6 +165,7 @@ ul {
     text-decoration: none;
     text-transform: uppercase;
     user-select: none;
+    white-space: nowrap;
 
     &:focus {
         outline: none;
