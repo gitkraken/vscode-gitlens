@@ -839,6 +839,38 @@
                     "description": "Specifies the display mode of the interactive settings editor\n `simple` - only displays common settings\n `advanced` - displays all settings",
                     "scope": "window"
                 },
+                "gitlens.resultsExplorer.savedResults": {
+                    "type": "array",
+                    "default": [],
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "label",
+                            "repoPath",
+                            "type"
+                        ],
+                        "properties": {
+                            "label": {
+                                "type": "string",
+                                "description": ""
+                            },
+                            "repoPath": {
+                                "type": "string",
+                                "description": ""
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": [
+                                    "comparison",
+                                    "search"
+                                ],
+                                "description": ""
+                            }
+                        }
+                    },
+                    "description": "",
+                    "scope": "window"
+                },
                 "gitlens.showWhatsNewAfterUpgrades": {
                     "type": "boolean",
                     "default": true,
@@ -1703,6 +1735,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.resultsExplorer.saveResultsNode",
+                "title": "Save Results",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.resultsExplorer.setFilesLayoutToAuto",
                 "title": "Automatic Layout",
                 "category": "GitLens"
@@ -2161,6 +2198,10 @@
                 },
                 {
                     "command": "gitlens.resultsExplorer.refreshNode",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.resultsExplorer.saveResultsNode",
                     "when": "false"
                 },
                 {
@@ -2765,9 +2806,14 @@
                     "group": "1_gitlens@1"
                 },
                 {
+                    "command": "gitlens.resultsExplorer.saveResultsNode",
+                    "when": "viewItem =~ /gitlens:results\\b(?!:(commits|files))/",
+                    "group": "1_gitlens@2"
+                },
+                {
                     "command": "gitlens.resultsExplorer.swapComparision",
                     "when": "viewItem == gitlens:results:comparison",
-                    "group": "1_gitlens@2"
+                    "group": "1_gitlens@3"
                 },
                 {
                     "command": "gitlens.explorers.openDirectoryDiff",

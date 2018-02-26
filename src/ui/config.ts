@@ -225,6 +225,7 @@ export interface IMenuConfig {
 
 export interface IResultsExplorerConfig {
     files: IExplorersFilesConfig;
+    savedResults: (ISavedComparisionResult | ISavedSearchResult)[];
 }
 
 export interface IRemotesConfig {
@@ -245,6 +246,31 @@ export interface IRemotesUrlsConfig {
     fileInCommit: string;
     fileLine: string;
     fileRange: string;
+}
+
+export interface ISavedSearchResult {
+    type: 'search';
+    label: string;
+    repoPath: string;
+}
+
+export interface ISavedComparisionResult {
+    type: 'comparison';
+    label: string;
+    repoPath: string;
+    ref1: ISavedNamedRef | ISavedComputedRef;
+    ref2: ISavedNamedRef | ISavedComputedRef;
+}
+
+export interface ISavedNamedRef {
+    label?: string | Promise<string | undefined>;
+    ref: string | Promise<string>;
+}
+
+export interface ISavedComputedRef {
+    op: 'merge-base';
+    ref1: string;
+    ref2?: string;
 }
 
 export interface IConfig {

@@ -1,16 +1,100 @@
 'use strict';
 import { Command, Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ISavedComputedRef, ISavedNamedRef } from '../ui/config';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { RefreshNodeCommandArgs } from './explorerCommands';
-import { GitUri } from '../gitService';
+import { GitService, GitUri } from '../gitService';
 import { GitExplorer } from './gitExplorer';
 import { HistoryExplorer } from './historyExplorer';
 import { ResultsExplorer } from './resultsExplorer';
 
-export interface NamedRef {
-    label?: string;
-    ref: string;
+export interface NamedRef extends ISavedNamedRef { }
+
+export class ComputedRef implements NamedRef {
+
+    private _label: string | undefined;
+    private readonly _ref: Promise<string>;
+
+    constructor(
+        public readonly repoPath: string,
+        public readonly op: 'merge-base',
+        public readonly ref1: string,
+        public readonly ref2?: string,
+        label?: string
+    ) {
+        this._ref = this.computeRef();
+        this._label = label;
+    }
+
+    get label(): string | Promise<string | undefined> | undefined {
+        if (this._label !== undefined) return this._label;
+
+        return this.getLabel();
+    }
+
+    get ref(): Promise<string> {
+        return this._ref;
+    }
+
+    private async getLabel() {
+        await this._ref;
+        return this._label;
+    }
+
+    private async computeRef(): Promise<string> {
+        switch (this.op) {
+            case 'merge-base':
+                let ref2 = this.ref2;
+                if (ref2 === undefined) {
+                    const branch = await Container.git.getBranch(this.repoPath);
+                    if (branch !== undefined) {
+                        ref2 = branch.name;
+                    }
+                }
+
+                if (ref2 !== undefined) {
+                    const ancestor = await Container.git.getMergeBase(this.repoPath!, this.ref1, ref2);
+                    if (ancestor !== undefined) {
+                        if (this._label === undefined) {
+                            this._label = `ancestry with ${this.ref1} (${GitService.shortenSha(ancestor)})`;
+                        }
+                        return ancestor;
+                    }
+                }
+
+                break;
+        }
+
+        return this.ref1;
+    }
+
+    toJSON() {
+        return {
+            op: this.op,
+            ref1: this.ref1,
+            ref2: this.ref2
+            // repoPath: this.repoPath
+        };
+    }
+
+    static fromSaved(ref: ISavedNamedRef | ISavedComputedRef, repoPath: string): NamedRef | ComputedRef {
+        if ('op' in ref) return new ComputedRef(repoPath, ref.op, ref.ref1, ref.ref2);
+
+        return ref;
+    }
+}
+
+export class MergeBaseNamedRef extends ComputedRef {
+
+    constructor(
+        repoPath: string,
+        ref1: string,
+        ref2?: string,
+        label?: string
+    ) {
+        super(repoPath, 'merge-base', ref1, ref2, label);
+    }
 }
 
 export enum RefreshReason {

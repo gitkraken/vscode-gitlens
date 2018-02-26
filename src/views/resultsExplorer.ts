@@ -1,14 +1,13 @@
 'use strict';
 import { Functions, Strings } from '../system';
-import { commands, ConfigurationChangeEvent, ConfigurationTarget, Disposable, Event, EventEmitter, TreeDataProvider, TreeItem, TreeView, window } from 'vscode';
-import { configuration, ExplorerFilesLayout, IExplorersConfig, IResultsExplorerConfig } from '../configuration';
+import { commands, ConfigurationChangeEvent, ConfigurationTarget, Disposable, Event, EventEmitter, InputBoxOptions, TreeDataProvider, TreeItem, TreeView, window } from 'vscode';
+import { configuration, ExplorerFilesLayout, IExplorersConfig, IResultsExplorerConfig, ISavedComparisionResult, ISavedSearchResult } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { RefreshNodeCommandArgs } from './explorerCommands';
-import { CommitResultsNode, CommitsResultsNode, ComparisonResultsNode, ExplorerNode, MessageNode, NamedRef, RefreshReason, ResourceType } from './explorerNodes';
+import { CommitResultsNode, CommitsResultsNode, ComparisonResultsNode, ComputedRef, ExplorerNode, MessageNode, NamedRef, RefreshReason, ResourceType } from './explorerNodes';
 import { GitLog, GitLogCommit } from '../gitService';
 import { Logger } from '../logger';
-// import { Messages } from '../messages';
 
 export * from './explorerNodes';
 
@@ -35,6 +34,7 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
 
         commands.registerCommand('gitlens.resultsExplorer.clearResultsNode', this.clearResultsNode, this);
         commands.registerCommand('gitlens.resultsExplorer.close', this.close, this);
+        commands.registerCommand('gitlens.resultsExplorer.saveResultsNode', this.saveResultsNode, this);
         commands.registerCommand('gitlens.resultsExplorer.setKeepResultsToOn', () => this.setKeepResults(true), this);
         commands.registerCommand('gitlens.resultsExplorer.setKeepResultsToOff', () => this.setKeepResults(false), this);
         commands.registerCommand('gitlens.resultsExplorer.swapComparision', this.swapComparision, this);
@@ -64,6 +64,11 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
         }
 
         if (initializing) {
+            if (Container.config.resultsExplorer.savedResults.length > 0) {
+                this._roots = this.fromSaved();
+                setCommandContext(CommandContext.ResultsExplorer, true);
+            }
+
             this._tree = window.createTreeView('gitlens.resultsExplorer', { treeDataProvider: this });
             this._disposable = this._tree;
         }
@@ -142,7 +147,7 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
         }
     }
 
-    showComparisonInResults(repoPath: string, ref1: string | NamedRef, ref2: string | NamedRef) {
+    showComparisonInResults(repoPath: string, ref1: string | NamedRef | ComputedRef, ref2: string | NamedRef | ComputedRef) {
         this.showResults(this.addResults(new ComparisonResultsNode(repoPath, typeof ref1 === 'string' ? { ref: ref1 } : ref1, typeof ref2 === 'string' ? { ref: ref2 } : ref2, this)));
     }
 
@@ -192,6 +197,7 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
         }
 
         this._roots.splice(0, 0, results);
+
         this.refreshNode(results);
         return results;
     }
@@ -200,7 +206,7 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
         if (this._roots.length === 0) return;
 
         this._roots.forEach(r => r.dispose());
-        this._roots = [];
+        this._roots = this.fromSaved();
 
         this.refresh();
     }
@@ -214,6 +220,40 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
         node.dispose();
 
         this.refresh();
+    }
+
+    private fromSaved(): ExplorerNode[] {
+        const nodes = [];
+
+        const saved = configuration.get<(ISavedComparisionResult | ISavedSearchResult)[]>(configuration.name('resultsExplorer')('savedResults').value);
+        if (saved !== undefined && saved.length > 0) {
+            for (const r of saved) {
+                if (r.type === 'comparison') {
+                    nodes.push(new ComparisonResultsNode(r.repoPath, ComputedRef.fromSaved(r.ref1, r.repoPath), ComputedRef.fromSaved(r.ref2, r.repoPath), this));
+                }
+            }
+        }
+
+        return nodes;
+    }
+
+    private async saveResultsNode(node: ExplorerNode) {
+        if (!(node instanceof ComparisonResultsNode)) return;
+
+        const section = configuration.name('resultsExplorer')('savedResults').value;
+        const saved = configuration.get<any[]>(section);
+        const results = await node.toSerializable();
+
+        const label = await window.showInputBox({
+            value: results.label,
+            prompt: `Please enter a label to save results as`
+        } as InputBoxOptions);
+        if (label !== undefined) {
+            results.label = label;
+        }
+
+        saved.push(results);
+        configuration.update(configuration.name('resultsExplorer')('savedResults').value, saved, ConfigurationTarget.Global);
     }
 
     private async setFilesLayout(layout: ExplorerFilesLayout) {

@@ -29,8 +29,8 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 
             case Commands.ExplorersOpenDirectoryDiff:
                 if (context.type === 'view' && context.node instanceof ComparisonResultsNode) {
-                    args.ref1 = context.node.ref1.ref;
-                    args.ref2 = context.node.ref2.ref;
+                    args.ref1 = await context.node.ref1.ref;
+                    args.ref2 = await context.node.ref2.ref;
                 }
                 break;
 

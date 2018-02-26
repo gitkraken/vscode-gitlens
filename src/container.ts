@@ -67,6 +67,10 @@ export class Container {
             });
         }
 
+        if (config.resultsExplorer.savedResults.length > 0) {
+            context.subscriptions.push(this._resultsExplorer = new ResultsExplorer());
+        }
+
         context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider()));
         context.subscriptions.push(languages.registerCodeLensProvider(GitRevisionCodeLensProvider.selector, new GitRevisionCodeLensProvider()));
     }

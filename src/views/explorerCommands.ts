@@ -2,7 +2,7 @@ import { Arrays } from '../system';
 import { commands, Disposable, InputBoxOptions, Terminal, TextDocumentShowOptions, Uri, window } from 'vscode';
 import { CommandContext, ExtensionTerminalName, setCommandContext } from '../constants';
 import { Container } from '../container';
-import { BranchNode, ExplorerNode, TagNode } from '../views/gitExplorer';
+import { BranchNode, ExplorerNode, MergeBaseNamedRef, TagNode } from '../views/gitExplorer';
 import { CommitFileNode, CommitNode, ExplorerRefNode, RemoteNode, StashFileNode, StashNode, StatusFileCommitsNode, StatusUpstreamNode } from './explorerNodes';
 import { Commands, DiffWithCommandArgs, DiffWithCommandArgsRevision, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, OpenFileInRemoteCommandArgs, OpenFileRevisionCommandArgs } from '../commands';
 import { GitService, GitUri } from '../gitService';
@@ -87,13 +87,15 @@ export class ExplorerCommands extends Disposable {
     }
 
     private async compareAncestryWithWorking(node: BranchNode) {
-        const branch = await Container.git.getBranch(node.repoPath);
-        if (branch === undefined) return;
+        // const branch = await Container.git.getBranch(node.repoPath);
+        // if (branch === undefined) return;
 
-        const commonAncestor = await Container.git.getMergeBase(node.repoPath, branch.name, node.ref);
-        if (commonAncestor === undefined) return;
+        // const commonAncestor = await Container.git.getMergeBase(node.repoPath, branch.name, node.ref);
+        // if (commonAncestor === undefined) return;
 
-        Container.resultsExplorer.showComparisonInResults(node.repoPath, { ref: commonAncestor, label: `ancestry with ${node.ref} (${GitService.shortenSha(commonAncestor)})` }, '');
+        // Container.resultsExplorer.showComparisonInResults(node.repoPath, { ref: commonAncestor, label: `ancestry with ${node.ref} (${GitService.shortenSha(commonAncestor)})` }, '');
+
+        Container.resultsExplorer.showComparisonInResults(node.repoPath, new MergeBaseNamedRef(node.repoPath, node.ref), '');
     }
 
     private compareWithSelected(node: ExplorerNode) {
