@@ -8,7 +8,7 @@ import { Container } from '../container';
 import { GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { CommandQuickPickItem, FileHistoryQuickPick, ShowBranchesAndTagsQuickPickItem } from '../quickPicks';
+import { CommandQuickPickItem, FileHistoryQuickPick, ShowBranchesAndTagsQuickPickItem } from '../quickPicks/quickPicks';
 
 export interface OpenFileRevisionCommandArgs {
     uri?: Uri;

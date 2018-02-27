@@ -5,7 +5,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitStashCommit } from '../gitService';
 import { Logger } from '../logger';
-import { CommandQuickPickItem } from '../quickPicks';
+import { CommandQuickPickItem } from '../quickPicks/quickPicks';
 
 export interface StashDeleteCommandArgs {
     confirm?: boolean;

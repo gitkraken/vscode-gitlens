@@ -5,7 +5,7 @@ import { ActiveEditorCommand, Commands } from './common';
 import { GlyphChars } from '../constants';
 import { GitLogCommit, GitRemote, GitService, RemoteResource, RemoteResourceType } from '../gitService';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, OpenRemoteCommandQuickPickItem, RemotesQuickPick } from '../quickPicks';
+import { CommandQuickPickItem, OpenRemoteCommandQuickPickItem, RemotesQuickPick } from '../quickPicks/quickPicks';
 
 export interface OpenInRemoteCommandArgs {
     remote?: string;

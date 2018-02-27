@@ -5,7 +5,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickPicks';
+import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickPicks/quickPicks';
 
 export interface DiffBranchWithBranchCommandArgs {
     ref1?: string;

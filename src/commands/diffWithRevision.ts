@@ -8,7 +8,7 @@ import { DiffWithCommandArgs } from './diffWith';
 import { GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { CommandQuickPickItem, FileHistoryQuickPick, ShowBranchesAndTagsQuickPickItem } from '../quickPicks';
+import { CommandQuickPickItem, FileHistoryQuickPick, ShowBranchesAndTagsQuickPickItem } from '../quickPicks/quickPicks';
 
 export interface DiffWithRevisionCommandArgs {
     maxCount?: number;

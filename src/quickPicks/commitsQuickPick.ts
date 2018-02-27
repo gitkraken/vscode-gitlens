@@ -4,7 +4,7 @@ import { CancellationTokenSource, QuickPickOptions, window } from 'vscode';
 import { Container } from '../container';
 import { GitLog } from '../gitService';
 import { KeyNoopCommand } from '../keyboard';
-import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, MessageQuickPickItem, showQuickPickProgress } from '../quickPicks';
+import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, MessageQuickPickItem, showQuickPickProgress } from '../quickPicks/quickPicks';
 
 export class CommitsQuickPick {
 

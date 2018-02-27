@@ -5,7 +5,7 @@ import { ActiveEditorCachedCommand, CommandContext, Commands, getCommandUri, isC
 import { GlyphChars } from '../constants';
 import { GitCommit, GitLog, GitLogCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, CommitFileDetailsQuickPick } from '../quickPicks';
+import { CommandQuickPickItem, CommitFileQuickPick } from '../quickPicks/quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 import { Messages } from '../messages';
 import * as path from 'path';
@@ -130,7 +130,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                     args
                 ]);
 
-            const pick = await CommitFileDetailsQuickPick.show(args.commit as GitLogCommit, uri, args.goBackCommand, currentCommand, args.fileLog);
+            const pick = await CommitFileQuickPick.show(args.commit as GitLogCommit, uri, args.goBackCommand, currentCommand, args.fileLog);
             if (pick === undefined) return undefined;
 
             if (pick instanceof CommandQuickPickItem) return pick.execute();

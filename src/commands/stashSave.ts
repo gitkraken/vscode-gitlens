@@ -5,7 +5,7 @@ import { Command, Commands } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, RepositoriesQuickPick } from '../quickPicks';
+import { CommandQuickPickItem, RepositoriesQuickPick } from '../quickPicks/quickPicks';
 
 export interface StashSaveCommandArgs {
     message?: string;

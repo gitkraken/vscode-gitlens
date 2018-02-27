@@ -1,7 +1,7 @@
 'use strict';
 import { Strings } from '../system';
 import { CancellationTokenSource, commands, QuickPickItem, QuickPickOptions, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { BranchesAndTagsQuickPick, BranchOrTagQuickPickItem } from './branchesAndTags';
+import { BranchesAndTagsQuickPick, BranchOrTagQuickPickItem } from './branchesAndTagsQuickPick';
 import { Commands, openEditor } from '../commands';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';

@@ -7,7 +7,7 @@ import { Container } from '../container';
 import { ComparisonResultsNode } from '../views/explorerNodes';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickPicks';
+import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickPicks/quickPicks';
 
 export interface DiffDirectoryCommandArgs {
     ref1?: string;

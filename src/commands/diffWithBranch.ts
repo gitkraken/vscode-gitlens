@@ -7,7 +7,7 @@ import { Container } from '../container';
 import { DiffWithCommandArgs } from './diffWith';
 import { GitUri } from '../gitService';
 import { Messages } from '../messages';
-import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickPicks';
+import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickPicks/quickPicks';
 import * as path from 'path';
 
 export interface DiffWithBranchCommandArgs {

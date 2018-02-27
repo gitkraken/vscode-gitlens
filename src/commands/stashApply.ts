@@ -6,7 +6,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitStashCommit } from '../gitService';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, RepositoriesQuickPick, StashListQuickPick } from '../quickPicks';
+import { CommandQuickPickItem, RepositoriesQuickPick, StashListQuickPick } from '../quickPicks/quickPicks';
 
 export interface StashApplyCommandArgs {
     confirm?: boolean;

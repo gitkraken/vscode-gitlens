@@ -1,6 +1,6 @@
 'use strict';
 import { CancellationTokenSource, QuickPickItem, QuickPickOptions, window } from 'vscode';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './common';
+import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './commonQuickPicks';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitBranch, GitTag } from '../gitService';

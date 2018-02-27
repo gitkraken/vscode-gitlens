@@ -6,7 +6,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitStash } from '../gitService';
 import { KeyNoopCommand } from '../keyboard';
-import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from '../quickPicks';
+import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from '../quickPicks/quickPicks';
 
 export class StashListQuickPick {
 

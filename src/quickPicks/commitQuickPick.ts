@@ -2,12 +2,12 @@
 import { Arrays, Iterables, Strings } from '../system';
 import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from 'vscode';
 import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandArgs, DiffWithPreviousCommandArgs, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, QuickPickItem, ShowCommitInResultsQuickPickItem } from './common';
+import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, QuickPickItem, ShowCommitInResultsQuickPickItem } from './commonQuickPicks';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { getGitStatusOcticon, GitLog, GitLogCommit, GitStashCommit, GitStatusFile, GitStatusFileStatus, GitUri, IGitStatusFile, RemoteResource } from '../gitService';
 import { KeyCommand, KeyNoopCommand, Keys } from '../keyboard';
-import { OpenRemotesCommandQuickPickItem } from './remotes';
+import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
 import * as path from 'path';
 
 export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickItem {
@@ -87,7 +87,7 @@ export class OpenCommitFileRevisionsCommandQuickPickItem extends OpenFilesComman
     }
 }
 
-export class CommitDetailsQuickPick {
+export class CommitQuickPick {
 
     static async show(commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, repoLog?: GitLog): Promise<CommitWithFileStatusQuickPickItem | CommandQuickPickItem | undefined> {
         await commit.resolvePreviousFileSha();

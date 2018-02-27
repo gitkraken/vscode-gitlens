@@ -4,7 +4,7 @@ import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { CommandQuickPickItem, RepoStatusQuickPick } from '../quickPicks';
+import { CommandQuickPickItem, RepoStatusQuickPick } from '../quickPicks/quickPicks';
 
 export interface ShowQuickRepoStatusCommandArgs {
     goBackCommand?: CommandQuickPickItem;

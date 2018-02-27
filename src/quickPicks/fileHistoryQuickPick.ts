@@ -2,12 +2,12 @@
 import { Iterables, Strings } from '../system';
 import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, ShowQuickCurrentBranchHistoryCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
-import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, ShowBranchesAndTagsQuickPickItem, showQuickPickProgress } from './common';
+import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, ShowBranchesAndTagsQuickPickItem, showQuickPickProgress } from './commonQuickPicks';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitUri, RemoteResource } from '../gitService';
 import { KeyNoopCommand } from '../keyboard';
-import { OpenRemotesCommandQuickPickItem } from './remotes';
+import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
 import * as path from 'path';
 
 export class FileHistoryQuickPick {

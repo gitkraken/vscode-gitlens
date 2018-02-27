@@ -6,7 +6,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { CommandQuickPickItem, StashListQuickPick } from '../quickPicks';
+import { CommandQuickPickItem, StashListQuickPick } from '../quickPicks/quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
 export interface ShowQuickStashListCommandArgs {

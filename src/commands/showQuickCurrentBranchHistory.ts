@@ -4,7 +4,7 @@ import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { CommandQuickPickItem } from '../quickPicks';
+import { CommandQuickPickItem } from '../quickPicks/quickPicks';
 import { ShowQuickBranchHistoryCommandArgs } from './showQuickBranchHistory';
 
 export interface ShowQuickCurrentBranchHistoryCommandArgs {

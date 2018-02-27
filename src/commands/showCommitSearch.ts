@@ -6,7 +6,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitRepoSearchBy, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, CommitsQuickPick, RepositoriesQuickPick, ShowCommitsSearchInResultsQuickPickItem } from '../quickPicks';
+import { CommandQuickPickItem, CommitsQuickPick, RepositoriesQuickPick, ShowCommitsSearchInResultsQuickPickItem } from '../quickPicks/quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
 const searchByRegex = /^([@~=:#])/;

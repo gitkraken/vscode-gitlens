@@ -6,7 +6,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, FileHistoryQuickPick, ShowCommitsInResultsQuickPickItem } from '../quickPicks';
+import { CommandQuickPickItem, FileHistoryQuickPick, ShowCommitsInResultsQuickPickItem } from '../quickPicks/quickPicks';
 import { ShowQuickCommitFileDetailsCommandArgs } from './showQuickCommitFileDetails';
 import { Messages } from '../messages';
 import * as path from 'path';

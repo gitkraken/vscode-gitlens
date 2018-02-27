@@ -7,7 +7,7 @@ import { Container } from '../container';
 import { GitLog, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { BranchesQuickPick, BranchHistoryQuickPick, CommandQuickPickItem } from '../quickPicks';
+import { BranchesQuickPick, BranchHistoryQuickPick, CommandQuickPickItem } from '../quickPicks/quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
 export interface ShowQuickBranchHistoryCommandArgs {

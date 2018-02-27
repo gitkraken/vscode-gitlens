@@ -9,14 +9,7 @@ import * as path from 'path';
 
 export { IGit };
 export * from './models/models';
-export * from './parsers/blameParser';
-export * from './parsers/branchParser';
-export * from './parsers/diffParser';
-export * from './parsers/logParser';
-export * from './parsers/remoteParser';
-export * from './parsers/stashParser';
-export * from './parsers/statusParser';
-export * from './parsers/tagParser';
+export * from './parsers/parsers';
 export * from './remotes/provider';
 
 let git: IGit;

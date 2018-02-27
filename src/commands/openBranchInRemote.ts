@@ -5,7 +5,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { BranchesQuickPick, CommandQuickPickItem } from '../quickPicks';
+import { BranchesQuickPick, CommandQuickPickItem } from '../quickPicks/quickPicks';
 import { OpenInRemoteCommandArgs } from './openInRemote';
 
 export interface OpenBranchInRemoteCommandArgs {

@@ -2,12 +2,12 @@
 import { Iterables, Strings } from '../system';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem } from './common';
+import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem } from './commonQuickPicks';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitLogCommit, GitUri, RemoteResource } from '../gitService';
 import { KeyCommand, KeyNoopCommand } from '../keyboard';
-import { OpenRemotesCommandQuickPickItem } from './remotes';
+import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
 import * as path from 'path';
 
 export class ApplyCommitFileChangesCommandQuickPickItem extends CommandQuickPickItem {
@@ -65,7 +65,7 @@ export class OpenCommitFileRevisionCommandQuickPickItem extends OpenFileCommandQ
     }
 }
 
-export class CommitFileDetailsQuickPick {
+export class CommitFileQuickPick {
 
     static async show(commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, fileLog?: GitLog): Promise<CommandQuickPickItem | undefined> {
         const items: CommandQuickPickItem[] = [];
