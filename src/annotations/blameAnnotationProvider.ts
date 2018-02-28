@@ -121,7 +121,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
             }
         }
 
-        const message = Annotations.getHoverMessage(logCommit || commit, Container.config.defaultDateFormat, await Container.git.hasRemote(commit.repoPath), this.annotationType, this.editor.selection.active.line);
+        const message = Annotations.getHoverMessage(logCommit || commit, Container.config.defaultDateFormat, await Container.git.getRemotes(commit.repoPath), this.annotationType, this.editor.selection.active.line);
         return new Hover(message, document.validateRange(new Range(position.line, 0, position.line, RangeEndOfLineIndex)));
     }
 

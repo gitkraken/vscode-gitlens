@@ -2,6 +2,8 @@
 import { Range } from 'vscode';
 import { RemoteProvider } from './provider';
 
+const issueEnricherRegEx = /(^|\s)(#([0-9]+))\b/gi;
+
 export class VisualStudioService extends RemoteProvider {
 
     constructor(
@@ -15,6 +17,11 @@ export class VisualStudioService extends RemoteProvider {
 
     get name() {
         return 'Visual Studio Team Services';
+    }
+
+    enrichMessage(message: string): string {
+        // Matches #123
+        return message.replace(issueEnricherRegEx, `$1[$2](${this.baseUrl}/_workitems/edit/$3 "Open Work Item $2")`);
     }
 
     protected getUrlForBranches(): string {

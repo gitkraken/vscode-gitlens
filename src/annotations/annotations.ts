@@ -4,7 +4,7 @@ import { DiffWithCommand, OpenCommitInRemoteCommand, OpenFileRevisionCommand, Sh
 import { FileAnnotationType } from './../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { CommitFormatter, GitCommit, GitDiffChunkLine, GitService, GitUri, ICommitFormatOptions } from '../gitService';
+import { CommitFormatter, GitCommit, GitDiffChunkLine, GitRemote, GitService, GitUri, ICommitFormatOptions } from '../gitService';
 
 interface IHeatmapConfig {
     enabled: boolean;
@@ -62,7 +62,7 @@ export class Annotations {
         return commandBar;
     }
 
-    static getHoverMessage(commit: GitCommit, dateFormat: string | null, hasRemote: boolean, annotationType?: FileAnnotationType, line: number = 0): MarkdownString {
+    static getHoverMessage(commit: GitCommit, dateFormat: string | null, remotes: GitRemote[], annotationType?: FileAnnotationType, line: number = 0): MarkdownString {
         if (dateFormat === null) {
             dateFormat = 'MMMM Do, YYYY h:mma';
         }
@@ -71,10 +71,18 @@ export class Annotations {
         let commandBar = '';
         let showCommitDetailsCommand = '';
         if (!commit.isUncommitted) {
-            commandBar = `\n\n${this.getHoverCommandBar(commit, hasRemote, annotationType, line)}`;
+            commandBar = `\n\n${this.getHoverCommandBar(commit, remotes.length !== 0, annotationType, line)}`;
             showCommitDetailsCommand = `[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show Commit Details")`;
 
-            message = commit.message
+            message = commit.message;
+            for (const r of remotes) {
+                if (r.provider === undefined) continue;
+
+                message = r.provider.enrichMessage(message);
+                break;
+            }
+
+            message
                 // Escape markdown
                 .replace(escapeMarkdownRegEx, '\\$&')
                 // Escape markdown header (since the above regex won't match it)
@@ -135,12 +143,12 @@ export class Annotations {
         } as DecorationOptions;
     }
 
-    static detailsHover(commit: GitCommit, dateFormat: string | null, hasRemote: boolean, annotationType?: FileAnnotationType, line: number = 0): DecorationOptions {
-        const message = this.getHoverMessage(commit, dateFormat, hasRemote, annotationType);
-        return {
-            hoverMessage: message
-        } as DecorationOptions;
-    }
+    // static detailsHover(commit: GitCommit, dateFormat: string | null, hasRemote: boolean, annotationType?: FileAnnotationType, line: number = 0): DecorationOptions {
+    //     const message = this.getHoverMessage(commit, dateFormat, hasRemote, annotationType);
+    //     return {
+    //         hoverMessage: message
+    //     } as DecorationOptions;
+    // }
 
     static gutter(commit: GitCommit, format: string, dateFormatOrFormatOptions: string | null | ICommitFormatOptions, renderOptions: IRenderOptions): DecorationOptions {
         const decoration = {
@@ -227,28 +235,28 @@ export class Annotations {
         } as IRenderOptions;
     }
 
-    static hover(commit: GitCommit, renderOptions: IRenderOptions, now: number): DecorationOptions {
-        const decoration = {
-            renderOptions: { before: { ...renderOptions } }
-        } as DecorationOptions;
+    // static hover(commit: GitCommit, renderOptions: IRenderOptions, now: number): DecorationOptions {
+    //     const decoration = {
+    //         renderOptions: { before: { ...renderOptions } }
+    //     } as DecorationOptions;
 
-        this.applyHeatmap(decoration, commit.date, now);
+    //     this.applyHeatmap(decoration, commit.date, now);
 
-        return decoration;
-    }
+    //     return decoration;
+    // }
 
-    static hoverRenderOptions(heatmap: IHeatmapConfig): IRenderOptions {
-        if (!heatmap.enabled) return { before: undefined };
+    // static hoverRenderOptions(heatmap: IHeatmapConfig): IRenderOptions {
+    //     if (!heatmap.enabled) return { before: undefined };
 
-        return {
-            borderStyle: 'solid',
-            borderWidth: '0 0 0 2px',
-            contentText: GlyphChars.ZeroWidthSpace,
-            height: '100%',
-            margin: '0 26px 0 0',
-            textDecoration: 'none'
-        } as IRenderOptions;
-    }
+    //     return {
+    //         borderStyle: 'solid',
+    //         borderWidth: '0 0 0 2px',
+    //         contentText: GlyphChars.ZeroWidthSpace,
+    //         height: '100%',
+    //         margin: '0 26px 0 0',
+    //         textDecoration: 'none'
+    //     } as IRenderOptions;
+    // }
 
     static trailing(commit: GitCommit, format: string, dateFormat: string | null): DecorationOptions {
         const message = CommitFormatter.fromTemplate(format, commit, {
@@ -269,20 +277,20 @@ export class Annotations {
         } as DecorationOptions;
     }
 
-    static withRange(decoration: DecorationOptions, start?: number, end?: number): DecorationOptions {
-        let range = decoration.range;
-        if (start !== undefined) {
-            range = range.with({
-                start: range.start.with({ character: start })
-            });
-        }
+    // static withRange(decoration: DecorationOptions, start?: number, end?: number): DecorationOptions {
+    //     let range = decoration.range;
+    //     if (start !== undefined) {
+    //         range = range.with({
+    //             start: range.start.with({ character: start })
+    //         });
+    //     }
 
-        if (end !== undefined) {
-            range = range.with({
-                end: range.end.with({ character: end })
-            });
-        }
+    //     if (end !== undefined) {
+    //         range = range.with({
+    //             end: range.end.with({ character: end })
+    //         });
+    //     }
 
-        return { ...decoration, range: range };
-    }
+    //     return { ...decoration, range: range };
+    // }
 }

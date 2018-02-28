@@ -2,6 +2,9 @@
 import { Range } from 'vscode';
 import { RemoteProvider } from './provider';
 
+const issueEnricherRegEx = /(^|\s)((?:#|gh-)([0-9]+))\b/gi;
+const issueEnricher3rdParyRegEx = /\b((\w+-?\w+(?!-)\/\w+-?\w+(?!-))#([0-9]+))\b/g;
+
 export class GitHubService extends RemoteProvider {
 
     constructor(
@@ -16,6 +19,14 @@ export class GitHubService extends RemoteProvider {
 
     get name() {
         return this.formatName('GitHub');
+    }
+
+    enrichMessage(message: string): string {
+        return message
+            // Matches #123 or gh-123 or GH-123
+            .replace(issueEnricherRegEx, `$1[$2](${this.baseUrl}/issues/$3 "Open Issue $2")`)
+            // Matches eamodio/vscode-gitlens#123
+            .replace(issueEnricher3rdParyRegEx, `[$1](${this.protocol}://${this.domain}/$2/issues/$3 "Open Issue #$3 from $2")`);
     }
 
     protected getUrlForBranches(): string {

@@ -2,6 +2,8 @@
 import { Range } from 'vscode';
 import { RemoteProvider } from './provider';
 
+const issueEnricherRegEx = /(^|\s)(#([0-9]+))\b/gi;
+
 export class GitLabService extends RemoteProvider {
 
     constructor(
@@ -16,6 +18,11 @@ export class GitLabService extends RemoteProvider {
 
     get name() {
         return this.formatName('GitLab');
+    }
+
+    enrichMessage(message: string): string {
+        // Matches #123
+        return message.replace(issueEnricherRegEx, `$1[$2](${this.baseUrl}/issues/$3 "Open Issue $2")`);
     }
 
     protected getUrlForBranches(): string {

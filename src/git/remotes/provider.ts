@@ -39,7 +39,7 @@ export abstract class RemoteProvider {
     constructor(
         public readonly domain: string,
         public readonly path: string,
-        private readonly protocol: string = 'https',
+        public readonly protocol: string = 'https',
         name?: string,
         public readonly custom: boolean = false
     ) {
@@ -50,6 +50,10 @@ export abstract class RemoteProvider {
 
     protected get baseUrl() {
         return `${this.protocol}://${this.domain}/${this.path}`;
+    }
+
+    enrichMessage(message: string): string {
+        return message;
     }
 
     protected formatName(name: string) {

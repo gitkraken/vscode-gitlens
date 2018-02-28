@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 ### Added
+- Adds issue linking for commit messages in hovers
+
+  ![Issue linking](./images/ss-cl-issue-linking.png)
+
 - Adds multi-cursor support to current line annotations &mdash; closes [#291](https://github.com/eamodio/vscode-gitlens/issues/291)
 - Adds support to toggle annotations for each file individually or for all files at once &mdash; closes [#289](https://github.com/eamodio/vscode-gitlens/issues/289)
   - Adds new controls the interactive settings editor (*Open Settings* from the Command Palette) to configure this new behavior

@@ -2,6 +2,9 @@
 import { Range } from 'vscode';
 import { RemoteProvider } from './provider';
 
+const issueEnricherRegEx = /(^|\s)(issue #([0-9]+))\b/gi;
+const prEnricherRegEx = /(^|\s)(pull request #([0-9]+))\b/gi;
+
 export class BitbucketService extends RemoteProvider {
 
     constructor(
@@ -16,6 +19,14 @@ export class BitbucketService extends RemoteProvider {
 
     get name() {
         return this.formatName('Bitbucket');
+    }
+
+    enrichMessage(message: string): string {
+        return message
+            // Matches issue #123
+            .replace(issueEnricherRegEx, `$1[$2](${this.baseUrl}/issues/$3 "Open Issue $2")`)
+            // Matches pull request #123
+            .replace(prEnricherRegEx, `$1[$2](${this.baseUrl}/pull-requests/$3 "Open PR $2")`);
     }
 
     protected getUrlForBranches(): string {
