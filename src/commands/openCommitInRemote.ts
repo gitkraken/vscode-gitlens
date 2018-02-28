@@ -66,7 +66,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
                 args.sha = commit.sha;
             }
 
-            const remotes = (await Container.git.getRemotes(gitUri.repoPath)).filter(r => r.provider !== undefined);
+            const remotes = await Container.git.getRemotes(gitUri.repoPath);
 
             return commands.executeCommand(Commands.OpenInRemote, uri, {
                 resource: {

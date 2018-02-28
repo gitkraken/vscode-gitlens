@@ -129,7 +129,7 @@ export class CommitQuickPick {
         else {
             items.splice(index++, 0, new ShowCommitInResultsQuickPickItem(commit));
 
-            const remotes = (await Container.git.getRemotes(commit.repoPath)).filter(r => r.provider !== undefined);
+            const remotes = await Container.git.getRemotes(commit.repoPath);
             if (remotes.length) {
                 items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, {
                     type: 'commit',

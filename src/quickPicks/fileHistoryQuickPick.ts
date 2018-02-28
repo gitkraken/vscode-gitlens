@@ -110,7 +110,7 @@ export class FileHistoryQuickPick {
                     ]));
             }
 
-            const remotes = (await Container.git.getRemotes(uri.repoPath!)).filter(r => r.provider !== undefined);
+            const remotes = await Container.git.getRemotes(uri.repoPath!);
             if (remotes.length) {
                 const resource = uri.sha !== undefined
                     ? {

@@ -45,7 +45,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
         }
 
         try {
-            const remotes = (await Container.git.getRemotes(gitUri.repoPath)).filter(r => r.provider !== undefined);
+            const remotes = await Container.git.getRemotes(gitUri.repoPath);
             const range = (args.range && editor !== undefined)
                 ? new Range(editor.selection.start.with({ line: editor.selection.start.line + 1 }), editor.selection.end.with({ line: editor.selection.end.line + 1 }))
                 : undefined;

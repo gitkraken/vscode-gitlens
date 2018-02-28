@@ -1073,15 +1073,19 @@ export class GitService extends Disposable {
         }
     }
 
-    async getRemotes(repoPath: string | undefined): Promise<GitRemote[]> {
+    async getRemotes(repoPath: string | undefined, options: { includeAll?: boolean } = {}): Promise<GitRemote[]> {
         if (repoPath === undefined) return [];
 
         Logger.log(`getRemotes('${repoPath}')`);
 
         const repository = await this.getRepository(repoPath);
-        if (repository !== undefined) return repository.getRemotes();
+        const remotes = repository !== undefined
+            ? repository.getRemotes()
+            : this.getRemotesCore(repoPath);
 
-        return this.getRemotesCore(repoPath);
+        if (options.includeAll) return remotes;
+
+        return (await remotes).filter(r => r.provider !== undefined);
     }
 
     async getRemotesCore(repoPath: string | undefined, providerMap?: RemoteProviderMap): Promise<GitRemote[]> {

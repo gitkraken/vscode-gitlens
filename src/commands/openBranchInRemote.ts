@@ -52,7 +52,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
                 if (args.branch === undefined) return undefined;
             }
 
-            const remotes = (await Container.git.getRemotes(repoPath)).filter(r => r.provider !== undefined);
+            const remotes = await Container.git.getRemotes(repoPath);
 
             return commands.executeCommand(Commands.OpenInRemote, uri, {
                 resource: {
