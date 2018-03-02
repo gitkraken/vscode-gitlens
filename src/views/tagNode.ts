@@ -36,12 +36,6 @@ export class TagNode extends ExplorerRefNode {
     async getTreeItem(): Promise<TreeItem> {
         const item = new TreeItem(this.tag.name, TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.Tag;
-
-        item.iconPath = {
-            dark: Container.context.asAbsolutePath(`images/dark/icon-tag.svg`),
-            light: Container.context.asAbsolutePath(`images/light/icon-tag.svg`)
-        };
-
         return item;
     }
 }

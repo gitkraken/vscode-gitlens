@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
   ![Issue linking](./images/ss-cl-issue-linking.png)
 
-- Adds icons to remotes in the *GitLens* view based on the remote service provider
+- Adds icons to remotes in the *GitLens* explorer based on the remote service provider
 - Adds multi-cursor support to current line annotations &mdash; closes [#291](https://github.com/eamodio/vscode-gitlens/issues/291)
 - Adds support to toggle annotations for each file individually or for all files at once &mdash; closes [#289](https://github.com/eamodio/vscode-gitlens/issues/289)
   - Adds new controls the interactive settings editor (*Open Settings* from the Command Palette) to configure this new behavior
@@ -20,6 +20,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 - Renames *Compare Selected Ancestor with Working Tree* command to *Compare Ancestry with Working Tree* and removes the need to select a branch first, since all compares are done to the working tree &mdash; closes [#279](https://github.com/eamodio/vscode-gitlens/issues/279)
+
+### Removed
+- Removes tag icons from the *GitLens* explorer
 
 ### Fixed
 - Fixes [#294](https://github.com/eamodio/vscode-gitlens/issues/294) - Keyboard shortcuts will now default to *chorded* to avoid conflicts. FYI, only affects new installs or if you remove the `gitlens.keymap` setting)
