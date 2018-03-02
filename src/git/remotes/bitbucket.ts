@@ -17,6 +17,10 @@ export class BitbucketService extends RemoteProvider {
         super(domain, path, protocol, name, custom);
     }
 
+    get icon() {
+        return 'bitbucket';
+    }
+
     get name() {
         return this.formatName('Bitbucket');
     }

@@ -8,6 +8,7 @@ import { GlyphChars } from '../constants';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
 import { GitRemote, GitRemoteType, GitUri, Repository } from '../gitService';
+import { Container } from '../container';
 
 export class RemoteNode extends ExplorerNode {
 
@@ -66,10 +67,18 @@ export class RemoteNode extends ExplorerNode {
             const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
             item.contextValue = ResourceType.Remote;
 
-            // item.iconPath = {
-            //     dark: this.context.asAbsolutePath('images/dark/icon-remote.svg'),
-            //     light: this.context.asAbsolutePath('images/light/icon-remote.svg')
-            // };
+            if (this.remote.provider !== undefined) {
+                item.iconPath = {
+                    dark: Container.context.asAbsolutePath(`images/dark/icon-${this.remote.provider.icon}.svg`),
+                    light: Container.context.asAbsolutePath(`images/light/icon-${this.remote.provider.icon}.svg`)
+                };
+            }
+            else {
+                item.iconPath = {
+                    dark: Container.context.asAbsolutePath('images/dark/icon-remote.svg'),
+                    light: Container.context.asAbsolutePath('images/light/icon-remote.svg')
+                };
+            }
 
             return item;
         }

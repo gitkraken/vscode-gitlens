@@ -46,6 +46,10 @@ export abstract class RemoteProvider {
         this._name = name;
     }
 
+    get icon(): string {
+        return 'remote';
+    }
+
     abstract get name(): string;
 
     protected get baseUrl() {

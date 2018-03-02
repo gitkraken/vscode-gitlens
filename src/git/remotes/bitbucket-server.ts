@@ -22,6 +22,10 @@ export class BitbucketServerService extends RemoteProvider {
         return `https://${this.domain}/projects/${project}/repos/${repo}`;
     }
 
+    get icon() {
+        return 'bitbucket';
+    }
+
     get name() {
         return this.formatName('Bitbucket Server');
     }

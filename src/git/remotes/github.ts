@@ -17,6 +17,10 @@ export class GitHubService extends RemoteProvider {
         super(domain, path, protocol, name, custom);
     }
 
+    get icon() {
+        return 'github';
+    }
+
     get name() {
         return this.formatName('GitHub');
     }
