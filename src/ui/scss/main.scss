@@ -40,11 +40,37 @@ b {
 
 code,
 .shortcut-key {
-    background-color: var(--background-color--lighten-15);
-    border-bottom: 2px solid var(--background-color--lighten-15);
     border-radius: 3px;
     padding: 1px 5px;
     vertical-align: bottom;
+
+    .vscode-dark & {
+        background-color: var(--background-color--lighten-15);
+        border-bottom: 2px solid var(--background-color--lighten-15);
+    }
+
+    .vscode-light & {
+        background-color: var(--background-color--darken-15);
+        border-bottom: 2px solid var(--background-color--darken-15);
+    }
+}
+
+.setting-key {
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 0.9em;
+    padding: 1px 5px;
+    vertical-align: text-top;
+
+    .vscode-dark & {
+        background-color: var(--background-color--lighten-15);
+        border-bottom: 2px solid var(--background-color--lighten-15);
+    }
+
+    .vscode-light & {
+        background-color: var(--background-color--darken-15);
+        border-bottom: 2px solid var(--background-color--darken-15);
+    }
 }
 
 h1 {
@@ -58,6 +84,14 @@ h1 {
 
 h2 {
     font-size: 1.5em;
+    font-weight: 200;
+    line-height: normal;
+    margin: 1em 0 0.3em 0;
+    white-space: nowrap;
+}
+
+h3 {
+    font-size: 1.17em;
     font-weight: 200;
     line-height: normal;
     margin: 1em 0 0.3em 0;
@@ -176,6 +210,21 @@ ul {
     font-size: 1.25em;
 }
 
+.button--flat {
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    color: white !important;
+    transition: background-color 250ms, border-color 250ms, color 250ms;
+
+    &:hover {
+        background-color: white;
+        color: black !important;
+    }
+
+    .preload & {
+        transition-duration: 0s !important;
+    }
+}
+
 .button--flat-inverse {
     background-color: white;
     border: 1px solid white;
@@ -221,7 +270,7 @@ ul {
     }
 }
 
-.button-group--donate {
+.button-group--support-gitlens {
     justify-content: center;
     margin: 1.5em 0 1em 0;
 
@@ -232,7 +281,7 @@ ul {
     }
 }
 
-.button-group--donate-sidebar {
+.button-group--support-gitlens-sidebar {
     font-size: 0.8em;
 
     & .button {
@@ -281,17 +330,40 @@ ul {
     background-color: #0366d6;
 }
 
+.changelog__badge--version {
+    background-color: #914db3;
+    font-size: 15px;
+}
+
+.changelog__date {
+    font-size: 0.8em;
+    font-weight: 600;
+    font-variant: small-caps;
+    opacity: 0.9;
+    margin-left: -7px;
+    vertical-align: middle;
+}
+
 .changelog__details {
     align-items: center;
     display: flex;
     justify-content: center;
     position: relative;
+
+    &:before {
+        border-left: 1px solid rgba(122, 122, 122, 0.15);
+        content: " ";
+        height: calc(100% + 7px);
+        left: 37px;
+        position: absolute;
+        top: 1px;
+    }
 }
 
 .changelog__hint {
     color: var(--color--75);
     font-weight: 200;
-    margin: 0 1em 2em 1em;
+    margin: 1em;
 }
 
 .changelog__image {
@@ -312,14 +384,33 @@ ul {
     }
 }
 
+.changelog__list-item--version {
+    margin: 2em 0 0.5em 0;
+}
+
+.changelog__scroller {
+    flex: 100% 0 0;
+    margin: 1.5em 0 0 0;
+    max-height: 400px;
+    overflow-y: auto;
+
+    .vscode-dark & {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .vscode-light & {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+}
+
 .changelog__title {
     flex: 100% 0 0;
     text-align: center;
 }
 
 .changelog__version {
-    background-color: var(--link-color--darken-20);
-    border-bottom: 2px solid var(--link-color--darken-20);
+    background-color: #914db3;
+    border-bottom: 2px solid #914db3;
     border-radius: 3px;
     color: #f2f2f2;
     margin: 0 0.25em;
@@ -348,13 +439,24 @@ ul {
     width: 90%;
 }
 
-.cta-container {
+.cta__container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     margin-bottom: 3em;
 
     & p {
         margin-top: -1em;
         opacity: 0.4;
     }
+}
+
+.cta__primary {
+    margin: 0 1em;
+}
+
+.cta__secondary {
+    margin: 0 1em;
 }
 
 .section-list {
@@ -415,9 +517,8 @@ ul {
 .icon__info {
     -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125"><path fill="none" d="M0 0h100v100H0z"/><path d="M50 21a29 29 0 1 0 29 29 29 29 0 0 0-29-29zm0 55a26 26 0 1 1 26-26 26 26 0 0 1-26 26z"/><path d="M48 45l-1 1v18l1 1h4l1-1V46l-1-1zm0-10l-1 1v4l1 1h4l1-1v-4l-1-1z"/></svg>');
     -webkit-mask-repeat: no-repeat;
-    // TODO: Uncomment once vscode v1.21 ships
-    // mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125"><path fill="none" d="M0 0h100v100H0z"/><path d="M50 21a29 29 0 1 0 29 29 29 29 0 0 0-29-29zm0 55a26 26 0 1 1 26-26 26 26 0 0 1-26 26z"/><path d="M48 45l-1 1v18l1 1h4l1-1V46l-1-1zm0-10l-1 1v4l1 1h4l1-1v-4l-1-1z"/></svg>');
-    // mask-repeat: no-repeat;
+    mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125"><path fill="none" d="M0 0h100v100H0z"/><path d="M50 21a29 29 0 1 0 29 29 29 29 0 0 0-29-29zm0 55a26 26 0 1 1 26-26 26 26 0 0 1-26 26z"/><path d="M48 45l-1 1v18l1 1h4l1-1V46l-1-1zm0-10l-1 1v4l1 1h4l1-1v-4l-1-1z"/></svg>');
+    mask-repeat: no-repeat;
 }
 
 .icon--lg {
@@ -557,11 +658,10 @@ ul {
         height: 40px;
         -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125"><path d="M50 62a3 3 0 0 1-2-1L26 44a3 3 0 0 1 3-5l21 16 21-16a3 3 0 1 1 3 5L52 61a3 3 0 0 1-2 1z"/></svg>');
         -webkit-mask-repeat: no-repeat;
-        // TODO: Uncomment once vscode v1.21 ships
-        // mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125"><path d="M50 62a3 3 0 0 1-2-1L26 44a3 3 0 0 1 3-5l21 16 21-16a3 3 0 1 1 3 5L52 61a3 3 0 0 1-2 1z"/></svg>');
-        // mask-repeat: no-repeat;
-        // mask-size: 32px 40px;
         -webkit-mask-size: 32px 40px;
+        mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125"><path d="M50 62a3 3 0 0 1-2-1L26 44a3 3 0 0 1 3-5l21 16 21-16a3 3 0 1 1 3 5L52 61a3 3 0 0 1-2 1z"/></svg>');
+        mask-repeat: no-repeat;
+        mask-size: 32px 40px;
         position: absolute;
         right: 0;
         top: 0;

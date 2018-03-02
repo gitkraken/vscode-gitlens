@@ -3,7 +3,6 @@
 
 <head>
     <meta charset="utf-8">
-    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src *; style-src 'self'; script-src 'nonce-gitlens'"> -->
 </head>
 
 <body class="preload">
@@ -28,37 +27,82 @@
                 </p>
             </header>
 
-            <div class="cta-container center">
-                <a class="button button--flat-primary button--big" title="Open GitLens Settings" href="command:gitlens.showSettingsPage">Configure GitLens</a>
-                <p>Don't miss how easy it is to configure GitLens!</p>
+            <div class="cta__container center">
+                <div class="cta__primary">
+                    <a class="button button--flat-primary button--big" title="Open GitLens Settings" href="command:gitlens.showSettingsPage">Configure GitLens</a>
+                    <p>Don't miss how easy it is to configure GitLens!</p>
+                </div>
+                <div class="cta__secondary">
+                    <a class="button button--flat button--big" title="Support GitLens" href="#support-gitlens">Support GitLens &#x2764;</a>
+                </div>
             </div>
 
             <section id="whats-new" class="changelog">
                 <h2 class="changelog__title">What's New in <span class="changelog__version">GitLens 8</span> &#x1F389;&#x1F388;</h2>
-                <ul class="changelog__list">
-                    <li><span class="changelog__badge changelog__badge--added">NEW</span>
-                        Brand new welcome experience &mdash; you're looking at it
-                    </li>
-                    <li><span class="changelog__badge changelog__badge--added">NEW</span>
-                        Brand new interactive <a class="command" title="Open GitLens Settings" href="command:gitlens.showSettingsPage">settings editor</a> &mdash; GitLens is easier than ever to customize to suit your needs
-                        <div class="changelog__details">
-                            <img class="changelog__image" src="{{root}}/images/teaser-settings.png"/>
-                        </div>
-                    </li>
-                    <li><span class="changelog__badge changelog__badge--added">NEW</span>
-                        Brand new <a title="Learn more about GitLens" href="http://gitlens.amod.io">website</a> &mdash; check it out!
-                    </li>
-                    <li><span class="changelog__badge changelog__badge--added">NEW</span>
-                        Adds a tree layout option to branches in the <i>GitLens</i> explorer &mdash; thanks to Yukai Huang (<a href="https://github.com/Yukaii">@Yukaii</a>)!
-                    </li>
-                    <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>
-                        Reworked settings &mdash; clearer, simpler settings
-                    </li>
-                    <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
-                        Previous settings will now be migrated properly &mdash; sorry everyone &#x1F622;
-                    </li>
-                </ul>
+                <div class="changelog__scroller">
+                    <ul class="changelog__list">
+                        <li><span class="changelog__badge changelog__badge--version">8.1</span>
+                            <span class="changelog__date">MARCH &nbsp;2018</span>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds automatic issue linking to Bitbucket, GitHub, GitLab, and Visual Studio Team Services for commit messages in hovers
+                            <div class="changelog__details">
+                                <img class="changelog__image" src="{{root}}/images/cl-issue-linking.png" alt="Issue linking in commit messages"/>
+                            </div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds support to toggle annotations for each file individually or for all files at once &mdash; closes <a title="Open Issue #289" href="https://github.com/eamodio/vscode-gitlens/issues/289">#289</a>
+                            <div class="changelog__details">
+                                <img class="changelog__image" src="{{root}}/images/cl-annotations-toggle.png" alt="Annotations toggle"/>
+                            </div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds icons to remotes in the <i>GitLens</i> explorer based on the remote service provider
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds multi-cursor support to current line annotations &mdash; closes <a title="Open Issue #291" href="https://github.com/eamodio/vscode-gitlens/issues/291">#291</a>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>
+                            Renames <i>Compare Selected Ancestor with Working Tree</i> command to <i>Compare Ancestry with Working Tree</i> and removes the need to select a branch first, since all compares are performed with the working tree &mdash; closes <a title="Open Issue #279" href="https://github.com/eamodio/vscode-gitlens/issues/279">#279</a>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes <a title="Open Issue #294" href="https://github.com/eamodio/vscode-gitlens/issues/294">#294</a> &mdash; Keyboard shortcuts will now default to <i>chorded</i> to avoid conflicts. Only affects new installs or if you remove the <span class="setting-key">gitlens.keymap</span> setting
+                        </li>
 
+                        <li class="changelog__list-item--version"><span class="changelog__badge changelog__badge--version">8.0</span>
+                            <span class="changelog__date">FEBRUARY &nbsp;2018</span>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Brand new welcome experience &mdash; you're looking at it
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Brand new interactive <a class="command" title="Open GitLens Settings" href="command:gitlens.showSettingsPage">settings editor</a> &mdash; GitLens is easier than ever to customize to suit your needs
+                            <div class="changelog__details">
+                                <img class="changelog__image" src="{{root}}/images/cl-settings.png"/>
+                            </div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Brand new <a title="Learn more about GitLens" href="http://gitlens.amod.io">website</a> &mdash; check it out!
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds a tree layout option to branches in the <i>GitLens</i> explorer &mdash; thanks to Yukai Huang (<a href="https://github.com/Yukaii">@Yukaii</a>)!
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>
+                            Reworked settings &mdash; clearer, simpler settings
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Previous settings will now be migrated properly &mdash; sorry everyone &#x1F622;
+                        </li>
+                    </ul>
+                </div>
                 <p class="changelog__hint">
                     See the <a title="Open Release Notes" href="https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md">release notes</a> for the full set of changes
                 </p>
@@ -76,14 +120,12 @@
 
             <div class="section-groups">
                 <div class="section-group__content">
-                    <!-- <div class="section-group-section center">
-                        <a class="button button--flat-primary button--big" href="command:gitlens.showSettingsPage">Configure GitLens</a>
-                    </div> -->
                     <div class="section-group-section">
                         <p>
-                            <a class="bold" title="Learn more about GitLens" href="http://gitlens.amod.io">GitLens</a> is a free,
+                            <a class="bold" title="Learn more about GitLens" href="http://gitlens.amod.io">GitLens</a> is an
                             <a class="bold" title="Open GitLens on GitHub" href="https://github.com/eamodio/vscode-gitlens">open-source</a> extension for Visual Studio Code created by
                             <a class="bold" title="Learn more about Eric" href="http://www.amod.io/?utm_source=gitlens">Eric Amodio</a>.
+                            While GitLens is generously offered to everyone free of charge, if you find it useful please consider <a class="bold" title="Support GitLens" href="#support-gitlens">supporting</a> it.
                         </p>
                         <p>
                             GitLens simply helps you understand code better. Quickly glimpse into whom, why, and when a line or code block was changed.
@@ -113,8 +155,17 @@
                             and edit your <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a>.
                         </p>
                     </div>
-                    <div class="section-group-section">
-                        <h2>Show Your Support &#x2764;</h2>
+                    <div id="support-gitlens" class="section-group-section">
+                        <h2>Support GitLens</h2>
+                        <p>
+                            While GitLens is generously offered to everyone free of charge, if you find it useful please consider supporting it.
+                        </p>
+                        <p>
+                            I've been building GitLens in my spare time<sup><a title="nights and weekends, i.e. trading sleep for time">1</a></sup> for almost 2 years now.
+                            From its very humble beginnings, GitLens has grown wildly beyond my expectations &mdash; in both its reach as well as its demands on my time and attention.
+                            While I enjoy giving my free time and attention to GitLens' development and growth, I would like to do even more.
+                        </p>
+                        <h3>Show Your Support &#x2764;</h3>
                         <p>
                             To my incredible backers &mdash; thank you so much for your contributions.
                             I am truly humbled by your generosity and support.
@@ -123,15 +174,14 @@
                         <p>
                             If you'd like to join them in supporting GitLens, please consider the following &mdash; feel free to choose more than one. &#x1F609;
                         </p>
-                        <div class="button-group button-group--donate">
-                            <a class="button button--flat-primary" title="Become a patron on Patreon" href="https://www.patreon.com/eamodio" target="_blank">Become a Patron</a>
-                            <a class="button button--flat-primary" title="Donate via PayPal" href="https://www.paypal.me/eamodio" target="_blank">Donate via PayPal</a>
+                        <div class="button-group button-group--support-gitlens">
+                            <a class="button button--flat-primary" title="Become a sponsor on Patreon" href="https://www.patreon.com/eamodio" target="_blank">Become a Sponsor</a>
+                            <a class="button button--flat-primary" title="One-time donations via PayPal" href="https://www.paypal.me/eamodio" target="_blank">One-time Donations</a>
                         </div>
                         <ul class="section-list">
-                            <li><a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details">Write a Review</a></li>
-                            <li><a href="https://github.com/eamodio/vscode-gitlens">Star or Fork me on GitHub</a></li>
-                            <li><a href="https://twitter.com/eamodio">Follow me on Twitter</a></li>
-                            <li><a href="http://www.amod.io/?utm_source=gitlens">Hire me</a></li>
+                            <li><a title="Write a review" href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details">Write a Review</a></li>
+                            <li><a title="Star or fork me on GitHub" href="https://github.com/eamodio/vscode-gitlens">Star or Fork me on GitHub</a></li>
+                            <li><a title="Follow me on Twitter" href="https://twitter.com/eamodio">Follow me on Twitter</a></li>
                         </ul>
                     </div>
                     <div class="section-group-section">
@@ -164,15 +214,14 @@
                 <div class="section-group__sidebar section-group__sidebar--welcome">
                     <div class="sidebar-group">
                         <h2>Show Your Support</h2>
-                        <div class="button-group button-group--donate-sidebar">
-                            <a class="button button--flat-primary" title="Become a patron on Patreon" href="https://www.patreon.com/eamodio" target="_blank">Become a Patron</a>
-                            <a class="button button--flat-primary" title="Donate via PayPal" href="https://www.paypal.me/eamodio" target="_blank">Donate via PayPal</a>
+                        <div class="button-group button-group--support-gitlens-sidebar">
+                            <a class="button button--flat-primary" title="Become a sponsor on Patreon" href="https://www.patreon.com/eamodio" target="_blank">Become a Sponsor</a>
+                            <a class="button button--flat-primary" title="One-time donations via PayPal" href="https://www.paypal.me/eamodio" target="_blank">One-time Donations</a>
                         </div>
                         <ul>
-                            <li><a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details">Write a Review</a></li>
-                            <li><a href="https://github.com/eamodio/vscode-gitlens">Star or Fork me on GitHub</a></li>
-                            <li><a href="https://twitter.com/eamodio">Follow me on Twitter</a></li>
-                            <li><a href="http://www.amod.io/?utm_source=gitlens">Hire me</a></li>
+                            <li><a title="Write a review" href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details">Write a Review</a></li>
+                            <li><a title="Star or fork me on GitHub" href="https://github.com/eamodio/vscode-gitlens">Star or Fork me on GitHub</a></li>
+                            <li><a title="Follow me on Twitter" href="https://twitter.com/eamodio">Follow me on Twitter</a></li>
                         </ul>
                     </div>
                     <div class="sidebar-group">
@@ -197,6 +246,9 @@
                     <div class="sidebar-group">
                         <h2>Resources</h2>
                         <ul>
+                            <li>
+                                <a href="http://gitlens.amod.io">Website</a>
+                            </li>
                             <li>
                                 <a href="https://marketplace.visualstudio.com/items/eamodio.gitlens/changelog">Changelog</a>
                             </li>

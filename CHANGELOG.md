@@ -4,28 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [8.1.0] - 2018-03-07
 ### Added
-- Adds issue linking for commit messages in hovers
+- Adds automatic issue linking to Bitbucket, GitHub, GitLab, and Visual Studio Team Services for commit messages in hovers
 
-  ![Issue linking](./images/ss-cl-issue-linking.png)
+  ![Issue linking in commit messages](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-issue-linking.png)
 
-- Adds icons to remotes in the *GitLens* explorer based on the remote service provider
-- Adds multi-cursor support to current line annotations &mdash; closes [#291](https://github.com/eamodio/vscode-gitlens/issues/291)
 - Adds support to toggle annotations for each file individually or for all files at once &mdash; closes [#289](https://github.com/eamodio/vscode-gitlens/issues/289)
+
+  ![Annotations toggle setting](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-annotations-toggle.png)
+
   - Adds new controls the interactive settings editor (*Open Settings* from the Command Palette) to configure this new behavior
   - Adds `gitlens.blame.toggleMode` setting to specify how the gutter blame annotations will be toggled, per file or window
   - Adds `gitlens.heatmap.toggleMode` setting to specify how the gutter heatmap annotations will be toggled, per file or window
   - Adds `gitlens.recentChanges.toggleMode` setting to specify how the recently changed lines annotations will be toggled, per file or window
+- Adds icons to remotes in the *GitLens* explorer based on the remote service provider
+- Adds multi-cursor support to current line annotations &mdash; closes [#291](https://github.com/eamodio/vscode-gitlens/issues/291)
 
 ### Changed
-- Renames *Compare Selected Ancestor with Working Tree* command to *Compare Ancestry with Working Tree* and removes the need to select a branch first, since all compares are done to the working tree &mdash; closes [#279](https://github.com/eamodio/vscode-gitlens/issues/279)
+- Renames *Compare Selected Ancestor with Working Tree* command to *Compare Ancestry with Working Tree* and removes the need to select a branch first, since all compares are performed with the working tree &mdash; closes [#279](https://github.com/eamodio/vscode-gitlens/issues/279)
 
 ### Removed
 - Removes tag icons from the *GitLens* explorer
 
 ### Fixed
-- Fixes [#294](https://github.com/eamodio/vscode-gitlens/issues/294) - Keyboard shortcuts will now default to *chorded* to avoid conflicts. FYI, only affects new installs or if you remove the `gitlens.keymap` setting)
+- Fixes [#294](https://github.com/eamodio/vscode-gitlens/issues/294) - Keyboard shortcuts will now default to *chorded* to avoid conflicts. Only affects new installs or if you remove the `gitlens.keymap` setting
 - Fixes issue where Recent Changes annotations weren't restored properly on tab switch
 - Fixes quick pick menu issue with commits with newlines in the message
 
@@ -56,11 +59,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds an all-new GitLens welcome page via the *Welcome* (`gitlens.showWelcomePage`) command &mdash; provides a welcome / onboarding experience &mdash; closes [#51](https://github.com/eamodio/vscode-gitlens/issues/51)
 
-  ![GitLens Welcome](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/teaser-welcome.png)
+  ![GitLens Welcome](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-welcome.png)
 
 - Adds an all-new GitLens Settings editor via the *Open Settings* (`gitlens.showSettingsPage`) command &mdash; provides an easy-to-use interactive settings editor for many of GitLens' features &mdash; closes [#167](https://github.com/eamodio/vscode-gitlens/issues/167)
 
-  ![GitLens Settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/teaser-settings.png)
+  ![GitLens Settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-settings.png)
 
 - Adds a tree layout option to branches in the *GitLens* explorer &mdash; closes [#258](https://github.com/eamodio/vscode-gitlens/issues/258) thanks to [PR #260](https://github.com/eamodio/vscode-gitlens/pull/260) by Yukai Huang ([@Yukaii](https://github.com/Yukaii))!
 - Adds *Follow Renames* command (`gitlens.gitExplorer.setRenameFollowingOn`) to the **GitLens** explorer *History* view to follow file renames in the history

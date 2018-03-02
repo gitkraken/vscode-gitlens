@@ -13,6 +13,15 @@
 <br />
 
 # What's new in GitLens 8
+## 8.1 &mdash; March 2018
+- Adds automatic issue linking to Bitbucket, GitHub, GitLab, and Visual Studio Team Services for commit messages in hovers
+- Adds support to toggle annotations for each file individually or for all files at once &mdash; closes [#289](https://github.com/eamodio/vscode-gitlens/issues/289)
+- Adds icons to remotes in the *GitLens* explorer based on the remote service provider
+- Adds multi-cursor support to current line annotations &mdash; closes [#291](https://github.com/eamodio/vscode-gitlens/issues/291)
+- Renames *Compare Selected Ancestor with Working Tree* command to *Compare Ancestry with Working Tree* and removes the need to select a branch first, since all compares are performed with the working tree &mdash; closes [#279](https://github.com/eamodio/vscode-gitlens/issues/279)
+- Fixes [#294](https://github.com/eamodio/vscode-gitlens/issues/294) - Keyboard shortcuts will now default to *chorded* to avoid conflicts. Only affects new installs or if you remove the `gitlens.keymap` setting
+
+## 8.0 &mdash; February 2018
 - Brand new welcome experience
 - Brand new interactive [settings editor](#configuration) &mdash; GitLens is easier than ever to customize to suit your needs
 - Adds a tree layout option to branches in the <i>GitLens</i> explorer &mdash; thanks to Yukai Huang ([@Yukaii](https://github.com/Yukaii))!
@@ -22,7 +31,8 @@ See the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CH
 
 # GitLens
 
-[GitLens](http://gitlens.amod.io "Learn more about GitLens") is a free, [open-source](https://github.com/eamodio/vscode-gitlens "Open GitLens on GitHub") extension for [Visual Studio Code](https://code.visualstudio.com) created by [Eric Amodio](http://www.amod.io "Learn more about Eric").
+[GitLens](http://gitlens.amod.io "Learn more about GitLens") is an [open-source](https://github.com/eamodio/vscode-gitlens "Open GitLens on GitHub") extension for [Visual Studio Code](https://code.visualstudio.com) created by [Eric Amodio](http://www.amod.io "Learn more about Eric").
+While GitLens is generously offered to everyone free of charge, if you find it useful please consider [supporting](#support-gitlens "Support GitLens") it.
 
 GitLens simply helps you understand code better. Quickly glimpse into whom, why, and when a line or code block was changed. Jump back through history to gain further insights as to how and why the code evolved. Explore the history and evolution of a codebase.
 
@@ -47,21 +57,28 @@ GitLens is powerful, feature rich, and also [highly customizable](#gitlens-setti
   <br />
 </p>
 
-## Show Your Support &#x2764;
+## Support GitLens
+
+While GitLens is generously offered to everyone free of charge, if you find it useful please consider supporting it.
+
+I've been building GitLens in my spare time<sup><a title="nights and weekends, i.e. trading sleep for time">1</a></sup> for almost 2 years now.
+From its very humble beginnings, GitLens has grown wildly beyond my expectations &mdash; in both its reach as well as its demands on my time and attention.
+While I enjoy giving my free time and attention to GitLens' development and growth, I would like to do even more.
+
+### Show Your Support &#x2764;
 
 To my incredible backers &mdash; thank you so much for your contributions. I am truly humbled by your generosity and support. Please know that your support plays a important role in helping me realize GitLens' potential in making developer's lives easier.
 
 If you'd like to join them in supporting GitLens, please consider the following &mdash; feel free to choose more than one. &#x1F609;
-- [Become a Patron](https://www.patreon.com/eamodio "Become a Patron") &mdash; join the growing group of generous [backers](https://github.com/eamodio/vscode-gitlens/blob/master/BACKERS.md)
-- [Donate via PayPal](https://www.paypal.me/eamodio)
-- [Write a Review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details "Write a Review")
-- [Star or Fork me on GitHub](https://github.com/eamodio/vscode-gitlens "Star or Fork me on GitHub")
+- [Become a Sponsor](https://www.patreon.com/eamodio "Become a sponsor on Patreon") &mdash; join the growing group of generous [backers](https://github.com/eamodio/vscode-gitlens/blob/master/BACKERS.md)
+- [One-time Donations](https://www.paypal.me/eamodio "One-time donations via PayPal")
+- [Write a Review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details "Write a review")
+- [Star or Fork me on GitHub](https://github.com/eamodio/vscode-gitlens "Star or fork me on GitHub")
 - [Follow me on Twitter](https://twitter.com/eamodio "Follow me on Twitter")
-- [Hire me](http://www.amod.io/?utm_source=gitlens "Hire me")
 
 ## Configuration
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/teaser-settings.png" alt="GitLens Explorer Repository view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-settings.png" alt="GitLens Explorer Repository view" />
 </p>
 
 GitLens has a built-in interactive settings editor which provides an easy-to-use interface to configure many of GitLens' powerful features. It can be accessed via the *Open Settings* (`gitlens.showSettingsPage`) command from the [*Command Palette*](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette).
@@ -271,6 +288,7 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
   </p>
 
 - Adds a **details hover** annotation to the current line to show more commit details ([optional](#hover-settings "Jump to the Hover settings"), on by default)
+  - Provides automatic issue linking to Bitbucket, GitHub, GitLab, and Visual Studio Team Services in commit messages
   - Provides a **quick-access command bar** with *Open Changes*, *Blame Previous Revision*, *Open in Remote*, and *Show More Actions* command buttons
   - Click the commit id to execute the *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
 
@@ -296,6 +314,7 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
   </p>
 
 - Adds a **details hover** annotation to each line while annotating to show more commit details ([optional](#hover-settings "Jump to the Hover settings"), on by default)
+  - Provides automatic issue linking to Bitbucket, GitHub, GitLab, and Visual Studio Team Services in commit messages
   - Provides a **quick-access command bar** with *Open Changes*, *Blame Previous Revision*, *Open in Remote*, and *Show More Actions* command buttons
   - Click the commit id to execute the *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
 
@@ -355,8 +374,8 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
 
 - Adds a *Show Last Opened Quick Pick* command (`gitlens.showLastQuickPick`) with a shortcut of `alt+-` to quickly get back to where you were when the last GitLens quick pick menu closed
 
-- Adds commands to open files, commits, branches, and the repository in the supported remote services, **BitBucket, GitHub, GitLab, and Visual Studio Team Services** or a [**user-defined** remote services](#custom-remotes-settings "Jump to Custom Remotes settings") &mdash; only available if a Git upstream service is configured in the repository
-  - Also supports [remote services with custom domains](#custom-remotes-settings "Jump to Custom Remotes settings"), such as **BitBucket, Bitbucket Server (previously called Stash), GitHub, GitHub Enterprise, GitLab**
+- Adds commands to open files, commits, branches, and the repository in the supported remote services, **Bitbucket, GitHub, GitLab, and Visual Studio Team Services** or a [**user-defined** remote services](#custom-remotes-settings "Jump to Custom Remotes settings") &mdash; only available if a Git upstream service is configured in the repository
+  - Also supports [remote services with custom domains](#custom-remotes-settings "Jump to Custom Remotes settings"), such as **Bitbucket, Bitbucket Server (previously called Stash), GitHub, GitHub Enterprise, GitLab**
   - *Open Branches in Remote* command (`gitlens.openBranchesInRemote`) &mdash; opens the branches in the supported remote service
   - *Open Branch in Remote* command (`gitlens.openBranchInRemote`) &mdash; opens the current branch commits in the supported remote service
   - *Open Commit in Remote* command (`gitlens.openCommitInRemote`) &mdash; opens the commit revision of the active line in the supported remote service

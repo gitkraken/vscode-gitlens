@@ -2,7 +2,7 @@
 !images/light/**
 !images/settings/**
 !images/gitlens-icon.png
-!images/teaser-settings.png
+!images/cl-*.png
 images/**
 .vscode/**
 .vscode-test/**
