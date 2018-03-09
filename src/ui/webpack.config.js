@@ -109,6 +109,7 @@ module.exports = function(env, argv) {
             welcome: ['./welcome/index.ts', './scss/main.scss']
             // main: ['./scss/main.scss']
         },
+        mode: production ? 'production' : 'development',
         output: {
             filename: '[name].js',
             path: path.resolve(__dirname, '../../', 'out/ui'),

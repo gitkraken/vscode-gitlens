@@ -9,8 +9,10 @@ module.exports = function(env, argv) {
         env = {};
     }
 
-    const minify = !!env.production;
-    const sourceMaps = !env.production;
+    const production = !!env.production;
+
+    const minify = production;
+    const sourceMaps = !production;
 
     const plugins = [
         new webpack.optimize.ModuleConcatenationPlugin(),
@@ -32,6 +34,7 @@ module.exports = function(env, argv) {
 
     return {
         entry: './src/extension.ts',
+        mode: production ? 'production' : 'development',
         target: 'node',
         output: {
             libraryTarget: 'commonjs2',
