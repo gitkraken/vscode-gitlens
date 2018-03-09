@@ -286,9 +286,9 @@
                                 "minItems": 1,
                                 "maxItems": 4,
                                 "uniqueItems": true,
-                                "description": "Specifies where Git code lens will be shown in the document for the specified language\n `document` - adds code lens at the top of the document\n `containers` - adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)\n `blocks` - adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines\n `custom` - adds code lens at the start of symbols contained in `customSymbols`"
+                                "description": "Specifies where Git code lens will be shown in the document for the specified language\n `document` - adds code lens at the top of the document\n `containers` - adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)\n `blocks` - adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines\n `custom` - adds code lens at the start of symbols contained in `symbolScopes`"
                             },
-                            "customSymbols": {
+                            "symbolScopes": {
                                 "type": "array",
                                 "items": {
                                     "type": "string"

@@ -578,7 +578,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |`gitlens.codeLens.recentChange.enabled`|Specifies whether to show a `recent change` code lens showing the author and date of the most recent commit for the file or code block
 |`gitlens.codeLens.scopes`|Specifies where Git code lens will be shown in the document<br />`document` - adds code lens at the top of the document<br />`containers` - adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)<br />`blocks` - adds code lens at the start of block-like symbols (functions, methods, etc) lines
 |`gitlens.codeLens.scopesByLanguage`|Specifies where Git code lens will be shown in the document for the specified languages
-|`gitlens.codeLens.symbolScopes`|Specifies a set of document symbols where Git code lens will or will not be shown in the document<br />Prefix with `!` to not show Git code lens for the symbol<br />Must be a member of `SymbolKind`
+|`gitlens.codeLens.symbolScopes`|Specifies a set of document symbols where Git code lens will or will not be shown in the document<br />Prefix with `!` to not show Git code lens for the symbol<br />Must be a member of [`SymbolKind`](https://code.visualstudio.com/docs/extensionAPI/vscode-api#_a-namesymbolkindaspan-classcodeitem-id660symbolkindspan)
 
 #### Current Line Blame Settings
 
