@@ -84,7 +84,7 @@ async function gitCommandCore(options: CommandOptions & { readonly correlationKe
         encoding: encoding === 'utf8' ? 'utf8' : 'binary',
         // Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
         // Shouldn't *really* be needed but better safe than sorry
-        env: { ...(options.env || process.env), GCM_INTERACTIVE: 'NEVER', GCM_PRESERVE_CREDS: 'TRUE' }
+        env: { ...(options.env || process.env), GCM_INTERACTIVE: 'NEVER', GCM_PRESERVE_CREDS: 'TRUE', LC_ALL: 'C' }
     } as CommandOptions;
 
     const gitCommand = `git ${args.join(' ')}`;
