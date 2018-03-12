@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [8.1.1] - 2018-03-12
+### Fixed
+- Fixes [#276](https://github.com/eamodio/vscode-gitlens/issues/276) - Lookup for branches without upstreams fails
+- Fixes the schema of the `gitlens.codeLens.scopesByLanguage` setting
+
 ## [8.1.0] - 2018-03-07
 ### Added
 - Adds automatic issue linking to Bitbucket, GitHub, GitLab, and Visual Studio Team Services for commit messages in hovers
