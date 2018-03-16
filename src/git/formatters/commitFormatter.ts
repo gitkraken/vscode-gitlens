@@ -1,15 +1,20 @@
 'use strict';
 import { Strings } from '../../system';
 import { GitCommit } from '../models/commit';
+import { DateStyle } from '../../configuration';
+import { Container } from '../../container';
 import { Formatter, IFormatOptions } from './formatter';
 
 export interface ICommitFormatOptions extends IFormatOptions {
+    dateStyle?: DateStyle;
     truncateMessageAtNewLine?: boolean;
 
     tokenOptions?: {
         ago?: Strings.ITokenOptions;
+        agoOrDate?: Strings.ITokenOptions;
         author?: Strings.ITokenOptions;
         authorAgo?: Strings.ITokenOptions;
+        authorAgoOrDate?: Strings.ITokenOptions;
         date?: Strings.ITokenOptions;
         message?: Strings.ITokenOptions;
     };
@@ -17,9 +22,25 @@ export interface ICommitFormatOptions extends IFormatOptions {
 
 export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> {
 
+    private get _ago() {
+        return this._item.fromNow();
+    }
+
+    private get _date() {
+        return this._item.formatDate(this._options.dateFormat!);
+    }
+
+    private get _agoOrDate() {
+        const dateStyle = this._options.dateStyle !== undefined ? this._options.dateStyle : Container.config.defaultDateStyle;
+        return dateStyle === DateStyle.Absolute ? this._date : this._ago;
+    }
+
     get ago() {
-        const ago = this._item.fromNow();
-        return this._padOrTruncate(ago, this._options.tokenOptions!.ago);
+        return this._padOrTruncate(this._ago, this._options.tokenOptions!.ago);
+    }
+
+    get agoOrDate() {
+        return this._padOrTruncate(this._agoOrDate, this._options.tokenOptions!.agoOrDate);
     }
 
     get author() {
@@ -28,13 +49,17 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
     }
 
     get authorAgo() {
-        const authorAgo = `${this._item.author}, ${this._item.fromNow()}`;
+        const authorAgo = `${this._item.author}, ${this._ago}`;
+        return this._padOrTruncate(authorAgo, this._options.tokenOptions!.authorAgo);
+    }
+
+    get authorAgoOrDate() {
+        const authorAgo = `${this._item.author}, ${this._agoOrDate}`;
         return this._padOrTruncate(authorAgo, this._options.tokenOptions!.authorAgo);
     }
 
     get date() {
-        const date = this._item.formatDate(this._options.dateFormat!);
-        return this._padOrTruncate(date, this._options.tokenOptions!.date);
+        return this._padOrTruncate(this._date, this._options.tokenOptions!.date);
     }
 
     get id() {
