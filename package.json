@@ -7,7 +7,7 @@
     },
     "publisher": "eamodio",
     "engines": {
-        "vscode": "^1.20.0"
+        "vscode": "^1.21.0"
     },
     "license": "SEE LICENSE IN LICENSE",
     "displayName": "GitLens \u2014 Git supercharged",
@@ -2931,7 +2931,7 @@
         "uglifyjs-webpack-plugin": "1.2.3",
         "vscode": "1.1.13",
         "webpack": "4.1.1",
-        "webpack-cli": "2.0.11",
+        "webpack-cli": "2.0.12",
         "webpack-node-externals": "1.6.0"
     }
 }
