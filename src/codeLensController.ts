@@ -3,7 +3,7 @@ import { ConfigurationChangeEvent, Disposable, languages } from 'vscode';
 import { configuration, ICodeLensConfig } from './configuration';
 import { CommandContext, setCommandContext } from './constants';
 import { Container } from './container';
-import { DocumentBlameStateChangeEvent, DocumentDirtyIdleTriggerEvent, GitDocumentState } from './trackers/documentTracker';
+import { DocumentBlameStateChangeEvent, DocumentDirtyIdleTriggerEvent, GitDocumentState } from './trackers/gitDocumentTracker';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
 import { Logger } from './logger';
 

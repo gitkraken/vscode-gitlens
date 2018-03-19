@@ -1,6 +1,8 @@
 'use strict';
+import { DocumentTracker } from './documentTracker';
 import { GitBlame, GitDiff, GitLog } from './../git/git';
-import { GitBlameCommit, GitLogCommit } from '../gitService';
+
+export * from './documentTracker';
 
 interface CachedItem<T> {
     item: Promise<T>;
@@ -28,10 +30,4 @@ export class GitDocumentState {
     }
 }
 
-export class GitLineState {
-
-    constructor(
-        public readonly commit: GitBlameCommit | undefined,
-        public logCommit?: GitLogCommit
-    ) { }
-}
+export class GitDocumentTracker extends DocumentTracker<GitDocumentState> { }

@@ -5,7 +5,7 @@ import { Commands, DiffWithPreviousCommandArgs, ShowQuickCommitDetailsCommandArg
 import { CodeLensCommand, CodeLensLanguageScope, CodeLensScopes, configuration, ICodeLensConfig } from './configuration';
 import { BuiltInCommands, DocumentSchemes } from './constants';
 import { Container } from './container';
-import { DocumentTracker, GitDocumentState } from './trackers/documentTracker';
+import { DocumentTracker, GitDocumentState } from './trackers/gitDocumentTracker';
 import { GitBlame, GitBlameCommit, GitBlameLines, GitService, GitUri } from './gitService';
 import { Logger } from './logger';
 

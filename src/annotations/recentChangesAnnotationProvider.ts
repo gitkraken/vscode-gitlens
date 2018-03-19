@@ -5,7 +5,7 @@ import { Annotations } from './annotations';
 import { FileAnnotationType } from './../configuration';
 import { RangeEndOfLineIndex } from '../constants';
 import { Container } from '../container';
-import { GitDocumentState, TrackedDocument } from '../trackers/documentTracker';
+import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { GitUri } from '../gitService';
 import { Logger } from '../logger';
 

@@ -4,7 +4,7 @@ import { DecorationOptions, Disposable, Range, TextDocument, TextEditor, TextEdi
 import { FileAnnotationType } from '../configuration';
 import { TextDocumentComparer } from '../comparers';
 import { CommandContext, setCommandContext } from '../constants';
-import { GitDocumentState, TrackedDocument } from '../trackers/documentTracker';
+import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 
 export enum AnnotationStatus {
     Computing = 'computing',

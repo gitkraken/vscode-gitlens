@@ -6,7 +6,6 @@ import { CommandContext, DocumentSchemes, isActiveDocument, isTextEditor, setCom
 import { GitUri } from '../gitService';
 import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
 
-export { CachedBlame, CachedDiff, CachedLog, GitDocumentState } from './gitDocumentState';
 export * from './trackedDocument';
 
 export interface DocumentDirtyStateChangeEvent<T> {

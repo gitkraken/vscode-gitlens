@@ -6,9 +6,9 @@ import { Commands } from './commands';
 import { configuration, IConfig, StatusBarCommand } from './configuration';
 import { isTextEditor, RangeEndOfLineIndex } from './constants';
 import { Container } from './container';
-import { DocumentBlameStateChangeEvent, DocumentDirtyIdleTriggerEvent, DocumentDirtyStateChangeEvent, GitDocumentState, TrackedDocument } from './trackers/documentTracker';
+import { DocumentBlameStateChangeEvent, DocumentDirtyIdleTriggerEvent, DocumentDirtyStateChangeEvent, GitDocumentState, TrackedDocument } from './trackers/gitDocumentTracker';
+import { GitLineState, GitLineTracker, LinesChangeEvent } from './trackers/gitLineTracker';
 import { CommitFormatter, GitBlameLine, GitCommit, ICommitFormatOptions } from './gitService';
-import { GitLineState, LinesChangeEvent, LineTracker } from './trackers/lineTracker';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
     after: {
@@ -63,7 +63,7 @@ export class CurrentLineController extends Disposable {
 
     private _blameAnnotationState: AnnotationState | undefined;
     private _editor: TextEditor | undefined;
-    private _lineTracker: LineTracker<GitLineState>;
+    private _lineTracker: GitLineTracker;
     private _statusBarItem: StatusBarItem | undefined;
 
     private _disposable: Disposable;
@@ -74,7 +74,7 @@ export class CurrentLineController extends Disposable {
     constructor() {
         super(() => this.dispose());
 
-        this._lineTracker = new LineTracker<GitLineState>();
+        this._lineTracker = Container.lineTracker;
 
         this._disposable = Disposable.from(
             this._lineTracker,
@@ -87,7 +87,6 @@ export class CurrentLineController extends Disposable {
 
     dispose() {
         this.clearAnnotations(this._editor);
-
         this.unregisterHoverProviders();
 
         this._debugSessionEndDisposable && this._debugSessionEndDisposable.dispose();
@@ -220,9 +219,9 @@ export class CurrentLineController extends Disposable {
             this.clearAnnotations(this._editor);
         }
         this.clearAnnotations(editor);
+        this.unregisterHoverProviders();
 
         this._lineTracker.reset();
-        this.unregisterHoverProviders();
 
         if (this._statusBarItem !== undefined && reason !== 'lines') {
             this._statusBarItem.hide();
@@ -348,8 +347,7 @@ export class CurrentLineController extends Disposable {
     }
 
     private clearAnnotations(editor: TextEditor | undefined) {
-        if (editor === undefined) return;
-        if ((editor as any)._disposed === true) return;
+        if (editor === undefined || (editor as any)._disposed === true) return;
 
         editor.setDecorations(annotationDecoration, []);
     }
@@ -358,9 +356,7 @@ export class CurrentLineController extends Disposable {
         if (this._blameAnnotationState !== undefined) return this._blameAnnotationState;
 
         const cfg = Container.config;
-        return {
-            enabled: cfg.currentLine.enabled || cfg.statusBar.enabled || (cfg.hovers.enabled && cfg.hovers.currentLine.enabled)
-        };
+        return { enabled: cfg.currentLine.enabled };
     }
 
     private _updateBlameDebounced: (((lines: number[], editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) => void) & IDeferrable) | undefined;
@@ -381,13 +377,13 @@ export class CurrentLineController extends Disposable {
         }
 
         const state = this.getBlameAnnotationState();
-        if (state.enabled) {
+        if (state.enabled || Container.config.statusBar.enabled || (Container.config.hovers.enabled && Container.config.hovers.currentLine.enabled)) {
             if (options.trackedDocument === undefined) {
                 options.trackedDocument = await Container.tracker.getOrAdd(editor.document);
             }
 
             if (options.trackedDocument.isBlameable) {
-                if (state.enabled && Container.config.hovers.enabled && Container.config.hovers.currentLine.enabled &&
+                if (Container.config.hovers.enabled && Container.config.hovers.currentLine.enabled &&
                     (options.full || this._hoverProviderDisposable === undefined)) {
                     this.registerHoverProviders(editor, Container.config.hovers.currentLine);
                 }
@@ -460,7 +456,11 @@ export class CurrentLineController extends Disposable {
 
         // Make sure we are still on the same line, blameable, and not pending, after the await
         if (this._lineTracker.includesAll(lines) && trackedDocument.isBlameable && !(this._updateBlameDebounced && this._updateBlameDebounced.pending!())) {
-            if (!this.getBlameAnnotationState().enabled) return this.clear(editor);
+            if (!this.getBlameAnnotationState().enabled) {
+                if (!Container.config.statusBar.enabled) return this.clear(editor);
+
+                this.clearAnnotations(editor);
+            }
         }
 
         const activeLine = blameLines[0];
@@ -523,7 +523,7 @@ export class CurrentLineController extends Disposable {
 
     private async updateTrailingAnnotations(lines: GitBlameLine[], editor: TextEditor) {
         const cfg = Container.config.currentLine;
-        if (!cfg.enabled || !isTextEditor(editor)) return;
+        if (!this.getBlameAnnotationState().enabled || !isTextEditor(editor)) return this.clearAnnotations(editor);
 
         const decorations = [];
         for (const l of lines) {

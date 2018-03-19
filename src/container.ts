@@ -4,10 +4,11 @@ import { AnnotationController } from './annotations/annotationController';
 import { CodeLensController } from './codeLensController';
 import { configuration, IConfig } from './configuration';
 import { CurrentLineController } from './currentLineController';
-import { DocumentTracker, GitDocumentState } from './trackers/documentTracker';
 import { ExplorerCommands } from './views/explorerCommands';
 import { GitContentProvider } from './gitContentProvider';
+import { GitDocumentTracker } from './trackers/gitDocumentTracker';
 import { GitExplorer } from './views/gitExplorer';
+import { GitLineTracker } from './trackers/gitLineTracker';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { GitService } from './gitService';
 import { Keyboard } from './keyboard';
@@ -20,7 +21,8 @@ export class Container {
         this._context = context;
         this._config = config;
 
-        context.subscriptions.push(this._tracker = new DocumentTracker<GitDocumentState>());
+        context.subscriptions.push(this._lineTracker = new GitLineTracker());
+        context.subscriptions.push(this._tracker = new GitDocumentTracker());
         context.subscriptions.push(this._git = new GitService());
 
         // Since there is a bit of a chicken & egg problem with the DocumentTracker and the GitService, initialize the tracker once the GitService is loaded
@@ -100,6 +102,11 @@ export class Container {
         return this._currentLineController;
     }
 
+    private static _lineTracker: GitLineTracker;
+    static get lineTracker() {
+        return this._lineTracker;
+    }
+
     private static _pageProvider: PageProvider;
     static get pages() {
         return this._pageProvider;
@@ -114,7 +121,7 @@ export class Container {
         return this._resultsExplorer;
     }
 
-    private static _tracker: DocumentTracker<GitDocumentState>;
+    private static _tracker: GitDocumentTracker;
     static get tracker() {
         return this._tracker;
     }

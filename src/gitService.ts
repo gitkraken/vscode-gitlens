@@ -4,9 +4,9 @@ import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, Range, TextE
 import { configuration, IRemotesConfig } from './configuration';
 import { CommandContext, DocumentSchemes, setCommandContext } from './constants';
 import { Container } from './container';
-import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from './trackers/documentTracker';
 import { RemoteProviderFactory, RemoteProviderMap } from './git/remotes/factory';
 import { CommitFormatting, Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitCommitType, GitDiff, GitDiffChunkLine, GitDiffParser, GitDiffShortStat, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, GitTag, GitTagParser, IGit, Repository } from './git/git';
+import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from './trackers/gitDocumentTracker';
 import { GitUri, IGitCommitInfo } from './git/gitUri';
 import { Logger } from './logger';
 import * as fs from 'fs';

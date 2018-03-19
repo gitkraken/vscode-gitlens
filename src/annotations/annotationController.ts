@@ -5,7 +5,7 @@ import { AnnotationProviderBase, AnnotationStatus, TextEditorCorrelationKey } fr
 import { AnnotationsToggleMode, configuration, FileAnnotationType, HighlightLocations } from '../configuration';
 import { CommandContext, isTextEditor, setCommandContext } from '../constants';
 import { Container } from '../container';
-import { DocumentBlameStateChangeEvent, DocumentDirtyStateChangeEvent, GitDocumentState } from '../trackers/documentTracker';
+import { DocumentBlameStateChangeEvent, DocumentDirtyStateChangeEvent, GitDocumentState } from '../trackers/gitDocumentTracker';
 import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
 import { HeatmapBlameAnnotationProvider } from './heatmapBlameAnnotationProvider';
 import { KeyboardScope, KeyCommand, Keys } from '../keyboard';

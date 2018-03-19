@@ -3,8 +3,6 @@ import { Functions, IDeferrable } from './../system';
 import { Disposable, Event, EventEmitter, TextEditor, TextEditorSelectionChangeEvent, window } from 'vscode';
 import { isTextEditor } from './../constants';
 
-export { GitLineState } from './gitDocumentState';
-
 export interface LinesChangeEvent {
 
     readonly editor: TextEditor | undefined;
@@ -15,12 +13,14 @@ export interface LinesChangeEvent {
 }
 
 export class LineTracker<T> extends Disposable {
+
     private _onDidChangeActiveLines = new EventEmitter<LinesChangeEvent>();
     get onDidChangeActiveLines(): Event<LinesChangeEvent> {
+        this._onDidChangeActiveLines.event.length;
         return this._onDidChangeActiveLines.event;
     }
 
-    private _disposable: Disposable | undefined;
+    protected _disposable: Disposable | undefined;
     private _editor: TextEditor | undefined;
 
     private readonly _state: Map<number, T | undefined> = new Map();
