@@ -369,6 +369,6 @@ export class ExplorerCommands extends Disposable {
 
         const terminal = this.ensureTerminal();
         terminal.show(false);
-        terminal.sendText(`git -C ${cwd} ${command}`, false);
+        terminal.sendText(`git -C "${cwd}" ${command}`, false);
     }
 }
