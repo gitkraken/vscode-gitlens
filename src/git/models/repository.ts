@@ -138,7 +138,7 @@ export class Repository extends Disposable {
 
     private onFileSystemChanged(uri: Uri) {
         // Ignore .git changes
-        if (/\.git/.test(uri.fsPath)) return;
+        if (/\.git(?:\/|\\|$)/.test(uri.fsPath)) return;
 
         this.fireFileSystemChange(uri);
     }
