@@ -1133,7 +1133,7 @@
             },
             {
                 "command": "gitlens.diffHeadWithBranch",
-                "title": "Compare Index (HEAD) with Branch or Tag...",
+                "title": "Compare HEAD with Branch or Tag...",
                 "category": "GitLens"
             },
             {
@@ -1455,7 +1455,7 @@
             },
             {
                 "command": "gitlens.explorers.compareWithHead",
-                "title": "Compare with Index (HEAD)",
+                "title": "Compare with HEAD",
                 "category": "GitLens"
             },
             {
@@ -2431,17 +2431,17 @@
                 },
                 {
                     "command": "gitlens.explorers.compareWithHead",
-                    "when": "viewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
+                    "when": "viewItem =~ /gitlens:(branch(?!:current)|commit|stash|tag)\\b/",
                     "group": "7_gitlens@2"
                 },
                 {
                     "command": "gitlens.explorers.compareWithWorking",
-                    "when": "viewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
+                    "when": "viewItem =~ /gitlens:(branch(?!:current)|commit|stash|tag)\\b/",
                     "group": "7_gitlens@3"
                 },
                 {
                     "command": "gitlens.explorers.compareAncestryWithWorking",
-                    "when": "viewItem =~ /gitlens:branch\\b/",
+                    "when": "viewItem =~ /gitlens:branch(?!:current)\\b/",
                     "group": "7_gitlens@4"
                 },
                 {

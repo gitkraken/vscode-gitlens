@@ -124,10 +124,10 @@ The repository view provides a full Git repository explorer, which has the follo
       - *Red* &mdash; behind the upstream
       - *Yellow* &mdash; both ahead of and behind the upstream
     - Context menus for each branch provide
-      - *Open Branch in Remote* (if available), *Compare with Remote* (if available), *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected* (when available), *Compare  Ancestry with Working Tree* (when available), *Select for Compare*, *Open Directory Compare with Working Tree*, *Checkout Branch (via Terminal)*, *Merge Branch (via Terminal)*, *Rebase (Interactive) Branch (via Terminal)*, *Rebase (Interactive) Branch to Remote (via Terminal)*, *Squash Branch into Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Delete Branch (via Terminal)*, *Create Tag (via Terminal)...*, and *Refresh* commands
+      - *Open Branch in Remote* (if available), *Compare with Remote* (if available), *Compare with HEAD*, *Compare with Working Tree*, *Compare with Selected* (when available), *Compare  Ancestry with Working Tree* (when available), *Select for Compare*, *Open Directory Compare with Working Tree*, *Checkout Branch (via Terminal)*, *Merge Branch (via Terminal)*, *Rebase (Interactive) Branch (via Terminal)*, *Rebase (Interactive) Branch to Remote (via Terminal)*, *Squash Branch into Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Delete Branch (via Terminal)*, *Create Tag (via Terminal)...*, and *Refresh* commands
     - Revisions (commits) expand to show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
       - Context menus for each revision (commit) provide
-        -  *Open Commit in Remote* (if available), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, *Cherry Pick Commit (via Terminal)* (when available), *Push to Commit (via Terminal)* (when available), *Revert Commit (via Terminal)* (when available), *Rebase to Commit (via Terminal)* (when available), *Reset to Commit (via Terminal)*  (when available), *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
+        -  *Open Commit in Remote* (if available), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with HEAD*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, *Cherry Pick Commit (via Terminal)* (when available), *Push to Commit (via Terminal)* (when available), *Revert Commit (via Terminal)* (when available), *Rebase to Commit (via Terminal)* (when available), *Reset to Commit (via Terminal)*  (when available), *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
       - Context menus for each changed file provide
         - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
       - Inline toolbars for each changed file provide an *Open File* command
@@ -145,7 +145,7 @@ The repository view provides a full Git repository explorer, which has the follo
   - A context menu provides *Stash Changes*, and *Refresh* commands
   - Stashes expand to show the set of files stashed, complete with status indicators for adds, changes, renames, and deletes
     - Context menus for each stash provide
-      - *Apply Stashed Changes* (confirmation required), *Delete Stashed Changes* (confirmation required), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit Message to Clipboard*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, and *Refresh* commands
+      - *Apply Stashed Changes* (confirmation required), *Delete Stashed Changes* (confirmation required), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit Message to Clipboard*, *Compare with HEAD*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, and *Refresh* commands
     - Context menus for each stashed file provide
       - *Apply Changes*, *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote* (if available), and *Show File History* commands
 
@@ -153,7 +153,7 @@ The repository view provides a full Git repository explorer, which has the follo
   - A context menu provides a *Refresh* command
   - Tags expand to show its revision (commit) history
     - Context menus for each tag provide
-      - *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected*, *Select for Compare*, *Open Directory Compare with Working Tree*, *Delete Tag (via Terminal)*, *Create Branch (via Terminal)*, and *Refresh* commands
+      - *Compare with HEAD*, *Compare with Working Tree*, *Compare with Selected*, *Select for Compare*, *Open Directory Compare with Working Tree*, *Delete Tag (via Terminal)*, *Create Branch (via Terminal)*, and *Refresh* commands
     - Revisions (commits) expand to show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
       - See the *Revisions (commits) expand* section under **Branches** above for more details
 
@@ -189,7 +189,7 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
     - A context menu provides *Clear Results*, and *Refresh* commands
     - Revisions (commits) expand show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
       - Context menus for each revision (commit) provide
-        -  *Open Commit in Remote* (if available), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with Index (HEAD)*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, *Cherry Pick Commit (via Terminal)* (when available), *Push to Commit (via Terminal)* (when available), *Revert Commit (via Terminal)* (when available), *Rebase to Commit (via Terminal)* (when available), *Reset to Commit (via Terminal)*  (when available), *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
+        -  *Open Commit in Remote* (if available), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with HEAD*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, *Cherry Pick Commit (via Terminal)* (when available), *Push to Commit (via Terminal)* (when available), *Revert Commit (via Terminal)* (when available), *Rebase to Commit (via Terminal)* (when available), *Reset to Commit (via Terminal)*  (when available), *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
       - Context menus for each changed file provide
         - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
 
@@ -197,7 +197,7 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
   - Provides a semi-persistent results view for comparison operations
     - Accessible via the following commands
       - *Compare with Remote* command (`gitlens.explorers.compareWithRemote`)
-      - *Compare with Index (HEAD)* command (`gitlens.explorers.compareWithHead`)
+      - *Compare with HEAD* command (`gitlens.explorers.compareWithHead`)
       - *Compare with Working Tree* command (`gitlens.explorers.compareWithWorking`)
       - *Compare with Selected* command (`gitlens.explorers.compareWithSelected`)
       - *Compare Ancestry with Working Tree* command (`gitlens.explorers.compareAncestryWithWorking`)
@@ -475,7 +475,7 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
 
 - Adds a *Directory Compare Working Tree with...* command (`gitlens.diffDirectory`) to open the configured Git difftool to compare the working tree with the selected branch or tag
 
-- Adds a *Compare Index (HEAD) with Branch or Tag...* command (`gitlens.diffHeadWithBranch`) to compare the index (HEAD) with the selected branch or tag
+- Adds a *Compare HEAD with Branch or Tag...* command (`gitlens.diffHeadWithBranch`) to compare the index (HEAD) with the selected branch or tag
 
 - Adds a *Compare Working Tree with Branch or Tag...* command (`gitlens.diffWorkingWithBranch`) to compare the working tree with the selected branch or tag
 
