@@ -21,6 +21,7 @@ export class ExplorerCommands extends Disposable {
 
     private _disposable: Disposable | undefined;
     private _terminal: Terminal | undefined;
+    private _terminalCwd: string | undefined;
 
     constructor() {
         super(() => this.dispose());
@@ -206,8 +207,7 @@ export class ExplorerCommands extends Disposable {
     async terminalCheckoutBranch(node: ExplorerNode) {
         if (!(node instanceof BranchNode)) return;
 
-        const command = `checkout ${node.ref}`;
-        this.sendTerminalCommand(command, node.repoPath);
+        this.sendTerminalCommand('checkout', `${node.ref}`, node.repoPath);
     }
 
     async terminalCreateBranch(node: ExplorerNode) {
@@ -227,58 +227,53 @@ export class ExplorerCommands extends Disposable {
         } as InputBoxOptions);
         if (name === undefined || name === '') return;
 
-        const command = `branch ${remoteBranch ? '-t ' : ''}${name} ${node.ref}`;
-        this.sendTerminalCommand(command, node.repoPath);
+        this.sendTerminalCommand('branch', `${remoteBranch ? '-t ' : ''}${name} ${node.ref}`, node.repoPath);
     }
 
     terminalDeleteBranch(node: ExplorerNode) {
         if (!(node instanceof BranchNode)) return;
 
-        const command = node.branch.remote
-            ? `push ${node.branch.remote} :${node.ref}`
-            : `branch -d ${node.ref}`;
-        this.sendTerminalCommand(command, node.repoPath);
+        if (node.branch.remote) {
+            this.sendTerminalCommand('push', `${node.branch.remote} :${node.ref}`, node.repoPath);
+        }
+        else {
+            this.sendTerminalCommand('branch', `-d ${node.ref}`, node.repoPath);
+        }
     }
 
     terminalMergeBranch(node: ExplorerNode) {
         if (!(node instanceof BranchNode)) return;
 
-        const command = `merge ${node.ref}`;
-        this.sendTerminalCommand(command, node.repoPath);
+        this.sendTerminalCommand('merge', `${node.ref}`, node.repoPath);
     }
 
     terminalRebaseBranch(node: ExplorerNode) {
         if (!(node instanceof BranchNode)) return;
 
-        const command = `rebase -i ${node.ref}`;
-        this.sendTerminalCommand(command, node.repoPath);
+        this.sendTerminalCommand('rebase', `-i ${node.ref}`, node.repoPath);
     }
 
     terminalRebaseBranchToRemote(node: ExplorerNode) {
         if (node instanceof BranchNode) {
             if (!node.branch.current || !node.branch.tracking) return;
 
-            const command = `rebase -i ${node.branch.tracking}`;
-            this.sendTerminalCommand(command, node.repoPath);
+            this.sendTerminalCommand('rebase', `-i ${node.branch.tracking}`, node.repoPath);
         }
         else if (node instanceof StatusUpstreamNode) {
-            const command = `rebase -i ${node.status.upstream}`;
-            this.sendTerminalCommand(command, node.status.repoPath);
+            this.sendTerminalCommand('rebase', `-i ${node.status.upstream}`, node.status.repoPath);
         }
     }
 
     terminalSquashBranchIntoCommit(node: ExplorerNode) {
         if (!(node instanceof BranchNode)) return;
 
-        const command = `merge --squash ${node.ref}`;
-        this.sendTerminalCommand(command, node.repoPath);
+        this.sendTerminalCommand('merge', `--squash ${node.ref}`, node.repoPath);
     }
 
     terminalCherryPickCommit(node: ExplorerNode) {
         if (!(node instanceof CommitNode)) return;
 
-        const command = `cherry-pick -e ${node.ref}`;
-        this.sendTerminalCommand(command, node.repoPath);
+        this.sendTerminalCommand('cherry-pick', `-e ${node.ref}`, node.repoPath);
     }
 
     async terminalPushCommit(node: ExplorerNode) {
@@ -287,36 +282,31 @@ export class ExplorerCommands extends Disposable {
         const branch = node.branch || await Container.git.getBranch(node.repoPath);
         if (branch === undefined) return;
 
-        const command = `push ${branch.getRemote()} ${node.ref}:${branch.getName()}`;
-        this.sendTerminalCommand(command, node.repoPath);
+        this.sendTerminalCommand('push', `${branch.getRemote()} ${node.ref}:${branch.getName()}`, node.repoPath);
     }
 
     terminalRebaseCommit(node: ExplorerNode) {
         if (!(node instanceof CommitNode)) return;
 
-        const command = `rebase -i ${node.ref}^`;
-        this.sendTerminalCommand(command, node.repoPath);
+        this.sendTerminalCommand('rebase', `-i ${node.ref}^`, node.repoPath);
     }
 
     terminalResetCommit(node: ExplorerNode) {
         if (!(node instanceof CommitNode)) return;
 
-        const command = `reset --soft ${node.ref}^`;
-        this.sendTerminalCommand(command, node.repoPath);
+        this.sendTerminalCommand('reset', `--soft ${node.ref}^`, node.repoPath);
     }
 
     terminalRevertCommit(node: ExplorerNode) {
         if (!(node instanceof CommitNode)) return;
 
-        const command = `revert -e ${node.ref}`;
-        this.sendTerminalCommand(command, node.repoPath);
+        this.sendTerminalCommand('revert', `-e ${node.ref}`, node.repoPath);
     }
 
     terminalRemoveRemote(node: ExplorerNode) {
         if (!(node instanceof RemoteNode)) return;
 
-        const command = `remote remove ${node.remote.name}`;
-        this.sendTerminalCommand(command, node.remote.repoPath);
+        this.sendTerminalCommand('remote', `remove ${node.remote.name}`, node.remote.repoPath);
     }
 
     async terminalCreateTag(node: ExplorerNode) {
@@ -334,17 +324,17 @@ export class ExplorerCommands extends Disposable {
         } as InputBoxOptions);
         if (message === undefined) return;
 
-        const command = `tag ${message !== '' ? `-a -m "${message}" ` : ''}${name} ${node.ref}`;
-        this.sendTerminalCommand(command, node.repoPath);
+        const args = `${message !== '' ? `-a -m "${message}" ` : ''}${name} ${node.ref}`;
+        this.sendTerminalCommand('tag', args, node.repoPath);
     }
 
     terminalDeleteTag(node: ExplorerNode) {
         if (!(node instanceof TagNode)) return;
 
-        this.sendTerminalCommand(`tag -d ${node.ref}`, node.repoPath);
+        this.sendTerminalCommand('tag', `-d ${node.ref}`, node.repoPath);
     }
 
-    private ensureTerminal(): Terminal {
+    private ensureTerminal(cwd: string): Terminal {
         if (this._terminal === undefined) {
             this._terminal = window.createTerminal(ExtensionTerminalName);
             this._disposable = window.onDidCloseTerminal((e: Terminal) => {
@@ -356,19 +346,25 @@ export class ExplorerCommands extends Disposable {
             }, this);
 
             Container.context.subscriptions.push(this._disposable);
+            this._terminalCwd = undefined;
+        }
+
+        if (this._terminalCwd !== cwd) {
+            this._terminal.sendText(`cd "${cwd}"`, true);
+            this._terminalCwd = cwd;
         }
 
         return this._terminal;
     }
 
-    private sendTerminalCommand(command: string, cwd: string) {
+    private sendTerminalCommand(command: string, args: string, cwd: string) {
         // let git = GitService.getGitPath();
         // if (git.includes(' ')) {
         //     git = `"${git}"`;
         // }
 
-        const terminal = this.ensureTerminal();
+        const terminal = this.ensureTerminal(cwd);
         terminal.show(false);
-        terminal.sendText(`git -C "${cwd}" ${command}`, false);
+        terminal.sendText(`git ${command} ${args}`, false);
     }
 }
