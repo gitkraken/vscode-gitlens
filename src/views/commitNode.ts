@@ -4,6 +4,7 @@ import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { ExplorerFilesLayout } from '../configuration';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { FolderNode, IFileExplorerNode } from './folderNode';
 import { Explorer, ExplorerNode, ExplorerRefNode, ResourceType } from './explorerNode';
@@ -15,7 +16,8 @@ export class CommitNode extends ExplorerRefNode {
     constructor(
         public readonly commit: GitLogCommit,
         private readonly explorer: Explorer,
-        public readonly branch?: GitBranch
+        public readonly branch?: GitBranch,
+        private readonly trackingRef?: string
     ) {
         super(commit.toGitUri());
     }
@@ -44,10 +46,15 @@ export class CommitNode extends ExplorerRefNode {
     }
 
     getTreeItem(): TreeItem {
-        const item = new TreeItem(CommitFormatter.fromTemplate(this.explorer.config.commitFormat, this.commit, {
+        let label = CommitFormatter.fromTemplate(this.explorer.config.commitFormat, this.commit, {
             truncateMessageAtNewLine: true,
             dataFormat: Container.config.defaultDateFormat
-        } as ICommitFormatOptions), TreeItemCollapsibleState.Collapsed);
+        } as ICommitFormatOptions);
+
+        if (this.trackingRef === this.commit.sha) {
+            label = `${GlyphChars.ArrowHeadRight} ${label}`;
+        }
+        const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 
         item.contextValue = (this.branch === undefined || this.branch.current)
             ? ResourceType.CommitOnCurrentBranch

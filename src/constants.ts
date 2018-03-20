@@ -77,6 +77,7 @@ export enum GlyphChars {
     ArrowBack = '\u21a9',
     ArrowDown = '\u2193',
     ArrowDropRight = '\u2937',
+    ArrowHeadRight = '\u27A4',
     ArrowLeft = '\u2190',
     ArrowLeftRight = '\u2194',
     ArrowRight = '\u2192',

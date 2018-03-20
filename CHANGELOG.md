@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 ### Added
+- Adds an indicator to the *GitLens* explorer branch history to mark the synchronization point between the local and remote branch (if available)
 - Adds `${agoOrDate}` and `${authorAgoOrDate}` tokens to `gitlens.blame.format`, `gitlens.currentLine.format`, `gitlens.explorers.commitFormat`, `gitlens.explorers.stashFormat`, and `gitlens.statusBar.format` settings which will honor the `gitlens.defaultDateStyle` setting &mdash; closes [#312](https://github.com/eamodio/vscode-gitlens/issues/312)
 
 ### Fixed
