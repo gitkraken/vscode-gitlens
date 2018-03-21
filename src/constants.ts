@@ -103,6 +103,17 @@ export enum GlobalState {
     GitLensVersion = 'gitlensVersion'
 }
 
+export const ImageExtensions = [
+    '.png',
+    '.gif',
+    '.jpg',
+    '.jpeg',
+    '.webp',
+    '.tif',
+    '.tiff',
+    '.bmp'
+];
+
 export enum WorkspaceState {
     GitExplorerAutoRefresh = 'gitlens:gitExplorer:autoRefresh',
     GitExplorerView = 'gitlens:gitExplorer:view',

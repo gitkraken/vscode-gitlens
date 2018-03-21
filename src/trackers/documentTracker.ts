@@ -220,15 +220,22 @@ export class DocumentTracker<T> extends Disposable {
                 documentOrId = await workspace.openTextDocument(documentOrId.fileUri({ useVersionedPath: true }));
             }
             catch (ex) {
-                if (!ex.toString().includes('File not found')) throw ex;
+                const msg = ex.toString();
+                if (msg.includes('File seems to be binary and cannot be opened as text')) {
+                    documentOrId = new BinaryTextDocument(documentOrId);
+                }
+                else if (msg.includes('File not found')) {
+                    // If we can't find the file, assume it is because the file has been renamed or deleted at some point
+                    documentOrId = new MissingRevisionTextDocument(documentOrId);
 
-                // If we can't find the file, assume it is because the file has been renamed or deleted at some point
-                documentOrId = new MissingRevisionTextDocument(documentOrId);
+                    // const [fileName, repoPath] = await Container.git.findWorkingFileName(documentOrId, undefined, ref);
+                    // if (fileName === undefined) throw new Error(`Failed to add tracking for document: ${documentOrId}`);
 
-                // const [fileName, repoPath] = await Container.git.findWorkingFileName(documentOrId, undefined, ref);
-                // if (fileName === undefined) throw new Error(`Failed to add tracking for document: ${documentOrId}`);
-
-                // documentOrId = await workspace.openTextDocument(path.resolve(repoPath!, fileName));
+                    // documentOrId = await workspace.openTextDocument(path.resolve(repoPath!, fileName));
+                }
+                else {
+                    throw ex;
+                }
             }
         }
         else if (documentOrId instanceof Uri) {
@@ -315,7 +322,7 @@ export class DocumentTracker<T> extends Disposable {
     }
 }
 
-class MissingRevisionTextDocument implements TextDocument {
+class EmptyTextDocument implements TextDocument {
 
     readonly eol: EndOfLine;
     readonly fileName: string;
@@ -376,3 +383,6 @@ class MissingRevisionTextDocument implements TextDocument {
         throw new Error('Method not supported.');
     }
 }
+
+class BinaryTextDocument extends EmptyTextDocument { }
+class MissingRevisionTextDocument extends EmptyTextDocument { }

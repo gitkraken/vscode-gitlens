@@ -1,9 +1,12 @@
 'use strict';
 import { commands, Disposable, SourceControlResourceGroup, SourceControlResourceState, TextDocumentShowOptions, TextEditor, TextEditorEdit, Uri, ViewColumn, window, workspace } from 'vscode';
+import { BuiltInCommands, DocumentSchemes, ImageExtensions } from '../constants';
+import { Container } from '../container';
 import { ExplorerNode, ExplorerRefNode } from '../views/explorerNodes';
 import { GitBranch, GitCommit, GitRemote, GitUri } from '../gitService';
 import { Logger } from '../logger';
 // import { Telemetry } from '../telemetry';
+import * as path from 'path';
 
 export enum Commands {
     ClearFileAnnotations = 'gitlens.clearFileAnnotations',
@@ -303,6 +306,21 @@ export async function openEditor(uri: Uri, options: TextDocumentShowOptions & { 
             uri = uri.fileUri({ noSha: true });
         }
 
+        // TODO: revist this
+        // This is a bit of an ugly hack, but I added it because there a bunch of call sites and toRevisionUri isn't async (and can't be easily made async because of use in ctors)
+        if (uri.scheme === DocumentSchemes.GitLensGit) {
+            const gitUri = GitUri.fromRevisionUri(uri);
+            if (ImageExtensions.includes(path.extname(gitUri.fsPath))) {
+                const fileName = await Container.git.getVersionedFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha);
+                if (fileName !== undefined) {
+                    uri = Uri.file(fileName);
+                    await commands.executeCommand(BuiltInCommands.Open, uri);
+
+                    return undefined;
+                }
+            }
+        }
+
         const document = await workspace.openTextDocument(uri);
         return window.showTextDocument(document, {
             preserveFocus: false,
@@ -312,6 +330,13 @@ export async function openEditor(uri: Uri, options: TextDocumentShowOptions & { 
         });
     }
     catch (ex) {
+        const msg = ex.toString();
+        if (msg.includes('File seems to be binary and cannot be opened as text')) {
+            await commands.executeCommand(BuiltInCommands.Open, uri);
+
+            return undefined;
+        }
+
         if (rethrow) throw ex;
 
         Logger.error(ex, 'openEditor');
