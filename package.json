@@ -2153,7 +2153,12 @@
             "editor/title": [
                 {
                     "command": "gitlens.openWorkingFile",
-                    "when": "gitlens:activeIsRevision",
+                    "when": "gitlens:activeIsRevision && resourceScheme != git",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "gitlens.openWorkingFile",
+                    "when": "gitlens:activeIsRevision && resourceScheme == git && !isInDiffEditor",
                     "group": "navigation@1"
                 },
                 {
