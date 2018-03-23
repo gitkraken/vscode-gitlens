@@ -12,7 +12,7 @@ export class ToggleLineBlameCommand extends ActiveEditorCommand {
 
     async execute(editor: TextEditor, uri?: Uri): Promise<any> {
         try {
-            return Container.lineAnnotations.toggleAnnotations(editor);
+            return Container.lineAnnotations.toggle(editor);
         }
         catch (ex) {
             Logger.error(ex, 'ToggleLineBlameCommand');

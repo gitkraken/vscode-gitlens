@@ -1,9 +1,10 @@
 'use strict';
 import { Disposable, ExtensionContext, languages, workspace } from 'vscode';
-import { AnnotationController } from './annotations/annotationController';
+import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { CodeLensController } from './codeLensController';
 import { configuration, IConfig } from './configuration';
-import { CurrentLineController } from './currentLineController';
+import { LineAnnotationController } from './annotations/lineAnnotationController';
+import { LineHoverController } from './annotations/lineHoverController';
 import { ExplorerCommands } from './views/explorerCommands';
 import { GitContentProvider } from './gitContentProvider';
 import { GitDocumentTracker } from './trackers/gitDocumentTracker';
@@ -14,6 +15,7 @@ import { GitService } from './gitService';
 import { Keyboard } from './keyboard';
 import { PageProvider } from './pageProvider';
 import { ResultsExplorer } from './views/resultsExplorer';
+import { StatusBarController } from './statusBarController';
 
 export class Container {
 
@@ -28,8 +30,10 @@ export class Container {
         // Since there is a bit of a chicken & egg problem with the DocumentTracker and the GitService, initialize the tracker once the GitService is loaded
         this._tracker.initialize();
 
-        context.subscriptions.push(this._annotationController = new AnnotationController());
-        context.subscriptions.push(this._currentLineController = new CurrentLineController());
+        context.subscriptions.push(this._fileAnnotationController = new FileAnnotationController());
+        context.subscriptions.push(this._lineAnnotationController = new LineAnnotationController());
+        context.subscriptions.push(this._lineHoverController = new LineHoverController());
+        context.subscriptions.push(this._statusBarController = new StatusBarController());
         context.subscriptions.push(this._codeLensController = new CodeLensController());
         context.subscriptions.push(this._keyboard = new Keyboard());
         context.subscriptions.push(this._pageProvider = new PageProvider());
@@ -49,11 +53,6 @@ export class Container {
 
         context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider()));
         context.subscriptions.push(languages.registerCodeLensProvider(GitRevisionCodeLensProvider.selector, new GitRevisionCodeLensProvider()));
-    }
-
-    private static _annotationController: AnnotationController;
-    static get annotations() {
-        return this._annotationController;
     }
 
     private static _codeLensController: CodeLensController;
@@ -82,6 +81,11 @@ export class Container {
         return this._explorerCommands;
     }
 
+    private static _fileAnnotationController: FileAnnotationController;
+    static get fileAnnotations() {
+        return this._fileAnnotationController;
+    }
+
     private static _git: GitService;
     static get git() {
         return this._git;
@@ -97,9 +101,14 @@ export class Container {
         return this._keyboard;
     }
 
-    private static _currentLineController: CurrentLineController;
+    private static _lineAnnotationController: LineAnnotationController;
     static get lineAnnotations() {
-        return this._currentLineController;
+        return this._lineAnnotationController;
+    }
+
+    private static _lineHoverController: LineHoverController;
+    static get lineHovers() {
+        return this._lineHoverController;
     }
 
     private static _lineTracker: GitLineTracker;
@@ -119,6 +128,11 @@ export class Container {
         }
 
         return this._resultsExplorer;
+    }
+
+    private static _statusBarController: StatusBarController;
+    static get statusBar() {
+        return this._statusBarController;
     }
 
     private static _tracker: GitDocumentTracker;

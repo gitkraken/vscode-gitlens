@@ -35,7 +35,7 @@ export class ToggleFileBlameCommand extends ActiveEditorCommand {
                 args = { ...args, type: FileAnnotationType.Blame };
             }
 
-            return Container.annotations.toggleAnnotations(editor, args.type!, args.sha !== undefined ? args.sha : editor && editor.selection.active.line);
+            return Container.fileAnnotations.toggle(editor, args.type!, args.sha !== undefined ? args.sha : editor && editor.selection.active.line);
         }
         catch (ex) {
             Logger.error(ex, 'ToggleFileBlameCommand');

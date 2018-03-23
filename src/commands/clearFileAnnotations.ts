@@ -23,7 +23,7 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
         }
 
         try {
-            return Container.annotations.clear(editor);
+            return Container.fileAnnotations.clear(editor);
         }
         catch (ex) {
             Logger.error(ex, 'ClearFileAnnotationsCommand');

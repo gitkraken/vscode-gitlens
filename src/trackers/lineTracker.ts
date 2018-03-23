@@ -8,7 +8,7 @@ export interface LinesChangeEvent {
     readonly editor: TextEditor | undefined;
     readonly lines: number[] | undefined;
 
-    readonly reason: 'editor' | 'lines';
+    readonly reason: 'editor' | 'selection';
     readonly pending?: boolean;
 }
 
@@ -16,7 +16,6 @@ export class LineTracker<T> extends Disposable {
 
     private _onDidChangeActiveLines = new EventEmitter<LinesChangeEvent>();
     get onDidChangeActiveLines(): Event<LinesChangeEvent> {
-        this._onDidChangeActiveLines.event.length;
         return this._onDidChangeActiveLines.event;
     }
 
@@ -41,14 +40,14 @@ export class LineTracker<T> extends Disposable {
         this._editor = editor;
         this._lines = editor !== undefined ? editor.selections.map(s => s.active.line) : undefined;
 
-        this.fireLinesChanged({ editor: editor, lines: this._lines, reason: 'editor' });
+        this.trigger('editor');
     }
 
     private onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent) {
         // If this isn't for our cached editor and its not a real editor -- kick out
         if (this._editor !== e.textEditor && !isTextEditor(e.textEditor)) return;
 
-        const reason = this._editor === e.textEditor ? 'lines' : 'editor';
+        const reason = this._editor === e.textEditor ? 'selection' : 'editor';
 
         const lines = e.selections.map(s => s.active.line);
         if (this._editor === e.textEditor && this.includesAll(lines)) return;
@@ -56,8 +55,7 @@ export class LineTracker<T> extends Disposable {
         this.reset();
         this._editor = e.textEditor;
         this._lines = lines;
-
-        this.fireLinesChanged({ editor: this._editor, lines: this._lines, reason: reason });
+        this.trigger(reason);
     }
 
     getState(line: number): T | undefined {
@@ -81,11 +79,15 @@ export class LineTracker<T> extends Disposable {
         return LineTracker.includesAll(lines, this._lines);
     }
 
+    refresh() {
+        this.trigger('editor');
+    }
+
     reset() {
         this._state.clear();
     }
 
-    start() {
+    start(subscriber?: any, subscription?: Disposable): void {
         if (this._disposable !== undefined) return;
 
         this._disposable = Disposable.from(
@@ -96,7 +98,7 @@ export class LineTracker<T> extends Disposable {
         setImmediate(() => this.onActiveTextEditorChanged(window.activeTextEditor));
     }
 
-    stop() {
+    stop(subscriber?: any) {
         if (this._disposable === undefined) return;
 
         if (this._linesChangedDebounced !== undefined) {
@@ -107,9 +109,17 @@ export class LineTracker<T> extends Disposable {
         this._disposable = undefined;
     }
 
+    protected async fireLinesChanged(e: LinesChangeEvent) {
+        this._onDidChangeActiveLines.fire(e);
+    }
+
+    protected trigger(reason: 'editor' | 'selection') {
+        this.onLinesChanged({ editor: this._editor, lines: this._lines, reason: reason });
+    }
+
     private _linesChangedDebounced: (((e: LinesChangeEvent) => void) & IDeferrable) | undefined;
 
-    private fireLinesChanged(e: LinesChangeEvent) {
+    private onLinesChanged(e: LinesChangeEvent) {
         if (e.lines === undefined) {
             setImmediate(() => {
                 if (window.activeTextEditor !== e.editor) return;
@@ -118,7 +128,7 @@ export class LineTracker<T> extends Disposable {
                     this._linesChangedDebounced.cancel();
                 }
 
-                this._onDidChangeActiveLines.fire(e);
+                this.fireLinesChanged(e);
             });
 
             return;
@@ -130,13 +140,13 @@ export class LineTracker<T> extends Disposable {
                 // Make sure we are still on the same lines
                 if (!LineTracker.includesAll(e.lines , (e.editor && e.editor.selections.map(s => s.active.line)))) return;
 
-                this._onDidChangeActiveLines.fire(e);
+                this.fireLinesChanged(e);
             }, 250, { track: true });
         }
 
         // If we have no pending moves, then fire an immediate pending event, and defer the real event
         if (!this._linesChangedDebounced.pending!()) {
-            this._onDidChangeActiveLines.fire({ ...e, pending: true });
+            this.fireLinesChanged({ ...e, pending: true });
         }
 
         this._linesChangedDebounced(e);

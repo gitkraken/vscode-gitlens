@@ -30,9 +30,7 @@ export * from './commands/openRepoInRemote';
 export * from './commands/openWorkingFile';
 export * from './commands/resetSuppressedWarnings';
 export * from './commands/showCommitSearch';
-export * from './commands/showFileBlame';
 export * from './commands/showLastQuickPick';
-export * from './commands/showLineBlame';
 export * from './commands/showQuickBranchHistory';
 export * from './commands/showQuickCommitDetails';
 export * from './commands/showQuickCommitFileDetails';
@@ -78,8 +76,6 @@ export function configureCommands(): void {
     Container.context.subscriptions.push(new Commands.OpenRepoInRemoteCommand());
     Container.context.subscriptions.push(new Commands.OpenWorkingFileCommand());
     Container.context.subscriptions.push(new Commands.ClearFileAnnotationsCommand());
-    Container.context.subscriptions.push(new Commands.ShowFileBlameCommand());
-    Container.context.subscriptions.push(new Commands.ShowLineBlameCommand());
     Container.context.subscriptions.push(new Commands.ToggleFileBlameCommand());
     Container.context.subscriptions.push(new Commands.ToggleFileHeatmapCommand());
     Container.context.subscriptions.push(new Commands.ToggleFileRecentChangesCommand());

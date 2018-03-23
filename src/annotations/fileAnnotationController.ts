@@ -34,7 +34,7 @@ export const Decorations = {
     recentChangesHighlight: undefined as TextEditorDecorationType | undefined
 };
 
-export class AnnotationController extends Disposable {
+export class FileAnnotationController extends Disposable {
 
     private _onDidToggleAnnotations = new EventEmitter<void>();
     get onDidToggleAnnotations(): Event<void> {
@@ -173,7 +173,7 @@ export class AnnotationController extends Disposable {
                     provider.reset({ decoration: Decorations.blameAnnotation, highlightDecoration: Decorations.blameHighlight });
                 }
                 else {
-                    this.showAnnotations(provider.editor, FileAnnotationType.Heatmap);
+                    this.show(provider.editor, FileAnnotationType.Heatmap);
                 }
             }
         }
@@ -186,7 +186,7 @@ export class AnnotationController extends Disposable {
         // Logger.log('AnnotationController.onActiveTextEditorChanged', editor && editor.document.uri.fsPath);
 
         if (this.isInWindowToggle()) {
-            await this.showAnnotations(editor, this._annotationType!);
+            await this.show(editor, this._annotationType!);
 
             return;
         }
@@ -296,7 +296,7 @@ export class AnnotationController extends Disposable {
         return this._annotationProviders.get(AnnotationProviderBase.getCorrelationKey(editor));
     }
 
-    async showAnnotations(editor: TextEditor | undefined, type: FileAnnotationType, shaOrLine?: string | number): Promise<boolean> {
+    async show(editor: TextEditor | undefined, type: FileAnnotationType, shaOrLine?: string | number): Promise<boolean> {
         if (this.getToggleMode(type) === AnnotationsToggleMode.Window) {
             let first = this._annotationType === undefined;
             const reset = !first && this._annotationType !== type;
@@ -312,7 +312,7 @@ export class AnnotationController extends Disposable {
                 for (const e of window.visibleTextEditors) {
                     if (e === editor) continue;
 
-                    this.showAnnotations(e, type);
+                    this.show(e, type);
                 }
             }
         }
@@ -345,14 +345,14 @@ export class AnnotationController extends Disposable {
         return provider !== undefined;
     }
 
-    async toggleAnnotations(editor: TextEditor | undefined, type: FileAnnotationType, shaOrLine?: string | number): Promise<boolean> {
+    async toggle(editor: TextEditor | undefined, type: FileAnnotationType, shaOrLine?: string | number): Promise<boolean> {
         if (editor !== undefined) {
             const trackedDocument = await Container.tracker.getOrAdd(editor.document);
             if ((type === FileAnnotationType.RecentChanges && !trackedDocument.isTracked) || !trackedDocument.isBlameable) return false;
         }
 
         const provider = this.getProvider(editor);
-        if (provider === undefined) return this.showAnnotations(editor!, type, shaOrLine);
+        if (provider === undefined) return this.show(editor!, type, shaOrLine);
 
         const reopen = provider.annotationType !== type;
 
@@ -365,7 +365,7 @@ export class AnnotationController extends Disposable {
 
         if (!reopen) return false;
 
-        return this.showAnnotations(editor, type, shaOrLine);
+        return this.show(editor, type, shaOrLine);
     }
 
     private async attachKeyboardHook() {

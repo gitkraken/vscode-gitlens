@@ -40,9 +40,7 @@ export enum Commands {
     OpenWorkingFile = 'gitlens.openWorkingFile',
     ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',
     ShowCommitSearch = 'gitlens.showCommitSearch',
-    ShowFileBlame = 'gitlens.showFileBlame',
     ShowLastQuickPick = 'gitlens.showLastQuickPick',
-    ShowLineBlame = 'gitlens.showLineBlame',
     ShowQuickCommitDetails = 'gitlens.showQuickCommitDetails',
     ShowQuickCommitFileDetails = 'gitlens.showQuickCommitFileDetails',
     ShowQuickFileHistory = 'gitlens.showQuickFileHistory',
@@ -307,7 +305,7 @@ export async function openEditor(uri: Uri, options: TextDocumentShowOptions & { 
         }
 
         // TODO: revist this
-        // This is a bit of an ugly hack, but I added it because there a bunch of call sites and toRevisionUri isn't async (and can't be easily made async because of use in ctors)
+        // This is a bit of an ugly hack, but I added it because there a bunch of call sites and toRevisionUri can't be easily made async because of its use in ctors
         if (uri.scheme === DocumentSchemes.GitLensGit) {
             const gitUri = GitUri.fromRevisionUri(uri);
             if (ImageExtensions.includes(path.extname(gitUri.fsPath))) {

@@ -1182,16 +1182,6 @@
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.showFileBlame",
-                "title": "Show File Blame Annotations",
-                "category": "GitLens"
-            },
-            {
-                "command": "gitlens.showLineBlame",
-                "title": "Show Line Blame Annotations",
-                "category": "GitLens"
-            },
-            {
                 "command": "gitlens.toggleFileBlame",
                 "title": "Toggle File Blame Annotations",
                 "category": "GitLens",
@@ -1748,14 +1738,6 @@
                 {
                     "command": "gitlens.externalDiffAll",
                     "when": "gitlens:enabled"
-                },
-                {
-                    "command": "gitlens.showFileBlame",
-                    "when": "gitlens:activeIsBlameable"
-                },
-                {
-                    "command": "gitlens.showLineBlame",
-                    "when": "gitlens:activeIsBlameable"
                 },
                 {
                     "command": "gitlens.toggleFileBlame",

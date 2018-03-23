@@ -245,7 +245,6 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
 
 - Adds an unobtrusive, [customizable](#current-line-blame-settings "Jump to the Current Line Blame settings"), and [themable](#themable-colors "Jump to the Themable Colors"), **blame annotation** at the end of the current line
   - Contains the author, date, and message of the current line's most recent commit (by [default](#current-line-blame-settings "Jump to the Current Line Blame settings"))
-  - Adds a *Show Line Blame Annotations* command (`gitlens.showLineBlame`)
   - Adds a *Toggle Line Blame Annotations* command (`gitlens.toggleLineBlame`) to toggle the blame annotation on and off
 
 ---
@@ -258,7 +257,6 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
   - Contains the commit message and date, by [default](#gutter-blame-settings "Jump to the Gutter Blame settings")
   - Adds a **heatmap** (age) indicator on right edge (by [default](#gutter-blame-settings "Jump to the Gutter Blame settings")) of the gutter to provide an easy, at-a-glance way to tell the age of a line ([optional](#gutter-blame-settings "Jump to the Gutter Blame settings"), on by default)
     - Indicator ranges from bright yellow (newer) to dark brown (older)
-  - Adds a *Show File Blame Annotations* command (`gitlens.showFileBlame`)
   - Adds a *Toggle File Blame Annotations* command (`gitlens.toggleFileBlame`) with a shortcut of `alt+b` to toggle the blame annotations on and off
   - Press `Escape` to turn off the annotations
 
