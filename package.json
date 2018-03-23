@@ -329,6 +329,12 @@
                     "description": "Specifies the format of the current line blame annotation\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.currentLine.dateFormat`)\n ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`\n ${authorAgo} - commit author, relative commit date\n ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting",
                     "scope": "window"
                 },
+                "gitlens.currentLine.scrollable": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether the current line blame annotation can be scrolled into view when it is outside the viewport",
+                    "scope": "window"
+                },
                 "gitlens.debug": {
                     "type": "boolean",
                     "default": false,

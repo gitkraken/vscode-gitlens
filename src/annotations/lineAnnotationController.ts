@@ -187,12 +187,14 @@ export class LineAnnotationController extends Disposable {
         // Make sure the editor hasn't died since the await above and that we are still on the same line(s)
         if (editor.document === undefined || !Container.lineTracker.includesAll(lines)) return;
 
+        const scrollable = Container.config.currentLine.scrollable;
+
         const decorations = [];
         for (const l of lines) {
             const state = Container.lineTracker.getState(l);
             if (state === undefined || state.commit === undefined) continue;
 
-            const decoration = Annotations.trailing(state.commit, cfg.format, cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat);
+            const decoration = Annotations.trailing(state.commit, cfg.format, cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat, scrollable);
             decoration.range = editor.document.validateRange(new Range(l, RangeEndOfLineIndex, l, RangeEndOfLineIndex));
             decorations.push(decoration);
         }

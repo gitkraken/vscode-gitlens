@@ -258,7 +258,7 @@ export class Annotations {
     //     } as IRenderOptions;
     // }
 
-    static trailing(commit: GitCommit, format: string, dateFormat: string | null): DecorationOptions {
+    static trailing(commit: GitCommit, format: string, dateFormat: string | null, scrollable: boolean = true): DecorationOptions {
         const message = CommitFormatter.fromTemplate(format, commit, {
             truncateMessageAtNewLine: true,
             dateFormat: dateFormat
@@ -271,7 +271,9 @@ export class Annotations {
                     color: new ThemeColor('gitlens.trailingLineForegroundColor'),
                     contentText: Strings.pad(message.replace(/ /g, GlyphChars.Space), 1, 1),
                     fontWeight: 'normal',
-                    fontStyle: 'normal'
+                    fontStyle: 'normal',
+                    // Pull the decoration out of the document flow if we want to be scrollable
+                    textDecoration: `none;${scrollable ? '' : ' position: absolute;'}`
                 }
             } as DecorationInstanceRenderOptions
         } as DecorationOptions;

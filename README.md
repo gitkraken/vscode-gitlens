@@ -585,6 +585,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |`gitlens.currentLine.dateFormat`|Specifies how to format absolute dates (using the `${date}` token) for the current line blame annotations<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
 |`gitlens.currentLine.enabled`|Specifies whether to provide a blame annotation for the current line, by default<br />Use the *Toggle Line Blame Annotations* command (`gitlens.toggleLineBlame`) to toggle the annotations on and off for the current window
 |`gitlens.currentLine.format`|Specifies the format of the current line blame annotation<br />Available tokens<br />`${id}` - commit id<br />`${author}` - commit author<br />`${message}` - commit message<br />`${ago}` - relative commit date (e.g. 1 day ago)<br />`${date}` - formatted commit date (format specified by `gitlens.currentLine.dateFormat`)<br />`${agoOrDate}` - commit date specified by `gitlens.defaultDateStyle`<br />`${authorAgo}` - commit author, relative commit date<br />`${authorAgoOrDate}` - commit author, commit date specified by `gitlens.defaultDateStyle`<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
+|`gitlens.currentLine.scrollable`|Specifies whether the current line blame annotation can be scrolled into view when it is outside the viewport
 
 ### Gutter Blame Settings
 

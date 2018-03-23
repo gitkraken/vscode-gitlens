@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 - Adds an indicator to the *GitLens* explorer branch history to mark the synchronization point between the local and remote branch (if available)
 - Adds `${agoOrDate}` and `${authorAgoOrDate}` tokens to `gitlens.blame.format`, `gitlens.currentLine.format`, `gitlens.explorers.commitFormat`, `gitlens.explorers.stashFormat`, and `gitlens.statusBar.format` settings which will honor the `gitlens.defaultDateStyle` setting &mdash; closes [#312](https://github.com/eamodio/vscode-gitlens/issues/312)
+- Adds `gitlens.currentLine.scrollable` setting to specify whether the current line blame annotation can be scrolled into view when it is outside the viewport &mdash; closes [#149](https://github.com/eamodio/vscode-gitlens/issues/149), [#290](https://github.com/eamodio/vscode-gitlens/issues/290), [#265](https://github.com/eamodio/vscode-gitlens/issues/265)
 
 ### Removed
 - Removes the unnecessary *Show File Blame Annotations* (`gitlens.showFileBlame`) command &mdash; *Toggle File Blame Annotations* (`gitlens.toggleFileBlame`) provides similar functionality

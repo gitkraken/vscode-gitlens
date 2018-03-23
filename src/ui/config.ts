@@ -265,6 +265,7 @@ export interface IConfig {
     };
 
     currentLine: {
+        scrollable: boolean;
         dateFormat: string | null;
         enabled: boolean;
         format: string;
