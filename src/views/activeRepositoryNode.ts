@@ -74,7 +74,7 @@ export class ActiveRepositoryNode extends ExplorerNode {
                 this._repositoryNode.dispose();
             }
 
-            this._repositoryNode = new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this.explorer, true);
+            this._repositoryNode = new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this.explorer, true, this);
         }
         finally {
             if (changed) {

@@ -229,7 +229,7 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
     }
 
     refreshNode(node: ExplorerNode, args?: RefreshNodeCommandArgs) {
-        Logger.log(`GitExplorer[view=${this._view}].refreshNode`);
+        Logger.log(`GitExplorer[view=${this._view}].refreshNode(${(node as any).id})`);
 
         if (args !== undefined && node.supportsPaging) {
             node.maxCount = args.maxCount;

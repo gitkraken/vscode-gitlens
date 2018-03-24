@@ -18,7 +18,8 @@ export class RepositoryNode extends ExplorerNode {
         uri: GitUri,
         readonly repo: Repository,
         private readonly explorer: GitExplorer,
-        private readonly active: boolean = false
+        private readonly active: boolean = false,
+        private readonly activeParent?: ExplorerNode
     ) {
         super(uri);
     }
@@ -34,9 +35,9 @@ export class RepositoryNode extends ExplorerNode {
         this.children = [
             new StatusNode(this.uri, this.repo, this.explorer, this.active),
             new BranchesNode(this.uri, this.repo, this.explorer, this.active),
-            new RemotesNode(this.uri, this.repo, this.explorer),
-            new StashesNode(this.uri, this.repo, this.explorer),
-            new TagsNode(this.uri, this.repo, this.explorer)
+            new RemotesNode(this.uri, this.repo, this.explorer, this.active),
+            new StashesNode(this.uri, this.repo, this.explorer, this.active),
+            new TagsNode(this.uri, this.repo, this.explorer, this.active)
         ];
         return this.children;
     }
@@ -76,7 +77,7 @@ export class RepositoryNode extends ExplorerNode {
         Logger.log(`RepositoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
 
         if (this.children === undefined || e.changed(RepositoryChange.Repository) || e.changed(RepositoryChange.Config)) {
-            this.explorer.refreshNode(this);
+            this.explorer.refreshNode(this.active && this.activeParent !== undefined ? this.activeParent : this);
 
             return;
         }

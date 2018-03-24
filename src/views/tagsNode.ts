@@ -10,9 +10,14 @@ export class TagsNode extends ExplorerNode {
         constructor(
             uri: GitUri,
             private readonly repo: Repository,
-            private readonly explorer: Explorer
+            private readonly explorer: Explorer,
+            private readonly active: boolean = false
         ) {
             super(uri);
+        }
+
+        get id(): string {
+            return `gitlens:repository(${this.repo.path})${this.active ? ':active' : ''}:tags`;
         }
 
         async getChildren(): Promise<ExplorerNode[]> {

@@ -20,6 +20,10 @@ export class BranchesNode extends ExplorerNode {
             super(uri);
         }
 
+        get id(): string {
+            return `gitlens:repository(${this.repo.path})${this.active ? ':active' : ''}:branches`;
+        }
+
         async getChildren(): Promise<ExplorerNode[]> {
             const branches = await this.repo.getBranches();
             if (branches === undefined) return [];
