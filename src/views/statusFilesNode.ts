@@ -122,7 +122,7 @@ export class StatusFilesNode extends ExplorerNode {
             }
         }
 
-        const label = `${files} file${files > 1 ? 's' : ''} changed`; // ${this.status.upstream === undefined ? '' : ` (ahead of ${this.status.upstream})`}`;
+        const label = `${files} ${files === 1 ? 'file' : 'files'} changed`;
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
         item.id = this.id;
         item.contextValue = ResourceType.StatusFiles;

@@ -69,6 +69,16 @@ export class CommitNode extends ExplorerRefNode {
             };
         }
 
+        item.tooltip = CommitFormatter.fromTemplate(
+            this.commit.isUncommitted
+                ? `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})`
+                : `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})\n\n\${message}`,
+            this.commit,
+            {
+                dataFormat: Container.config.defaultDateFormat
+            } as ICommitFormatOptions
+        );
+
         return item;
     }
 

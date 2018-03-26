@@ -18,7 +18,7 @@ export class StatusUpstreamNode extends ExplorerNode {
     }
 
     get id(): string {
-        return `gitlens:repository(${this.status.repoPath})${this.active ? ':active' : ''}:status:upstream`;
+        return `gitlens:repository(${this.status.repoPath})${this.active ? ':active' : ''}:status:upstream:${this.direction}`;
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
@@ -46,8 +46,8 @@ export class StatusUpstreamNode extends ExplorerNode {
 
     async getTreeItem(): Promise<TreeItem> {
         const label = this.direction === 'ahead'
-            ? `${this.status.state.ahead} commit${this.status.state.ahead > 1 ? 's' : ''} (ahead of ${this.status.upstream})`
-            : `${this.status.state.behind} commit${this.status.state.behind > 1 ? 's' : ''} (behind ${this.status.upstream})`;
+            ? `${this.status.state.ahead} ${this.status.state.ahead === 1 ? 'commit' : 'commits'} (ahead of ${this.status.upstream})`
+            : `${this.status.state.behind} ${this.status.state.behind === 1 ? 'commit' : 'commits'} (behind ${this.status.upstream})`;
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
         item.id = this.id;

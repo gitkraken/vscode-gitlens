@@ -19,8 +19,7 @@ export class CommitResultsNode extends ExplorerNode {
 
     async getChildren(): Promise<ExplorerNode[]> {
         const children = await new CommitNode(this.commit, this.explorer).getChildren();
-        // Since we can't control the tooltip separately from the message (see https://github.com/Microsoft/vscode/issues/32012), don't truncate it
-        children.splice(0, 0, new MessageNode(CommitFormatter.fromTemplate('${message}', this.commit, { truncateMessageAtNewLine: false })));
+        children.splice(0, 0, new MessageNode(CommitFormatter.fromTemplate('${message}', this.commit, { truncateMessageAtNewLine: true }), CommitFormatter.fromTemplate('${message}', this.commit)));
         return children;
     }
 

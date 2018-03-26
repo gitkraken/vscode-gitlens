@@ -38,6 +38,7 @@ export class BranchFolderNode extends ExplorerNode {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.Folder;
         item.resourceUri = this.explorer.folderResourceUri;
+        item.tooltip = this.label;
         return item;
     }
 

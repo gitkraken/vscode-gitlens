@@ -134,7 +134,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
             }
 
             const title = (args.lhs.title !== undefined && args.rhs.title !== undefined)
-                ? `${args.lhs.title} ${GlyphChars.ArrowLeftRight} ${args.rhs.title}`
+                ? `${args.lhs.title} ${GlyphChars.ArrowLeftRightLong} ${args.rhs.title}`
                 : args.lhs.title || args.rhs.title;
 
             if (args.showOptions === undefined) {

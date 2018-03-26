@@ -50,7 +50,7 @@ export class RemoteNode extends ExplorerNode {
 
             let separator;
             if (fetch && push) {
-                separator = GlyphChars.ArrowLeftRight;
+                separator = GlyphChars.ArrowLeftRightLong;
             }
             else if (fetch) {
                 separator = GlyphChars.ArrowLeft;
@@ -66,6 +66,7 @@ export class RemoteNode extends ExplorerNode {
 
             const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
             item.contextValue = ResourceType.Remote;
+            item.tooltip = `${this.remote.name}\n${this.remote.path} (${(this.remote.provider !== undefined) ? this.remote.provider.name : this.remote.domain})`;
 
             if (this.remote.provider !== undefined) {
                 item.iconPath = {

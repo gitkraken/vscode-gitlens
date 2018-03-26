@@ -219,7 +219,7 @@ export class Git {
     }
 
     static shortenSha(sha: string, strings: { stagedUncommitted?: string, uncommitted?: string, working?: string } = {}) {
-        strings = { stagedUncommitted: 'index', uncommitted: '', working: '', ...strings };
+        strings = { stagedUncommitted: 'index', uncommitted: 'working', working: '', ...strings };
 
         if (sha === '') return strings.working;
         if (Git.isStagedUncommitted(sha)) return strings.stagedUncommitted;

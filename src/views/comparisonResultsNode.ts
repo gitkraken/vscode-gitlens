@@ -5,7 +5,7 @@ import { CommitsResultsNode } from './commitsResultsNode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Explorer, ExplorerNode, NamedRef, ResourceType } from './explorerNode';
-import { GitLog, GitService, GitStatusFile, GitUri } from '../gitService';
+import { GitLog, GitService, GitUri } from '../gitService';
 import { StatusFilesResultsNode } from './statusFilesResultsNode';
 
 export class ComparisonResultsNode extends ExplorerNode {
@@ -31,17 +31,9 @@ export class ComparisonResultsNode extends ExplorerNode {
             return `${count === 0 ? 'No' : `${count}${truncated ? '+' : ''}`} commits`;
         };
 
-        const filesQueryFn = () => Container.git.getDiffStatus(this.uri.repoPath!, this.ref1.ref, this.ref2.ref);
-        const filesLabelFn = (diff: GitStatusFile[] | undefined) => {
-            const count = diff !== undefined ? diff.length : 0;
-
-            if (count === 1) return `1 file changed`;
-            return `${count === 0 ? 'No' : count} files changed`;
-        };
-
         this.children = [
             new CommitsResultsNode(this.uri.repoPath!, commitsLabelFn, commitsQueryFn, this.explorer),
-            new StatusFilesResultsNode(this.uri.repoPath!, this.ref1.ref, this.ref2.ref, filesLabelFn, filesQueryFn, this.explorer)
+            new StatusFilesResultsNode(this.uri.repoPath!, this.ref1.ref, this.ref2.ref, this.explorer)
         ];
 
         return this.children;

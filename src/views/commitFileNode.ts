@@ -1,6 +1,7 @@
 'use strict';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { CommitFormatter, getGitStatusIcon, GitLogCommit, GitUri, ICommitFormatOptions, IGitStatusFile, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
@@ -53,6 +54,7 @@ export class CommitFileNode extends ExplorerNode {
 
         const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
         item.contextValue = this.resourceType;
+        item.tooltip = this.tooltip;
 
         if ((this.displayAs & CommitFileNodeDisplayAs.CommitIcon) === CommitFileNodeDisplayAs.CommitIcon) {
             item.iconPath = {
@@ -73,8 +75,9 @@ export class CommitFileNode extends ExplorerNode {
 
         item.command = this.getCommand();
 
-        // Only cache the label for a single refresh
+        // Only cache the label/tooltip for a single refresh
         this._label = undefined;
+        this._tooltip = undefined;
 
         return item;
     }
@@ -117,10 +120,32 @@ export class CommitFileNode extends ExplorerNode {
     set relativePath(value: string | undefined) {
         this._relativePath = value;
         this._label = undefined;
+        this._tooltip = undefined;
     }
 
     protected get resourceType(): ResourceType {
         return ResourceType.CommitFile;
+    }
+
+    private _tooltip: string | undefined;
+    get tooltip() {
+        if (this._tooltip === undefined) {
+            if (this.displayAs & CommitFileNodeDisplayAs.CommitLabel) {
+                this._tooltip = CommitFormatter.fromTemplate(
+                    this.commit.isUncommitted
+                        ? `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})`
+                        : `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})\n\n\${message}`,
+                    this.commit,
+                    {
+                        dataFormat: Container.config.defaultDateFormat
+                    } as ICommitFormatOptions
+                );
+            }
+            else {
+                this._tooltip = StatusFileFormatter.fromTemplate('${file}\n${directory}/\n\n${status}', this.status);
+            }
+        }
+        return this._tooltip;
     }
 
     protected getCommitTemplate() {

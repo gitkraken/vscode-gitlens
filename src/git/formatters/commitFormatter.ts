@@ -63,14 +63,24 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
     }
 
     get id() {
-        if (this._item.isUncommitted && !this._item.isStagedUncommitted) return '00000000';
         return this._item.shortSha;
     }
 
     get message() {
-        let message = this._item.isUncommitted ? 'Uncommitted change' : this._item.message;
-        if (this._options.truncateMessageAtNewLine) {
-            message = this._item.getShortMessage();
+        let message;
+        if (this._item.isStagedUncommitted) {
+            message = 'Staged changes';
+        }
+        else if (this._item.isUncommitted) {
+            message = 'Uncommitted changes';
+        }
+        else {
+            if (this._options.truncateMessageAtNewLine) {
+                message = this._item.getShortMessage();
+            }
+            else {
+                message = this._item.message;
+            }
         }
 
         return this._padOrTruncate(message, this._options.tokenOptions!.message);

@@ -25,11 +25,12 @@ export class StatusFileNode extends ExplorerNode {
     getTreeItem(): TreeItem {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
         item.contextValue = ResourceType.StatusFile;
+        item.tooltip = StatusFileFormatter.fromTemplate('${file}\n${directory}/\n\n${status}', this.status);
 
-        const icon = getGitStatusIcon(this.status.status);
+        const statusIcon = getGitStatusIcon(this.status.status);
         item.iconPath = {
-            dark: Container.context.asAbsolutePath(path.join('images', 'dark', icon)),
-            light: Container.context.asAbsolutePath(path.join('images', 'light', icon))
+            dark: Container.context.asAbsolutePath(path.join('images', 'dark', statusIcon)),
+            light: Container.context.asAbsolutePath(path.join('images', 'light', statusIcon))
         };
 
         item.command = this.getCommand();

@@ -54,10 +54,27 @@ export class BranchNode extends ExplorerRefNode {
 
     async getTreeItem(): Promise<TreeItem> {
         let name = this.label;
-        if (!this.branch.remote && this.branch.tracking !== undefined && this.explorer.config.showTrackingBranch) {
-            name += ` ${GlyphChars.Space}${GlyphChars.ArrowLeftRight}${GlyphChars.Space} ${this.branch.tracking}`;
+        let tooltip = `${this.branch.getName()}${this.branch!.current ? ' (current)' : ''}`;
+        let iconSuffix = '';
+
+        if (!this.branch.remote && this.branch.tracking !== undefined) {
+            if (this.explorer.config.showTrackingBranch) {
+                name += ` ${GlyphChars.Space}${GlyphChars.ArrowLeftRightLong}${this.branch.getTrackingStatus({ prefix: `${GlyphChars.Space} ` })}${GlyphChars.Space} ${this.branch.tracking}`;
+            }
+            tooltip += `\n\nTracking ${GlyphChars.Dash} ${this.branch.tracking}\n${this.branch.getTrackingStatus({ empty: 'up-to-date', expand: true, separator: '\n' })}`;
+
+            if (this.branch.state.ahead || this.branch.state.behind) {
+                if (this.branch.state.behind) {
+                    iconSuffix = '-yellow';
+                }
+                if (this.branch.state.ahead) {
+                    iconSuffix = this.branch.state.behind ? '-red' : '-green';
+                }
+            }
         }
+
         const item = new TreeItem(`${this.branch!.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`, TreeItemCollapsibleState.Collapsed);
+        item.tooltip = tooltip;
 
         if (this.branch.remote) {
             item.contextValue = ResourceType.RemoteBranch;
@@ -71,19 +88,6 @@ export class BranchNode extends ExplorerRefNode {
             item.contextValue = !!this.branch.tracking
                 ? ResourceType.BranchWithTracking
                 : ResourceType.Branch;
-        }
-
-        let iconSuffix = '';
-        if (this.branch.tracking) {
-            if (this.branch.state.ahead && this.branch.state.behind) {
-                iconSuffix = '-yellow';
-            }
-            else if (this.branch.state.ahead) {
-                iconSuffix = '-green';
-            }
-            else if (this.branch.state.behind) {
-                iconSuffix = '-red';
-            }
         }
 
         item.iconPath = {

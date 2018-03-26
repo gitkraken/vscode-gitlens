@@ -57,14 +57,13 @@ export class GitStatusParser {
             }
         }
 
-        return {
-            branch: branch || '',
-            repoPath: Strings.normalizePath(repoPath),
-            sha: '',
-            state: state,
-            files: files,
-            upstream: upstream
-        };
+        return new GitStatus(
+            Strings.normalizePath(repoPath),
+            branch || '',
+            '',
+            files,
+            state,
+            upstream);
     }
 
     private static parseV2(lines: string[], repoPath: string): GitStatus {
@@ -119,14 +118,14 @@ export class GitStatusParser {
             }
         }
 
-        return {
-            branch: branch || '',
-            repoPath: Strings.normalizePath(repoPath),
-            sha: sha || '',
-            state: state,
-            files: files,
-            upstream: upstream
-        };
+        return new GitStatus(
+            Strings.normalizePath(repoPath),
+            branch || '',
+            sha || '',
+            files,
+            state,
+            upstream
+        );
     }
 
     static parseStatusFile(repoPath: string, rawStatus: string, fileName: string, originalFileName?: string): GitStatusFile {

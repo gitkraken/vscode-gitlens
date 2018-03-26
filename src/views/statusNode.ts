@@ -1,4 +1,5 @@
 import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
@@ -68,29 +69,31 @@ export class StatusNode extends ExplorerNode {
 
         let hasChildren = false;
         const hasWorkingChanges = status.files.length !== 0 && this.includeWorkingTree;
-        let label = '';
+        let label = `${status.getUpstreamStatus({ prefix: `${GlyphChars.Space} ` })}${hasWorkingChanges ? status.getDiffStatus({ prefix: `${GlyphChars.Space} `}) : ''}`;
+        let tooltip = `${status.branch} (current)`;
         let iconSuffix = '';
-        if (status.upstream) {
-            if (!status.state.ahead && !status.state.behind) {
-                label = `${status.branch}${hasWorkingChanges ? ' has uncommitted changes and' : ''} is up-to-date with ${status.upstream}`;
-            }
-            else {
-                label = `${status.branch}${hasWorkingChanges ? ' has uncommitted changes and' : ''} is not up-to-date with ${status.upstream}`;
 
+        if (status.upstream) {
+            if (this.explorer.config.showTrackingBranch) {
+                label += `${GlyphChars.Space} ${status.upstream}`;
+            }
+            tooltip += `\n\nTracking ${GlyphChars.Dash} ${status.upstream}\n${status.getUpstreamStatus({ empty: 'up-to-date', expand: true, separator: '\n' })}`;
+
+            if (status.state.ahead || status.state.behind) {
                 hasChildren = true;
-                if (status.state.ahead && status.state.behind) {
+
+                if (status.state.behind) {
                     iconSuffix = '-yellow';
                 }
-                else if (status.state.ahead) {
-                    iconSuffix = '-green';
-                }
-                else if (status.state.behind) {
-                    iconSuffix = '-red';
+                if (status.state.ahead) {
+                    iconSuffix = status.state.behind ? '-red' : '-green';
                 }
             }
         }
-        else {
-            label = `${status.branch} ${hasWorkingChanges ? 'has uncommitted changes' : this.includeWorkingTree ? 'has no changes' : 'has nothing to commit'}`;
+
+        label = `${status.branch}${label === '' ? '' : ` ${GlyphChars.Space}${status.upstream ? GlyphChars.ArrowLeftRightLong : GlyphChars.Dash}${label}`}`;
+        if (hasWorkingChanges) {
+            tooltip += `\n\nHas uncommitted changes${status.getDiffStatus({ expand: true, prefix: `\n`, separator: '\n' })}`;
         }
 
         let state: TreeItemCollapsibleState;
@@ -105,7 +108,7 @@ export class StatusNode extends ExplorerNode {
         const item = new TreeItem(label, state);
         item.id = this.id;
         item.contextValue = ResourceType.Status;
-
+        item.tooltip = tooltip;
         item.iconPath = {
             dark: Container.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
             light: Container.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`)

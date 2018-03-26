@@ -2,6 +2,7 @@
 import { Arrays, Iterables, Strings } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerFilesLayout } from '../configuration';
+import { Container } from '../container';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { FolderNode, IFileExplorerNode } from './folderNode';
 import { GitStatusFile, GitUri } from '../gitService';
@@ -18,8 +19,6 @@ export class StatusFilesResultsNode extends ExplorerNode {
         readonly repoPath: string,
         private readonly ref1: string,
         private readonly ref2: string,
-        private readonly labelFn: (diff: GitStatusFile[] | undefined) => string,
-        private readonly diffFn: () => Promise<GitStatusFile[] | undefined>,
         private readonly explorer: Explorer
     ) {
         super(GitUri.fromRepoPath(repoPath));
@@ -59,10 +58,13 @@ export class StatusFilesResultsNode extends ExplorerNode {
 
     private async ensureCache() {
         if (this._cache === undefined) {
-            const diff = await this.diffFn();
+            const diff = await Container.git.getDiffStatus(this.uri.repoPath!, this.ref1, this.ref2);
+
+            const count = diff !== undefined ? diff.length : 0;
+            const label = `${count === 0 ? 'No' : count} ${count === 1 ? 'file' : 'files'} changed`;
 
             this._cache = {
-                label: this.labelFn(diff),
+                label: label,
                 diff: diff
             };
         }
@@ -70,13 +72,13 @@ export class StatusFilesResultsNode extends ExplorerNode {
         return this._cache;
     }
 
-    private async getLabel() {
-        const cache = await this.ensureCache();
-        return cache.label;
-    }
-
     private async getDiff() {
         const cache = await this.ensureCache();
         return cache.diff;
+    }
+
+    private async getLabel() {
+        const cache = await this.ensureCache();
+        return cache.label;
     }
 }

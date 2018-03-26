@@ -74,6 +74,7 @@ export class FileHistoryNode extends ExplorerNode {
 
         const item = new TreeItem(`${this.uri.getFormattedPath()}`, TreeItemCollapsibleState.Expanded);
         item.contextValue = ResourceType.FileHistory;
+        item.tooltip = `History of ${this.uri.getFilename()}\n${this.uri.getDirectory()}/`;
 
         item.iconPath = {
             dark: Container.context.asAbsolutePath('images/dark/icon-history.svg'),

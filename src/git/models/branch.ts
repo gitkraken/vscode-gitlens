@@ -1,3 +1,5 @@
+import { GlyphChars } from '../../constants';
+
 'use strict';
 
 export class GitBranch {
@@ -65,6 +67,24 @@ export class GitBranch {
         if (this.tracking !== undefined) return GitBranch.getRemote(this.tracking);
 
         return undefined;
+    }
+
+    getTrackingStatus(options: { empty?: string, expand?: boolean, prefix?: string, separator?: string } = {}): string {
+        options = { empty: '', prefix: '', separator: ' ', ...options };
+        if (this.tracking === undefined || (this.state.behind === 0 && this.state.ahead === 0)) return options.empty!;
+
+        if (options.expand) {
+            let status = '';
+            if (this.state.behind) {
+                status += `${this.state.behind} ${this.state.behind === 1 ? 'commit' : 'commits'} behind`;
+            }
+            if (this.state.ahead) {
+                status += `${status === '' ? '' : options.separator}${this.state.ahead} ${this.state.ahead === 1 ? 'commit' : 'commits'} ahead`;
+            }
+            return `${options.prefix}${status}`;
+        }
+
+        return `${options.prefix}${this.state.behind}${GlyphChars.ArrowDown}${options.separator}${this.state.ahead}${GlyphChars.ArrowUp}`;
     }
 
     isValid(): boolean {

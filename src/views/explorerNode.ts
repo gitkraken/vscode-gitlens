@@ -117,7 +117,8 @@ export abstract class ExplorerRefNode extends ExplorerNode {
 export class MessageNode extends ExplorerNode {
 
     constructor(
-        private readonly message: string
+        private readonly message: string,
+        private readonly tooltip?: string
     ) {
         super(new GitUri());
     }
@@ -129,6 +130,7 @@ export class MessageNode extends ExplorerNode {
     getTreeItem(): TreeItem | Promise<TreeItem> {
         const item = new TreeItem(this.message, TreeItemCollapsibleState.None);
         item.contextValue = ResourceType.Message;
+        item.tooltip = this.tooltip;
         return item;
     }
 }

@@ -94,6 +94,14 @@ export class GitUri extends ((Uri as any) as UriEx) {
         return Uri.file(!options.noSha && this.sha ? this.path : this.fsPath);
     }
 
+    getDirectory(relativeTo?: string): string {
+        return GitUri.getDirectory(path.relative(this.repoPath || '', this.fsPath), relativeTo);
+    }
+
+    getFilename(relativeTo?: string): string {
+        return path.basename(path.relative(this.repoPath || '', this.fsPath), relativeTo);
+    }
+
     getFormattedPath(separator: string = Strings.pad(GlyphChars.Dot, 2, 2), relativeTo?: string): string {
         let directory = path.dirname(this.fsPath);
         if (this.repoPath) {

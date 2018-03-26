@@ -44,6 +44,14 @@ export class StashNode extends ExplorerRefNode {
             dataFormat: Container.config.defaultDateFormat
         } as ICommitFormatOptions), TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.Stash;
+        item.tooltip = CommitFormatter.fromTemplate(
+            '${ago} (${date})\n\n${message}',
+            this.commit,
+            {
+                dataFormat: Container.config.defaultDateFormat
+            } as ICommitFormatOptions
+        );
+
         return item;
     }
 }

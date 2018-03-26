@@ -24,7 +24,23 @@ export class StatusFileCommitsNode extends ExplorerNode {
 
     async getTreeItem(): Promise<TreeItem> {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
-        item.contextValue = ResourceType.StatusFileCommits;
+
+        if (this.commits.length === 1 && this.commit.isUncommitted) {
+            item.collapsibleState = TreeItemCollapsibleState.None;
+            item.contextValue = ResourceType.StatusFile;
+
+            if (this.commit.isStagedUncommitted) {
+                item.tooltip = StatusFileFormatter.fromTemplate('${status} in index\n\n${file}\n${directory}/', this.status);
+            }
+            else {
+                item.tooltip = StatusFileFormatter.fromTemplate('${status} in working tree\n\n${file}\n${directory}/', this.status);
+            }
+            item.command = this.getCommand();
+        }
+        else {
+            item.contextValue = ResourceType.StatusFileCommits;
+            item.tooltip = StatusFileFormatter.fromTemplate(`\${status} in ${this.getChangedIn()}\n\n\${file}\n\${directory}/`, this.status);
+        }
 
         const icon = getGitStatusIcon(this.status.status);
         item.iconPath = {
@@ -32,14 +48,11 @@ export class StatusFileCommitsNode extends ExplorerNode {
             light: Container.context.asAbsolutePath(path.join('images', 'light', icon))
         };
 
-        if (this.commits.length === 1 && this.commits[0].isUncommitted) {
-            item.collapsibleState = TreeItemCollapsibleState.None;
-            item.contextValue = ResourceType.StatusFile;
-            item.command = this.getCommand();
-        }
-
         // Only cache the label for a single refresh
         this._label = undefined;
+
+        // Capitalize the first letter of the tooltip
+        item.tooltip = item.tooltip.charAt(0).toUpperCase() + item.tooltip.slice(1);
 
         return item;
     }
@@ -84,6 +97,34 @@ export class StatusFileCommitsNode extends ExplorerNode {
     set relativePath(value: string | undefined) {
         this._relativePath = value;
         this._label = undefined;
+    }
+
+    private getChangedIn(): string {
+        const changedIn = [];
+        let commits = 0;
+        for (const c of this.commits) {
+            if (c.isUncommitted) {
+                if (c.isStagedUncommitted) {
+                    changedIn.push('working tree');
+                }
+                else {
+                    changedIn.push('index');
+                }
+
+                continue;
+            }
+
+            commits++;
+        }
+
+        if (commits > 0) {
+            changedIn.push(`${commits} ${commits === 1 ? 'commit' : 'commits'}`);
+        }
+
+        if (changedIn.length > 2) {
+            changedIn[changedIn.length - 1] = `and ${changedIn[changedIn.length - 1]}`;
+        }
+        return changedIn.join(changedIn.length > 2 ? ', ' : ' and ');
     }
 
     getCommand(): Command | undefined {
