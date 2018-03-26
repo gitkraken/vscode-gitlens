@@ -1,8 +1,9 @@
 'use strict';
-import { ConfigurationTarget, window } from 'vscode';
+import { ConfigurationTarget, MessageItem, window } from 'vscode';
+import { configuration, KeyMap } from './configuration';
+import { Container } from './container';
 import { GitCommit } from './gitService';
 import { Logger } from './logger';
-import { configuration } from './configuration';
 
 export enum SuppressedMessages {
     CommitHasNoPreviousCommitWarning = 'suppressCommitHasNoPreviousCommitWarning',
@@ -11,41 +12,81 @@ export enum SuppressedMessages {
     GitVersionWarning = 'suppressGitVersionWarning',
     LineUncommittedWarning = 'suppressLineUncommittedWarning',
     NoRepositoryWarning = 'suppressNoRepositoryWarning',
-    ResultsExplorerNotice = 'suppressResultsExplorerNotice'
+    ResultsExplorerNotice = 'suppressResultsExplorerNotice',
+    ShowKeyBindingsNotice = 'suppressShowKeyBindingsNotice'
 }
 
 export class Messages {
 
-    static showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<string | undefined> {
-        if (commit === undefined) return Messages.showMessage('info', `Commit has no previous commit`, SuppressedMessages.CommitHasNoPreviousCommitWarning);
-        return Messages.showMessage('info', `Commit ${commit.shortSha} (${commit.author}, ${commit.formattedDate}) has no previous commit`, SuppressedMessages.CommitHasNoPreviousCommitWarning);
+    static showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<MessageItem | undefined> {
+        if (commit === undefined) return Messages.showMessage('info', `Commit has no previous commit.`, SuppressedMessages.CommitHasNoPreviousCommitWarning);
+        return Messages.showMessage('info', `Commit ${commit.shortSha} (${commit.author}, ${commit.formattedDate}) has no previous commit.`, SuppressedMessages.CommitHasNoPreviousCommitWarning);
     }
 
-    static showCommitNotFoundWarningMessage(message: string): Promise<string | undefined> {
-        return Messages.showMessage('warn', `${message}. The commit could not be found`, SuppressedMessages.CommitNotFoundWarning);
+    static showCommitNotFoundWarningMessage(message: string): Promise<MessageItem | undefined> {
+        return Messages.showMessage('warn', `${message}. The commit could not be found.`, SuppressedMessages.CommitNotFoundWarning);
     }
 
-    static showFileNotUnderSourceControlWarningMessage(message: string): Promise<string | undefined> {
-        return Messages.showMessage('warn', `${message}. The file is probably not under source control`, SuppressedMessages.FileNotUnderSourceControlWarning);
+    static showFileNotUnderSourceControlWarningMessage(message: string): Promise<MessageItem | undefined> {
+        return Messages.showMessage('warn', `${message}. The file is probably not under source control.`, SuppressedMessages.FileNotUnderSourceControlWarning);
     }
 
-    static showLineUncommittedWarningMessage(message: string): Promise<string | undefined> {
-        return Messages.showMessage('warn', `${message}. The line has uncommitted changes`, SuppressedMessages.LineUncommittedWarning);
+    static async showKeyBindingsInfoMessage(): Promise<MessageItem | undefined> {
+        const section = configuration.name('advanced')('messages').value;
+        const messages: { [key: string]: boolean } = configuration.get<{}>(section);
+
+        if (messages[SuppressedMessages.ShowKeyBindingsNotice]) return undefined;
+
+        if (Container.config.keymap !== KeyMap.Alternate) {
+            messages[SuppressedMessages.ShowKeyBindingsNotice] = true;
+            await configuration.update(section, messages, ConfigurationTarget.Global);
+
+            return undefined;
+        }
+
+        const actions: MessageItem[] = [
+            { title: 'Keep Shortcuts', isCloseAffordance: true },
+            { title: 'Switch Shortcuts' },
+            { title: 'No Shortcuts' }
+        ];
+        const result = await Messages.showMessage(
+            'info',
+            `GitLens is using keyboard shortcuts which can conflict with menu mnemonics and different keyboard layouts. To avoid such conflicts, it is recommended to switch to the new default keyboard shortcuts.`,
+            SuppressedMessages.ShowKeyBindingsNotice,
+            null,
+            ...actions
+        );
+
+        switch (result) {
+            case actions[1]:
+                await configuration.update(configuration.name('keymap').value, KeyMap.Chorded, ConfigurationTarget.Global);
+                break;
+
+            case actions[2]:
+                await configuration.update(configuration.name('keymap').value, KeyMap.None, ConfigurationTarget.Global);
+                break;
+        }
+
+        return result;
     }
 
-    static showNoRepositoryWarningMessage(message: string): Promise<string | undefined> {
-        return Messages.showMessage('warn', `${message}. No repository could be found`, SuppressedMessages.NoRepositoryWarning);
+    static showLineUncommittedWarningMessage(message: string): Promise<MessageItem | undefined> {
+        return Messages.showMessage('warn', `${message}. The line has uncommitted changes.`, SuppressedMessages.LineUncommittedWarning);
     }
 
-    static showResultExplorerInfoMessage(): Promise<string | undefined> {
-        return Messages.showMessage('info', `If you can't find your results, click on "GITLENS RESULTS" at the bottom of the Explorer view`, SuppressedMessages.ResultsExplorerNotice, null);
+    static showNoRepositoryWarningMessage(message: string): Promise<MessageItem | undefined> {
+        return Messages.showMessage('warn', `${message}. No repository could be found.`, SuppressedMessages.NoRepositoryWarning);
     }
 
-    static showUnsupportedGitVersionErrorMessage(version: string): Promise<string | undefined> {
-        return Messages.showMessage('error', `GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git`, SuppressedMessages.GitVersionWarning);
+    static showResultExplorerInfoMessage(): Promise<MessageItem | undefined> {
+        return Messages.showMessage('info', `If you can't find your results, click on "GITLENS RESULTS" at the bottom of the Explorer view.`, SuppressedMessages.ResultsExplorerNotice, null);
     }
 
-    private static async showMessage(type: 'info' | 'warn' | 'error', message: string, suppressionKey: SuppressedMessages, dontShowAgain: string | null = 'Don\'t Show Again', ...actions: any[]): Promise<string | undefined> {
+    static showUnsupportedGitVersionErrorMessage(version: string): Promise<MessageItem | undefined> {
+        return Messages.showMessage('error', `GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git.`, SuppressedMessages.GitVersionWarning);
+    }
+
+    private static async showMessage<T extends MessageItem>(type: 'info' | 'warn' | 'error', message: string, suppressionKey: SuppressedMessages, dontShowAgain: T | null = { title: 'Don\'t Show Again' } as T, ...actions: T[]): Promise<T | undefined> {
         Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain})`);
 
         if (configuration.get<boolean>(configuration.name('advanced')('messages')(suppressionKey).value)) {
@@ -57,7 +98,7 @@ export class Messages {
             actions.push(dontShowAgain);
         }
 
-        let result: string | undefined = undefined;
+        let result: T | undefined = undefined;
         switch (type) {
             case 'info':
                 result = await window.showInformationMessage(message, ...actions);
@@ -76,14 +117,14 @@ export class Messages {
             Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) don't show again requested`);
 
             const section = configuration.name('advanced')('messages').value;
-            const messages: { [key: string]: boolean } = configuration.get(section);
+            const messages: { [key: string]: boolean } = configuration.get<{}>(section);
             messages[suppressionKey] = true;
             await configuration.update(section, messages, ConfigurationTarget.Global);
 
             if (result === dontShowAgain) return undefined;
         }
 
-        Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) returned ${result}`);
+        Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) returned ${result ? result.title : result}`);
         return result;
     }
 }

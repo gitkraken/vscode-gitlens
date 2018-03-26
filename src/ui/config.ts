@@ -152,6 +152,7 @@ export interface IAdvancedConfig {
         suppressLineUncommittedWarning: boolean;
         suppressNoRepositoryWarning: boolean;
         suppressResultsExplorerNotice: boolean;
+        suppressShowKeyBindingsNotice: boolean;
     };
 
     quickPick: {

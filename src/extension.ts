@@ -61,6 +61,7 @@ export async function activate(context: ExtensionContext) {
 
     notifyOnUnsupportedGitVersion(gitVersion);
     showWelcomePage(gitlensVersion, previousVersion);
+    Messages.showKeyBindingsInfoMessage();
 
     context.globalState.update(GlobalState.GitLensVersion, gitlensVersion);
 
@@ -138,7 +139,7 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
         if (Versions.compare(previous, Versions.from(8, 0, 0, 'beta2')) !== 1) {
             await configuration.migrate<boolean, OutputLevel>(
                 'debug', configuration.name('outputLevel').value,
-                { migrationFn: v => v ? OutputLevel.Debug : configuration.get(configuration.name('outputLevel').value) });
+                { migrationFn: v => v ? OutputLevel.Debug : configuration.get<OutputLevel>(configuration.name('outputLevel').value) });
             await configuration.migrate('debug', configuration.name('debug').value, { migrationFn: v => undefined });
         }
 

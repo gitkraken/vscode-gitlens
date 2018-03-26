@@ -1001,7 +1001,8 @@
                         "suppressGitVersionWarning": false,
                         "suppressLineUncommittedWarning": false,
                         "suppressNoRepositoryWarning": false,
-                        "suppressResultsExplorerNotice": false
+                        "suppressResultsExplorerNotice": false,
+                        "suppressShowKeyBindingsNotice": false
                     },
                     "properties": {
                         "suppressCommitHasNoPreviousCommitWarning": {
@@ -1029,6 +1030,10 @@
                             "default": false
                         },
                         "suppressResultsExplorerNotice": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "suppressShowKeyBindingsNotice": {
                             "type": "boolean",
                             "default": false
                         }
