@@ -2924,7 +2924,7 @@
     },
     "devDependencies": {
         "@types/copy-paste": "1.1.30",
-        "@types/node": "9.4.7",
+        "@types/node": "9.6.0",
         "@types/tmp": "0.0.33",
         "husky": "0.14.3",
         "ts-loader": "4.1.0",
@@ -2934,7 +2934,7 @@
         "uglifyjs-webpack-plugin": "1.2.4",
         "vscode": "1.1.14",
         "webpack": "4.2.0",
-        "webpack-cli": "2.0.12",
+        "webpack-cli": "2.0.13",
         "webpack-node-externals": "1.6.0"
     }
 }
