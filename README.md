@@ -13,19 +13,26 @@
 <br />
 
 # What's new in GitLens 8
-## 8.1 &mdash; March 2018
-- Adds automatic issue linking to Bitbucket, GitHub, GitLab, and Visual Studio Team Services for commit messages in hovers
-- Adds support to toggle annotations for each file individually or for all files at once &mdash; closes [#289](https://github.com/eamodio/vscode-gitlens/issues/289)
-- Adds icons to remotes in the *GitLens* explorer based on the remote service provider
-- Adds multi-cursor support to current line annotations &mdash; closes [#291](https://github.com/eamodio/vscode-gitlens/issues/291)
-- Renames *Compare Selected Ancestor with Working Tree* command to *Compare Ancestry with Working Tree* and removes the need to select a branch first, since all compares are performed with the working tree &mdash; closes [#279](https://github.com/eamodio/vscode-gitlens/issues/279)
-- Fixes [#294](https://github.com/eamodio/vscode-gitlens/issues/294) - Keyboard shortcuts will now default to *chorded* to avoid conflicts. Only affects new installs or if you remove the `gitlens.keymap` setting
-
-## 8.0 &mdash; February 2018
-- Brand new welcome experience
-- Brand new interactive [settings editor](#configuration) &mdash; GitLens is easier than ever to customize to suit your needs
-- Adds a tree layout option to branches in the <i>GitLens</i> explorer &mdash; thanks to Yukai Huang ([@Yukaii](https://github.com/Yukaii))!
-- Reworked settings &mdash; clearer, simpler settings
+## 8.2 &mdash; April 2018
+- Adds rich tooltip details to the *GitLens* explorer and *GitLens Results* view
+  - Adds richer working tree and upstream status information to branches in the *GitLens* explorer
+- Adds an indicator to the *GitLens* explorer's branch history to mark the synchronization point between the local and remote branch (if available)
+- Adds ability to easily switch between relative and absolute dates via the `gitlens.defaultDateStyle` settings &mdash; closes [#312](https://github.com/eamodio/vscode-gitlens/issues/312)
+- Adds `gitlens.currentLine.scrollable` setting to specify whether the current line blame annotation can be scrolled into view when it is outside the viewport &mdash; closes [#149](https://github.com/eamodio/vscode-gitlens/issues/149), [#290](https://github.com/eamodio/vscode-gitlens/issues/290), [#265](https://github.com/eamodio/vscode-gitlens/issues/265)
+- Adds *Copy Commit ID to Clipboard* (`gitlens.copyShaToClipboard`) command to changed file nodes in the *GitLens* explorer and *GitLens Results* view
+- Adds *Copy Commit Message to Clipboard* (`gitlens.copyMessageToClipboard`) command to changed file nodes in the *GitLens* explorer and *GitLens Results* view
+- Renames *Compare with Index (HEAD)* (`gitlens.explorers.compareWithHead`) command to *Compare with HEAD* &mdash; closes [#309](https://github.com/eamodio/vscode-gitlens/issues/309)
+- Renames *Compare Index (HEAD) with Branch or Tag...* (`gitlens.diffHeadWithBranch`) command to *Compare HEAD with Branch or Tag...* &mdash; closes [#309](https://github.com/eamodio/vscode-gitlens/issues/309)
+- Removes the unnecessary *Show File Blame Annotations* (`gitlens.showFileBlame`) command &mdash; *Toggle File Blame Annotations* (`gitlens.toggleFileBlame`) provides similar functionality
+- Removes the unnecessary *Show Line Blame Annotations* (`gitlens.showLineBlame`) command &mdash; *Toggle Line Blame Annotations* (`gitlens.toggleLineBlame`) provides similar functionality
+- Removes *Open Working File* (`gitlens.openWorkingFile`) command from the editor toolbar when the built-in *Open File* command is visible
+- Removes *Compare with HEAD* (`gitlens.explorers.compareWithHead`), *Compare with Working Tree* (`gitlens.explorers.compareWithWorking`), and *Compare Compare Ancestry with Working Tree* (`gitlens.explorers.compareAncestryWithWorking`) commands from the current branch since comparing a branch with itself doesn't make sense &mdash; closes [#309](https://github.com/eamodio/vscode-gitlens/issues/309)
+- Fixes [#314](https://github.com/eamodio/vscode-gitlens/issues/314) - Toggle line annotation doesn't work properly
+- Fixes [#310](https://github.com/eamodio/vscode-gitlens/issues/310) - "via Terminal" commands need quoting around work directory
+- Fixes issues with the active repository in the *GitLens* explorer failed to update properly
+- Fixes issues with *Open File*, *Open Revision*, and *Show File History* commands and images and other binary files
+- Fixes issues preventing nodes in the *GitLens* explorer from expanding properly in certain cases
+- Fixes issues when refreshing nodes in the *GitLens Results* view
 
 See the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md "Open Release Notes") for the full set of changes
 

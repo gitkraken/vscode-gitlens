@@ -382,6 +382,10 @@ ul {
     & li {
         margin-bottom: 0.5em;
     }
+
+    & code {
+        font-size: 0.9em;
+    }
 }
 
 .changelog__list-item--version {

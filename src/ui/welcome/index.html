@@ -41,7 +41,58 @@
                 <h2 class="changelog__title">What's New in <span class="changelog__version">GitLens 8</span> &#x1F389;&#x1F388;</h2>
                 <div class="changelog__scroller">
                     <ul class="changelog__list">
-                        <li><span class="changelog__badge changelog__badge--version">8.1</span>
+                        <li><span class="changelog__badge changelog__badge--version">8.2</span>
+                            <span class="changelog__date">APRIL &nbsp;2018</span>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds rich tooltip details to the <i>GitLens</i> explorer and <i>GitLens Results</i> view
+                            <div class="changelog__details">
+                            <!-- <img class="changelog__image" src="{{root}}/images/cl-issue-linking.png" alt="Issue linking in commit messages"/> -->
+                            </div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds richer working tree and upstream status information to branches in the <i>GitLens</i> explorer
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds an indicator to the <i>GitLens</i> explorer's branch history to mark the synchronization point between the local and remote branch (if available)
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds ability to easily switch between relative and absolute dates via the <code>gitlens.defaultDateStyle</code> settings &mdash; closes <a title="Open Issue #312" href="https://github.com/eamodio/vscode-gitlens/issues/312">#312</a>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds <code>gitlens.currentLine.scrollable</code> setting to specify whether the current line blame annotation can be scrolled into view when it is outside the viewport &mdash; closes <a title="Open Issue #149" href="https://github.com/eamodio/vscode-gitlens/issues/149">#149</a>, <a title="Open Issue #290" href="https://github.com/eamodio/vscode-gitlens/issues/290">#290</a>, <a title="Open Issue #265" href="https://github.com/eamodio/vscode-gitlens/issues/265">#265</a>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes <a title="Open Issue #314" href="https://github.com/eamodio/vscode-gitlens/issues/314">#314</a> &mdash; Toggle line annotation doesn't work properly
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes <a title="Open Issue #310" href="https://github.com/eamodio/vscode-gitlens/issues/310">#310</a> &mdash; "via Terminal" commands need quoting around work directory
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes issues with the active repository in the <i>GitLens</i> explorer failed to update properly
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes issues with <i>Open File</i>, <i>Open Revision</i>, and <i>Show File History</i> commands and images and other binary files
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes issues preventing nodes in the <i>GitLens</i> explorer from expanding properly in certain cases
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes issues when refreshing nodes in the <i>GitLens Results</i> view
+                            <div class="changelog__details"></div>
+                        </li>
+
+                        <li class="changelog__list-item--version"><span class="changelog__badge changelog__badge--version">8.1</span>
                             <span class="changelog__date">MARCH &nbsp;2018</span>
                             <div class="changelog__details"></div>
                         </li>
@@ -63,6 +114,7 @@
                         </li>
                         <li><span class="changelog__badge changelog__badge--added">NEW</span>
                             Adds multi-cursor support to current line annotations &mdash; closes <a title="Open Issue #291" href="https://github.com/eamodio/vscode-gitlens/issues/291">#291</a>
+                            <div class="changelog__details"></div>
                         </li>
                         <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>
                             Renames <i>Compare Selected Ancestor with Working Tree</i> command to <i>Compare Ancestry with Working Tree</i> and removes the need to select a branch first, since all compares are performed with the working tree &mdash; closes <a title="Open Issue #279" href="https://github.com/eamodio/vscode-gitlens/issues/279">#279</a>
@@ -70,6 +122,7 @@
                         </li>
                         <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
                             Fixes <a title="Open Issue #294" href="https://github.com/eamodio/vscode-gitlens/issues/294">#294</a> &mdash; Keyboard shortcuts will now default to <i>chorded</i> to avoid conflicts. Only affects new installs or if you remove the <span class="setting-key">gitlens.keymap</span> setting
+                            <div class="changelog__details"></div>
                         </li>
 
                         <li class="changelog__list-item--version"><span class="changelog__badge changelog__badge--version">8.0</span>
