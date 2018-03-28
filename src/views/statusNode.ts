@@ -83,10 +83,10 @@ export class StatusNode extends ExplorerNode {
                 hasChildren = true;
 
                 if (status.state.behind) {
-                    iconSuffix = '-yellow';
+                    iconSuffix = '-red';
                 }
                 if (status.state.ahead) {
-                    iconSuffix = status.state.behind ? '-red' : '-green';
+                    iconSuffix = status.state.behind ? '-yellow' : '-green';
                 }
             }
         }

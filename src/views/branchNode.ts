@@ -65,10 +65,10 @@ export class BranchNode extends ExplorerRefNode {
 
             if (this.branch.state.ahead || this.branch.state.behind) {
                 if (this.branch.state.behind) {
-                    iconSuffix = '-yellow';
+                    iconSuffix = '-red';
                 }
                 if (this.branch.state.ahead) {
-                    iconSuffix = this.branch.state.behind ? '-red' : '-green';
+                    iconSuffix = this.branch.state.behind ? '-yellow' : '-green';
                 }
             }
         }
