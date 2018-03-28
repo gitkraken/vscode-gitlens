@@ -776,7 +776,7 @@
                 "gitlens.statusBar.reduceFlicker": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Specifies whether to reduce the status bar \"flickering\" when changing lines by not first clearing the previous blame information",
+                    "description": "Specifies whether to avoid clearing the previous blame information when changing lines to reduce status bar \"flashing\"",
                     "scope": "window"
                 },
                 "gitlens.strings.codeLens.unsavedChanges.recentChangeAndAuthors": {

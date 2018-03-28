@@ -269,10 +269,16 @@
                                     <input class="setting" id="currentLine.enabled" name="currentLine.enabled" type="checkbox" data-add-settings-off="hovers.currentLine.over=line"/>
                                     <label for="currentLine.enabled">Show a blame annotation at the end of the current line</label>
                                 </div>
+                                <div class="settings-group__setting nowrap ml-2" data-enablement="currentLine.enabled" disabled>
+                                    <input class="setting" id="currentLine.scrollable" name="currentLine.scrollable" type="checkbox" disabled/>
+                                    <label for="currentLine.scrollable">Include the annotation when scrolling the editor horizontally</label>
+                                </div>
+                                <p class="setting__hint">When enabled the annotation can be scrolled into view when it is outside the viewport</p>
                             </div>
                             <div class="section__preview">
                                 <img class="image__preview" src="{{root}}/images/settings/current-line-blame.png"/>
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/current-line-blame-on.png" data-visibility="currentLine.enabled"/>
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/current-line-blame-on-scrollable.png" data-visibility="currentLine.enabled &amp; currentLine.scrollable"/>
                             </div>
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
@@ -601,6 +607,11 @@
                                         <option value="gitlens.showQuickRepoHistory">shows the current branch history</option>
                                     </select>
                                 </div>
+                                <div class="settings-group__setting nowrap ml-2" data-enablement="statusBar.enabled" disabled>
+                                    <input class="setting" id="statusBar.reduceFlicker" name="statusBar.reduceFlicker" type="checkbox" disabled/>
+                                    <label for="statusBar.reduceFlicker">Reduce flashing when updating the annotation</label>
+                                </div>
+                                <p class="setting__hint">Avoids clearing the previous blame information when changing lines to reduce status bar "flashing"</p>
                             </div>
                             <div class="section__preview">
                                 <img class="image__preview" src="{{root}}/images/settings/status-bar.png"/>
