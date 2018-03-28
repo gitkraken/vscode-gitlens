@@ -116,9 +116,9 @@ export class StatusFilesNode extends ExplorerNode {
         let files = (this.status.files !== undefined && this.includeWorkingTree) ? this.status.files.length : 0;
 
         if (this.status.upstream !== undefined) {
-            const stats = await Container.git.getChangedFilesCount(this.repoPath, `${this.status.upstream}...`);
+            const stats = await Container.git.getChangedFilesCount(this.repoPath, this.status.upstream);
             if (stats !== undefined) {
-                files += stats.files;
+                files = stats.files;
             }
         }
 
