@@ -7,6 +7,17 @@ If you'd like to join them in supporting GitLens, please consider:
 - [Become a backer or sponsor on Patreon](https://www.patreon.com/eamodio)
 - [One-time donation via PayPal](https://www.paypal.me/eamodio)
 
+<h2 align="center">Gold Sponsors ($300+)</h2>
+None yet &mdash; could be you!
+
+<h2 align="center">Silver Sponsors ($150+)</h2>
+None yet &mdash; could be you!
+
+
+<h2 align="center">Bronse Sponsors ($50+)</h2>
+
+- Michael Duffy
+
 <h2 align="center">Generous Backers ($10+)</h2>
 
 - TypeScript Types (Ken Howard)
@@ -20,3 +31,6 @@ If you'd like to join them in supporting GitLens, please consider:
 - Pavel Khlopin
 - Eugen Grue
 - Andreas Fertsch-Röver
+- Nathaniel Blackburn
+- Raphael Schweikert
+- JehongAhn

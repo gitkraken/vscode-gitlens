@@ -88,6 +88,16 @@ If you'd like to join them in supporting GitLens, please consider the following 
 - [Star or Fork me on GitHub](https://github.com/eamodio/vscode-gitlens "Star or fork me on GitHub")
 - [Follow me on Twitter](https://twitter.com/eamodio "Follow me on Twitter")
 
+#### Gold Sponsors ($300+)
+None yet &mdash; could be you!
+
+#### Silver Sponsors ($150+)
+None yet &mdash; could be you!
+
+#### Bronse Sponsors ($50+)
+
+- Michael Duffy
+
 ## Configuration
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-settings.png" alt="GitLens Explorer Repository view" />
