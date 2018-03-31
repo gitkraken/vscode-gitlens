@@ -105,13 +105,15 @@ header {
     margin-bottom: 1em;
 }
 
-input, select, button {
+input,
+select,
+button {
     font-family: var(--font-family);
     font-size: inherit;
     margin: 0;
 }
 
-input {
+input[type="checkbox"] {
     background: none;
     border: none;
     cursor: pointer;
@@ -127,6 +129,29 @@ input {
     &[disabled] {
         color: var(--color--75);
         cursor: default;
+    }
+}
+
+input[type="text"] {
+    background: none;
+    border: 1px solid var(--color);
+    color: var(--color);
+    margin: 0 0.75em;
+    padding: 4px;
+    width: 100%;
+    max-width: 300px;
+
+    &:focus {
+        background: rgba(0, 0, 0, 0.1);
+    }
+
+    &[disabled] {
+        color: var(--color--75);
+        cursor: default;
+    }
+
+    &::placeholder {
+        color: var(--color--50);
     }
 }
 
@@ -390,6 +415,15 @@ ul {
 
 .changelog__list-item--version {
     margin: 2em 0 0.5em 0;
+    padding-top: 2em;
+
+    .vscode-dark & {
+        border-top: 1px solid var(--background-color--lighten-30);
+    }
+
+    .vscode-light & {
+        border-top: 1px solid var(--background-color--darken-30);
+    }
 }
 
 .changelog__scroller {
@@ -646,6 +680,13 @@ ul {
     margin-right: 1em;
 }
 
+.section__settings--multi {
+    & >.settings-group {
+        flex-basis: 100%;
+        margin-left: 1em;
+    }
+}
+
 .section__header {
     align-items: baseline;
     cursor: pointer;
@@ -759,6 +800,15 @@ ul {
     min-width: 300px;
 }
 
+.settings-group__header {
+    font-size: 1.2em;
+    margin: 1em 0 1.5em 0;
+
+    &:first-child {
+        margin-top: 0;
+    }
+}
+
 .settings-group__hint {
     color: var(--color--75);
     font-weight: 200;
@@ -776,6 +826,7 @@ ul {
     flex: 100% 1 1;
     flex-wrap: wrap;
     margin-bottom: 0.75em;
+    position: relative;
 
     & input[type="checkbox"] {
         flex: 16px 0 0;
@@ -868,3 +919,5 @@ ul {
 .nowrap {
     flex-wrap: nowrap !important;
 }
+
+@import 'popup';

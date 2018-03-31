@@ -52,6 +52,10 @@ export abstract class App {
             el.checked = checked;
         }
 
+        for (const el of document.querySelectorAll<HTMLInputElement>('input[type="text"].setting')) {
+            el.value = getSettingValue<string>(el.name) || '';
+        }
+
         for (const el of document.querySelectorAll<HTMLSelectElement>('select.setting')) {
             const value = getSettingValue<string>(el.name);
             const option = el.querySelector<HTMLOptionElement>(`option[value='${value}']`);
@@ -69,12 +73,46 @@ export abstract class App {
         const onInputChecked = this.onInputChecked.bind(this);
         DOM.listenAll('input[type="checkbox"].setting', 'change', function(this: HTMLInputElement) { return onInputChecked(this, ...arguments); });
 
+        const onInputBlurred = this.onInputBlurred.bind(this);
+        DOM.listenAll('input[type="text"].setting', 'blur', function(this: HTMLInputElement) { return onInputBlurred(this, ...arguments); });
+
+        const onInputFocused = this.onInputFocused.bind(this);
+        DOM.listenAll('input[type="text"].setting', 'focus', function(this: HTMLInputElement) { return onInputFocused(this, ...arguments); });
+
         const onInputSelected = this.onInputSelected.bind(this);
         DOM.listenAll('select.setting', 'change', function(this: HTMLInputElement) { return onInputSelected(this, ...arguments); });
+
+        const onTokenMouseDown = this.onTokenMouseDown.bind(this);
+        DOM.listenAll('[data-token]', 'mousedown', function(this: HTMLElement) { return onTokenMouseDown(this, ...arguments); });
+
+        const onPopupMouseDown = this.onPopupMouseDown.bind(this);
+        DOM.listenAll('.popup', 'mousedown', function(this: HTMLElement) { return onPopupMouseDown(this, ...arguments); });
     }
 
     protected log(message: string) {
         console.log(message);
+    }
+
+    private onInputBlurred(element: HTMLInputElement) {
+        this.log(`${this._appName}.onInputBlurred: name=${element.name}, value=${element.value}`);
+
+        const popup = document.getElementById(`${element.name}.popup`);
+        if (popup != null) {
+            popup.classList.add('hidden');
+        }
+
+        let value: string | null | undefined = element.value;
+        if (value === '') {
+            value = element.dataset.defaultValue;
+            if (value === undefined) {
+                value = null;
+            }
+        }
+
+        this._changes[element.name] = value;
+
+        // this.setAdditionalSettings(element.checked ? element.dataset.addSettingsOn : element.dataset.addSettingsOff);
+        this.applyChanges();
     }
 
     private onInputChecked(element: HTMLInputElement) {
@@ -110,6 +148,15 @@ export abstract class App {
         this.applyChanges();
     }
 
+    private onInputFocused(element: HTMLInputElement) {
+        this.log(`${this._appName}.onInputFocused: name=${element.name}, value=${element.value}`);
+
+        const popup = document.getElementById(`${element.name}.popup`);
+        if (popup != null) {
+            popup.classList.remove('hidden');
+        }
+    }
+
     private onInputSelected(element: HTMLSelectElement) {
         if (element === this._scopes) return;
 
@@ -120,6 +167,28 @@ export abstract class App {
         this._changes[element.name] = ensureIfBoolean(value);
 
         this.applyChanges();
+    }
+
+    private onPopupMouseDown(element: HTMLElement, e: MouseEvent) {
+        // e.stopPropagation();
+        // e.stopImmediatePropagation();
+        e.preventDefault();
+    }
+
+    private onTokenMouseDown(element: HTMLElement, e: MouseEvent) {
+        this.log(`${this._appName}.onTokenClicked: id=${element.id}`);
+
+        const setting = element.closest('.settings-group__setting');
+        if (setting == null) return;
+
+        const input = setting.querySelector<HTMLInputElement>('input[type="text"]');
+        if (input == null) return;
+
+        input.value += `\${${element.dataset.token}}`;
+
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        e.preventDefault();
     }
 
     private applyChanges() {

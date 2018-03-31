@@ -1,0 +1,100 @@
+.popup {
+    box-shadow: 0px 0px 28px 0 rgba(0, 0, 0, 0.5);
+    cursor: default;
+    padding: 1em;
+    position: absolute;
+    top: 46px;
+    width: 410px;
+    z-index: 1;
+
+    &:before {
+        background: transparent;
+        border: 12px solid transparent;
+        content: "";
+        left: 50%;
+        position: absolute;
+        pointer-events: none;
+        top: -24px;
+        z-index: 1001;
+
+        .vscode-light & {
+            border-bottom-color: var(--background-color--darken-075);
+        }
+
+        .vscode-dark & {
+            border-bottom-color: var(--background-color--lighten-075);
+        }
+    }
+
+    .vscode-light & {
+        background: var(--background-color--darken-075);
+    }
+
+    .vscode-dark & {
+        background: var(--background-color--lighten-075);
+    }
+}
+
+.token-popup__hint {
+    color: var(--color--75);
+    display: inline-block;
+    font-weight: 200;
+    margin: 1.25em 0.5em 0 0.25em;
+}
+
+.token-popup__title {
+    color: var(--color);
+    font-weight: 400;
+    margin: 0.25em 0 1em 0;
+    text-align: center;
+}
+
+.token-popup__table {
+    border-collapse: collapse;
+    color: var(--color--75);
+    table-layout: fixed;
+
+    & tr:nth-child(even) {
+        .vscode-light & {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .vscode-dark & {
+            background-color: rgba(255, 255, 255, 0.04);
+        }
+    }
+
+    & td {
+        padding: 6px;
+
+        i {
+            opacity: 0.6;
+        }
+    }
+
+    & td:first-child {
+        padding: 6px 12px;
+    }
+
+    & td:last-child {
+        padding-right: 12px;
+    }
+}
+
+.token {
+    background: var(--link-color--darken-20);
+    border-bottom: 2px solid var(--link-color--darken-20);
+    border-radius: 3px;
+    color: white;
+    cursor: pointer;
+    display: inline-block;
+    padding: 1px 8px !important;
+
+    &:before {
+        content: "${"
+    }
+
+    &:after {
+        content: "}"
+    }
+}

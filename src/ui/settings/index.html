@@ -43,6 +43,75 @@
 
             <div class="section-groups">
                 <div class="section-group__content">
+                    <section id="general">
+                        <div class="section__header">
+                            <h2 class="section__title">General
+                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#general-settings">
+                                    <i class="icon icon__info"></i>
+                                </a>
+                            </h2>
+                            <p class="section__title-hint">General GitLens settings &mdash; defaults and globals</p>
+                        </div>
+                        <div class="section__settings section__settings--multi">
+                            <h3 class="settings-group__header">Default Date/Time Display</h3>
+                            <div class="settings-group">
+                                <div class="settings-group__setting nowrap">
+                                    <label for="defaultDateStyle">Use</label>
+                                    <select class="setting" id="defaultDateStyle" name="defaultDateStyle">
+                                        <option value="relative">relative</option>
+                                        <option value="absolute">absolute</option>
+                                    </select>
+                                    <label for="defaultDateStyle"> dates</label>
+                                </div>
+                                <div class="settings-group__setting nowrap">
+                                    <label for="defaultDateFormat">Absolute&nbsp;date&nbsp;format</label>
+                                    <input class="setting" id="defaultDateFormat" name="defaultDateFormat" type="text" placeholder="MMMM Do, YYYY h:mma"/>
+                                    <a class="link__learn-more" title="See Moment.js docs for valid date formats" href="https://momentjs.com/docs/#/displaying/format/">
+                                        <i class="icon icon__info"></i>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <h3 class="settings-group__header">Keyboard Shortcuts</h3>
+                            <div class="settings-group">
+                                <div class="settings-group__setting nowrap">
+                                    <label for="keymap">Use</label>
+                                    <select class="setting" id="keymap" name="keymap">
+                                        <option value="alternate">alt-based</option>
+                                        <option value="chorded">chorded (default)</option>
+                                        <option value="none">user-defined</option>
+                                    </select>
+                                    <label for="keymap"> keyboard shortcuts</label>
+                                </div>
+                                <span class="label__hint hidden" data-visibility="keymap =alternate">
+                                    <span class="shortcut-key">Alt</span> based (<span class="shortcut-key">&#x2325;</span> on macOS) shortcuts.
+                                    Not great for non-English keyboard layouts
+                                </span>
+                                <span class="label__hint hidden" data-visibility="keymap =chorded">
+                                    Chorded shortcuts that start with
+                                    <span class="shortcut-key">Ctrl+Shift+G</span> (<span class="shortcut-key">&#x2325;&#x2318;G</span> on macOS).
+                                    Better for non-English keyboard layouts
+                                </span>
+                                <span class="label__hint hidden" data-visibility="keymap =none">
+                                    GitLens won't bind any keyboard shortcuts. Configure your own via the
+                                    <a class="command" title="Open Keyboard Shortcuts" href="command:workbench.action.openGlobalKeybindings">Keyboard Shortcuts</a> editor
+                                </span>
+                                <p class="settings-group__hint">
+                                    Search for
+                                    <b>
+                                        <i>gitlens</i>
+                                    </b> in the
+                                    <a class="command" title="Open Keyboard Shortcuts" href="command:workbench.action.openGlobalKeybindings">Keyboard Shortcuts</a> editor to see the shortcuts and to customize them further
+                                </p>
+                            </div>
+
+                            <p class="settings-group__hint">
+                                <i class="icon icon--lg icon__info"></i>
+                                For more advanced customizations open <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for <b><i>gitlens</i></b>
+                            </p>
+                        </div>
+                    </section>
+
                     <section id="gitlens-explorer">
                         <div class="section__header">
                             <h2 class="section__title">GitLens Explorer
@@ -269,17 +338,47 @@
                                     <input class="setting" id="currentLine.enabled" name="currentLine.enabled" type="checkbox" data-add-settings-off="hovers.currentLine.over=line"/>
                                     <label for="currentLine.enabled">Show a blame annotation at the end of the current line</label>
                                 </div>
+
+                                <div class="settings-group__setting nowrap ml-2" data-enablement="currentLine.enabled" disabled>
+                                    <label for="currentLine.format">Annotation&nbsp;format</label>
+                                    <input class="setting" id="currentLine.format" name="currentLine.format" type="text"
+                                        placeholder="&dollar;&lbrace;authorAgoOrDate&rbrace; &bull; &dollar;&lbrace;message&rbrace;"
+                                        data-default-value="&dollar;&lbrace;authorAgoOrDate&rbrace; &bull; &dollar;&lbrace;message&rbrace;"
+                                        data-popup-trigger disabled/>
+                                    <label for="currentLine.format" title="See available tokens">
+                                        <i class="icon icon__info"></i>
+                                    </label>
+                                    <div id="currentLine.format.popup" class="popup hidden">
+                                        <h3 class="token-popup__title">Available Tokens</h3>
+                                        <table class="token-popup__table">
+                                            <tbody>
+                                                <tr><td>Commit Id</td><td><span class="token" data-token="id">id</span></td></tr>
+                                                <tr><td>Commit Author</td><td><span class="token" data-token="author">author</span></td></tr>
+                                                <tr><td>Commit Message</td><td><span class="token" data-token="message">message</span></td></tr>
+                                                <tr><td>Commit Date<br/><i>Relative, e.g. 1 day ago</i></td><td><span class="token" data-token="ago">ago</span></td></tr>
+                                                <tr><td>Commit Date<br/><i>Absolute, e.g. August 8th, 2016 10:48am</i></td><td><span class="token" data-token="date">date</span></td></tr>
+                                                <tr><td>Commit Date<br/><i>Relative or absolute based on date setting</i></td><td><span class="token" data-token="agoOrDate">agoOrDate</span></td></tr>
+                                                <tr><td>Commit Author, Commit Date<br/><i>Relative date</i></td><td><span class="token" data-token="authorAgo">authorAgo</span></td></tr>
+                                                <tr><td>Commit Author, Commit Date<br/><i>Relative or absolute date</i></td><td><span class="token" data-token="authorAgoOrDate">authorAgoOrDate</span></td></tr>
+                                            </tbody>
+                                        </table>
+                                        <span class="token-popup__hint"><i class="icon icon__info"></i><a href="https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting" title="Open advanced formatting docs">Learn more</a> about advanced formatting options</span>
+                                    </div>
+                                </div>
+
                                 <div class="settings-group__setting nowrap ml-2" data-enablement="currentLine.enabled" disabled>
                                     <input class="setting" id="currentLine.scrollable" name="currentLine.scrollable" type="checkbox" disabled/>
                                     <label for="currentLine.scrollable">Include the annotation when scrolling the editor horizontally</label>
                                 </div>
                                 <p class="setting__hint">When enabled the annotation can be scrolled into view when it is outside the viewport</p>
                             </div>
+
                             <div class="section__preview">
                                 <img class="image__preview" src="{{root}}/images/settings/current-line-blame.png"/>
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/current-line-blame-on.png" data-visibility="currentLine.enabled"/>
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/current-line-blame-on-scrollable.png" data-visibility="currentLine.enabled &amp; currentLine.scrollable"/>
                             </div>
+
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
                                 For more advanced customizations open <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for <b><i>gitlens.currentLine</i></b>
@@ -311,6 +410,33 @@
                                 </div>
 
                                 <div class="settings-group__setting nowrap">
+                                    <label for="blame.format">Annotation&nbsp;format</label>
+                                    <input class="setting" id="blame.format" name="blame.format" type="text"
+                                        placeholder="&dollar;&lbrace;message|40?&rbrace; &dollar;&lbrace;agoOrDate|14-&rbrace;"
+                                        data-default-value="&dollar;&lbrace;message|40?&rbrace; &dollar;&lbrace;agoOrDate|14-&rbrace;"
+                                        data-popup-trigger/>
+                                    <label for="blame.format" title="See available tokens">
+                                        <i class="icon icon__info"></i>
+                                    </label>
+                                    <div id="blame.format.popup" class="popup hidden">
+                                        <h3 class="token-popup__title">Available Tokens</h3>
+                                        <table class="token-popup__table">
+                                            <tbody>
+                                                <tr><td>Commit Id</td><td><span class="token" data-token="id">id</span></td></tr>
+                                                <tr><td>Commit Author</td><td><span class="token" data-token="author">author</span></td></tr>
+                                                <tr><td>Commit Message</td><td><span class="token" data-token="message">message</span></td></tr>
+                                                <tr><td>Commit Date<br/><i>Relative, e.g. 1 day ago</i></td><td><span class="token" data-token="ago">ago</span></td></tr>
+                                                <tr><td>Commit Date<br/><i>Absolute, e.g. August 8th, 2016 10:48am</i></td><td><span class="token" data-token="date">date</span></td></tr>
+                                                <tr><td>Commit Date<br/><i>Relative or absolute based on date setting</i></td><td><span class="token" data-token="agoOrDate">agoOrDate</span></td></tr>
+                                                <tr><td>Commit Author, Commit Date<br/><i>Relative date</i></td><td><span class="token" data-token="authorAgo">authorAgo</span></td></tr>
+                                                <tr><td>Commit Author, Commit Date<br/><i>Relative or absolute date</i></td><td><span class="token" data-token="authorAgoOrDate">authorAgoOrDate</span></td></tr>
+                                            </tbody>
+                                        </table>
+                                        <span class="token-popup__hint"><i class="icon icon__info"></i><a href="https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting" title="Open advanced formatting docs">Learn more</a> about advanced formatting options</span>
+                                    </div>
+                                </div>
+
+                                <div class="settings-group__setting nowrap">
                                     <input class="setting" id="blame.heatmap.enabled" name="blame.heatmap.enabled" type="checkbox"/>
                                     <label for="blame.heatmap.enabled">Add a heatmap (age) indicator</label>
                                 </div>
@@ -330,6 +456,12 @@
                                 </div>
 
                                 <div class="settings-group__setting nowrap">
+                                    <input class="setting" id="blame.compact" name="blame.compact" type="checkbox"/>
+                                    <label for="blame.compact">Use compact view</label>
+                                </div>
+                                <p class="setting__hint">Compacts (deduplicates) matching adjacent blame annotations</p>
+
+                                <div class="settings-group__setting nowrap">
                                     <input class="setting" id="blame.highlight.enabled" name="blame.highlight.enabled" type="checkbox"/>
                                     <label for="blame.highlight.enabled">Highlight other lines changed with the current line</label>
                                 </div>
@@ -346,13 +478,8 @@
                                     <input class="setting" id="blame.highlight.locations-2" name="blame.highlight.locations" type="checkbox" value="overview" data-type="array" disabled/>
                                     <label for="blame.highlight.locations-2">Add scroll bar highlight</label>
                                 </div>
-
-                                <div class="settings-group__setting nowrap">
-                                    <input class="setting" id="blame.compact" name="blame.compact" type="checkbox"/>
-                                    <label for="blame.compact">Use compact view</label>
-                                </div>
-                                <p class="setting__hint">Compacts (deduplicates) matching adjacent blame annotations</p>
                             </div>
+
                             <div class="section__preview">
                                 <img class="image__preview hidden" src="{{root}}/images/settings/blame.png" data-visibility="blame.compact =false"/>
                                 <img class="image__preview hidden" src="{{root}}/images/settings/blame-compact.png" data-visibility="blame.compact"/>
@@ -364,6 +491,7 @@
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/blame-heatmap-left.png" data-visibility="blame.heatmap.enabled &amp; blame.heatmap.location =left"/>
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/blame-heatmap-right.png" data-visibility="blame.heatmap.enabled &amp; blame.heatmap.location =right"/>
                             </div>
+
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
                                 For more advanced customizations open <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for <b><i>gitlens.blame</i></b>
@@ -389,6 +517,7 @@
                             </h2>
                             <p class="section__title-hint">Adds on-demand heatmap to the edge of the gutter to show the relative age of a line</p>
                         </div>
+
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting">
@@ -399,9 +528,11 @@
                                     </select>
                                 </div>
                             </div>
+
                             <div class="section__preview">
                                 <img class="image__preview" src="{{root}}/images/settings/heatmap.png"/>
                             </div>
+
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
                                 Use the
@@ -424,6 +555,7 @@
                             </h2>
                             <p class="section__title-hint">Adds detailed blame information accessible via hovers</p>
                         </div>
+
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting">
@@ -432,15 +564,18 @@
                                         <label for="hovers.enabled">Show blame hovers</label>
                                     </div>
                                 </div>
+
                                 <div class="settings-group__setting">
                                     <div class="settings-group__setting nowrap ml-2 hidden" data-visibility="currentLine.enabled" data-enablement="hovers.enabled" disabled>
                                         <input class="setting" id="hovers.currentLine.enabled" name="hovers.currentLine.enabled" type="checkbox" disabled/>
                                         <label for="hovers.currentLine.enabled">Show hovers for the current line</label>
                                     </div>
+
                                     <div class="settings-group__setting nowrap ml-2 hidden" data-visibility="currentLine.enabled =false" data-enablement="hovers.enabled" disabled>
                                         <input class="setting" id="hovers.currentLine.enabled-1" name="hovers.currentLine.enabled" type="checkbox" data-add-settings-on="hovers.currentLine.over=line" disabled/>
                                         <label for="hovers.currentLine.enabled-1">Show hovers for the current line</label>
                                     </div>
+
                                     <div class="settings-group__setting ml-4 hidden" data-visibility="currentLine.enabled" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled" disabled>
                                         <label for="hovers.currentLine.over">Shown when over the</label>
                                         <select class="setting" id="hovers.currentLine.over" name="hovers.currentLine.over" disabled>
@@ -448,6 +583,7 @@
                                             <option value="line">line &amp; annotation</option>
                                         </select>
                                     </div>
+
                                     <div class="settings-group__setting ml-4 hidden" data-visibility="currentLine.enabled =false" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled &amp; currentLine.enabled" disabled>
                                         <label for="hovers.currentLine.over">Shown when over the</label>
                                         <select class="setting" id="hovers.currentLine.over" name="hovers.currentLine.over" disabled>
@@ -461,6 +597,7 @@
                                         <input class="setting" id="hovers.currentLine.details" name="hovers.currentLine.details" type="checkbox" disabled/>
                                         <label for="hovers.currentLine.details">Add blame details</label>
                                     </div>
+
                                     <div class="settings-group__setting nowrap ml-4" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled"
                                         disabled>
                                         <input class="setting" id="hovers.currentLine.changes" name="hovers.currentLine.changes" type="checkbox" disabled/>
@@ -468,6 +605,7 @@
                                     </div>
                                 </div>
                             </div>
+
                             <div class="section__preview mb-2">
                                 <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine-line.png" data-visibility="hovers.currentLine.over =line"/>
                                 <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine-line.png" data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation"/>
@@ -484,12 +622,14 @@
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-annotation-details.png" data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false"/>
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-annotation-changes.png" data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details =false &amp; hovers.currentLine.changes"/>
                             </div>
+
                             <div class="settings-group">
                                 <div class="settings-group__setting">
                                     <div class="settings-group__setting nowrap ml-2" data-enablement="hovers.enabled" disabled>
                                         <input class="setting" id="hovers.annotations.enabled" name="hovers.annotations.enabled" type="checkbox" disabled/>
                                         <label for="hovers.annotations.enabled">Show hovers while annotating</label>
                                     </div>
+
                                     <div class="settings-group__setting nowrap ml-4" data-enablement="hovers.enabled &amp; hovers.annotations.enabled" disabled>
                                         <label for="hovers.annotations.over">Shown when over the</label>
                                         <select class="setting" id="hovers.annotations.over" name="hovers.annotations.over" disabled>
@@ -503,6 +643,7 @@
                                         <input class="setting" id="hovers.annotations.details" name="hovers.annotations.details" type="checkbox" disabled/>
                                         <label for="hovers.annotations.details">Add blame details</label>
                                     </div>
+
                                     <div class="settings-group__setting nowrap ml-4" data-enablement="hovers.enabled &amp; hovers.annotations.enabled"
                                         disabled>
                                         <input class="setting" id="hovers.annotations.changes" name="hovers.annotations.changes" type="checkbox" disabled/>
@@ -510,6 +651,7 @@
                                     </div>
                                 </div>
                             </div>
+
                             <div class="section__preview">
                                 <img class="image__preview hidden" src="{{root}}/images/settings/hovers-annotations.png" data-visibility="blame.compact =false"/>
                                 <img class="image__preview hidden" src="{{root}}/images/settings/hovers-annotations-compact.png" data-visibility="blame.compact"/>
@@ -530,6 +672,7 @@
                             </h2>
                             <p class="section__title-hint">Adds on-demand recent changes annotations to highlight lines changed by the most recent commit</p>
                         </div>
+
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting">
@@ -544,21 +687,25 @@
                                     <input class="setting" id="recentChanges.highlight.locations" name="recentChanges.highlight.locations" type="checkbox" value="gutter" data-type="array"/>
                                     <label for="recentChanges.highlight.locations">Add gutter highlight</label>
                                 </div>
+
                                 <div class="settings-group__setting nowrap">
                                     <input class="setting" id="recentChanges.highlight.locations-1" name="recentChanges.highlight.locations" type="checkbox" value="line" data-type="array"/>
                                     <label for="recentChanges.highlight.locations-1">Add line highlight</label>
                                 </div>
+
                                 <div class="settings-group__setting nowrap">
                                     <input class="setting" id="recentChanges.highlight.locations-2" name="recentChanges.highlight.locations" type="checkbox" value="overview" data-type="array"/>
                                     <label for="recentChanges.highlight.locations-2">Add scroll bar highlight</label>
                                 </div>
                             </div>
+
                             <div class="section__preview">
                                 <img class="image__preview" src="{{root}}/images/settings/recent-changes.png"/>
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/recent-changes-highlight-gutter.png" data-visibility="recentChanges.highlight.locations +gutter"/>
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/recent-changes-highlight-line.png" data-visibility="recentChanges.highlight.locations +line"/>
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/recent-changes-highlight-scrollbar.png" data-visibility="recentChanges.highlight.locations +overview"/>
                             </div>
+
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
                                 Use the
@@ -581,12 +728,41 @@
                             </h2>
                             <p class="section__title-hint">Adds a Git blame annotation about the current line to the status bar</p>
                         </div>
+
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
                                     <input class="setting" id="statusBar.enabled" name="statusBar.enabled" type="checkbox"/>
                                     <label for="statusBar.enabled">Show a Git blame annotation for the current line in the status bar</label>
                                 </div>
+
+                                <div class="settings-group__setting nowrap ml-2" data-enablement="statusBar.enabled" disabled>
+                                    <label for="statusBar.format">Annotation&nbsp;format</label>
+                                    <input class="setting" id="statusBar.format" name="statusBar.format" type="text"
+                                        placeholder="&dollar;&lbrace;authorAgoOrDate&rbrace;"
+                                        data-default-value="&dollar;&lbrace;authorAgoOrDate&rbrace;"
+                                        data-popup-trigger disabled/>
+                                    <label for="statusBar.format" title="See available tokens">
+                                        <i class="icon icon__info"></i>
+                                    </label>
+                                    <div id="statusBar.format.popup" class="popup hidden">
+                                        <h3 class="token-popup__title">Available Tokens</h3>
+                                        <table class="token-popup__table">
+                                            <tbody>
+                                                <tr><td>Commit Id</td><td><span class="token" data-token="id">id</span></td></tr>
+                                                <tr><td>Commit Author</td><td><span class="token" data-token="author">author</span></td></tr>
+                                                <tr><td>Commit Message</td><td><span class="token" data-token="message">message</span></td></tr>
+                                                <tr><td>Commit Date<br/><i>Relative, e.g. 1 day ago</i></td><td><span class="token" data-token="ago">ago</span></td></tr>
+                                                <tr><td>Commit Date<br/><i>Absolute, e.g. August 8th, 2016 10:48am</i></td><td><span class="token" data-token="date">date</span></td></tr>
+                                                <tr><td>Commit Date<br/><i>Relative or absolute based on date setting</i></td><td><span class="token" data-token="agoOrDate">agoOrDate</span></td></tr>
+                                                <tr><td>Commit Author, Commit Date<br/><i>Relative date</i></td><td><span class="token" data-token="authorAgo">authorAgo</span></td></tr>
+                                                <tr><td>Commit Author, Commit Date<br/><i>Relative or absolute date</i></td><td><span class="token" data-token="authorAgoOrDate">authorAgoOrDate</span></td></tr>
+                                            </tbody>
+                                        </table>
+                                        <span class="token-popup__hint"><i class="icon icon__info"></i><a href="https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting" title="Open advanced formatting docs">Learn more</a> about advanced formatting options</span>
+                                    </div>
+                                </div>
+
                                 <div class="settings-group__setting ml-2" data-enablement="statusBar.enabled" disabled>
                                     <label for="statusBar.alignment">Position the annotation on the</label>
                                     <select class="setting" id="statusBar.alignment" name="statusBar.alignment" disabled>
@@ -594,6 +770,7 @@
                                         <option value="right">right</option>
                                     </select>
                                 </div>
+
                                 <div class="settings-group__setting ml-2" data-enablement="statusBar.enabled" disabled>
                                     <label for="statusBar.command">When clicked</label>
                                     <select class="setting" id="statusBar.command" name="statusBar.command" disabled>
@@ -607,17 +784,20 @@
                                         <option value="gitlens.showQuickRepoHistory">shows the current branch history</option>
                                     </select>
                                 </div>
+
                                 <div class="settings-group__setting nowrap ml-2" data-enablement="statusBar.enabled" disabled>
                                     <input class="setting" id="statusBar.reduceFlicker" name="statusBar.reduceFlicker" type="checkbox" disabled/>
                                     <label for="statusBar.reduceFlicker">Reduce flashing when updating the annotation</label>
                                 </div>
                                 <p class="setting__hint">Avoids clearing the previous blame information when changing lines to reduce status bar "flashing"</p>
                             </div>
+
                             <div class="section__preview">
                                 <img class="image__preview" src="{{root}}/images/settings/status-bar.png"/>
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/status-bar-left.png" data-visibility="statusBar.enabled &amp; statusBar.alignment =left"/>
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/status-bar-right.png" data-visibility="statusBar.enabled &amp; statusBar.alignment =right"/>
                             </div>
+
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
                                 For more advanced customizations open <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for <b><i>gitlens.statusBar</i></b>
@@ -628,46 +808,13 @@
                             </p>
                         </div>
                     </section>
-
-                    <section id="shortcuts">
-                        <div class="section__header">
-                            <h2 class="section__title">Keyboard Shortcuts</h2>
-                            <p class="section__title-hint">Search for
-                                <b>
-                                    <i>gitlens</i>
-                                </b> in the
-                                <a class="command" title="Open Keyboard Shortcuts" href="command:workbench.action.openGlobalKeybindings">Keyboard Shortcuts</a> editor to see the shortcuts and to customize them further</p>
-                        </div>
-                        <div class="section__settings">
-                            <div class="settings-group">
-                                <label for="keymap">Use</label>
-                                <select class="setting" id="keymap" name="keymap">
-                                    <option value="alternate">alt-based</option>
-                                    <option value="chorded">chorded (default)</option>
-                                    <option value="none">user-defined</option>
-                                </select>
-                                <label for="keymap"> keyboard shortcuts</label>
-                                <span class="label__hint hidden" data-visibility="keymap =alternate">
-                                    <span class="shortcut-key">Alt</span> based (<span class="shortcut-key">&#x2325;</span> on macOS) shortcuts.
-                                    Not great for non-English keyboard layouts
-                                </span>
-                                <span class="label__hint hidden" data-visibility="keymap =chorded">
-                                    Chorded shortcuts that start with
-                                    <span class="shortcut-key">Ctrl+Shift+G</span> (<span class="shortcut-key">&#x2325;&#x2318;G</span> on macOS).
-                                    Better for non-English keyboard layouts
-                                </span>
-                                <span class="label__hint hidden" data-visibility="keymap =none">
-                                    GitLens won't bind any keyboard shortcuts. Configure your own via the
-                                    <a class="command" title="Open Keyboard Shortcuts" href="command:workbench.action.openGlobalKeybindings">Keyboard Shortcuts</a> editor</span>
-                            </div>
-                        </div>
-                    </section>
                 </div>
 
                 <div class="section-group__sidebar section-group__sidebar--settings">
                     <div class="sidebar-group">
                         <h2>Jump to</h2>
                         <ul>
+                            <li><a href="#general">General</a></li>
                             <li><a href="#gitlens-explorer">GitLens Explorer</a></li>
                             <li><a href="#gitlens-results">GitLens Results</a></li>
                             <li><a href="#code-lens">Code Lens</a></li>
@@ -677,7 +824,6 @@
                             <li><a href="#hovers">Hovers</a></li>
                             <li><a href="#recent-changes">Recent Changes</a></li>
                             <li><a href="#status-bar">Status Bar Blame</a></li>
-                            <li><a href="#shortcuts">Keyboard Shortcuts</a></li>
                         </ul>
                     </div>
                     <div class="sidebar-group">
