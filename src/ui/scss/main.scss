@@ -113,7 +113,7 @@ button {
     margin: 0;
 }
 
-input[type="checkbox"] {
+input[type=checkbox] {
     background: none;
     border: none;
     cursor: pointer;
@@ -132,7 +132,8 @@ input[type="checkbox"] {
     }
 }
 
-input[type="text"] {
+input[type=text],
+input:not([type]) {
     background: none;
     border: 1px solid var(--color);
     color: var(--color);
@@ -828,7 +829,7 @@ ul {
     margin-bottom: 0.75em;
     position: relative;
 
-    & input[type="checkbox"] {
+    & input[type=checkbox] {
         flex: 16px 0 0;
         height: 16px;
         margin: 0 0.75em 0 0;

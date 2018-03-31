@@ -45,14 +45,14 @@ export abstract class App {
     protected initialize() {
         this.log(`${this._appName}.initializeState`);
 
-        for (const el of document.querySelectorAll<HTMLInputElement>('input[type="checkbox"].setting')) {
+        for (const el of document.querySelectorAll<HTMLInputElement>('input[type=checkbox].setting')) {
             const checked = el.dataset.type === 'array'
                 ? (getSettingValue<string[]>(el.name) || []).includes(el.value)
                 : getSettingValue<boolean>(el.name) || false;
             el.checked = checked;
         }
 
-        for (const el of document.querySelectorAll<HTMLInputElement>('input[type="text"].setting')) {
+        for (const el of document.querySelectorAll<HTMLInputElement>('input[type=text].setting, input:not([type]).setting')) {
             el.value = getSettingValue<string>(el.name) || '';
         }
 
@@ -71,13 +71,13 @@ export abstract class App {
 
     protected bind() {
         const onInputChecked = this.onInputChecked.bind(this);
-        DOM.listenAll('input[type="checkbox"].setting', 'change', function(this: HTMLInputElement) { return onInputChecked(this, ...arguments); });
+        DOM.listenAll('input[type=checkbox].setting', 'change', function(this: HTMLInputElement) { return onInputChecked(this, ...arguments); });
 
         const onInputBlurred = this.onInputBlurred.bind(this);
-        DOM.listenAll('input[type="text"].setting', 'blur', function(this: HTMLInputElement) { return onInputBlurred(this, ...arguments); });
+        DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'blur', function(this: HTMLInputElement) { return onInputBlurred(this, ...arguments); });
 
         const onInputFocused = this.onInputFocused.bind(this);
-        DOM.listenAll('input[type="text"].setting', 'focus', function(this: HTMLInputElement) { return onInputFocused(this, ...arguments); });
+        DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'focus', function(this: HTMLInputElement) { return onInputFocused(this, ...arguments); });
 
         const onInputSelected = this.onInputSelected.bind(this);
         DOM.listenAll('select.setting', 'change', function(this: HTMLInputElement) { return onInputSelected(this, ...arguments); });
@@ -181,7 +181,7 @@ export abstract class App {
         const setting = element.closest('.settings-group__setting');
         if (setting == null) return;
 
-        const input = setting.querySelector<HTMLInputElement>('input[type="text"]');
+        const input = setting.querySelector<HTMLInputElement>('input[type=text], input:not([type])');
         if (input == null) return;
 
         input.value += `\${${element.dataset.token}}`;
