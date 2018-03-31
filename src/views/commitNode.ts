@@ -52,7 +52,7 @@ export class CommitNode extends ExplorerRefNode {
         } as ICommitFormatOptions);
 
         if (this.trackingRef === this.commit.sha) {
-            label = `${GlyphChars.ArrowHeadRight} ${label}`;
+            label = `${GlyphChars.AngleBracketLeftHeavy}${GlyphChars.SpaceThin}${this.branch!.tracking!}${GlyphChars.SpaceThin}${GlyphChars.AngleBracketRightHeavy}${GlyphChars.ArrowHeadRight}${GlyphChars.Space} ${label}`;
         }
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 
@@ -72,7 +72,7 @@ export class CommitNode extends ExplorerRefNode {
         item.tooltip = CommitFormatter.fromTemplate(
             this.commit.isUncommitted
                 ? `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})`
-                : `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})\n\n\${message}`,
+                : `\${author} ${GlyphChars.Dash} \${id}${this.trackingRef === this.commit.sha ? ` (${this.branch!.tracking!})` : ''}\n\${ago} (\${date})\n\n\${message}`,
             this.commit,
             {
                 dataFormat: Container.config.defaultDateFormat

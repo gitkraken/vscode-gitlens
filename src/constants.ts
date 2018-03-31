@@ -74,6 +74,8 @@ export function isTextEditor(editor: TextEditor): boolean {
 }
 
 export enum GlyphChars {
+    AngleBracketLeftHeavy = '\u2770',
+    AngleBracketRightHeavy = '\u2771',
     ArrowBack = '\u21a9',
     ArrowDown = '\u2193',
     ArrowDropRight = '\u2937',
@@ -103,6 +105,7 @@ export enum GlyphChars {
     MuchLessThan = '\u22D8',
     Pencil = '\u270E',
     Space = '\u00a0',
+    SpaceThin = '\u2009',
     SquareWithBottomShadow = '\u274F',
     SquareWithTopShadow = '\u2750',
     ZeroWidthSpace = '\u200b'
