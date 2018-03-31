@@ -14,7 +14,7 @@
 
 # What's new in GitLens 8
 ## 8.2 &mdash; April 2018
-- Adds new *GitLens History* explorer to explore the history of the current file &mdash; same as the history view in the *GitLens* explorer when undocked
+- Adds new stand-alone *GitLens History* explorer to visualize the history of the current file &mdash; undocked version of the *GitLens* explorer history view
 - Adds richer tooltips to the *GitLens* explorer and *GitLens Results* view, and richer working tree and upstream status to the *GitLens* explorer
 - Adds an indicator to the *GitLens* explorer's branch history to mark the synchronization point between the local and remote branch (if available)
 - Adds ability to easily switch between relative and absolute dates via the `gitlens.defaultDateStyle` settings &mdash; closes [#312](https://github.com/eamodio/vscode-gitlens/issues/312)
@@ -197,7 +197,7 @@ The history view provides the revision history of the current file, which has th
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-history-explorer.png" alt="GitLens History Explorer" />
 </p>
 
-A [customizable](#gitlens-history-explorer-settings "Jump to the GitLens History Explorer settings") explorer to explore the history of the current file. This is same as the history view in the *GitLens* Explorer when undocked
+A [customizable](#gitlens-history-explorer-settings "Jump to the GitLens History Explorer settings") stand-alone explorer to visualize the history of the current file &mdash; undocked version of the *GitLens* Explorer history view
 - Automatically updates to track the current editor
 - A context menu provides *Open File*, *Open File in Remote* (if available), and *Refresh* commands
 - An inline toolbar provides an *Open File* command

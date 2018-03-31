@@ -4,23 +4,43 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [8.2.0-beta] - 2018-03-26
+## [8.2.0] - 2018-03-31
 ### Added
-- Adds new *GitLens History* explorer to explore the history of the current file &mdash; same as the history view in the *GitLens* explorer when undocked
+- Adds new stand-alone *GitLens History* explorer to visualize the history of the current file &mdash; undocked version of the *GitLens* explorer history view
 
   ![GitLens History explorer](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-history-explorer.png)
 
-- Adds rich tooltip details to the *GitLens* explorer and *GitLens Results* view
-  - Adds richer working tree and upstream status information to branches in the *GitLens* explorer
+- Adds richer tooltips to the *GitLens* explorer and *GitLens Results* view, and richer working tree and upstream status to the *GitLens* explorer
+
+  ![Rich tooltips](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-rich-tooltips.png)
+
 - Adds an indicator to the *GitLens* explorer's branch history to mark the synchronization point between the local and remote branch (if available)
-- Adds a one-time notification on startup if the `alt-based` keyboard shortcuts are in use, with options to easily switch to another set
+
+  ![Branch upstream indicator](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-branch-upstream-indicator.png)
+
 - Adds ability to easily switch between relative and absolute dates via the `gitlens.defaultDateStyle` settings &mdash; closes [#312](https://github.com/eamodio/vscode-gitlens/issues/312)
   - Adds `${agoOrDate}` and `${authorAgoOrDate}` tokens to `gitlens.blame.format`, `gitlens.currentLine.format`, `gitlens.explorers.commitFormat`, `gitlens.explorers.stashFormat`, and `gitlens.statusBar.format` settings which will honor the `gitlens.defaultDateStyle` setting
-- Adds `gitlens.currentLine.scrollable` setting to specify whether the current line blame annotation can be scrolled into view when it is outside the viewport &mdash; closes [#149](https://github.com/eamodio/vscode-gitlens/issues/149), [#290](https://github.com/eamodio/vscode-gitlens/issues/290), [#265](https://github.com/eamodio/vscode-gitlens/issues/265)
+
+  ![General settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-general-settings.png)
+
+- Adds annotation format settings (`gitlens.*.format`) to the interactive settings editor
+
+  ![Annotation format settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-annotation-format.png)
+
+- Adds new `gitlens.currentLine.scrollable` setting to specify whether the current line blame annotation can be scrolled into view when it is outside the viewport &mdash; closes [#149](https://github.com/eamodio/vscode-gitlens/issues/149), [#290](https://github.com/eamodio/vscode-gitlens/issues/290), [#265](https://github.com/eamodio/vscode-gitlens/issues/265)
+
+  ![Allow scrolling to annotation setting](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-current-line-scrollable.png)
+
+- Adds `gitlens.statusBar.reduceFlicker` setting to the interactive settings editor
+
+  ![Reduce status bar flashing setting](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-status-bar-reduce-flashing.png)
+
+- Adds a one-time notification on startup if the `alt-based` keyboard shortcuts are in use, with options to easily switch to another set
 - Adds *Copy Commit ID to Clipboard* (`gitlens.copyShaToClipboard`) command to changed file nodes in the *GitLens* explorer and *GitLens Results* view
 - Adds *Copy Commit Message to Clipboard* (`gitlens.copyMessageToClipboard`) command to changed file nodes in the *GitLens* explorer and *GitLens Results* view
 
 ### Changed
+- Moves *Keyboard Settings* to the *General* section of the interactive settings editor
 - Renames *Compare with Index (HEAD)* (`gitlens.explorers.compareWithHead`) command to *Compare with HEAD* &mdash; closes [#309](https://github.com/eamodio/vscode-gitlens/issues/309)
 - Renames *Compare Index (HEAD) with Branch or Tag...* (`gitlens.diffHeadWithBranch`) command to *Compare HEAD with Branch or Tag...* &mdash; closes [#309](https://github.com/eamodio/vscode-gitlens/issues/309)
 

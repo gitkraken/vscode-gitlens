@@ -1,6 +1,6 @@
 {
     "name": "gitlens",
-    "version": "8.2.0-beta",
+    "version": "8.2.0",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -3049,7 +3049,7 @@
     },
     "devDependencies": {
         "@types/copy-paste": "1.1.30",
-        "@types/node": "9.6.0",
+        "@types/node": "9.6.1",
         "@types/tmp": "0.0.33",
         "husky": "0.14.3",
         "ts-loader": "4.1.0",
@@ -3058,7 +3058,7 @@
         "uglify-es": "3.3.9",
         "uglifyjs-webpack-plugin": "1.2.4",
         "vscode": "1.1.14",
-        "webpack": "4.3.0",
+        "webpack": "4.4.1",
         "webpack-cli": "2.0.13",
         "webpack-node-externals": "1.6.0"
     }

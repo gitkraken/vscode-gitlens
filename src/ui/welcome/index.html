@@ -46,32 +46,46 @@
                             <div class="changelog__details"></div>
                         </li>
                         <li><span class="changelog__badge changelog__badge--added">NEW</span>
-                            Adds new <i>GitLens History</i> explorer to explore the history of the current file &mdash; same as the history view in the <i>GitLens</i> explorer when undocked
+                            Adds new stand-alone <i>GitLens History</i> explorer to visualize the history of the current file &mdash; undocked version of the <i>GitLens</i> explorer history view
                             <div class="changelog__details">
                                 <img class="changelog__image" src="{{root}}/images/cl-history-explorer.png" alt="GitLens History explorer"/>
                             </div>
                         </li>
                         <li><span class="changelog__badge changelog__badge--added">NEW</span>
-                            Adds rich tooltip details to the <i>GitLens</i> explorer and <i>GitLens Results</i> view
+                            Adds richer tooltips to the <i>GitLens</i> explorer and <i>GitLens Results</i> view, and richer working tree and upstream status to the <i>GitLens</i> explorer
                             <div class="changelog__details">
-                            <!-- <img class="changelog__image" src="{{root}}/images/cl-issue-linking.png" alt="Issue linking in commit messages"/> -->
+                                <img class="changelog__image" src="{{root}}/images/cl-rich-tooltips.png" alt="Richer tooltips and working tree and upstream status"/>
                             </div>
                         </li>
                         <li><span class="changelog__badge changelog__badge--added">NEW</span>
-                            Adds richer working tree and upstream status information to branches in the <i>GitLens</i> explorer
-                            <div class="changelog__details"></div>
-                        </li>
-                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
                             Adds an indicator to the <i>GitLens</i> explorer's branch history to mark the synchronization point between the local and remote branch (if available)
-                            <div class="changelog__details"></div>
+                            <div class="changelog__details">
+                                <img class="changelog__image" src="{{root}}/images/cl-branch-upstream-indicator.png" alt="Branch upstream indicator"/>
+                            </div>
                         </li>
                         <li><span class="changelog__badge changelog__badge--added">NEW</span>
                             Adds ability to easily switch between relative and absolute dates via the <code>gitlens.defaultDateStyle</code> settings &mdash; closes <a title="Open Issue #312" href="https://github.com/eamodio/vscode-gitlens/issues/312">#312</a>
-                            <div class="changelog__details"></div>
+                            <div class="changelog__details">
+                                <img class="changelog__image" src="{{root}}/images/cl-general-settings.png" alt="General settings"/>
+                            </div>
                         </li>
                         <li><span class="changelog__badge changelog__badge--added">NEW</span>
-                            Adds <code>gitlens.currentLine.scrollable</code> setting to specify whether the current line blame annotation can be scrolled into view when it is outside the viewport &mdash; closes <a title="Open Issue #149" href="https://github.com/eamodio/vscode-gitlens/issues/149">#149</a>, <a title="Open Issue #290" href="https://github.com/eamodio/vscode-gitlens/issues/290">#290</a>, <a title="Open Issue #265" href="https://github.com/eamodio/vscode-gitlens/issues/265">#265</a>
-                            <div class="changelog__details"></div>
+                            Adds annotation format settings (<code>gitlens.*.format</code>) to the interactive settings editor
+                            <div class="changelog__details">
+                                <img class="changelog__image" src="{{root}}/images/cl-annotation-format.png" alt="Annotation format settings"/>
+                            </div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds new <code>gitlens.currentLine.scrollable</code> setting to specify whether the current line blame annotation can be scrolled into view when it is outside the viewport &mdash; closes <a title="Open Issue #149" href="https://github.com/eamodio/vscode-gitlens/issues/149">#149</a>, <a title="Open Issue #290" href="https://github.com/eamodio/vscode-gitlens/issues/290">#290</a>, <a title="Open Issue #265" href="https://github.com/eamodio/vscode-gitlens/issues/265">#265</a>
+                            <div class="changelog__details">
+                                <img class="changelog__image" src="{{root}}/images/cl-current-line-scrollable.png" alt="Allow scrolling to annotation setting"/>
+                            </div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds <code>gitlens.statusBar.reduceFlicker</code> setting to the interactive settings editor
+                            <div class="changelog__details">
+                                <img class="changelog__image" src="{{root}}/images/cl-status-bar-reduce-flashing.png" alt="Reduce status bar flashing setting"/>
+                            </div>
                         </li>
                         <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
                             Fixes <a title="Open Issue #314" href="https://github.com/eamodio/vscode-gitlens/issues/314">#314</a> &mdash; Toggle line annotation doesn't work properly
