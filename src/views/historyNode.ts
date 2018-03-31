@@ -1,9 +1,8 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../container';
-import { ExplorerNode, ResourceType } from './explorerNode';
+import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { FileHistoryNode } from './fileHistoryNode';
-import { GitExplorer } from './gitExplorer';
 import { GitUri, Repository } from '../gitService';
 
 export class HistoryNode extends ExplorerNode {
@@ -11,7 +10,7 @@ export class HistoryNode extends ExplorerNode {
     constructor(
         uri: GitUri,
         private readonly repo: Repository,
-        private readonly explorer: GitExplorer
+        private readonly explorer: Explorer
     ) {
         super(uri);
     }

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [8.2.0-beta] - 2018-03-26
 ### Added
+- Adds new *GitLens History* explorer to explore the history of the current file &mdash; same as the history view in the *GitLens* explorer when undocked
+
+  ![GitLens History explorer](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-history-explorer.png)
+
 - Adds rich tooltip details to the *GitLens* explorer and *GitLens Results* view
   - Adds richer working tree and upstream status information to branches in the *GitLens* explorer
 - Adds an indicator to the *GitLens* explorer's branch history to mark the synchronization point between the local and remote branch (if available)

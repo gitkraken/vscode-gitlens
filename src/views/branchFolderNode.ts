@@ -1,6 +1,6 @@
 'use strict';
 import { Arrays, Objects } from '../system';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchNode } from './branchNode';
 // import { Container } from '../container';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
@@ -37,7 +37,7 @@ export class BranchFolderNode extends ExplorerNode {
     async getTreeItem(): Promise<TreeItem> {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.Folder;
-        item.resourceUri = this.explorer.folderResourceUri;
+        item.iconPath = ThemeIcon.Folder;
         item.tooltip = this.label;
         return item;
     }

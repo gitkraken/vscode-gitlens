@@ -5,6 +5,7 @@ import { Container } from '../container';
 import { RefreshNodeCommandArgs } from './explorerCommands';
 import { GitUri } from '../gitService';
 import { GitExplorer } from './gitExplorer';
+import { HistoryExplorer } from './historyExplorer';
 import { ResultsExplorer } from './resultsExplorer';
 
 export interface NamedRef {
@@ -61,7 +62,7 @@ export enum ResourceType {
     Tags = 'gitlens:tags'
 }
 
-export type Explorer = GitExplorer | ResultsExplorer;
+export type Explorer = GitExplorer | HistoryExplorer | ResultsExplorer;
 
 // let id = 0;
 

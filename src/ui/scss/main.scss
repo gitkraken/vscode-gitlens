@@ -853,15 +853,7 @@ ul {
 .setting__hint {
     color: var(--color--50);
     font-size: 0.9em;
-    margin: -1em 0 1em 3em;
-}
-
-.setting__hint--indent-2 {
-    margin-left: 5em;
-}
-
-.setting__hint--indent-4 {
-    margin-left: 7em;
+    margin: -1em 0 1em 1em;
 }
 
 .settings-scope {
@@ -906,6 +898,10 @@ ul {
 
 .ml-2 {
     margin-left: 2em;
+}
+
+.ml-3 {
+    margin-left: 3em;
 }
 
 .ml-4 {

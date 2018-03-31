@@ -128,11 +128,16 @@
                                     <label for="gitExplorer.enabled">Show the GitLens explorer</label>
                                 </div>
 
-                                <div class="settings-group__setting ml-2" data-enablement="gitExplorer.enabled" disabled>
+                                <div class="settings-group__setting ml-2" data-enablement="gitExplorer.enabled &amp; historyExplorer.enabled =false" disabled>
                                     <label for="gitExplorer.view">When opened, show the</label>
-                                    <select class="setting" id="gitExplorer.view" name="gitExplorer.view" disabled>
+                                    <select class="setting hidden" id="gitExplorer.view" name="gitExplorer.view" data-visibility="historyExplorer.enabled =false" disabled>
                                         <option value="auto">last selected view</option>
                                         <option value="repository">Repository view</option>
+                                        <option value="history">History view</option>
+                                    </select>
+                                    <select class="setting hidden" id="gitExplorer.view-undocked" name="!gitExplorer.view" data-visibility="historyExplorer.enabled" disabled>
+                                        <option value="auto">last selected view</option>
+                                        <option value="repository" selected>Repository view</option>
                                         <option value="history">History view</option>
                                     </select>
                                 </div>
@@ -153,13 +158,13 @@
                                         <option value="tree">as a tree</option>
                                     </select>
                                 </div>
-                                <p class="setting__hint hidden" data-visibility="gitExplorer.files.layout =auto">Chooses the best layout based on the number of files at each nesting level</p>
+                                <p class="setting__hint ml-3 hidden" data-visibility="gitExplorer.files.layout =auto">Chooses the best layout based on the number of files at each nesting level</p>
 
                                 <div class="settings-group__setting nowrap ml-2" data-enablement="gitExplorer.enabled" disabled>
                                     <input class="setting" id="gitExplorer.files.compact" name="gitExplorer.files.compact" type="checkbox" disabled/>
                                     <label for="gitExplorer.files.compact">Use compact layout</label>
                                 </div>
-                                <p class="setting__hint setting__hint--indent-1">Compacts (flattens) unnecessary nesting when using a tree layouts</p>
+                                <p class="setting__hint ml-3">Compacts (flattens) unnecessary nesting when using a tree layouts</p>
 
                                 <div class="settings-group__setting nowrap ml-2" data-enablement="gitExplorer.enabled" disabled>
                                     <input class="setting" id="gitExplorer.avatars" name="explorers.avatars" type="checkbox" disabled/>
@@ -175,15 +180,56 @@
                                 <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; gitExplorer.files.layout !tree"/>
                                 <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository-tree-compact.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact"/>
                                 <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository-tree.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact =false"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-repository-avatars.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; explorers.avatars =true"/>
 
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-history.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-history-avatars.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; explorers.avatars =true"/>
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled &amp; gitExplorer.files.layout !tree"/>
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository-tree-compact.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact"/>
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository-tree.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact =false"/>
+
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-repository-avatars.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; explorers.avatars"/>
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-repository-avatars.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled &amp; explorers.avatars"/>
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-repository-history-docked.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; historyExplorer.enabled =false"/>
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-repository-history-undocked.png" data-visibility="gitExplorer.enabled &amp; historyExplorer.enabled"/>
+
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-history.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled =false"/>
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-history-avatars.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled =false &amp; explorers.avatars"/>
                             </div>
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
                                 For more advanced customizations open <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for <b><i>gitlens.gitExplorer</i></b> or <b><i>gitlens.explorers</i></b>
                             </p>
+                        </div>
+                    </section>
+
+                    <section id="gitlens-history-explorer">
+                        <div class="section__header">
+                            <h2 class="section__title">GitLens History Explorer
+                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#gitlens-history-explorer">
+                                    <i class="icon icon__info"></i>
+                                </a>
+                            </h2>
+                            <p class="section__title-hint">Adds a GitLens History explorer to explore the history of the current file</p>
+                        </div>
+                        <div class="section__settings">
+                            <div class="settings-group">
+                                <div class="settings-group__setting nowrap">
+                                    <input class="setting" id="historyExplorer.enabled" name="historyExplorer.enabled" type="checkbox"/>
+                                    <label for="historyExplorer.enabled">Show the GitLens History explorer</label>
+                                </div>
+                                <p class="setting__hint hidden" data-visibility="gitExplorer.enabled &amp; historyExplorer.enabled =false">The current file history will be shown docked within the GitLens explorer</p>
+
+                                <div class="settings-group__setting nowrap ml-2" data-enablement="historyExplorer.enabled" disabled>
+                                    <input class="setting" id="historyExplorer.avatars" name="explorers.avatars" type="checkbox" disabled/>
+                                    <label for="historyExplorer.avatars">Use author avatars icons</label>
+                                </div>
+                            </div>
+                            <div class="section__preview">
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-history-explorer.png" data-visibility="historyExplorer.enabled"/>
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-history-explorer-close.png" data-visibility="historyExplorer.enabled &amp; gitExplorer.enabled =false"/>
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-history-avatars.png" data-visibility="historyExplorer.enabled &amp; explorers.avatars"/>
+
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-history.png" data-visibility="gitExplorer.enabled &amp; historyExplorer.enabled =false"/>
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-history-avatars.png" data-visibility="gitExplorer.enabled &amp; historyExplorer.enabled =false &amp; explorers.avatars"/>
+                            </div>
                         </div>
                     </section>
 
@@ -211,7 +257,7 @@
                                     <input class="setting" id="resultsExplorer.files.compact" name="resultsExplorer.files.compact" type="checkbox"/>
                                     <label for="resultsExplorer.files.compact">Use compact layout</label>
                                 </div>
-                                <p class="setting__hint setting__hint">Compacts (flattens) unnecessary nesting when using a tree layouts</p>
+                                <p class="setting__hint">Compacts (flattens) unnecessary nesting when using a tree layouts</p>
 
                                 <div class="settings-group__setting nowrap">
                                     <input class="setting" id="resultsExplorer.avatars" name="explorers.avatars" type="checkbox"/>
@@ -223,7 +269,7 @@
                                 <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-results.png" data-visibility="resultsExplorer.files.layout !tree"/>
                                 <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-results-tree-compact.png" data-visibility="resultsExplorer.files.layout =tree &amp; resultsExplorer.files.compact"/>
                                 <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-results-tree.png" data-visibility="resultsExplorer.files.layout =tree &amp; resultsExplorer.files.compact =false"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-results-avatars.png" data-visibility="explorers.avatars =true"/>
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-results-avatars.png" data-visibility="explorers.avatars"/>
                             </div>
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
@@ -370,7 +416,7 @@
                                     <input class="setting" id="currentLine.scrollable" name="currentLine.scrollable" type="checkbox" disabled/>
                                     <label for="currentLine.scrollable">Include the annotation when scrolling the editor horizontally</label>
                                 </div>
-                                <p class="setting__hint">When enabled the annotation can be scrolled into view when it is outside the viewport</p>
+                                <p class="setting__hint ml-3">When enabled the annotation can be scrolled into view when it is outside the viewport</p>
                             </div>
 
                             <div class="section__preview">
@@ -789,7 +835,7 @@
                                     <input class="setting" id="statusBar.reduceFlicker" name="statusBar.reduceFlicker" type="checkbox" disabled/>
                                     <label for="statusBar.reduceFlicker">Reduce flashing when updating the annotation</label>
                                 </div>
-                                <p class="setting__hint">Avoids clearing the previous blame information when changing lines to reduce status bar "flashing"</p>
+                                <p class="setting__hint ml-3">Avoids clearing the previous blame information when changing lines to reduce status bar "flashing"</p>
                             </div>
 
                             <div class="section__preview">
@@ -816,6 +862,7 @@
                         <ul>
                             <li><a href="#general">General</a></li>
                             <li><a href="#gitlens-explorer">GitLens Explorer</a></li>
+                            <li><a href="#gitlens-history-explorer">GitLens History Explorer</a></li>
                             <li><a href="#gitlens-results">GitLens Results</a></li>
                             <li><a href="#code-lens">Code Lens</a></li>
                             <li><a href="#current-line">Current Line Blame</a></li>

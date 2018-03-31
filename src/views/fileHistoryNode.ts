@@ -1,10 +1,9 @@
 'use strict';
 import { Iterables } from '../system';
-import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { Container } from '../container';
-import { ExplorerNode, MessageNode, ResourceType } from './explorerNode';
-import { GitExplorer } from './gitExplorer';
+import { Explorer, ExplorerNode, MessageNode, ResourceType } from './explorerNode';
 import { GitCommitType, GitLogCommit, GitService, GitUri, Repository, RepositoryChange, RepositoryChangeEvent } from '../gitService';
 import { Logger } from '../logger';
 
@@ -13,7 +12,7 @@ export class FileHistoryNode extends ExplorerNode {
     constructor(
         uri: GitUri,
         private readonly repo: Repository,
-        private readonly explorer: GitExplorer
+        private readonly explorer: Explorer
     ) {
         super(uri);
     }
@@ -85,36 +84,13 @@ export class FileHistoryNode extends ExplorerNode {
     }
 
     private updateSubscription() {
-        // We only need to subscribe if auto-refresh is enabled, because if it becomes enabled we will be refreshed
-        if (this.explorer.autoRefresh) {
-            this.disposable = this.disposable || Disposable.from(
-                this.explorer.onDidChangeAutoRefresh(this.onAutoRefreshChanged, this),
-                this.repo.onDidChange(this.onRepoChanged, this)
-                // Container.gitContextTracker.onDidChangeBlameability(this.onBlameabilityChanged, this)
-            );
-        }
-        else if (this.disposable !== undefined) {
-            this.disposable.dispose();
-            this.disposable = undefined;
-        }
+        this.disposable = this.disposable || this.repo.onDidChange(this.onRepoChanged, this);
     }
-
-    private onAutoRefreshChanged() {
-        this.updateSubscription();
-    }
-
-    // private onBlameabilityChanged(e: BlameabilityChangeEvent) {
-    //     if (!e.blameable || e.reason !== BlameabilityChangeReason.DocumentChanged) return;
-
-    //     // Logger.log(`RepositoryNode.onBlameabilityChanged(${e.reason}); triggering node refresh`);
-
-    //     this.explorer.refreshNode(this);
-    // }
 
     private onRepoChanged(e: RepositoryChangeEvent) {
         if (!e.changed(RepositoryChange.Repository)) return;
 
-        Logger.log(`RepositoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
+        Logger.log(`FileHistoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
 
         this.explorer.refreshNode(this);
     }

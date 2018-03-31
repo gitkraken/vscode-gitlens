@@ -472,7 +472,7 @@
                         "history",
                         "repository"
                     ],
-                    "description": "Specifies the starting view (mode) of the `GitLens` explorer\n `auto` - shows the last selected view, defaults to `repository`\n `history` - shows the commit history of the active file\n `repository` - shows a repository explorer",
+                    "description": "Specifies the starting view of the `GitLens` explorer\n `auto` - shows the last selected view, defaults to `repository`\n `history` - shows the commit history of the current file\n `repository` - shows a repository explorer",
                     "scope": "window"
                 },
                 "gitlens.heatmap.toggleMode": {
@@ -483,6 +483,12 @@
                         "window"
                     ],
                     "description": "Specifies how the gutter heatmap annotations will be toggled\n `file` - toggle each file individually\n `window` - toggle the window, i.e. all files at once",
+                    "scope": "window"
+                },
+                "gitlens.historyExplorer.enabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Specifies whether to show the current file history undocked in a `GitLens History` explorer",
                     "scope": "window"
                 },
                 "gitlens.hovers.annotations.changes": {
@@ -1555,6 +1561,15 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.gitExplorer.undockHistory",
+                "title": "Undock History from GitLens Explorer",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-undock.svg",
+                    "light": "images/light/icon-undock.svg"
+                }
+            },
+            {
                 "command": "gitlens.gitExplorer.refresh",
                 "title": "Refresh",
                 "category": "GitLens",
@@ -1620,6 +1635,48 @@
                     "dark": "images/dark/icon-repo.svg",
                     "light": "images/light/icon-repo.svg"
                 }
+            },
+            {
+                "command": "gitlens.historyExplorer.close",
+                "title": "Close",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-close.svg",
+                    "light": "images/light/icon-close.svg"
+                }
+            },
+            {
+                "command": "gitlens.historyExplorer.dock",
+                "title": "Dock History to GitLens Explorer",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-dock.svg",
+                    "light": "images/light/icon-dock.svg"
+                }
+            },
+            {
+                "command": "gitlens.historyExplorer.refresh",
+                "title": "Refresh",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-refresh.svg",
+                    "light": "images/light/icon-refresh.svg"
+                }
+            },
+            {
+                "command": "gitlens.historyExplorer.refreshNode",
+                "title": "Refresh",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.historyExplorer.setRenameFollowingOn",
+                "title": "Follow Renames",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.historyExplorer.setRenameFollowingOff",
+                "title": "Don't Follow Renames",
+                "category": "GitLens"
             },
             {
                 "command": "gitlens.resultsExplorer.clearResultsNode",
@@ -2044,11 +2101,39 @@
                 },
                 {
                     "command": "gitlens.gitExplorer.switchToHistoryView",
-                    "when": "gitlens:enabled && gitlens:gitExplorer:view == repository"
+                    "when": "gitlens:enabled && !gitlens:historyExplorer && gitlens:gitExplorer:view == repository"
                 },
                 {
                     "command": "gitlens.gitExplorer.switchToRepositoryView",
-                    "when": "gitlens:enabled &&  gitlens:gitExplorer:view == history"
+                    "when": "gitlens:enabled && !gitlens:historyExplorer && gitlens:gitExplorer:view == history"
+                },
+                {
+                    "command": "gitlens.gitExplorer.undockHistory",
+                    "when": "gitlens:enabled && !gitlens:historyExplorer"
+                },
+                {
+                    "command": "gitlens.historyExplorer.close",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.historyExplorer.dock",
+                    "when": "gitlens:enabled && gitlens:historyExplorer"
+                },
+                {
+                    "command": "gitlens.historyExplorer.refresh",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.historyExplorer.refreshNode",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.historyExplorer.setRenameFollowingOn",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.historyExplorer.setRenameFollowingOff",
+                    "when": "false"
                 },
                 {
                     "command": "gitlens.resultsExplorer.clearResultsNode",
@@ -2321,19 +2406,24 @@
                     "group": "navigation@1"
                 },
                 {
-                    "command": "gitlens.gitExplorer.switchToHistoryView",
-                    "when": "view == gitlens.gitExplorer && gitlens:gitExplorer:view == repository",
+                    "command": "gitlens.gitExplorer.undockHistory",
+                    "when": "view == gitlens.gitExplorer && gitlens:gitExplorer:view == history && !gitlens:historyExplorer",
                     "group": "navigation@2"
                 },
                 {
+                    "command": "gitlens.gitExplorer.switchToHistoryView",
+                    "when": "view == gitlens.gitExplorer && !gitlens:historyExplorer && gitlens:gitExplorer:view == repository",
+                    "group": "navigation@3"
+                },
+                {
                     "command": "gitlens.gitExplorer.switchToRepositoryView",
-                    "when": "view == gitlens.gitExplorer && gitlens:gitExplorer:view == history",
+                    "when": "view == gitlens.gitExplorer && !gitlens:historyExplorer && gitlens:gitExplorer:view == history",
                     "group": "navigation@3"
                 },
                 {
                     "command": "gitlens.gitExplorer.refresh",
                     "when": "view == gitlens.gitExplorer",
-                    "group": "navigation@4"
+                    "group": "navigation@8"
                 },
                 {
                     "command": "gitlens.gitExplorer.setFilesLayoutToAuto",
@@ -2369,6 +2459,31 @@
                     "command": "gitlens.gitExplorer.setRenameFollowingOff",
                     "when": "view == gitlens.gitExplorer && gitlens:gitExplorer:view == history && config.gitlens.advanced.fileHistoryFollowsRenames",
                     "group": "2_gitlens_1"
+                },
+                {
+                    "command": "gitlens.historyExplorer.refresh",
+                    "when": "view == gitlens.historyExplorer",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "gitlens.historyExplorer.dock",
+                    "when": "view == gitlens.historyExplorer && gitlens:gitExplorer",
+                    "group": "navigation@9"
+                },
+                {
+                    "command": "gitlens.historyExplorer.close",
+                    "when": "view == gitlens.historyExplorer && !gitlens:gitExplorer",
+                    "group": "navigation@9"
+                },
+                {
+                    "command": "gitlens.historyExplorer.setRenameFollowingOn",
+                    "when": "view == gitlens.historyExplorer && !config.gitlens.advanced.fileHistoryFollowsRenames",
+                    "group": "1_gitlens"
+                },
+                {
+                    "command": "gitlens.historyExplorer.setRenameFollowingOff",
+                    "when": "view == gitlens.historyExplorer && config.gitlens.advanced.fileHistoryFollowsRenames",
+                    "group": "1_gitlens"
                 },
                 {
                     "command": "gitlens.showCommitSearch",
@@ -2694,12 +2809,17 @@
                 },
                 {
                     "command": "gitlens.gitExplorer.refreshNode",
-                    "when": "view =~ /gitlens\\.gitExplorer/ && viewItem =~ /gitlens:(?!file\\b)/",
+                    "when": "view == gitlens.gitExplorer && viewItem =~ /gitlens:(?!file\\b)/",
                     "group": "9_gitlens@1"
                 },
                 {
                     "command": "gitlens.resultsExplorer.refreshNode",
-                    "when": "view =~ /gitlens\\.resultsExplorer/ && viewItem =~ /gitlens:(?!file\\b)/",
+                    "when": "view == gitlens.resultsExplorer && viewItem =~ /gitlens:(?!file\\b)/",
+                    "group": "9_gitlens@1"
+                },
+                {
+                    "command": "gitlens.historyExplorer.refreshNode",
+                    "when": "view == gitlens.historyExplorer && viewItem =~ /gitlens:(?!file\\b)/",
                     "group": "9_gitlens@1"
                 }
             ]
@@ -2885,6 +3005,11 @@
                     "id": "gitlens.gitExplorer",
                     "name": "GitLens",
                     "when": "gitlens:enabled && gitlens:gitExplorer"
+                },
+                {
+                    "id": "gitlens.historyExplorer",
+                    "name": "GitLens History",
+                    "when": "gitlens:enabled && gitlens:historyExplorer"
                 },
                 {
                     "id": "gitlens.resultsExplorer",

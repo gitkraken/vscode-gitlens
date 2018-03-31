@@ -222,6 +222,10 @@ export interface IGitExplorerConfig {
     view: GitExplorerView;
 }
 
+export interface IHistoryExplorerConfig {
+    enabled: boolean;
+}
+
 export interface IResultsExplorerConfig {
     files: IExplorersFilesConfig;
 }
@@ -286,6 +290,8 @@ export interface IConfig {
     heatmap: {
         toggleMode: AnnotationsToggleMode;
     };
+
+    historyExplorer: IHistoryExplorerConfig;
 
     hovers: {
         annotations: {

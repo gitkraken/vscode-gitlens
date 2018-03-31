@@ -1,6 +1,6 @@
 'use strict';
 import { Arrays, Objects } from '../system';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerFilesLayout, IExplorersFilesConfig } from '../configuration';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { GitUri } from '../gitService';
@@ -63,7 +63,7 @@ export class FolderNode extends ExplorerNode {
         // TODO: Change this to expanded once https://github.com/Microsoft/vscode/issues/30918 is fixed
         const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.Folder;
-        item.resourceUri = this.explorer.folderResourceUri;
+        item.iconPath = ThemeIcon.Folder;
         item.tooltip = this.label;
         return item;
     }

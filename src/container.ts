@@ -12,6 +12,7 @@ import { GitExplorer } from './views/gitExplorer';
 import { GitLineTracker } from './trackers/gitLineTracker';
 import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { GitService } from './gitService';
+import { HistoryExplorer } from './views/historyExplorer';
 import { Keyboard } from './keyboard';
 import { PageProvider } from './pageProvider';
 import { ResultsExplorer } from './views/resultsExplorer';
@@ -47,6 +48,19 @@ export class Container {
                 if (configuration.changed(e, configuration.name('gitExplorer')('enabled').value)) {
                     disposable.dispose();
                     context.subscriptions.push(this._gitExplorer = new GitExplorer());
+                }
+            });
+        }
+
+        if (config.historyExplorer.enabled) {
+            context.subscriptions.push(this._historyExplorer = new HistoryExplorer());
+        }
+        else {
+            let disposable: Disposable;
+            disposable = configuration.onDidChange(e => {
+                if (configuration.changed(e, configuration.name('historyExplorer')('enabled').value)) {
+                    disposable.dispose();
+                    context.subscriptions.push(this._historyExplorer = new HistoryExplorer());
                 }
             });
         }
@@ -94,6 +108,15 @@ export class Container {
     private static _gitExplorer: GitExplorer | undefined;
     static get gitExplorer(): GitExplorer {
         return this._gitExplorer!;
+    }
+
+    private static _historyExplorer: HistoryExplorer | undefined;
+    static get historyExplorer() {
+        if (this._historyExplorer === undefined) {
+            this._context.subscriptions.push(this._historyExplorer = new HistoryExplorer());
+        }
+
+        return this._historyExplorer;
     }
 
     private static _keyboard: Keyboard;

@@ -40,6 +40,7 @@ export enum CommandContext {
     GitExplorerAutoRefresh = 'gitlens:gitExplorer:autoRefresh',
     GitExplorerView = 'gitlens:gitExplorer:view',
     HasRemotes = 'gitlens:hasRemotes',
+    HistoryExplorer = 'gitlens:historyExplorer',
     Key = 'gitlens:key',
     KeyMap = 'gitlens:keymap',
     ResultsExplorer = 'gitlens:resultsExplorer',
