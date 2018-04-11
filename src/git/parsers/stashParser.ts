@@ -84,35 +84,35 @@ export class GitStashParser {
                 case 102: // 'f': // files
                     // Skip the blank line git adds before the files
                     next = lines.next();
-                    if (next.done || next.value === '</f>') break;
+                    if (!next.done && next.value !== '</f>') {
+                        while (true) {
+                            next = lines.next();
+                            if (next.done) break;
 
-                    while (true) {
-                        next = lines.next();
-                        if (next.done) break;
+                            line = next.value;
+                            if (line === '</f>') break;
 
-                        line = next.value;
-                        if (line === '</f>') break;
+                            if (line.startsWith('warning:')) continue;
 
-                        if (line.startsWith('warning:')) continue;
+                            const status = {
+                                status: line[0] as GitStatusFileStatus,
+                                fileName: line.substring(1),
+                                originalFileName: undefined
+                            } as IGitStatusFile;
+                            GitLogParser.parseFileName(status);
 
-                        const status = {
-                            status: line[0] as GitStatusFileStatus,
-                            fileName: line.substring(1),
-                            originalFileName: undefined
-                        } as IGitStatusFile;
-                        GitLogParser.parseFileName(status);
-
-                        if (status.fileName) {
-                            if (entry.fileStatuses === undefined) {
-                                entry.fileStatuses = [];
+                            if (status.fileName) {
+                                if (entry.fileStatuses === undefined) {
+                                    entry.fileStatuses = [];
+                                }
+                                entry.fileStatuses.push(status);
                             }
-                            entry.fileStatuses.push(status);
                         }
-                    }
 
-                    if (entry.fileStatuses !== undefined) {
-                        entry.fileNames = Arrays.filterMap(entry.fileStatuses,
-                            f => !!f.fileName ? f.fileName : undefined).join(', ');
+                        if (entry.fileStatuses !== undefined) {
+                            entry.fileNames = Arrays.filterMap(entry.fileStatuses,
+                                f => !!f.fileName ? f.fileName : undefined).join(', ');
+                        }
                     }
 
                     let commit = commits.get(entry.ref!);
