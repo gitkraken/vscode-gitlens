@@ -239,19 +239,25 @@
                             ]
                         },
                         {
+                            "language": "python",
+                            "symbolScopes": [
+                                "!Module"
+                            ]
+                        },
+                        {
                             "language": "scss",
                             "scopes": [
                                 "document"
                             ]
                         },
                         {
-                            "language": "vue",
+                            "language": "stylus",
                             "scopes": [
                                 "document"
                             ]
                         },
                         {
-                            "language": "stylus",
+                            "language": "vue",
                             "scopes": [
                                 "document"
                             ]

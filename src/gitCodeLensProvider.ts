@@ -95,6 +95,14 @@ export class GitCodeLensProvider implements CodeLensProvider {
                 symbolScopes: cfg.symbolScopes
             } as CodeLensLanguageScope;
         }
+        else {
+            if (languageScope.scopes === undefined) {
+                languageScope.scopes = cfg.scopes;
+            }
+            if (languageScope.symbolScopes === undefined) {
+                languageScope.symbolScopes = cfg.symbolScopes;
+            }
+        }
 
         languageScope.symbolScopes = languageScope.symbolScopes != null
             ? languageScope.symbolScopes = languageScope.symbolScopes.map(s => s.toLowerCase())

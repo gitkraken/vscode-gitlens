@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Marks temporary files (used when showing comparisions with previous revisions) as read-only to help avoid accidental edits/saving
 
 ### Fixed
+- Fixes [#331](https://github.com/eamodio/vscode-gitlens/issues/331) - Code lens shows on every import in Python
 - Fixes issues where quick pick menu progress indicators will get stuck in some cases because of a vscode api change in [Microsoft/vscode#46102](https://github.com/Microsoft/vscode/pull/46102)
 
 ## [8.2.0] - 2018-03-31
