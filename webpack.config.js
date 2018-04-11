@@ -26,8 +26,7 @@ module.exports = function(env, argv) {
                 output: {
                     beautify: !minify,
                     comments: false
-                },
-                sourceMap: sourceMaps,
+                }
             }
         })
     ];

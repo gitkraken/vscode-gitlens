@@ -76,8 +76,7 @@ module.exports = function(env, argv) {
                     beautify: !minify,
                     comments: false,
                     ecma: 5
-                },
-                sourceMap: sourceMaps
+                }
             }
         })
     ];
@@ -124,7 +123,7 @@ module.exports = function(env, argv) {
             rules: [
                 {
                     test: /\.ts$/,
-                    use: 'ts-loader',
+                    use: [{ loader: 'ts-loader' }],
                     exclude: /node_modules/
                 },
                 {
