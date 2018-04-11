@@ -3032,7 +3032,7 @@
         "pub": "vsce publish",
         "rebuild": "npm run reset && npm run lint && tsc -m commonjs -p ./ && npm run build-ui",
         "reset": "npm run clean && npm install --no-save",
-        "watch": "tsc -watch -p ./",
+        "watch": "tsc -watch -m commonjs -p ./",
 
         "postinstall": "node ./node_modules/vscode/bin/install && pushd \"./src/ui\" && npm install --no-save && popd",
         "prepush": "npm run build",
@@ -3041,7 +3041,7 @@
     "dependencies": {
         "copy-paste": "1.3.0",
         "date-fns": "1.29.0",
-        "iconv-lite": "0.4.19",
+        "iconv-lite": "0.4.21",
         "lodash.debounce": "4.0.8",
         "lodash.once": "4.1.1",
         "tmp": "0.0.33",
@@ -3049,17 +3049,17 @@
     },
     "devDependencies": {
         "@types/copy-paste": "1.1.30",
-        "@types/node": "9.6.1",
+        "@types/node": "9.6.4",
         "@types/tmp": "0.0.33",
         "husky": "0.14.3",
-        "ts-loader": "4.1.0",
+        "ts-loader": "4.2.0",
         "tslint": "5.9.1",
         "typescript": "2.8.1",
         "uglify-es": "3.3.9",
         "uglifyjs-webpack-plugin": "1.2.4",
         "vscode": "1.1.14",
-        "webpack": "4.4.1",
-        "webpack-cli": "2.0.13",
-        "webpack-node-externals": "1.6.0"
+        "webpack": "4.5.0",
+        "webpack-cli": "2.0.14",
+        "webpack-node-externals": "1.7.2"
     }
 }
