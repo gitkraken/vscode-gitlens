@@ -85,7 +85,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
             return commands.executeCommand(Commands.DiffWith, diffArgs);
         }
         finally {
-            progressCancellation.dispose();
+            progressCancellation.cancel();
         }
     }
 }

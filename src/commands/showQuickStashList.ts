@@ -62,7 +62,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
             return window.showErrorMessage(`Unable to show stashed changes. See output channel for more details`);
         }
         finally {
-            progressCancellation.dispose();
+            progressCancellation.cancel();
         }
     }
 }

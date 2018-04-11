@@ -73,7 +73,7 @@ export class StashApplyCommand extends Command {
                 args.stashItem = pick.commit as GitStashCommit;
             }
             finally {
-                progressCancellation.dispose();
+                progressCancellation.cancel();
             }
         }
 

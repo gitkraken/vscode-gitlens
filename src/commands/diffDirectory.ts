@@ -93,7 +93,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
             return window.showErrorMessage(`Unable to open directory compare. See output channel for more details`);
         }
         finally {
-            progressCancellation && progressCancellation.dispose();
+            progressCancellation && progressCancellation.cancel();
         }
     }
 }

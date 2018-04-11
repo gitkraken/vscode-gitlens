@@ -83,7 +83,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
             return window.showErrorMessage(`Unable to show branch history. See output channel for more details`);
         }
         finally {
-            progressCancellation && progressCancellation.dispose();
+            progressCancellation && progressCancellation.cancel();
         }
     }
 }

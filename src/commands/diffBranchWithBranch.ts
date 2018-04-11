@@ -84,7 +84,7 @@ export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
             return window.showErrorMessage(`Unable to open branch compare. See output channel for more details`);
         }
         finally {
-            progressCancellation && progressCancellation.dispose();
+            progressCancellation && progressCancellation.cancel();
         }
     }
 }

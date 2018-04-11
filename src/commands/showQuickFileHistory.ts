@@ -107,7 +107,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
             return window.showErrorMessage(`Unable to show file history. See output channel for more details`);
         }
         finally {
-            progressCancellation.dispose();
+            progressCancellation.cancel();
         }
     }
 }

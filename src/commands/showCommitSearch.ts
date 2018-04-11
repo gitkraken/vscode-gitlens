@@ -160,7 +160,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
             return window.showErrorMessage(`Unable to find commits. See output channel for more details`);
         }
         finally {
-            progressCancellation.dispose();
+            progressCancellation.cancel();
         }
     }
 }

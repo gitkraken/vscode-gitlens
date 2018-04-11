@@ -247,7 +247,7 @@ export class ShowBranchesAndTagsQuickPickItem extends CommandQuickPickItem {
             return BranchesAndTagsQuickPick.show(branches, tags, this.placeHolder, { progressCancellation: progressCancellation, goBackCommand: this.goBackCommand });
         }
         finally {
-            progressCancellation.dispose();
+            progressCancellation.cancel();
         }
     }
 }
