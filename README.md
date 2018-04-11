@@ -32,6 +32,9 @@
 - Removes the unnecessary *Show Line Blame Annotations* (`gitlens.showLineBlame`) command &mdash; *Toggle Line Blame Annotations* (`gitlens.toggleLineBlame`) provides similar functionality
 - Removes *Open Working File* (`gitlens.openWorkingFile`) command from the editor toolbar when the built-in *Open File* command is visible
 - Removes *Compare with HEAD* (`gitlens.explorers.compareWithHead`), *Compare with Working Tree* (`gitlens.explorers.compareWithWorking`), and *Compare Compare Ancestry with Working Tree* (`gitlens.explorers.compareAncestryWithWorking`) commands from the current branch since comparing a branch with itself doesn't make sense &mdash; closes [#309](https://github.com/eamodio/vscode-gitlens/issues/309)
+- Fixes [#320](https://github.com/eamodio/vscode-gitlens/issues/320) - Stashes with a single untracked file created with "stash push" aren't shown in the GitLens explorer
+- Fixes [#331](https://github.com/eamodio/vscode-gitlens/issues/331) - Code lens shows on every import in Python
+- Fixes issues where quick pick menu progress indicators will get stuck in some cases because of a vscode api change in [Microsoft/vscode#46102](https://github.com/Microsoft/vscode/pull/46102)
 - Fixes [#314](https://github.com/eamodio/vscode-gitlens/issues/314) - Toggle line annotation doesn't work properly
 - Fixes [#310](https://github.com/eamodio/vscode-gitlens/issues/310) - "via Terminal" commands need quoting around work directory
 - Fixes issues with the active repository in the *GitLens* explorer failed to update properly
