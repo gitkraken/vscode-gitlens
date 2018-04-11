@@ -196,7 +196,10 @@ export class Git {
                             return;
                         }
 
-                        resolve(destination);
+                        const ReadOnly = 0o100444; // 33060 0b1000000100100100
+                        fs.chmod(destination, ReadOnly, err => {
+                            resolve(destination);
+                        });
                     });
                 });
         });
