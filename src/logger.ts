@@ -53,11 +53,11 @@ export class Logger {
 
     static error(ex: Error, classOrMethod?: string, ...params: any[]): void {
         if (this.debug) {
-            console.error(this.timestamp, ConsolePrefix, classOrMethod, ex, ...params);
+            console.error(this.timestamp, ConsolePrefix, classOrMethod, ...params, ex);
         }
 
         if (this.output !== undefined && this.level !== OutputLevel.Silent) {
-            this.output.appendLine((this.debug ? [this.timestamp, classOrMethod, ex, ...params] : [classOrMethod, ex, ...params]).join(' '));
+            this.output.appendLine((this.debug ? [this.timestamp, classOrMethod, ...params, ex] : [classOrMethod, ...params, ex]).join(' '));
         }
 
         // Telemetry.trackException(ex);
@@ -80,12 +80,12 @@ export class Logger {
 
     static gitOutput: OutputChannel | undefined;
 
-    static logGitCommand(command: string, cwd: string): void {
+    static logGitCommand(command: string, cwd: string, ex?: Error): void {
         if (this.level !== OutputLevel.Debug) return;
 
         if (this.gitOutput === undefined) {
             this.gitOutput = window.createOutputChannel(`${ExtensionOutputChannelName} (Git)`);
         }
-        this.gitOutput.appendLine(`${this.timestamp} ${command} (${cwd})`);
+        this.gitOutput.appendLine(`${this.timestamp} ${command} (${cwd})${ex === undefined ? '' : `\n\n${ex.toString()}`}`);
     }
 }

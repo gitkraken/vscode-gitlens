@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### Added
+- Adds better logging for failed git commands
+
 ### Changed
 - Marks temporary files (used when showing comparisions with previous revisions) as read-only to help avoid accidental edits/saving
 

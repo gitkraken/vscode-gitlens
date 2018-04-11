@@ -106,17 +106,22 @@ async function gitCommandCore(options: CommandOptions & { readonly correlationKe
     }
 
     let data: string;
+    let exception: Error | undefined;
     try {
         data = await promise;
+    }
+    catch (ex) {
+        exception = ex;
+        throw ex;
     }
     finally {
         pendingCommands.delete(command);
 
         const duration = process.hrtime(start);
-        const completedIn = `in ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`;
+        const completedIn = `${exception === undefined ? 'Completed' : 'FAILED'} in ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`;
 
-        Logger.log(`Completed${command} ${completedIn}`);
-        Logger.logGitCommand(`${gitCommand} ${completedIn}`, runOpts.cwd!);
+        Logger.log(`${exception === undefined ? 'Completed' : 'FAILED'}${command} ${completedIn}`);
+        Logger.logGitCommand(`${gitCommand} ${completedIn}`, runOpts.cwd!, exception);
     }
 
     if (encoding === 'utf8' || encoding === 'binary') return data;
@@ -129,13 +134,13 @@ function gitCommandDefaultErrorHandler(ex: Error, options: CommandOptions, ...ar
     if (msg) {
         for (const warning of Objects.values(GitWarnings)) {
             if (warning.test(msg)) {
-                Logger.warn('git', ...args, `  cwd='${options.cwd}'`, `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
+                Logger.warn('git', ...args, `  cwd='${options.cwd}'\n\n  `, msg.replace(/\r?\n|\r/g, ' '));
                 return '';
             }
         }
     }
 
-    Logger.error(ex, 'git', ...args, `  cwd='${options.cwd}'`, msg && `\n  ${msg.replace(/\r?\n|\r/g, ' ')}`);
+    Logger.error(ex, 'git', ...args, `  cwd='${options.cwd}'\n\n  `);
     throw ex;
 }
 
