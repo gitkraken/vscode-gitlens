@@ -4,7 +4,44 @@ import { GitRemoteType } from '../models/remote';
 import { RemoteProvider } from '../remotes/factory';
 
 const remoteRegex = /^(.*)\t(.*)\s\((.*)\)$/gm;
-const urlRegex = /^(?:git:\/\/(.*?)\/|https:\/\/(.*?)\/|http:\/\/(.*?)\/|git@(.*):|ssh:\/\/(?:.*@)?(.*?)(?::.*?)?\/)(.*)$/;
+const urlRegex = /^(?:git:\/\/(.*?)\/|https?:\/\/(?:.*?@)?(.*?)\/|git@(.*):|ssh:\/\/(?:.*@)?(.*?)(?::.*?)?\/|(?:.*?@)(.*?):)(.*)$/;
+
+// Test git urls
+/*
+http://host.xz/user/project.git
+http://host.xz/path/to/repo.git
+http://host.xz/path/to/repo.git/
+http://username@host.xz/user/project.git
+http://username:password@host.xz/user/project.git
+https://host.xz/user/project.git
+https://host.xz/path/to/repo.git
+https://host.xz/path/to/repo.git/
+https://username@host.xz/user/project.git
+https://username:password@host.xz/user/project.git
+
+git@host.xz:user/project.git
+git://host.xz/path/to/repo.git/
+git://host.xz/~user/path/to/repo.git/
+
+ssh://host.xz/project.git
+ssh://host.xz/path/to/repo.git
+ssh://host.xz/path/to/repo.git/
+ssh://host.xz:port/path/to/repo.git/
+ssh://user@host.xz/project.git
+ssh://user@host.xz/path/to/repo.git
+ssh://user@host.xz/path/to/repo.git/
+ssh://user@host.xz:port/path/to/repo.git/
+ssh://user:password@host.xz/project.git
+ssh://user:password@host.xz/path/to/repo.git
+ssh://user:password@host.xz/path/to/repo.git/
+
+user@host.xz:project.git
+user@host.xz:path/to/repo.git
+user@host.xz:/path/to/repo.git/
+user:password@host.xz:project.git
+user:password@host.xz:/path/to/repo.git
+user:password@host.xz:/path/to/repo.git/
+*/
 
 export class GitRemoteParser {
 
