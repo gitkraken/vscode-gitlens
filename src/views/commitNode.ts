@@ -17,7 +17,7 @@ export class CommitNode extends ExplorerRefNode {
         public readonly commit: GitLogCommit,
         private readonly explorer: Explorer,
         public readonly branch?: GitBranch,
-        private readonly trackingRef?: string
+        private readonly getBranchTips?: (sha: string) => string | undefined
     ) {
         super(commit.toGitUri());
     }
@@ -51,9 +51,11 @@ export class CommitNode extends ExplorerRefNode {
             dataFormat: Container.config.defaultDateFormat
         } as ICommitFormatOptions);
 
-        if (this.trackingRef === this.commit.sha) {
-            label = `${GlyphChars.AngleBracketLeftHeavy}${GlyphChars.SpaceThin}${this.branch!.tracking!}${GlyphChars.SpaceThin}${GlyphChars.AngleBracketRightHeavy}${GlyphChars.ArrowHeadRight}${GlyphChars.Space} ${label}`;
+        const branchTips = this.getBranchTips && this.getBranchTips(this.commit.sha);
+        if (branchTips !== undefined) {
+            label = `${GlyphChars.AngleBracketLeftHeavy}${GlyphChars.SpaceThin}${branchTips}${GlyphChars.SpaceThin}${GlyphChars.AngleBracketRightHeavy}${GlyphChars.ArrowHeadRight}${GlyphChars.Space} ${label}`;
         }
+
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 
         item.contextValue = (this.branch === undefined || this.branch.current)
@@ -72,7 +74,7 @@ export class CommitNode extends ExplorerRefNode {
         item.tooltip = CommitFormatter.fromTemplate(
             this.commit.isUncommitted
                 ? `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})`
-                : `\${author} ${GlyphChars.Dash} \${id}${this.trackingRef === this.commit.sha ? ` (${this.branch!.tracking!})` : ''}\n\${ago} (\${date})\n\n\${message}`,
+                : `\${author} ${GlyphChars.Dash} \${id}${branchTips !== undefined ? ` (${branchTips})` : ''}\n\${ago} (\${date})\n\n\${message}`,
             this.commit,
             {
                 dataFormat: Container.config.defaultDateFormat

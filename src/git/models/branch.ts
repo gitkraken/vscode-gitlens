@@ -4,7 +4,6 @@ import { GlyphChars } from '../../constants';
 
 export class GitBranch {
 
-    readonly current: boolean;
     readonly name: string;
     readonly remote: boolean;
     readonly tracking?: string;
@@ -16,7 +15,8 @@ export class GitBranch {
     constructor(
         public readonly repoPath: string,
         branch: string,
-        current: boolean = false,
+        public readonly current: boolean = false,
+        public readonly sha?: string,
         tracking?: string,
         ahead: number = 0,
         behind: number = 0
@@ -29,9 +29,8 @@ export class GitBranch {
             this.remote = false;
         }
 
-        this.current = current;
         this.name = branch;
-        this.tracking = tracking === '' || tracking == null ? undefined : tracking;
+        this.tracking = (tracking === '' || tracking == null) ? undefined : tracking;
         this.state = {
             ahead: ahead,
             behind: behind

@@ -17,7 +17,7 @@ export class GitBranchParser {
             if (match == null) break;
 
             const [ahead, behind] = this.parseState(match[5]);
-            branches.push(new GitBranch(repoPath, match[2], match[1] === '*', match[4], ahead, behind));
+            branches.push(new GitBranch(repoPath, match[2], match[1] === '*', match[3], match[4], ahead, behind));
         } while (match != null);
 
         if (!branches.length) return undefined;

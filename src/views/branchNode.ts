@@ -1,5 +1,5 @@
 'use strict';
-import { Iterables } from '../system';
+import { Arrays, Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitNode } from './commitNode';
 import { ExplorerBranchesLayout } from '../configuration';
@@ -40,12 +40,18 @@ export class BranchNode extends ExplorerRefNode {
         const log = await Container.git.getLog(this.uri.repoPath!, { maxCount: this.maxCount, ref: this.branch.name });
         if (log === undefined) return [new MessageNode('No commits yet')];
 
-        let trackingRef: string | undefined = undefined;
-        if (this.branch.tracking !== undefined) {
-            trackingRef = await Container.git.getMergeBase(this.uri.repoPath!, this.branch.name, this.branch.tracking);
-        }
+        const branches = await Container.git.getBranches(this.uri.repoPath);
+        // Get the sha length, since `git branch` can return variable length shas
+        const shaLength = branches[0].sha!.length;
+        const branchesBySha = Arrays.groupByFilterMap(branches, b => b.sha!, b => b.name === this.branch.name ? undefined : b.name);
 
-        const children: (CommitNode | ShowAllNode)[] = [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer, this.branch, trackingRef))];
+        const getBranchTips = (sha: string) => {
+            const branches = branchesBySha.get(sha.substr(0, shaLength));
+            if (branches === undefined || branches.length === 0) return undefined;
+            return branches.join(', ');
+        };
+
+        const children: (CommitNode | ShowAllNode)[] = [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer, this.branch, getBranchTips))];
         if (log.truncated) {
             children.push(new ShowAllNode('Show All Commits', this, this.explorer));
         }

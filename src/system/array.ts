@@ -40,6 +40,29 @@ export namespace Arrays {
         }, Object.create(null));
     }
 
+    export function groupByMap<TKey, TValue>(source: TValue[], accessor: (item: TValue) => TKey): Map<TKey, TValue[]> {
+        return source.reduce((groupings, current) => {
+            const value = accessor(current);
+            const group = groupings.get(value) || [];
+            groupings.set(value, group);
+            group.push(current);
+            return groupings;
+        }, new Map<TKey, TValue[]>());
+    }
+
+    export function groupByFilterMap<TKey, TValue, TMapped>(source: TValue[], accessor: (item: TValue) => TKey, predicateMapper: (item: TValue) => TMapped | null | undefined): Map<TKey, TMapped[]> {
+        return source.reduce((groupings, current) => {
+            const mapped = predicateMapper(current);
+            if (mapped != null) {
+                const value = accessor(current);
+                const group = groupings.get(value) || [];
+                groupings.set(value, group);
+                group.push(mapped);
+            }
+            return groupings;
+        }, new Map<TKey, TMapped[]>());
+    }
+
     export interface IHierarchicalItem<T> {
         name: string;
         relativePath: string;

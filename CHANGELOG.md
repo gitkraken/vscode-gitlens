@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Added
+- Adds an indicator to the *GitLens* explorer's branch history to mark the the tips of all branches
+
+### Fixed
+- Fixes issue where username and/or password in a remote urls could be shown
+
 ## [8.2.1] - 2018-04-11
 ### Added
 - Adds better logging for failed git commands
