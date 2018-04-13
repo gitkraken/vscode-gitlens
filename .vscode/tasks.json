@@ -49,10 +49,14 @@
             "group": "build"
         },
         {
+            "label": "watch",
             "type": "npm",
             "script": "watch",
             "isBackground": true,
-            "problemMatcher": "$tsc-watch"
+            "problemMatcher": [
+                "$tsc-watch"
+            ],
+            "group": "build"
         }
     ]
 }
