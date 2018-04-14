@@ -4,7 +4,7 @@ import { GitRemoteType } from '../models/remote';
 import { RemoteProvider } from '../remotes/factory';
 
 const remoteRegex = /^(.*)\t(.*)\s\((.*)\)$/gm;
-const urlRegex = /^(?:git:\/\/(.*?)\/|https?:\/\/(?:.*?@)?(.*?)\/|git@(.*):|ssh:\/\/(?:.*@)?(.*?)(?::.*?)?\/|(?:.*?@)(.*?):)(.*)$/;
+const urlRegex = /^(?:(git:\/\/)(.*?)\/|(https?:\/\/)(?:.*?@)?(.*?)\/|git@(.*):|(ssh:\/\/)(?:.*@)?(.*?)(?::.*?)?\/|(?:.*?@)(.*?):)(.*)$/;
 
 // Test git urls
 /*
@@ -58,12 +58,12 @@ export class GitRemoteParser {
 
             const url = match[2];
 
-            const [domain, path] = this.parseGitUrl(url);
+            const [scheme, domain, path] = this.parseGitUrl(url);
 
             const uniqueness = `${domain}/${path}`;
             let remote: GitRemote | undefined = groups[uniqueness];
             if (remote === undefined) {
-                remote = new GitRemote(repoPath, match[1], domain, path, providerFactory(domain, path), [{ url: url, type: match[3] as GitRemoteType }]);
+                remote = new GitRemote(repoPath, match[1], scheme, domain, path, providerFactory(domain, path), [{ url: url, type: match[3] as GitRemoteType }]);
                 remotes.push(remote);
                 groups[uniqueness] = remote;
             }
@@ -77,13 +77,14 @@ export class GitRemoteParser {
         return remotes;
     }
 
-    static parseGitUrl(url: string): [string, string] {
+    static parseGitUrl(url: string): [string, string, string] {
         const match = urlRegex.exec(url);
-        if (match == null) return ['', ''];
+        if (match == null) return ['', '', ''];
 
         return [
-            match[1] || match[2] || match[3] || match[4] || match[5],
-            match[6].replace(/\.git\/?$/, '')
+            match[1] || match[3] || match[6],
+            match[2] || match[4] || match[5] || match[7] || match[8],
+            match[9].replace(/\.git\/?$/, '')
         ];
     }
 }

@@ -11,6 +11,7 @@ export class GitRemote {
     constructor(
         public readonly repoPath: string,
         public readonly name: string,
+        public readonly scheme: string,
         public readonly domain: string,
         public readonly path: string,
         public readonly provider: RemoteProvider | undefined,
