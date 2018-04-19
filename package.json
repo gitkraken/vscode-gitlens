@@ -3033,7 +3033,7 @@
         "build-ui": "webpack --context ./src/ui --config ./src/ui/webpack.config.js",
         "bundle": "npm run lint && webpack --env.production --context ./src/ui --config ./src/ui/webpack.config.js && webpack --env.production",
         "clean": "git clean -Xdf",
-        "lint": "tslint --project tslint.json",
+        "lint": "tslint --project tsconfig.json",
         "pack": "vsce package",
         "pub": "vsce publish",
         "rebuild": "npm run reset && npm run lint && tsc -m commonjs -p ./ && npm run build-ui",
