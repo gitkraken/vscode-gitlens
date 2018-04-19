@@ -103,6 +103,7 @@ export enum StatusBarCommand {
 
 export interface IAdvancedConfig {
     blame: {
+        customArguments: string[] | null;
         delayAfterEdit: number;
         sizeThresholdAfterEdit: number;
     };

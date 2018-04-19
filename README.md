@@ -691,6 +691,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 
 |Name | Description
 |-----|------------
+|`gitlens.advanced.blame.customArguments`|Specifies additional arguments to pass to the `git blame` command
 |`gitlens.advanced.blame.delayAfterEdit`|Specifies the time (in milliseconds) to wait before re-blaming an unsaved document after an edit. Use 0 to specify an infinite wait
 |`gitlens.advanced.blame.sizeThresholdAfterEdit`|Specifies the maximum document size (in lines) allowed to be re-blamed after an edit while still unsaved. Use 0 to specify no maximum
 |`gitlens.advanced.caching.enabled`|Specifies whether git output will be cached &mdash; changing the default is not recommended

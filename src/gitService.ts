@@ -456,7 +456,15 @@ export class GitService extends Disposable {
         const [file, root] = Git.splitPath(uri.fsPath, uri.repoPath, false);
 
         try {
-            const data = await Git.blame(root, file, uri.sha, { ignoreWhitespace: Container.config.blame.ignoreWhitespace });
+            const data = await Git.blame(
+                root,
+                file,
+                uri.sha,
+                {
+                    args: Container.config.advanced.blame.customArguments,
+                    ignoreWhitespace: Container.config.blame.ignoreWhitespace
+                }
+            );
             const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUsername(root));
             return blame;
         }
@@ -525,7 +533,16 @@ export class GitService extends Disposable {
         const [file, root] = Git.splitPath(uri.fsPath, uri.repoPath, false);
 
         try {
-            const data = await Git.blame_contents(root, file, contents, { correlationKey: `:${key}`, ignoreWhitespace: Container.config.blame.ignoreWhitespace });
+            const data = await Git.blame_contents(
+                root,
+                file,
+                contents,
+                {
+                    args: Container.config.advanced.blame.customArguments,
+                    correlationKey: `:${key}`,
+                    ignoreWhitespace: Container.config.blame.ignoreWhitespace
+                }
+            );
             const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUsername(root));
             return blame;
         }
@@ -575,7 +592,17 @@ export class GitService extends Disposable {
         const fileName = uri.fsPath;
 
         try {
-            const data = await Git.blame(uri.repoPath, fileName, uri.sha, { ignoreWhitespace: Container.config.blame.ignoreWhitespace, startLine: lineToBlame, endLine: lineToBlame });
+            const data = await Git.blame(
+                uri.repoPath,
+                fileName,
+                uri.sha,
+                {
+                    args: Container.config.advanced.blame.customArguments,
+                    ignoreWhitespace: Container.config.blame.ignoreWhitespace,
+                    startLine: lineToBlame,
+                    endLine: lineToBlame
+                }
+            );
             const blame = GitBlameParser.parse(data, uri.repoPath, fileName, await this.getCurrentUsername(uri.repoPath!));
             if (blame === undefined) return undefined;
 
@@ -617,7 +644,17 @@ export class GitService extends Disposable {
         const fileName = uri.fsPath;
 
         try {
-            const data = await Git.blame_contents(uri.repoPath, fileName, contents, { ignoreWhitespace: Container.config.blame.ignoreWhitespace, startLine: lineToBlame, endLine: lineToBlame });
+            const data = await Git.blame_contents(
+                uri.repoPath,
+                fileName,
+                contents,
+                {
+                    args: Container.config.advanced.blame.customArguments,
+                    ignoreWhitespace: Container.config.blame.ignoreWhitespace,
+                    startLine: lineToBlame,
+                    endLine: lineToBlame
+                }
+            );
             const currentUser = await this.getCurrentUsername(uri.repoPath!);
             const blame = GitBlameParser.parse(data, uri.repoPath, fileName, currentUser);
             if (blame === undefined) return undefined;

@@ -267,7 +267,7 @@ export class Git {
 
     // Git commands
 
-    static async blame(repoPath: string | undefined, fileName: string, sha?: string, options: { ignoreWhitespace?: boolean, startLine?: number, endLine?: number } = {}) {
+    static async blame(repoPath: string | undefined, fileName: string, sha?: string, options: { args?: string[] | null, ignoreWhitespace?: boolean, startLine?: number, endLine?: number } = {}) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const params = [...defaultBlameParams];
@@ -277,6 +277,9 @@ export class Git {
         }
         if (options.startLine != null && options.endLine != null) {
             params.push(`-L ${options.startLine},${options.endLine}`);
+        }
+        if (options.args != null) {
+            params.push(...options.args);
         }
 
         let stdin;
@@ -296,7 +299,7 @@ export class Git {
         return gitCommand({ cwd: root, stdin: stdin }, ...params, '--', file);
     }
 
-    static async blame_contents(repoPath: string | undefined, fileName: string, contents: string, options: { correlationKey?: string, ignoreWhitespace?: boolean, startLine?: number, endLine?: number } = {}) {
+    static async blame_contents(repoPath: string | undefined, fileName: string, contents: string, options: { args?: string[] | null, correlationKey?: string, ignoreWhitespace?: boolean, startLine?: number, endLine?: number } = {}) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const params = [...defaultBlameParams];
@@ -306,6 +309,9 @@ export class Git {
         }
         if (options.startLine != null && options.endLine != null) {
             params.push(`-L ${options.startLine},${options.endLine}`);
+        }
+        if (options.args != null) {
+            params.push(...options.args);
         }
 
         // Pipe the blame contents to stdin

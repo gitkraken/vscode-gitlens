@@ -809,6 +809,12 @@
                     "description": "Specifies the string to be shown in place of the `authors` code lens when there are unsaved changes",
                     "scope": "window"
                 },
+                "gitlens.advanced.blame.customArguments": {
+                    "type": "string[]",
+                    "default": null,
+                    "description": "Specifies additional arguments to pass to the `git blame` command",
+                    "scope": "resource"
+                },
                 "gitlens.advanced.blame.delayAfterEdit": {
                     "type": "number",
                     "default": 5000,
