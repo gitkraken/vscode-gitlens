@@ -50,15 +50,15 @@ const stashFormat = [
 const defaultStashParams = ['stash', 'list', '--name-status', '-M', `--format=${stashFormat}`];
 
 const GitWarnings = {
-    notARepository: /Not a git repository/,
-    outsideRepository: /is outside repository/,
-    noPath: /no such path/,
-    noCommits: /does not have any commits/,
-    notFound: /Path \'.*?\' does not exist in/,
-    foundButNotInRevision: /Path \'.*?\' exists on disk, but not in/,
-    headNotABranch: /HEAD does not point to a branch/,
-    noUpstream: /no upstream configured for branch \'(.*?)\'/,
-    unknownRevision: /ambiguous argument \'.*?\': unknown revision or path not in the working tree/
+    notARepository: /Not a git repository/i,
+    outsideRepository: /is outside repository/i,
+    noPath: /no such path/i,
+    noCommits: /does not have any commits/i,
+    notFound: /Path \'.*?\' does not exist in/i,
+    foundButNotInRevision: /Path \'.*?\' exists on disk, but not in/i,
+    headNotABranch: /HEAD does not point to a branch/i,
+    noUpstream: /no upstream configured for branch \'(.*?)\'/i,
+    unknownRevision: /ambiguous argument \'.*?\': unknown revision or path not in the working tree/i
 };
 
 async function gitCommand(options: CommandOptions & { readonly correlationKey?: string }, ...args: any[]): Promise<string> {
