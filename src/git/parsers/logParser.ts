@@ -28,7 +28,7 @@ const emptyEntry: LogEntry = {};
 
 export class GitLogParser {
 
-    static parse(data: string, type: GitCommitType, repoPath: string | undefined, fileName: string | undefined, sha: string | undefined, maxCount: number | undefined, reverse: boolean, range: Range | undefined): GitLog | undefined {
+    static parse(data: string, type: GitCommitType, repoPath: string | undefined, fileName: string | undefined, sha: string | undefined, currentUser: string | undefined, maxCount: number | undefined, reverse: boolean, range: Range | undefined): GitLog | undefined {
         if (!data) return undefined;
 
         let relativeFileName: string;
@@ -74,9 +74,15 @@ export class GitLogParser {
                     break;
 
                 case 97: // 'a': // author
-                    entry.author = Git.isUncommitted(entry.ref)
-                        ? 'You'
-                        : line.substring(4);
+                    if (Git.isUncommitted(entry.ref)) {
+                        entry.author = 'You';
+                    }
+                    else {
+                        entry.author = line.substring(4);
+                        if (currentUser !== undefined && currentUser === entry.author) {
+                            entry.author = 'You';
+                        }
+                    }
                     break;
 
                 case 101: // 'e': // author-mail

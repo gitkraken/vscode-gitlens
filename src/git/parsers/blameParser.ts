@@ -25,7 +25,7 @@ interface BlameEntry {
 
 export class GitBlameParser {
 
-    static parse(data: string, repoPath: string | undefined, fileName: string): GitBlame | undefined {
+    static parse(data: string, repoPath: string | undefined, fileName: string, currentUser: string | undefined): GitBlame | undefined {
         if (!data) return undefined;
 
         const authors: Map<string, GitAuthor> = new Map();
@@ -57,9 +57,15 @@ export class GitBlameParser {
 
             switch (lineParts[0]) {
                 case 'author':
-                    entry.author = Git.isUncommitted(entry.sha)
-                        ? 'You'
-                        : lineParts.slice(1).join(' ').trim();
+                    if (Git.isUncommitted(entry.sha)) {
+                        entry.author = 'You';
+                    }
+                    else {
+                        entry.author = lineParts.slice(1).join(' ').trim();
+                        if (currentUser !== undefined && currentUser === entry.author) {
+                            entry.author = 'You';
+                        }
+                    }
                     break;
 
                 case 'author-mail':

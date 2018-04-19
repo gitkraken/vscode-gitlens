@@ -457,7 +457,7 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.blame(root, file, uri.sha, { ignoreWhitespace: Container.config.blame.ignoreWhitespace });
-            const blame = GitBlameParser.parse(data, root, file);
+            const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUsername(root));
             return blame;
         }
         catch (ex) {
@@ -526,7 +526,7 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.blame_contents(root, file, contents, { correlationKey: `:${key}`, ignoreWhitespace: Container.config.blame.ignoreWhitespace });
-            const blame = GitBlameParser.parse(data, root, file);
+            const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUsername(root));
             return blame;
         }
         catch (ex) {
@@ -576,7 +576,7 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.blame(uri.repoPath, fileName, uri.sha, { ignoreWhitespace: Container.config.blame.ignoreWhitespace, startLine: lineToBlame, endLine: lineToBlame });
-            const blame = GitBlameParser.parse(data, uri.repoPath, fileName);
+            const blame = GitBlameParser.parse(data, uri.repoPath, fileName, await this.getCurrentUsername(uri.repoPath!));
             if (blame === undefined) return undefined;
 
             return {
@@ -618,7 +618,8 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.blame_contents(uri.repoPath, fileName, contents, { ignoreWhitespace: Container.config.blame.ignoreWhitespace, startLine: lineToBlame, endLine: lineToBlame });
-            const blame = GitBlameParser.parse(data, uri.repoPath, fileName);
+            const currentUser = await this.getCurrentUsername(uri.repoPath!);
+            const blame = GitBlameParser.parse(data, uri.repoPath, fileName, currentUser);
             if (blame === undefined) return undefined;
 
             return {
@@ -721,6 +722,18 @@ export class GitService extends Disposable {
         Logger.log(`getConfig('${key}', '${repoPath}')`);
 
         return await Git.config_get(key, repoPath);
+    }
+
+    // TODO: Clear cache when git config changes
+    private _userNameMapCache: Map<string, string | undefined> = new Map();
+
+    async getCurrentUsername(repoPath: string) {
+        let user = this._userNameMapCache.get(repoPath);
+        if (user === undefined) {
+            user = await Git.config_get('user.name', repoPath);
+            this._userNameMapCache.set(repoPath, user);
+        }
+        return user;
     }
 
     async getDiffForFile(uri: GitUri, sha1?: string, sha2?: string): Promise<GitDiff | undefined> {
@@ -868,7 +881,17 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.log(repoPath, { maxCount: maxCount, ref: options.ref, reverse: options.reverse });
-            const log = GitLogParser.parse(data, GitCommitType.Branch, repoPath, undefined, options.ref, maxCount, options.reverse!, undefined);
+            const log = GitLogParser.parse(
+                data,
+                GitCommitType.Branch,
+                repoPath,
+                undefined,
+                options.ref,
+                await this.getCurrentUsername(repoPath),
+                maxCount,
+                options.reverse!,
+                undefined
+            );
 
             if (log !== undefined) {
                 const opts = { ...options };
@@ -914,7 +937,17 @@ export class GitService extends Disposable {
 
         try {
             const data = await Git.log_search(repoPath, searchArgs, { maxCount: maxCount });
-            const log = GitLogParser.parse(data, GitCommitType.Branch, repoPath, undefined, undefined, maxCount, false, undefined);
+            const log = GitLogParser.parse(
+                data,
+                GitCommitType.Branch,
+                repoPath,
+                undefined,
+                undefined,
+                await this.getCurrentUsername(repoPath),
+                maxCount,
+                false,
+                undefined
+            );
 
             if (log !== undefined) {
                 const opts = { ...options };
@@ -1015,7 +1048,17 @@ export class GitService extends Disposable {
                 : options.maxCount;
 
             const data = await Git.log_file(root, file, { ...opts, maxCount: maxCount, startLine: range && range.start.line + 1, endLine: range && range.end.line + 1 });
-            const log = GitLogParser.parse(data, GitCommitType.File, root, file, opts.ref, maxCount, opts.reverse!, range);
+            const log = GitLogParser.parse(
+                data,
+                GitCommitType.File,
+                root,
+                file,
+                opts.ref,
+                await this.getCurrentUsername(root),
+                maxCount,
+                opts.reverse!,
+                range
+            );
 
             if (log !== undefined) {
                 const opts = { ...options };
