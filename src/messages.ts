@@ -32,14 +32,10 @@ export class Messages {
     }
 
     static async showKeyBindingsInfoMessage(): Promise<MessageItem | undefined> {
-        const section = configuration.name('advanced')('messages').value;
-        const messages: { [key: string]: boolean } = configuration.get<{}>(section);
-
-        if (messages[SuppressedMessages.ShowKeyBindingsNotice]) return undefined;
+        if (Container.config.advanced.messages.suppressShowKeyBindingsNotice) return undefined;
 
         if (Container.config.keymap !== KeyMap.Alternate) {
-            messages[SuppressedMessages.ShowKeyBindingsNotice] = true;
-            await configuration.update(section, messages, ConfigurationTarget.Global);
+            await this.suppressedMessage(SuppressedMessages.ShowKeyBindingsNotice);
 
             return undefined;
         }
@@ -115,16 +111,27 @@ export class Messages {
 
         if (dontShowAgain === null || result === dontShowAgain) {
             Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) don't show again requested`);
-
-            const section = configuration.name('advanced')('messages').value;
-            const messages: { [key: string]: boolean } = configuration.get<{}>(section);
-            messages[suppressionKey] = true;
-            await configuration.update(section, messages, ConfigurationTarget.Global);
+            await this.suppressedMessage(suppressionKey);
 
             if (result === dontShowAgain) return undefined;
         }
 
         Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) returned ${result ? result.title : result}`);
         return result;
+    }
+
+    private static suppressedMessage(suppressionKey: SuppressedMessages) {
+        const section = configuration.name('advanced')('messages').value;
+        const messages: { [key: string]: boolean | undefined } = configuration.get<{}>(section);
+
+        messages[suppressionKey] = true;
+
+        for (const [key, value] of Object.entries(messages)) {
+            if (value !== true) {
+                messages[key] = undefined;
+            }
+        }
+
+        return configuration.update(section, messages, ConfigurationTarget.Global);
     }
 }
