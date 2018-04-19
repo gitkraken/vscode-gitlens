@@ -130,7 +130,9 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         if (commit === undefined) return undefined;
 
         const hover = await Annotations.changesHover(commit, position.line, await GitUri.fromUri(document.uri));
-        return new Hover(hover.hoverMessage!, document.validateRange(new Range(position.line, 0, position.line, RangeEndOfLineIndex)));
+        if (hover.hoverMessage === undefined) return undefined;
+
+        return new Hover(hover.hoverMessage, document.validateRange(new Range(position.line, 0, position.line, RangeEndOfLineIndex)));
     }
 
     private async getCommitForHover(position: Position): Promise<GitCommit | undefined> {

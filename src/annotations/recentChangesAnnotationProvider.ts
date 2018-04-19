@@ -63,6 +63,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
                     if (cfg.hovers.annotations.changes) {
                         message = Annotations.getHoverDiffMessage(commit, this._uri, line);
+                        if (message === undefined) continue;
                     }
                 }
 
