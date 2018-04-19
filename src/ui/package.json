@@ -24,7 +24,7 @@
         "build-dev": "webpack"
     },
     "devDependencies": {
-        "@types/node": "9.6.4",
+        "@types/node": "9.6.5",
         "@types/webpack": "4.1.3",
         "css-loader": "0.28.11",
         "extract-text-webpack-plugin": "4.0.0-beta.0",
@@ -32,12 +32,12 @@
         "html-webpack-plugin": "3.2.0",
         "imagemin-webpack-plugin": "2.1.1",
         "node-sass": "4.8.3",
-        "sass-loader": "6.0.7",
-        "style-loader": "0.20.3",
+        "sass-loader": "7.0.1",
+        "style-loader": "0.21.0",
         "tslint": "5.9.1",
         "ts-loader": "4.2.0",
         "typescript": "2.8.1",
-        "uglifyjs-webpack-plugin": "1.2.4",
-        "webpack": "4.5.0"
+        "uglifyjs-webpack-plugin": "1.2.5",
+        "webpack": "4.6.0"
     }
 }
