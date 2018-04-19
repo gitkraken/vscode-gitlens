@@ -99,7 +99,7 @@ export class CommitFileNode extends ExplorerNode {
                     this.commit,
                     {
                         truncateMessageAtNewLine: true,
-                        dataFormat: Container.config.defaultDateFormat
+                        dateFormat: Container.config.defaultDateFormat
                     } as ICommitFormatOptions
                 )
                 : StatusFileFormatter.fromTemplate(
@@ -137,7 +137,7 @@ export class CommitFileNode extends ExplorerNode {
                         : `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})\n\n\${message}`,
                     this.commit,
                     {
-                        dataFormat: Container.config.defaultDateFormat
+                        dateFormat: Container.config.defaultDateFormat
                     } as ICommitFormatOptions
                 );
             }

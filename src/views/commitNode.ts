@@ -48,7 +48,7 @@ export class CommitNode extends ExplorerRefNode {
     getTreeItem(): TreeItem {
         let label = CommitFormatter.fromTemplate(this.explorer.config.commitFormat, this.commit, {
             truncateMessageAtNewLine: true,
-            dataFormat: Container.config.defaultDateFormat
+            dateFormat: Container.config.defaultDateFormat
         } as ICommitFormatOptions);
 
         const branchTips = this.getBranchTips && this.getBranchTips(this.commit.sha);
@@ -77,7 +77,7 @@ export class CommitNode extends ExplorerRefNode {
                 : `\${author} ${GlyphChars.Dash} \${id}${branchTips !== undefined ? ` (${branchTips})` : ''}\n\${ago} (\${date})\n\n\${message}`,
             this.commit,
             {
-                dataFormat: Container.config.defaultDateFormat
+                dateFormat: Container.config.defaultDateFormat
             } as ICommitFormatOptions
         );
 

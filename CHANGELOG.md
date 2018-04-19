@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds an indicator to the *GitLens* explorer's branch history to mark the the tips of all branches
 
 ### Fixed
+- Fixes [#345](https://github.com/eamodio/vscode-gitlens/issues/345) - Custom date formats don't work in the GitLens view
 - Fixes issue where username and/or password in a remote urls could be shown
 
 ## [8.2.1] - 2018-04-11
