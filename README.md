@@ -16,7 +16,7 @@
 ## 8.2 &mdash; April 2018
 - Adds new stand-alone *GitLens History* explorer to visualize the history of the current file &mdash; undocked version of the *GitLens* explorer history view
 - Adds richer tooltips to the *GitLens* explorer and *GitLens Results* view, and richer working tree and upstream status to the *GitLens* explorer
-- Adds an indicator to the *GitLens* explorer's branch history to mark the synchronization point between the local and remote branch (if available)
+- Adds an indicator to the *GitLens* explorer's branch history to mark the the tips of all branches
 - Adds ability to easily switch between relative and absolute dates via the `gitlens.defaultDateStyle` settings &mdash; closes [#312](https://github.com/eamodio/vscode-gitlens/issues/312)
   - Adds `${agoOrDate}` and `${authorAgoOrDate}` tokens to `gitlens.blame.format`, `gitlens.currentLine.format`, `gitlens.explorers.commitFormat`, `gitlens.explorers.stashFormat`, and `gitlens.statusBar.format` settings which will honor the `gitlens.defaultDateStyle` setting
 - Adds annotation format settings (`gitlens.*.format`) to the interactive settings editor
@@ -25,6 +25,8 @@
 - Adds a one-time notification on startup if the `alt-based` keyboard shortcuts are in use, with options to easily switch to another set
 - Adds *Copy Commit ID to Clipboard* (`gitlens.copyShaToClipboard`) command to changed file nodes in the *GitLens* explorer and *GitLens Results* view
 - Adds *Copy Commit Message to Clipboard* (`gitlens.copyMessageToClipboard`) command to changed file nodes in the *GitLens* explorer and *GitLens Results* view
+- Adds `gitlens.advanced.blame.customArguments` setting to specify additional arguments to pass to the `git blame` command &mdash; closes [#337](https://github.com/eamodio/vscode-gitlens/issues/337)
+- Changes the author name to "You" when appropriate &mdash; closes [#341](https://github.com/eamodio/vscode-gitlens/issues/341)
 - Moves *Keyboard Settings* to the *General* section of the interactive settings editor
 - Renames *Compare with Index (HEAD)* (`gitlens.explorers.compareWithHead`) command to *Compare with HEAD* &mdash; closes [#309](https://github.com/eamodio/vscode-gitlens/issues/309)
 - Renames *Compare Index (HEAD) with Branch or Tag...* (`gitlens.diffHeadWithBranch`) command to *Compare HEAD with Branch or Tag...* &mdash; closes [#309](https://github.com/eamodio/vscode-gitlens/issues/309)
@@ -32,6 +34,11 @@
 - Removes the unnecessary *Show Line Blame Annotations* (`gitlens.showLineBlame`) command &mdash; *Toggle Line Blame Annotations* (`gitlens.toggleLineBlame`) provides similar functionality
 - Removes *Open Working File* (`gitlens.openWorkingFile`) command from the editor toolbar when the built-in *Open File* command is visible
 - Removes *Compare with HEAD* (`gitlens.explorers.compareWithHead`), *Compare with Working Tree* (`gitlens.explorers.compareWithWorking`), and *Compare Compare Ancestry with Working Tree* (`gitlens.explorers.compareAncestryWithWorking`) commands from the current branch since comparing a branch with itself doesn't make sense &mdash; closes [#309](https://github.com/eamodio/vscode-gitlens/issues/309)
+- Fixes [#345](https://github.com/eamodio/vscode-gitlens/issues/345) - Custom date formats don't work in the GitLens view
+- Fixes [#336](https://github.com/eamodio/vscode-gitlens/issues/336) - Default Settings Get Added Automatically
+- Fixes [#342](https://github.com/eamodio/vscode-gitlens/issues/342) - GitLens crashes while debugging with Chrome Debugger a larger project
+- Fixes [#343](https://github.com/eamodio/vscode-gitlens/issues/343) - Can't show blame when VSCode starts on branch without upstream
+- Fixes issue where username and/or password in a remote urls could be shown
 - Fixes [#320](https://github.com/eamodio/vscode-gitlens/issues/320) - Stashes with a single untracked file created with "stash push" aren't shown in the GitLens explorer
 - Fixes [#331](https://github.com/eamodio/vscode-gitlens/issues/331) - Code lens shows on every import in Python
 - Fixes issues where quick pick menu progress indicators will get stuck in some cases because of a vscode api change in [Microsoft/vscode#46102](https://github.com/Microsoft/vscode/pull/46102)
