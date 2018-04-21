@@ -413,7 +413,7 @@ export class Git {
                 params.push(options.ref);
             }
         }
-        return gitCommand({ cwd: repoPath }, ...params);
+        return gitCommand({ cwd: repoPath }, ...params, '--');
     }
 
     static log_file(repoPath: string, fileName: string, options: { maxCount?: number, ref?: string, renames?: boolean, reverse?: boolean, startLine?: number, endLine?: number } = { renames: true, reverse: false }) {
@@ -441,9 +441,7 @@ export class Git {
             params.push(`-L ${options.startLine},${options.endLine}:${file}`);
         }
 
-        params.push('--', file);
-
-        return gitCommand({ cwd: root }, ...params);
+        return gitCommand({ cwd: root }, ...params, '--', file);
     }
 
     static async log_recent(repoPath: string, fileName: string) {
@@ -480,7 +478,7 @@ export class Git {
         if (options.ref && !Git.isStagedUncommitted(options.ref)) {
             params.push(options.ref);
         }
-        return gitCommand({ cwd: repoPath }, ...params);
+        return gitCommand({ cwd: repoPath }, ...params, '--');
     }
 
     static async ls_files(repoPath: string, fileName: string, options: { ref?: string } = {}): Promise<string> {

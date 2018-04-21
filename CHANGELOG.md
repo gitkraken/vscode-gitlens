@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Fixed
+- Fixes [#313](https://github.com/eamodio/vscode-gitlens/issues/313) - Unable to show branch history for branch that matches file or folder name
+
 ## [8.2.2] - 2018-04-19
 ### Added
 - Adds an indicator to the *GitLens* explorer's branch history to mark the the tips of all branches
