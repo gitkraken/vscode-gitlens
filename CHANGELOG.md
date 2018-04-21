@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [8.2.3] - 2018-04-21
 ### Fixed
 - Fixes [#313](https://github.com/eamodio/vscode-gitlens/issues/313) - Unable to show branch history for branch that matches file or folder name
 - Fixes [#348](https://github.com/eamodio/vscode-gitlens/issues/348) - "Open in remote" commands disappeared from command palette
