@@ -730,7 +730,7 @@ export class GitService extends Disposable {
         if (data === undefined) return undefined;
 
         const branch = data.split('\n');
-        return new GitBranch(repoPath, branch[0], true, branch[1]);
+        return new GitBranch(repoPath, branch[0], true, undefined, branch[1]);
     }
 
     async getBranches(repoPath: string | undefined): Promise<GitBranch[]> {

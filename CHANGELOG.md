@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [Unreleased]
 ### Fixed
 - Fixes [#313](https://github.com/eamodio/vscode-gitlens/issues/313) - Unable to show branch history for branch that matches file or folder name
+- Fixes [#348](https://github.com/eamodio/vscode-gitlens/issues/348) - "Open in remote" commands disappeared from command palette
+- Fixes JSON schema of the `gitlens.advanced.blame.customArguments` setting
 
 ## [8.2.2] - 2018-04-19
 ### Added
