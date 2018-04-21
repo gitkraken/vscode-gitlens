@@ -810,8 +810,11 @@
                     "scope": "window"
                 },
                 "gitlens.advanced.blame.customArguments": {
-                    "type": "string[]",
+                    "type": "array",
                     "default": null,
+                    "items": {
+                        "type": "string"
+                    },
                     "description": "Specifies additional arguments to pass to the `git blame` command",
                     "scope": "resource"
                 },
