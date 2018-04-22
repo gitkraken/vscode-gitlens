@@ -10,7 +10,6 @@ import { Logger } from './logger';
 import { Messages } from './messages';
 // import { Telemetry } from './telemetry';
 
-// this method is called when your extension is activated
 export async function activate(context: ExtensionContext) {
     const start = process.hrtime();
 
@@ -23,6 +22,8 @@ export async function activate(context: ExtensionContext) {
     if (!enabled) {
         Logger.log(`GitLens(v${gitlensVersion}) was NOT activated -- "git.enabled": false`);
         setCommandContext(CommandContext.Enabled, enabled);
+
+        Messages.showGitDisabledErrorMessage();
 
         return;
     }
@@ -72,7 +73,6 @@ export async function activate(context: ExtensionContext) {
     Logger.log(`GitLens(v${gitlensVersion}) activated in ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);
 }
 
-// this method is called when your extension is deactivated
 export function deactivate() { }
 
 async function migrateSettings(context: ExtensionContext, previousVersion: string | undefined) {
@@ -239,7 +239,7 @@ function notifyOnUnsupportedGitVersion(version: string) {
     if (GitService.validateGitVersion(2, 2)) return;
 
     // If git is less than v2.2.0
-    Messages.showUnsupportedGitVersionErrorMessage(version);
+    Messages.showGitVersionUnsupportedErrorMessage(version);
 }
 
 async function showWelcomePage(version: string, previousVersion: string | undefined) {

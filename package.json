@@ -1019,6 +1019,7 @@
                         "suppressCommitHasNoPreviousCommitWarning": false,
                         "suppressCommitNotFoundWarning": false,
                         "suppressFileNotUnderSourceControlWarning": false,
+                        "suppressGitDisabledWarning": false,
                         "suppressGitVersionWarning": false,
                         "suppressLineUncommittedWarning": false,
                         "suppressNoRepositoryWarning": false,
@@ -1035,6 +1036,10 @@
                             "default": false
                         },
                         "suppressFileNotUnderSourceControlWarning": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "suppressGitDisabledWarning": {
                             "type": "boolean",
                             "default": false
                         },

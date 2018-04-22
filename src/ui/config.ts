@@ -149,6 +149,7 @@ export interface IAdvancedConfig {
         suppressCommitHasNoPreviousCommitWarning: boolean;
         suppressCommitNotFoundWarning: boolean;
         suppressFileNotUnderSourceControlWarning: boolean;
+        suppressGitDisabledWarning: boolean;
         suppressGitVersionWarning: boolean;
         suppressLineUncommittedWarning: boolean;
         suppressNoRepositoryWarning: boolean;

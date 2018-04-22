@@ -7,7 +7,7 @@ import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitLogCommit, GitStashCommit } from '../gitService';
-import { KeyboardScope, KeyMapping, Keys } from '../keyboard';
+import { KeyMapping, Keys } from '../keyboard';
 
 export function getQuickPickIgnoreFocusOut() {
     return !configuration.get<boolean>(configuration.name('advanced')('quickPick')('closeOnFocusOut').value);
@@ -20,7 +20,7 @@ export function showQuickPickProgress(message: string, mapping?: KeyMapping): Ca
 }
 
 async function _showQuickPickProgress(message: string, cancellation: CancellationTokenSource, mapping?: KeyMapping) {
-        const scope: KeyboardScope | undefined = mapping && await Container.keyboard.beginScope(mapping);
+        const scope = mapping && await Container.keyboard.beginScope(mapping);
 
         try {
             await window.showQuickPick(_getInfiniteCancellablePromise(cancellation), {

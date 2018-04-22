@@ -9,6 +9,7 @@ export enum SuppressedMessages {
     CommitHasNoPreviousCommitWarning = 'suppressCommitHasNoPreviousCommitWarning',
     CommitNotFoundWarning = 'suppressCommitNotFoundWarning',
     FileNotUnderSourceControlWarning = 'suppressFileNotUnderSourceControlWarning',
+    GitDisabledWarning = 'suppressGitDisabledWarning',
     GitVersionWarning = 'suppressGitVersionWarning',
     LineUncommittedWarning = 'suppressLineUncommittedWarning',
     NoRepositoryWarning = 'suppressNoRepositoryWarning',
@@ -29,6 +30,14 @@ export class Messages {
 
     static showFileNotUnderSourceControlWarningMessage(message: string): Promise<MessageItem | undefined> {
         return Messages.showMessage('warn', `${message}. The file is probably not under source control.`, SuppressedMessages.FileNotUnderSourceControlWarning);
+    }
+
+    static showGitDisabledErrorMessage() {
+        return Messages.showMessage('error', `GitLens requires Git to be enabled. Please re-enable Git \u2014 set \`git.enabled\` to true and reload`, SuppressedMessages.GitDisabledWarning);
+    }
+
+    static showGitVersionUnsupportedErrorMessage(version: string): Promise<MessageItem | undefined> {
+        return Messages.showMessage('error', `GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git.`, SuppressedMessages.GitVersionWarning);
     }
 
     static async showKeyBindingsInfoMessage(): Promise<MessageItem | undefined> {
@@ -76,10 +85,6 @@ export class Messages {
 
     static showResultExplorerInfoMessage(): Promise<MessageItem | undefined> {
         return Messages.showMessage('info', `If you can't find your results, click on "GITLENS RESULTS" at the bottom of the Explorer view.`, SuppressedMessages.ResultsExplorerNotice, null);
-    }
-
-    static showUnsupportedGitVersionErrorMessage(version: string): Promise<MessageItem | undefined> {
-        return Messages.showMessage('error', `GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git.`, SuppressedMessages.GitVersionWarning);
     }
 
     private static async showMessage<T extends MessageItem>(type: 'info' | 'warn' | 'error', message: string, suppressionKey: SuppressedMessages, dontShowAgain: T | null = { title: 'Don\'t Show Again' } as T, ...actions: T[]): Promise<T | undefined> {
