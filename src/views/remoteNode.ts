@@ -1,7 +1,7 @@
 'use strict';
 import { Arrays, Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { BranchFolderNode } from './branchFolderNode';
+import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { BranchNode } from './branchNode';
 import { ExplorerBranchesLayout } from '../configuration';
 import { GlyphChars } from '../constants';
@@ -38,8 +38,8 @@ export class RemoteNode extends ExplorerNode {
                 this.explorer.config.files.compact
             );
 
-            const root = new BranchFolderNode(this.repo.path, '', undefined, hierarchy, this.explorer);
-            const children = await root.getChildren() as (BranchFolderNode | BranchNode)[];
+            const root = new BranchOrTagFolderNode(this.repo.path, '', undefined, hierarchy, this.explorer);
+            const children = await root.getChildren() as (BranchOrTagFolderNode | BranchNode)[];
 
             return children;
         }

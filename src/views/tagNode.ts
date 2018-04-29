@@ -2,8 +2,10 @@
 import { Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitNode } from './commitNode';
+import { ExplorerBranchesLayout } from '../configuration';
 import { Container } from '../container';
-import { Explorer, ExplorerNode, ExplorerRefNode, MessageNode, ResourceType, ShowAllNode } from './explorerNode';
+import { ExplorerNode, ExplorerRefNode, MessageNode, ResourceType, ShowAllNode } from './explorerNode';
+import { GitExplorer } from './gitExplorer';
 import { GitTag, GitUri } from '../gitService';
 
 export class TagNode extends ExplorerRefNode {
@@ -13,9 +15,15 @@ export class TagNode extends ExplorerRefNode {
     constructor(
         public readonly tag: GitTag,
         uri: GitUri,
-        private readonly explorer: Explorer
+        private readonly explorer: GitExplorer
     ) {
         super(uri);
+    }
+
+    get label(): string {
+        return this.explorer.config.branches.layout === ExplorerBranchesLayout.Tree
+            ? this.tag.getBasename()
+            : this.tag.name;
     }
 
     get ref(): string {
@@ -34,7 +42,7 @@ export class TagNode extends ExplorerRefNode {
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        const item = new TreeItem(this.tag.name, TreeItemCollapsibleState.Collapsed);
+        const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.Tag;
         return item;
     }

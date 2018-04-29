@@ -1,7 +1,11 @@
 'use strict';
+import { Arrays } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
+import { ExplorerBranchesLayout } from '../configuration';
 import { Container } from '../container';
-import { Explorer, ExplorerNode, MessageNode, ResourceType } from './explorerNode';
+import { ExplorerNode, MessageNode, ResourceType } from './explorerNode';
+import { GitExplorer } from './gitExplorer';
 import { GitUri, Repository } from '../gitService';
 import { TagNode } from './tagNode';
 
@@ -10,7 +14,7 @@ export class TagsNode extends ExplorerNode {
         constructor(
             uri: GitUri,
             private readonly repo: Repository,
-            private readonly explorer: Explorer,
+            private readonly explorer: GitExplorer,
             private readonly active: boolean = false
         ) {
             super(uri);
@@ -25,7 +29,17 @@ export class TagsNode extends ExplorerNode {
             if (tags.length === 0) return [new MessageNode('No tags yet')];
 
             tags.sort((a, b) => a.name.localeCompare(b.name));
-            return [...tags.map(t => new TagNode(t, this.uri, this.explorer))];
+            const tagNodes = [...tags.map(t => new TagNode(t, this.uri, this.explorer))];
+            if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) return tagNodes;
+
+            const hierarchy = Arrays.makeHierarchical(tagNodes,
+                n => n.tag.name.split('/'),
+                (...paths: string[]) => paths.join('/'),
+                this.explorer.config.files.compact);
+
+            const root = new BranchOrTagFolderNode(this.repo.path, '', undefined, hierarchy, this.explorer);
+            const children = await root.getChildren() as (BranchOrTagFolderNode | TagNode)[];
+            return children;
         }
 
         async getTreeItem(): Promise<TreeItem> {

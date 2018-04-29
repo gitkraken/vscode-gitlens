@@ -1,7 +1,7 @@
 'use strict';
 import { Arrays, Iterables } from '../system';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { BranchFolderNode } from './branchFolderNode';
+import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { BranchNode } from './branchNode';
 import { ExplorerBranchesLayout } from '../configuration';
 import { Container } from '../container';
@@ -44,8 +44,8 @@ export class BranchesNode extends ExplorerNode {
                 (...paths: string[]) => paths.join('/'),
                 this.explorer.config.files.compact);
 
-            const root = new BranchFolderNode(this.repo.path, '', undefined, hierarchy, this.explorer);
-            const children = await root.getChildren() as (BranchFolderNode | BranchNode)[];
+            const root = new BranchOrTagFolderNode(this.repo.path, '', undefined, hierarchy, this.explorer);
+            const children = await root.getChildren() as (BranchOrTagFolderNode | BranchNode)[];
 
             // If we found a current branch, insert it at the start
             if (current !== undefined) {
