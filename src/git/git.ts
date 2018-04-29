@@ -49,6 +49,10 @@ const stashFormat = [
 
 const defaultStashParams = ['stash', 'list', '--name-status', '-M', `--format=${stashFormat}`];
 
+const GitErrors = {
+    badRevision: /bad revision \'.*?\'/i
+};
+
 const GitWarnings = {
     notARepository: /Not a git repository/i,
     outsideRepository: /is outside repository/i,
@@ -563,7 +567,7 @@ export class Git {
         }
     }
 
-    static async show(repoPath: string | undefined, fileName: string, ref: string, options: { encoding?: string } = {}) {
+    static async show(repoPath: string | undefined, fileName: string, ref: string, options: { encoding?: string } = {}): Promise<string | undefined> {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         if (Git.isStagedUncommitted(ref)) {
@@ -577,12 +581,16 @@ export class Git {
             : `${ref}:./${file}`;
 
         try {
-            const data = await gitCommandCore(opts, 'show', args);
+            const data = await gitCommandCore(opts, 'show', args, '--');
             return data;
         }
         catch (ex) {
             const msg = ex && ex.toString();
             if (GitWarnings.notFound.test(msg) || GitWarnings.foundButNotInRevision.test(msg)) return undefined;
+
+            if (ref === ':' && GitErrors.badRevision.test(msg)) {
+                return Git.show(repoPath, fileName, 'HEAD:', options);
+            }
 
             return gitCommandDefaultErrorHandler(ex, opts, args);
         }
