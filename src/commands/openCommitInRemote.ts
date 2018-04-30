@@ -23,7 +23,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
     }
 
     constructor() {
-        super(Commands.OpenCommitInRemote);
+        super([Commands.OpenCommitInRemote, Commands.OpenLineCommitInRemote]);
     }
 
     protected async preExecute(context: CommandContext, args: OpenCommitInRemoteCommandArgs = {}): Promise<any> {

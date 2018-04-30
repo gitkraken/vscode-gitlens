@@ -116,35 +116,6 @@ export interface IAdvancedConfig {
     fileHistoryFollowsRenames: boolean;
     maxListItems: number;
 
-    menus: {
-        explorerContext: {
-            fileDiff: boolean;
-            history: boolean;
-            remote: boolean;
-        };
-        editorContext: {
-            blame: boolean;
-            copy: boolean;
-            details: boolean;
-            fileDiff: boolean;
-            history: boolean;
-            lineDiff: boolean;
-            remote: boolean;
-        };
-        editorTitle: {
-            blame: boolean;
-            fileDiff: boolean;
-            history: boolean;
-            status: boolean;
-        };
-        editorTitleContext: {
-            blame: boolean;
-            fileDiff: boolean;
-            history: boolean;
-            remote: boolean;
-        };
-    };
-
     messages: {
         suppressCommitHasNoPreviousCommitWarning: boolean;
         suppressCommitNotFoundWarning: boolean;
@@ -226,6 +197,31 @@ export interface IGitExplorerConfig {
 
 export interface IHistoryExplorerConfig {
     enabled: boolean;
+}
+
+export interface IMenuConfig {
+    editor: boolean | {
+        blame: boolean;
+        clipboard: boolean;
+        compare: boolean;
+        details: boolean;
+        history: boolean;
+        remote: boolean;
+    };
+    explorer: boolean | {
+        compare: boolean;
+        history: boolean;
+        remote: boolean;
+    };
+    tab: boolean | {
+        compare: boolean;
+        history: boolean;
+        remote: boolean;
+    };
+    tabGroup: boolean | {
+        compare: boolean;
+        history: boolean;
+    };
 }
 
 export interface IResultsExplorerConfig {
@@ -315,6 +311,7 @@ export interface IConfig {
 
     insiders: boolean;
     keymap: KeyMap;
+    menus: boolean | IMenuConfig;
     outputLevel: OutputLevel;
 
     recentChanges: {

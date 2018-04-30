@@ -576,6 +576,100 @@
                     "description": "Specifies the keymap to use for GitLens shortcut keys\n `alternate` - adds an alternate set of shortcut keys that start with `Alt` (\u2325 on macOS)\n `chorded` - adds a chorded set of shortcut keys that start with `Ctrl+Alt+G` (`\u2325\u2318G` on macOS)\n `none` - no shortcut keys will be added",
                     "scope": "window"
                 },
+                "gitlens.menus": {
+                    "anyOf": [
+                        { "enum": [false] },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "editor": {
+                                    "anyOf": [
+                                        { "enum": [false] },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "blame": { "type": "boolean" },
+                                                "clipboard": { "type": "boolean" },
+                                                "compare": { "type": "boolean" },
+                                                "details": { "type": "boolean" },
+                                                "history": { "type": "boolean" },
+                                                "remote": { "type": "boolean" }
+                                            }
+                                        }
+                                    ]
+                                },
+                                "explorer": {
+                                    "anyOf": [
+                                        { "enum": [false] },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "compare": { "type": "boolean" },
+                                                "history": { "type": "boolean" },
+                                                "remote": { "type": "boolean" }
+                                            }
+                                        }
+                                    ]
+                                },
+                                "tab": {
+                                    "anyOf": [
+                                        { "enum": [false] },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "compare": { "type": "boolean" },
+                                                "history": { "type": "boolean" },
+                                                "remote": { "type": "boolean" }
+                                            }
+                                        }
+                                    ]
+                                },
+                                "tabGroup": {
+                                    "anyOf": [
+                                        { "enum": [false] },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "blame": { "type": "boolean" },
+                                                "compare": { "type": "boolean" },
+                                                "history": { "type": "boolean" },
+                                                "remote": { "type": "boolean" }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    "default": {
+                        "editor": {
+                            "blame": false,
+                            "clipboard": true,
+                            "compare": true,
+                            "details": true,
+                            "history": false,
+                            "remote": true
+                        },
+                        "explorer": {
+                            "compare": true,
+                            "history": true,
+                            "remote": true
+                        },
+                        "tab": {
+                            "compare": false,
+                            "history": false,
+                            "remote": true
+                        },
+                        "tabGroup": {
+                            "blame": true,
+                            "compare": true,
+                            "history": false,
+                            "remote": false
+                        }
+                    },
+                    "description": "Specifies which commands will be added to which menus",
+                    "scope": "window"
+                },
                 "gitlens.outputLevel": {
                     "type": "string",
                     "default": "silent",
@@ -852,165 +946,6 @@
                     "type": "number",
                     "default": 200,
                     "description": "Specifies the maximum number of items to show in a list. Use 0 to specify no maximum",
-                    "scope": "window"
-                },
-                "gitlens.advanced.menus": {
-                    "type": "object",
-                    "default": {
-                        "editorContext": {
-                            "blame": true,
-                            "copy": true,
-                            "details": true,
-                            "fileDiff": true,
-                            "history": true,
-                            "lineDiff": true,
-                            "remote": true
-                        },
-                        "editorTitle": {
-                            "blame": true,
-                            "fileDiff": false,
-                            "history": false,
-                            "remote": false,
-                            "status": false
-                        },
-                        "editorTitleContext": {
-                            "blame": false,
-                            "fileDiff": false,
-                            "history": false,
-                            "remote": false
-                        },
-                        "explorerContext": {
-                            "fileDiff": true,
-                            "history": true,
-                            "remote": true
-                        }
-                    },
-                    "properties": {
-                        "editorContext": {
-                            "type": "object",
-                            "default": {
-                                "blame": true,
-                                "copy": true,
-                                "details": true,
-                                "fileDiff": true,
-                                "history": true,
-                                "lineDiff": true,
-                                "remote": true
-                            },
-                            "properties": {
-                                "blame": {
-                                    "type": "boolean",
-                                    "default": true
-                                },
-                                "copy": {
-                                    "type": "boolean",
-                                    "default": true
-                                },
-                                "details": {
-                                    "type": "boolean",
-                                    "default": true
-                                },
-                                "fileDiff": {
-                                    "type": "boolean",
-                                    "default": true
-                                },
-                                "history": {
-                                    "type": "boolean",
-                                    "default": true
-                                },
-                                "lineDiff": {
-                                    "type": "boolean",
-                                    "default": true
-                                },
-                                "remote": {
-                                    "type": "boolean",
-                                    "default": true
-                                }
-                            }
-                        },
-                        "editorTitle": {
-                            "type": "object",
-                            "default": {
-                                "blame": true,
-                                "fileDiff": true,
-                                "history": true,
-                                "remote": true,
-                                "status": true
-                            },
-                            "properties": {
-                                "blame": {
-                                    "type": "boolean",
-                                    "default": true
-                                },
-                                "fileDiff": {
-                                    "type": "boolean",
-                                    "default": true
-                                },
-                                "history": {
-                                    "type": "boolean",
-                                    "default": true
-                                },
-                                "remote": {
-                                    "type": "boolean",
-                                    "default": true
-                                },
-                                "status": {
-                                    "type": "boolean",
-                                    "default": true
-                                }
-                            }
-                        },
-                        "editorTitleContext": {
-                            "type": "object",
-                            "default": {
-                                "blame": true,
-                                "fileDiff": true,
-                                "history": true,
-                                "remote": true
-                            },
-                            "properties": {
-                                "blame": {
-                                    "type": "boolean",
-                                    "default": true
-                                },
-                                "fileDiff": {
-                                    "type": "boolean",
-                                    "default": true
-                                },
-                                "history": {
-                                    "type": "boolean",
-                                    "default": true
-                                },
-                                "remote": {
-                                    "type": "boolean",
-                                    "default": true
-                                }
-                            }
-                        },
-                        "explorerContext": {
-                            "type": "object",
-                            "default": {
-                                "fileDiff": true,
-                                "history": true,
-                                "remote": true
-                            },
-                            "properties": {
-                                "fileDiff": {
-                                    "type": "boolean",
-                                    "default": true
-                                },
-                                "history": {
-                                    "type": "boolean",
-                                    "default": true
-                                },
-                                "remote": {
-                                    "type": "boolean",
-                                    "default": true
-                                }
-                            }
-                        }
-                    },
-                    "description": "Specifies which commands will be added to which menus",
                     "scope": "window"
                 },
                 "gitlens.advanced.messages": {
@@ -1311,6 +1246,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.showQuickLineCommitFileDetails",
+                "title": "Show Line Commit Details",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.showQuickFileHistory",
                 "title": "Show File History",
                 "category": "GitLens"
@@ -1378,6 +1318,16 @@
             {
                 "command": "gitlens.openFileRevision",
                 "title": "Open Revision...",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.openLineCommitInRemote",
+                "title": "Open Line Commit in Remote",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.openLineInRemote",
+                "title": "Open Line in Remote",
                 "category": "GitLens"
             },
             {
@@ -1890,6 +1840,10 @@
                 },
                 {
                     "command": "gitlens.showQuickCommitFileDetails",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.showQuickLineCommitFileDetails",
                     "when": "gitlens:activeIsBlameable"
                 },
                 {
@@ -1942,6 +1896,14 @@
                 },
                 {
                     "command": "gitlens.openFileInRemote",
+                    "when": "gitlens:activeIsTracked && gitlens:activeHasRemote"
+                },
+                {
+                    "command": "gitlens.openLineCommitInRemote",
+                    "when": "gitlens:activeIsTracked && gitlens:activeHasRemote"
+                },
+                {
+                    "command": "gitlens.openLineInRemote",
                     "when": "gitlens:activeIsTracked && gitlens:activeHasRemote"
                 },
                 {
@@ -2219,53 +2181,48 @@
             ],
             "editor/context": [
                 {
-                    "command": "gitlens.openFileInRemote",
-                    "when": "editorTextFocus && gitlens:activeHasRemote && config.gitlens.advanced.menus.editorContext.remote",
-                    "group": "navigation@100"
-                },
-                {
                     "command": "gitlens.diffLineWithPrevious",
-                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.advanced.menus.editorContext.lineDiff",
+                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.menus.editor.compare",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.diffLineWithWorking",
-                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.advanced.menus.editorContext.lineDiff",
+                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.menus.editor.compare",
                     "group": "1_gitlens@2"
                 },
                 {
-                    "command": "gitlens.showQuickCommitFileDetails",
-                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.advanced.menus.editorContext.details",
-                    "group": "1_gitlens@3"
-                },
-                {
-                    "command": "gitlens.diffWithPrevious",
-                    "when": "editorTextFocus && gitlens:activeIsTracked && config.gitlens.advanced.menus.editorContext.fileDiff",
+                    "command": "gitlens.openLineInRemote",
+                    "when": "editorTextFocus && gitlens:activeHasRemote && config.gitlens.menus.editor.remote",
                     "group": "1_gitlens_1@1"
                 },
                 {
-                    "command": "gitlens.diffWithWorking",
-                    "when": "editorTextFocus && gitlens:activeIsTracked && config.gitlens.advanced.menus.editorContext.fileDiff",
+                    "command": "gitlens.openLineCommitInRemote",
+                    "when": "editorTextFocus && gitlens:activeHasRemote && config.gitlens.menus.editor.remote",
                     "group": "1_gitlens_1@2"
                 },
                 {
+                    "command": "gitlens.showQuickLineCommitFileDetails",
+                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.menus.editor.details",
+                    "group": "1_gitlens_1@3"
+                },
+                {
                     "command": "gitlens.showQuickFileHistory",
-                    "when": "gitlens:activeIsTracked && config.gitlens.advanced.menus.editorContext.history",
+                    "when": "gitlens:activeIsTracked && config.gitlens.menus.editor.history",
                     "group": "3_gitlens@1"
                 },
                 {
                     "command": "gitlens.toggleFileBlame",
-                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.advanced.menus.editorContext.blame",
+                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.menus.editor.blame",
                     "group": "3_gitlens@2"
                 },
                 {
                     "command": "gitlens.copyShaToClipboard",
-                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.advanced.menus.editorContext.copy",
+                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.menus.editor.clipboard",
                     "group": "9_gitlens@1"
                 },
                 {
                     "command": "gitlens.copyMessageToClipboard",
-                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.advanced.menus.editorContext.copy",
+                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.menus.editor.clipboard",
                     "group": "9_gitlens@2"
                 }
             ],
@@ -2282,118 +2239,83 @@
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
-                    "when": "editorTextFocus && !isInDiffEditor && gitlens:activeIsTracked && config.gitlens.advanced.menus.editorTitle.fileDiff",
+                    "when": "editorTextFocus && !isInDiffEditor && gitlens:activeIsTracked && config.gitlens.menus.tabGroup.compare",
                     "group": "navigation@98"
                 },
                 {
                     "command": "gitlens.diffWithPreviousInDiff",
-                    "when": "isInDiffEditor && gitlens:activeIsTracked && config.gitlens.advanced.menus.editorTitle.fileDiff",
+                    "when": "isInDiffEditor && gitlens:activeIsTracked && config.gitlens.menus.tabGroup.compare",
                     "group": "navigation@98"
                 },
                 {
                     "command": "gitlens.diffWithNext",
-                    "when": "editorTextFocus && gitlens:activeIsTracked && gitlens:activeIsTracked && gitlens:activeIsRevision && config.gitlens.advanced.menus.editorTitle.fileDiff",
+                    "when": "editorTextFocus && gitlens:activeIsTracked && gitlens:activeIsTracked && gitlens:activeIsRevision && config.gitlens.menus.tabGroup.compare",
                     "group": "navigation@99"
                 },
                 {
                     "command": "gitlens.toggleFileBlame",
                     "alt": "gitlens.toggleFileRecentChanges",
-                    "when": "gitlens:activeIsBlameable && !gitlens:annotationStatus && config.gitlens.advanced.menus.editorTitle.blame",
+                    "when": "gitlens:activeIsBlameable && !gitlens:annotationStatus && config.gitlens.menus.tabGroup.blame",
                     "group": "navigation@100"
                 },
                 {
                     "command": "gitlens.computingFileAnnotations",
-                    "when": "gitlens:activeIsBlameable && gitlens:annotationStatus == computing && config.gitlens.advanced.menus.editorTitle.blame",
+                    "when": "gitlens:activeIsBlameable && gitlens:annotationStatus == computing && config.gitlens.menus.tabGroup.blame",
                     "group": "navigation@100"
                 },
                 {
                     "command": "gitlens.clearFileAnnotations",
-                    "when": "gitlens:activeIsBlameable && gitlens:annotationStatus == computed && config.gitlens.advanced.menus.editorTitle.blame",
+                    "when": "gitlens:activeIsBlameable && gitlens:annotationStatus == computed && config.gitlens.menus.tabGroup.blame",
                     "group": "navigation@100"
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && gitlens:activeHasRemote && config.gitlens.advanced.menus.editorTitle.remote",
-                    "group": "2_gitlens"
-                },
-                {
-                    "command": "gitlens.openRepoInRemote",
-                    "when": "gitlens:enabled && gitlens:activeHasRemote && config.gitlens.advanced.menus.editorTitle.remote",
-                    "group": "2_gitlens"
-                },
-                {
-                    "command": "gitlens.diffWithPrevious",
-                    "when": "editorTextFocus && gitlens:activeIsTracked && config.gitlens.advanced.menus.editorTitle.fileDiff",
-                    "group": "2_gitlens_1"
-                },
-                {
-                    "command": "gitlens.diffWithWorking",
-                    "when": "editorTextFocus && gitlens:activeIsTracked && config.gitlens.advanced.menus.editorTitle.fileDiff",
-                    "group": "2_gitlens_1"
+                    "when": "gitlens:enabled && gitlens:activeHasRemote && config.gitlens.menus.tabGroup.remote",
+                    "group": "4_gitlens"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
-                    "when": "editorFocus && gitlens:activeIsTracked && config.gitlens.advanced.menus.editorTitle.history",
-                    "group": "2_gitlens_2"
-                },
-                {
-                    "command": "gitlens.showQuickRepoHistory",
-                    "when": "!editorFocus && gitlens:enabled && config.gitlens.advanced.menus.editorTitle.history",
-                    "group": "2_gitlens_2"
-                },
-                {
-                    "command": "gitlens.showQuickRepoStatus",
-                    "when": "gitlens:enabled && config.gitlens.advanced.menus.editorTitle.status",
-                    "group": "2_gitlens_2"
+                    "when": "editorFocus && gitlens:activeIsTracked && config.gitlens.menus.tabGroup.history",
+                    "group": "4_gitlens"
                 }
             ],
             "editor/title/context": [
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && gitlens:activeHasRemote && config.gitlens.advanced.menus.editorTitleContext.remote",
-                    "group": "1_gitlens"
+                    "when": "gitlens:enabled && gitlens:activeHasRemote && config.gitlens.menus.tab.remote",
+                    "group": "2_files@100"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
-                    "when": "gitlens:enabled && config.gitlens.advanced.menus.editorTitleContext.fileDiff",
+                    "when": "gitlens:enabled && config.gitlens.menus.tab.compare",
                     "group": "1_gitlens_1@1"
                 },
                 {
                     "command": "gitlens.diffWithWorking",
-                    "when": "gitlens:enabled && config.gitlens.advanced.menus.editorTitleContext.fileDiff",
+                    "when": "gitlens:enabled && config.gitlens.menus.tab.compare",
                     "group": "1_gitlens_1@2"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
-                    "when": "gitlens:enabled && config.gitlens.advanced.menus.editorTitleContext.history",
+                    "when": "gitlens:enabled && config.gitlens.menus.tab.history",
                     "group": "1_gitlens_2@1"
-                },
-                {
-                    "command": "gitlens.toggleFileBlame",
-                    "when": "gitlens:enabled && config.gitlens.advanced.menus.editorTitleContext.blame",
-                    "group": "1_gitlens_2@2"
                 }
             ],
             "explorer/context": [
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && gitlens:hasRemotes && config.gitlens.advanced.menus.explorerContext.remote",
+                    "when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.explorer.remote",
                     "group": "navigation@100"
                 },
                 {
-                    "command": "gitlens.diffWithPrevious",
-                    "when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.advanced.menus.explorerContext.fileDiff",
-                    "group": "1_gitlens@1"
-                },
-                {
-                    "command": "gitlens.diffWithWorking",
-                    "when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.advanced.menus.explorerContext.fileDiff",
-                    "group": "1_gitlens@2"
-                },
-                {
                     "command": "gitlens.showQuickFileHistory",
-                    "when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.advanced.menus.explorerContext.history",
+                    "when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
                     "group": "1_gitlens_1@1"
+                },
+                {
+                    "command": "gitlens.diffWithPrevious",
+                    "when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.compare",
+                    "group": "3_compare@1"
                 }
             ],
             "scm/resourceGroup/context": [

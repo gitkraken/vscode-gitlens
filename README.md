@@ -570,6 +570,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.defaultGravatarsStyle`|Specifies the style of the gravatar default (fallback) images<br />`identicon` - a geometric pattern<br />`mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)<br />`monsterid` - a monster with different colors, faces, etc<br />`retro` - 8-bit arcade-style pixelated faces<br />`robohash` - a robot with different colors, faces, etc<br />`wavatar` - faces with differing features and backgrounds
 |`gitlens.insiders`|Opts into the insiders channel &mdash; provides access to upcoming features
 |`gitlens.keymap`|Specifies the keymap to use for GitLens shortcut keys<br />`alternate` - adds an alternate set of shortcut keys that start with `Alt` (&#x2325; on macOS)<br />`chorded` - adds a chorded set of shortcut keys that start with `Ctrl+Shift+G` (<code>&#x2325;&#x2318;G</code> on macOS)<br />`none` - no shortcut keys will be added
+|`gitlens.menus`|Specifies which commands will be added to which menus
 |`gitlens.outputLevel`|Specifies how much (if any) output will be sent to the GitLens output channel
 |`gitlens.showWhatsNewAfterUpgrades`|Specifies whether to show What's New after upgrading to new feature releases
 
@@ -705,7 +706,6 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |`gitlens.advanced.git`|Specifies the path to the git executable to use. Use as a last resort as GitLens will use the built-in `git.path` setting first
 |`gitlens.advanced.fileHistoryFollowsRenames`|Specifies whether file histories will follow renames -- will affect how merge commits are shown in histories
 |`gitlens.advanced.maxListItems`|Specifies the maximum number of items to show in a list. Use 0 to specify no maximum
-|`gitlens.advanced.menus`|Specifies which commands will be added to which menus
 |`gitlens.advanced.messages`|Specifies which messages should be suppressed
 |`gitlens.advanced.quickPick.closeOnFocusOut`|Specifies whether to close QuickPick menus when focus is lost
 |`gitlens.advanced.repositorySearchDepth`|Specifies how many folders deep to search for repositories

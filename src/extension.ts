@@ -1,7 +1,7 @@
 'use strict';
 import { Versions } from './system';
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
-import { CodeLensLanguageScope, CodeLensScopes, configuration, Configuration, HighlightLocations, IConfig, KeyMap, OutputLevel } from './configuration';
+import { CodeLensLanguageScope, CodeLensScopes, configuration, Configuration, HighlightLocations, IConfig, IMenuConfig, KeyMap, OutputLevel } from './configuration';
 import { CommandContext, ExtensionKey, GlobalState, QualifiedExtensionId, setCommandContext } from './constants';
 import { Commands, configureCommands } from './commands';
 import { Container } from './container';
@@ -228,6 +228,69 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
                 fallbackValue: KeyMap.Alternate,
                 migrationFn: v => v === 'standard' ? KeyMap.Alternate : v as KeyMap
             });
+        }
+
+        if (Versions.compare(previous, Versions.from(8, 2, 4)) !== 1) {
+            await configuration.migrate<{
+                explorerContext: {
+                    fileDiff: boolean,
+                    history: boolean,
+                    remote: boolean
+                },
+                editorContext: {
+                    blame: boolean,
+                    copy: boolean,
+                    details: boolean,
+                    fileDiff: boolean,
+                    history: boolean,
+                    lineDiff: boolean,
+                    remote: boolean
+                },
+                editorTitle: {
+                    blame: boolean,
+                    fileDiff: boolean,
+                    history: boolean,
+                    remote: boolean,
+                    status: boolean
+                },
+                editorTitleContext: {
+                    blame: boolean,
+                    fileDiff: boolean,
+                    history: boolean,
+                    remote: boolean
+                }
+            },
+                IMenuConfig>(
+                    'advanced.menus', configuration.name('menus').value, {
+                    migrationFn: m => {
+                        return {
+                            editor: {
+                                blame: !!m.editorContext.blame,
+                                clipboard: !!m.editorContext.copy,
+                                compare: !!m.editorContext.lineDiff,
+                                details: !!m.editorContext.details,
+                                history: !!m.editorContext.history,
+                                remote: !!m.editorContext.remote
+                            },
+                            explorer: {
+                                compare: !!m.explorerContext.fileDiff,
+                                history: !!m.explorerContext.history,
+                                remote: !!m.explorerContext.remote
+                            },
+                            tab: {
+                                compare: !!m.editorTitleContext.fileDiff,
+                                history: !!m.editorTitleContext.history,
+                                remote: !!m.editorTitleContext.remote
+                            },
+                            tabGroup: {
+                                blame: !!m.editorTitle.blame,
+                                compare: !!m.editorTitle.fileDiff,
+                                history: !!m.editorTitle.history,
+                                remote: !!m.editorTitle.remote
+                            }
+                        } as IMenuConfig;
+                    }
+                });
         }
     }
     catch (ex) {

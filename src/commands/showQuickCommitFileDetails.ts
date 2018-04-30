@@ -31,7 +31,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
     }
 
     constructor() {
-        super(Commands.ShowQuickCommitFileDetails);
+        super([Commands.ShowQuickCommitFileDetails, Commands.ShowQuickLineCommitFileDetails]);
     }
 
     protected async preExecute(context: CommandContext, args: ShowQuickCommitFileDetailsCommandArgs = {}): Promise<any> {
