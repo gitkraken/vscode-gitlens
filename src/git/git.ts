@@ -586,11 +586,13 @@ export class Git {
         }
         catch (ex) {
             const msg = ex && ex.toString();
-            if (GitWarnings.notFound.test(msg) || GitWarnings.foundButNotInRevision.test(msg)) return undefined;
-
             if (ref === ':' && GitErrors.badRevision.test(msg)) {
                 return Git.show(repoPath, fileName, 'HEAD:', options);
             }
+
+            if (GitErrors.badRevision.test(msg) ||
+                GitWarnings.notFound.test(msg) ||
+                GitWarnings.foundButNotInRevision.test(msg)) return undefined;
 
             return gitCommandDefaultErrorHandler(ex, opts, args);
         }
