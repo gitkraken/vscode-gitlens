@@ -124,11 +124,13 @@ export class CommitFileQuickPick {
         if (remotes.length) {
             if (commit.workingFileName && commit.status !== 'D') {
                 const branch = await Container.git.getBranch(commit.repoPath);
-                items.push(new OpenRemotesCommandQuickPickItem(remotes, {
-                    type: 'file',
-                    fileName: commit.workingFileName,
-                    branch: branch!.name
-                } as RemoteResource, currentCommand));
+                if (branch !== undefined) {
+                    items.push(new OpenRemotesCommandQuickPickItem(remotes, {
+                        type: 'file',
+                        fileName: commit.workingFileName,
+                        branch: branch.name
+                    } as RemoteResource, currentCommand));
+                }
             }
 
             if (!stash) {

@@ -106,13 +106,16 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
             }
 
             if (args.goBackCommand === undefined) {
-                // Create a command to get back to the branch history
-                args.goBackCommand = new CommandQuickPickItem({
-                    label: `go back ${GlyphChars.ArrowBack}`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to branch history`
-                }, Commands.ShowQuickCurrentBranchHistory, [
-                        args.commit.toGitUri()
-                    ]);
+                const branch = await Container.git.getBranch(args.commit.repoPath);
+                if (branch !== undefined) {
+                    // Create a command to get back to the branch history
+                    args.goBackCommand = new CommandQuickPickItem({
+                        label: `go back ${GlyphChars.ArrowBack}`,
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to ${branch.name} history`
+                    }, Commands.ShowQuickCurrentBranchHistory, [
+                            args.commit.toGitUri()
+                        ]);
+                }
             }
 
             // Create a command to get back to where we are right now

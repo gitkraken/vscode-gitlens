@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes issue where comparing previous revision during a merge/rebase conflict failed to show the correct contents
+- Fixes various issues when not on a branch
 
 ## [8.2.4] - 2018-04-22
 ### Added

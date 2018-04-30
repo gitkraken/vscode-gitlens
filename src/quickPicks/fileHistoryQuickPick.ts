@@ -84,47 +84,49 @@ export class FileHistoryQuickPick {
         if (!options.pickerOnly) {
             const branch = await Container.git.getBranch(uri.repoPath!);
 
-            const currentCommand = new CommandQuickPickItem({
-                label: `go back ${GlyphChars.ArrowBack}`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${GlyphChars.Space}$(file-text) ${path.basename(uri.fsPath)}${uri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${uri.shortSha}` : ''}`
-            }, Commands.ShowQuickFileHistory, [
-                    uri,
-                    {
-                        log,
-                        maxCount: log.maxCount,
-                        range: log.range
-                    } as ShowQuickFileHistoryCommandArgs
-                ]);
-
-            // Only show the full repo option if we are the root
-            if (options.goBackCommand === undefined) {
-                items.splice(index++, 0, new CommandQuickPickItem({
-                    label: `$(history) Show Branch History`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows  ${GlyphChars.Space}$(git-branch) ${branch!.name} history`
-                }, Commands.ShowQuickCurrentBranchHistory,
-                    [
-                        undefined,
+            if (branch !== undefined) {
+                const currentCommand = new CommandQuickPickItem({
+                    label: `go back ${GlyphChars.ArrowBack}`,
+                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${GlyphChars.Space}$(file-text) ${path.basename(uri.fsPath)}${uri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${uri.shortSha}` : ''}`
+                }, Commands.ShowQuickFileHistory, [
+                        uri,
                         {
-                            goBackCommand: currentCommand
-                        } as ShowQuickCurrentBranchHistoryCommandArgs
-                    ]));
-            }
+                            log,
+                            maxCount: log.maxCount,
+                            range: log.range
+                        } as ShowQuickFileHistoryCommandArgs
+                    ]);
 
-            const remotes = await Container.git.getRemotes(uri.repoPath!);
-            if (remotes.length) {
-                const resource = uri.sha !== undefined
-                    ? {
-                        type: 'revision',
-                        branch: branch!.name,
-                        fileName: uri.getRelativePath(),
-                        sha: uri.sha
-                    } as RemoteResource
-                    : {
-                        type: 'file',
-                        branch: branch!.name,
-                        fileName: uri.getRelativePath()
-                    } as RemoteResource;
-                items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, resource, currentCommand));
+                // Only show the full repo option if we are the root
+                if (options.goBackCommand === undefined) {
+                    items.splice(index++, 0, new CommandQuickPickItem({
+                        label: `$(history) Show Branch History`,
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows  ${GlyphChars.Space}$(git-branch) ${branch.name} history`
+                    }, Commands.ShowQuickCurrentBranchHistory,
+                        [
+                            undefined,
+                            {
+                                goBackCommand: currentCommand
+                            } as ShowQuickCurrentBranchHistoryCommandArgs
+                        ]));
+                }
+
+                const remotes = await Container.git.getRemotes(uri.repoPath!);
+                if (remotes.length) {
+                    const resource = uri.sha !== undefined
+                        ? {
+                            type: 'revision',
+                            branch: branch.name,
+                            fileName: uri.getRelativePath(),
+                            sha: uri.sha
+                        } as RemoteResource
+                        : {
+                            type: 'file',
+                            branch: branch.name,
+                            fileName: uri.getRelativePath()
+                        } as RemoteResource;
+                    items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, resource, currentCommand));
+                }
             }
 
             if (options.goBackCommand) {
