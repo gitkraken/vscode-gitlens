@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a tree layout option to tags in the *GitLens* explorer &mdash; closes [#358](https://github.com/eamodio/vscode-gitlens/issues/358)
 
 ### Fixed
+- Fixes [#359](https://github.com/eamodio/vscode-gitlens/issues/359) - Show changes of an added file in the first commit
 - Fixes issue where comparing previous revision during a merge/rebase conflict failed to show the correct contents
 - Fixes various issues when not on a branch
 

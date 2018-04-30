@@ -1337,6 +1337,8 @@ export class GitService extends Disposable {
     async getVersionedFile(repoPath: string | undefined, fileName: string, sha: string | undefined) {
         Logger.log(`getVersionedFile('${repoPath}', '${fileName}', '${sha}')`);
 
+        if (sha === GitService.deletedSha) return undefined;
+
         if (!sha || (Git.isUncommitted(sha) && !Git.isStagedUncommitted(sha))) {
             if (await this.fileExists(repoPath!, fileName)) return fileName;
 
