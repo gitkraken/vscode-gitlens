@@ -22,6 +22,7 @@ export enum Commands {
     DiffWithBranch = 'gitlens.diffWithBranch',
     DiffWithNext = 'gitlens.diffWithNext',
     DiffWithPrevious = 'gitlens.diffWithPrevious',
+    DiffWithPreviousInDiff = 'gitlens.diffWithPreviousInDiff',
     DiffLineWithPrevious = 'gitlens.diffLineWithPrevious',
     DiffWithRevision = 'gitlens.diffWithRevision',
     DiffWithWorking = 'gitlens.diffWithWorking',

@@ -1191,12 +1191,29 @@
             {
                 "command": "gitlens.diffWithNext",
                 "title": "Compare File with Next Revision",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-next-commit.svg",
+                    "light": "images/light/icon-next-commit.svg"
+                }
             },
             {
                 "command": "gitlens.diffWithPrevious",
                 "title": "Compare File with Previous Revision",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-prev-commit.svg",
+                    "light": "images/light/icon-prev-commit.svg"
+                }
+            },
+            {
+                "command": "gitlens.diffWithPreviousInDiff",
+                "title": "Compare File with Previous Revision",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-prev-commit.svg",
+                    "light": "images/light/icon-prev-commit.svg"
+                }
             },
             {
                 "command": "gitlens.diffLineWithPrevious",
@@ -1797,11 +1814,15 @@
                 },
                 {
                     "command": "gitlens.diffWithNext",
-                    "when": "gitlens:activeIsTracked"
+                    "when": "gitlens:activeIsTracked && gitlens:activeIsRevision"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
-                    "when": "gitlens:activeIsTracked"
+                    "when": "!isInDiffEditor && gitlens:activeIsTracked"
+                },
+                {
+                    "command": "gitlens.diffWithPreviousInDiff",
+                    "when": "isInDiffEditor && gitlens:activeIsTracked"
                 },
                 {
                     "command": "gitlens.diffLineWithPrevious",
@@ -2258,6 +2279,21 @@
                     "command": "gitlens.openWorkingFile",
                     "when": "gitlens:activeIsRevision && resourceScheme == git && !isInDiffEditor",
                     "group": "navigation@1"
+                },
+                {
+                    "command": "gitlens.diffWithPrevious",
+                    "when": "editorTextFocus && !isInDiffEditor && gitlens:activeIsTracked && config.gitlens.advanced.menus.editorTitle.fileDiff",
+                    "group": "navigation@98"
+                },
+                {
+                    "command": "gitlens.diffWithPreviousInDiff",
+                    "when": "isInDiffEditor && gitlens:activeIsTracked && config.gitlens.advanced.menus.editorTitle.fileDiff",
+                    "group": "navigation@98"
+                },
+                {
+                    "command": "gitlens.diffWithNext",
+                    "when": "editorTextFocus && gitlens:activeIsTracked && gitlens:activeIsTracked && gitlens:activeIsRevision && config.gitlens.advanced.menus.editorTitle.fileDiff",
+                    "group": "navigation@99"
                 },
                 {
                     "command": "gitlens.toggleFileBlame",
@@ -2923,7 +2959,12 @@
             {
                 "command": "gitlens.diffWithPrevious",
                 "key": "alt+,",
-                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:activeIsTracked"
+                "when": "gitlens:keymap == alternate && editorTextFocus && !isInDiffEditor && gitlens:activeIsTracked"
+            },
+            {
+                "command": "gitlens.diffWithPreviousInDiff",
+                "key": "alt+,",
+                "when": "gitlens:keymap == alternate && isInDiffEditor && gitlens:activeIsTracked"
             },
             {
                 "command": "gitlens.diffLineWithWorking",
@@ -2999,7 +3040,12 @@
                 "command": "gitlens.diffWithPrevious",
                 "key": "ctrl+shift+g ,",
                 "mac": "cmd+alt+g ,",
-                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeIsTracked"
+                "when": "gitlens:keymap == chorded && editorTextFocus && !isInDiffEditor && gitlens:activeIsTracked"
+            },
+            {
+                "command": "gitlens.diffWithPreviousInDiff",
+                "key": "alt+,",
+                "when": "gitlens:keymap == chorded && isInDiffEditor && gitlens:activeIsTracked"
             },
             {
                 "command": "gitlens.diffLineWithWorking",

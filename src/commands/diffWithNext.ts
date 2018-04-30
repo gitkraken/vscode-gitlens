@@ -38,8 +38,22 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
             try {
                 const sha = args.commit === undefined ? gitUri.sha : args.commit.sha;
 
-                // If we are a fake "staged" sha, treat it as a DiffWithWorking
-                if (GitService.isStagedUncommitted(sha!)) return commands.executeCommand(Commands.DiffWithWorking, uri);
+                if (GitService.isStagedUncommitted(sha!)) {
+                    const diffArgs: DiffWithCommandArgs = {
+                        repoPath: gitUri.repoPath!,
+                        lhs: {
+                            sha: sha!,
+                            uri: gitUri
+                        },
+                        rhs: {
+                            sha: '',
+                            uri: gitUri
+                        },
+                        line: args.line,
+                        showOptions: args.showOptions
+                    };
+                    return commands.executeCommand(Commands.DiffWith, diffArgs);
+                }
 
                 const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: sha !== undefined ? undefined : 2, range: args.range!, renames: true });
                 if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');

@@ -1,7 +1,7 @@
 'use strict';
 import { Iterables } from '../system';
 import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, CommandContext, Commands, getCommandUri } from './common';
 import { Container } from '../container';
 import { DiffWithCommandArgs } from './diffWith';
 import { DiffWithWorkingCommandArgs } from './diffWithWorking';
@@ -12,6 +12,7 @@ import { Messages } from '../messages';
 export interface DiffWithPreviousCommandArgs {
     commit?: GitCommit;
 
+    inDiffEditor?: boolean;
     line?: number;
     showOptions?: TextDocumentShowOptions;
 }
@@ -19,7 +20,15 @@ export interface DiffWithPreviousCommandArgs {
 export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
     constructor() {
-        super(Commands.DiffWithPrevious);
+        super([Commands.DiffWithPrevious, Commands.DiffWithPreviousInDiff]);
+    }
+
+    protected async preExecute(context: CommandContext, args: DiffWithPreviousCommandArgs = {}): Promise<any> {
+        if (context.command === Commands.DiffWithPreviousInDiff) {
+            args.inDiffEditor = true;
+        }
+
+        return this.execute(context.editor, context.uri, args);
     }
 
     async execute(editor?: TextEditor, uri?: Uri, args: DiffWithPreviousCommandArgs = {}): Promise<any> {
@@ -45,12 +54,18 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                     isStagedUncommitted = true;
                 }
 
+                // If we are in a diff editor, assume we are on the right side, and need to move back 2 revisions
+                if (args.inDiffEditor && sha !== undefined) {
+                    sha = sha + '^';
+                }
+
                 const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: 2, ref: sha, renames: true });
                 if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
 
                 args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
 
-                // If the sha is missing and the file is uncommitted, then treat it as a DiffWithWorking
+                // If the sha is missing (i.e. working tree), check the file status
+                // If file is uncommitted, then treat it as a DiffWithWorking
                 if (gitUri.sha === undefined) {
                     const status = await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
                     if (status !== undefined) {
@@ -58,11 +73,11 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                             const diffArgs: DiffWithCommandArgs = {
                                 repoPath: args.commit.repoPath,
                                 lhs: {
-                                    sha: args.commit.sha,
-                                    uri: args.commit.uri
+                                    sha: args.inDiffEditor ? args.commit.previousSha || GitService.deletedSha : args.commit.sha,
+                                    uri: args.inDiffEditor ? args.commit.previousUri : args.commit.uri
                                 },
                                 rhs: {
-                                    sha: GitService.stagedUncommittedSha,
+                                    sha: args.inDiffEditor ? args.commit.sha : GitService.stagedUncommittedSha,
                                     uri: args.commit.uri
                                 },
                                 line: args.line,
@@ -76,11 +91,11 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                             const diffArgs: DiffWithCommandArgs = {
                                 repoPath: args.commit.repoPath,
                                 lhs: {
-                                    sha: GitService.stagedUncommittedSha,
+                                    sha: args.inDiffEditor ? args.commit.sha : GitService.stagedUncommittedSha,
                                     uri: args.commit.uri
                                 },
                                 rhs: {
-                                    sha: '',
+                                    sha: args.inDiffEditor ? GitService.stagedUncommittedSha : '',
                                     uri: args.commit.uri
                                 },
                                 line: args.line,
@@ -90,7 +105,9 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                             return commands.executeCommand(Commands.DiffWith, diffArgs);
                         }
 
-                        return commands.executeCommand(Commands.DiffWithWorking, uri, { commit: args.commit, showOptions: args.showOptions } as DiffWithWorkingCommandArgs);
+                        if (!args.inDiffEditor) {
+                            return commands.executeCommand(Commands.DiffWithWorking, uri, { commit: args.commit, showOptions: args.showOptions } as DiffWithWorkingCommandArgs);
+                        }
                     }
                 }
             }
