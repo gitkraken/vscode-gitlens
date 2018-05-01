@@ -118,7 +118,7 @@ None yet &mdash; could be you!
 #### Silver Sponsors ($150+)
 None yet &mdash; could be you!
 
-#### Bronse Sponsors ($50+)
+#### Bronze Sponsors ($50+)
 
 - Michael Duffy
 
