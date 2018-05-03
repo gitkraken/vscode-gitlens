@@ -7,7 +7,7 @@
     },
     "publisher": "eamodio",
     "engines": {
-        "vscode": "^1.21.0"
+        "vscode": "^1.23.0"
     },
     "license": "SEE LICENSE IN LICENSE",
     "displayName": "GitLens \u2014 Git supercharged",
@@ -1243,6 +1243,16 @@
             {
                 "command": "gitlens.showQuickCommitFileDetails",
                 "title": "Show Commit Details",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.showGitLensExplorer",
+                "title": "Show GitLens Explorer",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.showHistoryExplorer",
+                "title": "Show History Explorer",
                 "category": "GitLens"
             },
             {
@@ -3010,7 +3020,7 @@
     },
     "devDependencies": {
         "@types/copy-paste": "1.1.30",
-        "@types/node": "9.6.6",
+        "@types/node": "10.0.3",
         "@types/tmp": "0.0.33",
         "husky": "0.14.3",
         "ts-loader": "4.2.0",
@@ -3018,9 +3028,9 @@
         "typescript": "2.8.3",
         "uglify-es": "3.3.9",
         "uglifyjs-webpack-plugin": "1.2.5",
-        "vscode": "1.1.14",
+        "vscode": "1.1.17",
         "webpack": "4.6.0",
-        "webpack-cli": "2.0.14",
+        "webpack-cli": "2.1.2",
         "webpack-node-externals": "1.7.2"
     }
 }
