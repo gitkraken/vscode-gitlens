@@ -1152,7 +1152,7 @@
             },
             {
                 "command": "gitlens.diffLineWithPrevious",
-                "title": "Compare Line Revision with Previous",
+                "title": "Compare Commit with Previous",
                 "category": "GitLens"
             },
             {
@@ -1167,7 +1167,7 @@
             },
             {
                 "command": "gitlens.diffLineWithWorking",
-                "title": "Compare Line Revision with Working File",
+                "title": "Compare Commit with Working File",
                 "category": "GitLens"
             },
             {
@@ -1242,12 +1242,7 @@
             },
             {
                 "command": "gitlens.showQuickCommitFileDetails",
-                "title": "Show Commit File Details",
-                "category": "GitLens"
-            },
-            {
-                "command": "gitlens.showQuickLineCommitFileDetails",
-                "title": "Show Line Commit Details",
+                "title": "Show Commit Details",
                 "category": "GitLens"
             },
             {
@@ -1318,16 +1313,6 @@
             {
                 "command": "gitlens.openFileRevision",
                 "title": "Open Revision...",
-                "category": "GitLens"
-            },
-            {
-                "command": "gitlens.openLineCommitInRemote",
-                "title": "Open Line Commit in Remote",
-                "category": "GitLens"
-            },
-            {
-                "command": "gitlens.openLineInRemote",
-                "title": "Open Line in Remote",
                 "category": "GitLens"
             },
             {
@@ -1840,11 +1825,7 @@
                 },
                 {
                     "command": "gitlens.showQuickCommitFileDetails",
-                    "when": "false"
-                },
-                {
-                    "command": "gitlens.showQuickLineCommitFileDetails",
-                    "when": "gitlens:activeIsBlameable"
+                    "when": "editorTextFocus && gitlens:activeIsBlameable"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
@@ -1896,14 +1877,6 @@
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:activeIsTracked && gitlens:activeHasRemote"
-                },
-                {
-                    "command": "gitlens.openLineCommitInRemote",
-                    "when": "gitlens:activeIsTracked && gitlens:activeHasRemote"
-                },
-                {
-                    "command": "gitlens.openLineInRemote",
                     "when": "gitlens:activeIsTracked && gitlens:activeHasRemote"
                 },
                 {
@@ -2191,17 +2164,17 @@
                     "group": "1_gitlens@2"
                 },
                 {
-                    "command": "gitlens.openLineInRemote",
+                    "command": "gitlens.openFileInRemote",
                     "when": "editorTextFocus && gitlens:activeHasRemote && config.gitlens.menus.editor.remote",
                     "group": "1_gitlens_1@1"
                 },
                 {
-                    "command": "gitlens.openLineCommitInRemote",
+                    "command": "gitlens.openCommitInRemote",
                     "when": "editorTextFocus && gitlens:activeHasRemote && config.gitlens.menus.editor.remote",
                     "group": "1_gitlens_1@2"
                 },
                 {
-                    "command": "gitlens.showQuickLineCommitFileDetails",
+                    "command": "gitlens.showQuickCommitFileDetails",
                     "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.menus.editor.details",
                     "group": "1_gitlens_1@3"
                 },

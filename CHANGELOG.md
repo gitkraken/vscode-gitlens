@@ -9,11 +9,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a tree layout option to tags in the *GitLens* explorer &mdash; closes [#358](https://github.com/eamodio/vscode-gitlens/issues/358)
 - Adds an icon for the *Compare File with Previous Revision* command (`gitlens.diffWithPrevious`) and moves it into the editor toolbar
 - Adds an icon for the *Compare File with Next Revision* command (`gitlens.diffWithNext`) and moves it into the editor toolbar
-- Adds a *Show Line Commit Details* command (`gitlens.showQuickLineCommitFileDetails`) &mdash; behaves the same as the *Show Commit File Details* command (`gitlens.showQuickCommitFileDetails`) but with a more accurate menu name
-- Adds a *Open Line Commit in Remote* command (`gitlens.openLineCommitInRemote`) &mdash; behaves the same as the *Open Commit in Remote* command (`gitlens.openCommitInRemote`) but with a more accurate menu name
-- Adds a *Open Line in Remote* command (`gitlens.openLineInRemote`) &mdash; behaves the same as the *Open File in Remote* command (`gitlens.openFileInRemote`) but with a more accurate menu name
 
 ### Changed
+- Renames *Compare Line Revision with Previous* command (`gitlens.diffLineWithPrevious`) to *Compare Commit with Previous* for consistency with other commands
+- Renames *Compare Line Revision with Working File* command (`gitlens.diffLineWithWorking`) to *Compare Commit with Working File* for consistency with other commands
+- Renames *Show Commit File Details* command (`gitlens.showQuickCommitFileDetails`) to *Show Commit Details* for consistency with other commands
 - Renames the `gitlens.advanced.menus` setting to `gitlens.menus`
 - Reworks GitLens menu contributions and configuration
 

@@ -14,7 +14,7 @@ export interface OpenFileInRemoteCommandArgs {
 export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 
     constructor() {
-        super([Commands.OpenFileInRemote, Commands.OpenLineInRemote]);
+        super(Commands.OpenFileInRemote);
     }
 
     protected async preExecute(context: CommandContext, args: OpenFileInRemoteCommandArgs = { range: true }): Promise<any> {
