@@ -493,7 +493,7 @@
                 },
                 "gitlens.historyExplorer.enabled": {
                     "type": "boolean",
-                    "default": false,
+                    "default": true,
                     "description": "Specifies whether to show the current file history undocked in a `GitLens History` explorer",
                     "scope": "window"
                 },
@@ -2961,7 +2961,7 @@
             }
         ],
         "views": {
-            "explorer": [
+            "scm": [
                 {
                     "id": "gitlens.gitExplorer",
                     "name": "GitLens",
