@@ -1052,7 +1052,7 @@
             },
             {
                 "id": "gitlens.trailingLineBackgroundColor",
-                "description": "Specifies the background color of the trailing blame annotation",
+                "description": "Specifies the background color of the blame annotation for the current line",
                 "defaults": {
                     "dark": "#00000000",
                     "light": "#00000000",
@@ -1061,7 +1061,7 @@
             },
             {
                 "id": "gitlens.trailingLineForegroundColor",
-                "description": "Specifies the foreground color of the trailing blame annotation",
+                "description": "Specifies the foreground color of the blame annotation for the current line",
                 "defaults": {
                     "dark": "#99999959",
                     "light": "#99999959",
