@@ -124,7 +124,6 @@ export interface IAdvancedConfig {
         suppressGitVersionWarning: boolean;
         suppressLineUncommittedWarning: boolean;
         suppressNoRepositoryWarning: boolean;
-        suppressResultsExplorerNotice: boolean;
         suppressShowKeyBindingsNotice: boolean;
     };
 

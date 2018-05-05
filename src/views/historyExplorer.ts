@@ -1,6 +1,6 @@
 'use strict';
 import { Functions } from '../system';
-import { commands, ConfigurationChangeEvent, Disposable, Event, EventEmitter, TextEditor, TreeDataProvider, TreeItem, window } from 'vscode';
+import { commands, ConfigurationChangeEvent, Disposable, Event, EventEmitter, TextEditor, TreeDataProvider, TreeItem, TreeView, window } from 'vscode';
 import { configuration, GitExplorerView, IExplorersConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext } from '../constants';
 import { Container } from '../container';
@@ -15,6 +15,7 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
 
     private _disposable: Disposable | undefined;
     private _root?: ExplorerNode;
+    private _tree: TreeView<ExplorerNode> | undefined;
 
     private _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
     public get onDidChangeTreeData(): Event<ExplorerNode> {
@@ -70,7 +71,8 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
         if (initializing) {
             this.setRoot(await this.getRootNode(window.activeTextEditor));
 
-            this._disposable = window.registerTreeDataProvider('gitlens.historyExplorer', this);
+            this._tree = window.createTreeView('gitlens.historyExplorer', { treeDataProvider: this });
+            this._disposable = this._tree;
         }
     }
 
@@ -94,6 +96,10 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
 
     get config(): IExplorersConfig {
         return { ...Container.config.explorers };
+    }
+
+    getParent(element: ExplorerNode): ExplorerNode | undefined {
+        return undefined;
     }
 
     async getChildren(node?: ExplorerNode): Promise<ExplorerNode[]> {
@@ -144,6 +150,17 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
 
         // Since a root node won't actually refresh, force everything
         this._onDidChangeTreeData.fire(this._root === node ? undefined : node);
+    }
+
+    async show() {
+        if (this._root === undefined || this._tree === undefined) return;
+
+        try {
+            await this._tree.reveal(this._root, { select: false });
+        }
+        catch (ex) {
+            Logger.error(ex);
+        }
     }
 
     async undock(switchView: boolean = true) {

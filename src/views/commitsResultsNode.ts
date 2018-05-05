@@ -12,7 +12,7 @@ export class CommitsResultsNode extends ExplorerNode {
     private _cache: { label: string, log: GitLog | undefined } | undefined;
 
     constructor(
-        readonly repoPath: string,
+        public readonly repoPath: string,
         private readonly labelFn: (log: GitLog | undefined) => Promise<string>,
         private readonly logFn: (maxCount: number | undefined) => Promise<GitLog | undefined>,
         private readonly explorer: Explorer,

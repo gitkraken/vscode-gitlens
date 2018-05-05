@@ -16,17 +16,21 @@ export class RepositoriesNode extends ExplorerNode {
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        this.resetChildren();
+        if (this.children === undefined) {
+            this.children = this.repositories
+                .sort((a, b) => a.index - b.index)
+                .map(repo => new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this.explorer));
 
-        this.children = this.repositories
-            .sort((a, b) => a.index - b.index)
-            .map(repo => new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this.explorer));
-
-        if (this.children.length > 1) {
-            this.children.splice(0, 0, new ActiveRepositoryNode(this.explorer));
+            if (this.children.length > 1) {
+                this.children.splice(0, 0, new ActiveRepositoryNode(this.explorer));
+            }
         }
 
         return this.children;
+    }
+
+    refresh() {
+        this.resetChildren();
     }
 
     getTreeItem(): TreeItem {

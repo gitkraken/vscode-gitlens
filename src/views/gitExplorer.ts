@@ -1,6 +1,6 @@
 'use strict';
 import { Functions } from '../system';
-import { commands, ConfigurationChangeEvent, ConfigurationTarget, Disposable, Event, EventEmitter, TextDocumentShowOptions, TextEditor, TreeDataProvider, TreeItem, Uri, window } from 'vscode';
+import { commands, ConfigurationChangeEvent, ConfigurationTarget, Disposable, Event, EventEmitter, TextDocumentShowOptions, TextEditor, TreeDataProvider, TreeItem, TreeView, Uri, window } from 'vscode';
 import { UriComparer } from '../comparers';
 import { configuration, ExplorerFilesLayout, GitExplorerView, IExplorersConfig, IGitExplorerConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
@@ -21,6 +21,7 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
 
     private _disposable: Disposable | undefined;
     private _root?: ExplorerNode;
+    private _tree: TreeView<ExplorerNode> | undefined;
 
     private _onDidChangeAutoRefresh = new EventEmitter<void>();
     public get onDidChangeAutoRefresh(): Event<void> {
@@ -103,7 +104,8 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
 
                 this.setRoot(await this.getRootNode(window.activeTextEditor));
 
-                this._disposable = window.registerTreeDataProvider('gitlens.gitExplorer', this);
+                this._tree = window.createTreeView('gitlens.gitExplorer', { treeDataProvider: this });
+                this._disposable = this._tree;
 
                 return;
             }
@@ -159,6 +161,10 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         this._view = Container.config.historyExplorer.enabled ? GitExplorerView.Repository : value;
     }
 
+    getParent(element: ExplorerNode): ExplorerNode | undefined {
+        return undefined;
+    }
+
     private _loading: Promise<void> | undefined;
 
     async getChildren(node?: ExplorerNode): Promise<ExplorerNode[]> {
@@ -196,6 +202,8 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
             this.setRoot(await this.getRootNode(window.activeTextEditor));
         }
 
+        this._root!.refresh();
+
         this._onDidChangeTreeData.fire();
     }
 
@@ -205,6 +213,8 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         if (args !== undefined && node.supportsPaging) {
             node.maxCount = args.maxCount;
         }
+
+        node.refresh();
 
         // Since the root node won't actually refresh, force everything
         this._onDidChangeTreeData.fire(node === this._root ? undefined : node);
@@ -220,7 +230,7 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         const requiresRefresh = this.setRoot(await this.getRootNode(window.activeTextEditor));
 
         if (requiresRefresh || force) {
-            this.refresh(RefreshReason.ViewChanged);
+            return this.refresh(RefreshReason.ViewChanged);
         }
     }
 
@@ -272,10 +282,25 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         }
     }
 
-    async switchTo(view: GitExplorerView) {
-        if (this.view === view) return;
+    async show(view: GitExplorerView) {
+        if (this._root === undefined || this._tree === undefined) return;
 
-        this.reset(view, true);
+        await this.switchTo(view);
+        const [child] = await this._root!.getChildren();
+
+        try {
+            await this._tree.reveal(child, { select: false });
+        }
+        catch (ex) {
+            Logger.error(ex);
+        }
+    }
+
+    async switchTo(view: GitExplorerView) {
+        if (this.view === view) return false;
+
+        await this.reset(view, true);
+        return true;
     }
 
     // async dockHistory(switchView: boolean = true) {

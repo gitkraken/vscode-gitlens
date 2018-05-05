@@ -16,7 +16,7 @@ export class StatusFilesResultsNode extends ExplorerNode {
     private _cache: { label: string, diff: GitStatusFile[] | undefined } | undefined;
 
     constructor(
-        readonly repoPath: string,
+        public readonly repoPath: string,
         private readonly ref1: string,
         private readonly ref2: string,
         private readonly explorer: Explorer

@@ -958,7 +958,6 @@
                         "suppressGitVersionWarning": false,
                         "suppressLineUncommittedWarning": false,
                         "suppressNoRepositoryWarning": false,
-                        "suppressResultsExplorerNotice": false,
                         "suppressShowKeyBindingsNotice": false
                     },
                     "properties": {
@@ -987,10 +986,6 @@
                             "default": false
                         },
                         "suppressNoRepositoryWarning": {
-                            "type": "boolean",
-                            "default": false
-                        },
-                        "suppressResultsExplorerNotice": {
                             "type": "boolean",
                             "default": false
                         },
@@ -1096,6 +1091,21 @@
             {
                 "command": "gitlens.showWelcomePage",
                 "title": "Welcome",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.showGitExplorer",
+                "title": "Show GitLens Explorer",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.showHistoryExplorer",
+                "title": "Show History Explorer",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.showResultsExplorer",
+                "title": "Show Results Explorer",
                 "category": "GitLens"
             },
             {
@@ -1243,16 +1253,6 @@
             {
                 "command": "gitlens.showQuickCommitFileDetails",
                 "title": "Show Commit Details",
-                "category": "GitLens"
-            },
-            {
-                "command": "gitlens.showGitLensExplorer",
-                "title": "Show GitLens Explorer",
-                "category": "GitLens"
-            },
-            {
-                "command": "gitlens.showHistoryExplorer",
-                "title": "Show History Explorer",
                 "category": "GitLens"
             },
             {
@@ -1738,6 +1738,22 @@
         "menus": {
             "commandPalette": [
                 {
+                    "command": "gitlens.showGitExplorer",
+                    "when": "gitlens:enabled && gitlens:gitExplorer"
+                },
+                {
+                    "command": "gitlens.showHistoryExplorer",
+                    "when": "gitlens:enabled && gitlens:historyExplorer"
+                },
+                {
+                    "command": "gitlens.showHistoryExplorer",
+                    "when": "gitlens:enabled && !gitlens:historyExplorer && gitlens:gitExplorer"
+                },
+                {
+                    "command": "gitlens.showResultsExplorer",
+                    "when": "gitlens:enabled && gitlens:resultsExplorer"
+                },
+                {
                     "command": "gitlens.diffDirectory",
                     "when": "gitlens:enabled"
                 },
@@ -1822,11 +1838,11 @@
                     "when": "gitlens:enabled && gitlens:canToggleCodeLens"
                 },
                 {
-                    "command": "gitlens.showLastQuickPick",
+                    "command": "gitlens.showCommitSearch",
                     "when": "gitlens:enabled"
                 },
                 {
-                    "command": "gitlens.showCommitSearch",
+                    "command": "gitlens.showLastQuickPick",
                     "when": "gitlens:enabled"
                 },
                 {

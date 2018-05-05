@@ -13,7 +13,6 @@ export enum SuppressedMessages {
     GitVersionWarning = 'suppressGitVersionWarning',
     LineUncommittedWarning = 'suppressLineUncommittedWarning',
     NoRepositoryWarning = 'suppressNoRepositoryWarning',
-    ResultsExplorerNotice = 'suppressResultsExplorerNotice',
     ShowKeyBindingsNotice = 'suppressShowKeyBindingsNotice'
 }
 
@@ -81,10 +80,6 @@ export class Messages {
 
     static showNoRepositoryWarningMessage(message: string): Promise<MessageItem | undefined> {
         return Messages.showMessage('warn', `${message}. No repository could be found.`, SuppressedMessages.NoRepositoryWarning);
-    }
-
-    static showResultExplorerInfoMessage(): Promise<MessageItem | undefined> {
-        return Messages.showMessage('info', `If you can't find your results, click on "GITLENS RESULTS" at the bottom of the Explorer view.`, SuppressedMessages.ResultsExplorerNotice, null);
     }
 
     private static async showMessage<T extends MessageItem>(type: 'info' | 'warn' | 'error', message: string, suppressionKey: SuppressedMessages, dontShowAgain: T | null = { title: 'Don\'t Show Again' } as T, ...actions: T[]): Promise<T | undefined> {

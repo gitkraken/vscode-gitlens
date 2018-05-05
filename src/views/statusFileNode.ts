@@ -9,7 +9,7 @@ import * as path from 'path';
 export class StatusFileNode extends ExplorerNode {
 
     constructor(
-        readonly repoPath: string,
+        public readonly repoPath: string,
         private readonly status: GitStatusFile,
         private readonly ref1: string,
         private readonly ref2: string,

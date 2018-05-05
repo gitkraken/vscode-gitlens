@@ -10,7 +10,7 @@ import { CommitFormatter, GitLogCommit } from '../gitService';
 export class CommitResultsNode extends ExplorerNode {
 
     constructor(
-        readonly commit: GitLogCommit,
+        public readonly commit: GitLogCommit,
         private readonly explorer: Explorer,
         private readonly contextValue: ResourceType = ResourceType.Results
     ) {

@@ -10,7 +10,7 @@ export class CommitsNode extends ExplorerNode {
     readonly supportsPaging: boolean = true;
 
     constructor(
-        readonly repoPath: string,
+        public readonly repoPath: string,
         private readonly logFn: (maxCount: number | undefined) => Promise<GitLog | undefined>,
         private readonly explorer: Explorer
     ) {

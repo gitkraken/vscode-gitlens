@@ -16,7 +16,7 @@ export class RepositoryNode extends ExplorerNode {
 
     constructor(
         uri: GitUri,
-        readonly repo: Repository,
+        public readonly repo: Repository,
         private readonly explorer: GitExplorer,
         private readonly active: boolean = false,
         private readonly activeParent?: ExplorerNode
@@ -29,16 +29,17 @@ export class RepositoryNode extends ExplorerNode {
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        this.resetChildren();
-        this.updateSubscription();
+        if (this.children === undefined) {
+            this.updateSubscription();
 
-        this.children = [
-            new StatusNode(this.uri, this.repo, this.explorer, this.active),
-            new BranchesNode(this.uri, this.repo, this.explorer, this.active),
-            new RemotesNode(this.uri, this.repo, this.explorer, this.active),
-            new StashesNode(this.uri, this.repo, this.explorer, this.active),
-            new TagsNode(this.uri, this.repo, this.explorer, this.active)
-        ];
+            this.children = [
+                new StatusNode(this.uri, this.repo, this.explorer, this.active),
+                new BranchesNode(this.uri, this.repo, this.explorer, this.active),
+                new RemotesNode(this.uri, this.repo, this.explorer, this.active),
+                new StashesNode(this.uri, this.repo, this.explorer, this.active),
+                new TagsNode(this.uri, this.repo, this.explorer, this.active)
+            ];
+        }
         return this.children;
     }
 
@@ -53,6 +54,11 @@ export class RepositoryNode extends ExplorerNode {
         item.id = this.id;
         item.contextValue = ResourceType.Repository;
         return item;
+    }
+
+    refresh() {
+        this.resetChildren();
+        this.updateSubscription();
     }
 
     private updateSubscription() {

@@ -2,13 +2,13 @@
 import { Command, Commands } from './common';
 import { Container } from '../container';
 
-export class ToggleCodeLensCommand extends Command {
+export class ShowResultsExplorerCommand extends Command {
 
     constructor() {
-        super(Commands.ToggleCodeLens);
+        super(Commands.ShowResultsExplorer);
     }
 
     execute() {
-        return Container.codeLens.toggleCodeLens();
+        return Container.resultsExplorer.show();
     }
 }
