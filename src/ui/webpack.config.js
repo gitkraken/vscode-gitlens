@@ -2,10 +2,10 @@
 const webpack = require('webpack');
 const glob = require('glob');
 const path = require('path');
-const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const HtmlWebpackInlineSourcePlugin = require('html-webpack-inline-source-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const ImageminPlugin = require('imagemin-webpack-plugin').default;
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
 
 module.exports = function(env, argv) {
@@ -21,8 +21,8 @@ module.exports = function(env, argv) {
 
     const plugins = [
         new webpack.optimize.ModuleConcatenationPlugin(),
-        new ExtractTextPlugin({
-            filename: 'main.css'
+        new MiniCssExtractPlugin({
+            filename: '[name].css'
         }),
         new HtmlWebpackPlugin({
             excludeAssets: [/.*\.main\.js/],
@@ -114,6 +114,18 @@ module.exports = function(env, argv) {
             path: path.resolve(__dirname, '../../', 'out/ui'),
             publicPath: '{{root}}/out/ui/'
         },
+        optimization: {
+            splitChunks: {
+              cacheGroups: {
+                styles: {
+                  name: 'styles',
+                  test: /\.css$/,
+                  chunks: 'all',
+                  enforce: true
+                }
+              }
+            }
+        },
         resolve: {
             extensions: ['.ts', '.js'],
             modules: [path.resolve(__dirname), 'node_modules']
@@ -128,25 +140,25 @@ module.exports = function(env, argv) {
                 },
                 {
                     test: /\.scss$/,
-                    use: ExtractTextPlugin.extract({
-                        fallback: 'style-loader',
-                        use: [
-                            {
-                                loader: 'css-loader',
-                                options: {
-                                    minimize: minify,
-                                    sourceMap: sourceMaps,
-                                    url: false
-                                }
-                            },
-                            {
-                                loader: 'sass-loader',
-                                options: {
-                                    sourceMap: sourceMaps
-                                }
+                    use: [
+                        {
+                            loader: MiniCssExtractPlugin.loader
+                        },
+                        {
+                            loader: 'css-loader',
+                            options: {
+                                minimize: minify,
+                                sourceMap: sourceMaps,
+                                url: false
                             }
-                        ]
-                    }),
+                        },
+                        {
+                            loader: 'sass-loader',
+                            options: {
+                                sourceMap: sourceMaps
+                            }
+                        }
+                    ],
                     exclude: /node_modules/
                 }
             ]
