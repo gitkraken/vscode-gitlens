@@ -66,8 +66,12 @@ export enum Commands {
 
 export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
     if (uri instanceof Uri) return uri;
-    if (editor === undefined || editor.document === undefined) return undefined;
-    return editor.document.uri;
+    if (editor == null) return undefined;
+
+    const document = editor.document;
+    if (document == null) return undefined;
+
+    return document.uri;
 }
 
 export interface CommandContextParsingOptions {
@@ -123,19 +127,19 @@ export function isCommandViewContextWithRemote(context: CommandContext): context
 export type CommandContext = CommandScmGroupsContext | CommandScmStatesContext | CommandUnknownContext | CommandUriContext | CommandViewContext;
 
 function isScmResourceGroup(group: any): group is SourceControlResourceGroup {
-    if (group === undefined) return false;
+    if (group == null) return false;
 
     return (group as SourceControlResourceGroup).id !== undefined && (group.handle !== undefined || (group as SourceControlResourceGroup).label !== undefined || (group as SourceControlResourceGroup).resourceStates !== undefined);
 }
 
 function isScmResourceState(state: any): state is SourceControlResourceState {
-    if (state === undefined) return false;
+    if (state == null) return false;
 
     return (state as SourceControlResourceState).resourceUri !== undefined;
 }
 
 function isTextEditor(editor: any): editor is TextEditor {
-    if (editor === undefined) return false;
+    if (editor == null) return false;
 
     return editor.id !== undefined && ((editor as TextEditor).edit !== undefined || (editor as TextEditor).document !== undefined);
 }
@@ -184,13 +188,13 @@ export abstract class Command extends Disposable {
         let editor: TextEditor | undefined = undefined;
 
         let firstArg = args[0];
-        if (options.editor && (firstArg === undefined || isTextEditor(firstArg))) {
+        if (options.editor && (firstArg == null || isTextEditor(firstArg))) {
             editor = firstArg;
             args = args.slice(1);
             firstArg = args[0];
         }
 
-        if (options.uri && (firstArg === undefined || firstArg instanceof Uri)) {
+        if (options.uri && (firstArg == null || firstArg instanceof Uri)) {
             const [uri, ...rest] = args as [Uri, any];
             return [{ command: command, type: 'uri', editor: editor, uri: uri }, rest];
         }
