@@ -21,7 +21,8 @@
     "private": true,
     "scripts": {
         "build": "webpack --env.production",
-        "build-dev": "webpack"
+        "build-dev": "webpack",
+        "watch": "webpack --watch"
     },
     "devDependencies": {
         "@types/node": "10.0.7",
