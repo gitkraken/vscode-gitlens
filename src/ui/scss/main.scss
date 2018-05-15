@@ -657,6 +657,15 @@ ul {
     position: relative;
 }
 
+.page-header--sticky {
+    background: var(--background-color);
+    margin: 1em 0 1em 0;
+    padding-bottom: 1em;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
 .page-header__title {
     font-size: 3em;
     margin: 0;
@@ -741,6 +750,7 @@ ul {
 
 .section-group__content {
     flex: auto 1 1;
+    margin-bottom: 50%;
     min-width: 0;
 }
 
@@ -749,6 +759,7 @@ ul {
     margin: -1em 0 0 3em;
     position: sticky;
     top: 0;
+    z-index: 2;
 
     li {
         white-space: nowrap;
@@ -791,7 +802,6 @@ ul {
 .section-groups {
     display: flex;
     justify-content: space-around;
-    margin-bottom: 50%;
     margin-top: -1em;
 }
 
@@ -810,15 +820,23 @@ ul {
     }
 }
 
+.settings-group__header-hint {
+    color: var(--color--75);
+    font-weight: 200;
+    margin-top: -1em;
+}
+
 .settings-group__hint {
     color: var(--color--75);
     font-weight: 200;
+    margin-left: 2.3em;
+    text-indent: -2.75em;
 }
 
 .settings-group__hint--more {
     display: block;
-    margin-left: 34px;
     margin-top: 0.5em;
+    text-indent: initial;
 }
 
 .settings-group__setting {
@@ -857,7 +875,8 @@ ul {
     margin: -1em 0 1em 1em;
 }
 
-.settings-scope {
+.settings-toolbar {
+    display: flex;
     margin: 1.6em 185px 0 0;
     position: absolute;
     right: 0;
@@ -871,6 +890,10 @@ ul {
     select, option {
         background-color: var(--background-color) !important;
     }
+}
+
+.settings-scope {
+    flex: 1 1 auto;
 }
 
 .sidebar-group {

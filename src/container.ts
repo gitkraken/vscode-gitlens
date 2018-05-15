@@ -14,9 +14,10 @@ import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { GitService } from './gitService';
 import { HistoryExplorer } from './views/historyExplorer';
 import { Keyboard } from './keyboard';
-import { PageProvider } from './pageProvider';
 import { ResultsExplorer } from './views/resultsExplorer';
+import { SettingsEditor } from './webviews/settingsEditor';
 import { StatusBarController } from './statusBarController';
+import { WelcomeEditor } from './webviews/welcomeEditor';
 
 export class Container {
 
@@ -37,7 +38,8 @@ export class Container {
         context.subscriptions.push(this._statusBarController = new StatusBarController());
         context.subscriptions.push(this._codeLensController = new CodeLensController());
         context.subscriptions.push(this._keyboard = new Keyboard());
-        context.subscriptions.push(this._pageProvider = new PageProvider());
+        context.subscriptions.push(this._settingsEditor = new SettingsEditor());
+        context.subscriptions.push(this._welcomeEditor = new WelcomeEditor());
 
         if (config.gitExplorer.enabled) {
             context.subscriptions.push(this._gitExplorer = new GitExplorer());
@@ -139,11 +141,6 @@ export class Container {
         return this._lineTracker;
     }
 
-    private static _pageProvider: PageProvider;
-    static get pages() {
-        return this._pageProvider;
-    }
-
     private static _resultsExplorer: ResultsExplorer | undefined;
     static get resultsExplorer() {
         if (this._resultsExplorer === undefined) {
@@ -151,6 +148,11 @@ export class Container {
         }
 
         return this._resultsExplorer;
+    }
+
+    private static _settingsEditor: SettingsEditor;
+    static get settingsEditor() {
+        return this._settingsEditor;
     }
 
     private static _statusBarController: StatusBarController;
@@ -161,6 +163,11 @@ export class Container {
     private static _tracker: GitDocumentTracker;
     static get tracker() {
         return this._tracker;
+    }
+
+    private static _welcomeEditor: WelcomeEditor;
+    static get welcomeEditor() {
+        return this._welcomeEditor;
     }
 
     static resetConfig() {

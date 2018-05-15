@@ -28,16 +28,24 @@
                 </p>
             </header>
 
-            <div class="page-header">
+            <div class="page-header page-header--sticky">
                 <h2 class="page-header__title">Settings</h2>
                 <p class="page-header__subtitle">For advanced customizations refer to the <a title="See the GitLens settings docs" href="https://github.com/eamodio/vscode-gitlens/#gitlens-settings">GitLens settings docs</a> and edit your
                     <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a>
                 </p>
 
-                <div class="settings-scope hidden">
-                    <label for="scopes">Save to</label>
-                    <select id="scopes" name="scope">
-                    </select>
+                <div class="settings-toolbar">
+                    <div class="settings-scope">
+                        <label for="scopes">Save to</label>
+                        <select id="scopes" name="scope">
+                        </select>
+                    </div>
+                    <div class="ml-1">
+                        <select class="setting" id="settings.mode" name="settings.mode">
+                            <option value="simple">Simple</option>
+                            <option value="advanced">Advanced</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -97,12 +105,125 @@
                                     <a class="command" title="Open Keyboard Shortcuts" href="command:workbench.action.openGlobalKeybindings">Keyboard Shortcuts</a> editor
                                 </span>
                                 <p class="settings-group__hint">
+                                    <i class="icon icon--lg icon__info"></i>
                                     Search for
                                     <b>
                                         <i>gitlens</i>
                                     </b> in the
                                     <a class="command" title="Open Keyboard Shortcuts" href="command:workbench.action.openGlobalKeybindings">Keyboard Shortcuts</a> editor to see the shortcuts and to customize them further
                                 </p>
+                            </div>
+
+                            <h3 class="settings-group__header">Menus &amp; Toolbars</h3>
+                            <div class="settings-group">
+                                <p class="settings-group__header-hint">
+                                    Any changes to menu &amp; toolbar settings will require a <a class="command" title="Reload Window" href="command:workbench.action.reloadWindow">reload</a> before they will take effect
+                                </p>
+
+                                <div class="settings-group__setting nowrap">
+                                    <input class="setting" id="menus" name="menus" type="checkbox" value="undefined"/>
+                                    <label for="menus">Add commands to the built-in menus &amp; toolbars</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-2" data-enablement="menus">
+                                    <input class="setting" id="menus.editor" name="menus.editor" type="checkbox" value="undefined" data-type="object" disabled/>
+                                    <label for="menus.editor">Add commands to the editor context menu</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.editor">
+                                    <input class="setting" id="menus.editor.compare" name="menus.editor.compare" type="checkbox" data-type="object" disabled/>
+                                    <label for="menus.editor.compare">Add comparison commands</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.editor">
+                                    <input class="setting" id="menus.editor.remote" name="menus.editor.remote" type="checkbox" data-type="object" disabled/>
+                                    <label for="menus.editor.remote">Add open in remote commands</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.editor">
+                                    <input class="setting" id="menus.editor.details" name="menus.editor.details" type="checkbox" data-type="object" disabled/>
+                                    <label for="menus.editor.details">Add commit details command</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.editor">
+                                    <input class="setting" id="menus.editor.history" name="menus.editor.history" type="checkbox" data-type="object" disabled/>
+                                    <label for="menus.editor.history">Add file history command</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.editor">
+                                    <input class="setting" id="menus.editor.blame" name="menus.editor.blame" type="checkbox" data-type="object" disabled/>
+                                    <label for="menus.editor.blame">Add blame command</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.editor">
+                                    <input class="setting" id="menus.editor.clipboard" name="menus.editor.clipboard" type="checkbox" data-type="object" disabled/>
+                                    <label for="menus.editor.clipboard">Add copy to clipboard commands</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-2" data-enablement="menus">
+                                    <input class="setting" id="menus.editorTab" name="menus.editorTab" type="checkbox" value="undefined" data-type="object" disabled/>
+                                    <label for="menus.editorTab">Add commands to the editor tab context menu</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.editorTab">
+                                    <input class="setting" id="menus.editorTab.compare" name="menus.editorTab.compare" type="checkbox" data-type="object" disabled/>
+                                    <label for="menus.editorTab.compare">Add comparison commands</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.editorTab">
+                                    <input class="setting" id="menus.editorTab.history" name="menus.editorTab.history" type="checkbox" data-type="object" disabled/>
+                                    <label for="menus.editorTab.history">Add file history command</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.editorTab">
+                                    <input class="setting" id="menus.editorTab.remote" name="menus.editorTab.remote" type="checkbox" data-type="object" disabled/>
+                                    <label for="menus.editorTab.remote">Add open in remote command</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-2" data-enablement="menus">
+                                    <input class="setting" id="menus.editorGroup" name="menus.editorGroup" type="checkbox" value="undefined" data-type="object" disabled/>
+                                    <label for="menus.editorGroup">Add commands to the editor group menu &amp; toolbar</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.editorGroup">
+                                    <input class="setting" id="menus.editorGroup.compare" name="menus.editorGroup.compare" type="checkbox" data-type="object" disabled/>
+                                    <label for="menus.editorGroup.compare">Add comparison toolbar commands</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.editorGroup">
+                                    <input class="setting" id="menus.editorGroup.blame" name="menus.editorGroup.blame" type="checkbox" data-type="object" disabled/>
+                                    <label for="menus.editorGroup.blame">Add blame toolbar command</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.editorGroup">
+                                    <input class="setting" id="menus.editorGroup.remote" name="menus.editorGroup.remote" type="checkbox" data-type="object" disabled/>
+                                    <label for="menus.editorGroup.remote">Add open in remote command</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.editorGroup">
+                                    <input class="setting" id="menus.editorGroup.history" name="menus.editorGroup.history" type="checkbox" data-type="object" disabled/>
+                                    <label for="menus.editorGroup.history">Add file history command</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-2" data-enablement="menus">
+                                    <input class="setting" id="menus.explorer" name="menus.explorer" type="checkbox" value="undefined" data-type="object" disabled/>
+                                    <label for="menus.explorer">Add commands to the explorer context menu</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.explorer">
+                                    <input class="setting" id="menus.explorer.remote" name="menus.explorer.remote" type="checkbox" data-type="object" disabled/>
+                                    <label for="menus.explorer.remote">Add open in remote command</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.explorer">
+                                    <input class="setting" id="menus.explorer.history" name="menus.explorer.history" type="checkbox" data-type="object" disabled/>
+                                    <label for="menus.explorer.history">Add file history command</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.explorer">
+                                    <input class="setting" id="menus.explorer.compare" name="menus.explorer.compare" type="checkbox" data-type="object" disabled/>
+                                    <label for="menus.explorer.compare">Add comparison commands</label>
+                                </div>
                             </div>
 
                             <p class="settings-group__hint">
@@ -128,7 +249,7 @@
                                     <label for="gitExplorer.enabled">Show the GitLens explorer</label>
                                 </div>
 
-                                <div class="settings-group__setting ml-2" data-enablement="gitExplorer.enabled &amp; historyExplorer.enabled =false" disabled>
+                                <div class="settings-group__setting ml-2" data-enablement="gitExplorer.enabled &amp; historyExplorer.enabled =false">
                                     <label for="gitExplorer.view">When opened, show the</label>
                                     <select class="setting hidden" id="gitExplorer.view" name="gitExplorer.view" data-visibility="historyExplorer.enabled =false" disabled>
                                         <option value="auto">last selected view</option>
@@ -142,7 +263,7 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting ml-2" data-enablement="gitExplorer.enabled" disabled>
+                                <div class="settings-group__setting ml-2 hidden" data-enablement="gitExplorer.enabled" data-visibility="settings.mode =advanced">
                                     <label for="gitExplorer.branches.layout">Layout branches</label>
                                     <select class="setting" id="gitExplorer.branches.layout" name="gitExplorer.branches.layout" disabled>
                                         <option value="list">as a list</option>
@@ -150,7 +271,7 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting ml-2" data-enablement="gitExplorer.enabled" disabled>
+                                <div class="settings-group__setting ml-2 hidden" data-enablement="gitExplorer.enabled" data-visibility="settings.mode =advanced">
                                     <label for="gitExplorer.files.layout">Layout files</label>
                                     <select class="setting" id="gitExplorer.files.layout" name="gitExplorer.files.layout" disabled>
                                         <option value="auto">automatically</option>
@@ -158,20 +279,20 @@
                                         <option value="tree">as a tree</option>
                                     </select>
                                 </div>
-                                <p class="setting__hint ml-3 hidden" data-visibility="gitExplorer.files.layout =auto">Chooses the best layout based on the number of files at each nesting level</p>
+                                <p class="setting__hint ml-3 hidden" data-visibility="gitExplorer.files.layout =auto &amp; settings.mode =advanced">Chooses the best layout based on the number of files at each nesting level</p>
 
-                                <div class="settings-group__setting nowrap ml-2" data-enablement="gitExplorer.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="gitExplorer.enabled" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="gitExplorer.files.compact" name="gitExplorer.files.compact" type="checkbox" disabled/>
                                     <label for="gitExplorer.files.compact">Use compact layout</label>
                                 </div>
-                                <p class="setting__hint ml-3">Compacts (flattens) unnecessary nesting when using a tree layouts</p>
+                                <p class="setting__hint ml-3 hidden" data-visibility="settings.mode =advanced">Compacts (flattens) unnecessary nesting when using a tree layouts</p>
 
-                                <div class="settings-group__setting nowrap ml-2" data-enablement="gitExplorer.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="gitExplorer.enabled" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="gitExplorer.avatars" name="explorers.avatars" type="checkbox" disabled/>
                                     <label for="gitExplorer.avatars">Use author avatars icons</label>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2" data-enablement="gitExplorer.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="gitExplorer.enabled" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="gitExplorer.autoRefresh" name="gitExplorer.autoRefresh" type="checkbox" disabled/>
                                     <label for="gitExplorer.autoRefresh">Automatically refreshes when the file system or any repository changes</label>
                                 </div>
@@ -217,7 +338,7 @@
                                 </div>
                                 <p class="setting__hint hidden" data-visibility="gitExplorer.enabled &amp; historyExplorer.enabled =false">The current file history will be shown (docked) in the GitLens explorer</p>
 
-                                <div class="settings-group__setting nowrap ml-2" data-enablement="historyExplorer.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="historyExplorer.enabled" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="historyExplorer.avatars" name="explorers.avatars" type="checkbox" disabled/>
                                     <label for="historyExplorer.avatars">Use author avatars icons</label>
                                 </div>
@@ -233,7 +354,7 @@
                         </div>
                     </section>
 
-                    <section id="gitlens-results">
+                    <section id="gitlens-results" class="hidden" data-visibility="settings.mode =advanced">
                         <div class="section__header">
                             <h2 class="section__title">GitLens Results
                                 <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#gitlens-results-view">
@@ -294,12 +415,11 @@
                                     <label for="codeLens.enabled">Show the authorship code lenses</label>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled">
                                     <input class="setting" id="codeLens.recentChange.enabled" name="codeLens.recentChange.enabled" type="checkbox" disabled/>
                                     <label for="codeLens.recentChange.enabled">Add the author and date of the most recent change for the file or code block</label>
                                 </div>
-                                <div class="settings-group__setting ml-4" data-enablement="codeLens.enabled &amp; codeLens.recentChange.enabled"
-                                    disabled>
+                                <div class="settings-group__setting ml-4 hidden" data-enablement="codeLens.enabled &amp; codeLens.recentChange.enabled" data-visibility="settings.mode =advanced">
                                     <label for="codeLens.recentChange.command">When clicked</label>
                                     <select class="setting" id="codeLens.recentChange.command" name="codeLens.recentChange.command" disabled>
                                         <option value="gitlens.toggleFileBlame">toggles the file blame annotations</option>
@@ -311,12 +431,11 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled">
                                     <input class="setting" id="codeLens.authors.enabled" name="codeLens.authors.enabled" type="checkbox" disabled/>
                                     <label for="codeLens.authors.enabled">Add the number of authors and the most prominent author of the file or code block</label>
                                 </div>
-                                <div class="settings-group__setting ml-4" data-enablement="codeLens.enabled &amp; codeLens.authors.enabled"
-                                    disabled>
+                                <div class="settings-group__setting ml-4 hidden" data-enablement="codeLens.enabled &amp; codeLens.authors.enabled" data-visibility="settings.mode =advanced">
                                     <label for="codeLens.authors.command">When clicked</label>
                                     <select class="setting" id="codeLens.authors.command" name="codeLens.authors.command" disabled>
                                         <option value="gitlens.toggleFileBlame">toggles the file blame annotations</option>
@@ -328,18 +447,18 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="codeLens.enabled" data-visibility="settings.mode =advanced">
                                     <label class="non-interactive">Add code lens to the following scopes</label>
                                 </div>
-                                <div class="settings-group__setting nowrap ml-4" data-enablement="codeLens.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="codeLens.enabled" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="codeLens.scopes" name="codeLens.scopes" type="checkbox" value="document" data-type="array" disabled/>
                                     <label for="codeLens.scopes">File scope &mdash; added at the top of the file</label>
                                 </div>
-                                <div class="settings-group__setting nowrap ml-4" data-enablement="codeLens.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="codeLens.enabled" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="codeLens.scopes-1" name="codeLens.scopes" type="checkbox" value="containers" data-type="array" disabled/>
                                     <label for="codeLens.scopes-1">Containers scope &mdash; added at the start of modules, classes, interfaces, etc</label>
                                 </div>
-                                <div class="settings-group__setting nowrap ml-4" data-enablement="codeLens.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="codeLens.enabled" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="codeLens.scopes-2" name="codeLens.scopes" type="checkbox" value="blocks" data-type="array" disabled/>
                                     <label for="codeLens.scopes-2">Block scope &mdash; added at the start of functions, methods, etc</label>
                                 </div>
@@ -385,7 +504,7 @@
                                     <label for="currentLine.enabled">Show a blame annotation at the end of the current line</label>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2" data-enablement="currentLine.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="currentLine.enabled" data-visibility="settings.mode =advanced">
                                     <label for="currentLine.format">Annotation&nbsp;format</label>
                                     <input class="setting" id="currentLine.format" name="currentLine.format" type="text"
                                         placeholder="&dollar;&lbrace;authorAgoOrDate&rbrace; &bull; &dollar;&lbrace;message&rbrace;"
@@ -412,11 +531,11 @@
                                     </div>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2" data-enablement="currentLine.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="currentLine.enabled" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="currentLine.scrollable" name="currentLine.scrollable" type="checkbox" disabled/>
                                     <label for="currentLine.scrollable">Include the annotation when scrolling the editor horizontally</label>
                                 </div>
-                                <p class="setting__hint ml-3">When enabled the annotation can be scrolled into view when it is outside the viewport</p>
+                                <p class="setting__hint ml-3 hidden" data-visibility="settings.mode =advanced">When enabled the annotation can be scrolled into view when it is outside the viewport</p>
                             </div>
 
                             <div class="section__preview">
@@ -455,7 +574,7 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting nowrap">
+                                <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
                                     <label for="blame.format">Annotation&nbsp;format</label>
                                     <input class="setting" id="blame.format" name="blame.format" type="text"
                                         placeholder="&dollar;&lbrace;message|40?&rbrace; &dollar;&lbrace;agoOrDate|14-&rbrace;"
@@ -488,7 +607,7 @@
                                 </div>
                                 <p class="setting__hint">Quickly tell the age of a line &mdash; indicator ranges from bright yellow (newer) to dark brown (older)</p>
 
-                                <div class="settings-group__setting ml-2" data-enablement="blame.heatmap.enabled" disabled>
+                                <div class="settings-group__setting ml-2 hidden" data-enablement="blame.heatmap.enabled" data-visibility="settings.mode =advanced"disabled>
                                     <label for="blame.heatmap.location">Position the heatmap on the</label>
                                     <select class="setting" id="blame.heatmap.location" name="blame.heatmap.location" disabled>
                                         <option value="left">left</option>
@@ -496,31 +615,31 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting nowrap">
+                                <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="blame.avatars" name="blame.avatars" type="checkbox"/>
                                     <label for="blame.avatars">Add author avatars in the gutter</label>
                                 </div>
 
-                                <div class="settings-group__setting nowrap">
+                                <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="blame.compact" name="blame.compact" type="checkbox"/>
                                     <label for="blame.compact">Use compact view</label>
                                 </div>
-                                <p class="setting__hint">Compacts (deduplicates) matching adjacent blame annotations</p>
+                                <p class="setting__hint hidden" data-visibility="settings.mode =advanced">Compacts (deduplicates) matching adjacent blame annotations</p>
 
                                 <div class="settings-group__setting nowrap">
                                     <input class="setting" id="blame.highlight.enabled" name="blame.highlight.enabled" type="checkbox"/>
-                                    <label for="blame.highlight.enabled">Highlight other lines changed with the current line</label>
+                                    <label for="blame.highlight.enabled">Highlight other lines changed by the current line's commit</label>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2" data-enablement="blame.highlight.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="blame.highlight.enabled" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="blame.highlight.locations" name="blame.highlight.locations" type="checkbox" value="gutter" data-type="array" disabled/>
                                     <label for="blame.highlight.locations">Add gutter highlight</label>
                                 </div>
-                                <div class="settings-group__setting nowrap ml-2" data-enablement="blame.highlight.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="blame.highlight.enabled" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="blame.highlight.locations-1" name="blame.highlight.locations" type="checkbox" value="line" data-type="array" disabled/>
                                     <label for="blame.highlight.locations-1">Add line highlight</label>
                                 </div>
-                                <div class="settings-group__setting nowrap ml-2" data-enablement="blame.highlight.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="blame.highlight.enabled" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="blame.highlight.locations-2" name="blame.highlight.locations" type="checkbox" value="overview" data-type="array" disabled/>
                                     <label for="blame.highlight.locations-2">Add scroll bar highlight</label>
                                 </div>
@@ -612,17 +731,17 @@
                                 </div>
 
                                 <div class="settings-group__setting">
-                                    <div class="settings-group__setting nowrap ml-2 hidden" data-visibility="currentLine.enabled" data-enablement="hovers.enabled" disabled>
+                                    <div class="settings-group__setting nowrap ml-2 hidden" data-visibility="currentLine.enabled" data-enablement="hovers.enabled">
                                         <input class="setting" id="hovers.currentLine.enabled" name="hovers.currentLine.enabled" type="checkbox" disabled/>
                                         <label for="hovers.currentLine.enabled">Show hovers for the current line</label>
                                     </div>
 
-                                    <div class="settings-group__setting nowrap ml-2 hidden" data-visibility="currentLine.enabled =false" data-enablement="hovers.enabled" disabled>
+                                    <div class="settings-group__setting nowrap ml-2 hidden" data-visibility="currentLine.enabled =false" data-enablement="hovers.enabled">
                                         <input class="setting" id="hovers.currentLine.enabled-1" name="hovers.currentLine.enabled" type="checkbox" data-add-settings-on="hovers.currentLine.over=line" disabled/>
                                         <label for="hovers.currentLine.enabled-1">Show hovers for the current line</label>
                                     </div>
 
-                                    <div class="settings-group__setting ml-4 hidden" data-visibility="currentLine.enabled" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled" disabled>
+                                    <div class="settings-group__setting ml-4 hidden" data-visibility="currentLine.enabled &amp; settings.mode =advanced" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled">
                                         <label for="hovers.currentLine.over">Shown when over the</label>
                                         <select class="setting" id="hovers.currentLine.over" name="hovers.currentLine.over" disabled>
                                             <option value="annotation">annotation only</option>
@@ -630,7 +749,7 @@
                                         </select>
                                     </div>
 
-                                    <div class="settings-group__setting ml-4 hidden" data-visibility="currentLine.enabled =false" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled &amp; currentLine.enabled" disabled>
+                                    <div class="settings-group__setting ml-4 hidden" data-visibility="currentLine.enabled =false &amp; settings.mode =advanced" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled &amp; currentLine.enabled">
                                         <label for="hovers.currentLine.over">Shown when over the</label>
                                         <select class="setting" id="hovers.currentLine.over" name="hovers.currentLine.over" disabled>
                                             <option value="annotation">annotation only</option>
@@ -638,14 +757,12 @@
                                         </select>
                                     </div>
 
-                                    <div class="settings-group__setting nowrap ml-4" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled"
-                                        disabled>
+                                    <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled" data-visibility="settings.mode =advanced">
                                         <input class="setting" id="hovers.currentLine.details" name="hovers.currentLine.details" type="checkbox" disabled/>
                                         <label for="hovers.currentLine.details">Add blame details</label>
                                     </div>
 
-                                    <div class="settings-group__setting nowrap ml-4" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled"
-                                        disabled>
+                                    <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled" data-visibility="settings.mode =advanced">
                                         <input class="setting" id="hovers.currentLine.changes" name="hovers.currentLine.changes" type="checkbox" disabled/>
                                         <label for="hovers.currentLine.changes">Add changes (diff)</label>
                                     </div>
@@ -671,12 +788,12 @@
 
                             <div class="settings-group">
                                 <div class="settings-group__setting">
-                                    <div class="settings-group__setting nowrap ml-2" data-enablement="hovers.enabled" disabled>
+                                    <div class="settings-group__setting nowrap ml-2" data-enablement="hovers.enabled">
                                         <input class="setting" id="hovers.annotations.enabled" name="hovers.annotations.enabled" type="checkbox" disabled/>
                                         <label for="hovers.annotations.enabled">Show hovers while annotating</label>
                                     </div>
 
-                                    <div class="settings-group__setting nowrap ml-4" data-enablement="hovers.enabled &amp; hovers.annotations.enabled" disabled>
+                                    <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.annotations.enabled" data-visibility="settings.mode =advanced">
                                         <label for="hovers.annotations.over">Shown when over the</label>
                                         <select class="setting" id="hovers.annotations.over" name="hovers.annotations.over" disabled>
                                             <option value="annotation">annotation only</option>
@@ -684,14 +801,12 @@
                                         </select>
                                     </div>
 
-                                    <div class="settings-group__setting nowrap ml-4" data-enablement="hovers.enabled &amp; hovers.annotations.enabled"
-                                        disabled>
+                                    <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.annotations.enabled" data-visibility="settings.mode =advanced">
                                         <input class="setting" id="hovers.annotations.details" name="hovers.annotations.details" type="checkbox" disabled/>
                                         <label for="hovers.annotations.details">Add blame details</label>
                                     </div>
 
-                                    <div class="settings-group__setting nowrap ml-4" data-enablement="hovers.enabled &amp; hovers.annotations.enabled"
-                                        disabled>
+                                    <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.annotations.enabled" data-visibility="settings.mode =advanced">
                                         <input class="setting" id="hovers.annotations.changes" name="hovers.annotations.changes" type="checkbox" disabled/>
                                         <label for="hovers.annotations.changes">Add changes (diff)</label>
                                     </div>
@@ -729,17 +844,17 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting nowrap">
+                                <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="recentChanges.highlight.locations" name="recentChanges.highlight.locations" type="checkbox" value="gutter" data-type="array"/>
                                     <label for="recentChanges.highlight.locations">Add gutter highlight</label>
                                 </div>
 
-                                <div class="settings-group__setting nowrap">
+                                <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="recentChanges.highlight.locations-1" name="recentChanges.highlight.locations" type="checkbox" value="line" data-type="array"/>
                                     <label for="recentChanges.highlight.locations-1">Add line highlight</label>
                                 </div>
 
-                                <div class="settings-group__setting nowrap">
+                                <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="recentChanges.highlight.locations-2" name="recentChanges.highlight.locations" type="checkbox" value="overview" data-type="array"/>
                                     <label for="recentChanges.highlight.locations-2">Add scroll bar highlight</label>
                                 </div>
@@ -782,7 +897,7 @@
                                     <label for="statusBar.enabled">Show a Git blame annotation for the current line in the status bar</label>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2" data-enablement="statusBar.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="statusBar.enabled" data-visibility="settings.mode =advanced">
                                     <label for="statusBar.format">Annotation&nbsp;format</label>
                                     <input class="setting" id="statusBar.format" name="statusBar.format" type="text"
                                         placeholder="&dollar;&lbrace;authorAgoOrDate&rbrace;"
@@ -809,7 +924,7 @@
                                     </div>
                                 </div>
 
-                                <div class="settings-group__setting ml-2" data-enablement="statusBar.enabled" disabled>
+                                <div class="settings-group__setting ml-2" data-enablement="statusBar.enabled">
                                     <label for="statusBar.alignment">Position the annotation on the</label>
                                     <select class="setting" id="statusBar.alignment" name="statusBar.alignment" disabled>
                                         <option value="left">left</option>
@@ -817,7 +932,7 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting ml-2" data-enablement="statusBar.enabled" disabled>
+                                <div class="settings-group__setting ml-2 hidden" data-enablement="statusBar.enabled" data-visibility="settings.mode =advanced">
                                     <label for="statusBar.command">When clicked</label>
                                     <select class="setting" id="statusBar.command" name="statusBar.command" disabled>
                                         <option value="gitlens.toggleFileBlame">toggles the file blame annotations</option>
@@ -831,11 +946,11 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2" data-enablement="statusBar.enabled" disabled>
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="statusBar.enabled" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="statusBar.reduceFlicker" name="statusBar.reduceFlicker" type="checkbox" disabled/>
                                     <label for="statusBar.reduceFlicker">Reduce flashing when updating the annotation</label>
                                 </div>
-                                <p class="setting__hint ml-3">Avoids clearing the previous blame information when changing lines to reduce status bar "flashing"</p>
+                                <p class="setting__hint ml-3 hidden" data-visibility="settings.mode =advanced">Avoids clearing the previous blame information when changing lines to reduce status bar "flashing"</p>
                             </div>
 
                             <div class="section__preview">
@@ -860,17 +975,17 @@
                     <div class="sidebar-group">
                         <h2>Jump to</h2>
                         <ul>
-                            <li><a href="#general">General</a></li>
-                            <li><a href="#gitlens-explorer">GitLens Explorer</a></li>
-                            <li><a href="#gitlens-history-explorer">GitLens History Explorer</a></li>
-                            <li><a href="#gitlens-results">GitLens Results</a></li>
-                            <li><a href="#code-lens">Code Lens</a></li>
-                            <li><a href="#current-line">Current Line Blame</a></li>
-                            <li><a href="#blame">Gutter Blame</a></li>
-                            <li><a href="#heatmap">Gutter Heatmap</a></li>
-                            <li><a href="#hovers">Hovers</a></li>
-                            <li><a href="#recent-changes">Recent Changes</a></li>
-                            <li><a href="#status-bar">Status Bar Blame</a></li>
+                            <li><a class="jump-to" href="#general">General</a></li>
+                            <li><a class="jump-to" href="#gitlens-explorer">GitLens Explorer</a></li>
+                            <li><a class="jump-to" href="#gitlens-history-explorer">GitLens History Explorer</a></li>
+                            <li><a class="jump-to" href="#gitlens-results" class="hidden" data-visibility="settings.mode =advanced">GitLens Results</a></li>
+                            <li><a class="jump-to" href="#code-lens">Code Lens</a></li>
+                            <li><a class="jump-to" href="#current-line">Current Line Blame</a></li>
+                            <li><a class="jump-to" href="#blame">Gutter Blame</a></li>
+                            <li><a class="jump-to" href="#heatmap">Gutter Heatmap</a></li>
+                            <li><a class="jump-to" href="#hovers">Hovers</a></li>
+                            <li><a class="jump-to" href="#recent-changes">Recent Changes</a></li>
+                            <li><a class="jump-to" href="#status-bar">Status Bar Blame</a></li>
                         </ul>
                     </div>
                     <div class="sidebar-group">
@@ -929,9 +1044,8 @@
         </div>
     </div>
 
-    <a id="commandRelay" style="display: none"></a>
     <script type="text/javascript">
-        window.gitlens = '{{data}}';
+        window.bootstrap = '{{bootstrap}}';
     </script>
 </body>
 

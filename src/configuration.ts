@@ -30,9 +30,6 @@ export class Configuration {
         if (!e.affectsConfiguration(ExtensionKey, null!)) return;
 
         Container.resetConfig();
-        if (Container.pages !== undefined) {
-            Container.pages.refresh();
-        }
 
         if (configuration.changed(e, configuration.name('defaultGravatarsStyle').value)) {
             clearGravatarCache();

@@ -1,39 +1,31 @@
 'use strict';
 import { DOM } from './../shared/dom';
-import { initializeColorPalette } from '../shared/colors';
-import { IConfig } from './../config';
+import { darken, lighten, opacity } from '../shared/colors';
+import { Bootstrap, Message, SaveSettingsMessage } from './../ipc';
 
-const gitlens: { config: IConfig, scope: 'user' | 'workspace', scopes: ['user' | 'workspace', string][], uri: string } = (window as any).gitlens;
+interface VsCodeApi {
+    postMessage(msg: {}): void;
+    setState(state: {}): void;
+    getState(): {};
+}
 
-export abstract class App {
+declare function acquireVsCodeApi(): VsCodeApi;
 
-    private readonly _commandRelay: HTMLAnchorElement;
-    private readonly _changes: { [key: string]: any } = Object.create(null);
-    private readonly _scopes: HTMLSelectElement | null = null;
+export abstract class App<TBootstrap extends Bootstrap> {
 
-    constructor(private _appName: string) {
-        this.log(`${this._appName}.ctor`);
+    private readonly _api: VsCodeApi;
+    private _changes: { [key: string]: any } = Object.create(null);
+    private _updating: boolean = false;
 
-        this._commandRelay = DOM.getElementById<HTMLAnchorElement>('commandRelay');
+    constructor(
+        protected readonly appName: string,
+        protected readonly bootstrap: TBootstrap
+    ) {
+        this.log(`${this.appName}.ctor`);
 
-        // Add scopes if available
-        const scopes = DOM.getElementById<HTMLSelectElement>('scopes');
-        if (scopes && gitlens.scopes.length > 1) {
-            for (const [scope, text] of gitlens.scopes) {
-                const option = document.createElement('option');
-                option.value = scope;
-                option.innerHTML = text;
-                if (gitlens.scope === scope) {
-                    option.selected = true;
-                }
-                scopes.appendChild(option);
-            }
+        this._api = acquireVsCodeApi();
 
-            scopes.parentElement!.classList.remove('hidden');
-            this._scopes = scopes;
-        }
-
-        initializeColorPalette();
+        this.initializeColorPalette();
         this.initialize();
         this.bind();
 
@@ -42,59 +34,31 @@ export abstract class App {
         }, 500);
     }
 
-    protected initialize() {
-        this.log(`${this._appName}.initializeState`);
+    protected applyChanges() {
+        this.postMessage({
+            type: 'saveSettings',
+            changes: { ...this._changes },
+            removes: Object.keys(this._changes).filter(k => this._changes[k] === undefined),
+            scope: this.getSettingsScope()
 
-        for (const el of document.querySelectorAll<HTMLInputElement>('input[type=checkbox].setting')) {
-            const checked = el.dataset.type === 'array'
-                ? (getSettingValue<string[]>(el.name) || []).includes(el.value)
-                : getSettingValue<boolean>(el.name) || false;
-            el.checked = checked;
-        }
+        } as SaveSettingsMessage);
 
-        for (const el of document.querySelectorAll<HTMLInputElement>('input[type=text].setting, input:not([type]).setting')) {
-            el.value = getSettingValue<string>(el.name) || '';
-        }
-
-        for (const el of document.querySelectorAll<HTMLSelectElement>('select.setting')) {
-            const value = getSettingValue<string>(el.name);
-            const option = el.querySelector<HTMLOptionElement>(`option[value='${value}']`);
-            if (option != null) {
-                option.selected = true;
-            }
-        }
-
-        const state = flatten(gitlens.config);
-        this.setVisibility(state);
-        this.setEnablement(state);
+        this._changes = Object.create(null);
     }
 
-    protected bind() {
-        const onInputChecked = this.onInputChecked.bind(this);
-        DOM.listenAll('input[type=checkbox].setting', 'change', function(this: HTMLInputElement) { return onInputChecked(this, ...arguments); });
-
-        const onInputBlurred = this.onInputBlurred.bind(this);
-        DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'blur', function(this: HTMLInputElement) { return onInputBlurred(this, ...arguments); });
-
-        const onInputFocused = this.onInputFocused.bind(this);
-        DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'focus', function(this: HTMLInputElement) { return onInputFocused(this, ...arguments); });
-
-        const onInputSelected = this.onInputSelected.bind(this);
-        DOM.listenAll('select.setting', 'change', function(this: HTMLInputElement) { return onInputSelected(this, ...arguments); });
-
-        const onTokenMouseDown = this.onTokenMouseDown.bind(this);
-        DOM.listenAll('[data-token]', 'mousedown', function(this: HTMLElement) { return onTokenMouseDown(this, ...arguments); });
-
-        const onPopupMouseDown = this.onPopupMouseDown.bind(this);
-        DOM.listenAll('.popup', 'mousedown', function(this: HTMLElement) { return onPopupMouseDown(this, ...arguments); });
+    protected getSettingsScope(): 'user' | 'workspace' {
+        return 'user';
     }
 
     protected log(message: string) {
         console.log(message);
     }
 
-    private onInputBlurred(element: HTMLInputElement) {
-        this.log(`${this._appName}.onInputBlurred: name=${element.name}, value=${element.value}`);
+    protected onBind() { }
+    protected onInitialize() { }
+
+    protected onInputBlurred(element: HTMLInputElement) {
+        this.log(`${this.appName}.onInputBlurred: name=${element.name}, value=${element.value}`);
 
         const popup = document.getElementById(`${element.name}.popup`);
         if (popup != null) {
@@ -115,32 +79,56 @@ export abstract class App {
         this.applyChanges();
     }
 
-    private onInputChecked(element: HTMLInputElement) {
-        this.log(`${this._appName}.onInputChecked: name=${element.name}, checked=${element.checked}, value=${element.value}`);
+    protected onInputChecked(element: HTMLInputElement) {
+        if (this._updating) return;
 
-        if (element.dataset.type === 'array') {
-            const setting = getSettingValue(element.name) || [];
-            if (Array.isArray(setting)) {
+        this.log(`${this.appName}.onInputChecked: name=${element.name}, checked=${element.checked}, value=${element.value}`);
+
+        switch (element.dataset.type) {
+            case 'object': {
+                const props = element.name.split('.');
+                const settingName = props.splice(0, 1)[0];
+                const setting = this.getSettingValue(settingName) || Object.create(null);
+
                 if (element.checked) {
-                    if (!setting.includes(element.value)) {
-                        setting.push(element.value);
-                    }
+                    set(setting, props.join('.'), fromCheckboxValue(element.value));
                 }
                 else {
-                    const i = setting.indexOf(element.value);
-                    if (i !== -1) {
-                        setting.splice(i, 1);
-                    }
+                    set(setting, props.join('.'), false);
                 }
-                this._changes[element.name] = setting;
+
+                this._changes[settingName] = setting;
+
+                break;
             }
-        }
-        else {
-            if (element.checked) {
-                this._changes[element.name] = element.value === 'on' ? true : element.value;
+            case 'array': {
+                const setting = this.getSettingValue(element.name) || [];
+                if (Array.isArray(setting)) {
+                    if (element.checked) {
+                        if (!setting.includes(element.value)) {
+                            setting.push(element.value);
+                        }
+                    }
+                    else {
+                        const i = setting.indexOf(element.value);
+                        if (i !== -1) {
+                            setting.splice(i, 1);
+                        }
+                    }
+                    this._changes[element.name] = setting;
+                }
+
+                break;
             }
-            else {
-                this._changes[element.name] = false;
+            default: {
+                if (element.checked) {
+                    this._changes[element.name] = fromCheckboxValue(element.value);
+                }
+                else {
+                    this._changes[element.name] = false;
+                }
+
+                break;
             }
         }
 
@@ -148,8 +136,8 @@ export abstract class App {
         this.applyChanges();
     }
 
-    private onInputFocused(element: HTMLInputElement) {
-        this.log(`${this._appName}.onInputFocused: name=${element.name}, value=${element.value}`);
+    protected onInputFocused(element: HTMLInputElement) {
+        this.log(`${this.appName}.onInputFocused: name=${element.name}, value=${element.value}`);
 
         const popup = document.getElementById(`${element.name}.popup`);
         if (popup != null) {
@@ -157,26 +145,63 @@ export abstract class App {
         }
     }
 
-    private onInputSelected(element: HTMLSelectElement) {
-        if (element === this._scopes) return;
+    protected onInputSelected(element: HTMLSelectElement) {
+        if (this._updating) return;
 
         const value = element.options[element.selectedIndex].value;
 
-        this.log(`${this._appName}.onInputSelected: name=${element.name}, value=${value}`);
+        this.log(`${this.appName}.onInputSelected: name=${element.name}, value=${value}`);
 
         this._changes[element.name] = ensureIfBoolean(value);
 
         this.applyChanges();
     }
 
-    private onPopupMouseDown(element: HTMLElement, e: MouseEvent) {
+    protected onJumpToLinkClicked(element: HTMLAnchorElement, e: MouseEvent) {
+        const href = element.getAttribute('href');
+        if (href == null) return;
+
+        const el = document.getElementById(href.substr(1));
+        if (el == null) return;
+
+        let height = 83;
+
+        const header = document.querySelector('.page-header--sticky');
+        if (header != null) {
+            height = header.clientHeight;
+        }
+
+        el.scrollIntoView({
+            block: 'start',
+            behavior: 'instant'
+        });
+        window.scrollBy(0, -height);
+
+        e.stopPropagation();
+        e.preventDefault();
+    }
+
+    protected onMessageReceived(e: MessageEvent) {
+        const msg = e.data as Message;
+        switch (msg.type) {
+            case 'settingsChanged':
+                this.bootstrap.config = msg.config;
+
+                this.setState();
+                break;
+        }
+    }
+
+    protected onPopupMouseDown(element: HTMLElement, e: MouseEvent) {
         // e.stopPropagation();
         // e.stopImmediatePropagation();
         e.preventDefault();
     }
 
-    private onTokenMouseDown(element: HTMLElement, e: MouseEvent) {
-        this.log(`${this._appName}.onTokenClicked: id=${element.id}`);
+    protected onTokenMouseDown(element: HTMLElement, e: MouseEvent) {
+        if (this._updating) return;
+
+        this.log(`${this.appName}.onTokenClicked: id=${element.id}`);
 
         const setting = element.closest('.settings-group__setting');
         if (setting == null) return;
@@ -191,31 +216,147 @@ export abstract class App {
         e.preventDefault();
     }
 
-    private applyChanges() {
-        const args = JSON.stringify({
-            changes: this._changes,
-            scope: this.getScope(),
-            uri: gitlens.uri
-        });
-        this.log(`${this._appName}.applyChanges: args=${args}`);
-
-        const command = 'command:gitlens.saveSettings?' + encodeURI(args);
-        setTimeout(() => this.executeCommand(command), 0);
+    protected postMessage(e: Message) {
+        this._api.postMessage(e);
     }
 
-    protected executeCommand(command: string | undefined) {
-        if (command === undefined) return;
+    private bind() {
+        this.onBind();
 
-        this.log(`${this._appName}.executeCommand: command=${command}`);
+        const onMessageReceived = this.onMessageReceived.bind(this);
+        window.addEventListener('message', onMessageReceived);
 
-        this._commandRelay.setAttribute('href', command);
-        this._commandRelay.click();
+        const onInputChecked = this.onInputChecked.bind(this);
+        DOM.listenAll('input[type=checkbox].setting', 'change', function(this: HTMLInputElement) { return onInputChecked(this, ...arguments); });
+
+        const onInputBlurred = this.onInputBlurred.bind(this);
+        DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'blur', function(this: HTMLInputElement) { return onInputBlurred(this, ...arguments); });
+
+        const onInputFocused = this.onInputFocused.bind(this);
+        DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'focus', function(this: HTMLInputElement) { return onInputFocused(this, ...arguments); });
+
+        const onInputSelected = this.onInputSelected.bind(this);
+        DOM.listenAll('select.setting', 'change', function(this: HTMLInputElement) { return onInputSelected(this, ...arguments); });
+
+        const onTokenMouseDown = this.onTokenMouseDown.bind(this);
+        DOM.listenAll('[data-token]', 'mousedown', function(this: HTMLElement) { return onTokenMouseDown(this, ...arguments); });
+
+        const onPopupMouseDown = this.onPopupMouseDown.bind(this);
+        DOM.listenAll('.popup', 'mousedown', function(this: HTMLElement) { return onPopupMouseDown(this, ...arguments); });
+
+        const onJumpToLinkClicked = this.onJumpToLinkClicked.bind(this);
+        DOM.listenAll('a.jump-to[href^="#"]', 'click', function(this: HTMLAnchorElement) { return onJumpToLinkClicked(this, ...arguments); });
     }
 
-    private getScope(): 'user' | 'workspace' {
-        return this._scopes != null
-            ? this._scopes.options[this._scopes.selectedIndex].value as 'user' | 'workspace'
-            : 'user';
+    private evaluateStateExpression(expression: string, changes: { [key: string]: string | boolean }): boolean {
+        let state = false;
+        for (const expr of expression.trim().split('&')) {
+            const [lhs, op, rhs] = parseStateExpression(expr);
+
+            switch (op) {
+                case '=': { // Equals
+                    let value = changes[lhs];
+                    if (value === undefined) {
+                        value = this.getSettingValue<string | boolean>(lhs) || false;
+                    }
+                    state = rhs !== undefined ? rhs === '' + value : !!value;
+                    break;
+                }
+                case '!': { // Not equals
+                    let value = changes[lhs];
+                    if (value === undefined) {
+                        value = this.getSettingValue<string | boolean>(lhs) || false;
+                    }
+                    state = rhs !== undefined ? rhs !== '' + value : !value;
+                    break;
+                }
+                case '+': { // Contains
+                    if (rhs !== undefined) {
+                        const setting = this.getSettingValue<string[]>(lhs);
+                        state = setting !== undefined ? setting.includes(rhs.toString()) : false;
+                    }
+                    break;
+                }
+            }
+
+            if (!state) break;
+        }
+        return state;
+    }
+
+    private getSettingValue<T>(path: string): T | undefined {
+        return get<T>(this.bootstrap.config, path);
+    }
+
+    private initialize() {
+        this.log(`${this.appName}.initialize`);
+
+        this.onInitialize();
+
+        this.setState();
+    }
+
+    private initializeColorPalette() {
+        const onColorThemeChanged = () => {
+            const body = document.body;
+            const computedStyle = getComputedStyle(body);
+
+            const bodyStyle = body.style;
+            let color = computedStyle.getPropertyValue('--color').trim();
+            bodyStyle.setProperty('--color--75', opacity(color, 75));
+            bodyStyle.setProperty('--color--50', opacity(color, 50));
+
+            color = computedStyle.getPropertyValue('--background-color').trim();
+            bodyStyle.setProperty('--background-color--lighten-05', lighten(color, 5));
+            bodyStyle.setProperty('--background-color--darken-05', darken(color, 5));
+            bodyStyle.setProperty('--background-color--lighten-075', lighten(color, 7.5));
+            bodyStyle.setProperty('--background-color--darken-075', darken(color, 7.5));
+            bodyStyle.setProperty('--background-color--lighten-15', lighten(color, 15));
+            bodyStyle.setProperty('--background-color--darken-15', darken(color, 15));
+            bodyStyle.setProperty('--background-color--lighten-30', lighten(color, 30));
+            bodyStyle.setProperty('--background-color--darken-30', darken(color, 30));
+
+            color = computedStyle.getPropertyValue('--link-color').trim();
+            bodyStyle.setProperty('--link-color--darken-20', darken(color, 20));
+        };
+
+        const observer = new MutationObserver(onColorThemeChanged);
+        observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+        onColorThemeChanged();
+        return observer;
+    }
+
+    private setState() {
+        this._updating = true;
+
+        try {
+            for (const el of document.querySelectorAll<HTMLInputElement>('input[type=checkbox].setting')) {
+                const checked = el.dataset.type === 'array'
+                    ? (this.getSettingValue<string[]>(el.name) || []).includes(el.value)
+                    : this.getSettingValue<boolean>(el.name) || false;
+                el.checked = checked;
+            }
+
+            for (const el of document.querySelectorAll<HTMLInputElement>('input[type=text].setting, input:not([type]).setting')) {
+                el.value = this.getSettingValue<string>(el.name) || '';
+            }
+
+            for (const el of document.querySelectorAll<HTMLSelectElement>('select.setting')) {
+                const value = this.getSettingValue<string>(el.name);
+                const option = el.querySelector<HTMLOptionElement>(`option[value='${value}']`);
+                if (option != null) {
+                    option.selected = true;
+                }
+            }
+        }
+        finally {
+            this._updating = false;
+        }
+
+        const state = flatten(this.bootstrap.config);
+        this.setVisibility(state);
+        this.setEnablement(state);
     }
 
     private setAdditionalSettings(expression: string | undefined) {
@@ -229,29 +370,29 @@ export abstract class App {
 
     private setEnablement(state: { [key: string]: string | boolean }) {
         for (const el of document.querySelectorAll<HTMLElement>('[data-enablement]')) {
-            // Since everything starts disabled, kick out if it still is
-            if (!evaluateStateExpression(el.dataset.enablement!, state)) continue;
-
-            el.removeAttribute('disabled');
+            const disabled = !this.evaluateStateExpression(el.dataset.enablement!, state);
+            if (disabled) {
+                el.setAttribute('disabled', '');
+            }
+            else {
+                el.removeAttribute('disabled');
+            }
 
             if (el.matches('input,select')) {
-                (el as HTMLInputElement | HTMLSelectElement).disabled = false;
+                (el as HTMLInputElement | HTMLSelectElement).disabled = disabled;
             }
             else {
                 const input = el.querySelector<HTMLInputElement | HTMLSelectElement>('input,select');
                 if (input == null) continue;
 
-                input.disabled = false;
+                input.disabled = disabled;
             }
         }
     }
 
     private setVisibility(state: { [key: string]: string | boolean }) {
         for (const el of document.querySelectorAll<HTMLElement>('[data-visibility]')) {
-            // Since everything starts hidden, kick out if it still is
-            if (!evaluateStateExpression(el.dataset.visibility!, state)) continue;
-
-            el.classList.remove('hidden');
+            el.classList.toggle('hidden', !this.evaluateStateExpression(el.dataset.visibility!, state));
         }
     }
 }
@@ -262,48 +403,34 @@ function ensureIfBoolean(value: string | boolean): string | boolean {
     return value;
 }
 
-function evaluateStateExpression(expression: string, changes: { [key: string]: string | boolean }): boolean {
-    let state = false;
-    for (const expr of expression.trim().split('&')) {
-        const [lhs, op, rhs] = parseStateExpression(expr);
+function get<T>(o: { [key: string ]: any}, path: string): T | undefined {
+    return path.split('.').reduce((o = {}, key) => o == null ? undefined : o[key], o) as T;
+}
 
-        switch (op) {
-            case '=': { // Equals
-                let value = changes[lhs];
-                if (value === undefined) {
-                    value = getSettingValue<string | boolean>(lhs) || false;
-                }
-                state = rhs !== undefined ? rhs === '' + value : !!value;
-                break;
-            }
-            case '!': { // Not equals
-                let value = changes[lhs];
-                if (value === undefined) {
-                    value = getSettingValue<string | boolean>(lhs) || false;
-                }
-                state = rhs !== undefined ? rhs !== '' + value : !value;
-                break;
-            }
-            case '+': { // Contains
-                if (rhs !== undefined) {
-                    const setting = getSettingValue<string[]>(lhs);
-                    state = setting !== undefined ? setting.includes(rhs.toString()) : false;
-                }
-                break;
-            }
+function set(o: { [key: string ]: any}, path: string, value: any): { [key: string ]: any} {
+    const props = path.split('.');
+    const length = props.length;
+    const lastIndex = length - 1;
+
+    let index = -1;
+    let nested = o;
+
+    while (nested != null && ++index < length) {
+        const key = props[index];
+        let newValue = value;
+
+        if (index !== lastIndex) {
+            const objValue = nested[key];
+            newValue = typeof objValue === 'object'
+                ? objValue
+                : {};
         }
 
-        if (!state) break;
+        nested[key] = newValue;
+        nested = nested[key];
     }
-    return state;
-}
 
-function get<T>(o: { [key: string ]: any}, path: string): T | undefined {
-    return path.split('.').reduce((o = {}, key) => o[key], o) as T;
-}
-
-function getSettingValue<T>(path: string): T | undefined {
-    return get<T>(gitlens.config, path);
+    return o;
 }
 
 function parseAdditionalSettingsExpression(expression: string): [string, string | boolean][] {
@@ -335,4 +462,13 @@ function flatten(o: { [key: string]: any }, path?: string): { [key: string]: any
     }
 
     return results;
+}
+
+function fromCheckboxValue(elementValue: any) {
+    switch (elementValue) {
+        case 'on': return true;
+        case 'null': return null;
+        case 'undefined': return undefined;
+        default: return elementValue;
+    }
 }

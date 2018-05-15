@@ -829,6 +829,16 @@
                     "description": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens Results` view\nOnly applies when displaying files as `auto`",
                     "scope": "window"
                 },
+                "gitlens.settings.mode": {
+                    "type": "string",
+                    "default": "simple",
+                    "enum": [
+                        "simple",
+                        "advanced"
+                    ],
+                    "description": "Specifies the display mode of the interactive settings editor\n `simple` - only displays common settings\n `advanced` - displays all settings",
+                    "scope": "window"
+                },
                 "gitlens.showWhatsNewAfterUpgrades": {
                     "type": "boolean",
                     "default": true,
