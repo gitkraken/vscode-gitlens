@@ -93,7 +93,8 @@ To my incredible backers &mdash; thank you so much for your contributions. I am 
 
 If you'd like to join them in supporting GitLens, please consider the following &mdash; feel free to choose more than one. &#x1F609;
 - [Become a Sponsor](https://www.patreon.com/eamodio "Become a sponsor on Patreon") &mdash; join the growing group of generous [backers](https://github.com/eamodio/vscode-gitlens/blob/master/BACKERS.md)
-- [One-time Donations](https://www.paypal.me/eamodio "One-time donations via PayPal")
+- [One-time Donations (PayPal)](https://www.paypal.me/eamodio "One-time donations via PayPal")
+- [One-time Donations (Cash App)](https://cash.me/$eamodio "One-time donations via Cash App")
 - [Write a Review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details "Write a review")
 - [Star or Fork me on GitHub](https://github.com/eamodio/vscode-gitlens "Star or fork me on GitHub")
 - [Follow me on Twitter](https://twitter.com/eamodio "Follow me on Twitter")
