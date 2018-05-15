@@ -598,39 +598,39 @@
                                         }
                                     ]
                                 },
-                                "explorer": {
-                                    "anyOf": [
-                                        { "enum": [false] },
-                                        {
-                                            "type": "object",
-                                            "properties": {
-                                                "compare": { "type": "boolean" },
-                                                "history": { "type": "boolean" },
-                                                "remote": { "type": "boolean" }
-                                            }
-                                        }
-                                    ]
-                                },
-                                "tab": {
-                                    "anyOf": [
-                                        { "enum": [false] },
-                                        {
-                                            "type": "object",
-                                            "properties": {
-                                                "compare": { "type": "boolean" },
-                                                "history": { "type": "boolean" },
-                                                "remote": { "type": "boolean" }
-                                            }
-                                        }
-                                    ]
-                                },
-                                "tabGroup": {
+                                "editorGroup": {
                                     "anyOf": [
                                         { "enum": [false] },
                                         {
                                             "type": "object",
                                             "properties": {
                                                 "blame": { "type": "boolean" },
+                                                "compare": { "type": "boolean" },
+                                                "history": { "type": "boolean" },
+                                                "remote": { "type": "boolean" }
+                                            }
+                                        }
+                                    ]
+                                },
+                                "editorTab": {
+                                    "anyOf": [
+                                        { "enum": [false] },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "compare": { "type": "boolean" },
+                                                "history": { "type": "boolean" },
+                                                "remote": { "type": "boolean" }
+                                            }
+                                        }
+                                    ]
+                                },
+                                "explorer": {
+                                    "anyOf": [
+                                        { "enum": [false] },
+                                        {
+                                            "type": "object",
+                                            "properties": {
                                                 "compare": { "type": "boolean" },
                                                 "history": { "type": "boolean" },
                                                 "remote": { "type": "boolean" }
@@ -650,21 +650,21 @@
                             "history": false,
                             "remote": true
                         },
-                        "explorer": {
-                            "compare": true,
-                            "history": true,
-                            "remote": true
-                        },
-                        "tab": {
-                            "compare": false,
-                            "history": false,
-                            "remote": true
-                        },
-                        "tabGroup": {
+                        "editorGroup": {
                             "blame": true,
                             "compare": true,
                             "history": false,
                             "remote": false
+                        },
+                        "editorTab": {
+                            "compare": false,
+                            "history": false,
+                            "remote": true
+                        },
+                        "explorer": {
+                            "compare": true,
+                            "history": true,
+                            "remote": true
                         }
                     },
                     "description": "Specifies which commands will be added to which menus",
@@ -2238,65 +2238,65 @@
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
-                    "when": "editorTextFocus && !isInDiffEditor && gitlens:activeIsTracked && config.gitlens.menus.tabGroup.compare",
+                    "when": "editorTextFocus && !isInDiffEditor && gitlens:activeIsTracked && config.gitlens.menus.editorGroup.compare",
                     "group": "navigation@98"
                 },
                 {
                     "command": "gitlens.diffWithPreviousInDiff",
-                    "when": "isInDiffEditor && gitlens:activeIsTracked && config.gitlens.menus.tabGroup.compare",
+                    "when": "isInDiffEditor && gitlens:activeIsTracked && config.gitlens.menus.editorGroup.compare",
                     "group": "navigation@98"
                 },
                 {
                     "command": "gitlens.diffWithNext",
-                    "when": "editorTextFocus && gitlens:activeIsTracked && gitlens:activeIsTracked && gitlens:activeIsRevision && config.gitlens.menus.tabGroup.compare",
+                    "when": "editorTextFocus && gitlens:activeIsTracked && gitlens:activeIsTracked && gitlens:activeIsRevision && config.gitlens.menus.editorGroup.compare",
                     "group": "navigation@99"
                 },
                 {
                     "command": "gitlens.toggleFileBlame",
                     "alt": "gitlens.toggleFileRecentChanges",
-                    "when": "gitlens:activeIsBlameable && !gitlens:annotationStatus && config.gitlens.menus.tabGroup.blame",
+                    "when": "gitlens:activeIsBlameable && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
                     "group": "navigation@100"
                 },
                 {
                     "command": "gitlens.computingFileAnnotations",
-                    "when": "gitlens:activeIsBlameable && gitlens:annotationStatus == computing && config.gitlens.menus.tabGroup.blame",
+                    "when": "gitlens:activeIsBlameable && gitlens:annotationStatus == computing && config.gitlens.menus.editorGroup.blame",
                     "group": "navigation@100"
                 },
                 {
                     "command": "gitlens.clearFileAnnotations",
-                    "when": "gitlens:activeIsBlameable && gitlens:annotationStatus == computed && config.gitlens.menus.tabGroup.blame",
+                    "when": "gitlens:activeIsBlameable && gitlens:annotationStatus == computed && config.gitlens.menus.editorGroup.blame",
                     "group": "navigation@100"
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && gitlens:activeHasRemote && config.gitlens.menus.tabGroup.remote",
+                    "when": "gitlens:enabled && gitlens:activeHasRemote && config.gitlens.menus.editorGroup.remote",
                     "group": "4_gitlens"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
-                    "when": "editorFocus && gitlens:activeIsTracked && config.gitlens.menus.tabGroup.history",
+                    "when": "editorFocus && gitlens:activeIsTracked && config.gitlens.menus.editorGroup.history",
                     "group": "4_gitlens"
                 }
             ],
             "editor/title/context": [
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && gitlens:activeHasRemote && config.gitlens.menus.tab.remote",
+                    "when": "gitlens:enabled && gitlens:activeHasRemote && config.gitlens.menus.editorTab.remote",
                     "group": "2_files@100"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
-                    "when": "gitlens:enabled && config.gitlens.menus.tab.compare",
+                    "when": "gitlens:enabled && config.gitlens.menus.editorTab.compare",
                     "group": "1_gitlens_1@1"
                 },
                 {
                     "command": "gitlens.diffWithWorking",
-                    "when": "gitlens:enabled && config.gitlens.menus.tab.compare",
+                    "when": "gitlens:enabled && config.gitlens.menus.editorTab.compare",
                     "group": "1_gitlens_1@2"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
-                    "when": "gitlens:enabled && config.gitlens.menus.tab.history",
+                    "when": "gitlens:enabled && config.gitlens.menus.editorTab.history",
                     "group": "1_gitlens_2@1"
                 }
             ],

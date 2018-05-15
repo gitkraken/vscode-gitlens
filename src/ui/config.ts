@@ -207,19 +207,19 @@ export interface IMenuConfig {
         history: boolean;
         remote: boolean;
     };
+    editorGroup: boolean | {
+        compare: boolean;
+        history: boolean;
+    };
+    editorTab: boolean | {
+        compare: boolean;
+        history: boolean;
+        remote: boolean;
+    };
     explorer: boolean | {
         compare: boolean;
         history: boolean;
         remote: boolean;
-    };
-    tab: boolean | {
-        compare: boolean;
-        history: boolean;
-        remote: boolean;
-    };
-    tabGroup: boolean | {
-        compare: boolean;
-        history: boolean;
     };
 }
 

@@ -272,21 +272,21 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
                                 history: !!m.editorContext.history,
                                 remote: !!m.editorContext.remote
                             },
-                            explorer: {
-                                compare: !!m.explorerContext.fileDiff,
-                                history: !!m.explorerContext.history,
-                                remote: !!m.explorerContext.remote
-                            },
-                            tab: {
-                                compare: !!m.editorTitleContext.fileDiff,
-                                history: !!m.editorTitleContext.history,
-                                remote: !!m.editorTitleContext.remote
-                            },
-                            tabGroup: {
+                            editorGroup: {
                                 blame: !!m.editorTitle.blame,
                                 compare: !!m.editorTitle.fileDiff,
                                 history: !!m.editorTitle.history,
                                 remote: !!m.editorTitle.remote
+                            },
+                            editorTab: {
+                                compare: !!m.editorTitleContext.fileDiff,
+                                history: !!m.editorTitleContext.history,
+                                remote: !!m.editorTitleContext.remote
+                            },
+                            explorer: {
+                                compare: !!m.explorerContext.fileDiff,
+                                history: !!m.explorerContext.history,
+                                remote: !!m.explorerContext.remote
                             }
                         } as IMenuConfig;
                     }
