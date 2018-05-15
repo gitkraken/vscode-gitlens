@@ -46,7 +46,7 @@ module.exports = function(env, argv) {
         externals: [
             nodeExternals()
         ],
-        devtool: sourceMaps ? 'inline-source-map' : false,
+        devtool: sourceMaps ? 'eval-source-map' : undefined,
         module: {
             rules: [
                 {

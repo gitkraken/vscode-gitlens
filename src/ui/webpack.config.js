@@ -130,7 +130,7 @@ module.exports = function(env, argv) {
             extensions: ['.ts', '.js'],
             modules: [path.resolve(__dirname), 'node_modules']
         },
-        devtool: sourceMaps ? 'inline-source-map' : false,
+        devtool: sourceMaps ? 'eval-source-map' : undefined,
         module: {
             rules: [
                 {
