@@ -21,7 +21,7 @@ None yet &mdash; could be you!
 
 <h2 align="center">Generous Backers ($10+)</h2>
 
-- TypeScript Types (Ken Howard)
+- Ken Howard (TypeScript Types)
 - Borek Bernard
 - Michael Scott-Nelson
 - MrG0lden
@@ -35,3 +35,4 @@ None yet &mdash; could be you!
 - Nathaniel Blackburn
 - Raphael Schweikert
 - JehongAhn
+- Øyvind de Freitas Sørensen
