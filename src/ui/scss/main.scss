@@ -666,14 +666,42 @@ ul {
     z-index: 1;
 }
 
+.page-header__row {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+}
+
 .page-header__title {
+    flex: 0 0 auto;
     font-size: 3em;
     margin: 0;
 }
 
+.page-header__title-actions {
+    flex: 0 0 auto;
+    margin: 1.75em 1em 0 1em;
+}
+
+.page-header__toolbar {
+    display: flex;
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    margin: 1.5em 208px 0 0; // 208px ~ the width of the sidebar
+    white-space: nowrap;
+
+    @media all and (max-width: 860px) {
+        margin-right: -9px;
+    }
+
+    select, option {
+        background-color: var(--background-color) !important;
+    }
+}
+
 .page-header__subtitle {
     color: var(--color--50);
-    margin: 0;
+    margin: 0.25em 0 0 0;
 }
 
 .section__preview {
@@ -756,7 +784,8 @@ ul {
 
 .section-group__sidebar {
     align-self: flex-start;
-    margin: -1em 0 0 3em;
+    margin: -6.4em 0 0 3em;
+    max-width: 179px;
     position: sticky;
     top: 0;
     z-index: 2;
@@ -875,25 +904,8 @@ ul {
     margin: -1em 0 1em 1em;
 }
 
-.settings-toolbar {
-    display: flex;
-    margin: 1.6em 185px 0 0;
-    position: absolute;
-    right: 0;
-    top: -2px;
-    white-space: nowrap;
-
-    @media all and (max-width: 860px) {
-        margin-right: -9px;
-    }
-
-    select, option {
-        background-color: var(--background-color) !important;
-    }
-}
-
 .settings-scope {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
 }
 
 .sidebar-group {

@@ -37,9 +37,9 @@ export class SettingsEditor extends WebviewEditor<SettingsBootstrap> {
     }
 
     private getAvailableScopes(): ['user' | 'workspace', string][] {
-        const scopes: ['user' | 'workspace', string][] = [['user', 'User Settings']];
+        const scopes: ['user' | 'workspace', string][] = [['user', 'User']];
         if (workspace.workspaceFolders !== undefined && workspace.workspaceFolders.length) {
-            scopes.push(['workspace', 'Workspace Settings']);
+            scopes.push(['workspace', 'Workspace']);
         }
         return scopes;
     }

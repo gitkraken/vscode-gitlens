@@ -29,24 +29,29 @@
             </header>
 
             <div class="page-header page-header--sticky">
-                <h2 class="page-header__title">Settings</h2>
+                <div class="page-header__row">
+                    <h2 class="page-header__title">Settings</h2>
+                    <div class="page-header__title-actions">
+                        <a href="#" data-action="collapse">collapse all</a>
+                        <a href="#" data-action="expand" class="hidden">expand all</a>
+                    </div>
+                    <div class="page-header__toolbar">
+                        <div class="settings-scope">
+                            <label for="scopes">Save to</label>
+                            <select id="scopes" name="scope">
+                            </select>
+                        </div>
+                        <div class="settings-mode">
+                            <select class="setting" id="settings.mode" name="settings.mode">
+                                <option value="simple">Simple</option>
+                                <option value="advanced">Advanced</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
                 <p class="page-header__subtitle">For advanced customizations refer to the <a title="See the GitLens settings docs" href="https://github.com/eamodio/vscode-gitlens/#gitlens-settings">GitLens settings docs</a> and edit your
                     <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a>
                 </p>
-
-                <div class="settings-toolbar">
-                    <div class="settings-scope">
-                        <label for="scopes">Save to</label>
-                        <select id="scopes" name="scope">
-                        </select>
-                    </div>
-                    <div class="ml-1">
-                        <select class="setting" id="settings.mode" name="settings.mode">
-                            <option value="simple">Simple</option>
-                            <option value="advanced">Advanced</option>
-                        </select>
-                    </div>
-                </div>
             </div>
 
             <div class="section-groups">
