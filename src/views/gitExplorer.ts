@@ -202,7 +202,9 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
             this.setRoot(await this.getRootNode(window.activeTextEditor));
         }
 
-        this._root!.refresh();
+        if (this._root !== undefined) {
+            this._root.refresh();
+        }
 
         this._onDidChangeTreeData.fire();
     }
