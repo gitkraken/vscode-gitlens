@@ -5,7 +5,8 @@ To my incredible backers &mdash; thank you so much for your contributions. I am 
 If you'd like to join them in supporting GitLens, please consider:
 
 - [Become a backer or sponsor on Patreon](https://www.patreon.com/eamodio)
-- [One-time donation via PayPal](https://www.paypal.me/eamodio)
+- [PayPal donations](https://www.paypal.me/eamodio)
+- [Cash App donations](https://www.paypal.me/eamodio)
 
 <h2 align="center">Gold Sponsors ($300+)</h2>
 None yet &mdash; could be you!
