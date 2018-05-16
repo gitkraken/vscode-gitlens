@@ -350,7 +350,7 @@ export class Git {
     }
 
     static diff(repoPath: string, fileName: string, sha1?: string, sha2?: string, options: { encoding?: string } = {}) {
-        const params = ['diff', '--diff-filter=M', '-M', '--no-ext-diff'];
+        const params = ['diff', '--diff-filter=M', '-M', '--no-ext-diff', '--minimal'];
         if (sha1) {
             params.push(Git.isStagedUncommitted(sha1) ? '--staged' : sha1);
         }
