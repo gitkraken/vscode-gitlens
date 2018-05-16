@@ -50,18 +50,11 @@ export class LineAnnotationController extends Disposable {
             const cfg = configuration.get<IConfig>();
             if (cfg.currentLine.enabled) {
                 this._enabled = true;
-
-                Container.lineTracker.start(
-                    this,
-                    Disposable.from(
-                        Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)
-                    )
-                );
+                this.resume();
             }
             else {
                 this._enabled = false;
-
-                Container.lineTracker.stop(this);
+                this.setLineTracker(false);
             }
         }
 
@@ -74,6 +67,8 @@ export class LineAnnotationController extends Disposable {
     }
 
     resume(reason: 'debugging' | 'user' = 'user') {
+        this.setLineTracker(true);
+
         switch (reason) {
             case 'debugging':
                 if (this._suspended !== 'user') {
@@ -94,6 +89,8 @@ export class LineAnnotationController extends Disposable {
     }
 
     suspend(reason: 'debugging' | 'user' = 'user') {
+        this.setLineTracker(false);
+
         if (this._suspended !== 'user') {
             this._suspended = reason;
             return true;
@@ -200,5 +197,22 @@ export class LineAnnotationController extends Disposable {
         }
 
         editor.setDecorations(annotationDecoration, decorations);
+    }
+
+    private setLineTracker(enabled: boolean) {
+        if (enabled) {
+            if (!Container.lineTracker.isSubscribed(this)) {
+                Container.lineTracker.start(
+                    this,
+                    Disposable.from(
+                        Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)
+                    )
+                );
+            }
+
+            return;
+        }
+
+        Container.lineTracker.stop(this);
     }
 }

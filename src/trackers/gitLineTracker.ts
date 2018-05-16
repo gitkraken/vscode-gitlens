@@ -67,8 +67,12 @@ export class GitLineTracker extends LineTracker<GitLineState> {
         this.trigger('editor');
     }
 
+    isSubscribed(subscriber: any) {
+        return this._subscriptions.has(subscriber);
+    }
+
     start(subscriber: any, subscription: Disposable): void {
-        if (this._subscriptions.has(subscriber)) return;
+        if (this.isSubscribed(subscriber)) return;
 
         this._subscriptions.set(subscriber, subscription);
 
