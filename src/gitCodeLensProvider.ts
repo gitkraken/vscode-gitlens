@@ -1,6 +1,6 @@
 'use strict';
 import { Functions, Iterables } from './system';
-import { CancellationToken, CodeLens, CodeLensProvider, Command, commands, DocumentSelector, Event, EventEmitter, ExtensionContext, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri } from 'vscode';
+import { CancellationToken, CodeLens, CodeLensProvider, Command, commands, DocumentSelector, Event, EventEmitter, ExtensionContext, Location, Position, Range, SymbolInformation, SymbolKind, TextDocument, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs, ShowQuickCommitDetailsCommandArgs, ShowQuickCommitFileDetailsCommandArgs, ShowQuickFileHistoryCommandArgs } from './commands';
 import { CodeLensCommand, CodeLensLanguageScope, CodeLensScopes, configuration, ICodeLensConfig } from './configuration';
 import { BuiltInCommands, DocumentSchemes } from './constants';
@@ -12,7 +12,7 @@ import { Logger } from './logger';
 export class GitRecentChangeCodeLens extends CodeLens {
 
     constructor(
-        public readonly symbolKind: SymbolKind,
+        public readonly symbol: SymbolInformation,
         public readonly uri: GitUri | undefined,
         private readonly blame: (() => GitBlameLines | undefined) | undefined,
         public readonly blameRange: Range,
@@ -32,7 +32,7 @@ export class GitRecentChangeCodeLens extends CodeLens {
 export class GitAuthorsCodeLens extends CodeLens {
 
     constructor(
-        public readonly symbolKind: SymbolKind,
+        public readonly symbol: SymbolInformation,
         public readonly uri: GitUri | undefined,
         private readonly blame: () => GitBlameLines | undefined,
         public readonly blameRange: Range,
@@ -161,13 +161,15 @@ export class GitCodeLensProvider implements CodeLensProvider {
                     if (!dirty) {
                         blameForRangeFn = Functions.once(() => this._git.getBlameForRangeSync(blame!, gitUri!, blameRange));
                     }
+
+                    const fileSymbol = new SymbolInformation(gitUri.getFilename(), SymbolKind.File, '', new Location(gitUri.fileUri(), new Range(0, 0, 0, blameRange.start.character)));
                     lenses.push(new GitRecentChangeCodeLens(
-                        SymbolKind.File,
+                        fileSymbol,
                         gitUri,
                         blameForRangeFn,
                         blameRange,
                         true,
-                        new Range(0, 0, 0, blameRange.start.character),
+                        fileSymbol.location.range,
                         cfg.recentChange.command,
                         dirtyCommand
                     ));
@@ -176,13 +178,15 @@ export class GitCodeLensProvider implements CodeLensProvider {
                     if (blameForRangeFn === undefined) {
                         blameForRangeFn = Functions.once(() => this._git.getBlameForRangeSync(blame!, gitUri!, blameRange));
                     }
+
+                    const fileSymbol = new SymbolInformation(gitUri.getFilename(), SymbolKind.File, '', new Location(gitUri.fileUri(), new Range(0, 1, 0, blameRange.start.character)));
                     lenses.push(new GitAuthorsCodeLens(
-                        SymbolKind.File,
+                        fileSymbol,
                         gitUri,
                         blameForRangeFn,
                         blameRange,
                         true,
-                        new Range(0, 1, 0, blameRange.start.character),
+                        fileSymbol.location.range,
                         cfg.authors.command
                     ));
                 }
@@ -267,7 +271,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
             if (!dirty) {
                 blameForRangeFn = Functions.once(() => this._git.getBlameForRangeSync(blame!, gitUri!, blameRange));
             }
-            lenses.push(new GitRecentChangeCodeLens(symbol.kind, gitUri, blameForRangeFn, blameRange, false, line.range.with(new Position(line.range.start.line, startChar)), cfg.recentChange.command, dirtyCommand));
+            lenses.push(new GitRecentChangeCodeLens(symbol, gitUri, blameForRangeFn, blameRange, false, line.range.with(new Position(line.range.start.line, startChar)), cfg.recentChange.command, dirtyCommand));
             startChar++;
         }
 
@@ -296,7 +300,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
                 if (blameForRangeFn === undefined) {
                     blameForRangeFn = Functions.once(() => this._git.getBlameForRangeSync(blame!, gitUri!, blameRange));
                 }
-                lenses.push(new GitAuthorsCodeLens(symbol.kind, gitUri, blameForRangeFn, blameRange, false, line.range.with(new Position(line.range.start.line, startChar)), cfg.authors.command));
+                lenses.push(new GitAuthorsCodeLens(symbol, gitUri, blameForRangeFn, blameRange, false, line.range.with(new Position(line.range.start.line, startChar)), cfg.authors.command));
             }
         }
     }
@@ -314,7 +318,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         const recentCommit = Iterables.first(blame.commits.values());
         let title = `${recentCommit.author}, ${recentCommit.formattedDate}`;
         if (Container.config.debug) {
-            title += ` [${SymbolKind[lens.symbolKind]}(${lens.range.start.character}-${lens.range.end.character}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Commit (${recentCommit.shortSha})]`;
+            title += ` [${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${lens.range.end.character}${lens.symbol.containerName ? `|${lens.symbol.containerName}` : ''}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Commit (${recentCommit.shortSha})]`;
         }
 
         switch (lens.desiredCommand) {
@@ -335,7 +339,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         const count = blame.authors.size;
         let title = `${count} ${count > 1 ? 'authors' : 'author'} (${Iterables.first(blame.authors.values()).name}${count > 1 ? ' and others' : ''})`;
         if (Container.config.debug) {
-            title += ` [${SymbolKind[lens.symbolKind]}(${lens.range.start.character}-${lens.range.end.character}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Authors (${Iterables.join(Iterables.map(blame.authors.values(), a => a.name), ', ')})]`;
+            title += ` [${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${lens.range.end.character}${lens.symbol.containerName ? `|${lens.symbol.containerName}` : ''}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Authors (${Iterables.join(Iterables.map(blame.authors.values(), a => a.name), ', ')})]`;
         }
 
         switch (lens.desiredCommand) {
