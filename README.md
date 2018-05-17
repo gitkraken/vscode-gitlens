@@ -17,7 +17,7 @@
 - Moves the *GitLens* explorer, *GitLens History* explorer, and *GitLens Results* explorer under the Source Control activity (in the sidebar) 🎉 &mdash; closes [#213](https://github.com/eamodio/vscode-gitlens/issues/213)
 - Adds user-defined modes for quickly toggling between sets of settings
 
-  ![mode switch](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/cl-mode-switch.png)
+  ![mode switch](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-mode-switch.png)
 
   - Adds *Switch Mode* command (`gitlens.switchMode`) to quickly switch the active GitLens mode
   - Adds a built-in *Zen* mode which for a zen-like experience, disables many visual features
@@ -29,7 +29,7 @@
     - Adds `gitlens.mode.statusBar.alignment` setting to specify the active GitLens mode alignment in the status bar
   - Adds modes settings (`gitlens.mode.*`) to the interactive settings editor
 
-    ![modes settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/cl-modes-settings.png)
+    ![modes settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-modes-settings.png)
 
   - Adds `gitlens.mode.active` settings to specify the active GitLens mode, if any
   - Adds `gitlens.modes` setting to specify the user-defined GitLens modes
@@ -37,11 +37,11 @@
 - Adds an icon for the *Compare File with Next Revision* command (`gitlens.diffWithNext`) and moves it into the editor toolbar
 - Adds menu settings (`gitlens.menus.*`) to the interactive settings editor
 
-  ![menu settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/cl-menu-settings.png)
+  ![menu settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-menu-settings.png)
 
 - Adds a display mode dropdown at the top of the interactive settings editor to reduce complexity
 
-  ![settings mode](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/cl-settings-mode.png)
+  ![settings mode](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-settings-mode.png)
 
   - Adds `gitlens.settings.mode` setting to specify the display mode of the interactive settings editor
 - Adds a tree layout option to tags in the *GitLens* explorer &mdash; closes [#358](https://github.com/eamodio/vscode-gitlens/issues/358)
