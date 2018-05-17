@@ -14,7 +14,7 @@
 
 # What's new in GitLens 8
 ## 8.3 &mdash; May 2018
-- Moves the *GitLens* explorer, *GitLens History* explorer, and *GitLens Results* explorer under the Source Control activity (in the sidebar) 🎉 &mdash; closes [#213](https://github.com/eamodio/vscode-gitlens/issues/213)
+- Moves the *GitLens*, *GitLens History*, and *GitLens Results* explorers under the Source Control activity (in the sidebar) 🎉 &mdash; closes [#213](https://github.com/eamodio/vscode-gitlens/issues/213)
 - Adds user-defined modes for quickly toggling between sets of settings
 
   ![mode switch](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-mode-switch.png)
@@ -74,7 +74,8 @@ While GitLens is generously offered to everyone free of charge, if you find it u
 GitLens simply helps you understand code better. Quickly glimpse into whom, why, and when a line or code block was changed. Jump back through history to gain further insights as to how and why the code evolved. Explore the history and evolution of a codebase.
 
 Here are just some of the features that GitLens provides,
- - a [*GitLens* explorer](#gitlens-explorer "Jump to the GitLens explorer") to navigate and explore repositories or file histories
+ - a [*GitLens* explorer](#gitlens-explorer "Jump to the GitLens explorer") to navigate and explore repositories
+ - a [*GitLens History* explorer](#gitlens-history-explorer "Jump to the GitLens History explorer") to navigate and explore file histories
  - an on-demand [*GitLens Results* view](#gitlens-results-view "Jump to the GitLens Results view") to explore commit searches, visualize comparisons between branches, tags, commits, and more
  - authorship [code lens](#code-lens "Jump to the Code Lens") showing the most recent commit and # of authors to the top of files and/or on code blocks
  - an unobtrusive [current line blame](#current-line-blame "Jump to the Current Line Blame") annotation at the end of the line

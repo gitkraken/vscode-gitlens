@@ -41,7 +41,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds *Show Results Explorer* (`gitlens.showResultsExplorer`) command &mdash; shows/expands the *GitLens Results* explorer
 
 ### Changed
-- Moves the *GitLens* explorer, *GitLens History* explorer, and *GitLens Results* explorer under the Source Control activity (in the sidebar) 🎉 &mdash; closes [#213](https://github.com/eamodio/vscode-gitlens/issues/213)
+- Moves the *GitLens*, *GitLens History*, and *GitLens Results* explorers under the Source Control activity (in the sidebar) 🎉 &mdash; closes [#213](https://github.com/eamodio/vscode-gitlens/issues/213)
 - Showing results in the *GitLens Results* explorer now properly shows the explorer first
 - Renames *Compare Line Revision with Previous* command (`gitlens.diffLineWithPrevious`) to *Compare Commit with Previous* for consistency with other commands
 - Renames *Compare Line Revision with Working File* command (`gitlens.diffLineWithWorking`) to *Compare Commit with Working File* for consistency with other commands
