@@ -75,7 +75,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         if (document.isDirty) {
             // Only allow dirty blames if we are idle
             if (trackedDocument.isDirtyIdle) {
-                const maxLines = configuration.get<number>(configuration.name('advanced')('blame')('sizeThresholdAfterEdit').value);
+                const maxLines = Container.config.advanced.blame.sizeThresholdAfterEdit;
                 if (maxLines > 0 && document.lineCount > maxLines) {
                     dirty = true;
                 }
@@ -433,14 +433,8 @@ export class GitCodeLensProvider implements CodeLensProvider {
     }
 
     private getDirtyTitle(cfg: ICodeLensConfig) {
-        if (cfg.recentChange.enabled && cfg.authors.enabled) {
-            return configuration.get<string>(configuration.name('strings')('codeLens')('unsavedChanges')('recentChangeAndAuthors').value);
-        }
-        else if (cfg.recentChange.enabled) {
-            return  configuration.get<string>(configuration.name('strings')('codeLens')('unsavedChanges')('recentChangeOnly').value);
-        }
-        else {
-            return configuration.get<string>(configuration.name('strings')('codeLens')('unsavedChanges')('authorsOnly').value);
-        }
+        if (cfg.recentChange.enabled && cfg.authors.enabled) return Container.config.strings.codeLens.unsavedChanges.recentChangeAndAuthors;
+        if (cfg.recentChange.enabled) return Container.config.strings.codeLens.unsavedChanges.recentChangeOnly;
+        return Container.config.strings.codeLens.unsavedChanges.authorsOnly;
     }
 }

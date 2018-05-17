@@ -1,6 +1,6 @@
 'use strict';
 import { ConfigurationChangeEvent, Disposable, languages } from 'vscode';
-import { configuration, ICodeLensConfig } from './configuration';
+import { configuration } from './configuration';
 import { CommandContext, setCommandContext } from './constants';
 import { Container } from './container';
 import { DocumentBlameStateChangeEvent, DocumentDirtyIdleTriggerEvent, GitDocumentState } from './trackers/gitDocumentTracker';
@@ -39,7 +39,7 @@ export class CodeLensController extends Disposable {
                 Logger.log('CodeLens config changed; resetting CodeLens provider');
             }
 
-            const cfg = configuration.get<ICodeLensConfig>(section);
+            const cfg = Container.config.codeLens;
             if (cfg.enabled && (cfg.recentChange.enabled || cfg.authors.enabled)) {
                 if (this._provider !== undefined) {
                     this._provider.reset();
@@ -72,7 +72,7 @@ export class CodeLensController extends Disposable {
     private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
         if (this._provider === undefined || !e.document.isBlameable) return;
 
-        const maxLines = configuration.get<number>(configuration.name('advanced')('blame')('sizeThresholdAfterEdit').value);
+        const maxLines = Container.config.advanced.blame.sizeThresholdAfterEdit;
         if (maxLines > 0 && e.document.lineCount > maxLines) return;
 
         Logger.log('Dirty idle triggered; resetting CodeLens provider');

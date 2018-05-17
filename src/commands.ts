@@ -44,6 +44,7 @@ export * from './commands/showResultsExplorer';
 export * from './commands/stashApply';
 export * from './commands/stashDelete';
 export * from './commands/stashSave';
+export * from './commands/switchMode';
 export * from './commands/toggleCodeLens';
 export * from './commands/toggleFileBlame';
 export * from './commands/toggleFileHeatmap';
@@ -95,9 +96,12 @@ export function configureCommands(): void {
     Container.context.subscriptions.push(new Commands.StashApplyCommand());
     Container.context.subscriptions.push(new Commands.StashDeleteCommand());
     Container.context.subscriptions.push(new Commands.StashSaveCommand());
+    Container.context.subscriptions.push(new Commands.SwitchModeCommand());
     Container.context.subscriptions.push(new Commands.ToggleCodeLensCommand());
     Container.context.subscriptions.push(new Commands.ToggleFileBlameCommand());
     Container.context.subscriptions.push(new Commands.ToggleFileHeatmapCommand());
     Container.context.subscriptions.push(new Commands.ToggleFileRecentChangesCommand());
     Container.context.subscriptions.push(new Commands.ToggleLineBlameCommand());
+    Container.context.subscriptions.push(new Commands.ToggleReviewModeCommand());
+    Container.context.subscriptions.push(new Commands.ToggleZenModeCommand());
 }

@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [8.3.0-beta] - 2018-05-05
 ### Added
+- Add user-defined modes for quickly toggling between sets of settings
+  - Adds *Switch Mode* command (`gitlens.switchMode`) to quickly switch the active mode
+  - Adds a built-in *Zen* mode which for a zen-like experience, disables many visual features
+    - Adds *Toggle Zen Mode* command (`gitlens.toggleZenMode`) to toggle Zen mode
+  - Adds a built-in *Review* mode which for reviewing code, enables many visual features
+    - Adds *Toggle Review Mode* command (`gitlens.toggleReviewMode`) to toggle Review mode
+  - Adds the active mode to the status bar, optional (on by default)
+    - Adds `gitlens.mode.statusBar.enabled` setting to specify whether to provide the active GitLens mode on the status bar
+    - Adds `gitlens.mode.statusBar.alignment` setting to specify the active GitLens mode alignment in the status bar
+  - Adds modes settings (`gitlens.mode.*`) to the interactive settings editor
+    ![modes settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/cl-modes-settings.png)
+  - Adds `gitlens.mode.active` settings to specify the active GitLens mode, if any
+  - Adds `gitlens.modes` setting to specify the user-defined GitLens modes
 - Adds an icon for the *Compare File with Previous Revision* command (`gitlens.diffWithPrevious`) and moves it into the editor toolbar
 - Adds an icon for the *Compare File with Next Revision* command (`gitlens.diffWithNext`) and moves it into the editor toolbar
 - Adds *Show GitLens Explorer* (`gitlens.showGitExplorer`) command &mdash; shows/expands the *GitLens* explorer

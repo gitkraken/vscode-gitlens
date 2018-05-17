@@ -372,6 +372,16 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
   - Click the current and previous commit ids to execute the *Show Commit Details* command (`gitlens.showQuickCommitDetails`)
 
 ---
+### Modes
+- GitLens supports [user-defined](#modes-settings "Jump to the Modes settings") modes for quickly toggling between sets of settings
+  - Adds *Switch Mode* command (`gitlens.switchMode`) to quickly switch the active mode
+  - Adds a built-in *Zen* mode which for a zen-like experience, disables many visual features
+    - Adds *Toggle Zen Mode* command (`gitlens.toggleZenMode`) to toggle Zen mode
+  - Adds a built-in *Review* mode which for reviewing code, enables many visual features
+    - Adds *Toggle Review Mode* command (`gitlens.toggleReviewMode`) to toggle Review mode
+  - Adds the active mode to the **status bar** ([optional](#modes-settings "Jump to the Modes settings"), on by default)
+
+---
 ### Recent Changes
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-recent-changes.png" alt="Recent Changes" />
@@ -671,12 +681,21 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |`gitlens.hovers.annotations.changes`|Specifies whether to provide a changes (diff) hover for all lines when showing blame annotations
 |`gitlens.hovers.annotations.details`|Specifies whether to provide a commit details hover for all lines when showing blame annotations
 |`gitlens.hovers.annotations.enabled`|Specifies whether to provide any hovers when showing blame annotations
-|`gitlens.hovers.annotations.over`|Specifies when to trigger hovers when showing blame annotations<br /> `annotation` - only shown when hovering over the line annotation<br /> `line` - shown when hovering anywhere over the line
+|`gitlens.hovers.annotations.over`|Specifies when to trigger hovers when showing blame annotations<br />`annotation` - only shown when hovering over the line annotation<br />`line` - shown when hovering anywhere over the line
 |`gitlens.hovers.currentLine.changes`|Specifies whether to provide a changes (diff) hover for the current line
 |`gitlens.hovers.currentLine.details`|Specifies whether to provide a commit details hover for the current line
 |`gitlens.hovers.currentLine.enabled`|Specifies whether to provide any hovers for the current line
-|`gitlens.hovers.currentLine.over`|Specifies when to trigger hovers for the current line<br /> `annotation` - only shown when hovering over the line annotation<br /> `line` - shown when hovering anywhere over the line
+|`gitlens.hovers.currentLine.over`|Specifies when to trigger hovers for the current line<br />`annotation` - only shown when hovering over the line annotation<br />`line` - shown when hovering anywhere over the line
 |`gitlens.hovers.enabled`|Specifies whether to provide any hovers
+
+### Modes Settings
+
+|Name | Description
+|-----|------------
+|`gitlens.mode.active`|Specifies the active GitLens mode, if any
+|`gitlens.mode.statusBar.enabled`|Specifies whether to provide the active GitLens mode on the status bar
+|`gitlens.mode.statusBar.alignment`|Specifies the active GitLens mode alignment in the status bar<br />`left` - align to the left<br />`right` - align to the right
+|`gitlens.modes`|Specifies the user-defined GitLens modes
 
 ### Recent Changes Settings
 

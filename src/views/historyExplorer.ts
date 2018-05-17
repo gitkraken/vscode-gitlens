@@ -57,10 +57,10 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
 
         if (initializing || configuration.changed(e, configuration.name('historyExplorer')('enabled').value)) {
             if (Container.config.historyExplorer.enabled) {
-                this.undock(!initializing);
+                this.undock(!initializing, !configuration.changed(e, configuration.name('mode').value));
             }
             else {
-                this.dock(!initializing);
+                this.dock(!initializing, !configuration.changed(e, configuration.name('mode').value));
             }
         }
 
@@ -113,12 +113,14 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
         return node.getTreeItem();
     }
 
-    async dock(switchView: boolean = true) {
+    async dock(switchView: boolean = true, updateConfig: boolean = true) {
         if (switchView) {
             await Container.gitExplorer.switchTo(GitExplorerView.History);
         }
-        setCommandContext(CommandContext.HistoryExplorer, false);
-        configuration.updateEffective(configuration.name('historyExplorer')('enabled').value, false);
+        await setCommandContext(CommandContext.HistoryExplorer, false);
+        if (updateConfig) {
+            await configuration.updateEffective(configuration.name('historyExplorer')('enabled').value, false);
+        }
     }
 
     getQualifiedCommand(command: string) {
@@ -163,12 +165,14 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
         }
     }
 
-    async undock(switchView: boolean = true) {
+    async undock(switchView: boolean = true, updateConfig: boolean = true) {
         if (switchView) {
             await Container.gitExplorer.switchTo(GitExplorerView.Repository);
         }
-        setCommandContext(CommandContext.HistoryExplorer, true);
-        configuration.updateEffective(configuration.name('historyExplorer')('enabled').value, true);
+        await setCommandContext(CommandContext.HistoryExplorer, true);
+        if (updateConfig) {
+            await configuration.updateEffective(configuration.name('historyExplorer')('enabled').value, true);
+        }
     }
 
     private clearRoot() {

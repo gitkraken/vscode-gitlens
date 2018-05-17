@@ -23,7 +23,7 @@ export class Container {
 
     static initialize(context: ExtensionContext, config: IConfig) {
         this._context = context;
-        this._config = config;
+        this._config = Container.applyMode(config);
 
         context.subscriptions.push(this._lineTracker = new GitLineTracker());
         context.subscriptions.push(this._tracker = new GitDocumentTracker());
@@ -79,7 +79,7 @@ export class Container {
     private static _config: IConfig | undefined;
     static get config() {
         if (this._config === undefined) {
-            this._config = configuration.get<IConfig>();
+            this._config = Container.applyMode(configuration.get<IConfig>());
         }
         return this._config;
     }
@@ -172,5 +172,33 @@ export class Container {
 
     static resetConfig() {
         this._config = undefined;
+    }
+
+    private static applyMode(config: IConfig) {
+        if (!config.mode.active) return config;
+
+        const mode = config.modes[config.mode.active];
+        if (mode == null) return config;
+
+        if (mode.codeLens != null) {
+            config.codeLens.enabled = mode.codeLens;
+        }
+        if (mode.currentLine != null) {
+            config.currentLine.enabled = mode.currentLine;
+        }
+        if (mode.explorers != null) {
+            config.gitExplorer.enabled = mode.explorers;
+        }
+        if (mode.explorers != null) {
+            config.historyExplorer.enabled = mode.explorers;
+        }
+        if (mode.hovers != null) {
+            config.hovers.enabled = mode.hovers;
+        }
+        if (mode.statusBar != null) {
+            config.statusBar.enabled = mode.statusBar;
+        }
+
+        return config;
     }
 }

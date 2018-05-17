@@ -26,6 +26,21 @@ export class Configuration {
         return this._onDidChange.event;
     }
 
+    private readonly _configAffectedByMode: string[];
+
+    constructor() {
+        this._configAffectedByMode = [
+            `gitlens.${this.name('mode').value}`,
+            `gitlens.${this.name('modes').value}`,
+            `gitlens.${this.name('codeLens').value}`,
+            `gitlens.${this.name('currentLine').value}`,
+            `gitlens.${this.name('gitExplorer').value}`,
+            `gitlens.${this.name('historyExplorer').value}`,
+            `gitlens.${this.name('hovers').value}`,
+            `gitlens.${this.name('statusBar').value}`
+        ];
+    }
+
     private onConfigurationChanged(e: ConfigurationChangeEvent) {
         if (!e.affectsConfiguration(ExtensionKey, null!)) return;
 
@@ -38,6 +53,21 @@ export class Configuration {
         const section = configuration.name('keymap').value;
         if (configuration.changed(e, section)) {
             setCommandContext(CommandContext.KeyMap, this.get<KeyMap>(section));
+        }
+
+        if (configuration.changed(e, configuration.name('mode').value) ||
+            configuration.changed(e, configuration.name('modes').value)) {
+            const original = e.affectsConfiguration;
+            e = {
+                ...e,
+                affectsConfiguration: (section: string, resource?: Uri) => {
+                    if (this._configAffectedByMode.some(n => section.startsWith(n))) {
+                        return true;
+                    }
+
+                    return original(section, resource);
+                }
+            } as ConfigurationChangeEvent;
         }
 
         this._onDidChange.fire(e);

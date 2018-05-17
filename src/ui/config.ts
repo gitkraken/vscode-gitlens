@@ -223,6 +223,17 @@ export interface IMenuConfig {
     };
 }
 
+export interface IModeConfig {
+    name: string;
+    statusBarItemName?: string;
+    description?: string;
+    codeLens?: boolean;
+    currentLine?: boolean;
+    explorers?: boolean;
+    hovers?: boolean;
+    statusBar?: boolean;
+}
+
 export interface IResultsExplorerConfig {
     files: IExplorersFilesConfig;
 }
@@ -311,12 +322,20 @@ export interface IConfig {
     insiders: boolean;
     keymap: KeyMap;
     menus: boolean | IMenuConfig;
+    mode: {
+        active: string;
+        statusBar: {
+            enabled: boolean;
+            alignment: 'left' | 'right';
+        }
+    };
+    modes: { [key: string]: IModeConfig };
     outputLevel: OutputLevel;
 
     recentChanges: {
         highlight: {
             locations: HighlightLocations[];
-        };
+        }
         toggleMode: AnnotationsToggleMode;
     };
 
@@ -341,8 +360,8 @@ export interface IConfig {
                 recentChangeAndAuthors: string;
                 recentChangeOnly: string;
                 authorsOnly: string;
-            };
-        };
+            }
+        }
     };
 
     advanced: IAdvancedConfig;

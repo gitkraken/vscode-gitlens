@@ -1,6 +1,6 @@
 'use strict';
 import { ConfigurationChangeEvent, ConfigurationTarget, Disposable, Uri, ViewColumn, WebviewPanel, WebviewPanelOnDidChangeViewStateEvent, window, workspace } from 'vscode';
-import { configuration } from '../configuration';
+import { configuration, IConfig } from '../configuration';
 import { Container } from '../container';
 import { Message, SettingsChangedMessage } from '../ui/ipc';
 import { Logger } from '../logger';
@@ -162,6 +162,7 @@ export abstract class WebviewEditor<TBootstrap> extends Disposable {
     }
 
     private postUpdatedConfiguration() {
-        return this.postMessage({ type: 'settingsChanged', config: Container.config } as SettingsChangedMessage, 'config');
+        // Make sure to get the raw config, not from the container which has the modes mixed in
+        return this.postMessage({ type: 'settingsChanged', config: configuration.get<IConfig>() } as SettingsChangedMessage, 'config');
     }
 }

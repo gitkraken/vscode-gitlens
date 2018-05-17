@@ -57,11 +57,14 @@ export enum Commands {
     StashApply = 'gitlens.stashApply',
     StashDelete = 'gitlens.stashDelete',
     StashSave = 'gitlens.stashSave',
+    SwitchMode = 'gitlens.switchMode',
     ToggleCodeLens = 'gitlens.toggleCodeLens',
     ToggleFileBlame = 'gitlens.toggleFileBlame',
     ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
     ToggleFileRecentChanges = 'gitlens.toggleFileRecentChanges',
-    ToggleLineBlame = 'gitlens.toggleLineBlame'
+    ToggleLineBlame = 'gitlens.toggleLineBlame',
+    ToggleReviewMode = 'gitlens.toggleReviewMode',
+    ToggleZenMode = 'gitlens.toggleZenMode'
 }
 
 export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {

@@ -670,6 +670,102 @@
                     "description": "Specifies which commands will be added to which menus",
                     "scope": "window"
                 },
+                "gitlens.mode.active": {
+                    "type": "string",
+                    "description": "Specifies the active GitLens mode, if any",
+                    "scope": "window"
+                },
+                "gitlens.mode.statusBar.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether to provide the active GitLens mode on the status bar",
+                    "scope": "window"
+                },
+                "gitlens.mode.statusBar.alignment": {
+                    "type": "string",
+                    "default": "right",
+                    "enum": [
+                        "left",
+                        "right"
+                    ],
+                    "description": "Specifies the active GitLens mode alignment in the status bar\n `left` - align to the left\n `right` - align to the right",
+                    "scope": "window"
+                },
+                "gitlens.modes": {
+                    "type": "object",
+                    "properties": {
+                        "zen": {
+                            "type": "object",
+                            "required": [
+                                "name"
+                            ],
+                            "properties": {
+                                "name": { "type": "string"},
+                                "statusBarItemName": { "type": "string"},
+                                "description": { "type": "string"},
+                                "codeLens": { "type": "boolean" },
+                                "currentLine": { "type": "boolean" },
+                                "explorers": { "type": "boolean" },
+                                "hovers": { "type": "boolean" },
+                                "statusBar": { "type": "boolean" }
+                            }
+                        },
+                        "review": {
+                            "type": "object",
+                            "required": [
+                                "name"
+                            ],
+                            "properties": {
+                                "name": { "type": "string"},
+                                "statusBarItemName": { "type": "string"},
+                                "description": { "type": "string"},
+                                "codeLens": { "type": "boolean" },
+                                "currentLine": { "type": "boolean" },
+                                "explorers": { "type": "boolean" },
+                                "hovers": { "type": "boolean" },
+                                "statusBar": { "type": "boolean" }
+                            }
+                        }
+                    },
+                    "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                            "name"
+                        ],
+                        "properties": {
+                            "name": { "type": "string"},
+                            "statusBarItemName": { "type": "string"},
+                            "description": { "type": "string"},
+                            "codeLens": { "type": "boolean" },
+                            "currentLine": { "type": "boolean" },
+                            "explorers": { "type": "boolean" },
+                            "hovers": { "type": "boolean" },
+                            "statusBar": { "type": "boolean" }
+                        }
+                    },
+                    "default": {
+                        "zen": {
+                            "name": "Zen",
+                            "statusBarItemName": "Zen",
+                            "description": "for a zen-like experience, disables many visual features",
+                            "codeLens": false,
+                            "currentLine": false,
+                            "explorers": false,
+                            "hovers": false,
+                            "statusBar": false
+                        },
+                        "review": {
+                            "name": "Review",
+                            "statusBarItemName": "Reviewing",
+                            "description": "for reviewing code, enables many visual features",
+                            "codeLens": true,
+                            "currentLine": true,
+                            "hovers": true
+                        }
+                    },
+                    "description": "Specifies the user-defined GitLens modes",
+                    "scope": "window"
+                },
                 "gitlens.outputLevel": {
                     "type": "string",
                     "default": "silent",
@@ -1239,6 +1335,21 @@
             {
                 "command": "gitlens.toggleCodeLens",
                 "title": "Toggle Git Code Lens",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.switchMode",
+                "title": "Switch Mode",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.toggleReviewMode",
+                "title": "Toggle Review Mode",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.toggleZenMode",
+                "title": "Toggle Zen Mode",
                 "category": "GitLens"
             },
             {
@@ -1846,6 +1957,18 @@
                 {
                     "command": "gitlens.toggleCodeLens",
                     "when": "gitlens:enabled && gitlens:canToggleCodeLens"
+                },
+                {
+                    "command": "gitlens.switchMode",
+                    "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.toggleReviewMode",
+                    "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.toggleZenMode",
+                    "when": "gitlens:enabled"
                 },
                 {
                     "command": "gitlens.showCommitSearch",

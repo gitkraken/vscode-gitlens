@@ -1,7 +1,7 @@
 'use strict';
 import { ConfigurationChangeEvent, debug, DecorationRangeBehavior, DecorationRenderOptions, Disposable, Range, TextEditor, TextEditorDecorationType, window } from 'vscode';
 import { Annotations } from './annotations';
-import { configuration, IConfig } from './../configuration';
+import { configuration } from './../configuration';
 import { isTextEditor, RangeEndOfLineIndex } from './../constants';
 import { Container } from './../container';
 import { LinesChangeEvent } from './../trackers/gitLineTracker';
@@ -47,8 +47,7 @@ export class LineAnnotationController extends Disposable {
         if (!initializing && !configuration.changed(e, configuration.name('currentLine').value)) return;
 
         if (initializing || configuration.changed(e, configuration.name('currentLine')('enabled').value)) {
-            const cfg = configuration.get<IConfig>();
-            if (cfg.currentLine.enabled) {
+            if (Container.config.currentLine.enabled) {
                 this._enabled = true;
                 this.resume();
             }

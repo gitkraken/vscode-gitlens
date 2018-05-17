@@ -1,7 +1,7 @@
 'use strict';
 import { CancellationToken, ConfigurationChangeEvent, debug, Disposable, Hover, HoverProvider, languages, Position, Range, TextDocument, TextEditor, window } from 'vscode';
 import { Annotations } from './annotations';
-import { configuration, IConfig } from './../configuration';
+import { configuration } from './../configuration';
 import { RangeEndOfLineIndex } from './../constants';
 import { Container } from './../container';
 import { LinesChangeEvent } from './../trackers/gitLineTracker';
@@ -38,9 +38,7 @@ export class LineHoverController extends Disposable {
             !configuration.changed(e, configuration.name('hovers')('enabled').value) &&
             !configuration.changed(e, configuration.name('hovers')('currentLine')('enabled').value)) return;
 
-        const cfg = configuration.get<IConfig>();
-
-        if (cfg.hovers.enabled && cfg.hovers.currentLine.enabled) {
+        if (Container.config.hovers.enabled && Container.config.hovers.currentLine.enabled) {
             Container.lineTracker.start(
                 this,
                 Disposable.from(Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this))

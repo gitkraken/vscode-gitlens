@@ -829,6 +829,57 @@
                         </div>
                     </section>
 
+                    <section id="modes">
+                        <div class="section__header">
+                            <h2 class="section__title">Modes
+                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#modes">
+                                    <i class="icon icon__info"></i>
+                                </a>
+                            </h2>
+                            <p class="section__title-hint">GitLens supports user-defined modes for quickly toggling between sets of settings</p>
+                        </div>
+
+                        <div class="section__settings">
+                            <div class="settings-group">
+                                <div class="settings-group__setting nowrap">
+                                    <input class="setting" id="mode.statusBar.enabled" name="mode.statusBar.enabled" type="checkbox"/>
+                                    <label for="mode.statusBar.enabled">Show the active mode in the status bar</label>
+                                </div>
+
+                                <div class="settings-group__setting ml-2" data-enablement="mode.statusBar.enabled">
+                                    <label for="mode.statusBar.alignment">Position the annotation on the</label>
+                                    <select class="setting" id="mode.statusBar.alignment" name="mode.statusBar.alignment" disabled>
+                                        <option value="left">left</option>
+                                        <option value="right">right</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="section__preview">
+                                <img class="image__preview" src="{{root}}/images/settings/status-bar.png"/>
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/modes-status-bar-left.png" data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =left"/>
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/modes-status-bar-right.png" data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =right"/>
+                            </div>
+
+                            <p class="settings-group__hint">
+                                <i class="icon icon--lg icon__info"></i>
+                                For more advanced customizations or to add your own modes, open <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for <b><i>gitlens.modes</i></b>
+                                <span class="settings-group__hint--more">
+                                    Use the
+                                    <a class="command" title="Run command" href="command:gitlens.switchMode">GitLens: Switch Mode</a> command to quickly switch the active mode
+                                </span>
+                                <span class="settings-group__hint--more">
+                                    Use the
+                                    <a class="command" title="Run command" href="command:gitlens.toggleReviewMode">GitLens: Toggle Review Mode</a> command to toggle Review mode
+                                </span>
+                                <span class="settings-group__hint--more">
+                                    Use the
+                                    <a class="command" title="Run command" href="command:gitlens.toggleZenMode">GitLens: Toggle Zen Mode</a> command to toggle Zen mode
+                                </span>
+                            </p>
+                        </div>
+                    </section>
+
                     <section id="recent-changes">
                         <div class="section__header">
                             <h2 class="section__title">Recent Changes
@@ -989,6 +1040,7 @@
                             <li><a class="jump-to" href="#blame">Gutter Blame</a></li>
                             <li><a class="jump-to" href="#heatmap">Gutter Heatmap</a></li>
                             <li><a class="jump-to" href="#hovers">Hovers</a></li>
+                            <li><a class="jump-to" href="#modes">Modes</a></li>
                             <li><a class="jump-to" href="#recent-changes">Recent Changes</a></li>
                             <li><a class="jump-to" href="#status-bar">Status Bar Blame</a></li>
                         </ul>

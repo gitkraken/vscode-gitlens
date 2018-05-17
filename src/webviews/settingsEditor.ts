@@ -1,6 +1,6 @@
 'use strict';
 import { commands, workspace } from 'vscode';
-import { Container } from '../container';
+import { configuration, IConfig } from '../configuration';
 import { SettingsBootstrap } from '../ui/ipc';
 import { WebviewEditor } from './webviewEditor';
 
@@ -24,7 +24,8 @@ export class SettingsEditor extends WebviewEditor<SettingsBootstrap> {
 
     getBootstrap() {
         return {
-            config: Container.config,
+            // Make sure to get the raw config, not from the container which has the modes mixed in
+            config: configuration.get<IConfig>(),
             scope: 'user',
             scopes: this.getAvailableScopes()
         } as SettingsBootstrap;
