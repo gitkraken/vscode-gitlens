@@ -102,7 +102,7 @@ export abstract class WebviewEditor<TBootstrap> extends Disposable {
         let html = (await this.getHtml())
             .replace(/{{root}}/g, Uri.file(Container.context.asAbsolutePath('.')).with({ scheme: 'vscode-resource' }).toString());
         if (html.includes('\'{{bootstrap}}\'')) {
-            html = html.replace(/'{{bootstrap}}'/g, JSON.stringify(this.getBootstrap()));
+            html = html.replace('\'{{bootstrap}}\'', JSON.stringify(this.getBootstrap()));
         }
 
         if (this._panel === undefined) {
@@ -149,7 +149,7 @@ export abstract class WebviewEditor<TBootstrap> extends Disposable {
 
         const doc = await workspace.openTextDocument(Container.context.asAbsolutePath(this.filename));
         return doc.getText();
-}
+    }
 
     private postMessage(message: Message, invalidates: 'all' | 'config' = 'all') {
         if (this._panel === undefined) return false;
