@@ -41,7 +41,128 @@
                 <h2 class="changelog__title">What's New in <span class="changelog__version">GitLens 8</span> &#x1F389;&#x1F388;</h2>
                 <div class="changelog__scroller">
                     <ul class="changelog__list">
-                        <li><span class="changelog__badge changelog__badge--version">8.2</span>
+                        <li><span class="changelog__badge changelog__badge--version">8.3</span>
+                            <span class="changelog__date">MAY &nbsp;2018</span>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Moves the <i>GitLens</i> explorer, <i>GitLens History</i> explorer, and <i>GitLens Results</i> explorer under the Source Control activity (in the sidebar) 🎉 &mdash; closes <a title="Open Issue #213" href="https://github.com/eamodio/vscode-gitlens/issues/213">#213</a>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds user-defined modes for quickly toggling between sets of settings
+                            <div class="changelog__details">
+                                <img class="changelog__image" src="{{root}}/images/cl-mode-switch.png" alt="Mode Switch"/>
+                            </div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds <i>Switch Mode</i> command (<code>gitlens.switchMode</code>) to quickly switch the active GitLens mode
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds <i>Toggle Zen Mode</i> command (<code>gitlens.toggleZenMode</code>) to toggle Zen mode which disables many visual features
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds <i>Toggle Review Mode</i> command (<code>gitlens.toggleReviewMode</code>) to toggle Review mode which enables many visual features
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds modes settings (<code>gitlens.mode.*</code>) to the interactive settings editor
+                            <div class="changelog__details">
+                                <img class="changelog__image" src="{{root}}/images/cl-modes-settings.png" alt="Mode Settings"/>
+                            </div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds an icon for the <i>Compare File with Previous Revision</i> command (<code>gitlens.diffWithPrevious</code>) and moves it into the editor toolbar
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds an icon for the <i>Compare File with Next Revision</i> command (<code>gitlens.diffWithNext</code>) and moves it into the editor toolbar
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds menu settings (<code>gitlens.menus.*</code>) to the interactive settings editor
+                            <div class="changelog__details">
+                                <img class="changelog__image" src="{{root}}/images/cl-menu-settings.png" alt="Menu Settings"/>
+                            </div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds a display mode dropdown at the top of the interactive settings editor to reduce complexity
+                            <div class="changelog__details">
+                                <img class="changelog__image" src="{{root}}/images/cl-settings-mode.png" alt="Settings Mode"/>
+                            </div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds a tree layout option to tags in the <i>GitLens</i> explorer &mdash; closes <a title="Open Issue #358" href="https://github.com/eamodio/vscode-gitlens/issues/358">#358</a>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds <i>Show GitLens Explorer</i> command (<code>gitlens.showGitExplorer</code>) &mdash; shows/expands the <i>GitLens</i> explorer
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds <i>Show History Explorer</i> command (<code>gitlens.showHistoryExplorer</code>) &mdash; shows/expands the <i>GitLens History</i> explorer
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds <i>Show Results Explorer</i> command (<code>gitlens.showResultsExplorer</code>) &mdash; shows/expands the <i>GitLens Results</i> explorer
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>
+                            Showing results in the <i>GitLens Results</i> explorer now properly shows the explorer first
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>
+                            Renames <i>Compare Line Revision with Previous</i> command to <i>Compare Commit with Previous</i> for better consistency with other commands
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>
+                            Renames <i>Compare Line Revision with Working File</i> command to <i>Compare Commit with Working File</i> for better consistency with other commands
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>
+                            Renames <i>Show Commit File Details</i> command to <i>Show Commit Details</i> for better consistency with other commands
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>
+                            Reworks GitLens menu contributions and configuration &mdash; see menu settings above
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>
+                            Renames the <code>gitlens.advanced.menus</code> setting to <code>gitlens.menus</code>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>
+                            Uses the new Webview API for better interactions and behavior with the interactive settings editor and welcome page
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes <a title="Open Issue #366" href="https://github.com/eamodio/vscode-gitlens/issues/366">#366</a> &mdash; Running a GitLens command from a keybinding fails
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes <a title="Open Issue #155" href="https://github.com/eamodio/vscode-gitlens/issues/155">#155</a> &mdash; Navigating file diffs with <code>alt+,</code> gets stuck
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes <a title="Open Issue #359" href="https://github.com/eamodio/vscode-gitlens/issues/359">#359</a> &mdash; Show changes of an added file in the first commit
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes issue where comparing previous revision during a merge/rebase conflict failed to show the correct contents
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes issue with the current line blame toggle not working when current line blame starts disabled
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes various issues when not on a branch
+                            <div class="changelog__details"></div>
+                        </li>
+
+                        <li class="changelog__list-item--version"><span class="changelog__badge changelog__badge--version">8.2</span>
                             <span class="changelog__date">APRIL &nbsp;2018</span>
                             <div class="changelog__details"></div>
                         </li>

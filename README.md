@@ -13,41 +13,54 @@
 <br />
 
 # What's new in GitLens 8
-## 8.2 &mdash; April 2018
-- Adds new stand-alone *GitLens History* explorer to visualize the history of the current file &mdash; undocked version of the *GitLens* explorer history view
-- Adds richer tooltips to the *GitLens* explorer and *GitLens Results* view, and richer working tree and upstream status to the *GitLens* explorer
-- Adds an indicator to the *GitLens* explorer's branch history to mark the the tips of all branches
-- Adds ability to easily switch between relative and absolute dates via the `gitlens.defaultDateStyle` settings &mdash; closes [#312](https://github.com/eamodio/vscode-gitlens/issues/312)
-  - Adds `${agoOrDate}` and `${authorAgoOrDate}` tokens to `gitlens.blame.format`, `gitlens.currentLine.format`, `gitlens.explorers.commitFormat`, `gitlens.explorers.stashFormat`, and `gitlens.statusBar.format` settings which will honor the `gitlens.defaultDateStyle` setting
-- Adds annotation format settings (`gitlens.*.format`) to the interactive settings editor
-- Adds `gitlens.currentLine.scrollable` setting to specify whether the current line blame annotation can be scrolled into view when it is outside the viewport &mdash; closes [#149](https://github.com/eamodio/vscode-gitlens/issues/149), [#290](https://github.com/eamodio/vscode-gitlens/issues/290), [#265](https://github.com/eamodio/vscode-gitlens/issues/265)
-- Adds `gitlens.statusBar.reduceFlicker` setting to the interactive settings editor
-- Adds a one-time notification on startup if the `alt-based` keyboard shortcuts are in use, with options to easily switch to another set
-- Adds *Copy Commit ID to Clipboard* (`gitlens.copyShaToClipboard`) command to changed file nodes in the *GitLens* explorer and *GitLens Results* view
-- Adds *Copy Commit Message to Clipboard* (`gitlens.copyMessageToClipboard`) command to changed file nodes in the *GitLens* explorer and *GitLens Results* view
-- Adds `gitlens.advanced.blame.customArguments` setting to specify additional arguments to pass to the `git blame` command &mdash; closes [#337](https://github.com/eamodio/vscode-gitlens/issues/337)
-- Changes the author name to "You" when appropriate &mdash; closes [#341](https://github.com/eamodio/vscode-gitlens/issues/341)
-- Moves *Keyboard Settings* to the *General* section of the interactive settings editor
-- Renames *Compare with Index (HEAD)* (`gitlens.explorers.compareWithHead`) command to *Compare with HEAD* &mdash; closes [#309](https://github.com/eamodio/vscode-gitlens/issues/309)
-- Renames *Compare Index (HEAD) with Branch or Tag...* (`gitlens.diffHeadWithBranch`) command to *Compare HEAD with Branch or Tag...* &mdash; closes [#309](https://github.com/eamodio/vscode-gitlens/issues/309)
-- Removes the unnecessary *Show File Blame Annotations* (`gitlens.showFileBlame`) command &mdash; *Toggle File Blame Annotations* (`gitlens.toggleFileBlame`) provides similar functionality
-- Removes the unnecessary *Show Line Blame Annotations* (`gitlens.showLineBlame`) command &mdash; *Toggle Line Blame Annotations* (`gitlens.toggleLineBlame`) provides similar functionality
-- Removes *Open Working File* (`gitlens.openWorkingFile`) command from the editor toolbar when the built-in *Open File* command is visible
-- Removes *Compare with HEAD* (`gitlens.explorers.compareWithHead`), *Compare with Working Tree* (`gitlens.explorers.compareWithWorking`), and *Compare Compare Ancestry with Working Tree* (`gitlens.explorers.compareAncestryWithWorking`) commands from the current branch since comparing a branch with itself doesn't make sense &mdash; closes [#309](https://github.com/eamodio/vscode-gitlens/issues/309)
-- Fixes [#345](https://github.com/eamodio/vscode-gitlens/issues/345) - Custom date formats don't work in the GitLens view
-- Fixes [#336](https://github.com/eamodio/vscode-gitlens/issues/336) - Default Settings Get Added Automatically
-- Fixes [#342](https://github.com/eamodio/vscode-gitlens/issues/342) - GitLens crashes while debugging with Chrome Debugger a larger project
-- Fixes [#343](https://github.com/eamodio/vscode-gitlens/issues/343) - Can't show blame when VSCode starts on branch without upstream
-- Fixes issue where username and/or password in a remote urls could be shown
-- Fixes [#320](https://github.com/eamodio/vscode-gitlens/issues/320) - Stashes with a single untracked file created with "stash push" aren't shown in the GitLens explorer
-- Fixes [#331](https://github.com/eamodio/vscode-gitlens/issues/331) - Code lens shows on every import in Python
-- Fixes issues where quick pick menu progress indicators will get stuck in some cases because of a vscode api change in [Microsoft/vscode#46102](https://github.com/Microsoft/vscode/pull/46102)
-- Fixes [#314](https://github.com/eamodio/vscode-gitlens/issues/314) - Toggle line annotation doesn't work properly
-- Fixes [#310](https://github.com/eamodio/vscode-gitlens/issues/310) - "via Terminal" commands need quoting around work directory
-- Fixes issues with the active repository in the *GitLens* explorer failed to update properly
-- Fixes issues with *Open File*, *Open Revision*, and *Show File History* commands and images and other binary files
-- Fixes issues preventing nodes in the *GitLens* explorer from expanding properly in certain cases
-- Fixes issues when refreshing nodes in the *GitLens Results* view
+## 8.3 &mdash; May 2018
+- Moves the *GitLens* explorer, *GitLens History* explorer, and *GitLens Results* explorer under the Source Control activity (in the sidebar) 🎉 &mdash; closes [#213](https://github.com/eamodio/vscode-gitlens/issues/213)
+- Adds user-defined modes for quickly toggling between sets of settings
+
+  ![mode switch](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/cl-mode-switch.png)
+
+  - Adds *Switch Mode* command (`gitlens.switchMode`) to quickly switch the active GitLens mode
+  - Adds a built-in *Zen* mode which for a zen-like experience, disables many visual features
+    - Adds *Toggle Zen Mode* command (`gitlens.toggleZenMode`) to toggle Zen mode
+  - Adds a built-in *Review* mode which for reviewing code, enables many visual features
+    - Adds *Toggle Review Mode* command (`gitlens.toggleReviewMode`) to toggle Review mode
+  - Adds the active mode to the status bar, optional (on by default)
+    - Adds `gitlens.mode.statusBar.enabled` setting to specify whether to provide the active GitLens mode on the status bar
+    - Adds `gitlens.mode.statusBar.alignment` setting to specify the active GitLens mode alignment in the status bar
+  - Adds modes settings (`gitlens.mode.*`) to the interactive settings editor
+
+    ![modes settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/cl-modes-settings.png)
+
+  - Adds `gitlens.mode.active` settings to specify the active GitLens mode, if any
+  - Adds `gitlens.modes` setting to specify the user-defined GitLens modes
+- Adds an icon for the *Compare File with Previous Revision* command (`gitlens.diffWithPrevious`) and moves it into the editor toolbar
+- Adds an icon for the *Compare File with Next Revision* command (`gitlens.diffWithNext`) and moves it into the editor toolbar
+- Adds menu settings (`gitlens.menus.*`) to the interactive settings editor
+
+  ![menu settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/cl-menu-settings.png)
+
+- Adds a display mode dropdown at the top of the interactive settings editor to reduce complexity
+
+  ![settings mode](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/cl-settings-mode.png)
+
+  - Adds `gitlens.settings.mode` setting to specify the display mode of the interactive settings editor
+- Adds a tree layout option to tags in the *GitLens* explorer &mdash; closes [#358](https://github.com/eamodio/vscode-gitlens/issues/358)
+- Adds *Show GitLens Explorer* (`gitlens.showGitExplorer`) command &mdash; shows/expands the *GitLens* explorer
+- Adds *Show History Explorer* (`gitlens.showHistoryExplorer`) command &mdash; shows/expands the *GitLens History* explorer
+- Adds *Show Results Explorer* (`gitlens.showResultsExplorer`) command &mdash; shows/expands the *GitLens Results* explorer
+- Showing results in the *GitLens Results* explorer now properly shows the explorer first
+- Renames *Compare Line Revision with Previous* command (`gitlens.diffLineWithPrevious`) to *Compare Commit with Previous* for consistency with other commands
+- Renames *Compare Line Revision with Working File* command (`gitlens.diffLineWithWorking`) to *Compare Commit with Working File* for consistency with other commands
+- Renames *Show Commit File Details* command (`gitlens.showQuickCommitFileDetails`) to *Show Commit Details* for consistency with other commands
+- Reworks GitLens menu contributions and configuration &mdash; see menu settings above
+  - Renames the `gitlens.advanced.menus` setting to `gitlens.menus`
+- Uses the new Webview API for better interactions and behavior with the interactive settings editor and welcome page
+- Fixes [#366](https://github.com/eamodio/vscode-gitlens/issues/366) - Running a GitLens command from a keybinding fails
+- Fixes [#155](https://github.com/eamodio/vscode-gitlens/issues/155) - Navigating file diffs with `alt+,` gets stuck
+- Fixes [#359](https://github.com/eamodio/vscode-gitlens/issues/359) - Show changes of an added file in the first commit
+- Fixes issue where comparing previous revision during a merge/rebase conflict failed to show the correct contents
+- Fixes issue with the current line blame toggle not working when current line blame starts disabled
+- Fixes various issues when not on a branch
 
 See the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md "Open Release Notes") for the full set of changes
 
@@ -583,6 +596,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 |`gitlens.keymap`|Specifies the keymap to use for GitLens shortcut keys<br />`alternate` - adds an alternate set of shortcut keys that start with `Alt` (&#x2325; on macOS)<br />`chorded` - adds a chorded set of shortcut keys that start with `Ctrl+Shift+G` (<code>&#x2325;&#x2318;G</code> on macOS)<br />`none` - no shortcut keys will be added
 |`gitlens.menus`|Specifies which commands will be added to which menus
 |`gitlens.outputLevel`|Specifies how much (if any) output will be sent to the GitLens output channel
+|`gitlens.settings.mode`|Specifies the display mode of the interactive settings editor<br />`simple` - only displays common settings<br />`advanced` - displays all settings
 |`gitlens.showWhatsNewAfterUpgrades`|Specifies whether to show What's New after upgrading to new feature releases
 
 ### GitLens Explorer Settings

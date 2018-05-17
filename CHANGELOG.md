@@ -4,10 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [8.3.0-beta] - 2018-05-05
+## [8.3.0] - 2018-05-17
 ### Added
-- Add user-defined modes for quickly toggling between sets of settings
-  - Adds *Switch Mode* command (`gitlens.switchMode`) to quickly switch the active mode
+- Adds user-defined modes for quickly toggling between sets of settings
+
+  ![mode switch](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/cl-mode-switch.png)
+
+  - Adds *Switch Mode* command (`gitlens.switchMode`) to quickly switch the active GitLens mode
   - Adds a built-in *Zen* mode which for a zen-like experience, disables many visual features
     - Adds *Toggle Zen Mode* command (`gitlens.toggleZenMode`) to toggle Zen mode
   - Adds a built-in *Review* mode which for reviewing code, enables many visual features
@@ -16,15 +19,26 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - Adds `gitlens.mode.statusBar.enabled` setting to specify whether to provide the active GitLens mode on the status bar
     - Adds `gitlens.mode.statusBar.alignment` setting to specify the active GitLens mode alignment in the status bar
   - Adds modes settings (`gitlens.mode.*`) to the interactive settings editor
+
     ![modes settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/cl-modes-settings.png)
+
   - Adds `gitlens.mode.active` settings to specify the active GitLens mode, if any
   - Adds `gitlens.modes` setting to specify the user-defined GitLens modes
 - Adds an icon for the *Compare File with Previous Revision* command (`gitlens.diffWithPrevious`) and moves it into the editor toolbar
 - Adds an icon for the *Compare File with Next Revision* command (`gitlens.diffWithNext`) and moves it into the editor toolbar
+- Adds menu settings (`gitlens.menus.*`) to the interactive settings editor
+
+  ![menu settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/cl-menu-settings.png)
+
+- Adds a display mode dropdown at the top of the interactive settings editor to reduce complexity
+
+  ![settings mode](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/cl-settings-mode.png)
+
+  - Adds `gitlens.settings.mode` setting to specify the display mode of the interactive settings editor
+- Adds a tree layout option to tags in the *GitLens* explorer &mdash; closes [#358](https://github.com/eamodio/vscode-gitlens/issues/358)
 - Adds *Show GitLens Explorer* (`gitlens.showGitExplorer`) command &mdash; shows/expands the *GitLens* explorer
 - Adds *Show History Explorer* (`gitlens.showHistoryExplorer`) command &mdash; shows/expands the *GitLens History* explorer
 - Adds *Show Results Explorer* (`gitlens.showResultsExplorer`) command &mdash; shows/expands the *GitLens Results* explorer
-- Adds a tree layout option to tags in the *GitLens* explorer &mdash; closes [#358](https://github.com/eamodio/vscode-gitlens/issues/358)
 
 ### Changed
 - Moves the *GitLens* explorer, *GitLens History* explorer, and *GitLens Results* explorer under the Source Control activity (in the sidebar) 🎉 &mdash; closes [#213](https://github.com/eamodio/vscode-gitlens/issues/213)
@@ -32,14 +46,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Renames *Compare Line Revision with Previous* command (`gitlens.diffLineWithPrevious`) to *Compare Commit with Previous* for consistency with other commands
 - Renames *Compare Line Revision with Working File* command (`gitlens.diffLineWithWorking`) to *Compare Commit with Working File* for consistency with other commands
 - Renames *Show Commit File Details* command (`gitlens.showQuickCommitFileDetails`) to *Show Commit Details* for consistency with other commands
-- Renames the `gitlens.advanced.menus` setting to `gitlens.menus`
-- Reworks GitLens menu contributions and configuration
+- Reworks GitLens menu contributions and configuration &mdash; see menu settings above
+  - Renames the `gitlens.advanced.menus` setting to `gitlens.menus`
+- Uses the new Webview API for better interactions and behavior with the interactive settings editor and welcome page
 
 ### Fixed
 - Fixes [#366](https://github.com/eamodio/vscode-gitlens/issues/366) - Running a GitLens command from a keybinding fails
 - Fixes [#155](https://github.com/eamodio/vscode-gitlens/issues/155) - Navigating file diffs with `alt+,` gets stuck
 - Fixes [#359](https://github.com/eamodio/vscode-gitlens/issues/359) - Show changes of an added file in the first commit
 - Fixes issue where comparing previous revision during a merge/rebase conflict failed to show the correct contents
+- Fixes issue with the current line blame toggle not working when current line blame starts disabled
 - Fixes various issues when not on a branch
 
 ## [8.2.4] - 2018-04-22
