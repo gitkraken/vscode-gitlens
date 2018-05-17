@@ -3,6 +3,7 @@ import { Range } from 'vscode';
 import { RemoteProvider } from './provider';
 
 const issueEnricherRegEx = /(^|\s)(#([0-9]+))\b/gi;
+const stripGitRegex = /\/_git\/?/i;
 
 export class VisualStudioService extends RemoteProvider {
 
@@ -20,8 +21,10 @@ export class VisualStudioService extends RemoteProvider {
     }
 
     enrichMessage(message: string): string {
+        // Strip off any `_git` part from the repo url
+        const baseUrl = this.baseUrl.replace(stripGitRegex, '/');
         // Matches #123
-        return message.replace(issueEnricherRegEx, `$1[$2](${this.baseUrl}/_workitems/edit/$3 "Open Work Item $2")`);
+        return message.replace(issueEnricherRegEx, `$1[$2](${baseUrl}/_workitems/edit/$3 "Open Work Item $2")`);
     }
 
     protected getUrlForBranches(): string {
