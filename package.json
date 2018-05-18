@@ -3166,11 +3166,11 @@
         "lodash.debounce": "4.0.8",
         "lodash.once": "4.1.1",
         "tmp": "0.0.33",
-        "tslib": "1.9.0"
+        "tslib": "1.9.1"
     },
     "devDependencies": {
         "@types/copy-paste": "1.1.30",
-        "@types/node": "10.0.8",
+        "@types/node": "10.1.1",
         "@types/tmp": "0.0.33",
         "husky": "0.14.3",
         "ts-loader": "4.3.0",
