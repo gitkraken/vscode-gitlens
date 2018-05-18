@@ -174,7 +174,7 @@ export class ShowCommitInResultsQuickPickItem extends CommandQuickPickItem {
         public readonly commit: GitLogCommit,
         item: QuickPickItem = {
             label: 'Show in Results',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays commit in the GitLens Results view`
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays commit in the GitLens Results explorer`
         }
     ) {
         super(item, undefined, undefined);
@@ -193,7 +193,7 @@ export class ShowCommitsInResultsQuickPickItem extends CommandQuickPickItem {
         public readonly resultsLabel: string | { label: string, resultsType?: { singular: string, plural: string } },
         item: QuickPickItem = {
             label: 'Show in Results',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays commits in the GitLens Results view`
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays commits in the GitLens Results explorer`
         }
     ) {
         super(item, undefined, undefined);
@@ -212,7 +212,7 @@ export class ShowCommitsSearchInResultsQuickPickItem extends ShowCommitsInResult
         public readonly search: string,
         item: QuickPickItem = {
             label: 'Show in Results',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays results in the GitLens Results view`
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays results in the GitLens Results explorer`
         }
     ) {
         super(results, { label: search }, item);

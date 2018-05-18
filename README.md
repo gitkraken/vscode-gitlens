@@ -17,7 +17,7 @@
 - Adds the ability to control where the *GitLens*, *GitLens History*, and *GitLens Results* explorers are shown 🎉 &mdash; closes [#213](https://github.com/eamodio/vscode-gitlens/issues/213), [#377](https://github.com/eamodio/vscode-gitlens/issues/377)
   - Adds `gitlens.gitExplorer.location` setting to the interactive settings editor to specify where the *GitLens* explorer is shown &mdash; either in the *Explorer* or *Source Control* view
   - Adds `gitlens.historyExplorer.location` setting to the interactive settings editor to specify where the *GitLens History* explorer is shown &mdash; either in the *Explorer* or *Source Control* view
-  - Adds `gitlens.resultsExplorer.location` setting to the interactive settings editor to specify where the *GitLens Results* view is shown &mdash; either in the *Explorer* or *Source Control* view
+  - Adds `gitlens.resultsExplorer.location` setting to the interactive settings editor to specify where the *GitLens Results* explorer is shown &mdash; either in the *Explorer* or *Source Control* view
 - Adds user-defined modes for quickly toggling between sets of settings
 
   ![mode switch](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-mode-switch.png)
@@ -80,7 +80,7 @@ GitLens simply helps you understand code better. Quickly glimpse into whom, why,
 Here are just some of the features that GitLens provides,
  - a [*GitLens* explorer](#gitlens-explorer "Jump to the GitLens explorer") to navigate and explore repositories
  - a [*GitLens History* explorer](#gitlens-history-explorer "Jump to the GitLens History explorer") to navigate and explore file histories
- - an on-demand [*GitLens Results* view](#gitlens-results-view "Jump to the GitLens Results view") to explore commit searches, visualize comparisons between branches, tags, commits, and more
+ - an on-demand [*GitLens Results* explorer](#gitlens-results-explorer "Jump to the GitLens Results explorer") to navigate and explore commit searches, visualize comparisons between branches, tags, commits, and more
  - authorship [code lens](#code-lens "Jump to the Code Lens") showing the most recent commit and # of authors to the top of files and/or on code blocks
  - an unobtrusive [current line blame](#current-line-blame "Jump to the Current Line Blame") annotation at the end of the line
  - on-demand [gutter blame](#gutter-blame "Jump to the Gutter Blame") annotations, including a heatmap, for the whole file
@@ -236,12 +236,12 @@ A [customizable](#gitlens-history-explorer-settings "Jump to the GitLens History
   - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote* (if available), *Open Revision in Remote* (if available), *Apply Changes*, and *Show Commit File Details* commands
 
 ---
-### GitLens Results View
+### GitLens Results Explorer
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-results.png" alt="GitLens Results view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-results.png" alt="GitLens Results explorer" />
 </p>
 
-An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens Results view settings") view to explore commits, histories, and searches, or visualize comparisons between branches, tags, commits, and more
+An on-demand, [customizable](#gitlens-results-explorer-settings "Jump to the GitLens Results explorer settings") explorer to navigate and explore commits, histories, and searches, or visualize comparisons between branches, tags, commits, and more
 - A toolbar provides *Search Commits*, *Keep Results*, and *Refresh* commands
   - A context menu provides *Automatic Layout*, *List Layout*, *Tree Layout*, and *Close* commands
 
@@ -441,7 +441,7 @@ An on-demand, [customizable](#gitlens-results-view-settings "Jump to the GitLens
   - Use `#<sha>` to search for a commit with id of `<sha>` &mdash; See [Git docs](https://git-scm.com/docs/git-log "Open Git docs")
   - Use `~<pattern>` to search for commits with differences whose patch text contains added/removed lines that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log--Gltregexgt "Open Git docs")
   - Use `=<string>` to search for commits with differences that change the number of occurrences of the specified string (i.e. addition/deletion) in a file &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log--Sltstringgt "Open Git docs")
-  - Provides a *Show in Results* option to show the search results in the *GitLens Results* view
+  - Provides a *Show in Results* option to show the search results in the *GitLens Results* explorer
 
 ---
 ### Navigate and Explore
@@ -632,27 +632,27 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |`gitlens.historyExplorer.enabled`|Specifies whether to show the current file history undocked in a *GitLens History* explorer
 |`gitlens.historyExplorer.location`|Specifies where to show the `GitLens History` explorer<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view
 
-### GitLens Results View Settings
+### GitLens Results Explorer Settings
 
 See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 
 |Name | Description
 |-----|------------
-|`gitlens.resultsExplorer.files.compact`|Specifies whether to compact (flatten) unnecessary file nesting in the *GitLens Results* view<br />Only applies when displaying files as a `tree` or `auto`
-|`gitlens.resultsExplorer.files.layout`|Specifies how the *GitLens Results* view will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.resultsExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
-|`gitlens.resultsExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the *GitLens Results* view<br />Only applies when displaying files as `auto`
-|`gitlens.resultsExplorer.location`|Specifies where to show the `GitLens Results` view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view
+|`gitlens.resultsExplorer.files.compact`|Specifies whether to compact (flatten) unnecessary file nesting in the *GitLens Results* explorer<br />Only applies when displaying files as a `tree` or `auto`
+|`gitlens.resultsExplorer.files.layout`|Specifies how the *GitLens Results* explorer will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.resultsExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
+|`gitlens.resultsExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the *GitLens Results* explorer<br />Only applies when displaying files as `auto`
+|`gitlens.resultsExplorer.location`|Specifies where to show the `GitLens Results` explorer<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view
 
 ### Explorer Settings
 
 |Name | Description
 |-----|------------
-|`gitlens.explorers.avatars`|Specifies whether to show avatar images instead of commit (or status) icons in the *GitLens* and *GitLens Results* views
-|`gitlens.explorers.commitFileFormat`|Specifies the format of a committed file in the *GitLens* and *GitLens Results* views<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
-|`gitlens.explorers.commitFormat`|Specifies the format of committed changes in the *GitLens* and *GitLens Results* views<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`<br /> ${authorAgo} - commit author, relative commit date<br /> ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
-|`gitlens.explorers.stashFileFormat`|Specifies the format of a stashed file in the *GitLens* and *GitLens Results* views<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
-|`gitlens.explorers.stashFormat`|Specifies the format of stashed changes in the *GitLens* and *GitLens Results* views<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`<br /> ${authorAgo} - commit author, relative commit date<br /> ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
-|`gitlens.explorers.statusFileFormat`|Specifies the format of the status of a working or committed file in the *GitLens* and *GitLens Results* views<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path<br />${working} - optional indicator if the file is uncommitted
+|`gitlens.explorers.avatars`|Specifies whether to show avatar images instead of commit (or status) icons in the *GitLens* and *GitLens Results* explorers
+|`gitlens.explorers.commitFileFormat`|Specifies the format of a committed file in the *GitLens* and *GitLens Results* explorers<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
+|`gitlens.explorers.commitFormat`|Specifies the format of committed changes in the *GitLens* and *GitLens Results* explorers<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`<br /> ${authorAgo} - commit author, relative commit date<br /> ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
+|`gitlens.explorers.stashFileFormat`|Specifies the format of a stashed file in the *GitLens* and *GitLens Results* explorers<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path
+|`gitlens.explorers.stashFormat`|Specifies the format of stashed changes in the *GitLens* and *GitLens Results* explorers<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`<br /> ${authorAgo} - commit author, relative commit date<br /> ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting
+|`gitlens.explorers.statusFileFormat`|Specifies the format of the status of a working or committed file in the *GitLens* and *GitLens Results* explorers<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path<br />${working} - optional indicator if the file is uncommitted
 
 ### Code Lens Settings
 
