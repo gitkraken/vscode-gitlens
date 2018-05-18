@@ -14,7 +14,10 @@
 
 # What's new in GitLens 8
 ## 8.3 &mdash; May 2018
-- Moves the *GitLens*, *GitLens History*, and *GitLens Results* explorers under the Source Control activity (in the sidebar) 🎉 &mdash; closes [#213](https://github.com/eamodio/vscode-gitlens/issues/213)
+- Adds the ability to control where the *GitLens*, *GitLens History*, and *GitLens Results* explorers are shown 🎉 &mdash; closes [#213](https://github.com/eamodio/vscode-gitlens/issues/213), [#377](https://github.com/eamodio/vscode-gitlens/issues/377)
+  - Adds `gitlens.gitExplorer.location` setting to the interactive settings editor to specify where the *GitLens* explorer is shown &mdash; either in the *Explorer* or *Source Control* view
+  - Adds `gitlens.historyExplorer.location` setting to the interactive settings editor to specify where the *GitLens History* explorer is shown &mdash; either in the *Explorer* or *Source Control* view
+  - Adds `gitlens.resultsExplorer.location` setting to the interactive settings editor to specify where the *GitLens Results* view is shown &mdash; either in the *Explorer* or *Source Control* view
 - Adds user-defined modes for quickly toggling between sets of settings
 
   ![mode switch](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-mode-switch.png)
@@ -31,7 +34,7 @@
 
     ![modes settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-modes-settings.png)
 
-  - Adds `gitlens.mode.active` settings to specify the active GitLens mode, if any
+  - Adds `gitlens.mode.active` setting to specify the active GitLens mode, if any
   - Adds `gitlens.modes` setting to specify the user-defined GitLens modes
 - Adds an icon for the *Compare File with Previous Revision* command (`gitlens.diffWithPrevious`) and moves it into the editor toolbar
 - Adds an icon for the *Compare File with Next Revision* command (`gitlens.diffWithNext`) and moves it into the editor toolbar
@@ -58,6 +61,7 @@
 - Fixes [#366](https://github.com/eamodio/vscode-gitlens/issues/366) - Running a GitLens command from a keybinding fails
 - Fixes [#155](https://github.com/eamodio/vscode-gitlens/issues/155) - Navigating file diffs with `alt+,` gets stuck
 - Fixes [#359](https://github.com/eamodio/vscode-gitlens/issues/359) - Show changes of an added file in the first commit
+- Fixes [#372](https://github.com/eamodio/vscode-gitlens/issues/372) - Wrong URL to VSTS work item when using hash work item id in commit
 - Fixes *bronze* typo thanks to [PR #361](https://github.com/eamodio/vscode-gitlens/pull/361) by Cory Forsyth ([@bantic](https://github.com/bantic))
 - Fixes *individually* typo thanks to [PR #364](https://github.com/eamodio/vscode-gitlens/pull/364) by Brett Cannon ([@brettcannon](https://github.com/brettcannon))
 - Fixes issue where comparing previous revision during a merge/rebase conflict failed to show the correct contents
@@ -615,6 +619,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |`gitlens.gitExplorer.files.layout`|Specifies how the *GitLens* explorer will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
 |`gitlens.gitExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the *GitLens* explorer<br />Only applies when displaying files as `auto`
 |`gitlens.gitExplorer.includeWorkingTree`|Specifies whether to include working tree files inside the `Repository Status` node of the *GitLens* explorer
+|`gitlens.gitExplorer.location`|Specifies where to show the `GitLens` explorer<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view
 |`gitlens.gitExplorer.showTrackingBranch`|Specifies whether to show the tracking branch when displaying local branches in the *GitLens* explorer"
 |`gitlens.gitExplorer.view`|Specifies the starting view of the *GitLens* explorer<br /> `auto` - shows the last selected view, defaults to `repository`<br />`history` - shows the commit history of the current file<br />`repository` - shows a repository explorer"
 
@@ -625,6 +630,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |Name | Description
 |-----|------------
 |`gitlens.historyExplorer.enabled`|Specifies whether to show the current file history undocked in a *GitLens History* explorer
+|`gitlens.historyExplorer.location`|Specifies where to show the `GitLens History` explorer<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view
 
 ### GitLens Results View Settings
 
@@ -635,6 +641,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |`gitlens.resultsExplorer.files.compact`|Specifies whether to compact (flatten) unnecessary file nesting in the *GitLens Results* view<br />Only applies when displaying files as a `tree` or `auto`
 |`gitlens.resultsExplorer.files.layout`|Specifies how the *GitLens Results* view will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.resultsExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
 |`gitlens.resultsExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the *GitLens Results* view<br />Only applies when displaying files as `auto`
+|`gitlens.resultsExplorer.location`|Specifies where to show the `GitLens Results` view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view
 
 ### Explorer Settings
 

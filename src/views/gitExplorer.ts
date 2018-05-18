@@ -73,8 +73,10 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
             !configuration.changed(e, configuration.name('defaultGravatarsStyle').value) &&
             !configuration.changed(e, configuration.name('advanced')('fileHistoryFollowsRenames').value)) return;
 
-        if (initializing || configuration.changed(e, configuration.name('gitExplorer')('enabled').value)) {
-            setCommandContext(CommandContext.GitExplorer, this.config.enabled);
+        if (initializing ||
+            configuration.changed(e, configuration.name('gitExplorer')('enabled').value) ||
+            configuration.changed(e, configuration.name('gitExplorer')('location').value)) {
+            setCommandContext(CommandContext.GitExplorer, this.config.enabled ? this.config.location : false);
         }
 
         if (initializing || configuration.changed(e, configuration.name('gitExplorer')('autoRefresh').value)) {

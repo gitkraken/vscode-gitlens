@@ -464,6 +464,16 @@
                     "description": "Specifies whether to include working tree files inside the `Repository Status` node of the `GitLens` explorer",
                     "scope": "window"
                 },
+                "gitlens.gitExplorer.location": {
+                    "type": "string",
+                    "default": "scm",
+                    "enum": [
+                        "explorer",
+                        "scm"
+                    ],
+                    "description": "Specifies where to show the `GitLens` explorer\n `explorer` - adds to the Explorer view\n `scm` - adds to the Source Control view",
+                    "scope": "window"
+                },
                 "gitlens.gitExplorer.showTrackingBranch": {
                     "type": "boolean",
                     "default": true,
@@ -495,6 +505,16 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Specifies whether to show the current file history undocked in a `GitLens History` explorer",
+                    "scope": "window"
+                },
+                "gitlens.historyExplorer.location": {
+                    "type": "string",
+                    "default": "explorer",
+                    "enum": [
+                        "explorer",
+                        "scm"
+                    ],
+                    "description": "Specifies where to show the `GitLens History` explorer\n `explorer` - adds to the Explorer view\n `scm` - adds to the Source Control view",
                     "scope": "window"
                 },
                 "gitlens.hovers.annotations.changes": {
@@ -923,6 +943,16 @@
                     "type": "number",
                     "default": 5,
                     "description": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens Results` view\nOnly applies when displaying files as `auto`",
+                    "scope": "window"
+                },
+                "gitlens.resultsExplorer.location": {
+                    "type": "string",
+                    "default": "explorer",
+                    "enum": [
+                        "explorer",
+                        "scm"
+                    ],
+                    "description": "Specifies where to show the `GitLens Results` view\n `explorer` - adds to the Explorer view\n `scm` - adds to the Source Control view",
                     "scope": "window"
                 },
                 "gitlens.settings.mode": {
@@ -3120,21 +3150,38 @@
             }
         ],
         "views": {
-            "scm": [
+            "explorer": [
                 {
                     "id": "gitlens.gitExplorer",
                     "name": "GitLens",
-                    "when": "gitlens:enabled && gitlens:gitExplorer"
+                    "when": "gitlens:enabled && gitlens:gitExplorer == explorer"
                 },
                 {
                     "id": "gitlens.historyExplorer",
                     "name": "GitLens History",
-                    "when": "gitlens:enabled && gitlens:historyExplorer"
+                    "when": "gitlens:enabled && gitlens:historyExplorer == explorer"
                 },
                 {
                     "id": "gitlens.resultsExplorer",
                     "name": "GitLens Results",
-                    "when": "gitlens:enabled && gitlens:resultsExplorer"
+                    "when": "gitlens:enabled && gitlens:resultsExplorer == explorer"
+                }
+            ],
+            "scm": [
+                {
+                    "id": "gitlens.gitExplorer",
+                    "name": "GitLens",
+                    "when": "gitlens:enabled && gitlens:gitExplorer == scm"
+                },
+                {
+                    "id": "gitlens.historyExplorer",
+                    "name": "GitLens History",
+                    "when": "gitlens:enabled && gitlens:historyExplorer == scm"
+                },
+                {
+                    "id": "gitlens.resultsExplorer",
+                    "name": "GitLens Results",
+                    "when": "gitlens:enabled && gitlens:resultsExplorer == scm"
                 }
             ]
         }

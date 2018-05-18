@@ -1,7 +1,7 @@
 'use strict';
 import { Functions } from '../system';
 import { commands, ConfigurationChangeEvent, Disposable, Event, EventEmitter, TextEditor, TreeDataProvider, TreeItem, TreeView, window } from 'vscode';
-import { configuration, GitExplorerView, IExplorersConfig } from '../configuration';
+import { configuration, GitExplorerView, IExplorersConfig, IHistoryExplorerConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { RefreshNodeCommandArgs } from './explorerCommands';
@@ -56,12 +56,16 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
             !configuration.changed(e, configuration.name('advanced')('fileHistoryFollowsRenames').value)) return;
 
         if (initializing || configuration.changed(e, configuration.name('historyExplorer')('enabled').value)) {
-            if (Container.config.historyExplorer.enabled) {
+            if (this.config.enabled) {
                 this.undock(!initializing, !configuration.changed(e, configuration.name('mode').value));
             }
             else {
                 this.dock(!initializing, !configuration.changed(e, configuration.name('mode').value));
             }
+        }
+
+        if (!initializing && configuration.changed(e, configuration.name('historyExplorer')('location').value) && this.config.enabled) {
+            setCommandContext(CommandContext.HistoryExplorer, this.config.location);
         }
 
         if (!initializing && this._root === undefined) {
@@ -94,8 +98,8 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
         }
     }
 
-    get config(): IExplorersConfig {
-        return { ...Container.config.explorers };
+    get config(): IExplorersConfig & IHistoryExplorerConfig {
+        return { ...Container.config.explorers, ...Container.config.historyExplorer };
     }
 
     getParent(element: ExplorerNode): ExplorerNode | undefined {
@@ -117,6 +121,7 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
         if (switchView) {
             await Container.gitExplorer.switchTo(GitExplorerView.History);
         }
+
         await setCommandContext(CommandContext.HistoryExplorer, false);
         if (updateConfig) {
             await configuration.updateEffective(configuration.name('historyExplorer')('enabled').value, false);
@@ -169,7 +174,8 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
         if (switchView) {
             await Container.gitExplorer.switchTo(GitExplorerView.Repository);
         }
-        await setCommandContext(CommandContext.HistoryExplorer, true);
+
+        await setCommandContext(CommandContext.HistoryExplorer, this.config.location);
         if (updateConfig) {
             await configuration.updateEffective(configuration.name('historyExplorer')('enabled').value, true);
         }

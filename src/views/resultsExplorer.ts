@@ -59,6 +59,10 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
             !configuration.changed(e, configuration.name('explorers').value) &&
             !configuration.changed(e, configuration.name('defaultGravatarsStyle').value)) return;
 
+        if (!initializing && configuration.changed(e, configuration.name('resultsExplorer')('location').value) && this.enabled) {
+            setCommandContext(CommandContext.ResultsExplorer, this.config.location);
+        }
+
         if (!initializing && this._roots.length !== 0) {
             this.refresh(RefreshReason.ConfigurationChanged);
         }
@@ -73,12 +77,19 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
         return { ...Container.config.explorers, ...Container.config.resultsExplorer };
     }
 
+    private _enabled: boolean = false;
+    get enabled(): boolean {
+        return this._enabled;
+    }
+
     get keepResults(): boolean {
         return Container.context.workspaceState.get<boolean>(WorkspaceState.ResultsExplorerKeepResults, false);
     }
 
     close() {
         this.clearResults();
+
+        this._enabled = false;
         setCommandContext(CommandContext.ResultsExplorer, false);
     }
 
@@ -179,7 +190,8 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
     }
 
     private async showResults(results: ExplorerNode) {
-        await setCommandContext(CommandContext.ResultsExplorer, true);
+        this._enabled = true;
+        await setCommandContext(CommandContext.ResultsExplorer, this.config.location);
 
         setTimeout(() => this._tree!.reveal(results, { select: true }), 250);
     }

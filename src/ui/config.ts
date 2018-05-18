@@ -190,12 +190,14 @@ export interface IGitExplorerConfig {
     enabled: boolean;
     files: IExplorersFilesConfig;
     includeWorkingTree: boolean;
+    location: 'explorer' | 'scm';
     showTrackingBranch: boolean;
     view: GitExplorerView;
 }
 
 export interface IHistoryExplorerConfig {
     enabled: boolean;
+    location: 'explorer' | 'scm';
 }
 
 export interface IMenuConfig {
@@ -236,6 +238,7 @@ export interface IModeConfig {
 
 export interface IResultsExplorerConfig {
     files: IExplorersFilesConfig;
+    location: 'explorer' | 'scm';
 }
 
 export interface IRemotesConfig {

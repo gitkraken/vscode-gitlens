@@ -254,6 +254,14 @@
                                     <label for="gitExplorer.enabled">Show the GitLens explorer</label>
                                 </div>
 
+                                <div class="settings-group__setting ml-2" data-enablement="gitExplorer.enabled">
+                                    <label for="gitExplorer.location">Show in the</label>
+                                    <select class="setting" id="gitExplorer.location" name="gitExplorer.location" disabled>
+                                        <option value="explorer">Explorer view</option>
+                                        <option value="scm">Source Control view</option>
+                                    </select>
+                                </div>
+
                                 <div class="settings-group__setting ml-2" data-enablement="gitExplorer.enabled &amp; historyExplorer.enabled =false">
                                     <label for="gitExplorer.view">When opened, show the</label>
                                     <select class="setting hidden" id="gitExplorer.view" name="gitExplorer.view" data-visibility="historyExplorer.enabled =false" disabled>
@@ -343,6 +351,14 @@
                                 </div>
                                 <p class="setting__hint hidden" data-visibility="gitExplorer.enabled &amp; historyExplorer.enabled =false">The current file history will be shown (docked) in the GitLens explorer</p>
 
+                                <div class="settings-group__setting ml-2" data-enablement="historyExplorer.enabled">
+                                    <label for="historyExplorer.location">Show in the</label>
+                                    <select class="setting" id="historyExplorer.location" name="historyExplorer.location" disabled>
+                                        <option value="explorer">Explorer view</option>
+                                        <option value="scm">Source Control view</option>
+                                    </select>
+                                </div>
+
                                 <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="historyExplorer.enabled" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="historyExplorer.avatars" name="explorers.avatars" type="checkbox" disabled/>
                                     <label for="historyExplorer.avatars">Use author avatars icons</label>
@@ -359,7 +375,7 @@
                         </div>
                     </section>
 
-                    <section id="gitlens-results" class="hidden" data-visibility="settings.mode =advanced">
+                    <section id="gitlens-results">
                         <div class="section__header">
                             <h2 class="section__title">GitLens Results
                                 <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#gitlens-results-view">
@@ -371,6 +387,14 @@
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting">
+                                    <label for="resultsExplorer.location">Show in the</label>
+                                    <select class="setting" id="resultsExplorer.location" name="resultsExplorer.location">
+                                        <option value="explorer">Explorer view</option>
+                                        <option value="scm">Source Control view</option>
+                                    </select>
+                                </div>
+
+                                <div class="settings-group__setting hidden" data-visibility="settings.mode =advanced">
                                     <label for="resultsExplorer.files.layout">Layout files</label>
                                     <select class="setting" id="resultsExplorer.files.layout" name="resultsExplorer.files.layout">
                                         <option value="auto">automatically</option>
@@ -379,13 +403,13 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting nowrap">
+                                <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="resultsExplorer.files.compact" name="resultsExplorer.files.compact" type="checkbox"/>
                                     <label for="resultsExplorer.files.compact">Use compact layout</label>
                                 </div>
-                                <p class="setting__hint">Compacts (flattens) unnecessary nesting when using a tree layouts</p>
+                                <p class="setting__hint hidden" data-visibility="settings.mode =advanced">Compacts (flattens) unnecessary nesting when using a tree layouts</p>
 
-                                <div class="settings-group__setting nowrap">
+                                <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="resultsExplorer.avatars" name="explorers.avatars" type="checkbox"/>
                                     <label for="resultsExplorer.avatars">Use author avatars icons</label>
                                 </div>
@@ -1034,7 +1058,7 @@
                             <li><a class="jump-to" href="#general">General</a></li>
                             <li><a class="jump-to" href="#gitlens-explorer">GitLens Explorer</a></li>
                             <li><a class="jump-to" href="#gitlens-history-explorer">GitLens History Explorer</a></li>
-                            <li><a class="jump-to" href="#gitlens-results" class="hidden" data-visibility="settings.mode =advanced">GitLens Results</a></li>
+                            <li><a class="jump-to" href="#gitlens-results">GitLens Results</a></li>
                             <li><a class="jump-to" href="#code-lens">Code Lens</a></li>
                             <li><a class="jump-to" href="#current-line">Current Line Blame</a></li>
                             <li><a class="jump-to" href="#blame">Gutter Blame</a></li>
