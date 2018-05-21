@@ -1,6 +1,7 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithRemote } from './common';
+import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, getRepoPathOrActiveOrPrompt, isCommandViewContextWithRemote } from './common';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../gitService';
 import { Logger } from '../logger';
@@ -30,7 +31,7 @@ export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
 
         const gitUri = uri && await GitUri.fromUri(uri);
 
-        const repoPath = gitUri === undefined ? Container.git.getHighlanderRepoPath() : gitUri.repoPath;
+        const repoPath = await getRepoPathOrActiveOrPrompt(gitUri, editor, `Open which repository in remote${GlyphChars.Ellipsis}`);
         if (!repoPath) return undefined;
 
         try {

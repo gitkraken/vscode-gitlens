@@ -386,18 +386,19 @@ export class GitService extends Disposable {
     }
 
     async getActiveRepoPath(editor?: TextEditor): Promise<string | undefined> {
-        if (editor === undefined) {
-            const repoPath = this.getHighlanderRepoPath();
-            if (repoPath !== undefined) return repoPath;
+        editor = editor || window.activeTextEditor;
+
+        let repoPath;
+        if (editor != null) {
+            const doc = await Container.tracker.getOrAdd(editor.document.uri);
+            if (doc !== undefined) {
+                repoPath = doc.uri.repoPath;
+            }
         }
 
-        editor = editor || window.activeTextEditor;
-        if (editor === undefined) return undefined;
+        if (repoPath != null) return repoPath;
 
-        const doc = await Container.tracker.getOrAdd(editor.document.uri);
-        if (doc === undefined) return undefined;
-
-        return doc.uri.repoPath;
+        return this.getHighlanderRepoPath();
     }
 
     getHighlanderRepoPath(): string | undefined {
@@ -1188,7 +1189,7 @@ export class GitService extends Disposable {
     async getRepoPath(filePath: string, options?: { ref?: string }): Promise<string | undefined>;
     async getRepoPath(uri: Uri | undefined, options?: { ref?: string }): Promise<string | undefined>;
     async getRepoPath(filePathOrUri: string | Uri | undefined, options: { ref?: string } = {}): Promise<string | undefined> {
-        if (filePathOrUri === undefined) return await this.getActiveRepoPath();
+        if (filePathOrUri == null) return await this.getActiveRepoPath();
         if (filePathOrUri instanceof GitUri) return filePathOrUri.repoPath;
 
         // Don't save the tracking info to the cache, because we could be looking in the wrong place (e.g. looking in the root when the file is in a submodule)
@@ -1235,6 +1236,13 @@ export class GitService extends Disposable {
             Logger.error(ex, 'GitService.getRepoPathCore');
             return undefined;
         }
+    }
+
+    async getRepoPathOrActive(uri: Uri | undefined, editor: TextEditor | undefined) {
+        const repoPath = await Container.git.getRepoPath(uri);
+        if (repoPath) return repoPath;
+
+        return Container.git.getActiveRepoPath(editor);
     }
 
     async getRepositories(): Promise<Iterable<Repository>> {
@@ -1470,7 +1478,7 @@ export class GitService extends Disposable {
 
         Logger.log(`resolveReference('${repoPath}', '${ref}', '${uri && uri.toString()}')`);
 
-        if (uri === undefined) return (await Git.revparse(repoPath, ref)) || ref;
+        if (uri == null) return (await Git.revparse(repoPath, ref)) || ref;
 
         return (await Git.log_resolve(repoPath, Strings.normalizePath(path.relative(repoPath, uri.fsPath)), ref)) || ref;
     }

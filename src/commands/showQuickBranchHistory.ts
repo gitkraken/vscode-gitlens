@@ -1,12 +1,11 @@
 'use strict';
 import { Strings } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
 import { BranchesQuickPick, BranchHistoryQuickPick, CommandQuickPickItem } from '../quickPicks/quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
@@ -14,6 +13,7 @@ export interface ShowQuickBranchHistoryCommandArgs {
     branch?: string;
     log?: GitLog;
     maxCount?: number;
+    repoPath?: string;
 
     goBackCommand?: CommandQuickPickItem;
     nextPageCommand?: CommandQuickPickItem;
@@ -34,13 +34,21 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 
         let progressCancellation = args.branch === undefined ? undefined : BranchHistoryQuickPick.showProgress(args.branch);
         try {
-            const repoPath = gitUri === undefined ? Container.git.getHighlanderRepoPath() : gitUri.repoPath;
-            if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show branch history`);
+            const repoPath = args.repoPath || await getRepoPathOrActiveOrPrompt(gitUri, editor, `Show branch history in which repository${GlyphChars.Ellipsis}`);
+            if (!repoPath) return undefined;
 
             if (args.branch === undefined) {
                 const branches = await Container.git.getBranches(repoPath);
 
-                const pick = await BranchesQuickPick.show(branches, `Show history for branch${GlyphChars.Ellipsis}`);
+                let goBackCommand;
+                if (!(await Container.git.getRepoPathOrActive(uri, editor))) {
+                    goBackCommand = new CommandQuickPickItem({
+                        label: `go back ${GlyphChars.ArrowBack}`,
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to which repository`
+                    }, Commands.ShowQuickBranchHistory, [uri, args]);
+                }
+
+                const pick = await BranchesQuickPick.show(branches, `Show history for branch${GlyphChars.Ellipsis}`, { goBackCommand: goBackCommand });
                 if (pick === undefined) return undefined;
 
                 if (pick instanceof CommandQuickPickItem) return pick.execute();

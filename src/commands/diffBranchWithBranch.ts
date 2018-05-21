@@ -1,10 +1,9 @@
 'use strict';
 import { CancellationTokenSource, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickPicks/quickPicks';
 
 export interface DiffBranchWithBranchCommandArgs {
@@ -40,8 +39,8 @@ export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
         let progressCancellation: CancellationTokenSource | undefined;
 
         try {
-            const repoPath = await Container.git.getRepoPath(uri);
-            if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open branch compare`);
+            const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, `Compare with branch or tag in which repository${GlyphChars.Ellipsis}`);
+            if (!repoPath) return undefined;
 
             if (!args.ref1) {
                 let placeHolder;

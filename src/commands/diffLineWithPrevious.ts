@@ -22,13 +22,13 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 
     async execute(editor?: TextEditor, uri?: Uri, args: DiffLineWithPreviousCommandArgs = {}): Promise<any> {
         uri = getCommandUri(uri, editor);
-        if (uri === undefined) return undefined;
+        if (uri == null) return undefined;
 
         const gitUri = await GitUri.fromUri(uri);
 
         args = { ...args };
         if (args.line === undefined) {
-            args.line = editor === undefined ? 0 : editor.selection.active.line;
+            args.line = editor == null ? 0 : editor.selection.active.line;
         }
 
         if (args.commit === undefined || GitService.isUncommitted(args.commit.sha)) {

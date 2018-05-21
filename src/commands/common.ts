@@ -7,6 +7,7 @@ import { GitBranch, GitCommit, GitRemote, GitUri } from '../gitService';
 import { Logger } from '../logger';
 // import { Telemetry } from '../telemetry';
 import * as path from 'path';
+import { CommandQuickPickItem, RepositoriesQuickPick } from '../quickPicks/quickPicks';
 
 export enum Commands {
     ClearFileAnnotations = 'gitlens.clearFileAnnotations',
@@ -77,6 +78,27 @@ export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
     return document.uri;
 }
 
+export async function getRepoPathOrActiveOrPrompt(uri: Uri | undefined, editor: TextEditor | undefined, placeholder: string, goBackCommand?: CommandQuickPickItem) {
+    let repoPath = await Container.git.getRepoPathOrActive(uri, editor);
+    if (!repoPath) {
+        const pick = await RepositoriesQuickPick.show(placeholder, goBackCommand);
+        if (pick instanceof CommandQuickPickItem) {
+            await pick.execute();
+            return undefined;
+        }
+
+        if (pick === undefined) {
+            if (goBackCommand !== undefined) {
+                await goBackCommand.execute();
+            }
+            return undefined;
+        }
+
+        repoPath = pick.repoPath;
+    }
+    return repoPath;
+}
+
 export interface CommandContextParsingOptions {
     editor: boolean;
     uri: boolean;
@@ -138,7 +160,7 @@ function isScmResourceGroup(group: any): group is SourceControlResourceGroup {
 function isScmResourceState(state: any): state is SourceControlResourceState {
     if (state == null) return false;
 
-    return (state as SourceControlResourceState).resourceUri !== undefined;
+    return (state as SourceControlResourceState).resourceUri != null;
 }
 
 function isTextEditor(editor: any): editor is TextEditor {

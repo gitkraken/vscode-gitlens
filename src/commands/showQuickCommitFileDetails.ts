@@ -48,7 +48,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
 
     async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickCommitFileDetailsCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
-        if (uri === undefined) return undefined;
+        if (uri == null) return undefined;
 
         let workingFileName = args.commit && args.commit.workingFileName;
 
@@ -56,7 +56,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
 
         args = { ...args };
         if (args.sha === undefined) {
-            if (editor === undefined) return undefined;
+            if (editor == null) return undefined;
 
             const blameline = editor.selection.active.line;
             if (blameline < 0) return undefined;

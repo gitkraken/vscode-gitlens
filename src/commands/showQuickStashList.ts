@@ -1,11 +1,10 @@
 'use strict';
 import { Strings } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
 import { CommandQuickPickItem, StashListQuickPick } from '../quickPicks/quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
@@ -25,8 +24,8 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
         const progressCancellation = StashListQuickPick.showProgress('list');
 
         try {
-            const repoPath = await Container.git.getRepoPath(uri);
-            if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show stashed changes`);
+            const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, `Show stashed changes for which repository${GlyphChars.Ellipsis}`);
+            if (!repoPath) return undefined;
 
             const stash = await Container.git.getStashList(repoPath);
             if (stash === undefined) return window.showWarningMessage(`Unable to show stashed changes`);

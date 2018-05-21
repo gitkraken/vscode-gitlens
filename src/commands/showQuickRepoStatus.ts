@@ -1,9 +1,9 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
 import { CommandQuickPickItem, RepoStatusQuickPick } from '../quickPicks/quickPicks';
 
 export interface ShowQuickRepoStatusCommandArgs {
@@ -20,8 +20,8 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
         uri = getCommandUri(uri, editor);
 
         try {
-            const repoPath = await Container.git.getRepoPath(uri);
-            if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show repository status`);
+            const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, `Show status for which repository${GlyphChars.Ellipsis}`);
+            if (!repoPath) return undefined;
 
             const status = await Container.git.getStatusForRepo(repoPath);
             if (status === undefined) return window.showWarningMessage(`Unable to show repository status`);

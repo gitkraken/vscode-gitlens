@@ -367,7 +367,7 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
 
     static async getHistoryNode(explorer: Explorer, editor: TextEditor | undefined, root: ExplorerNode | undefined): Promise<ExplorerNode | undefined> {
         // If we have no active editor, or no visible editors, or no trackable visible editors reset the view
-        if (editor === undefined || window.visibleTextEditors.length === 0 || !window.visibleTextEditors.some(e => e.document && Container.git.isTrackable(e.document.uri))) return undefined;
+        if (editor == null || window.visibleTextEditors.length === 0 || !window.visibleTextEditors.some(e => e.document && Container.git.isTrackable(e.document.uri))) return undefined;
         // If we do have a visible trackable editor, don't change from the last state (avoids issues when focus switches to the problems/output/debug console panes)
         if (editor.document === undefined || !Container.git.isTrackable(editor.document.uri)) return root;
 

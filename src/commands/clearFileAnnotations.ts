@@ -12,10 +12,10 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
     }
 
     async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri): Promise<any> {
-        if (editor === undefined) return undefined;
+        if (editor == null) return undefined;
 
         // Handle the case where we are focused on a non-editor editor (output, debug console)
-        if (uri !== undefined && !UriComparer.equals(uri, editor.document.uri)) {
+        if (uri != null && !UriComparer.equals(uri, editor.document.uri)) {
             const e = window.visibleTextEditors.find(e => UriComparer.equals(uri, e.document.uri));
             if (e !== undefined) {
                 editor = e;

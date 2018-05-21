@@ -18,11 +18,11 @@ export class ToggleFileBlameCommand extends ActiveEditorCommand {
     }
 
     async execute(editor: TextEditor, uri?: Uri, args: ToggleFileBlameCommandArgs = {}): Promise<any> {
-        // if (editor === undefined) return undefined;
+        // if (editor == null) return undefined;
 
-        if (editor !== undefined) {
+        if (editor != null) {
             // Handle the case where we are focused on a non-editor editor (output, debug console)
-            if (uri !== undefined && !UriComparer.equals(uri, editor.document.uri)) {
+            if (uri != null && !UriComparer.equals(uri, editor.document.uri)) {
                 const e = window.visibleTextEditors.find(e => UriComparer.equals(uri, e.document.uri));
                 if (e !== undefined) {
                     editor = e;

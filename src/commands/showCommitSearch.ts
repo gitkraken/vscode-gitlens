@@ -1,12 +1,12 @@
 'use strict';
 import { Strings } from '../system';
 import { commands, InputBoxOptions, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitRepoSearchBy, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, CommitsQuickPick, RepositoriesQuickPick, ShowCommitsSearchInResultsQuickPickItem } from '../quickPicks/quickPicks';
+import { CommandQuickPickItem, CommitsQuickPick, ShowCommitsSearchInResultsQuickPickItem } from '../quickPicks/quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
 const searchByRegex = /^([@~=:#])/;
@@ -35,16 +35,10 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: ShowCommitSearchCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
-        const gitUri = uri === undefined ? undefined : await GitUri.fromUri(uri);
+        const gitUri = uri && await GitUri.fromUri(uri);
 
-        let repoPath = gitUri === undefined ? Container.git.getHighlanderRepoPath() : gitUri.repoPath;
-        if (!repoPath) {
-            const pick = await RepositoriesQuickPick.show(`Search for commits in which repository${GlyphChars.Ellipsis}`, args.goBackCommand);
-            if (pick instanceof CommandQuickPickItem) return pick.execute();
-            if (pick === undefined) return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
-
-            repoPath = pick.repoPath;
-        }
+        const repoPath = await getRepoPathOrActiveOrPrompt(gitUri, editor, `Search for commits in which repository${GlyphChars.Ellipsis}`, args.goBackCommand);
+        if (!repoPath) return undefined;
 
         args = { ...args };
         const originalArgs = { ...args };
@@ -52,7 +46,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
         if (!args.search || args.searchBy == null) {
             try {
                 if (!args.search) {
-                    if (editor !== undefined && gitUri !== undefined) {
+                    if (editor != null && gitUri != null) {
                         const blameLine = await Container.git.getBlameForLine(gitUri, editor.selection.active.line);
                         if (blameLine !== undefined && !blameLine.commit.isUncommitted) {
                             args.search = `#${blameLine.commit.shortSha}`;

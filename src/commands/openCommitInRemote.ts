@@ -38,13 +38,13 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
 
     async execute(editor?: TextEditor, uri?: Uri, args: OpenCommitInRemoteCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
-        if (uri === undefined) return undefined;
+        if (uri == null) return undefined;
         const gitUri = await GitUri.fromUri(uri);
         if (!gitUri.repoPath) return undefined;
 
         try {
             if (args.sha === undefined) {
-                const blameline = editor === undefined ? 0 : editor.selection.active.line;
+                const blameline = editor == null ? 0 : editor.selection.active.line;
                 if (blameline < 0) return undefined;
 
                 const blame = editor && editor.document && editor.document.isDirty

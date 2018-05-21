@@ -48,7 +48,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 
     async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickCommitDetailsCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
-        if (uri === undefined) return undefined;
+        if (uri == null) return undefined;
 
         const gitUri = await GitUri.fromUri(uri);
 
@@ -57,7 +57,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 
         args = { ...args };
         if (args.sha === undefined) {
-            if (editor === undefined) return undefined;
+            if (editor == null) return undefined;
 
             const blameline = editor.selection.active.line;
             if (blameline < 0) return undefined;

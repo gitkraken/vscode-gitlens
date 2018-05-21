@@ -33,11 +33,11 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
     async execute(editor?: TextEditor, uri?: Uri, args: DiffWithPreviousCommandArgs = {}): Promise<any> {
         uri = getCommandUri(uri, editor);
-        if (uri === undefined) return undefined;
+        if (uri == null) return undefined;
 
         args = { ...args };
         if (args.line === undefined) {
-            args.line = editor === undefined ? 0 : editor.selection.active.line;
+            args.line = editor == null ? 0 : editor.selection.active.line;
         }
 
         if (args.commit === undefined || !args.commit.isFile) {

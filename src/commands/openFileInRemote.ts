@@ -32,7 +32,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 
     async execute(editor?: TextEditor, uri?: Uri, args: OpenFileInRemoteCommandArgs = { range: true }) {
         uri = getCommandUri(uri, editor);
-        if (uri === undefined) return undefined;
+        if (uri == null) return undefined;
 
         const gitUri = await GitUri.fromUri(uri);
         if (!gitUri.repoPath) return undefined;
@@ -46,7 +46,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 
         try {
             const remotes = await Container.git.getRemotes(gitUri.repoPath);
-            const range = (args.range && editor !== undefined)
+            const range = (args.range && editor != null)
                 ? new Range(editor.selection.start.with({ line: editor.selection.start.line + 1 }), editor.selection.end.with({ line: editor.selection.end.line + 1 }))
                 : undefined;
 

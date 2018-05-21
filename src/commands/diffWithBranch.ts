@@ -25,11 +25,11 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
 
     async execute(editor?: TextEditor, uri?: Uri, args: DiffWithBranchCommandArgs = {}): Promise<any> {
         uri = getCommandUri(uri, editor);
-        if (uri === undefined) return undefined;
+        if (uri == null) return undefined;
 
         args = { ...args };
         if (args.line === undefined) {
-            args.line = editor === undefined ? 0 : editor.selection.active.line;
+            args.line = editor == null ? 0 : editor.selection.active.line;
         }
 
         const gitUri = await GitUri.fromUri(uri);

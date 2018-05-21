@@ -1,6 +1,6 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithBranch } from './common';
+import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, getRepoPathOrActiveOrPrompt, isCommandViewContextWithBranch } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../gitService';
@@ -34,7 +34,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
 
         const gitUri = uri && await GitUri.fromUri(uri);
 
-        const repoPath = gitUri === undefined ? Container.git.getHighlanderRepoPath() : gitUri.repoPath;
+        const repoPath = await getRepoPathOrActiveOrPrompt(gitUri, editor, `Open branch in remote for which repository${GlyphChars.Ellipsis}`);
         if (!repoPath) return undefined;
 
         try {
@@ -43,7 +43,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
 
                 const branches = await Container.git.getBranches(repoPath);
 
-                const pick = await BranchesQuickPick.show(branches, `Show history for branch${GlyphChars.Ellipsis}`);
+                const pick = await BranchesQuickPick.show(branches, `Open which branch in remote${GlyphChars.Ellipsis}`);
                 if (pick === undefined) return undefined;
 
                 if (pick instanceof CommandQuickPickItem) return undefined;

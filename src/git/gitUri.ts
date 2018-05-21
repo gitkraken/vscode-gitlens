@@ -40,7 +40,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
     constructor(uri: Uri, commit: IGitCommitInfo);
     constructor(uri: Uri, repoPath: string | undefined);
     constructor(uri?: Uri, commitOrRepoPath?: IGitCommitInfo | string) {
-        if (uri === undefined) {
+        if (uri == null) {
             super();
 
             return;

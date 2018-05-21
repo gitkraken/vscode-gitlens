@@ -1,10 +1,10 @@
 'use strict';
 import { Arrays } from '../system';
 import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
+import { ActiveEditorCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt, openEditor } from './common';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
 
 export interface OpenChangedFilesCommandArgs {
     uris?: Uri[];
@@ -23,8 +23,8 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
             if (args.uris === undefined) {
                 args = { ...args };
 
-                const repoPath = await Container.git.getRepoPath(uri);
-                if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open changed files`);
+                const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, `Open changed files in which repository${GlyphChars.Ellipsis}`);
+                if (!repoPath) return undefined;
 
                 const status = await Container.git.getStatusForRepo(repoPath);
                 if (status === undefined) return window.showWarningMessage(`Unable to open changed files`);

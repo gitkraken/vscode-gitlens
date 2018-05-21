@@ -1,12 +1,11 @@
 'use strict';
 import { CancellationTokenSource, commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { CommandContext, isCommandViewContextWithRef } from '../commands';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { ComparisonResultsNode } from '../views/explorerNodes';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickPicks/quickPicks';
 
 export interface DiffDirectoryCommandArgs {
@@ -51,8 +50,8 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
         let progressCancellation: CancellationTokenSource | undefined;
 
         try {
-            const repoPath = await Container.git.getRepoPath(uri);
-            if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open directory compare`);
+            const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, `Compare directory in which repository${GlyphChars.Ellipsis}`);
+            if (!repoPath) return undefined;
 
             if (!args.ref1) {
                 args = { ...args };

@@ -28,7 +28,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 
     async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickFileHistoryCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
-        if (uri === undefined) return commands.executeCommand(Commands.ShowQuickCurrentBranchHistory);
+        if (uri == null) return commands.executeCommand(Commands.ShowQuickCurrentBranchHistory);
 
         const gitUri = await GitUri.fromUri(uri);
 

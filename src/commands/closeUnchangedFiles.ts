@@ -1,12 +1,11 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorTracker } from '../trackers/activeEditorTracker';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { TextEditorComparer, UriComparer } from '../comparers';
-import { BuiltInCommands } from '../constants';
+import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
 
 export interface CloseUnchangedFilesCommandArgs {
     uris?: Uri[];
@@ -25,8 +24,8 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
             if (args.uris === undefined) {
                 args = { ...args };
 
-                const repoPath = await Container.git.getRepoPath(uri);
-                if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to close unchanged files`);
+                const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, `Close unchanged files in which repository${GlyphChars.Ellipsis}`);
+                if (!repoPath) return undefined;
 
                 const status = await Container.git.getStatusForRepo(repoPath);
                 if (status === undefined) return window.showWarningMessage(`Unable to close unchanged files`);
@@ -40,9 +39,9 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
 
             let count = 0;
             let previous = undefined;
-            let editor = window.activeTextEditor;
+            editor = window.activeTextEditor;
             while (true) {
-                if (editor !== undefined) {
+                if (editor != null) {
                     if (TextEditorComparer.equals(previous, editor, { useId: true, usePosition: true })) {
                         break;
                     }
@@ -63,7 +62,7 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
                 previous = editor;
                 editor = await editorTracker.awaitClose(500);
 
-                if (previous === undefined && editor === undefined) {
+                if (previous === undefined && editor == null) {
                     count++;
                     // This is such a shitty hack, but I can't figure out any other reliable way to know that we've cycled through all the editors :(
                     if (count >= 4) {

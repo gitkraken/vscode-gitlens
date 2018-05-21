@@ -61,12 +61,12 @@ export enum DocumentSchemes {
 
 export function getEditorIfActive(document: TextDocument): TextEditor | undefined {
     const editor = window.activeTextEditor;
-    return (editor !== undefined && editor.document === document) ? editor : undefined;
+    return (editor != null && editor.document === document) ? editor : undefined;
 }
 
 export function isActiveDocument(document: TextDocument): boolean {
     const editor = window.activeTextEditor;
-    return editor !== undefined && editor.document === document;
+    return editor != null && editor.document === document;
 }
 
 export function isTextEditor(editor: TextEditor): boolean {
