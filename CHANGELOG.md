@@ -4,10 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## Unreleased
+## [8.3.2] - 2018-05-21
 ### Fixed
-- Fixes many issues where commands wouldn't work if the active file wasn't part of an open repository &mdash; now GitLens will try to find the best repository otherwise it will open a repository quick pick menu if there is more than one
 - Fixes [#366](https://github.com/eamodio/vscode-gitlens/issues/366) - Running a GitLens command from a keybinding fails (more cases)
+- Fixes many issues where commands wouldn't work if the active file wasn't part of an open repository &mdash; now GitLens will try to find the best repository otherwise it will open a repository quick pick menu if there is more than one
 
 ## [8.3.1] - 2018-05-18
 ### Added

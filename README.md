@@ -67,6 +67,7 @@
 - Fixes issue where comparing previous revision during a merge/rebase conflict failed to show the correct contents
 - Fixes issue with the current line blame toggle not working when current line blame starts disabled
 - Fixes various issues when not on a branch
+- Fixes many issues where commands wouldn't work if the active file wasn't part of an open repository &mdash; now GitLens will try to find the best repository otherwise it will open a repository quick pick menu if there is more than one
 
 See the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md "Open Release Notes") for the full set of changes
 
