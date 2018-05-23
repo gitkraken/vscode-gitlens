@@ -88,9 +88,15 @@ export class Repository extends Disposable {
     ) {
         super(() => this.dispose());
 
-        this.formattedName = root
-            ? folder.name
-            : `${folder.name} (${_path.relative(folder.uri.fsPath, path)})`;
+        if (root) {
+            this.formattedName = folder.name;
+        }
+        else {
+            const relativePath = _path.relative(folder.uri.fsPath, path);
+            this.formattedName = relativePath
+                ? `${folder.name} (${relativePath})`
+                : folder.name;
+        }
         this.index = folder.index;
         this.name = folder.name;
 

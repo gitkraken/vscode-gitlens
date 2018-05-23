@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Added
+- Adds (re-adds) support for handling single files &mdash; closes [#321](https://github.com/eamodio/vscode-gitlens/issues/321)
+
 ## [8.3.2] - 2018-05-21
 ### Fixed
 - Fixes [#366](https://github.com/eamodio/vscode-gitlens/issues/366) - Running a GitLens command from a keybinding fails (more cases)

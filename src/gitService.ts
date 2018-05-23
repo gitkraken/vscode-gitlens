@@ -1193,7 +1193,7 @@ export class GitService extends Disposable {
         if (filePathOrUri instanceof GitUri) return filePathOrUri.repoPath;
 
         // Don't save the tracking info to the cache, because we could be looking in the wrong place (e.g. looking in the root when the file is in a submodule)
-        const repo = await this.getRepository(filePathOrUri, { ...options, skipCacheUpdate: true });
+        let repo = await this.getRepository(filePathOrUri, { ...options, skipCacheUpdate: true });
         if (repo !== undefined) return repo.path;
 
         if (typeof filePathOrUri !== 'string') {
@@ -1209,21 +1209,24 @@ export class GitService extends Disposable {
 
         // If this new repo is inside one of our known roots and we we don't already know about, add it
         const root = this._repositoryTree.findSubstr(rp);
-        const folder = root === undefined
+        let folder = root === undefined
             ? workspace.getWorkspaceFolder(Uri.file(rp))
             : root.folder;
 
-        if (folder !== undefined) {
-            const repo = new Repository(folder, rp, false, this.onAnyRepositoryChanged.bind(this), this._suspended);
-            this._repositoryTree.set(rp, repo);
-
-            // Send a notification that the repositories changed
-            setImmediate(async () => {
-                await this.updateContext(this._repositoryTree);
-
-                this.fireRepositoriesChanged();
-            });
+        if (folder === undefined) {
+            const parts = rp.split('/');
+            folder = { uri: Uri.file(rp), name: parts[parts.length - 1], index: this._repositoryTree.count() };
         }
+
+        repo = new Repository(folder, rp, false, this.onAnyRepositoryChanged.bind(this), this._suspended);
+        this._repositoryTree.set(rp, repo);
+
+        // Send a notification that the repositories changed
+        setImmediate(async () => {
+            await this.updateContext(this._repositoryTree);
+
+            this.fireRepositoriesChanged();
+        });
 
         return rp;
     }
