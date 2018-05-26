@@ -1,5 +1,5 @@
 'use strict';
-import { Iterables, Objects, Strings, TernarySearchTree } from './system';
+import { Iterables, Objects, Strings, TernarySearchTree, Versions } from './system';
 import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, Range, TextEditor, Uri, window, WindowState, workspace, WorkspaceFolder, WorkspaceFoldersChangeEvent } from 'vscode';
 import { configuration, IRemotesConfig } from './configuration';
 import { CommandContext, DocumentSchemes, setCommandContext } from './constants';
@@ -1506,6 +1506,9 @@ export class GitService extends Disposable {
         Logger.log(`stashSave('${repoPath}', '${message}', ${uris})`);
 
         if (uris === undefined) return Git.stash_save(repoPath, message);
+
+        GitService.ensureGitVersion('2.13.2', 'Stashing individual files');
+
         const pathspecs = uris.map(u => Git.splitPath(u.fsPath, repoPath)[0]);
         return Git.stash_push(repoPath, pathspecs, message);
     }
@@ -1560,8 +1563,14 @@ export class GitService extends Disposable {
             : sha;
     }
 
-    static validateGitVersion(major: number, minor: number): boolean {
-        const [gitMajor, gitMinor] = this.getGitVersion().split('.');
-        return (parseInt(gitMajor, 10) >= major && parseInt(gitMinor, 10) >= minor);
+    static compareGitVersion(version: string, throwIfLessThan?: Error) {
+        return Versions.compare(Versions.fromString(this.getGitVersion()), Versions.fromString(version));
+    }
+
+    static ensureGitVersion(version: string, feature: string): void {
+        const gitVersion = this.getGitVersion();
+        if (Versions.compare(Versions.fromString(gitVersion), Versions.fromString(version)) === -1) {
+            throw new Error(`${feature} requires a newer version of Git (>= ${version}) than is currently installed (${gitVersion}). Please install a more recent version of Git to use this GitLens feature.`);
+        }
     }
 }

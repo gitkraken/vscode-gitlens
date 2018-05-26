@@ -60,6 +60,11 @@ export class StashSaveCommand extends Command {
         }
         catch (ex) {
             Logger.error(ex, 'StashSaveCommand');
+
+            const msg = ex && ex.message;
+            if (msg.includes('newer version of Git')) {
+                return window.showErrorMessage(`Unable to save stash. ${msg}`);
+            }
             return window.showErrorMessage(`Unable to save stash. See output channel for more details`);
         }
     }

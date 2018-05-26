@@ -1,6 +1,8 @@
 'use strict';
 
 export namespace Versions {
+    declare type VersionComparisonResult = -1 | 0 | 1;
+
     export interface Version {
         major: number;
         minor: number;
@@ -8,7 +10,7 @@ export namespace Versions {
         pre?: string;
     }
 
-    export function compare(v1: Version, v2: Version): number {
+    export function compare(v1: Version, v2: Version): VersionComparisonResult {
         if (v1.major > v2.major) return 1;
         if (v1.major < v2.major) return -1;
 
@@ -21,7 +23,7 @@ export namespace Versions {
         if (v1.pre === undefined && v2.pre !== undefined) return 1;
         if (v1.pre !== undefined && v2.pre === undefined) return -1;
 
-        if (v1.pre !== undefined && v2.pre !== undefined) return v1.pre.localeCompare(v2.pre);
+        if (v1.pre !== undefined && v2.pre !== undefined) return v1.pre.localeCompare(v2.pre) as VersionComparisonResult;
 
         return 0;
     }
