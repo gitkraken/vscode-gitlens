@@ -1,7 +1,7 @@
 'use strict';
 
 export namespace Iterables {
-    export function count<T>(source: Iterable<T> | IterableIterator<T>): number {
+    export function count<T>(source: Iterable<T> | IterableIterator<T>, predicate?: (item: T) => boolean): number {
         let count = 0;
         let next: IteratorResult<T>;
 
@@ -9,7 +9,9 @@ export namespace Iterables {
             next = (source as IterableIterator<T>).next();
             if (next.done) break;
 
-            count++;
+            if (predicate === undefined || predicate(next.value)) {
+                count++;
+            }
         }
 
         return count;

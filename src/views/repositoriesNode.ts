@@ -19,6 +19,7 @@ export class RepositoriesNode extends ExplorerNode {
         if (this.children === undefined) {
             this.children = this.repositories
                 .sort((a, b) => a.index - b.index)
+                .filter(repo => !repo.closed)
                 .map(repo => new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this.explorer));
 
             if (this.children.length > 1) {

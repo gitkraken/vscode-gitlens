@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [Unreleased]
 ### Added
 - Adds (re-adds) support for handling single files &mdash; closes [#321](https://github.com/eamodio/vscode-gitlens/issues/321)
+- Adds *Close Repository* (`gitlens.explorers.closeRepository`) command to repository and repository status nodes in the *GitLens* explorer &mdash; closes (hides) the repository in the *GitLens* explorer
 
 ### Fixed
 - Fixes [#384](https://github.com/eamodio/vscode-gitlens/issues/384) - Absolute dates not always honored in GitLens Results explorer

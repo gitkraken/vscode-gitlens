@@ -10,6 +10,7 @@ import * as _path from 'path';
 
 export enum RepositoryChange {
     Config = 'config',
+    Closed = 'closed',
     // FileSystem = 'file-system',
     Remotes = 'remotes',
     Repository = 'repository',
@@ -83,8 +84,9 @@ export class Repository extends Disposable {
         public readonly folder: WorkspaceFolder,
         public readonly path: string,
         public readonly root: boolean,
-        private readonly onAnyRepositoryChanged: (repo: Repository) => void,
-        suspended: boolean
+        private readonly onAnyRepositoryChanged: (repo: Repository, reason: RepositoryChange) => void,
+        suspended: boolean,
+        closed: boolean = false
     ) {
         super(() => this.dispose());
 
@@ -103,7 +105,9 @@ export class Repository extends Disposable {
         this.normalizedPath = (this.path.endsWith('/') ? this.path : `${this.path}/`).toLowerCase();
 
         this._suspended = suspended;
+        this._closed = closed;
 
+        // TODO: createFileSystemWatcher doesn't work unless the folder is part of the workspaceFolders
         const watcher = workspace.createFileSystemWatcher(new RelativePattern(folder, '{**/.git/config,**/.git/index,**/.git/HEAD,**/.git/refs/stash,**/.git/refs/heads/**,**/.git/refs/remotes/**,**/.git/refs/tags/**,**/.gitignore}'));
         this._disposable = Disposable.from(
             watcher,
@@ -178,59 +182,21 @@ export class Repository extends Disposable {
             return;
         }
 
-        this.onAnyRepositoryChanged(this);
+        this.onAnyRepositoryChanged(this, RepositoryChange.Repository);
         this.fireChange(RepositoryChange.Repository);
     }
 
-    private fireChange(...reasons: RepositoryChange[]) {
-        if (this._fireChangeDebounced === undefined) {
-            this._fireChangeDebounced = Functions.debounce(this.fireChangeCore, 250);
-        }
-
-        if (this._pendingChanges.repo === undefined) {
-            this._pendingChanges.repo = new RepositoryChangeEvent(this);
-        }
-
-        const e = this._pendingChanges.repo;
-
-        for (const reason of reasons) {
-            if (!e.changes.includes(reason)) {
-                e.changes.push(reason);
-            }
-        }
-
-        if (this._suspended) return;
-
-        this._fireChangeDebounced(e);
+    private _closed: boolean = false;
+    get closed(): boolean {
+        return this._closed;
     }
-
-    private fireChangeCore(e: RepositoryChangeEvent) {
-        this._pendingChanges.repo = undefined;
-
-        this._onDidChange.fire(e);
-    }
-
-    private fireFileSystemChange(uri: Uri) {
-        if (this._fireFileSystemChangeDebounced === undefined) {
-            this._fireFileSystemChangeDebounced = Functions.debounce(this.fireFileSystemChangeCore, 2500);
+    set closed(value: boolean) {
+        const changed = this._closed !== value;
+        this._closed = value;
+        if (changed) {
+            this.onAnyRepositoryChanged(this, RepositoryChange.Closed);
+            this.fireChange(RepositoryChange.Closed);
         }
-
-        if (this._pendingChanges.fs === undefined) {
-            this._pendingChanges.fs = { repository: this, uris: [] };
-        }
-
-        const e = this._pendingChanges.fs;
-        e.uris.push(uri);
-
-        if (this._suspended) return;
-
-        this._fireFileSystemChangeDebounced(e);
-    }
-
-    private fireFileSystemChangeCore(e: RepositoryFileSystemChangeEvent) {
-        this._pendingChanges.fs = undefined;
-
-        this._onDidChangeFileSystem.fire(e);
     }
 
     containsUri(uri: Uri) {
@@ -313,6 +279,7 @@ export class Repository extends Disposable {
         this._fsWatchCounter++;
         if (this._fsWatcherDisposable !== undefined) return;
 
+        // TODO: createFileSystemWatcher doesn't work unless the folder is part of the workspaceFolders
         const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.folder, `**`));
         this._fsWatcherDisposable = Disposable.from(
             watcher,
@@ -333,4 +300,56 @@ export class Repository extends Disposable {
     suspend() {
         this._suspended = true;
     }
+
+    private fireChange(...reasons: RepositoryChange[]) {
+        if (this._fireChangeDebounced === undefined) {
+            this._fireChangeDebounced = Functions.debounce(this.fireChangeCore, 250);
+        }
+
+        if (this._pendingChanges.repo === undefined) {
+            this._pendingChanges.repo = new RepositoryChangeEvent(this);
+        }
+
+        const e = this._pendingChanges.repo;
+
+        for (const reason of reasons) {
+            if (!e.changes.includes(reason)) {
+                e.changes.push(reason);
+            }
+        }
+
+        if (this._suspended) return;
+
+        this._fireChangeDebounced(e);
+    }
+
+    private fireChangeCore(e: RepositoryChangeEvent) {
+        this._pendingChanges.repo = undefined;
+
+        this._onDidChange.fire(e);
+    }
+
+    private fireFileSystemChange(uri: Uri) {
+        if (this._fireFileSystemChangeDebounced === undefined) {
+            this._fireFileSystemChangeDebounced = Functions.debounce(this.fireFileSystemChangeCore, 2500);
+        }
+
+        if (this._pendingChanges.fs === undefined) {
+            this._pendingChanges.fs = { repository: this, uris: [] };
+        }
+
+        const e = this._pendingChanges.fs;
+        e.uris.push(uri);
+
+        if (this._suspended) return;
+
+        this._fireFileSystemChangeDebounced(e);
+    }
+
+    private fireFileSystemChangeCore(e: RepositoryFileSystemChangeEvent) {
+        this._pendingChanges.fs = undefined;
+
+        this._onDidChangeFileSystem.fire(e);
+    }
+
 }

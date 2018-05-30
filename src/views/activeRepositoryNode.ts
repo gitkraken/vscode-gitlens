@@ -58,7 +58,7 @@ export class ActiveRepositoryNode extends ExplorerNode {
             if (this._repositoryNode !== undefined && this._repositoryNode.repo.path === repoPath) return;
 
             const repo = await Container.git.getRepository(repoPath);
-            if (repo === undefined) {
+            if (repo === undefined || repo.closed) {
                 if (this._repositoryNode !== undefined) {
                     changed = true;
 

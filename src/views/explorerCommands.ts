@@ -6,6 +6,8 @@ import { BranchNode, ExplorerNode, TagNode } from '../views/gitExplorer';
 import { CommitFileNode, CommitNode, ExplorerRefNode, RemoteNode, StashFileNode, StashNode, StatusFileCommitsNode, StatusUpstreamNode } from './explorerNodes';
 import { Commands, DiffWithCommandArgs, DiffWithCommandArgsRevision, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, OpenFileInRemoteCommandArgs, OpenFileRevisionCommandArgs } from '../commands';
 import { GitService, GitUri } from '../gitService';
+import { RepositoryNode } from './repositoryNode';
+import { StatusNode } from './statusNode';
 
 export interface RefreshNodeCommandArgs {
     maxCount?: number;
@@ -36,6 +38,7 @@ export class ExplorerCommands extends Disposable {
         commands.registerCommand('gitlens.explorers.openChangedFileChangesWithWorking', this.openChangedFileChangesWithWorking, this);
         commands.registerCommand('gitlens.explorers.openChangedFileRevisions', this.openChangedFileRevisions, this);
         commands.registerCommand('gitlens.explorers.applyChanges', this.applyChanges, this);
+        commands.registerCommand('gitlens.explorers.closeRepository', this.closeRepository, this);
         commands.registerCommand('gitlens.explorers.compareAncestryWithWorking', this.compareAncestryWithWorking, this);
         commands.registerCommand('gitlens.explorers.compareWithHead', this.compareWithHead, this);
         commands.registerCommand('gitlens.explorers.compareWithRemote', this.compareWithRemote, this);
@@ -66,6 +69,12 @@ export class ExplorerCommands extends Disposable {
     private async applyChanges(node: CommitFileNode | StashFileNode) {
         await Container.git.checkoutFile(node.uri);
         return this.openFile(node);
+    }
+
+    private closeRepository(node: RepositoryNode | StatusNode) {
+        if (!(node instanceof RepositoryNode) && !(node instanceof StatusNode)) return;
+
+        node.repo.closed = true;
     }
 
     private compareWithHead(node: ExplorerNode) {

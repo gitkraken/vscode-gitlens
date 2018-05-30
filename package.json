@@ -1595,6 +1595,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.explorers.closeRepository",
+                "title": "Close Repository",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.explorers.compareAncestryWithWorking",
                 "title": "Compare Ancestry with Working Tree",
                 "category": "GitLens"
@@ -2148,6 +2153,10 @@
                 },
                 {
                     "command": "gitlens.explorers.applyChanges",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.explorers.closeRepository",
                     "when": "false"
                 },
                 {
@@ -2889,6 +2898,11 @@
                     "group": "1_gitlens@1"
                 },
                 {
+                    "command": "gitlens.explorers.closeRepository",
+                    "when": "viewItem == gitlens:status",
+                    "group": "8_gitlens@1"
+                },
+                {
                     "command": "gitlens.openBranchesInRemote",
                     "when": "viewItem == gitlens:remote",
                     "group": "1_gitlens@1"
@@ -2907,6 +2921,11 @@
                     "command": "gitlens.openRepoInRemote",
                     "when": "viewItem == gitlens:repository && gitlens:hasRemotes",
                     "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.explorers.closeRepository",
+                    "when": "viewItem == gitlens:repository",
+                    "group": "8_gitlens@1"
                 },
                 {
                     "command": "gitlens.resultsExplorer.swapComparision",

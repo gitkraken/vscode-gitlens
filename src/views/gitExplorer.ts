@@ -330,14 +330,17 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
                 this._loading = promise.then(_ => Functions.wait(0));
 
                 const repositories = [...await promise];
-                if (repositories.length === 0) return undefined; // new MessageNode('No repositories found');
+                if (repositories.length === 0) return undefined;
 
-                if (repositories.length === 1) {
-                    const repo = repositories[0];
+                const openedRepos = repositories.filter(r => !r.closed);
+                if (openedRepos.length === 0) return undefined;
+
+                if (openedRepos.length === 1) {
+                    const repo = openedRepos[0];
                     return new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this, true);
                 }
 
-                return new RepositoriesNode(repositories, this);
+                return new RepositoriesNode(openedRepos, this);
             }
         }
     }

@@ -5,7 +5,7 @@ import { configuration, IRemotesConfig } from './configuration';
 import { CommandContext, DocumentSchemes, setCommandContext } from './constants';
 import { Container } from './container';
 import { RemoteProviderFactory, RemoteProviderMap } from './git/remotes/factory';
-import { CommitFormatting, Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitCommitType, GitDiff, GitDiffChunkLine, GitDiffParser, GitDiffShortStat, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, GitTag, GitTagParser, IGit, Repository } from './git/git';
+import { CommitFormatting, Git, GitAuthor, GitBlame, GitBlameCommit, GitBlameLine, GitBlameLines, GitBlameParser, GitBranch, GitBranchParser, GitCommit, GitCommitType, GitDiff, GitDiffChunkLine, GitDiffParser, GitDiffShortStat, GitLog, GitLogCommit, GitLogParser, GitRemote, GitRemoteParser, GitStash, GitStashParser, GitStatus, GitStatusFile, GitStatusParser, GitTag, GitTagParser, IGit, Repository, RepositoryChange } from './git/git';
 import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from './trackers/gitDocumentTracker';
 import { GitUri, IGitCommitInfo } from './git/gitUri';
 import { Logger } from './logger';
@@ -75,8 +75,17 @@ export class GitService extends Disposable {
         return Container.config.advanced.caching.enabled;
     }
 
-    private onAnyRepositoryChanged(repo: Repository) {
+    private onAnyRepositoryChanged(repo: Repository, reason: RepositoryChange) {
         this._trackedCache.clear();
+
+        if (reason === RepositoryChange.Closed) {
+            // Send a notification that the repositories changed
+            setImmediate(async () => {
+                await this.updateContext(this._repositoryTree);
+
+                this.fireRepositoriesChanged();
+            });
+        }
     }
 
     private onConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -1248,9 +1257,13 @@ export class GitService extends Disposable {
         return Container.git.getActiveRepoPath(editor);
     }
 
-    async getRepositories(): Promise<Iterable<Repository>> {
+    async getRepositories(predicate?: (repo: Repository) => boolean): Promise<Iterable<Repository>> {
         const repositoryTree = await this.getRepositoryTree();
-        return repositoryTree.values();
+
+        const values = repositoryTree.values();
+        return predicate !== undefined
+            ? Iterables.filter(values, predicate)
+            : values;
     }
 
     private async getRepositoryTree(): Promise<TernarySearchTree<Repository>> {
