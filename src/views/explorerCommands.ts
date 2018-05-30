@@ -234,7 +234,7 @@ export class ExplorerCommands extends Disposable {
         if (!(node instanceof BranchNode)) return;
 
         if (node.branch.remote) {
-            this.sendTerminalCommand('push', `${node.branch.remote} :${node.ref}`, node.repoPath);
+            this.sendTerminalCommand('push', `${node.branch.getRemote()} :${node.branch.getName()}`, node.repoPath);
         }
         else {
             this.sendTerminalCommand('branch', `-d ${node.ref}`, node.repoPath);
