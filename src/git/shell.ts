@@ -136,7 +136,7 @@ export function runCommand(command: string, args: any[], options: CommandOptions
                     reject(new Error(`Command output exceeded the allocated stdout buffer. Set 'options.maxBuffer' to a larger value than ${opts.maxBuffer} bytes`));
                 }
 
-                Logger.warn(`Error(${opts.cwd}): ${command} ${args.join(' ')})\n    (${err.code}) ${err.message}\n${stderr}`);
+                // Logger.warn(`Error(${opts.cwd}): ${command} ${args.join(' ')})\n    (${err.code}) ${err.message}\n${stderr}`);
                 reject(err);
             }
         );
