@@ -10,6 +10,10 @@ import { Logger } from './logger';
 import { Messages } from './messages';
 // import { Telemetry } from './telemetry';
 
+interface GitApi {
+    getGitPath(): Promise<string>;
+}
+
 export async function activate(context: ExtensionContext) {
     const start = process.hrtime();
 
@@ -36,7 +40,19 @@ export async function activate(context: ExtensionContext) {
     const cfg = configuration.get<IConfig>();
 
     try {
-        await GitService.initialize(cfg.advanced.git || workspace.getConfiguration('git').get<string>('path'));
+        let gitPath = cfg.advanced.git;
+        if (!gitPath) {
+            // Try to use the same git as the built-in vscode git extension
+            try {
+                const gitExtension = extensions.getExtension('vscode.git');
+                if (gitExtension !== undefined) {
+                    gitPath = await (gitExtension.exports as GitApi).getGitPath();
+                }
+            }
+            catch { }
+        }
+
+        await GitService.initialize(gitPath || workspace.getConfiguration('git').get<string>('path'));
     }
     catch (ex) {
         Logger.error(ex, `GitLens(v${gitlensVersion}).activate`);
