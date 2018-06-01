@@ -62,7 +62,7 @@ const GitWarnings = {
     foundButNotInRevision: /Path \'.*?\' exists on disk, but not in/i,
     headNotABranch: /HEAD does not point to a branch/i,
     noUpstream: /no upstream configured for branch \'(.*?)\'/i,
-    unknownRevision: /ambiguous argument \'.*?\': unknown revision or path not in the working tree/i
+    unknownRevision: /ambiguous argument \'.*?\': unknown revision or path not in the working tree|not stored as a remote-tracking branch/i
 };
 
 async function gitCommand(options: CommandOptions & { readonly correlationKey?: string }, ...args: any[]): Promise<string> {
