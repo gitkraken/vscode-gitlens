@@ -134,11 +134,11 @@ export interface CommandViewContext extends CommandBaseContext {
 }
 
 export function isCommandViewContextWithBranch(context: CommandContext): context is CommandViewContext & { node: (ExplorerNode & { branch: GitBranch }) } {
-    return context.type === 'view' && (context.node as any).branch && (context.node as any).branch instanceof GitBranch;
+    return context.type === 'view' && (context.node as (ExplorerNode & { branch?: GitBranch })).branch instanceof GitBranch;
 }
 
 export function isCommandViewContextWithCommit<T extends GitCommit>(context: CommandContext): context is CommandViewContext & { node: (ExplorerNode & { commit: T }) } {
-    return context.type === 'view' && (context.node as any).commit && (context.node as any).commit instanceof GitCommit;
+    return context.type === 'view' && (context.node as (ExplorerNode & { commit?: GitCommit })).commit instanceof GitCommit;
 }
 
 export function isCommandViewContextWithRef(context: CommandContext): context is CommandViewContext & { node: (ExplorerNode & { ref: string }) } {
@@ -146,7 +146,7 @@ export function isCommandViewContextWithRef(context: CommandContext): context is
 }
 
 export function isCommandViewContextWithRemote(context: CommandContext): context is CommandViewContext & { node: (ExplorerNode & { remote: GitRemote }) } {
-    return context.type === 'view' && (context.node as any).remote && (context.node as any).remote instanceof GitRemote;
+    return context.type === 'view' && (context.node as (ExplorerNode & { remote?: GitRemote })).remote instanceof GitRemote;
 }
 
 export type CommandContext = CommandScmGroupsContext | CommandScmStatesContext | CommandUnknownContext | CommandUriContext | CommandViewContext;

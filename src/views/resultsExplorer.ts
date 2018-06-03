@@ -123,7 +123,7 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
     }
 
     refreshNode(node: ExplorerNode, args?: RefreshNodeCommandArgs) {
-        Logger.log(`ResultsExplorer.refreshNode(${(node as any).id})`);
+        Logger.log(`ResultsExplorer.refreshNode(${(node as { id?: string}).id || ''})`);
 
         if (args !== undefined && node.supportsPaging) {
             node.maxCount = args.maxCount;

@@ -40,20 +40,20 @@ export class ActiveEditorTracker extends Disposable {
 
     async wait(timeout: number = 500): Promise<TextEditor | undefined> {
         const editor = await new Promise<TextEditor>((resolve, reject) => {
-            let timer: any;
+            let timer: NodeJS.Timer | undefined;
 
             this._resolver = (editor: TextEditor | undefined) => {
                 if (timer) {
-                    clearTimeout(timer as any);
-                    timer = 0;
+                    clearTimeout(timer);
+                    timer = undefined;
                     resolve(editor);
                 }
             };
 
             timer = setTimeout(() => {
                 resolve(window.activeTextEditor);
-                timer = 0;
-            }, timeout) as any;
+                timer = undefined;
+            }, timeout);
         });
 
         this._resolver = undefined;

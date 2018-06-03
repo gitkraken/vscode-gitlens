@@ -148,7 +148,7 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
     }
 
     refreshNode(node: ExplorerNode, args?: RefreshNodeCommandArgs) {
-        Logger.log(`HistoryExplorer.refreshNode(${(node as any).id})`);
+        Logger.log(`HistoryExplorer.refreshNode(${(node as { id?: string}).id || ''})`);
 
         if (args !== undefined && node.supportsPaging) {
             node.maxCount = args.maxCount;
