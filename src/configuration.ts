@@ -1,12 +1,12 @@
 'use strict';
 export * from './ui/config';
-export { ExtensionKey };
 
 import { Functions } from './system';
 import { ConfigurationChangeEvent, ConfigurationTarget, Event, EventEmitter, ExtensionContext, Uri, workspace } from 'vscode';
 import { IConfig, KeyMap } from './ui/config';
-import { CommandContext, ExtensionKey, setCommandContext } from './constants';
+import { CommandContext, setCommandContext } from './constants';
 import { Container } from './container';
+import { extensionId } from './extension';
 import { clearGravatarCache } from './gitService';
 
 const emptyConfig: any = new Proxy<any>({} as IConfig, {
@@ -42,7 +42,7 @@ export class Configuration {
     }
 
     private onConfigurationChanged(e: ConfigurationChangeEvent) {
-        if (!e.affectsConfiguration(ExtensionKey, null!)) return;
+        if (!e.affectsConfiguration(extensionId, null!)) return;
 
         Container.resetConfig();
 
@@ -79,12 +79,12 @@ export class Configuration {
 
     get<T>(section?: string, resource?: Uri | null, defaultValue?: T) {
         return defaultValue === undefined
-            ? workspace.getConfiguration(section === undefined ? undefined : ExtensionKey, resource!).get<T>(section === undefined ? ExtensionKey : section)!
-            : workspace.getConfiguration(section === undefined ? undefined : ExtensionKey, resource!).get<T>(section === undefined ? ExtensionKey : section, defaultValue)!;
+            ? workspace.getConfiguration(section === undefined ? undefined : extensionId, resource!).get<T>(section === undefined ? extensionId : section)!
+            : workspace.getConfiguration(section === undefined ? undefined : extensionId, resource!).get<T>(section === undefined ? extensionId : section, defaultValue)!;
     }
 
     changed(e: ConfigurationChangeEvent, section: string, resource?: Uri | null) {
-        return e.affectsConfiguration(`${ExtensionKey}.${section}`, resource!);
+        return e.affectsConfiguration(`${extensionId}.${section}`, resource!);
     }
 
     initializing(e: ConfigurationChangeEvent) {
@@ -92,7 +92,7 @@ export class Configuration {
     }
 
     inspect(section?: string, resource?: Uri | null) {
-        return workspace.getConfiguration(section === undefined ? undefined : ExtensionKey, resource!).inspect(section === undefined ? ExtensionKey : section);
+        return workspace.getConfiguration(section === undefined ? undefined : extensionId, resource!).inspect(section === undefined ? extensionId : section);
     }
 
     async migrate<TFrom, TTo>(from: string, to: string, options: { fallbackValue?: TTo, migrationFn?: (value: TFrom) => TTo } = {}): Promise<boolean> {
@@ -195,7 +195,7 @@ export class Configuration {
 
     update(section: string, value: any, target: ConfigurationTarget, resource?: Uri | null) {
         return workspace
-            .getConfiguration(ExtensionKey, target === ConfigurationTarget.Global ? undefined : resource!)
+            .getConfiguration(extensionId, target === ConfigurationTarget.Global ? undefined : resource!)
             .update(section, value, target);
     }
 

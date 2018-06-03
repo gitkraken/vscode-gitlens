@@ -45,6 +45,9 @@
         "url": "https://github.com/eamodio/vscode-gitlens.git"
     },
     "main": "./out/extension",
+    "activationEvents": [
+        "*"
+    ],
     "contributes": {
         "configuration": {
             "type": "object",
@@ -3211,9 +3214,6 @@
             ]
         }
     },
-    "activationEvents": [
-        "*"
-    ],
     "scripts": {
         "build": "npm run lint && tsc -m commonjs -p ./ && npm run build-ui -- --env.quick",
         "build-ui": "webpack --context ./src/ui --config ./src/ui/webpack.config.js",
@@ -3242,17 +3242,17 @@
     },
     "devDependencies": {
         "@types/copy-paste": "1.1.30",
-        "@types/node": "10.1.4",
+        "@types/node": "7.0.65",
         "@types/tmp": "0.0.33",
         "husky": "0.14.3",
-        "ts-loader": "4.3.0",
+        "ts-loader": "4.3.1",
         "tslint": "5.10.0",
-        "typescript": "2.8.4",
+        "typescript": "2.9.1",
         "uglify-es": "3.3.9",
         "uglifyjs-webpack-plugin": "1.2.5",
         "vscode": "1.1.18",
         "webpack": "4.10.2",
-        "webpack-cli": "2.1.4",
+        "webpack-cli": "3.0.1",
         "webpack-node-externals": "1.7.2"
     }
 }

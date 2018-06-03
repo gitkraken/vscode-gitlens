@@ -1,16 +1,15 @@
 'use strict';
 import { ConfigurationChangeEvent, ExtensionContext, OutputChannel, window } from 'vscode';
 import { configuration, OutputLevel } from './configuration';
-import { ExtensionOutputChannelName } from './constants';
+import { extensionOutputChannelName } from './extension';
 // import { Telemetry } from './telemetry';
 
-const ConsolePrefix = `[${ExtensionOutputChannelName}]`;
+const ConsolePrefix = `[${extensionOutputChannelName}]`;
 
 const isDebuggingRegex = /^--inspect(-brk)?=?/;
 
 export class Logger {
 
-    static debug = false;
     static level: OutputLevel = OutputLevel.Silent;
     static output: OutputChannel | undefined;
 
@@ -22,12 +21,7 @@ export class Logger {
     private static onConfigurationChanged(e: ConfigurationChangeEvent) {
         const initializing = configuration.initializing(e);
 
-        let section = configuration.name('debug').value;
-        if (initializing || configuration.changed(e, section)) {
-            this.debug = configuration.get<boolean>(section);
-        }
-
-        section = configuration.name('outputLevel').value;
+        const section = configuration.name('outputLevel').value;
         if (initializing || configuration.changed(e, section)) {
             this.level = configuration.get<OutputLevel>(section);
 
@@ -38,40 +32,40 @@ export class Logger {
                 }
             }
             else {
-                this.output = this.output || window.createOutputChannel(ExtensionOutputChannelName);
+                this.output = this.output || window.createOutputChannel(extensionOutputChannelName);
             }
         }
     }
 
     static log(message?: any, ...params: any[]): void {
-        if (this.debug) {
+        if (Logger.isDebugging) {
             console.log(this.timestamp, ConsolePrefix, message, ...params);
         }
 
         if (this.output !== undefined && (this.level === OutputLevel.Verbose || this.level === OutputLevel.Debug)) {
-            this.output.appendLine((this.debug ? [this.timestamp, message, ...params] : [message, ...params]).join(' '));
+            this.output.appendLine((Logger.isDebugging ? [this.timestamp, message, ...params] : [message, ...params]).join(' '));
         }
     }
 
     static error(ex: Error, classOrMethod?: string, ...params: any[]): void {
-        if (this.debug) {
+        if (Logger.isDebugging) {
             console.error(this.timestamp, ConsolePrefix, classOrMethod, ...params, ex);
         }
 
         if (this.output !== undefined && this.level !== OutputLevel.Silent) {
-            this.output.appendLine((this.debug ? [this.timestamp, classOrMethod, ...params, ex] : [classOrMethod, ...params, ex]).join(' '));
+            this.output.appendLine((Logger.isDebugging ? [this.timestamp, classOrMethod, ...params, ex] : [classOrMethod, ...params, ex]).join(' '));
         }
 
         // Telemetry.trackException(ex);
     }
 
     static warn(message?: any, ...params: any[]): void {
-        if (this.debug) {
+        if (Logger.isDebugging) {
             console.warn(this.timestamp, ConsolePrefix, message, ...params);
         }
 
         if (this.output !== undefined && this.level !== OutputLevel.Silent) {
-            this.output.appendLine((this.debug ? [this.timestamp, message, ...params] : [message, ...params]).join(' '));
+            this.output.appendLine((Logger.isDebugging ? [this.timestamp, message, ...params] : [message, ...params]).join(' '));
         }
     }
 
@@ -86,7 +80,7 @@ export class Logger {
         if (this.level !== OutputLevel.Debug) return;
 
         if (this.gitOutput === undefined) {
-            this.gitOutput = window.createOutputChannel(`${ExtensionOutputChannelName} (Git)`);
+            this.gitOutput = window.createOutputChannel(`${extensionOutputChannelName} (Git)`);
         }
         this.gitOutput.appendLine(`${this.timestamp} ${command} (${cwd})${ex === undefined ? '' : `\n\n${ex.toString()}`}`);
     }

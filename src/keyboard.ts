@@ -1,6 +1,7 @@
 'use strict';
 import { commands, Disposable } from 'vscode';
-import { CommandContext, ExtensionKey, setCommandContext } from './constants';
+import { CommandContext, setCommandContext } from './constants';
+import { extensionId } from './extension';
 import { Logger } from './logger';
 
 export declare interface KeyCommand {
@@ -95,7 +96,7 @@ export class Keyboard extends Disposable {
     constructor() {
         super(() => this.dispose());
 
-        const subscriptions = keys.map(key => commands.registerCommand(`${ExtensionKey}.key.${key}`, () => this.execute(key), this));
+        const subscriptions = keys.map(key => commands.registerCommand(`${extensionId}.key.${key}`, () => this.execute(key), this));
         this._disposable = Disposable.from(...subscriptions);
     }
 

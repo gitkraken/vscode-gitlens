@@ -1,8 +1,15 @@
 'use strict';
+
+export const applicationInsightsKey = 'a9c302f8-6483-4d01-b92c-c159c799c679';
+export const extensionId = 'gitlens';
+export const extensionOutputChannelName = 'GitLens';
+export const extensionTerminalName = 'GitLens';
+export const qualifiedExtensionId = `eamodio.${extensionId}`;
+
 import { Versions } from './system';
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
 import { CodeLensLanguageScope, CodeLensScopes, configuration, Configuration, HighlightLocations, IConfig, IMenuConfig, KeyMap, OutputLevel } from './configuration';
-import { CommandContext, ExtensionKey, GlobalState, QualifiedExtensionId, setCommandContext } from './constants';
+import { CommandContext, GlobalState, setCommandContext } from './constants';
 import { Commands, configureCommands } from './commands';
 import { Container } from './container';
 import { GitService } from './gitService';
@@ -19,7 +26,7 @@ export async function activate(context: ExtensionContext) {
 
     Logger.configure(context);
 
-    const gitlens = extensions.getExtension(QualifiedExtensionId)!;
+    const gitlens = extensions.getExtension(qualifiedExtensionId)!;
     const gitlensVersion = gitlens.packageJSON.version;
 
     const enabled = workspace.getConfiguration('git', null!).get<boolean>('enabled', true);
@@ -57,7 +64,7 @@ export async function activate(context: ExtensionContext) {
     catch (ex) {
         Logger.error(ex, `GitLens(v${gitlensVersion}).activate`);
         if (ex.message.includes('Unable to find git')) {
-            await window.showErrorMessage(`GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that '${ExtensionKey}.${configuration.name('advanced')('git').value}' is pointed to its installed location.`);
+            await window.showErrorMessage(`GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that '${extensionId}.${configuration.name('advanced')('git').value}' is pointed to its installed location.`);
         }
         setCommandContext(CommandContext.Enabled, false);
         return;

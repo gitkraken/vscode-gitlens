@@ -9,7 +9,7 @@ images/**
 test/**
 src/**
 out/ui/**
-**/*.map
+*.map
 .github/**
 .gitignore
 .rpt2_cache/**

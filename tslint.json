@@ -31,22 +31,19 @@
             1
         ],
         "no-default-export": true,
+        "no-duplicate-variable": true,
         "no-eval": true,
-        // "no-for-in-array": true,
         "no-inferrable-types": [
             true,
             "ignore-params",
             "ignore-properties"
         ],
         "no-internal-module": true,
-        // "no-invalid-template-strings": true,
         "no-irregular-whitespace": true,
         "no-reference": true,
         "no-string-throw": true,
         "no-trailing-whitespace": true,
         "no-unnecessary-callback-wrapper": true,
-        // "no-unnecessary-qualifier": true,
-        // "no-unsafe-any": true,
         "no-unsafe-finally": true,
         "no-unused-expression": false,
         "no-var-keyword": true,
@@ -95,8 +92,6 @@
                 "asyncArrow": "always"
             }
         ],
-        // "strict-boolean-expressions": true,
-        // "strict-type-predicates": true,
         "trailing-comma": [
             true,
             {
@@ -135,5 +130,6 @@
             "check-separator",
             "check-type"
         ]
-    }
+    },
+    "defaultSeverity": "warning"
 }

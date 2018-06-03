@@ -1,7 +1,8 @@
 import { Arrays } from '../system';
 import { commands, Disposable, InputBoxOptions, Terminal, TextDocumentShowOptions, Uri, window } from 'vscode';
-import { CommandContext, ExtensionTerminalName, setCommandContext } from '../constants';
+import { CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
+import { extensionTerminalName } from '../extension';
 import { BranchNode, ExplorerNode, TagNode } from '../views/gitExplorer';
 import { CommitFileNode, CommitNode, ExplorerRefNode, RemoteNode, StashFileNode, StashNode, StatusFileCommitsNode, StatusUpstreamNode } from './explorerNodes';
 import { Commands, DiffWithCommandArgs, DiffWithCommandArgsRevision, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, OpenFileInRemoteCommandArgs, OpenFileRevisionCommandArgs } from '../commands';
@@ -345,9 +346,9 @@ export class ExplorerCommands extends Disposable {
 
     private ensureTerminal(cwd: string): Terminal {
         if (this._terminal === undefined) {
-            this._terminal = window.createTerminal(ExtensionTerminalName);
+            this._terminal = window.createTerminal(extensionTerminalName);
             this._disposable = window.onDidCloseTerminal((e: Terminal) => {
-                if (e.name === ExtensionTerminalName) {
+                if (e.name === extensionTerminalName) {
                     this._terminal = undefined;
                     this._disposable!.dispose();
                     this._disposable = undefined;

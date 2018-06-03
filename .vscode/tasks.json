@@ -24,10 +24,7 @@
                 "$tsc",
                 "$tslint5"
             ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            }
+            "group": "build"
         },
         {
             "label": "lint",
@@ -56,7 +53,10 @@
             "problemMatcher": [
                 "$tsc-watch"
             ],
-            "group": "build"
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         }
     ]
 }
