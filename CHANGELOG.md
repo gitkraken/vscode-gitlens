@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Fixed
+- Fixes [#391](https://github.com/eamodio/vscode-gitlens/issues/391) - GitLens adds some settings in settings.json
+
 ## [8.3.3] - 2018-05-31
 ### Added
 - Adds (re-adds) support for handling single files &mdash; closes [#321](https://github.com/eamodio/vscode-gitlens/issues/321)

@@ -210,7 +210,7 @@ export class Configuration {
             await configuration.update(section, value, ConfigurationTarget.Workspace);
         }
         else {
-            if (inspect.globalValue === value) return;
+            if (inspect.globalValue === value || (inspect.globalValue === undefined && inspect.defaultValue === value)) return;
             await configuration.update(section, value, ConfigurationTarget.Global);
         }
     }
