@@ -3225,9 +3225,9 @@
         "rebuild": "npm run reset && npm run lint && tsc -m commonjs -p ./ && npm run build-ui",
         "reset": "npm run clean && npm install --no-save",
         "watch": "tsc -watch -m commonjs -p ./",
-        "watch-ui": "pushd \"./src/ui\" && npm run watch --no-save && popd",
+        "watch-ui": "cd \"./src/ui\" && npm run watch --no-save && cd \"../..\"",
 
-        "postinstall": "node ./node_modules/vscode/bin/install && pushd \"./src/ui\" && npm install --no-save && popd",
+        "postinstall": "node ./node_modules/vscode/bin/install && cd \"./src/ui\" && npm install --no-save && cd \"../..\"",
         "prepush": "npm run build",
         "vscode:prepublish": "npm run reset && npm run bundle"
     },
