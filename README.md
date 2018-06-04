@@ -797,11 +797,6 @@ GitLens defines a set of themable colors which can be provided by vscode themes 
 Add [`"gitlens.insiders": true`](#general-settings "Jump to GitLens settings") to your settings to join the insiders channel and get early access to upcoming features. Be aware that because this provides early access expect there to be issues.
 
 ---
-## Known Issues
-
-- If the `Copy to * clipboard` commands don't work on Linux &mdash; `xclip` needs to be installed. You can install it via `sudo apt-get install xclip`
-
----
 ## Contributors &#x1F64F;&#x2764;
 
 A big thanks to the people that have contributed to this project:
