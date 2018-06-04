@@ -30,7 +30,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: CopyMessageToClipboardCommandArgs = {}): Promise<any> {
         uri = getCommandUri(uri, editor);
 
-        const clipboard = await import('copy-paste');
+        const clipboard = await import('clipboardy');
 
         try {
             args = { ...args };
@@ -44,13 +44,10 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 if (!log) return undefined;
 
                 args.message = Iterables.first(log.commits.values()).message;
-                clipboard.copy(args.message);
-                return undefined;
             }
+            else if (args.message === undefined) {
+                const gitUri = await GitUri.fromUri(uri);
 
-            const gitUri = await GitUri.fromUri(uri);
-
-            if (args.message === undefined) {
                 if (args.sha === undefined) {
                     const blameline = (editor && editor.selection.active.line) || 0;
                     if (blameline < 0) return undefined;
@@ -81,17 +78,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 args.message = commit.message;
             }
 
-            clipboard.copy(args.message, (err: Error) => {
-                if (err) {
-                    if (err.message.includes('xclip')) {
-                        window.showErrorMessage(`Unable to copy message, xclip is not installed. You can install it via \`sudo apt-get install xclip\``);
-                        return;
-                    }
-
-                    Logger.error(err, 'CopyMessageToClipboardCommand');
-                    window.showErrorMessage(`Unable to copy message. See output channel for more details`);
-                }
-            });
+            clipboard.write(args.message);
             return undefined;
         }
         catch (ex) {

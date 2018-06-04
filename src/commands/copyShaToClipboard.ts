@@ -29,7 +29,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: CopyShaToClipboardCommandArgs = {}): Promise<any> {
         uri = getCommandUri(uri, editor);
 
-        const clipboard = await import('copy-paste');
+        const clipboard = await import('clipboardy');
         try {
             args = { ...args };
 
@@ -42,17 +42,13 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
                 if (!log) return undefined;
 
                 args.sha = Iterables.first(log.commits.values()).sha;
-                clipboard.copy(args.sha);
-                return undefined;
             }
-
-            const gitUri = await GitUri.fromUri(uri);
-
-            if (args.sha === undefined) {
+            else if (args.sha === undefined) {
                 const blameline = (editor && editor.selection.active.line) || 0;
                 if (blameline < 0) return undefined;
 
                 try {
+                    const gitUri = await GitUri.fromUri(uri);
                     const blame = editor && editor.document && editor.document.isDirty
                         ? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
                         : await Container.git.getBlameForLine(gitUri, blameline);
@@ -66,17 +62,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
                 }
             }
 
-            clipboard.copy(args.sha, (err: Error) => {
-                if (err) {
-                    if (err.message.includes('xclip')) {
-                        window.showErrorMessage(`Unable to copy commit id, xclip is not installed. You can install it via \`sudo apt-get install xclip\``);
-                        return;
-                    }
-
-                    Logger.error(err, 'CopyShaToClipboardCommand');
-                    window.showErrorMessage(`Unable to copy commit id. See output channel for more details`);
-                }
-            });
+            clipboard.write(args.sha);
             return undefined;
         }
         catch (ex) {
