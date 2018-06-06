@@ -117,6 +117,14 @@
                             Adds <i>Close Repository</i> command (<code>gitlens.explorers.closeRepository</code>) to repository and repository status nodes in the <i>GitLens</i> explorer &mdash; closes (hides) the repository in the <i>GitLens</i> explorer
                             <div class="changelog__details"></div>
                         </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds clipboard support for Linux without requiring any external dependencies &mdash; thanks to <a title="Pull Request #394" href="https://github.com/eamodio/vscode-gitlens/pull/394">PR #394</a> by Cédric Malard (<a title="Cédric Malard" href="https://github.com/cmalard">@cmalard</a>)
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds a select branch quick pick menu to the <i>Open File in Remote</i> command (<code>gitlens.openFileInRemote</code>) when the current branch has no upstream tracking branch &mdash; closes <a title="Open Issue #209" href="https://github.com/eamodio/vscode-gitlens/issues/209">#209</a>
+                            <div class="changelog__details"></div>
+                        </li>
                         <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>
                             Showing results in the <i>GitLens Results</i> explorer now properly shows the explorer first
                             <div class="changelog__details"></div>
@@ -143,6 +151,10 @@
                         </li>
                         <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>
                             Uses the new Webview API for better interactions and behavior with the interactive settings editor and welcome page
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--changed">IMPROVED</span>
+                            Moves the <i>Open Working File</i> command (<code>gitlens.openWorkingFile</code>) to the right of the <i>Compare File with * Revision</i> commands in the editor toolbar
                             <div class="changelog__details"></div>
                         </li>
                         <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
@@ -178,6 +190,34 @@
                             <div class="changelog__details"></div>
                         </li>
                         <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes <a title="Open Issue #400" href="https://github.com/eamodio/vscode-gitlens/issues/400">#400</a> &mdash; Reset TO commit also resets chosen one
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes <a title="Open Issue #399" href="https://github.com/eamodio/vscode-gitlens/issues/399">#399</a> &mdash; "Open x in Remote" commands aren't always available
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes <a title="Open Issue #397" href="https://github.com/eamodio/vscode-gitlens/issues/397">#397</a> &mdash; Error while opening the gitlens view using <code>Open View</code> command
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes <a title="Open Issue #391" href="https://github.com/eamodio/vscode-gitlens/issues/391">#391</a> &mdash; GitLens adds some settings in settings.json
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes <a title="Open Issue #343" href="https://github.com/eamodio/vscode-gitlens/issues/343">#343</a> &mdash; Can't show blame when VSCode starts on branch without upstream &mdash; thanks to <a title="Pull Request #390" href="https://github.com/eamodio/vscode-gitlens/pull/390">PR #390</a> by ryenus (<a title="ryenus" href="https://github.com/ryenus">@ryenus</a>)
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes <a title="Open Issue #392" href="https://github.com/eamodio/vscode-gitlens/issues/392">#392</a> &mdash; unable to contribute if default script shell is sh &mdash; thanks to <a title="Pull Request #393" href="https://github.com/eamodio/vscode-gitlens/pull/393">PR #393</a> by Cédric Malard (<a title="Cédric Malard" href="https://github.com/cmalard">@cmalard</a>)
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes issue with the <code>chorded</code> keyboard shortcut for the <i>Compare File with Previous Revision</i> command (<code>gitlens.diffWithPreviousInDiff</code>) &mdash; from <a title="Open Issue #395" href="https://github.com/eamodio/vscode-gitlens/issues/395">#395</a>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
                             Fixes <i>bronze</i> typo thanks to <a title="Pull Request #361" href="https://github.com/eamodio/vscode-gitlens/pull/361">PR #361</a> by Cory Forsyth (<a title="Cory Forsyth" href="https://github.com/bantic">@bantic</a>)
                             <div class="changelog__details"></div>
                         </li>
@@ -195,6 +235,14 @@
                         </li>
                         <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
                             Fixes various issues when not on a branch
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes many issues where commands wouldn't work if the active file wasn't part of an open repository &mdash; now GitLens will try to find the best repository otherwise it will open a repository quick pick menu if there is more than one
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li><span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes the <i>Open Working File</i> command (<code>gitlens.openWorkingFile</code>) not always showing in the editor toolbar when appropriate
                             <div class="changelog__details"></div>
                         </li>
 

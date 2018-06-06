@@ -53,6 +53,8 @@
 - Adds *Show History Explorer* (`gitlens.showHistoryExplorer`) command &mdash; shows/expands the *GitLens History* explorer
 - Adds *Show Results Explorer* (`gitlens.showResultsExplorer`) command &mdash; shows/expands the *GitLens Results* explorer
 - Adds *Close Repository* (`gitlens.explorers.closeRepository`) command to repository and repository status nodes in the *GitLens* explorer &mdash; closes (hides) the repository in the *GitLens* explorer
+- Adds clipboard support for Linux without requiring any external dependencies &mdash; thanks to [PR #394](https://github.com/eamodio/vscode-gitlens/pull/394) by Cédric Malard ([@cmalard](https://github.com/cmalard))
+- Adds a select branch quick pick menu to the *Open File in Remote* command (`gitlens.openFileInRemote`) when the current branch has no upstream tracking branch &mdash; closes [#209](https://github.com/eamodio/vscode-gitlens/issues/209)
 - Showing results in the *GitLens Results* explorer now properly shows the explorer first
 - Renames *Compare Line Revision with Previous* command (`gitlens.diffLineWithPrevious`) to *Compare Commit with Previous* for consistency with other commands
 - Renames *Compare Line Revision with Working File* command (`gitlens.diffLineWithWorking`) to *Compare Commit with Working File* for consistency with other commands
@@ -60,6 +62,7 @@
 - Reworks GitLens menu contributions and configuration &mdash; see menu settings above
   - Renames the `gitlens.advanced.menus` setting to `gitlens.menus`
 - Uses the new Webview API for better interactions and behavior with the interactive settings editor and welcome page
+- Moves the *Open Working File* command (`gitlens.openWorkingFile`) to the right of the *Compare File with * Revision* commands in the editor toolbar
 - Fixes [#366](https://github.com/eamodio/vscode-gitlens/issues/366) - Running a GitLens command from a keybinding fails
 - Fixes [#155](https://github.com/eamodio/vscode-gitlens/issues/155) - Navigating file diffs with `alt+,` gets stuck
 - Fixes [#359](https://github.com/eamodio/vscode-gitlens/issues/359) - Show changes of an added file in the first commit
@@ -68,12 +71,20 @@
 - Fixes [#381](https://github.com/eamodio/vscode-gitlens/issues/381) - Can't stash single files with older versions of Git
 - Fixes [#384](https://github.com/eamodio/vscode-gitlens/issues/384) - Absolute dates not always honored in *GitLens Results* explorer
 - Fixes [#385](https://github.com/eamodio/vscode-gitlens/issues/385) - Wrong git command to delete remote branch
+- Fixes [#400](https://github.com/eamodio/vscode-gitlens/issues/400) - Reset TO commit also resets chosen one
+- Fixes [#399](https://github.com/eamodio/vscode-gitlens/issues/399) - "Open x in Remote" commands aren't always available
+- Fixes [#397](https://github.com/eamodio/vscode-gitlens/issues/397) - Error while opening the gitlens view using `Open View` command
+- Fixes [#391](https://github.com/eamodio/vscode-gitlens/issues/391) - GitLens adds some settings in settings.json
+- Fixes another case of [#343](https://github.com/eamodio/vscode-gitlens/issues/343) - Can't show blame when VSCode starts on branch without upstream &mdash; thanks to [PR #390](https://github.com/eamodio/vscode-gitlens/pull/390) by ryenus ([@ryenus](https://github.com/ryenus))
+- Fixes [#392](https://github.com/eamodio/vscode-gitlens/issues/392) - unable to contribute if default script shell is sh &mdash; thanks to [PR #393](https://github.com/eamodio/vscode-gitlens/pull/393) by Cédric Malard ([@cmalard](https://github.com/cmalard))
+- Fixes issue with the `chorded` keyboard shortcut for the *Compare File with Previous Revision* command (`gitlens.diffWithPreviousInDiff`) &mdash; from [#395](https://github.com/eamodio/vscode-gitlens/issues/395)
 - Fixes *bronze* typo thanks to [PR #361](https://github.com/eamodio/vscode-gitlens/pull/361) by Cory Forsyth ([@bantic](https://github.com/bantic))
 - Fixes *individually* typo thanks to [PR #364](https://github.com/eamodio/vscode-gitlens/pull/364) by Brett Cannon ([@brettcannon](https://github.com/brettcannon))
 - Fixes issue where comparing previous revision during a merge/rebase conflict failed to show the correct contents
 - Fixes issue with the current line blame toggle not working when current line blame starts disabled
 - Fixes various issues when not on a branch
 - Fixes many issues where commands wouldn't work if the active file wasn't part of an open repository &mdash; now GitLens will try to find the best repository otherwise it will open a repository quick pick menu if there is more than one
+- Fixes the *Open Working File* command (`gitlens.openWorkingFile`) not always showing in the editor toolbar when appropriate
 
 See the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md "Open Release Notes") for the full set of changes
 

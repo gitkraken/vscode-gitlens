@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [8.3.4] - 2018-06-06
 ### Added
 - Adds clipboard support for Linux without requiring any external dependencies &mdash; thanks to [PR #394](https://github.com/eamodio/vscode-gitlens/pull/394) by Cédric Malard ([@cmalard](https://github.com/cmalard))
 - Adds a select branch quick pick menu to the *Open File in Remote* command (`gitlens.openFileInRemote`) when the current branch has no upstream tracking branch &mdash; closes [#209](https://github.com/eamodio/vscode-gitlens/issues/209)
