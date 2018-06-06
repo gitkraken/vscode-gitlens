@@ -55,6 +55,12 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
             !configuration.changed(e, configuration.name('defaultGravatarsStyle').value) &&
             !configuration.changed(e, configuration.name('advanced')('fileHistoryFollowsRenames').value)) return;
 
+        if (initializing ||
+            configuration.changed(e, configuration.name('historyExplorer')('enabled').value) ||
+            configuration.changed(e, configuration.name('historyExplorer')('location').value)) {
+            setCommandContext(CommandContext.HistoryExplorer, this.config.enabled ? this.config.location : false);
+        }
+
         if (initializing || configuration.changed(e, configuration.name('historyExplorer')('enabled').value)) {
             if (this.config.enabled) {
                 this.undock(!initializing, !configuration.changed(e, configuration.name('mode').value));
@@ -64,19 +70,22 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
             }
         }
 
-        if (!initializing && configuration.changed(e, configuration.name('historyExplorer')('location').value) && this.config.enabled) {
-            setCommandContext(CommandContext.HistoryExplorer, this.config.location);
+        if (initializing) {
+            this.setRoot(await this.getRootNode(window.activeTextEditor));
+        }
+
+        if (initializing || configuration.changed(e, configuration.name('historyExplorer')('location').value)) {
+            if (this._disposable) {
+                this._disposable.dispose();
+                this._onDidChangeTreeData = new EventEmitter<ExplorerNode>();
+            }
+
+            this._tree = window.createTreeView(`gitlens.historyExplorer:${this.config.location}`, { treeDataProvider: this });
+            this._disposable = this._tree;
         }
 
         if (!initializing && this._root === undefined) {
             this.refresh(RefreshReason.ConfigurationChanged);
-        }
-
-        if (initializing) {
-            this.setRoot(await this.getRootNode(window.activeTextEditor));
-
-            this._tree = window.createTreeView('gitlens.historyExplorer', { treeDataProvider: this });
-            this._disposable = this._tree;
         }
     }
 

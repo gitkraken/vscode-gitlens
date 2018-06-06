@@ -59,17 +59,22 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
             !configuration.changed(e, configuration.name('explorers').value) &&
             !configuration.changed(e, configuration.name('defaultGravatarsStyle').value)) return;
 
-        if (!initializing && configuration.changed(e, configuration.name('resultsExplorer')('location').value) && this.enabled) {
-            setCommandContext(CommandContext.ResultsExplorer, this.config.location);
+        if (initializing || configuration.changed(e, configuration.name('resultsExplorer')('location').value)) {
+            setCommandContext(CommandContext.ResultsExplorer, this.enabled ? this.config.location : false);
+        }
+
+        if (initializing || configuration.changed(e, configuration.name('resultsExplorer')('location').value)) {
+            if (this._disposable) {
+                this._disposable.dispose();
+                this._onDidChangeTreeData = new EventEmitter<ExplorerNode>();
+            }
+
+            this._tree = window.createTreeView(`gitlens.resultsExplorer:${this.config.location}`, { treeDataProvider: this });
+            this._disposable = this._tree;
         }
 
         if (!initializing && this._roots.length !== 0) {
             this.refresh(RefreshReason.ConfigurationChanged);
-        }
-
-        if (initializing) {
-            this._tree = window.createTreeView('gitlens.resultsExplorer', { treeDataProvider: this });
-            this._disposable = this._tree;
         }
     }
 

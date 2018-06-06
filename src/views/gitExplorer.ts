@@ -99,18 +99,25 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
             if (view === GitExplorerView.Auto) {
                 view = Container.context.workspaceState.get<GitExplorerView>(WorkspaceState.GitExplorerView, GitExplorerView.Repository);
             }
+        }
 
-            if (initializing) {
-                this.view = view;
-                setCommandContext(CommandContext.GitExplorerView, this.view);
+        if (initializing) {
+            this.view = view;
+            setCommandContext(CommandContext.GitExplorerView, this.view);
 
-                this.setRoot(await this.getRootNode(window.activeTextEditor));
+            this.setRoot(await this.getRootNode(window.activeTextEditor));
+        }
 
-                this._tree = window.createTreeView('gitlens.gitExplorer', { treeDataProvider: this });
-                this._disposable = this._tree;
-
-                return;
+        if (initializing || configuration.changed(e, configuration.name('gitExplorer')('location').value)) {
+            if (this._disposable) {
+                this._disposable.dispose();
+                this._onDidChangeTreeData = new EventEmitter<ExplorerNode>();
             }
+
+            this._tree = window.createTreeView(`gitlens.gitExplorer:${this.config.location}`, { treeDataProvider: this });
+            this._disposable = this._tree;
+
+            return;
         }
 
         this.reset(view!, configuration.changed(e, configuration.name('advanced')('fileHistoryFollowsRenames').value));
