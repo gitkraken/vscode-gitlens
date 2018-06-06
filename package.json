@@ -3156,7 +3156,8 @@
             },
             {
                 "command": "gitlens.diffWithPreviousInDiff",
-                "key": "alt+,",
+                "key": "ctrl+shift+g ,",
+                "mac": "cmd+alt+g ,",
                 "when": "gitlens:keymap == chorded && isInDiffEditor && gitlens:activeIsTracked"
             },
             {
