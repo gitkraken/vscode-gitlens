@@ -303,7 +303,7 @@ export class ExplorerCommands extends Disposable {
     terminalResetCommit(node: ExplorerNode) {
         if (!(node instanceof CommitNode)) return;
 
-        this.sendTerminalCommand('reset', `--soft ${node.ref}^`, node.repoPath);
+        this.sendTerminalCommand('reset', `--soft ${node.ref}`, node.repoPath);
     }
 
     terminalRevertCommit(node: ExplorerNode) {
