@@ -2,7 +2,6 @@
 import { CancellationToken, ConfigurationChangeEvent, debug, Disposable, Hover, HoverProvider, languages, Position, Range, TextDocument, TextEditor, window } from 'vscode';
 import { Annotations } from './annotations';
 import { configuration } from './../configuration';
-import { RangeEndOfLineIndex } from './../constants';
 import { Container } from './../container';
 import { LinesChangeEvent } from './../trackers/gitLineTracker';
 
@@ -96,7 +95,7 @@ export class LineHoverController extends Disposable {
         // If we aren't showing the hover over the whole line, make sure the annotation is on
         if (!wholeLine && Container.lineAnnotations.suspended) return undefined;
 
-        const range = document.validateRange(new Range(position.line, wholeLine ? 0 : RangeEndOfLineIndex, position.line, RangeEndOfLineIndex));
+        const range = document.validateRange(new Range(position.line, wholeLine ? 0 : Number.MAX_SAFE_INTEGER, position.line, Number.MAX_SAFE_INTEGER));
         if (!wholeLine && range.start.character !== position.character) return undefined;
 
         // Get the full commit message -- since blame only returns the summary
@@ -138,7 +137,7 @@ export class LineHoverController extends Disposable {
         // If we aren't showing the hover over the whole line, make sure the annotation is on
         if (!wholeLine && Container.lineAnnotations.suspended) return undefined;
 
-        const range = document.validateRange(new Range(position.line, wholeLine ? 0 : RangeEndOfLineIndex, position.line, RangeEndOfLineIndex));
+        const range = document.validateRange(new Range(position.line, wholeLine ? 0 : Number.MAX_SAFE_INTEGER, position.line, Number.MAX_SAFE_INTEGER));
         if (!wholeLine && range.start.character !== position.character) return undefined;
 
         const trackedDocument = await Container.tracker.get(document);

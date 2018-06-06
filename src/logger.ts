@@ -1,7 +1,7 @@
 'use strict';
 import { ConfigurationChangeEvent, ExtensionContext, OutputChannel, window } from 'vscode';
 import { configuration, OutputLevel } from './configuration';
-import { extensionOutputChannelName } from './extension';
+import { extensionOutputChannelName } from './constants';
 // import { Telemetry } from './telemetry';
 
 const ConsolePrefix = `[${extensionOutputChannelName}]`;

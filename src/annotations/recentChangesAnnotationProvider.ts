@@ -3,7 +3,6 @@ import { DecorationOptions, MarkdownString, Position, Range, TextEditor, TextEdi
 import { AnnotationProviderBase } from './annotationProvider';
 import { Annotations } from './annotations';
 import { FileAnnotationType } from './../configuration';
-import { RangeEndOfLineIndex } from '../constants';
 import { Container } from '../container';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { GitUri } from '../gitService';
@@ -49,7 +48,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
                 if (line.state === 'unchanged') continue;
 
-                const range = this.editor.document.validateRange(new Range(new Position(count, 0), new Position(count, RangeEndOfLineIndex)));
+                const range = this.editor.document.validateRange(new Range(new Position(count, 0), new Position(count, Number.MAX_SAFE_INTEGER)));
 
                 let message: MarkdownString | undefined = undefined;
 

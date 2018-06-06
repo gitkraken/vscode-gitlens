@@ -1,7 +1,6 @@
 'use strict';
 import { commands, Disposable } from 'vscode';
-import { CommandContext, setCommandContext } from './constants';
-import { extensionId } from './extension';
+import { CommandContext, extensionId, setCommandContext } from './constants';
 import { Logger } from './logger';
 
 export declare interface KeyCommand {

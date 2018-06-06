@@ -1,19 +1,13 @@
 'use strict';
 
-export const applicationInsightsKey = 'a9c302f8-6483-4d01-b92c-c159c799c679';
-export const extensionId = 'gitlens';
-export const extensionOutputChannelName = 'GitLens';
-export const extensionTerminalName = 'GitLens';
-export const qualifiedExtensionId = `eamodio.${extensionId}`;
-
+import { Logger } from './logger';
 import { Versions } from './system';
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
 import { CodeLensLanguageScope, CodeLensScopes, configuration, Configuration, HighlightLocations, IConfig, IMenuConfig, KeyMap, OutputLevel } from './configuration';
-import { CommandContext, GlobalState, setCommandContext } from './constants';
+import { CommandContext, extensionId, extensionQualifiedId, GlobalState, setCommandContext } from './constants';
 import { Commands, configureCommands } from './commands';
 import { Container } from './container';
 import { GitService } from './gitService';
-import { Logger } from './logger';
 import { Messages } from './messages';
 // import { Telemetry } from './telemetry';
 
@@ -26,7 +20,7 @@ export async function activate(context: ExtensionContext) {
 
     Logger.configure(context);
 
-    const gitlens = extensions.getExtension(qualifiedExtensionId)!;
+    const gitlens = extensions.getExtension(extensionQualifiedId)!;
     const gitlensVersion = gitlens.packageJSON.version;
 
     const enabled = workspace.getConfiguration('git', null!).get<boolean>('enabled', true);

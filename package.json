@@ -3252,8 +3252,8 @@
         "uglify-es": "3.3.9",
         "uglifyjs-webpack-plugin": "1.2.5",
         "vscode": "1.1.18",
-        "webpack": "4.10.2",
-        "webpack-cli": "3.0.1",
+        "webpack": "4.11.1",
+        "webpack-cli": "3.0.2",
         "webpack-node-externals": "1.7.2"
     }
 }

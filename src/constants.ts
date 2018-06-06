@@ -1,7 +1,11 @@
 'use strict';
 import { commands, TextDocument, TextEditor, window } from 'vscode';
 
-export const RangeEndOfLineIndex = 100000000;
+export const applicationInsightsKey = 'a9c302f8-6483-4d01-b92c-c159c799c679';
+export const extensionId = 'gitlens';
+export const extensionOutputChannelName = 'GitLens';
+export const extensionQualifiedId = `eamodio.${extensionId}`;
+export const extensionTerminalName = 'GitLens';
 
 export enum BuiltInCommands {
     CloseActiveEditor = 'workbench.action.closeActiveEditor',

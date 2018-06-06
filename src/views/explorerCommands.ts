@@ -1,8 +1,7 @@
 import { Arrays } from '../system';
 import { commands, Disposable, InputBoxOptions, Terminal, TextDocumentShowOptions, Uri, window } from 'vscode';
-import { CommandContext, setCommandContext } from '../constants';
+import { CommandContext, extensionTerminalName, setCommandContext } from '../constants';
 import { Container } from '../container';
-import { extensionTerminalName } from '../extension';
 import { BranchNode, ExplorerNode, TagNode } from '../views/gitExplorer';
 import { CommitFileNode, CommitNode, ExplorerRefNode, RemoteNode, StashFileNode, StashNode, StatusFileCommitsNode, StatusUpstreamNode } from './explorerNodes';
 import { Commands, DiffWithCommandArgs, DiffWithCommandArgsRevision, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, OpenFileInRemoteCommandArgs, OpenFileRevisionCommandArgs } from '../commands';

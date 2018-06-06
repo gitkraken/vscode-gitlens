@@ -4,9 +4,8 @@ export * from './ui/config';
 import { Functions } from './system';
 import { ConfigurationChangeEvent, ConfigurationTarget, Event, EventEmitter, ExtensionContext, Uri, workspace } from 'vscode';
 import { IConfig, KeyMap } from './ui/config';
-import { CommandContext, setCommandContext } from './constants';
+import { CommandContext, extensionId, setCommandContext } from './constants';
 import { Container } from './container';
-import { extensionId } from './extension';
 import { clearGravatarCache } from './gitService';
 
 const emptyConfig: any = new Proxy<any>({} as IConfig, {

@@ -3,7 +3,6 @@ import { Arrays, Iterables } from '../system';
 import { CancellationToken, Disposable, Hover, HoverProvider, languages, Position, Range, TextDocument, TextEditor, TextEditorDecorationType } from 'vscode';
 import { AnnotationProviderBase } from './annotationProvider';
 import { Annotations } from './annotations';
-import { RangeEndOfLineIndex } from '../constants';
 import { Container } from '../container';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { GitBlame, GitCommit, GitUri } from '../gitService';
@@ -75,7 +74,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         }
 
         const highlightDecorationRanges = Arrays.filterMap(blame.lines,
-            l => l.sha === sha ? this.editor.document.validateRange(new Range(l.line, 0, l.line, RangeEndOfLineIndex)) : undefined);
+            l => l.sha === sha ? this.editor.document.validateRange(new Range(l.line, 0, l.line, Number.MAX_SAFE_INTEGER)) : undefined);
 
         this.editor.setDecorations(this.highlightDecoration, highlightDecorationRanges);
     }
@@ -122,7 +121,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         }
 
         const message = Annotations.getHoverMessage(logCommit || commit, Container.config.defaultDateFormat, await Container.git.getRemotes(commit.repoPath), this.annotationType, this.editor.selection.active.line);
-        return new Hover(message, document.validateRange(new Range(position.line, 0, position.line, RangeEndOfLineIndex)));
+        return new Hover(message, document.validateRange(new Range(position.line, 0, position.line, Number.MAX_SAFE_INTEGER)));
     }
 
     async provideChangesHover(document: TextDocument, position: Position, token: CancellationToken): Promise<Hover | undefined> {
@@ -132,7 +131,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         const hover = await Annotations.changesHover(commit, position.line, await GitUri.fromUri(document.uri));
         if (hover.hoverMessage === undefined) return undefined;
 
-        return new Hover(hover.hoverMessage, document.validateRange(new Range(position.line, 0, position.line, RangeEndOfLineIndex)));
+        return new Hover(hover.hoverMessage, document.validateRange(new Range(position.line, 0, position.line, Number.MAX_SAFE_INTEGER)));
     }
 
     private async getCommitForHover(position: Position): Promise<GitCommit | undefined> {

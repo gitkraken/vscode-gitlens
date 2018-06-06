@@ -2,7 +2,7 @@
 import { ConfigurationChangeEvent, debug, DecorationRangeBehavior, DecorationRenderOptions, Disposable, Range, TextEditor, TextEditorDecorationType, window } from 'vscode';
 import { Annotations } from './annotations';
 import { configuration } from './../configuration';
-import { isTextEditor, RangeEndOfLineIndex } from './../constants';
+import { isTextEditor } from './../constants';
 import { Container } from './../container';
 import { LinesChangeEvent } from './../trackers/gitLineTracker';
 
@@ -191,7 +191,7 @@ export class LineAnnotationController extends Disposable {
             if (state === undefined || state.commit === undefined) continue;
 
             const decoration = Annotations.trailing(state.commit, cfg.format, cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat, scrollable);
-            decoration.range = editor.document.validateRange(new Range(l, RangeEndOfLineIndex, l, RangeEndOfLineIndex));
+            decoration.range = editor.document.validateRange(new Range(l, Number.MAX_SAFE_INTEGER, l, Number.MAX_SAFE_INTEGER));
             decorations.push(decoration);
         }
 
