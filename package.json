@@ -2408,28 +2408,33 @@
             ],
             "editor/title": [
                 {
-                    "command": "gitlens.openWorkingFile",
-                    "when": "gitlens:activeIsRevision && resourceScheme != git",
-                    "group": "navigation@1"
-                },
-                {
-                    "command": "gitlens.openWorkingFile",
-                    "when": "gitlens:activeIsRevision && resourceScheme == git && !isInDiffEditor",
-                    "group": "navigation@1"
-                },
-                {
                     "command": "gitlens.diffWithPrevious",
                     "when": "editorTextFocus && !isInDiffEditor && gitlens:activeIsTracked && config.gitlens.menus.editorGroup.compare",
-                    "group": "navigation@98"
+                    "group": "navigation@97"
                 },
                 {
                     "command": "gitlens.diffWithPreviousInDiff",
                     "when": "isInDiffEditor && gitlens:activeIsTracked && config.gitlens.menus.editorGroup.compare",
-                    "group": "navigation@98"
+                    "group": "navigation@97"
                 },
                 {
                     "command": "gitlens.diffWithNext",
                     "when": "editorTextFocus && gitlens:activeIsTracked && gitlens:activeIsTracked && gitlens:activeIsRevision && config.gitlens.menus.editorGroup.compare",
+                    "group": "navigation@98"
+                },
+                {
+                    "command": "gitlens.openWorkingFile",
+                    "when": "gitlens:activeIsRevision && resourceScheme != git",
+                    "group": "navigation@99"
+                },
+                {
+                    "command": "gitlens.openWorkingFile",
+                    "when": "!gitlens:activeIsRevision && resourceScheme != git && isInDiffEditor",
+                    "group": "navigation@99"
+                },
+                {
+                    "command": "gitlens.openWorkingFile",
+                    "when": "gitlens:activeIsRevision && resourceScheme == git && !isInDiffEditor",
                     "group": "navigation@99"
                 },
                 {
