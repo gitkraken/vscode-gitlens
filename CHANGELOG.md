@@ -7,9 +7,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [Unreleased]
 ### Added
 - Adds clipboard support for Linux without requiring any external dependencies &mdash; thanks to [PR #394](https://github.com/eamodio/vscode-gitlens/pull/394) by Cédric Malard ([@cmalard](https://github.com/cmalard))
+- Adds a select branch quick pick menu to the *Open File in Remote* command (`gitlens.openFileInRemote`) when the current branch has no upstream tracking branch &mdash; closes [#209](https://github.com/eamodio/vscode-gitlens/issues/209)
 
 ### Fixed
 - Fixes [#400](https://github.com/eamodio/vscode-gitlens/issues/400) - Reset TO commit also resets chosen one
+- Fixes [#399](https://github.com/eamodio/vscode-gitlens/issues/399) - "Open x in Remote" commands aren't always available
 - Fixes [#397](https://github.com/eamodio/vscode-gitlens/issues/397) - Error while opening the gitlens view using `Open View` command
 - Fixes [#391](https://github.com/eamodio/vscode-gitlens/issues/391) - GitLens adds some settings in settings.json
 - Fixes another case of [#343](https://github.com/eamodio/vscode-gitlens/issues/343) - Can't show blame when VSCode starts on branch without upstream &mdash; thanks to [PR #390](https://github.com/eamodio/vscode-gitlens/pull/390) by ryenus ([@ryenus](https://github.com/ryenus))

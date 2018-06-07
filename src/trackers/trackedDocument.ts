@@ -120,7 +120,7 @@ export class TrackedDocument<T> extends Disposable {
         setCommandContext(CommandContext.ActiveIsRevision, this.isRevision);
         setCommandContext(CommandContext.ActiveFileIsTracked, this.isTracked);
         setCommandContext(CommandContext.ActiveIsBlameable, this.isBlameable);
-        setCommandContext(CommandContext.ActiveHasRemote, this.hasRemotes);
+        setCommandContext(CommandContext.ActiveHasRemotes, this.hasRemotes);
     }
 
     async ensureInitialized() {
@@ -189,7 +189,7 @@ export class TrackedDocument<T> extends Disposable {
         }
 
         if (repo !== undefined) {
-            this._hasRemotes = await repo.hasRemote();
+            this._hasRemotes = await repo.hasRemotes();
         }
         else {
             this._hasRemotes = false;
@@ -201,7 +201,7 @@ export class TrackedDocument<T> extends Disposable {
             setCommandContext(CommandContext.ActiveIsRevision, this.isRevision);
             setCommandContext(CommandContext.ActiveFileIsTracked, this.isTracked);
             setCommandContext(CommandContext.ActiveIsBlameable, blameable);
-            setCommandContext(CommandContext.ActiveHasRemote, this.hasRemotes);
+            setCommandContext(CommandContext.ActiveHasRemotes, this.hasRemotes);
 
             if (!options.initializing && wasBlameable !== blameable) {
                 const e = { editor: active, document: this, blameable: blameable } as DocumentBlameStateChangeEvent<T>;

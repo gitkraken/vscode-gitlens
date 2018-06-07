@@ -249,14 +249,14 @@ export class Repository extends Disposable {
         return Container.git.getTags(this.path);
     }
 
-    async hasRemote(): Promise<boolean> {
-        const branch = await this.getBranch();
-        return branch !== undefined && branch.tracking !== undefined;
-    }
-
     async hasRemotes(): Promise<boolean> {
         const remotes = await this.getRemotes();
         return remotes !== undefined && remotes.length > 0;
+    }
+
+    async hasTrackingBranch(): Promise<boolean> {
+        const branch = await this.getBranch();
+        return branch !== undefined && branch.tracking !== undefined;
     }
 
     resume() {

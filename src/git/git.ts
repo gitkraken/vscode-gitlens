@@ -333,6 +333,15 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...params);
     }
 
+    static branch_contains(repoPath: string, ref: string, options: { remote: boolean } = { remote: false }) {
+        const params = ['branch', '--contains'];
+        if (options.remote) {
+            params.push('-r');
+        }
+
+        return gitCommand({ cwd: repoPath }, ...params, ref);
+    }
+
     static checkout(repoPath: string, fileName: string, sha: string) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 

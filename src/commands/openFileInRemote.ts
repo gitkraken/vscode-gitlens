@@ -1,10 +1,12 @@
 'use strict';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithBranch, isCommandViewContextWithCommit } from './common';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { OpenInRemoteCommandArgs } from './openInRemote';
+import { BranchesQuickPick, CommandQuickPickItem } from '../quickPicks/quickPicks';
 
 export interface OpenFileInRemoteCommandArgs {
     branch?: string;
@@ -39,7 +41,21 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 
         if (args.branch === undefined) {
             const branch = await Container.git.getBranch(gitUri.repoPath);
-            if (branch !== undefined) {
+            if (branch === undefined || branch.tracking === undefined) {
+                const branches = (await Container.git.getBranches(gitUri.repoPath)).filter(b => b.tracking !== undefined);
+                if (branches.length > 1) {
+                    const pick = await BranchesQuickPick.show(branches, `Open ${gitUri.getRelativePath()} in remote for which branch${GlyphChars.Ellipsis}`);
+                    if (pick === undefined) return undefined;
+
+                    if (pick instanceof CommandQuickPickItem) return undefined;
+
+                    args.branch = pick.branch.name;
+                }
+                else if (branches.length === 1) {
+                    args.branch = branches[0].name;
+                }
+            }
+            else {
                 args.branch = branch.name;
             }
         }
@@ -53,7 +69,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
             return commands.executeCommand(Commands.OpenInRemote, uri, {
                 resource: {
                     type: gitUri.sha === undefined ? 'file' : 'revision',
-                    branch: args.branch,
+                    branch: args.branch || 'HEAD',
                     fileName: gitUri.getRelativePath(),
                     range: range,
                     sha: gitUri.sha

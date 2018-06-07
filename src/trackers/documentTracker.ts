@@ -91,7 +91,7 @@ export class DocumentTracker<T> extends Disposable {
             setCommandContext(CommandContext.ActiveIsRevision, false);
             setCommandContext(CommandContext.ActiveFileIsTracked, false);
             setCommandContext(CommandContext.ActiveIsBlameable, false);
-            setCommandContext(CommandContext.ActiveHasRemote, false);
+            setCommandContext(CommandContext.ActiveHasRemotes, false);
 
             return;
         }

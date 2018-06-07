@@ -2068,19 +2068,19 @@
                 },
                 {
                     "command": "gitlens.openBranchesInRemote",
-                    "when": "gitlens:activeHasRemote"
+                    "when": "gitlens:hasRemotes"
                 },
                 {
                     "command": "gitlens.openBranchInRemote",
-                    "when": "gitlens:activeHasRemote"
+                    "when": "gitlens:hasRemotes"
                 },
                 {
                     "command": "gitlens.openCommitInRemote",
-                    "when": "gitlens:activeIsBlameable && gitlens:activeHasRemote"
+                    "when": "gitlens:activeIsBlameable && gitlens:activeHasRemotes"
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:activeIsTracked && gitlens:activeHasRemote"
+                    "when": "gitlens:activeIsTracked && gitlens:activeHasRemotes"
                 },
                 {
                     "command": "gitlens.openFileRevision",
@@ -2088,7 +2088,7 @@
                 },
                 {
                     "command": "gitlens.openRepoInRemote",
-                    "when": "gitlens:activeHasRemote"
+                    "when": "gitlens:hasRemotes"
                 },
                 {
                     "command": "gitlens.openWorkingFile",
@@ -2372,12 +2372,12 @@
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "editorTextFocus && gitlens:activeHasRemote && config.gitlens.menus.editor.remote",
+                    "when": "editorTextFocus && gitlens:activeHasRemotes && config.gitlens.menus.editor.remote",
                     "group": "1_gitlens_1@1"
                 },
                 {
                     "command": "gitlens.openCommitInRemote",
-                    "when": "editorTextFocus && gitlens:activeHasRemote && config.gitlens.menus.editor.remote",
+                    "when": "editorTextFocus && gitlens:activeHasRemotes && config.gitlens.menus.editor.remote",
                     "group": "1_gitlens_1@2"
                 },
                 {
@@ -2450,7 +2450,7 @@
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && gitlens:activeHasRemote && config.gitlens.menus.editorGroup.remote",
+                    "when": "gitlens:enabled && gitlens:activeHasRemotes && config.gitlens.menus.editorGroup.remote",
                     "group": "4_gitlens"
                 },
                 {
@@ -2462,7 +2462,7 @@
             "editor/title/context": [
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && gitlens:activeHasRemote && config.gitlens.menus.editorTab.remote",
+                    "when": "gitlens:enabled && gitlens:activeHasRemotes && config.gitlens.menus.editorTab.remote",
                     "group": "2_files@100"
                 },
                 {

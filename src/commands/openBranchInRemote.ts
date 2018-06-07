@@ -41,15 +41,18 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
             if (args.branch === undefined) {
                 args = { ...args };
 
-                const branches = await Container.git.getBranches(repoPath);
+                const branches = (await Container.git.getBranches(repoPath)).filter(b => b.tracking !== undefined);
+                if (branches.length > 1) {
+                    const pick = await BranchesQuickPick.show(branches, `Open which branch in remote${GlyphChars.Ellipsis}`);
+                    if (pick === undefined) return undefined;
 
-                const pick = await BranchesQuickPick.show(branches, `Open which branch in remote${GlyphChars.Ellipsis}`);
-                if (pick === undefined) return undefined;
+                    if (pick instanceof CommandQuickPickItem) return undefined;
 
-                if (pick instanceof CommandQuickPickItem) return undefined;
-
-                args.branch = pick.branch.name;
-                if (args.branch === undefined) return undefined;
+                    args.branch = pick.branch.name;
+                }
+                else if (branches.length === 1) {
+                    args.branch = branches[0].name;
+                }
             }
 
             const remotes = await Container.git.getRemotes(repoPath);
@@ -57,7 +60,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
             return commands.executeCommand(Commands.OpenInRemote, uri, {
                 resource: {
                     type: 'branch',
-                    branch: args.branch
+                    branch: args.branch || 'HEAD'
                 },
                 remote: args.remote,
                 remotes
