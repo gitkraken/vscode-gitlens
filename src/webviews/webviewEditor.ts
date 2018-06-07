@@ -64,7 +64,7 @@ export abstract class WebviewEditor<TBootstrap> implements Disposable {
                     break;
 
                 default:
-                    this.show();
+                    void this.show();
                     break;
             }
         }

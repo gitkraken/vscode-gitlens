@@ -92,7 +92,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
                 if (args.ref1 === undefined) return undefined;
             }
 
-            Container.git.openDirectoryDiff(repoPath, args.ref1, args.ref2);
+            await Container.git.openDirectoryDiff(repoPath, args.ref1, args.ref2);
             return undefined;
         }
         catch (ex) {

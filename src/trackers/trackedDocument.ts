@@ -72,7 +72,7 @@ export class TrackedDocument<T> implements Disposable {
 
         // Reset any cached state
         this.reset('repository');
-        this.update();
+        void this.update();
     }
 
     private _forceDirtyStateChangeOnNextDocumentChange: boolean = false;
@@ -150,7 +150,7 @@ export class TrackedDocument<T> implements Disposable {
         this._blameFailed = true;
 
         if (wasBlameable && isActiveDocument(this._document)) {
-            this.update({ forceBlameChange: true });
+            void this.update({ forceBlameChange: true });
         }
     }
 

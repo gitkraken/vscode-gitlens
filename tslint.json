@@ -17,6 +17,7 @@
         "no-default-export": true,
         "no-duplicate-variable": true,
         "no-eval": true,
+        "no-floating-promises": true,
         "no-inferrable-types": [true, "ignore-params", "ignore-properties"],
         "no-internal-module": true,
         "no-irregular-whitespace": true,

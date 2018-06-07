@@ -60,7 +60,7 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
             window.onDidChangeVisibleTextEditors(Functions.debounce(this.onVisibleEditorsChanged, 500), this),
             configuration.onDidChange(this.onConfigurationChanged, this)
         );
-        this.onConfigurationChanged(configuration.initializingChangeEvent);
+        void this.onConfigurationChanged(configuration.initializingChangeEvent);
     }
 
     dispose() {
@@ -90,10 +90,10 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
 
         if (initializing || configuration.changed(e, configuration.name('historyExplorer')('enabled').value)) {
             if (this.config.enabled) {
-                this.undock(!initializing, !configuration.changed(e, configuration.name('mode').value));
+                void this.undock(!initializing, !configuration.changed(e, configuration.name('mode').value));
             }
             else {
-                this.dock(!initializing, !configuration.changed(e, configuration.name('mode').value));
+                void this.dock(!initializing, !configuration.changed(e, configuration.name('mode').value));
             }
         }
 
@@ -114,7 +114,7 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
         }
 
         if (!initializing && this._root !== undefined) {
-            this.refresh(RefreshReason.ConfigurationChanged);
+            void this.refresh(RefreshReason.ConfigurationChanged);
         }
     }
 
@@ -122,7 +122,7 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
         const root = await this.getRootNode(editor);
         if (!this.setRoot(root)) return;
 
-        this.refresh(RefreshReason.ActiveEditorChanged, root);
+        void this.refresh(RefreshReason.ActiveEditorChanged, root);
     }
 
     private onVisibleEditorsChanged(editors: TextEditor[]) {
@@ -132,7 +132,7 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
         if (editors.length === 0 || !editors.some(e => e.document && Container.git.isTrackable(e.document.uri))) {
             this.clearRoot();
 
-            this.refresh(RefreshReason.VisibleEditorsChanged);
+            void this.refresh(RefreshReason.VisibleEditorsChanged);
         }
     }
 

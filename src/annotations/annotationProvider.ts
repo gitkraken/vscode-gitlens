@@ -74,7 +74,7 @@ export abstract class AnnotationProviderBase implements Disposable {
 
     protected additionalDecorations: { decoration: TextEditorDecorationType; ranges: Range[] }[] | undefined;
 
-    async clear() {
+    clear() {
         this.status = undefined;
         if (this.editor === undefined) return;
 
@@ -110,10 +110,10 @@ export abstract class AnnotationProviderBase implements Disposable {
                   decoration: TextEditorDecorationType;
                   highlightDecoration: TextEditorDecorationType | undefined;
               }
-          ) => Promise<void>)
+          ) => void)
         | undefined;
 
-    async reset(changes?: {
+    reset(changes?: {
         decoration: TextEditorDecorationType;
         highlightDecoration: TextEditorDecorationType | undefined;
     }) {

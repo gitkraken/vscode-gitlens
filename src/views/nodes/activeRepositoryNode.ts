@@ -20,7 +20,7 @@ export class ActiveRepositoryNode extends ExplorerNode {
             window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this)
         );
 
-        this.onActiveEditorChanged(window.activeTextEditor);
+        void this.onActiveEditorChanged(window.activeTextEditor);
     }
 
     dispose() {

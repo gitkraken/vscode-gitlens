@@ -128,7 +128,7 @@ export class ExternalDiffCommand extends Command {
             }
 
             for (const file of args.files) {
-                Container.git.openDiffTool(repoPath, file.uri, file.staged, tool);
+                void Container.git.openDiffTool(repoPath, file.uri, file.staged, tool);
             }
 
             return undefined;

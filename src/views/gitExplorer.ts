@@ -111,7 +111,7 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
             window.onDidChangeVisibleTextEditors(Functions.debounce(this.onVisibleEditorsChanged, 500), this),
             configuration.onDidChange(this.onConfigurationChanged, this)
         );
-        this.onConfigurationChanged(configuration.initializingChangeEvent);
+        void this.onConfigurationChanged(configuration.initializingChangeEvent);
     }
 
     dispose() {
@@ -140,7 +140,7 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         }
 
         if (initializing || configuration.changed(e, configuration.name('gitExplorer')('autoRefresh').value)) {
-            this.setAutoRefresh(Container.config.gitExplorer.autoRefresh);
+            void this.setAutoRefresh(Container.config.gitExplorer.autoRefresh);
         }
 
         // if (!initializing && configuration.changed(e, configuration.name('gitExplorer')('undockHistory').value)) {
@@ -185,7 +185,10 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
             return;
         }
 
-        this.reset(view!, configuration.changed(e, configuration.name('advanced')('fileHistoryFollowsRenames').value));
+        void this.reset(
+            view!,
+            configuration.changed(e, configuration.name('advanced')('fileHistoryFollowsRenames').value)
+        );
     }
 
     private async onActiveEditorChanged(editor: TextEditor | undefined) {
@@ -194,7 +197,7 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         const root = await this.getRootNode(editor);
         if (!this.setRoot(root)) return;
 
-        this.refresh(RefreshReason.ActiveEditorChanged, root);
+        void this.refresh(RefreshReason.ActiveEditorChanged, root);
     }
 
     private onRepositoriesChanged() {
@@ -204,7 +207,7 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
 
         Logger.log(`GitExplorer[view=${this.view}].onRepositoriesChanged`);
 
-        this.refresh(RefreshReason.RepoChanged);
+        void this.refresh(RefreshReason.RepoChanged);
     }
 
     private onVisibleEditorsChanged(editors: TextEditor[]) {
@@ -214,7 +217,7 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         if (editors.length === 0 || !editors.some(e => e.document && Container.git.isTrackable(e.document.uri))) {
             this.clearRoot();
 
-            this.refresh(RefreshReason.VisibleEditorsChanged);
+            void this.refresh(RefreshReason.VisibleEditorsChanged);
         }
     }
 
@@ -349,7 +352,7 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         setCommandContext(CommandContext.GitExplorerAutoRefresh, enabled && workspaceEnabled);
 
         if (toggled) {
-            this.refresh(RefreshReason.AutoRefreshChanged);
+            void this.refresh(RefreshReason.AutoRefreshChanged);
         }
     }
 

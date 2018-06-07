@@ -17,12 +17,12 @@ export class ActiveEditorTracker implements Disposable {
     }
 
     async awaitClose(timeout: number = 500): Promise<TextEditor | undefined> {
-        this.close();
+        void this.close();
         return this.wait(timeout);
     }
 
     async awaitNext(timeout: number = 500): Promise<TextEditor | undefined> {
-        this.next();
+        void this.next();
         return this.wait(timeout);
     }
 

@@ -405,7 +405,7 @@ export class CommitQuickPick {
             }${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getShortMessage()}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
-                scope.setKeyCommand('right', item);
+                void scope.setKeyCommand('right', item);
                 if (typeof item.onDidSelect === 'function') {
                     item.onDidSelect();
                 }

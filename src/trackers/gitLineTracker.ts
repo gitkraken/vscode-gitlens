@@ -31,7 +31,7 @@ export class GitLineTracker extends LineTracker<GitLineState> {
             updated = await this.updateState(e.lines, e.editor);
         }
 
-        super.fireLinesChanged(updated ? e : { ...e, lines: undefined });
+        return super.fireLinesChanged(updated ? e : { ...e, lines: undefined });
     }
 
     private onBlameStateChanged(e: DocumentBlameStateChangeEvent<GitDocumentState>) {
@@ -56,14 +56,14 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 
     private _suspended = false;
 
-    private async resume(options: { force?: boolean } = {}) {
+    private resume(options: { force?: boolean } = {}) {
         if (!options.force && !this._suspended) return;
 
         this._suspended = false;
         this.trigger('editor');
     }
 
-    private async suspend(options: { force?: boolean } = {}) {
+    private suspend(options: { force?: boolean } = {}) {
         if (!options.force && this._suspended) return;
 
         this._suspended = true;

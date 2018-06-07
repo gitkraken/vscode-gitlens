@@ -77,7 +77,7 @@ export class FileAnnotationController implements Disposable {
     }
 
     dispose() {
-        this.clearAll();
+        void this.clearAll();
 
         Decorations.blameAnnotation && Decorations.blameAnnotation.dispose();
         Decorations.blameHighlight && Decorations.blameHighlight.dispose();
@@ -155,21 +155,21 @@ export class FileAnnotationController implements Disposable {
         if (initializing || configuration.changed(e, configuration.name('blame')('toggleMode').value)) {
             this._toggleModes.set(FileAnnotationType.Blame, cfg.blame.toggleMode);
             if (!initializing && cfg.blame.toggleMode === AnnotationsToggleMode.File) {
-                this.clearAll();
+                void this.clearAll();
             }
         }
 
         if (initializing || configuration.changed(e, configuration.name('heatmap')('toggleMode').value)) {
             this._toggleModes.set(FileAnnotationType.Heatmap, cfg.heatmap.toggleMode);
             if (!initializing && cfg.heatmap.toggleMode === AnnotationsToggleMode.File) {
-                this.clearAll();
+                void this.clearAll();
             }
         }
 
         if (initializing || configuration.changed(e, configuration.name('recentChanges')('toggleMode').value)) {
             this._toggleModes.set(FileAnnotationType.RecentChanges, cfg.recentChanges.toggleMode);
             if (!initializing && cfg.recentChanges.toggleMode === AnnotationsToggleMode.File) {
-                this.clearAll();
+                void this.clearAll();
             }
         }
 
@@ -198,7 +198,7 @@ export class FileAnnotationController implements Disposable {
                     });
                 }
                 else {
-                    this.show(provider.editor, FileAnnotationType.Heatmap);
+                    void this.show(provider.editor, FileAnnotationType.Heatmap);
                 }
             }
         }
@@ -219,11 +219,11 @@ export class FileAnnotationController implements Disposable {
         const provider = this.getProvider(editor);
         if (provider === undefined) {
             setCommandContext(CommandContext.AnnotationStatus, undefined);
-            this.detachKeyboardHook();
+            void this.detachKeyboardHook();
         }
         else {
             setCommandContext(CommandContext.AnnotationStatus, provider.status);
-            this.attachKeyboardHook();
+            void this.attachKeyboardHook();
         }
     }
 
@@ -234,14 +234,14 @@ export class FileAnnotationController implements Disposable {
         const editor = window.activeTextEditor;
         if (editor === undefined) return;
 
-        this.clear(editor, AnnotationClearReason.BlameabilityChanged);
+        void this.clear(editor, AnnotationClearReason.BlameabilityChanged);
     }
 
     private onDirtyStateChanged(e: DocumentDirtyStateChangeEvent<GitDocumentState>) {
         for (const [key, p] of this._annotationProviders) {
             if (!e.document.is(p.document)) continue;
 
-            this.clearCore(key, AnnotationClearReason.DocumentChanged);
+            void this.clearCore(key, AnnotationClearReason.DocumentChanged);
         }
     }
 
@@ -251,7 +251,7 @@ export class FileAnnotationController implements Disposable {
         for (const [key, p] of this._annotationProviders) {
             if (p.document !== document) continue;
 
-            this.clearCore(key, AnnotationClearReason.DocumentClosed);
+            void this.clearCore(key, AnnotationClearReason.DocumentClosed);
         }
     }
 
@@ -266,12 +266,12 @@ export class FileAnnotationController implements Disposable {
             );
             if (fuzzyProvider == null) return;
 
-            this.clearCore(fuzzyProvider.correlationKey, AnnotationClearReason.ColumnChanged);
+            void this.clearCore(fuzzyProvider.correlationKey, AnnotationClearReason.ColumnChanged);
 
             return;
         }
 
-        provider.restore(e.textEditor);
+        void provider.restore(e.textEditor);
     }
 
     private onVisibleTextEditorsChanged(editors: TextEditor[]) {
@@ -280,7 +280,7 @@ export class FileAnnotationController implements Disposable {
             provider = this.getProvider(e);
             if (provider === undefined) continue;
 
-            provider.restore(e);
+            void provider.restore(e);
         }
     }
 
@@ -344,7 +344,7 @@ export class FileAnnotationController implements Disposable {
                 for (const e of window.visibleTextEditors) {
                     if (e === editor) continue;
 
-                    this.show(e, type);
+                    void this.show(e, type);
                 }
             }
         }
@@ -495,7 +495,7 @@ export class FileAnnotationController implements Disposable {
         }
 
         // Allows pressing escape to exit the annotations
-        this.attachKeyboardHook();
+        await this.attachKeyboardHook();
 
         const trackedDocument = await Container.tracker.getOrAdd(editor.document);
 

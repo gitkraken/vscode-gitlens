@@ -412,7 +412,7 @@ export class CommitFileQuickPick {
             } ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getShortMessage()}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
-                scope.setKeyCommand('right', item as KeyCommand);
+                void scope.setKeyCommand('right', item as KeyCommand);
             }
         } as QuickPickOptions);
 

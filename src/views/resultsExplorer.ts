@@ -70,7 +70,7 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode>, Disposab
         setCommandContext(CommandContext.ResultsExplorerKeepResults, this.keepResults);
 
         Container.context.subscriptions.push(configuration.onDidChange(this.onConfigurationChanged, this));
-        this.onConfigurationChanged(configuration.initializingChangeEvent);
+        void this.onConfigurationChanged(configuration.initializingChangeEvent);
     }
 
     dispose() {
@@ -106,7 +106,7 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode>, Disposab
         }
 
         if (!initializing && this._roots.length !== 0) {
-            this.refresh(RefreshReason.ConfigurationChanged);
+            void this.refresh(RefreshReason.ConfigurationChanged);
         }
     }
 
@@ -191,7 +191,7 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode>, Disposab
     }
 
     showComparisonInResults(repoPath: string, ref1: string | NamedRef, ref2: string | NamedRef) {
-        this.showResults(
+        void this.showResults(
             this.addResults(
                 new ComparisonResultsNode(
                     repoPath,
@@ -204,7 +204,7 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode>, Disposab
     }
 
     showCommitInResults(commit: GitLogCommit) {
-        this.showResults(this.addResults(new CommitResultsNode(commit, this)));
+        void this.showResults(this.addResults(new CommitResultsNode(commit, this)));
     }
 
     showCommitsInResults(
@@ -244,7 +244,7 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode>, Disposab
             })} for ${resultsLabel.label}${repository}`;
         };
 
-        this.showResults(
+        void this.showResults(
             this.addResults(
                 new CommitsResultsNode(
                     results.repoPath,
@@ -282,7 +282,7 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode>, Disposab
         this._roots.forEach(r => r.dispose());
         this._roots = [];
 
-        this.refresh();
+        void this.refresh();
     }
 
     private clearResultsNode(node: ExplorerNode) {
@@ -293,7 +293,7 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode>, Disposab
 
         node.dispose();
 
-        this.refresh();
+        void this.refresh();
     }
 
     private setFilesLayout(layout: ExplorerFilesLayout) {

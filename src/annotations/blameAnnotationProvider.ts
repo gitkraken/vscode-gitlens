@@ -41,7 +41,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         }
     }
 
-    async clear() {
+    clear() {
         this._hoverProviderDisposable && this._hoverProviderDisposable.dispose();
         super.clear();
     }
@@ -56,7 +56,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
                 : Container.git.getBlameForFile(this._uri);
         }
 
-        super.onReset(changes);
+        return super.onReset(changes);
     }
 
     async selection(shaOrLine?: string | number, blame?: GitBlame) {

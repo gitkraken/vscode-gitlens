@@ -24,7 +24,7 @@ export function getQuickPickIgnoreFocusOut() {
 
 export function showQuickPickProgress(message: string, mapping?: KeyMapping): CancellationTokenSource {
     const cancellation = new CancellationTokenSource();
-    _showQuickPickProgress(message, cancellation, mapping);
+    void _showQuickPickProgress(message, cancellation, mapping);
     return cancellation;
 }
 

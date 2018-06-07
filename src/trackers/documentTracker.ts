@@ -174,7 +174,7 @@ export class DocumentTracker<T> implements Disposable {
     private onTextDocumentSaved(document: TextDocument) {
         let doc = this._documentMap.get(document);
         if (doc !== undefined) {
-            doc.update({ forceBlameChange: true });
+            void doc.update({ forceBlameChange: true });
 
             return;
         }

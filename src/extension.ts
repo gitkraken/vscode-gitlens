@@ -38,7 +38,7 @@ export async function activate(context: ExtensionContext) {
         Logger.log(`GitLens(v${gitlensVersion}) was NOT activated -- "git.enabled": false`);
         setCommandContext(CommandContext.Enabled, enabled);
 
-        Messages.showGitDisabledErrorMessage();
+        void Messages.showGitDisabledErrorMessage();
 
         return;
     }
@@ -92,8 +92,8 @@ export async function activate(context: ExtensionContext) {
     // Telemetry.setContext(telemetryContext);
 
     notifyOnUnsupportedGitVersion(gitVersion);
-    showWelcomePage(gitlensVersion, previousVersion);
-    Messages.showKeyBindingsInfoMessage();
+    void showWelcomePage(gitlensVersion, previousVersion);
+    void Messages.showKeyBindingsInfoMessage();
 
     context.globalState.update(GlobalState.GitLensVersion, gitlensVersion);
 
@@ -502,7 +502,7 @@ function notifyOnUnsupportedGitVersion(version: string) {
     if (GitService.compareGitVersion('2.2.0') !== -1) return;
 
     // If git is less than v2.2.0
-    Messages.showGitVersionUnsupportedErrorMessage(version);
+    void Messages.showGitVersionUnsupportedErrorMessage(version);
 }
 
 async function showWelcomePage(version: string, previousVersion: string | undefined) {

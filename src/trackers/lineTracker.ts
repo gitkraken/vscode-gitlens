@@ -122,7 +122,7 @@ export class LineTracker<T> implements Disposable {
                     this._linesChangedDebounced.cancel();
                 }
 
-                this.fireLinesChanged(e);
+                void this.fireLinesChanged(e);
             });
 
             return;
@@ -137,7 +137,7 @@ export class LineTracker<T> implements Disposable {
                         return;
                     }
 
-                    this.fireLinesChanged(e);
+                    void this.fireLinesChanged(e);
                 },
                 250,
                 { track: true }
@@ -146,7 +146,7 @@ export class LineTracker<T> implements Disposable {
 
         // If we have no pending moves, then fire an immediate pending event, and defer the real event
         if (!this._linesChangedDebounced.pending!()) {
-            this.fireLinesChanged({ ...e, pending: true });
+            void this.fireLinesChanged({ ...e, pending: true });
         }
 
         this._linesChangedDebounced(e);

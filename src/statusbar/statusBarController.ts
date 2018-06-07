@@ -124,7 +124,7 @@ export class StatusBarController implements Disposable {
         }
     }
 
-    async clearBlame() {
+    clearBlame() {
         if (this._blameStatusBarItem !== undefined) {
             this._blameStatusBarItem.hide();
         }

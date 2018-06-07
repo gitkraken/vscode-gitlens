@@ -64,7 +64,7 @@ export class LineAnnotationController implements Disposable {
             }
         }
 
-        this.refresh(window.activeTextEditor);
+        void this.refresh(window.activeTextEditor);
     }
 
     private _suspended?: 'debugging' | 'user';
@@ -107,7 +107,7 @@ export class LineAnnotationController implements Disposable {
 
     private onActiveLinesChanged(e: LinesChangeEvent) {
         if (!e.pending && e.lines !== undefined) {
-            this.refresh(e.editor);
+            void this.refresh(e.editor);
 
             return;
         }
@@ -121,7 +121,7 @@ export class LineAnnotationController implements Disposable {
         }
 
         if (this.suspend('debugging')) {
-            this.refresh(window.activeTextEditor);
+            void this.refresh(window.activeTextEditor);
         }
     }
 
@@ -132,15 +132,15 @@ export class LineAnnotationController implements Disposable {
         }
 
         if (this.resume('debugging')) {
-            this.refresh(window.activeTextEditor);
+            void this.refresh(window.activeTextEditor);
         }
     }
 
     private onFileAnnotationsToggled() {
-        this.refresh(window.activeTextEditor);
+        void this.refresh(window.activeTextEditor);
     }
 
-    async clear(editor: TextEditor | undefined) {
+    clear(editor: TextEditor | undefined) {
         if (this._editor !== editor && this._editor !== undefined) {
             this.clearAnnotations(this._editor);
         }

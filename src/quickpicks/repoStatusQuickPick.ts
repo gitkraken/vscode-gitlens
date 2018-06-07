@@ -467,7 +467,7 @@ export class RepoStatusQuickPick {
             }`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
-                scope.setKeyCommand('right', item);
+                void scope.setKeyCommand('right', item);
             }
         } as QuickPickOptions);
 
