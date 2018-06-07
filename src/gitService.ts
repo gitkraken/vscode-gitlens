@@ -18,6 +18,10 @@ export * from './git/formatters/formatters';
 export { getNameFromRemoteResource, RemoteProvider, RemoteResource, RemoteResourceType } from './git/remotes/provider';
 export { RemoteProviderFactory } from './git/remotes/factory';
 
+const RepoSearchWarnings = {
+    doesNotExist: /no such file or directory/i
+};
+
 export enum GitRepoSearchBy {
     Author = 'author',
     ChangedOccurrences = 'changed-occurrences',
@@ -202,7 +206,20 @@ export class GitService extends Disposable {
             return accumulator;
         }, Object.create(null) as any);
 
-        const paths = await this.repositorySearchCore(folderUri.fsPath, depth, excludes);
+        let paths;
+        try {
+            paths = await this.repositorySearchCore(folderUri.fsPath, depth, excludes);
+        }
+        catch (ex) {
+            if (RepoSearchWarnings.doesNotExist.test(ex.message || '')) {
+                Logger.log(`Searching for repositories (depth=${depth}) in '${folderUri.fsPath}' FAILED${ex.message ? ` (${ex.message})` : ''}`);
+            }
+            else {
+                Logger.error(ex, `Searching for repositories (depth=${depth}) in '${folderUri.fsPath}' FAILED`);
+            }
+
+            return repositories;
+        }
 
         for (let p of paths) {
             p = path.dirname(p);
