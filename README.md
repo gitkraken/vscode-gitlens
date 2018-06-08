@@ -77,6 +77,7 @@
 - Fixes [#391](https://github.com/eamodio/vscode-gitlens/issues/391) - GitLens adds some settings in settings.json
 - Fixes another case of [#343](https://github.com/eamodio/vscode-gitlens/issues/343) - Can't show blame when VSCode starts on branch without upstream &mdash; thanks to [PR #390](https://github.com/eamodio/vscode-gitlens/pull/390) by ryenus ([@ryenus](https://github.com/ryenus))
 - Fixes [#392](https://github.com/eamodio/vscode-gitlens/issues/392) - unable to contribute if default script shell is sh &mdash; thanks to [PR #393](https://github.com/eamodio/vscode-gitlens/pull/393) by Cédric Malard ([@cmalard](https://github.com/cmalard))
+- Fixes more instances of [#295](https://github.com/eamodio/vscode-gitlens/issues/295) and [#318](https://github.com/eamodio/vscode-gitlens/issues/318) - Any error encountered during the search for repositories could cause GitLens to die
 - Fixes issue with the `chorded` keyboard shortcut for the *Compare File with Previous Revision* command (`gitlens.diffWithPreviousInDiff`) &mdash; from [#395](https://github.com/eamodio/vscode-gitlens/issues/395)
 - Fixes *bronze* typo thanks to [PR #361](https://github.com/eamodio/vscode-gitlens/pull/361) by Cory Forsyth ([@bantic](https://github.com/bantic))
 - Fixes *individually* typo thanks to [PR #364](https://github.com/eamodio/vscode-gitlens/pull/364) by Brett Cannon ([@brettcannon](https://github.com/brettcannon))

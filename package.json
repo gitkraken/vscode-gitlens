@@ -1,17 +1,28 @@
 {
     "name": "gitlens",
-    "version": "8.3.4",
+    "displayName": "GitLens \u2014 Git supercharged",
+    "description": "Supercharge the Git capabilities built into Visual Studio Code \u2014 Visualize code authorship at a glance via Git blame annotations and code lens, seamlessly navigate and explore Git repositories, gain valuable insights via powerful comparison commands, and so much more",
+    "version": "8.3.5",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
     },
     "publisher": "eamodio",
+    "license": "SEE LICENSE IN LICENSE",
+    "homepage": "https://github.com/eamodio/vscode-gitlens/blob/master/README.md",
+    "bugs": {
+        "url": "https://github.com/eamodio/vscode-gitlens/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/eamodio/vscode-gitlens.git"
+    },
     "engines": {
         "vscode": "^1.23.0"
     },
-    "license": "SEE LICENSE IN LICENSE",
-    "displayName": "GitLens \u2014 Git supercharged",
-    "description": "Supercharge the Git capabilities built into Visual Studio Code \u2014 Visualize code authorship at a glance via Git blame annotations and code lens, seamlessly navigate and explore Git repositories, gain valuable insights via powerful comparison commands, and so much more",
+    "main": "./out/extension",
+    "icon": "images/gitlens-icon.png",
+    "preview": false,
     "badges": [
         {
             "url": "https://img.shields.io/badge/vscode--dev--community-gitlens-blue.svg?logo=slack",
@@ -22,6 +33,10 @@
     "categories": [
         "Other"
     ],
+    "galleryBanner": {
+        "color": "#8647ae",
+        "theme": "dark"
+    },
     "keywords": [
         "gitlens",
         "git",
@@ -30,21 +45,6 @@
         "annotation",
         "multi-root ready"
     ],
-    "galleryBanner": {
-        "color": "#8647ae",
-        "theme": "dark"
-    },
-    "icon": "images/gitlens-icon.png",
-    "preview": false,
-    "homepage": "https://github.com/eamodio/vscode-gitlens/blob/master/README.md",
-    "bugs": {
-        "url": "https://github.com/eamodio/vscode-gitlens/issues"
-    },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/eamodio/vscode-gitlens.git"
-    },
-    "main": "./out/extension",
     "activationEvents": [
         "*"
     ],
