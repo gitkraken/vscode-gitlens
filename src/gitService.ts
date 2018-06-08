@@ -1424,7 +1424,6 @@ export class GitService extends Disposable {
         if (options.ref === GitService.deletedSha) return false;
 
         let ref = options.ref;
-
         let cacheKey: string;
         let fileName: string;
         if (typeof fileNameOrUri === 'string') {
@@ -1444,19 +1443,32 @@ export class GitService extends Disposable {
             cacheKey += `:${ref}`;
         }
 
-        Logger.log(`isTracked('${fileName}', '${repoPath}', '${ref}')`);
+        Logger.log(`isTracked('${fileName}', '${repoPath}'${ref !== undefined ? `, '${ref}'` : ''})`);
 
         let tracked = this._trackedCache.get(cacheKey);
-        if (tracked !== undefined) return await tracked;
+        try {
+            if (tracked !== undefined) {
+                tracked = await tracked;
 
-        tracked = this.isTrackedCore(fileName, repoPath === undefined ? '' : repoPath, ref);
-        if (options.skipCacheUpdate) return tracked;
+                return tracked;
+            }
 
-        this._trackedCache.set(cacheKey, tracked);
-        tracked = await tracked;
-        this._trackedCache.set(cacheKey, tracked);
+            tracked = this.isTrackedCore(fileName, repoPath === undefined ? '' : repoPath, ref);
+            if (options.skipCacheUpdate) {
+                tracked = await tracked;
 
-        return tracked;
+                return tracked;
+            }
+
+            this._trackedCache.set(cacheKey, tracked);
+            tracked = await tracked;
+            this._trackedCache.set(cacheKey, tracked);
+
+            return tracked;
+        }
+        finally {
+            Logger.log(`isTracked('${fileName}', '${repoPath}'${ref !== undefined ? `, '${ref}'` : ''}) = ${tracked}`);
+        }
     }
 
     private async isTrackedCore(fileName: string, repoPath: string, ref?: string) {
