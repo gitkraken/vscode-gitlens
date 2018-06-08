@@ -37,7 +37,7 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
             if (args.remotes.length === 1) {
                 this.ensureRemoteBranchName(args);
                 const command = new OpenRemoteCommandQuickPickItem(args.remotes[0], args.resource);
-                return command.execute();
+                return await command.execute();
             }
 
             let placeHolder = '';
@@ -78,13 +78,13 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
 
             if (args.remotes.length === 1) {
                 const command = new OpenRemoteCommandQuickPickItem(args.remotes[0], args.resource);
-                return command.execute();
+                return await command.execute();
             }
 
             const pick = await RemotesQuickPick.show(args.remotes, placeHolder, args.resource, args.goBackCommand);
             if (pick === undefined) return undefined;
 
-            return pick.execute();
+            return await pick.execute();
 
         }
         catch (ex) {
