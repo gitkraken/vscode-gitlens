@@ -8,6 +8,7 @@ import { Commands, DiffWithCommandArgs, DiffWithCommandArgsRevision, DiffWithPre
 import { GitService, GitUri } from '../gitService';
 import { RepositoryNode } from './repositoryNode';
 import { StatusNode } from './statusNode';
+import { StatusFileNode } from './statusFileNode';
 
 export interface RefreshNodeCommandArgs {
     maxCount?: number;
@@ -66,7 +67,7 @@ export class ExplorerCommands extends Disposable {
         this._disposable && this._disposable.dispose();
     }
 
-    private async applyChanges(node: CommitFileNode | StashFileNode) {
+    private async applyChanges(node: CommitFileNode | StashFileNode | StatusFileNode) {
         await Container.git.checkoutFile(node.uri);
         return this.openFile(node);
     }
@@ -148,7 +149,7 @@ export class ExplorerCommands extends Disposable {
         return commands.executeCommand(Commands.DiffWithWorking, node.commit.toGitUri(), args);
     }
 
-    private openFile(node: CommitFileNode | StashFileNode | StatusFileCommitsNode) {
+    private openFile(node: CommitFileNode | StashFileNode | StatusFileCommitsNode | StatusFileNode) {
         return openEditor(node.uri, { preserveFocus: true, preview: false });
     }
 

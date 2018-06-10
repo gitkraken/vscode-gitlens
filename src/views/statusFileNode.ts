@@ -15,7 +15,13 @@ export class StatusFileNode extends ExplorerNode {
         private readonly ref2: string,
         private readonly explorer: Explorer
     ) {
-        super(GitUri.fromFileStatus(status, repoPath));
+        super(GitUri.fromFileStatus(
+            status,
+            repoPath,
+            ref1
+                ? ref1
+                : ref2 ? ref2 : undefined
+        ));
     }
 
     getChildren(): ExplorerNode[] {

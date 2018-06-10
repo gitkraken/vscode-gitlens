@@ -2892,7 +2892,7 @@
                 },
                 {
                     "command": "gitlens.explorers.applyChanges",
-                    "when": "viewItem == gitlens:file:commit",
+                    "when": "viewItem =~ /gitlens:file:(commit|status)\\b/",
                     "group": "5_gitlens_1@1"
                 },
                 {
