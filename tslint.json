@@ -21,7 +21,8 @@
         ],
         "indent": [
             true,
-            "spaces"
+            "spaces",
+            4
         ],
         "interface-over-type-literal": true,
         "new-parens": true,
