@@ -38,21 +38,25 @@ export class Logger {
     }
 
     static log(message?: any, ...params: any[]): void {
+        if (this.level !== OutputLevel.Verbose && this.level !== OutputLevel.Debug) return;
+
         if (Logger.isDebugging) {
             console.log(this.timestamp, ConsolePrefix, message, ...params);
         }
 
-        if (this.output !== undefined && (this.level === OutputLevel.Verbose || this.level === OutputLevel.Debug)) {
+        if (this.output !== undefined) {
             this.output.appendLine((Logger.isDebugging ? [this.timestamp, message, ...params] : [message, ...params]).join(' '));
         }
     }
 
     static error(ex: Error, classOrMethod?: string, ...params: any[]): void {
+        if (this.level === OutputLevel.Silent) return;
+
         if (Logger.isDebugging) {
             console.error(this.timestamp, ConsolePrefix, classOrMethod, ...params, ex);
         }
 
-        if (this.output !== undefined && this.level !== OutputLevel.Silent) {
+        if (this.output !== undefined) {
             this.output.appendLine((Logger.isDebugging ? [this.timestamp, classOrMethod, ...params, ex] : [classOrMethod, ...params, ex]).join(' '));
         }
 
@@ -60,11 +64,13 @@ export class Logger {
     }
 
     static warn(message?: any, ...params: any[]): void {
+        if (this.level === OutputLevel.Silent) return;
+
         if (Logger.isDebugging) {
             console.warn(this.timestamp, ConsolePrefix, message, ...params);
         }
 
-        if (this.output !== undefined && this.level !== OutputLevel.Silent) {
+        if (this.output !== undefined) {
             this.output.appendLine((Logger.isDebugging ? [this.timestamp, message, ...params] : [message, ...params]).join(' '));
         }
     }
@@ -88,11 +94,13 @@ export class Logger {
     private static _isDebugging: boolean | undefined;
     static get isDebugging() {
         if (this._isDebugging === undefined) {
-            const args = process.execArgv;
+            try {
+                const args = process.execArgv;
 
-            this._isDebugging = args
-                ? args.some(arg => isDebuggingRegex.test(arg))
-                : false;
+                this._isDebugging = args
+                    ? args.some(arg => isDebuggingRegex.test(arg))
+                    : false;
+            } catch { }
         }
 
         return this._isDebugging;

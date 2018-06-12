@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Fixed
+- Fixes [#400](https://github.com/eamodio/vscode-gitlens/issues/412) - GitLens logging to debug console when debugging different extension
+
 ## [8.3.5] - 2018-06-08
 ### Fixed
 - Fixes more instances of [#295](https://github.com/eamodio/vscode-gitlens/issues/295)and [#318](https://github.com/eamodio/vscode-gitlens/issues/318) - Any error encountered during the search for repositories could cause GitLens to die
