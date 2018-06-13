@@ -158,7 +158,7 @@ export class CommitFileQuickPick {
 
             items.push(new CommandQuickPickItem({
                 label: `$(clippy) Copy Commit Message to Clipboard`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.getShortMessage(`${GlyphChars.Space}$(ellipsis)`)}`
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.getShortMessage()}`
             }, Commands.CopyMessageToClipboard, [
                     uri,
                     {
@@ -312,7 +312,7 @@ export class CommitFileQuickPick {
 
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
-            placeHolder: `${commit.getFormattedPath()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${isUncommitted ? `Uncommitted ${GlyphChars.ArrowRightHollow} ` : ''}${commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.author}, ${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getShortMessage(`${GlyphChars.Space}$(ellipsis)`)}`,
+            placeHolder: `${commit.getFormattedPath()} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${isUncommitted ? `Uncommitted ${GlyphChars.ArrowRightHollow} ` : ''}${commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.author}, ${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getShortMessage()}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
                 scope.setKeyCommand('right', item as KeyCommand);

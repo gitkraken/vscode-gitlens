@@ -101,7 +101,7 @@ export class CommitQuickPick {
         if (stash) {
             items.splice(index++, 0, new CommandQuickPickItem({
                 label: `$(git-pull-request) Apply Stashed Changes`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.getShortMessage(`${GlyphChars.Space}$(ellipsis)`)}`
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.getShortMessage()}`
             }, Commands.StashApply, [
                     {
                         confirm: true,
@@ -114,7 +114,7 @@ export class CommitQuickPick {
 
             items.splice(index++, 0, new CommandQuickPickItem({
                 label: `$(x) Delete Stashed Changes`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.getShortMessage(`${GlyphChars.Space}$(ellipsis)`)}`
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.getShortMessage()}`
             }, Commands.StashDelete, [
                     {
                         confirm: true,
@@ -179,7 +179,7 @@ export class CommitQuickPick {
 
         items.splice(index++, 0, new CommandQuickPickItem({
             label: `$(clippy) Copy Commit Message to Clipboard`,
-            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.getShortMessage(`${GlyphChars.Space}$(ellipsis)`)}`
+            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.getShortMessage()}`
         }, Commands.CopyMessageToClipboard, [
                 uri,
                 {
@@ -303,7 +303,7 @@ export class CommitQuickPick {
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: `${commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.author ? `${commit.author}, ` : ''}${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getShortMessage(`${GlyphChars.Space}$(ellipsis)`)}`,
+            placeHolder: `${commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.author ? `${commit.author}, ` : ''}${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getShortMessage()}`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {
                 scope.setKeyCommand('right', item);

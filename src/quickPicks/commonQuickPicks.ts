@@ -20,21 +20,21 @@ export function showQuickPickProgress(message: string, mapping?: KeyMapping): Ca
 }
 
 async function _showQuickPickProgress(message: string, cancellation: CancellationTokenSource, mapping?: KeyMapping) {
-        const scope = mapping && await Container.keyboard.beginScope(mapping);
+    const scope = mapping && await Container.keyboard.beginScope(mapping);
 
-        try {
-            await window.showQuickPick(_getInfiniteCancellablePromise(cancellation), {
-                placeHolder: message,
-                ignoreFocusOut: getQuickPickIgnoreFocusOut()
-            } as QuickPickOptions, cancellation.token);
-        }
-        catch (ex) {
-            // Not sure why this throws
-        }
-        finally {
-            cancellation.cancel();
-            scope && scope.dispose();
-        }
+    try {
+        await window.showQuickPick(_getInfiniteCancellablePromise(cancellation), {
+            placeHolder: message,
+            ignoreFocusOut: getQuickPickIgnoreFocusOut()
+        } as QuickPickOptions, cancellation.token);
+    }
+    catch (ex) {
+        // Not sure why this throws
+    }
+    finally {
+        cancellation.cancel();
+        scope && scope.dispose();
+    }
 }
 
 function _getInfiniteCancellablePromise(cancellation: CancellationTokenSource) {
@@ -155,7 +155,7 @@ export class CommitQuickPickItem implements QuickPickItem {
     detail: string;
 
     constructor(public readonly commit: GitLogCommit) {
-        const message = commit.getShortMessage(`${GlyphChars.Space}$(ellipsis)`);
+        const message = commit.getShortMessage();
         if (commit.isStash) {
             this.label = message;
             this.description = '';
