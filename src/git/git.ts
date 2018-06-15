@@ -325,7 +325,7 @@ export class Git {
     }
 
     static branch(repoPath: string, options: { all: boolean } = { all: false }) {
-        const params = ['-c', 'color.branch=never', 'branch', '-vv'];
+        const params = ['-c', 'color.branch=false', 'branch', '-vv'];
         if (options.all) {
             params.push('-a');
         }
@@ -334,7 +334,7 @@ export class Git {
     }
 
     static branch_contains(repoPath: string, ref: string, options: { remote: boolean } = { remote: false }) {
-        const params = ['-c', 'color.branch=never', 'branch', '--contains'];
+        const params = ['-c', 'color.branch=false', 'branch', '--contains'];
         if (options.remote) {
             params.push('-r');
         }
