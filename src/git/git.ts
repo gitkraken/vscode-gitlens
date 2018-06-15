@@ -359,7 +359,7 @@ export class Git {
     }
 
     static diff(repoPath: string, fileName: string, sha1?: string, sha2?: string, options: { encoding?: string } = {}) {
-        const params = ['diff', '--diff-filter=M', '-M', '--no-ext-diff', '--minimal'];
+        const params = ['-c', 'color.diff=false', 'diff', '--diff-filter=M', '-M', '--no-ext-diff', '--minimal'];
         if (sha1) {
             params.push(Git.isStagedUncommitted(sha1) ? '--staged' : sha1);
         }
@@ -372,7 +372,7 @@ export class Git {
     }
 
     static diff_nameStatus(repoPath: string, sha1?: string, sha2?: string, options: { filter?: string } = {}) {
-        const params = ['diff', '--name-status', '-M', '--no-ext-diff'];
+        const params = ['-c', 'color.diff=false', 'diff', '--name-status', '-M', '--no-ext-diff'];
         if (options && options.filter) {
             params.push(`--diff-filter=${options.filter}`);
         }
@@ -387,7 +387,7 @@ export class Git {
     }
 
     static diff_shortstat(repoPath: string, sha?: string) {
-        const params = ['diff', '--shortstat', '--no-ext-diff'];
+        const params = ['-c', 'color.diff=false', 'diff', '--shortstat', '--no-ext-diff'];
         if (sha) {
             params.push(sha);
         }
@@ -640,14 +640,14 @@ export class Git {
 
     static status(repoPath: string, porcelainVersion: number = 1): Promise<string> {
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
-        return gitCommand({ cwd: repoPath, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }, 'status', porcelain, '--branch', '-u');
+        return gitCommand({ cwd: repoPath, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }, '-c', 'color.status=false', 'status', porcelain, '--branch', '-u');
     }
 
     static status_file(repoPath: string, fileName: string, porcelainVersion: number = 1): Promise<string> {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
-        return gitCommand({ cwd: root, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }, 'status', porcelain, file);
+        return gitCommand({ cwd: root, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }, '-c', 'color.status=false', 'status', porcelain, file);
     }
 
     static tag(repoPath: string) {
