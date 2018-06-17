@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 - Fixes [#400](https://github.com/eamodio/vscode-gitlens/issues/412) - GitLens logging to debug console when debugging different extension
 - Fixes [#409](https://github.com/eamodio/vscode-gitlens/issues/409) - Literal $(ellipsis) inserted into commit QuickPick menu entry placeholder text
+- Fixes [#415](https://github.com/eamodio/vscode-gitlens/issues/415) - Branch names get mangled by color escapes &mdash; thanks to [PR #416](https://github.com/eamodio/vscode-gitlens/pull/416) by Roy Ivy III ([@rivy](https://github.com/rivy))
 
 ## [8.3.5] - 2018-06-08
 ### Fixed
