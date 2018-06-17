@@ -16,6 +16,10 @@ export class GitLabService extends RemoteProvider {
         super(domain, path, protocol, name, custom);
     }
 
+    get icon() {
+        return 'gitlab';
+    }
+
     get name() {
         return this.formatName('GitLab');
     }
