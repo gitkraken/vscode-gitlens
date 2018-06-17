@@ -16,6 +16,10 @@ export class VisualStudioService extends RemoteProvider {
         super(domain, path, protocol, name);
     }
 
+    get icon() {
+        return 'vsts';
+    }
+
     get name() {
         return 'Visual Studio Team Services';
     }
