@@ -185,6 +185,8 @@ The repository view provides a full Git repository explorer, which has the follo
   - A context menu provides *Open Repository in Remote*, and *Refresh* commands
   - **Changed Files** &mdash; lists all the "working" changes
     - Expands to a file-based view of all changed files in the working tree ([optionally](#gitlens-explorer-settings "Jump to the GitLens explorer settings")) and/or all files in all commits ahead of the upstream
+  - **History (current-branch)** &mdash; lists the revision (commit) history of the current branch
+    - See the *Branches expand* section under **Branches** below for more details
 
 - **Branches** &mdash; lists the local branches
   - Indicates which branch is the current branch and [optionally](#gitlens-explorer-settings "Jump to the GitLens explorer settings") shows the remote tracking branch

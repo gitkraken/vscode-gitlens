@@ -16,7 +16,7 @@ export class BranchNode extends ExplorerRefNode {
     constructor(
         public readonly branch: GitBranch,
         uri: GitUri,
-        private readonly explorer: GitExplorer
+        protected readonly explorer: GitExplorer
     ) {
         super(uri);
     }
@@ -30,6 +30,10 @@ export class BranchNode extends ExplorerRefNode {
         if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) return branchName;
 
         return GitBranch.isValid(branchName) && !this.current ? this.branch.getBasename() : branchName;
+    }
+
+    get markCurrent(): boolean {
+        return true;
     }
 
     get ref(): string {
@@ -79,7 +83,7 @@ export class BranchNode extends ExplorerRefNode {
             }
         }
 
-        const item = new TreeItem(`${this.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`, TreeItemCollapsibleState.Collapsed);
+        const item = new TreeItem(`${this.markCurrent && this.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`, TreeItemCollapsibleState.Collapsed);
         item.tooltip = tooltip;
 
         if (this.branch.remote) {

@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 ### Added
+- Adds new branch history node under the **Repository Status** node in the *GitLens* explorer
 - Adds GitLab and Visual Studio Team Services icons to the remote nodes in the *GitLens* explorer &mdash; thanks to [PR #421](https://github.com/eamodio/vscode-gitlens/pull/421) by Maxim Pekurin ([@pmaxim25](https://github.com/pmaxim25))
 
 ### Fixed

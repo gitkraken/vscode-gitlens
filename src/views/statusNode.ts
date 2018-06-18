@@ -1,9 +1,10 @@
 import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { BranchNode } from './branchNode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { GitExplorer } from './gitExplorer';
-import { GitUri, Repository, RepositoryFileSystemChangeEvent } from '../gitService';
+import { GitBranch, GitUri, Repository, RepositoryFileSystemChangeEvent } from '../gitService';
 import { StatusFilesNode } from './statusFilesNode';
 import { StatusUpstreamNode } from './statusUpstreamNode';
 
@@ -25,24 +26,33 @@ export class StatusNode extends ExplorerNode {
     async getChildren(): Promise<ExplorerNode[]> {
         this.resetChildren();
 
-        const status = await this.repo.getStatus();
-        if (status === undefined) return [];
-
         this.children = [];
 
-        if (status.state.behind) {
-            this.children.push(new StatusUpstreamNode(status, 'behind', this.explorer, this.active));
+        const status = await this.repo.getStatus();
+        if (status !== undefined) {
+            if (status.state.behind) {
+                this.children.push(new StatusUpstreamNode(status, 'behind', this.explorer, this.active));
+            }
+
+            if (status.state.ahead) {
+                this.children.push(new StatusUpstreamNode(status, 'ahead', this.explorer, this.active));
+            }
+
+            if (status.state.ahead || (status.files.length !== 0 && this.includeWorkingTree)) {
+                const range = status.upstream
+                    ? `${status.upstream}..${status.branch}`
+                    : undefined;
+                this.children.push(new StatusFilesNode(status, range, this.explorer, this.active));
+            }
         }
 
-        if (status.state.ahead) {
-            this.children.push(new StatusUpstreamNode(status, 'ahead', this.explorer, this.active));
-        }
+        let branch = await this.repo.getBranch();
+        if (branch !== undefined) {
+            if (status !== undefined) {
+                branch = new GitBranch(branch.repoPath, branch.name, branch.current, branch.sha, branch.tracking, status.state.ahead, status.state.behind);
+            }
 
-        if (status.state.ahead || (status.files.length !== 0 && this.includeWorkingTree)) {
-            const range = status.upstream
-                ? `${status.upstream}..${status.branch}`
-                : undefined;
-            this.children.push(new StatusFilesNode(status, range, this.explorer, this.active));
+            this.children.push(new StatusBranchNode(branch, this.uri, this.explorer));
         }
 
         return this.children;
@@ -91,7 +101,6 @@ export class StatusNode extends ExplorerNode {
             }
         }
 
-        label = `${status.branch}${label === '' ? '' : ` ${GlyphChars.Space}${status.upstream ? GlyphChars.ArrowLeftRightLong : GlyphChars.Dash}${label}`}`;
         if (hasWorkingChanges) {
             tooltip += `\n\nHas uncommitted changes${status.getDiffStatus({ expand: true, prefix: `\n`, separator: '\n' })}`;
         }
@@ -102,7 +111,7 @@ export class StatusNode extends ExplorerNode {
             state = this.active ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed;
         }
         else {
-            state = TreeItemCollapsibleState.None;
+            state = TreeItemCollapsibleState.Collapsed;
         }
 
         const item = new TreeItem(`${status.branch}${label}`, state);
@@ -132,5 +141,26 @@ export class StatusNode extends ExplorerNode {
 
     private async onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
         this.explorer.refreshNode(this);
+    }
+}
+
+export class StatusBranchNode extends BranchNode {
+
+    constructor(
+        branch: GitBranch,
+        uri: GitUri,
+        explorer: GitExplorer
+    ) {
+        super(branch, uri, explorer);
+    }
+
+    get markCurrent() {
+        return false;
+    }
+
+    async getTreeItem(): Promise<TreeItem> {
+        const item = await super.getTreeItem();
+        item.label = `History (${item.label})`;
+        return item;
     }
 }
