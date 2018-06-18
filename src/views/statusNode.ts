@@ -48,7 +48,7 @@ export class StatusNode extends ExplorerNode {
         return this.children;
     }
 
-    async getTreeItem(): Promise < TreeItem > {
+    async getTreeItem(): Promise<TreeItem> {
         if (this.disposable !== undefined) {
             this.disposable.dispose();
             this.disposable = undefined;
@@ -69,13 +69,13 @@ export class StatusNode extends ExplorerNode {
 
         let hasChildren = false;
         const hasWorkingChanges = status.files.length !== 0 && this.includeWorkingTree;
-        let label = `${status.getUpstreamStatus({ prefix: `${GlyphChars.Space} ` })}${hasWorkingChanges ? status.getDiffStatus({ prefix: `${GlyphChars.Space} `}) : ''}`;
+        let label = `${status.getUpstreamStatus({ prefix: `${GlyphChars.Space} ` })}${hasWorkingChanges ? status.getDiffStatus({ prefix: `${GlyphChars.Space} ` }) : ''}`;
         let tooltip = `${status.branch} (current)`;
         let iconSuffix = '';
 
         if (status.upstream) {
             if (this.explorer.config.showTrackingBranch) {
-                label += `${GlyphChars.Space} ${status.upstream}`;
+                label += `${GlyphChars.Space} ${GlyphChars.ArrowLeftRightLong}${GlyphChars.Space} ${status.upstream}`;
             }
             tooltip += `\n\nTracking ${GlyphChars.Dash} ${status.upstream}\n${status.getUpstreamStatus({ empty: 'up-to-date', expand: true, separator: '\n' })}`;
 
@@ -105,7 +105,7 @@ export class StatusNode extends ExplorerNode {
             state = TreeItemCollapsibleState.None;
         }
 
-        const item = new TreeItem(label, state);
+        const item = new TreeItem(`${status.branch}${label}`, state);
         item.id = this.id;
         item.contextValue = ResourceType.Status;
         item.tooltip = tooltip;

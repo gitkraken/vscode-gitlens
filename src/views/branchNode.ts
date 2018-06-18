@@ -60,12 +60,12 @@ export class BranchNode extends ExplorerRefNode {
 
     async getTreeItem(): Promise<TreeItem> {
         let name = this.label;
-        let tooltip = `${this.branch.getName()}${this.branch!.current ? ' (current)' : ''}`;
+        let tooltip = `${this.branch.getName()}${this.current ? ' (current)' : ''}`;
         let iconSuffix = '';
 
         if (!this.branch.remote && this.branch.tracking !== undefined) {
             if (this.explorer.config.showTrackingBranch) {
-                name += ` ${GlyphChars.Space}${GlyphChars.ArrowLeftRightLong}${this.branch.getTrackingStatus({ prefix: `${GlyphChars.Space} ` })}${GlyphChars.Space} ${this.branch.tracking}`;
+                name += `${this.branch.getTrackingStatus({ prefix: `${GlyphChars.Space} ` })}${GlyphChars.Space} ${GlyphChars.ArrowLeftRightLong}${GlyphChars.Space} ${this.branch.tracking}`;
             }
             tooltip += `\n\nTracking ${GlyphChars.Dash} ${this.branch.tracking}\n${this.branch.getTrackingStatus({ empty: 'up-to-date', expand: true, separator: '\n' })}`;
 
@@ -79,13 +79,13 @@ export class BranchNode extends ExplorerRefNode {
             }
         }
 
-        const item = new TreeItem(`${this.branch!.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`, TreeItemCollapsibleState.Collapsed);
+        const item = new TreeItem(`${this.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`, TreeItemCollapsibleState.Collapsed);
         item.tooltip = tooltip;
 
         if (this.branch.remote) {
             item.contextValue = ResourceType.RemoteBranch;
         }
-        else if (this.branch.current) {
+        else if (this.current) {
             item.contextValue = !!this.branch.tracking
                 ? ResourceType.CurrentBranchWithTracking
                 : ResourceType.CurrentBranch;
