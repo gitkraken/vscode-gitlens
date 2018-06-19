@@ -19,7 +19,7 @@ export function lighten(color: string, percentage: number) {
 
     const [r, g, b, a] = rgba;
     percentage = (255 * percentage) / 100;
-    return `rgba(${adjustLight(r, percentage)}, ${adjustLight(g, percentage)}, ${adjustLight(b, percentage)}, ${a})`
+    return `rgba(${adjustLight(r, percentage)}, ${adjustLight(g, percentage)}, ${adjustLight(b, percentage)}, ${a})`;
 }
 
 export function opacity(color: string, percentage: number) {
