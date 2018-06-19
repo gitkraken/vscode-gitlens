@@ -4,15 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [8.4.0] - 2018-06-19
 ### Added
-- Adds completely revamped **heatmap** annotations
+- Adds completely revamped heatmap annotations
+  ![cold heatmap](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-heatmap-cold.png)
   - The indicator's, now customizable, color will either be hot or cold based on the age of the most recent change (cold after 90 days by default) &mdash; closes [#419](https://github.com/eamodio/vscode-gitlens/issues/419)
   - The indicator's brightness ranges from bright (newer) to dim (older) based on the relative age, which is calculated from the median age of all the changes in the file
   - Adds `gitlens.heatmap.ageThreshold` setting to specify the age of the most recent change (in days) after which the gutter heatmap annotations will be cold rather than hot (i.e. will use `gitlens.heatmap.coldColor` instead of `gitlens.heatmap.hotColor`)
   - Adds `gitlens.heatmap.coldColor` setting to specify the base color of the gutter heatmap annotations when the most recent change is older (cold) than the `gitlens.heatmap.ageThreshold` setting
   - Adds `gitlens.heatmap.hotColor` setting to specify the base color of the gutter heatmap annotations when the most recent change is newer (hot) than the `gitlens.heatmap.ageThreshold` setting
-- Adds new branch history node under the **Repository Status** node in the *GitLens* explorer
+- Adds new branch history node under the *Repository Status* node in the *GitLens* explorer
 - Adds GitLab and Visual Studio Team Services icons to the remote nodes in the *GitLens* explorer &mdash; thanks to [PR #421](https://github.com/eamodio/vscode-gitlens/pull/421) by Maxim Pekurin ([@pmaxim25](https://github.com/pmaxim25))
 
 ### Fixed

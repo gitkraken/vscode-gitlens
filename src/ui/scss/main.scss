@@ -138,9 +138,9 @@ input:not([type]) {
     border: 1px solid var(--color);
     color: var(--color);
     margin: 0 0.75em;
+    max-width: 300px;
     padding: 4px;
     width: 100%;
-    max-width: 300px;
 
     &:focus {
         background: rgba(0, 0, 0, 0.1);
@@ -363,10 +363,10 @@ ul {
 
 .changelog__date {
     font-size: 0.8em;
-    font-weight: 600;
     font-variant: small-caps;
-    opacity: 0.9;
+    font-weight: 600;
     margin-left: -7px;
+    opacity: 0.9;
     vertical-align: middle;
 }
 
@@ -374,6 +374,7 @@ ul {
     align-items: center;
     display: flex;
     justify-content: center;
+    padding: 0 7em;
     position: relative;
 
     &:before {
@@ -383,6 +384,18 @@ ul {
         left: 37px;
         position: absolute;
         top: 1px;
+    }
+}
+
+.changelog__details--list {
+    flex-direction: column;
+
+    & p {
+        margin-bottom: 0;
+    }
+
+    & p:last-child {
+        margin-bottom: 1em;
     }
 }
 
@@ -555,8 +568,8 @@ ul {
 
 .icon__info {
     -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125"><path fill="none" d="M0 0h100v100H0z"/><path d="M50 21a29 29 0 1 0 29 29 29 29 0 0 0-29-29zm0 55a26 26 0 1 1 26-26 26 26 0 0 1-26 26z"/><path d="M48 45l-1 1v18l1 1h4l1-1V46l-1-1zm0-10l-1 1v4l1 1h4l1-1v-4l-1-1z"/></svg>');
-    -webkit-mask-repeat: no-repeat;
     mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125"><path fill="none" d="M0 0h100v100H0z"/><path d="M50 21a29 29 0 1 0 29 29 29 29 0 0 0-29-29zm0 55a26 26 0 1 1 26-26 26 26 0 0 1-26 26z"/><path d="M48 45l-1 1v18l1 1h4l1-1V46l-1-1zm0-10l-1 1v4l1 1h4l1-1v-4l-1-1z"/></svg>');
+    -webkit-mask-repeat: no-repeat;
     mask-repeat: no-repeat;
 }
 
@@ -740,10 +753,10 @@ ul {
         content: '';
         height: 40px;
         -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125"><path d="M50 62a3 3 0 0 1-2-1L26 44a3 3 0 0 1 3-5l21 16 21-16a3 3 0 1 1 3 5L52 61a3 3 0 0 1-2 1z"/></svg>');
-        -webkit-mask-repeat: no-repeat;
-        -webkit-mask-size: 32px 40px;
         mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125"><path d="M50 62a3 3 0 0 1-2-1L26 44a3 3 0 0 1 3-5l21 16 21-16a3 3 0 1 1 3 5L52 61a3 3 0 0 1-2 1z"/></svg>');
+        -webkit-mask-repeat: no-repeat;
         mask-repeat: no-repeat;
+        -webkit-mask-size: 32px 40px;
         mask-size: 32px 40px;
         position: absolute;
         right: 0;
