@@ -275,8 +275,7 @@
                     "items": {
                         "type": "object",
                         "required": [
-                            "language",
-                            "scopes"
+                            "language"
                         ],
                         "properties": {
                             "language": {

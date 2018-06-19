@@ -16,7 +16,7 @@ export enum CodeLensCommand {
 
 export interface CodeLensLanguageScope {
     language: string | undefined;
-    scopes: CodeLensScopes[];
+    scopes?: CodeLensScopes[];
     symbolScopes?: string[];
 }
 
