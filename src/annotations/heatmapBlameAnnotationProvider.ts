@@ -17,7 +17,6 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
 
         const start = process.hrtime();
 
-        const now = Date.now();
         const renderOptions = Annotations.heatmapRenderOptions();
 
         this.decorations = [];
@@ -25,6 +24,8 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
 
         let commit: GitBlameCommit | undefined;
         let heatmap: DecorationOptions | undefined;
+
+        const computedHeatmap = this.getComputedHeatmap(blame);
 
         for (const l of blame.lines) {
             const line = l.line;
@@ -44,7 +45,7 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
             commit = blame.commits.get(l.sha);
             if (commit === undefined) continue;
 
-            heatmap = Annotations.heatmap(commit, now, renderOptions);
+            heatmap = Annotations.heatmap(commit, computedHeatmap, renderOptions);
             heatmap.range = new Range(line, 0, line, 0);
 
             this.decorations.push(heatmap);

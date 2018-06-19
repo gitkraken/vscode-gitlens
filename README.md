@@ -342,8 +342,8 @@ An on-demand, [customizable](#gitlens-results-explorer-settings "Jump to the Git
 
 - Adds on-demand, [customizable](#gutter-blame-settings "Jump to the Gutter Blame settings"), and [themable](#themable-colors "Jump to the Themable Colors"), **gutter blame annotations** for the whole file
   - Contains the commit message and date, by [default](#gutter-blame-settings "Jump to the Gutter Blame settings")
-  - Adds a **heatmap** (age) indicator on right edge (by [default](#gutter-blame-settings "Jump to the Gutter Blame settings")) of the gutter to provide an easy, at-a-glance way to tell the age of a line ([optional](#gutter-blame-settings "Jump to the Gutter Blame settings"), on by default)
-    - Indicator ranges from bright yellow (newer) to dark brown (older)
+  - Adds a **heatmap** (age) indicator on right edge (by [default](#gutter-blame-settings "Jump to the Gutter Blame settings")) of the gutter to provide an easy, at-a-glance way to tell how recently lines were changed ([optional](#gutter-blame-settings "Jump to the Gutter Blame settings"), on by default)
+    - See the [gutter heatmap](#gutter-Heatmap "Jump to the Gutter Heatmap") section below for more details
   - Adds a *Toggle File Blame Annotations* command (`gitlens.toggleFileBlame`) with a shortcut of `alt+b` to toggle the blame annotations on and off
   - Press `Escape` to turn off the annotations
 
@@ -353,8 +353,9 @@ An on-demand, [customizable](#gitlens-results-explorer-settings "Jump to the Git
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-heatmap.png" alt="Gutter Heatmap" />
 </p>
 
-- Adds an on-demand **heatmap** to the edge of the gutter to show the relative age of a line
-  - Indicator ranges from bright yellow (newer) to dark brown (older)
+- Adds an on-demand **heatmap** to the edge of the gutter to show how recently lines were changed
+  - The indicator's [customizable](#gutter-heatmap-settings "Jump to the Gutter Heatmap settings") color will either be hot or cold based on the age of the most recent change (cold after 90 days by [default](#gutter-heatmap-settings "Jump to the Gutter Heatmap settings"))
+  - The indicator's brightness ranges from bright (newer) to dim (older) based on the relative age, which is calculated from the median age of all the changes in the file
   - Adds *Toggle File Heatmap Annotations* command (`gitlens.toggleFileHeatmap`) to toggle the heatmap on and off
   - Press `Escape` to turn off the annotations
 
@@ -717,6 +718,9 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 
 |Name | Description
 |-----|------------
+|`gitlens.heatmap.ageThreshold`|Specifies the age of the most recent change (in days) after which the gutter heatmap annotations will be cold rather than hot (i.e. will use `gitlens.heatmap.coldColor` instead of `gitlens.heatmap.hotColor`)
+|`gitlens.heatmap.coldColor`|Specifies the base color of the gutter heatmap annotations when the most recent change is older (cold) than the `gitlens.heatmap.ageThreshold` setting
+|`gitlens.heatmap.hotColor`|Specifies the base color of the gutter heatmap annotations when the most recent change is newer (hot) than the `gitlens.heatmap.ageThreshold` setting
 |`gitlens.heatmap.toggleMode`|Specifies how the gutter heatmap annotations will be toggled<br />`file` - toggle each file individually<br />`window` - toggle the window, i.e. all files at once
 
 ### Hover Settings

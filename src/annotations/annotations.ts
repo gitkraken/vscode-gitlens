@@ -1,10 +1,20 @@
-import { Dates, Objects, Strings } from '../system';
+import { Objects, Strings } from '../system';
 import { DecorationInstanceRenderOptions, DecorationOptions, MarkdownString, ThemableDecorationRenderOptions, ThemeColor } from 'vscode';
 import { DiffWithCommand, OpenCommitInRemoteCommand, OpenFileRevisionCommand, ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand } from '../commands';
 import { FileAnnotationType } from './../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter, GitCommit, GitDiffChunkLine, GitRemote, GitService, GitUri, ICommitFormatOptions } from '../gitService';
+import { toRgba } from '../ui/shared/colors';
+
+export interface ComputedHeatmap {
+    cold: boolean;
+    colors: { hot: string, cold: string };
+    median: number;
+    newest: number;
+    oldest: number;
+    computeAge(date: Date): number;
+}
 
 interface IHeatmapConfig {
     enabled: boolean;
@@ -16,29 +26,45 @@ interface IRenderOptions extends DecorationInstanceRenderOptions, ThemableDecora
     uncommittedColor?: string | ThemeColor;
 }
 
+const defaultHeatmapHotColor = '#f66a0a';
+const defaultHeatmapColdColor = '#0a60f6';
 const escapeMarkdownRegEx = /[`\>\#\*\_\-\+\.]/g;
 // const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
 
+let computedHeatmapColor: {
+    color: string,
+    rgb: string
+};
+
 export class Annotations {
 
-    static applyHeatmap(decoration: DecorationOptions, date: Date, now: number) {
-        const color = this.getHeatmapColor(now, date);
+    static applyHeatmap(decoration: DecorationOptions, date: Date, heatmap: ComputedHeatmap) {
+        const color = this.getHeatmapColor(date, heatmap);
         (decoration.renderOptions!.before! as any).borderColor = color;
     }
 
-    private static getHeatmapColor(now: number, date: Date) {
-        const days = Dates.dateDaysFromNow(date, now);
+    private static getHeatmapColor(date: Date, heatmap: ComputedHeatmap) {
+        const baseColor = heatmap.cold
+            ? heatmap.colors.cold
+            : heatmap.colors.hot;
 
-        if (days <= 2) return '#ffeca7';
-        if (days <= 7) return '#ffdd8c';
-        if (days <= 14) return '#ffdd7c';
-        if (days <= 30) return '#fba447';
-        if (days <= 60) return '#f68736';
-        if (days <= 90) return '#f37636';
-        if (days <= 180) return '#ca6632';
-        if (days <= 365) return '#c0513f';
-        if (days <= 730) return '#a2503a';
-        return '#793738';
+        const age = heatmap.computeAge(date);
+        if (age === 0) return baseColor;
+
+        if (computedHeatmapColor === undefined || computedHeatmapColor.color !== baseColor) {
+            let rgba = toRgba(baseColor);
+            if (rgba == null) {
+                rgba = toRgba(heatmap.cold ? defaultHeatmapColdColor : defaultHeatmapHotColor)!;
+            }
+
+            const [r, g, b] = rgba;
+            computedHeatmapColor = {
+                color: baseColor,
+                rgb: `${r}, ${g}, ${b}`
+            };
+        }
+
+        return `rgba(${computedHeatmapColor.rgb}, ${(1 - (age / 10)).toFixed(2)})`;
     }
 
     private static getHoverCommandBar(commit: GitCommit, hasRemote: boolean, annotationType?: FileAnnotationType, line: number = 0) {
@@ -213,14 +239,14 @@ export class Annotations {
         } as IRenderOptions;
     }
 
-    static heatmap(commit: GitCommit, now: number, renderOptions: IRenderOptions): DecorationOptions {
+    static heatmap(commit: GitCommit, heatmap: ComputedHeatmap, renderOptions: IRenderOptions): DecorationOptions {
         const decoration = {
             renderOptions: {
                 before: { ...renderOptions }
             } as DecorationInstanceRenderOptions
         } as DecorationOptions;
 
-        Annotations.applyHeatmap(decoration, commit.date, now);
+        Annotations.applyHeatmap(decoration, commit.date, heatmap);
 
         return decoration;
     }

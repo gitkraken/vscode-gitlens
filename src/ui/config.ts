@@ -299,6 +299,9 @@ export interface IConfig {
     gitExplorer: IGitExplorerConfig;
 
     heatmap: {
+        ageThreshold: number;
+        coldColor: string;
+        hotColor: string;
         toggleMode: AnnotationsToggleMode;
     };
 

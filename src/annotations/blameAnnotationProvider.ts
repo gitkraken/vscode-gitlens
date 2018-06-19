@@ -2,7 +2,7 @@
 import { Arrays, Iterables } from '../system';
 import { CancellationToken, Disposable, Hover, HoverProvider, languages, Position, Range, TextDocument, TextEditor, TextEditorDecorationType } from 'vscode';
 import { AnnotationProviderBase } from './annotationProvider';
-import { Annotations } from './annotations';
+import { Annotations, ComputedHeatmap } from './annotations';
 import { Container } from '../container';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { GitBlame, GitCommit, GitUri } from '../gitService';
@@ -89,6 +89,69 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         if (blame === undefined || blame.lines.length === 0) return undefined;
 
         return blame;
+    }
+
+    protected getComputedHeatmap(blame: GitBlame): ComputedHeatmap {
+        const dates = [];
+
+        let commit;
+        let previousSha;
+        for (const l of blame.lines) {
+            if (previousSha === l.sha) continue;
+            previousSha = l.sha;
+
+            commit = blame.commits.get(l.sha);
+            if (commit === undefined) continue;
+
+            dates.push(commit.date);
+        }
+
+        dates.sort((a, b) => a.getTime() - b.getTime());
+
+        const half = Math.floor(dates.length / 2);
+        const median = dates.length % 2
+            ? dates[half].getTime()
+            : (dates[half - 1].getTime() + dates[half].getTime()) / 2.0;
+
+        const lookup: number[] = [];
+
+        const newest = dates[dates.length - 1].getTime();
+        let step = (newest - median) / 5;
+        for (let i = 5; i > 0; i--) {
+            lookup.push(median + (step * i));
+        }
+
+        lookup.push(median);
+
+        const oldest = dates[0].getTime();
+        step = (median - oldest) / 4;
+        for (let i = 1; i <= 4; i++) {
+            lookup.push(median - (step * i));
+        }
+
+        const d = new Date();
+        d.setDate(d.getDate() - (Container.config.heatmap.ageThreshold || 90));
+
+        return {
+            cold: newest < d.getTime(),
+            colors: {
+                cold: Container.config.heatmap.coldColor,
+                hot: Container.config.heatmap.hotColor
+            },
+            median: median,
+            newest: newest,
+            oldest: oldest,
+            computeAge: (date: Date) => {
+                const time = date.getTime();
+                let index = 0;
+                for (let i = 0; i < lookup.length; i++) {
+                    index = i;
+                    if (time >= lookup[i]) break;
+                }
+
+                return index;
+            }
+        };
     }
 
     registerHoverProviders(providers: { details: boolean, changes: boolean }) {

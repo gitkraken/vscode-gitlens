@@ -33,7 +33,6 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             tokenOptions: tokenOptions
         };
 
-        const now = Date.now();
         const avatars = cfg.avatars;
         const gravatarDefault = Container.config.defaultGravatarsStyle;
         const separateLines = cfg.separateLines;
@@ -47,6 +46,11 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         let compacted = false;
         let gutter: DecorationOptions | undefined;
         let previousSha: string | undefined;
+
+        let computedHeatmap;
+        if (cfg.heatmap.enabled) {
+            computedHeatmap = this.getComputedHeatmap(blame);
+        }
 
         for (const l of blame.lines) {
             const line = l.line;
@@ -106,8 +110,8 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
             gutter = Annotations.gutter(commit, cfg.format, options, renderOptions);
 
-            if (cfg.heatmap.enabled) {
-                Annotations.applyHeatmap(gutter, commit.date, now);
+            if (computedHeatmap !== undefined) {
+                Annotations.applyHeatmap(gutter, commit.date, computedHeatmap);
             }
 
             gutter.range = new Range(line, 0, line, 0);

@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-    <meta charset="utf-8"/>
+    <meta charset="utf-8" />
     <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src *; style-src 'self'; script-src 'nonce-gitlens'"/> -->
 </head>
 
@@ -12,7 +12,7 @@
             <header>
                 <a class="header__link" title="Learn more about GitLens" href="http://gitlens.amod.io">
                     <div class="header__logo">
-                        <img class="image__logo" src="{{root}}/images/gitlens-icon.png"/>
+                        <img class="image__logo" src="{{root}}/images/gitlens-icon.png" />
                         <div>
                             <h1>GitLens</h1>
                             <p class="header__subtitle">Git supercharged</p>
@@ -32,8 +32,8 @@
                 <div class="page-header__row">
                     <h2 class="page-header__title">Settings</h2>
                     <div class="page-header__title-actions">
-                        <a href="#" data-action="collapse">collapse all</a>
-                        <a href="#" data-action="expand" class="hidden">expand all</a>
+                        <a href="#" data-action="collapse" title="Collapse all sections">collapse all</a>
+                        <a href="#" data-action="expand" class="hidden" title="Expand all sections">expand all</a>
                     </div>
                     <div class="page-header__toolbar">
                         <div class="settings-scope">
@@ -49,7 +49,8 @@
                         </div>
                     </div>
                 </div>
-                <p class="page-header__subtitle">For advanced customizations refer to the <a title="See the GitLens settings docs" href="https://github.com/eamodio/vscode-gitlens/#gitlens-settings">GitLens settings docs</a> and edit your
+                <p class="page-header__subtitle">For advanced customizations refer to the
+                    <a title="See the GitLens settings docs" href="https://github.com/eamodio/vscode-gitlens/#gitlens-settings">GitLens settings docs</a> and edit your
                     <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a>
                 </p>
             </div>
@@ -78,7 +79,7 @@
                                 </div>
                                 <div class="settings-group__setting nowrap">
                                     <label for="defaultDateFormat">Absolute&nbsp;date&nbsp;format</label>
-                                    <input class="setting" id="defaultDateFormat" name="defaultDateFormat" type="text" placeholder="MMMM Do, YYYY h:mma"/>
+                                    <input class="setting" id="defaultDateFormat" name="defaultDateFormat" type="text" placeholder="MMMM Do, YYYY h:mma" />
                                     <a class="link__learn-more" title="See Moment.js docs for valid date formats" href="https://momentjs.com/docs/#/displaying/format/">
                                         <i class="icon icon__info"></i>
                                     </a>
@@ -97,13 +98,13 @@
                                     <label for="keymap"> keyboard shortcuts</label>
                                 </div>
                                 <span class="label__hint hidden" data-visibility="keymap =alternate">
-                                    <span class="shortcut-key">Alt</span> based (<span class="shortcut-key">&#x2325;</span> on macOS) shortcuts.
-                                    Not great for non-English keyboard layouts
+                                    <span class="shortcut-key">Alt</span> based (
+                                    <span class="shortcut-key">&#x2325;</span> on macOS) shortcuts. Not great for non-English keyboard layouts
                                 </span>
                                 <span class="label__hint hidden" data-visibility="keymap =chorded">
                                     Chorded shortcuts that start with
-                                    <span class="shortcut-key">Ctrl+Shift+G</span> (<span class="shortcut-key">&#x2325;&#x2318;G</span> on macOS).
-                                    Better for non-English keyboard layouts
+                                    <span class="shortcut-key">Ctrl+Shift+G</span> (
+                                    <span class="shortcut-key">&#x2325;&#x2318;G</span> on macOS). Better for non-English keyboard layouts
                                 </span>
                                 <span class="label__hint hidden" data-visibility="keymap =none">
                                     GitLens won't bind any keyboard shortcuts. Configure your own via the
@@ -122,11 +123,12 @@
                             <h3 class="settings-group__header">Menus &amp; Toolbars</h3>
                             <div class="settings-group">
                                 <p class="settings-group__header-hint">
-                                    Any changes to menu &amp; toolbar settings will require a <a class="command" title="Reload Window" href="command:workbench.action.reloadWindow">reload</a> before they will take effect
+                                    Any changes to menu &amp; toolbar settings will require a
+                                    <a class="command" title="Reload Window" href="command:workbench.action.reloadWindow">reload</a> before they will take effect
                                 </p>
 
                                 <div class="settings-group__setting nowrap">
-                                    <input class="setting" id="menus" name="menus" type="checkbox" value="undefined"/>
+                                    <input class="setting" id="menus" name="menus" type="checkbox" value="undefined" />
                                     <label for="menus">Add commands to the built-in menus &amp; toolbars</label>
                                 </div>
 
@@ -186,12 +188,14 @@
                                 </div>
 
                                 <div class="settings-group__setting nowrap ml-2" data-enablement="menus">
-                                    <input class="setting" id="menus.editorGroup" name="menus.editorGroup" type="checkbox" value="undefined" data-type="object" disabled/>
+                                    <input class="setting" id="menus.editorGroup" name="menus.editorGroup" type="checkbox" value="undefined" data-type="object"
+                                        disabled/>
                                     <label for="menus.editorGroup">Add commands to the editor group menu &amp; toolbar</label>
                                 </div>
 
                                 <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.editorGroup">
-                                    <input class="setting" id="menus.editorGroup.compare" name="menus.editorGroup.compare" type="checkbox" data-type="object" disabled/>
+                                    <input class="setting" id="menus.editorGroup.compare" name="menus.editorGroup.compare" type="checkbox" data-type="object"
+                                        disabled/>
                                     <label for="menus.editorGroup.compare">Add comparison toolbar commands</label>
                                 </div>
 
@@ -206,7 +210,8 @@
                                 </div>
 
                                 <div class="settings-group__setting nowrap ml-4 hidden" data-visibility="settings.mode =advanced" data-enablement="menus.editorGroup">
-                                    <input class="setting" id="menus.editorGroup.history" name="menus.editorGroup.history" type="checkbox" data-type="object" disabled/>
+                                    <input class="setting" id="menus.editorGroup.history" name="menus.editorGroup.history" type="checkbox" data-type="object"
+                                        disabled/>
                                     <label for="menus.editorGroup.history">Add file history command</label>
                                 </div>
 
@@ -233,7 +238,11 @@
 
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
-                                For more advanced customizations open <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for <b><i>gitlens</i></b>
+                                For more advanced customizations open
+                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for
+                                <b>
+                                    <i>gitlens</i>
+                                </b>
                             </p>
                         </div>
                     </section>
@@ -250,7 +259,7 @@
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
-                                    <input class="setting" id="gitExplorer.enabled" name="gitExplorer.enabled" type="checkbox"/>
+                                    <input class="setting" id="gitExplorer.enabled" name="gitExplorer.enabled" type="checkbox" />
                                     <label for="gitExplorer.enabled">Show the GitLens explorer</label>
                                 </div>
 
@@ -264,12 +273,14 @@
 
                                 <div class="settings-group__setting ml-2" data-enablement="gitExplorer.enabled &amp; historyExplorer.enabled =false">
                                     <label for="gitExplorer.view">When opened, show the</label>
-                                    <select class="setting hidden" id="gitExplorer.view" name="gitExplorer.view" data-visibility="historyExplorer.enabled =false" disabled>
+                                    <select class="setting hidden" id="gitExplorer.view" name="gitExplorer.view" data-visibility="historyExplorer.enabled =false"
+                                        disabled>
                                         <option value="auto">last selected view</option>
                                         <option value="repository">Repository view</option>
                                         <option value="history">History view</option>
                                     </select>
-                                    <select class="setting hidden" id="gitExplorer.view-undocked" name="!gitExplorer.view" data-visibility="historyExplorer.enabled" disabled>
+                                    <select class="setting hidden" id="gitExplorer.view-undocked" name="!gitExplorer.view" data-visibility="historyExplorer.enabled"
+                                        disabled>
                                         <option value="auto">last selected view</option>
                                         <option value="repository" selected>Repository view</option>
                                         <option value="history">History view</option>
@@ -311,25 +322,45 @@
                                 </div>
                             </div>
                             <div class="section__preview">
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; gitExplorer.files.layout !tree"/>
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository-tree-compact.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact"/>
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository-tree.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact =false"/>
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; gitExplorer.files.layout !tree"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository-tree-compact.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository-tree.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact =false"
+                                />
 
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled &amp; gitExplorer.files.layout !tree"/>
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository-tree-compact.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact"/>
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository-tree.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact =false"/>
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled &amp; gitExplorer.files.layout !tree"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository-tree-compact.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository-tree.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact =false"
+                                />
 
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-repository-avatars.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; explorers.avatars"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-repository-avatars.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled &amp; explorers.avatars"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-repository-history-docked.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; historyExplorer.enabled =false"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-repository-history-undocked.png" data-visibility="gitExplorer.enabled &amp; historyExplorer.enabled"/>
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-repository-avatars.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; explorers.avatars"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-repository-avatars.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled &amp; explorers.avatars"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-repository-history-docked.png"
+                                    data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; historyExplorer.enabled =false"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-repository-history-undocked.png"
+                                    data-visibility="gitExplorer.enabled &amp; historyExplorer.enabled" />
 
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-history.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled =false"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-history-avatars.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled =false &amp; explorers.avatars"/>
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-history.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled =false"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-history-avatars.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled =false &amp; explorers.avatars"
+                                />
                             </div>
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
-                                For more advanced customizations open <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for <b><i>gitlens.gitExplorer</i></b> or <b><i>gitlens.explorers</i></b>
+                                For more advanced customizations open
+                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for
+                                <b>
+                                    <i>gitlens.gitExplorer</i>
+                                </b> or
+                                <b>
+                                    <i>gitlens.explorers</i>
+                                </b>
                             </p>
                         </div>
                     </section>
@@ -346,7 +377,7 @@
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
-                                    <input class="setting" id="historyExplorer.enabled" name="historyExplorer.enabled" type="checkbox"/>
+                                    <input class="setting" id="historyExplorer.enabled" name="historyExplorer.enabled" type="checkbox" />
                                     <label for="historyExplorer.enabled">Show the GitLens History explorer</label>
                                 </div>
                                 <p class="setting__hint hidden" data-visibility="gitExplorer.enabled &amp; historyExplorer.enabled =false">The current file history will be shown (docked) in the GitLens explorer</p>
@@ -365,12 +396,17 @@
                                 </div>
                             </div>
                             <div class="section__preview">
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-history-explorer.png" data-visibility="historyExplorer.enabled"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-history-explorer-close.png" data-visibility="historyExplorer.enabled &amp; gitExplorer.enabled =false"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-history-avatars.png" data-visibility="historyExplorer.enabled &amp; explorers.avatars"/>
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-history-explorer.png" data-visibility="historyExplorer.enabled"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-history-explorer-close.png" data-visibility="historyExplorer.enabled &amp; gitExplorer.enabled =false"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-history-avatars.png" data-visibility="historyExplorer.enabled &amp; explorers.avatars"
+                                />
 
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-history.png" data-visibility="gitExplorer.enabled &amp; historyExplorer.enabled =false"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-history-avatars.png" data-visibility="gitExplorer.enabled &amp; historyExplorer.enabled =false &amp; explorers.avatars"/>
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-history.png" data-visibility="gitExplorer.enabled &amp; historyExplorer.enabled =false"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-history-avatars.png" data-visibility="gitExplorer.enabled &amp; historyExplorer.enabled =false &amp; explorers.avatars"
+                                />
                             </div>
                         </div>
                     </section>
@@ -382,7 +418,8 @@
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
-                            <p class="section__title-hint">Adds an on-demand GitLens Results explorer to navigate and explore commits, histories, and searches, or visualize comparisons between branches, tags, commits, and more</p>
+                            <p class="section__title-hint">Adds an on-demand GitLens Results explorer to navigate and explore commits, histories, and searches,
+                                or visualize comparisons between branches, tags, commits, and more</p>
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
@@ -404,26 +441,37 @@
                                 </div>
 
                                 <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="resultsExplorer.files.compact" name="resultsExplorer.files.compact" type="checkbox"/>
+                                    <input class="setting" id="resultsExplorer.files.compact" name="resultsExplorer.files.compact" type="checkbox" />
                                     <label for="resultsExplorer.files.compact">Use compact layout</label>
                                 </div>
                                 <p class="setting__hint hidden" data-visibility="settings.mode =advanced">Compacts (flattens) unnecessary nesting when using a tree layouts</p>
 
                                 <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="resultsExplorer.avatars" name="explorers.avatars" type="checkbox"/>
+                                    <input class="setting" id="resultsExplorer.avatars" name="explorers.avatars" type="checkbox" />
                                     <label for="resultsExplorer.avatars">Use author avatars icons</label>
                                 </div>
                             </div>
 
                             <div class="section__preview">
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-results.png" data-visibility="resultsExplorer.files.layout !tree"/>
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-results-tree-compact.png" data-visibility="resultsExplorer.files.layout =tree &amp; resultsExplorer.files.compact"/>
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-results-tree.png" data-visibility="resultsExplorer.files.layout =tree &amp; resultsExplorer.files.compact =false"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-results-avatars.png" data-visibility="explorers.avatars"/>
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-results.png" data-visibility="resultsExplorer.files.layout !tree"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-results-tree-compact.png" data-visibility="resultsExplorer.files.layout =tree &amp; resultsExplorer.files.compact"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-results-tree.png" data-visibility="resultsExplorer.files.layout =tree &amp; resultsExplorer.files.compact =false"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-results-avatars.png" data-visibility="explorers.avatars"
+                                />
                             </div>
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
-                                For more advanced customizations open <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for <b><i>gitlens.resultsExplorer</i></b> or <b><i>gitlens.explorers</i></b>
+                                For more advanced customizations open
+                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for
+                                <b>
+                                    <i>gitlens.resultsExplorer</i>
+                                </b> or
+                                <b>
+                                    <i>gitlens.explorers</i>
+                                </b>
                             </p>
                         </div>
                     </section>
@@ -440,7 +488,7 @@
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
-                                    <input class="setting" id="codeLens.enabled" name="codeLens.enabled" type="checkbox"/>
+                                    <input class="setting" id="codeLens.enabled" name="codeLens.enabled" type="checkbox" />
                                     <label for="codeLens.enabled">Show the authorship code lenses</label>
                                 </div>
 
@@ -484,7 +532,8 @@
                                     <label for="codeLens.scopes">File scope &mdash; added at the top of the file</label>
                                 </div>
                                 <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="codeLens.enabled" data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="codeLens.scopes-1" name="codeLens.scopes" type="checkbox" value="containers" data-type="array" disabled/>
+                                    <input class="setting" id="codeLens.scopes-1" name="codeLens.scopes" type="checkbox" value="containers" data-type="array"
+                                        disabled/>
                                     <label for="codeLens.scopes-1">Containers scope &mdash; added at the start of modules, classes, interfaces, etc</label>
                                 </div>
                                 <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="codeLens.enabled" data-visibility="settings.mode =advanced">
@@ -493,22 +542,35 @@
                                 </div>
                             </div>
                             <div class="section__preview">
-                                <img class="image__preview" src="{{root}}/images/settings/code-lens.png"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-file-recent+authors.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-file-recent.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +document"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-file-authors.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"/>
+                                <img class="image__preview" src="{{root}}/images/settings/code-lens.png" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-file-recent+authors.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-file-recent.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +document"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-file-authors.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
+                                />
 
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-containers-recent+authors.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-containers-recent.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +containers"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-containers-authors.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"/>
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-containers-recent+authors.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-containers-recent.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +containers"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-containers-authors.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
+                                />
 
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-blocks-recent+authors.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-blocks-recent.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +blocks"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-blocks-authors.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"/>
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-blocks-recent+authors.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-blocks-recent.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +blocks"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/code-lens-blocks-authors.png" data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"
+                                />
                             </div>
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
-                                For more advanced customizations open <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for <b><i>gitlens.codeLens</i></b>
+                                For more advanced customizations open
+                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for
+                                <b>
+                                    <i>gitlens.codeLens</i>
+                                </b>
                                 <span class="settings-group__hint--more">
                                     Use the
                                     <a class="command" title="Run command" href="command:gitlens.toggleCodeLens">GitLens: Toggle Git Code Lens</a> command to override this setting for the current window
@@ -529,14 +591,14 @@
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
-                                    <input class="setting" id="currentLine.enabled" name="currentLine.enabled" type="checkbox" data-add-settings-off="hovers.currentLine.over=line"/>
+                                    <input class="setting" id="currentLine.enabled" name="currentLine.enabled" type="checkbox" data-add-settings-off="hovers.currentLine.over=line"
+                                    />
                                     <label for="currentLine.enabled">Show a blame annotation at the end of the current line</label>
                                 </div>
 
                                 <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="currentLine.enabled" data-visibility="settings.mode =advanced">
                                     <label for="currentLine.format">Annotation&nbsp;format</label>
-                                    <input class="setting" id="currentLine.format" name="currentLine.format" type="text"
-                                        placeholder="&dollar;&lbrace;authorAgoOrDate&rbrace; &bull; &dollar;&lbrace;message&rbrace;"
+                                    <input class="setting" id="currentLine.format" name="currentLine.format" type="text" placeholder="&dollar;&lbrace;authorAgoOrDate&rbrace; &bull; &dollar;&lbrace;message&rbrace;"
                                         data-default-value="&dollar;&lbrace;authorAgoOrDate&rbrace; &bull; &dollar;&lbrace;message&rbrace;"
                                         data-popup-trigger disabled/>
                                     <label for="currentLine.format" title="See available tokens">
@@ -546,17 +608,74 @@
                                         <h3 class="token-popup__title">Available Tokens</h3>
                                         <table class="token-popup__table">
                                             <tbody>
-                                                <tr><td>Commit Id</td><td><span class="token" data-token="id">id</span></td></tr>
-                                                <tr><td>Commit Author</td><td><span class="token" data-token="author">author</span></td></tr>
-                                                <tr><td>Commit Message</td><td><span class="token" data-token="message">message</span></td></tr>
-                                                <tr><td>Commit Date<br/><i>Relative, e.g. 1 day ago</i></td><td><span class="token" data-token="ago">ago</span></td></tr>
-                                                <tr><td>Commit Date<br/><i>Absolute, e.g. August 8th, 2016 10:48am</i></td><td><span class="token" data-token="date">date</span></td></tr>
-                                                <tr><td>Commit Date<br/><i>Relative or absolute based on date setting</i></td><td><span class="token" data-token="agoOrDate">agoOrDate</span></td></tr>
-                                                <tr><td>Commit Author, Commit Date<br/><i>Relative date</i></td><td><span class="token" data-token="authorAgo">authorAgo</span></td></tr>
-                                                <tr><td>Commit Author, Commit Date<br/><i>Relative or absolute date</i></td><td><span class="token" data-token="authorAgoOrDate">authorAgoOrDate</span></td></tr>
+                                                <tr>
+                                                    <td>Commit Id</td>
+                                                    <td>
+                                                        <span class="token" data-token="id">id</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Author</td>
+                                                    <td>
+                                                        <span class="token" data-token="author">author</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Message</td>
+                                                    <td>
+                                                        <span class="token" data-token="message">message</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Date
+                                                        <br/>
+                                                        <i>Relative, e.g. 1 day ago</i>
+                                                    </td>
+                                                    <td>
+                                                        <span class="token" data-token="ago">ago</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Date
+                                                        <br/>
+                                                        <i>Absolute, e.g. August 8th, 2016 10:48am</i>
+                                                    </td>
+                                                    <td>
+                                                        <span class="token" data-token="date">date</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Date
+                                                        <br/>
+                                                        <i>Relative or absolute based on date setting</i>
+                                                    </td>
+                                                    <td>
+                                                        <span class="token" data-token="agoOrDate">agoOrDate</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Author, Commit Date
+                                                        <br/>
+                                                        <i>Relative date</i>
+                                                    </td>
+                                                    <td>
+                                                        <span class="token" data-token="authorAgo">authorAgo</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Author, Commit Date
+                                                        <br/>
+                                                        <i>Relative or absolute date</i>
+                                                    </td>
+                                                    <td>
+                                                        <span class="token" data-token="authorAgoOrDate">authorAgoOrDate</span>
+                                                    </td>
+                                                </tr>
                                             </tbody>
                                         </table>
-                                        <span class="token-popup__hint"><i class="icon icon__info"></i><a href="https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting" title="Open advanced formatting docs">Learn more</a> about advanced formatting options</span>
+                                        <span class="token-popup__hint">
+                                            <i class="icon icon__info"></i>
+                                            <a href="https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting" title="Open advanced formatting docs">Learn more</a> about advanced formatting options</span>
                                     </div>
                                 </div>
 
@@ -568,17 +687,24 @@
                             </div>
 
                             <div class="section__preview">
-                                <img class="image__preview" src="{{root}}/images/settings/current-line-blame.png"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/current-line-blame-on.png" data-visibility="currentLine.enabled"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/current-line-blame-on-scrollable.png" data-visibility="currentLine.enabled &amp; currentLine.scrollable"/>
+                                <img class="image__preview" src="{{root}}/images/settings/current-line-blame.png" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/current-line-blame-on.png" data-visibility="currentLine.enabled"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/current-line-blame-on-scrollable.png" data-visibility="currentLine.enabled &amp; currentLine.scrollable"
+                                />
                             </div>
 
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
-                                For more advanced customizations open <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for <b><i>gitlens.currentLine</i></b>
+                                For more advanced customizations open
+                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for
+                                <b>
+                                    <i>gitlens.currentLine</i>
+                                </b>
                                 <span class="settings-group__hint--more">
                                     Use the
-                                    <a class="command" title="Run command" href="command:gitlens.toggleLineBlame">GitLens: Toggle Line Blame Annotations</a> command to override this setting for the current window
+                                    <a class="command" title="Run command" href="command:gitlens.toggleLineBlame">GitLens: Toggle Line Blame Annotations</a> command to override this setting for the current
+                                    window
                                 </span>
                             </p>
                         </div>
@@ -605,8 +731,7 @@
 
                                 <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
                                     <label for="blame.format">Annotation&nbsp;format</label>
-                                    <input class="setting" id="blame.format" name="blame.format" type="text"
-                                        placeholder="&dollar;&lbrace;message|40?&rbrace; &dollar;&lbrace;agoOrDate|14-&rbrace;"
+                                    <input class="setting" id="blame.format" name="blame.format" type="text" placeholder="&dollar;&lbrace;message|40?&rbrace; &dollar;&lbrace;agoOrDate|14-&rbrace;"
                                         data-default-value="&dollar;&lbrace;message|40?&rbrace; &dollar;&lbrace;agoOrDate|14-&rbrace;"
                                         data-popup-trigger/>
                                     <label for="blame.format" title="See available tokens">
@@ -616,27 +741,86 @@
                                         <h3 class="token-popup__title">Available Tokens</h3>
                                         <table class="token-popup__table">
                                             <tbody>
-                                                <tr><td>Commit Id</td><td><span class="token" data-token="id">id</span></td></tr>
-                                                <tr><td>Commit Author</td><td><span class="token" data-token="author">author</span></td></tr>
-                                                <tr><td>Commit Message</td><td><span class="token" data-token="message">message</span></td></tr>
-                                                <tr><td>Commit Date<br/><i>Relative, e.g. 1 day ago</i></td><td><span class="token" data-token="ago">ago</span></td></tr>
-                                                <tr><td>Commit Date<br/><i>Absolute, e.g. August 8th, 2016 10:48am</i></td><td><span class="token" data-token="date">date</span></td></tr>
-                                                <tr><td>Commit Date<br/><i>Relative or absolute based on date setting</i></td><td><span class="token" data-token="agoOrDate">agoOrDate</span></td></tr>
-                                                <tr><td>Commit Author, Commit Date<br/><i>Relative date</i></td><td><span class="token" data-token="authorAgo">authorAgo</span></td></tr>
-                                                <tr><td>Commit Author, Commit Date<br/><i>Relative or absolute date</i></td><td><span class="token" data-token="authorAgoOrDate">authorAgoOrDate</span></td></tr>
+                                                <tr>
+                                                    <td>Commit Id</td>
+                                                    <td>
+                                                        <span class="token" data-token="id">id</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Author</td>
+                                                    <td>
+                                                        <span class="token" data-token="author">author</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Message</td>
+                                                    <td>
+                                                        <span class="token" data-token="message">message</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Date
+                                                        <br/>
+                                                        <i>Relative, e.g. 1 day ago</i>
+                                                    </td>
+                                                    <td>
+                                                        <span class="token" data-token="ago">ago</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Date
+                                                        <br/>
+                                                        <i>Absolute, e.g. August 8th, 2016 10:48am</i>
+                                                    </td>
+                                                    <td>
+                                                        <span class="token" data-token="date">date</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Date
+                                                        <br/>
+                                                        <i>Relative or absolute based on date setting</i>
+                                                    </td>
+                                                    <td>
+                                                        <span class="token" data-token="agoOrDate">agoOrDate</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Author, Commit Date
+                                                        <br/>
+                                                        <i>Relative date</i>
+                                                    </td>
+                                                    <td>
+                                                        <span class="token" data-token="authorAgo">authorAgo</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Author, Commit Date
+                                                        <br/>
+                                                        <i>Relative or absolute date</i>
+                                                    </td>
+                                                    <td>
+                                                        <span class="token" data-token="authorAgoOrDate">authorAgoOrDate</span>
+                                                    </td>
+                                                </tr>
                                             </tbody>
                                         </table>
-                                        <span class="token-popup__hint"><i class="icon icon__info"></i><a href="https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting" title="Open advanced formatting docs">Learn more</a> about advanced formatting options</span>
+                                        <span class="token-popup__hint">
+                                            <i class="icon icon__info"></i>
+                                            <a href="https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting" title="Open advanced formatting docs">Learn more</a> about advanced formatting options</span>
                                     </div>
                                 </div>
 
                                 <div class="settings-group__setting nowrap">
-                                    <input class="setting" id="blame.heatmap.enabled" name="blame.heatmap.enabled" type="checkbox"/>
-                                    <label for="blame.heatmap.enabled">Add a heatmap (age) indicator</label>
+                                    <input class="setting" id="blame.heatmap.enabled" name="blame.heatmap.enabled" type="checkbox" />
+                                    <label for="blame.heatmap.enabled">Add a heatmap (age) indicator to show how recently lines were changed</label>
                                 </div>
-                                <p class="setting__hint">Quickly tell the age of a line &mdash; indicator ranges from bright yellow (newer) to dark brown (older)</p>
+                                <p class="setting__hint">Indicator color reflects the age of the most recent change (hot or cold), while indicator
+                                    brightness ranges from bright (newer) to dim (older) based on the relative age</p>
 
-                                <div class="settings-group__setting ml-2 hidden" data-enablement="blame.heatmap.enabled" data-visibility="settings.mode =advanced"disabled>
+                                <div class="settings-group__setting ml-2 hidden" data-enablement="blame.heatmap.enabled" data-visibility="settings.mode =advanced"
+                                    disabled>
                                     <label for="blame.heatmap.location">Position the heatmap on the</label>
                                     <select class="setting" id="blame.heatmap.location" name="blame.heatmap.location" disabled>
                                         <option value="left">left</option>
@@ -645,50 +829,64 @@
                                 </div>
 
                                 <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="blame.avatars" name="blame.avatars" type="checkbox"/>
+                                    <input class="setting" id="blame.avatars" name="blame.avatars" type="checkbox" />
                                     <label for="blame.avatars">Add author avatars in the gutter</label>
                                 </div>
 
                                 <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="blame.compact" name="blame.compact" type="checkbox"/>
+                                    <input class="setting" id="blame.compact" name="blame.compact" type="checkbox" />
                                     <label for="blame.compact">Use compact view</label>
                                 </div>
                                 <p class="setting__hint hidden" data-visibility="settings.mode =advanced">Compacts (deduplicates) matching adjacent blame annotations</p>
 
                                 <div class="settings-group__setting nowrap">
-                                    <input class="setting" id="blame.highlight.enabled" name="blame.highlight.enabled" type="checkbox"/>
+                                    <input class="setting" id="blame.highlight.enabled" name="blame.highlight.enabled" type="checkbox" />
                                     <label for="blame.highlight.enabled">Highlight other lines changed by the current line's commit</label>
                                 </div>
 
                                 <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="blame.highlight.enabled" data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="blame.highlight.locations" name="blame.highlight.locations" type="checkbox" value="gutter" data-type="array" disabled/>
+                                    <input class="setting" id="blame.highlight.locations" name="blame.highlight.locations" type="checkbox" value="gutter" data-type="array"
+                                        disabled/>
                                     <label for="blame.highlight.locations">Add gutter highlight</label>
                                 </div>
                                 <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="blame.highlight.enabled" data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="blame.highlight.locations-1" name="blame.highlight.locations" type="checkbox" value="line" data-type="array" disabled/>
+                                    <input class="setting" id="blame.highlight.locations-1" name="blame.highlight.locations" type="checkbox" value="line" data-type="array"
+                                        disabled/>
                                     <label for="blame.highlight.locations-1">Add line highlight</label>
                                 </div>
                                 <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="blame.highlight.enabled" data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="blame.highlight.locations-2" name="blame.highlight.locations" type="checkbox" value="overview" data-type="array" disabled/>
+                                    <input class="setting" id="blame.highlight.locations-2" name="blame.highlight.locations" type="checkbox" value="overview"
+                                        data-type="array" disabled/>
                                     <label for="blame.highlight.locations-2">Add scroll bar highlight</label>
                                 </div>
                             </div>
 
                             <div class="section__preview">
-                                <img class="image__preview hidden" src="{{root}}/images/settings/blame.png" data-visibility="blame.compact =false"/>
-                                <img class="image__preview hidden" src="{{root}}/images/settings/blame-compact.png" data-visibility="blame.compact"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/blame-avatars.png" data-visibility="blame.avatars &amp; blame.compact =false"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/blame-avatars-compact.png" data-visibility="blame.avatars &amp; blame.compact"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/blame-highlight-gutter.png" data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +gutter"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/blame-highlight-line.png" data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +line"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/blame-highlight-scrollbar.png" data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +overview"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/blame-heatmap-left.png" data-visibility="blame.heatmap.enabled &amp; blame.heatmap.location =left"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/blame-heatmap-right.png" data-visibility="blame.heatmap.enabled &amp; blame.heatmap.location =right"/>
+                                <img class="image__preview hidden" src="{{root}}/images/settings/blame.png" data-visibility="blame.compact =false" />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/blame-compact.png" data-visibility="blame.compact" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/blame-avatars.png" data-visibility="blame.avatars &amp; blame.compact =false"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/blame-avatars-compact.png" data-visibility="blame.avatars &amp; blame.compact"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/blame-highlight-gutter.png" data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +gutter"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/blame-highlight-line.png" data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +line"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/blame-highlight-scrollbar.png" data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +overview"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/blame-heatmap-left.png" data-visibility="blame.heatmap.enabled &amp; blame.heatmap.location =left"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/blame-heatmap-right.png" data-visibility="blame.heatmap.enabled &amp; blame.heatmap.location =right"
+                                />
                             </div>
 
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
-                                For more advanced customizations open <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for <b><i>gitlens.blame</i></b>
+                                For more advanced customizations open
+                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for
+                                <b>
+                                    <i>gitlens.blame</i>
+                                </b>
                                 <span class="settings-group__hint--more">
                                     Use the
                                     <span class="command hidden" data-visibility="blame.toggleMode =file">GitLens: Toggle File Blame Annotations</span>
@@ -696,7 +894,8 @@
                                     command to turn the annotations on or off
                                 </span>
                                 <span class="settings-group__hint--more">
-                                    Press <span class="shortcut-key">Esc</span> to turn off the annotations
+                                    Press
+                                    <span class="shortcut-key">Esc</span> to turn off the annotations
                                 </span>
                             </p>
                         </div>
@@ -709,8 +908,13 @@
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
-                            <p class="section__title-hint">Adds on-demand heatmap to the edge of the gutter to show the relative age of a line</p>
+                            <p class="section__title-hint">Adds on-demand heatmap (age) indicator to the edge of the gutter to show how recently lines were
+                                changed
+                                <br /> Indicator color reflects the age of the most recent change (hot or cold), while indicator
+                                brightness ranges from bright (newer) to dim (older) based on the relative age
+                            </p>
                         </div>
+
 
                         <div class="section__settings">
                             <div class="settings-group">
@@ -724,7 +928,7 @@
                             </div>
 
                             <div class="section__preview">
-                                <img class="image__preview" src="{{root}}/images/settings/heatmap.png"/>
+                                <img class="image__preview" src="{{root}}/images/settings/heatmap.png" />
                             </div>
 
                             <p class="settings-group__hint">
@@ -734,7 +938,8 @@
                                 <a class="command hidden" title="Run command" href="command:gitlens.toggleFileHeatmap" data-visibility="heatmap.toggleMode =window">GitLens: Toggle File Heatmap Annotations</a>
                                 command to turn the annotations on or off
                                 <span class="settings-group__hint--more">
-                                    Press <span class="shortcut-key">Esc</span> to turn off the annotations
+                                    Press
+                                    <span class="shortcut-key">Esc</span> to turn off the annotations
                                 </span>
                             </p>
                         </div>
@@ -754,7 +959,7 @@
                             <div class="settings-group">
                                 <div class="settings-group__setting">
                                     <div class="settings-group__setting nowrap">
-                                        <input class="setting" id="hovers.enabled" name="hovers.enabled" type="checkbox"/>
+                                        <input class="setting" id="hovers.enabled" name="hovers.enabled" type="checkbox" />
                                         <label for="hovers.enabled">Show blame hovers</label>
                                     </div>
                                 </div>
@@ -766,7 +971,8 @@
                                     </div>
 
                                     <div class="settings-group__setting nowrap ml-2 hidden" data-visibility="currentLine.enabled =false" data-enablement="hovers.enabled">
-                                        <input class="setting" id="hovers.currentLine.enabled-1" name="hovers.currentLine.enabled" type="checkbox" data-add-settings-on="hovers.currentLine.over=line" disabled/>
+                                        <input class="setting" id="hovers.currentLine.enabled-1" name="hovers.currentLine.enabled" type="checkbox" data-add-settings-on="hovers.currentLine.over=line"
+                                            disabled/>
                                         <label for="hovers.currentLine.enabled-1">Show hovers for the current line</label>
                                     </div>
 
@@ -778,7 +984,8 @@
                                         </select>
                                     </div>
 
-                                    <div class="settings-group__setting ml-4 hidden" data-visibility="currentLine.enabled =false &amp; settings.mode =advanced" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled &amp; currentLine.enabled">
+                                    <div class="settings-group__setting ml-4 hidden" data-visibility="currentLine.enabled =false &amp; settings.mode =advanced"
+                                        data-enablement="hovers.enabled &amp; hovers.currentLine.enabled &amp; currentLine.enabled">
                                         <label for="hovers.currentLine.over">Shown when over the</label>
                                         <select class="setting" id="hovers.currentLine.over" name="hovers.currentLine.over" disabled>
                                             <option value="annotation">annotation only</option>
@@ -786,12 +993,14 @@
                                         </select>
                                     </div>
 
-                                    <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled" data-visibility="settings.mode =advanced">
+                                    <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled"
+                                        data-visibility="settings.mode =advanced">
                                         <input class="setting" id="hovers.currentLine.details" name="hovers.currentLine.details" type="checkbox" disabled/>
                                         <label for="hovers.currentLine.details">Add blame details</label>
                                     </div>
 
-                                    <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled" data-visibility="settings.mode =advanced">
+                                    <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled"
+                                        data-visibility="settings.mode =advanced">
                                         <input class="setting" id="hovers.currentLine.changes" name="hovers.currentLine.changes" type="checkbox" disabled/>
                                         <label for="hovers.currentLine.changes">Add changes (diff)</label>
                                     </div>
@@ -799,20 +1008,34 @@
                             </div>
 
                             <div class="section__preview mb-2">
-                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine-line.png" data-visibility="hovers.currentLine.over =line"/>
-                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine-line.png" data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-blame.png" data-visibility="currentLine.enabled &amp; hovers.currentLine.over =line"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details+changes.png" data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details+changes.png" data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details.png" data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details.png" data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-changes.png" data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details =false &amp; hovers.currentLine.changes"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-changes.png" data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details =false &amp; hovers.currentLine.changes"/>
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine-line.png" data-visibility="hovers.currentLine.over =line"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine-line.png" data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-blame.png" data-visibility="currentLine.enabled &amp; hovers.currentLine.over =line"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details+changes.png" data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details+changes.png" data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details.png" data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details.png" data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-changes.png" data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details =false &amp; hovers.currentLine.changes"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-changes.png" data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details =false &amp; hovers.currentLine.changes"
+                                />
 
-                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine-annotation.png" data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-annotation-details+changes.png" data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-annotation-details.png" data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-annotation-changes.png" data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details =false &amp; hovers.currentLine.changes"/>
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine-annotation.png" data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-annotation-details+changes.png"
+                                    data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-annotation-details.png" data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-annotation-changes.png" data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details =false &amp; hovers.currentLine.changes"
+                                />
                             </div>
 
                             <div class="settings-group">
@@ -822,7 +1045,8 @@
                                         <label for="hovers.annotations.enabled">Show hovers while annotating</label>
                                     </div>
 
-                                    <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.annotations.enabled" data-visibility="settings.mode =advanced">
+                                    <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.annotations.enabled"
+                                        data-visibility="settings.mode =advanced">
                                         <label for="hovers.annotations.over">Shown when over the</label>
                                         <select class="setting" id="hovers.annotations.over" name="hovers.annotations.over" disabled>
                                             <option value="annotation">annotation only</option>
@@ -830,12 +1054,14 @@
                                         </select>
                                     </div>
 
-                                    <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.annotations.enabled" data-visibility="settings.mode =advanced">
+                                    <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.annotations.enabled"
+                                        data-visibility="settings.mode =advanced">
                                         <input class="setting" id="hovers.annotations.details" name="hovers.annotations.details" type="checkbox" disabled/>
                                         <label for="hovers.annotations.details">Add blame details</label>
                                     </div>
 
-                                    <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.annotations.enabled" data-visibility="settings.mode =advanced">
+                                    <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.annotations.enabled"
+                                        data-visibility="settings.mode =advanced">
                                         <input class="setting" id="hovers.annotations.changes" name="hovers.annotations.changes" type="checkbox" disabled/>
                                         <label for="hovers.annotations.changes">Add changes (diff)</label>
                                     </div>
@@ -843,12 +1069,18 @@
                             </div>
 
                             <div class="section__preview">
-                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-annotations.png" data-visibility="blame.compact =false"/>
-                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-annotations-compact.png" data-visibility="blame.compact"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-annotations-details+changes.png" data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-annotations-details.png" data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes =false"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-annotations-changes.png" data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details =false &amp; hovers.annotations.changes"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-annotations-heatmap.png" data-visibility="blame.heatmap.enabled &amp; blame.heatmap.location =right"/>
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-annotations.png" data-visibility="blame.compact =false"
+                                />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/hovers-annotations-compact.png" data-visibility="blame.compact"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-annotations-details+changes.png" data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-annotations-details.png" data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes =false"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-annotations-changes.png" data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details =false &amp; hovers.annotations.changes"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-annotations-heatmap.png" data-visibility="blame.heatmap.enabled &amp; blame.heatmap.location =right"
+                                />
                             </div>
                         </div>
                     </section>
@@ -866,7 +1098,7 @@
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
-                                    <input class="setting" id="mode.statusBar.enabled" name="mode.statusBar.enabled" type="checkbox"/>
+                                    <input class="setting" id="mode.statusBar.enabled" name="mode.statusBar.enabled" type="checkbox" />
                                     <label for="mode.statusBar.enabled">Show the active mode in the status bar</label>
                                 </div>
 
@@ -880,14 +1112,20 @@
                             </div>
 
                             <div class="section__preview">
-                                <img class="image__preview" src="{{root}}/images/settings/status-bar.png"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/modes-status-bar-left.png" data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =left"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/modes-status-bar-right.png" data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =right"/>
+                                <img class="image__preview" src="{{root}}/images/settings/status-bar.png" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/modes-status-bar-left.png" data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =left"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/modes-status-bar-right.png" data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =right"
+                                />
                             </div>
 
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
-                                For more advanced customizations or to add your own modes, open <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for <b><i>gitlens.modes</i></b>
+                                For more advanced customizations or to add your own modes, open
+                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for
+                                <b>
+                                    <i>gitlens.modes</i>
+                                </b>
                                 <span class="settings-group__hint--more">
                                     Use the
                                     <a class="command" title="Run command" href="command:gitlens.switchMode">GitLens: Switch Mode</a> command to quickly switch the active mode
@@ -925,26 +1163,32 @@
                                 </div>
 
                                 <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="recentChanges.highlight.locations" name="recentChanges.highlight.locations" type="checkbox" value="gutter" data-type="array"/>
+                                    <input class="setting" id="recentChanges.highlight.locations" name="recentChanges.highlight.locations" type="checkbox" value="gutter"
+                                        data-type="array" />
                                     <label for="recentChanges.highlight.locations">Add gutter highlight</label>
                                 </div>
 
                                 <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="recentChanges.highlight.locations-1" name="recentChanges.highlight.locations" type="checkbox" value="line" data-type="array"/>
+                                    <input class="setting" id="recentChanges.highlight.locations-1" name="recentChanges.highlight.locations" type="checkbox"
+                                        value="line" data-type="array" />
                                     <label for="recentChanges.highlight.locations-1">Add line highlight</label>
                                 </div>
 
                                 <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="recentChanges.highlight.locations-2" name="recentChanges.highlight.locations" type="checkbox" value="overview" data-type="array"/>
+                                    <input class="setting" id="recentChanges.highlight.locations-2" name="recentChanges.highlight.locations" type="checkbox"
+                                        value="overview" data-type="array" />
                                     <label for="recentChanges.highlight.locations-2">Add scroll bar highlight</label>
                                 </div>
                             </div>
 
                             <div class="section__preview">
-                                <img class="image__preview" src="{{root}}/images/settings/recent-changes.png"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/recent-changes-highlight-gutter.png" data-visibility="recentChanges.highlight.locations +gutter"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/recent-changes-highlight-line.png" data-visibility="recentChanges.highlight.locations +line"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/recent-changes-highlight-scrollbar.png" data-visibility="recentChanges.highlight.locations +overview"/>
+                                <img class="image__preview" src="{{root}}/images/settings/recent-changes.png" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/recent-changes-highlight-gutter.png" data-visibility="recentChanges.highlight.locations +gutter"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/recent-changes-highlight-line.png" data-visibility="recentChanges.highlight.locations +line"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/recent-changes-highlight-scrollbar.png" data-visibility="recentChanges.highlight.locations +overview"
+                                />
                             </div>
 
                             <p class="settings-group__hint">
@@ -954,7 +1198,8 @@
                                 <a class="command hidden" title="Run command" href="command:gitlens.toggleFileRecentChanges" data-visibility="recentChanges.toggleMode =window">GitLens: Toggle Recent File Changes Annotations</a>
                                 command to turn the annotations on or off
                                 <span class="settings-group__hint--more">
-                                    Press <span class="shortcut-key">Esc</span> to turn off the annotations
+                                    Press
+                                    <span class="shortcut-key">Esc</span> to turn off the annotations
                                 </span>
                             </p>
                         </div>
@@ -973,16 +1218,14 @@
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
-                                    <input class="setting" id="statusBar.enabled" name="statusBar.enabled" type="checkbox"/>
+                                    <input class="setting" id="statusBar.enabled" name="statusBar.enabled" type="checkbox" />
                                     <label for="statusBar.enabled">Show a Git blame annotation for the current line in the status bar</label>
                                 </div>
 
                                 <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="statusBar.enabled" data-visibility="settings.mode =advanced">
                                     <label for="statusBar.format">Annotation&nbsp;format</label>
-                                    <input class="setting" id="statusBar.format" name="statusBar.format" type="text"
-                                        placeholder="&dollar;&lbrace;authorAgoOrDate&rbrace;"
-                                        data-default-value="&dollar;&lbrace;authorAgoOrDate&rbrace;"
-                                        data-popup-trigger disabled/>
+                                    <input class="setting" id="statusBar.format" name="statusBar.format" type="text" placeholder="&dollar;&lbrace;authorAgoOrDate&rbrace;"
+                                        data-default-value="&dollar;&lbrace;authorAgoOrDate&rbrace;" data-popup-trigger disabled/>
                                     <label for="statusBar.format" title="See available tokens">
                                         <i class="icon icon__info"></i>
                                     </label>
@@ -990,17 +1233,74 @@
                                         <h3 class="token-popup__title">Available Tokens</h3>
                                         <table class="token-popup__table">
                                             <tbody>
-                                                <tr><td>Commit Id</td><td><span class="token" data-token="id">id</span></td></tr>
-                                                <tr><td>Commit Author</td><td><span class="token" data-token="author">author</span></td></tr>
-                                                <tr><td>Commit Message</td><td><span class="token" data-token="message">message</span></td></tr>
-                                                <tr><td>Commit Date<br/><i>Relative, e.g. 1 day ago</i></td><td><span class="token" data-token="ago">ago</span></td></tr>
-                                                <tr><td>Commit Date<br/><i>Absolute, e.g. August 8th, 2016 10:48am</i></td><td><span class="token" data-token="date">date</span></td></tr>
-                                                <tr><td>Commit Date<br/><i>Relative or absolute based on date setting</i></td><td><span class="token" data-token="agoOrDate">agoOrDate</span></td></tr>
-                                                <tr><td>Commit Author, Commit Date<br/><i>Relative date</i></td><td><span class="token" data-token="authorAgo">authorAgo</span></td></tr>
-                                                <tr><td>Commit Author, Commit Date<br/><i>Relative or absolute date</i></td><td><span class="token" data-token="authorAgoOrDate">authorAgoOrDate</span></td></tr>
+                                                <tr>
+                                                    <td>Commit Id</td>
+                                                    <td>
+                                                        <span class="token" data-token="id">id</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Author</td>
+                                                    <td>
+                                                        <span class="token" data-token="author">author</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Message</td>
+                                                    <td>
+                                                        <span class="token" data-token="message">message</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Date
+                                                        <br/>
+                                                        <i>Relative, e.g. 1 day ago</i>
+                                                    </td>
+                                                    <td>
+                                                        <span class="token" data-token="ago">ago</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Date
+                                                        <br/>
+                                                        <i>Absolute, e.g. August 8th, 2016 10:48am</i>
+                                                    </td>
+                                                    <td>
+                                                        <span class="token" data-token="date">date</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Date
+                                                        <br/>
+                                                        <i>Relative or absolute based on date setting</i>
+                                                    </td>
+                                                    <td>
+                                                        <span class="token" data-token="agoOrDate">agoOrDate</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Author, Commit Date
+                                                        <br/>
+                                                        <i>Relative date</i>
+                                                    </td>
+                                                    <td>
+                                                        <span class="token" data-token="authorAgo">authorAgo</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Commit Author, Commit Date
+                                                        <br/>
+                                                        <i>Relative or absolute date</i>
+                                                    </td>
+                                                    <td>
+                                                        <span class="token" data-token="authorAgoOrDate">authorAgoOrDate</span>
+                                                    </td>
+                                                </tr>
                                             </tbody>
                                         </table>
-                                        <span class="token-popup__hint"><i class="icon icon__info"></i><a href="https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting" title="Open advanced formatting docs">Learn more</a> about advanced formatting options</span>
+                                        <span class="token-popup__hint">
+                                            <i class="icon icon__info"></i>
+                                            <a href="https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting" title="Open advanced formatting docs">Learn more</a> about advanced formatting options</span>
                                     </div>
                                 </div>
 
@@ -1034,17 +1334,24 @@
                             </div>
 
                             <div class="section__preview">
-                                <img class="image__preview" src="{{root}}/images/settings/status-bar.png"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/status-bar-left.png" data-visibility="statusBar.enabled &amp; statusBar.alignment =left"/>
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/status-bar-right.png" data-visibility="statusBar.enabled &amp; statusBar.alignment =right"/>
+                                <img class="image__preview" src="{{root}}/images/settings/status-bar.png" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/status-bar-left.png" data-visibility="statusBar.enabled &amp; statusBar.alignment =left"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/status-bar-right.png" data-visibility="statusBar.enabled &amp; statusBar.alignment =right"
+                                />
                             </div>
 
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
-                                For more advanced customizations open <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for <b><i>gitlens.statusBar</i></b>
+                                For more advanced customizations open
+                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User Settings</a> and search for
+                                <b>
+                                    <i>gitlens.statusBar</i>
+                                </b>
                                 <span class="settings-group__hint--more">
                                     Use the
-                                    <a class="command" title="Run command" href="command:gitlens.toggleLineBlame">GitLens: Toggle Line Blame Annotations</a> command to override this setting for the current window
+                                    <a class="command" title="Run command" href="command:gitlens.toggleLineBlame">GitLens: Toggle Line Blame Annotations</a> command to override this setting for the current
+                                    window
                                 </span>
                             </p>
                         </div>
@@ -1055,18 +1362,42 @@
                     <div class="sidebar-group">
                         <h2>Jump to</h2>
                         <ul>
-                            <li><a class="jump-to" href="#general">General</a></li>
-                            <li><a class="jump-to" href="#gitlens-explorer">GitLens Explorer</a></li>
-                            <li><a class="jump-to" href="#gitlens-history-explorer">GitLens History Explorer</a></li>
-                            <li><a class="jump-to" href="#gitlens-results-explorer">GitLens Results Explorer</a></li>
-                            <li><a class="jump-to" href="#code-lens">Code Lens</a></li>
-                            <li><a class="jump-to" href="#current-line">Current Line Blame</a></li>
-                            <li><a class="jump-to" href="#blame">Gutter Blame</a></li>
-                            <li><a class="jump-to" href="#heatmap">Gutter Heatmap</a></li>
-                            <li><a class="jump-to" href="#hovers">Hovers</a></li>
-                            <li><a class="jump-to" href="#modes">Modes</a></li>
-                            <li><a class="jump-to" href="#recent-changes">Recent Changes</a></li>
-                            <li><a class="jump-to" href="#status-bar">Status Bar Blame</a></li>
+                            <li>
+                                <a class="jump-to" href="#general" title="Jump to General settings">General</a>
+                            </li>
+                            <li>
+                                <a class="jump-to" href="#gitlens-explorer" title="Jump to GitLens Explorer settings">GitLens Explorer</a>
+                            </li>
+                            <li>
+                                <a class="jump-to" href="#gitlens-history-explorer" title="Jump to GitLens History Explorer settings">GitLens History Explorer</a>
+                            </li>
+                            <li>
+                                <a class="jump-to" href="#gitlens-results-explorer" title="Jump to GitLens Results Explorer settings">GitLens Results Explorer</a>
+                            </li>
+                            <li>
+                                <a class="jump-to" href="#code-lens" title="Jump to Code Lens settings">Code Lens</a>
+                            </li>
+                            <li>
+                                <a class="jump-to" href="#current-line" title="Jump to Current Line Blame settings">Current Line Blame</a>
+                            </li>
+                            <li>
+                                <a class="jump-to" href="#blame" title="Jump to Gutter Blame settings">Gutter Blame</a>
+                            </li>
+                            <li>
+                                <a class="jump-to" href="#heatmap" title="Jump to Gutter Heatmap settings">Gutter Heatmap</a>
+                            </li>
+                            <li>
+                                <a class="jump-to" href="#hovers" title="Jump to Hovers settings">Hovers</a>
+                            </li>
+                            <li>
+                                <a class="jump-to" href="#modes" title="Jump to Modes settings">Modes</a>
+                            </li>
+                            <li>
+                                <a class="jump-to" href="#recent-changes" title="Jump to Recent Changes settings">Recent Changes</a>
+                            </li>
+                            <li>
+                                <a class="jump-to" href="#status-bar" title="Jump to Status Bar Blame settings">Status Bar Blame</a>
+                            </li>
                         </ul>
                     </div>
                     <div class="sidebar-group">
@@ -1077,9 +1408,15 @@
                             <a class="button button--flat-primary" title="One-time donations via Cash App" href="https://cash.me/$eamodio" target="_blank">Donations via Cash App</a>
                         </div>
                         <ul>
-                            <li><a title="Write a review" href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details">Write a Review</a></li>
-                            <li><a title="Star or fork me on GitHub" href="https://github.com/eamodio/vscode-gitlens">Star or Fork me on GitHub</a></li>
-                            <li><a title="Follow me on Twitter" href="https://twitter.com/eamodio">Follow me on Twitter</a></li>
+                            <li>
+                                <a title="Write a review" href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details">Write a Review</a>
+                            </li>
+                            <li>
+                                <a title="Star or fork me on GitHub" href="https://github.com/eamodio/vscode-gitlens">Star or Fork me on GitHub</a>
+                            </li>
+                            <li>
+                                <a title="Follow me on Twitter" href="https://twitter.com/eamodio">Follow me on Twitter</a>
+                            </li>
                         </ul>
                     </div>
                     <div class="sidebar-group">

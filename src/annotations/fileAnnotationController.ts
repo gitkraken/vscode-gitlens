@@ -161,6 +161,7 @@ export class FileAnnotationController extends Disposable {
 
         if (configuration.changed(e, configuration.name('blame').value) ||
             configuration.changed(e, configuration.name('recentChanges').value) ||
+            configuration.changed(e, configuration.name('heatmap').value) ||
             configuration.changed(e, configuration.name('hovers').value)) {
             // Since the configuration has changed -- reset any visible annotations
             for (const provider of this._annotationProviders.values()) {
@@ -416,7 +417,7 @@ export class FileAnnotationController extends Disposable {
         this._keyboardScope = undefined;
     }
 
-    private async showAnnotationsCore(currentProvider: AnnotationProviderBase | undefined, editor: TextEditor, type: FileAnnotationType, shaOrLine?: string | number, progress?: Progress<{ message: string}>): Promise<AnnotationProviderBase | undefined> {
+    private async showAnnotationsCore(currentProvider: AnnotationProviderBase | undefined, editor: TextEditor, type: FileAnnotationType, shaOrLine?: string | number, progress?: Progress<{ message: string }>): Promise<AnnotationProviderBase | undefined> {
         if (progress !== undefined) {
             let annotationsLabel = 'annotations';
             switch (type) {
