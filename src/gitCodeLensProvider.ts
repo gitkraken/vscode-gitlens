@@ -165,7 +165,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
                         blameForRangeFn,
                         blameRange,
                         true,
-                        fileSymbol.location.range,
+                        getRangeFromSymbol(fileSymbol),
                         cfg.recentChange.command,
                         dirtyCommand
                     ));
@@ -182,7 +182,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
                         blameForRangeFn,
                         blameRange,
                         true,
-                        fileSymbol.location.range,
+                        getRangeFromSymbol(fileSymbol),
                         cfg.authors.command
                     ));
                 }
@@ -216,7 +216,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
                 if (valid) {
                     // Adjust the range to be for the whole file
-                    if (symbol.location.range.start.line === 0 && symbol.location.range.end.line === 0) {
+                    if (getRangeFromSymbol(symbol).start.line === 0 && getRangeFromSymbol(symbol).end.line === 0) {
                         range = documentRangeFn();
                     }
                 }
@@ -248,14 +248,14 @@ export class GitCodeLensProvider implements CodeLensProvider {
                 break;
         }
 
-        return valid ? range || symbol.location.range : undefined;
+        return valid ? range || getRangeFromSymbol(symbol) : undefined;
     }
 
     private provideCodeLens(lenses: CodeLens[], document: TextDocument, symbol: SymbolInformation, languageScope: Required<CodeLensLanguageScope>, documentRangeFn: () => Range, blame: GitBlame | undefined, gitUri: GitUri | undefined, cfg: ICodeLensConfig, dirty: boolean, dirtyCommand: Command | undefined): void {
         const blameRange = this.validateSymbolAndGetBlameRange(symbol, languageScope, documentRangeFn);
         if (blameRange === undefined) return;
 
-        const line = document.lineAt(symbol.location.range.start);
+        const line = document.lineAt(getRangeFromSymbol(symbol).start);
         // Make sure there is only 1 lens per line
         if (lenses.length && lenses[lenses.length - 1].range.start.line === line.lineNumber) return;
 
@@ -433,4 +433,9 @@ export class GitCodeLensProvider implements CodeLensProvider {
         if (cfg.recentChange.enabled) return Container.config.strings.codeLens.unsavedChanges.recentChangeOnly;
         return Container.config.strings.codeLens.unsavedChanges.authorsOnly;
     }
+}
+
+function getRangeFromSymbol(symbol: SymbolInformation) {
+    // Normalize the range to deal with the new api
+    return (symbol.location && symbol.location.range) || (symbol as any).range;
 }

@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+- Fixes issue with insiders builds because of the new `SymbolInformation` API changes (see [Microsoft/vscode#34968](https://github.com/Microsoft/vscode/issues/34968))
+
 ## [8.4.0] - 2018-06-19
 ### Added
 - Adds completely revamped heatmap annotations

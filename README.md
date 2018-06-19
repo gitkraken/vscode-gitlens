@@ -26,6 +26,7 @@
 - Fixes [#400](https://github.com/eamodio/vscode-gitlens/issues/412) - GitLens logging to debug console when debugging different extension
 - Fixes [#409](https://github.com/eamodio/vscode-gitlens/issues/409) - Literal $(ellipsis) inserted into commit QuickPick menu entry placeholder text
 - Fixes [#415](https://github.com/eamodio/vscode-gitlens/issues/415) - Branch names get mangled by color escapes &mdash; thanks to [PR #416](https://github.com/eamodio/vscode-gitlens/pull/416) by Roy Ivy III ([@rivy](https://github.com/rivy))
+- Fixes issue with insiders builds because of the new `SymbolInformation` API changes (see [Microsoft/vscode#34968](https://github.com/Microsoft/vscode/issues/34968))
 
 See the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md "Open Release Notes") for the full set of changes
 
