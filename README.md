@@ -16,7 +16,7 @@
 ## 8.4 &mdash; June 2018
 - Adds completely revamped heatmap annotations
   ![cold heatmap](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-heatmap-cold.png)
-  - The indicator's, now customizable, color will either be hot or cold based on the age of the most recent change (cold after 90 days by default) &mdash; closes [#419](https://github.com/eamodio/vscode-gitlens/issues/419)
+  - The indicator's color, now customizable, will either be hot or cold based on the age of the most recent change (cold after 90 days by default) &mdash; closes [#419](https://github.com/eamodio/vscode-gitlens/issues/419)
   - The indicator's brightness ranges from bright (newer) to dim (older) based on the relative age, which is calculated from the median age of all the changes in the file
   - Adds `gitlens.heatmap.ageThreshold` setting to specify the age of the most recent change (in days) after which the gutter heatmap annotations will be cold rather than hot (i.e. will use `gitlens.heatmap.coldColor` instead of `gitlens.heatmap.hotColor`)
   - Adds `gitlens.heatmap.coldColor` setting to specify the base color of the gutter heatmap annotations when the most recent change is older (cold) than the `gitlens.heatmap.ageThreshold` setting
@@ -43,7 +43,7 @@ Here are just some of the features that GitLens provides,
  - authorship [code lens](#code-lens "Jump to the Code Lens") showing the most recent commit and # of authors to the top of files and/or on code blocks
  - an unobtrusive [current line blame](#current-line-blame "Jump to the Current Line Blame") annotation at the end of the line
  - on-demand [gutter blame](#gutter-blame "Jump to the Gutter Blame") annotations, including a heatmap, for the whole file
- - detailed blame information accessible via [hovers](#hovers "Jump to the Hovers")
+ - on-demand [gutter heatmap](#gutter-heatmap "Jump to the Gutter Heatmap") annotations to show how recently lines were changed, relative to all the other changes in the file and to now (hot vs. cold)
  - on-demand [recent changes](#recent-changes "Jump to the Recent Changes") annotations to highlight lines changed by the most recent commit
  - a [status bar blame](#status-bar-blame "Jump to the Status Bar Blame") annotation showing author and date for the current line
  - [commit search](#commit-search "Jump to the Commit Search") &mdash; by message, author, filename, commit id, or code changes
