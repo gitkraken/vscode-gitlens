@@ -30,9 +30,9 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: CopyMessageToClipboardCommandArgs = {}): Promise<any> {
         uri = getCommandUri(uri, editor);
 
-        const clipboard = await import('clipboardy');
-
         try {
+            const clipboard = await import('clipboardy');
+
             args = { ...args };
 
             // If we don't have an editor then get the message of the last commit to the branch
@@ -78,10 +78,15 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 args.message = commit.message;
             }
 
-            clipboard.write(args.message);
+            void await clipboard.write(args.message);
             return undefined;
         }
         catch (ex) {
+            if (ex.message.includes('Couldn\'t find the required `xsel` binary')) {
+                window.showErrorMessage(`Unable to copy message, xsel is not installed. You can install it via \`sudo apt install xsel\``);
+                return;
+            }
+
             Logger.error(ex, 'CopyMessageToClipboardCommand');
             return window.showErrorMessage(`Unable to copy message. See output channel for more details`);
         }
