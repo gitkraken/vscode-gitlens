@@ -322,6 +322,7 @@ export interface IConfig {
             over: 'line' | 'annotation'
         };
 
+        avatars: boolean;
         enabled: boolean;
     };
 

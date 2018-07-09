@@ -599,6 +599,12 @@
                     "description": "Specifies when to trigger hovers for the current line\n `annotation` - only shown when hovering over the line annotation\n `line` - shown when hovering anywhere over the line",
                     "scope": "window"
                 },
+                "gitlens.hovers.avatars": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether to show avatar images in hovers",
+                    "scope": "window"
+                },
                 "gitlens.hovers.enabled": {
                     "type": "boolean",
                     "default": true,

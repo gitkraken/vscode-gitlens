@@ -96,6 +96,7 @@ export class Annotations {
         let message = '';
         let commandBar = '';
         let showCommitDetailsCommand = '';
+        let avatar = '';
         if (!commit.isUncommitted) {
             commandBar = `\n\n${this.getHoverCommandBar(commit, remotes.length !== 0, annotationType, line)}`;
             showCommitDetailsCommand = `[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show Commit Details")`;
@@ -121,7 +122,11 @@ export class Annotations {
             showCommitDetailsCommand = `\`${commit.shortSha === 'working' ? '00000000' : commit.shortSha}\``;
         }
 
-        const markdown = new MarkdownString(`${showCommitDetailsCommand} &nbsp; ![](${commit.getGravatarUri(Container.config.defaultGravatarsStyle).toString()}) &nbsp;__${commit.author}__, ${commit.fromNow()} &nbsp; _(${commit.formatDate(dateFormat)})_ ${message}${commandBar}`);
+        if (Container.config.hovers.avatars) {
+            avatar = ` &nbsp; ![](${commit.getGravatarUri(Container.config.defaultGravatarsStyle).toString()})`;
+        }
+
+        const markdown = new MarkdownString(`${showCommitDetailsCommand}${avatar} &nbsp;__${commit.author}__, ${commit.fromNow()} &nbsp; _(${commit.formatDate(dateFormat)})_ ${message}${commandBar}`);
         markdown.isTrusted = true;
         return markdown;
     }
