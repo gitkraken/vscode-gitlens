@@ -51,7 +51,7 @@
     "contributes": {
         "configuration": {
             "type": "object",
-            "title": "GitLens configuration",
+            "title": "GitLens",
             "properties": {
                 "gitlens.blame.avatars": {
                     "type": "boolean",
