@@ -1,5 +1,17 @@
 'use strict';
-import { commands, Disposable, SourceControlResourceGroup, SourceControlResourceState, TextDocumentShowOptions, TextEditor, TextEditorEdit, Uri, ViewColumn, window, workspace } from 'vscode';
+import {
+    commands,
+    Disposable,
+    SourceControlResourceGroup,
+    SourceControlResourceState,
+    TextDocumentShowOptions,
+    TextEditor,
+    TextEditorEdit,
+    Uri,
+    ViewColumn,
+    window,
+    workspace
+} from 'vscode';
 import { BuiltInCommands, DocumentSchemes, ImageExtensions } from '../constants';
 import { Container } from '../container';
 import { ExplorerNode, ExplorerRefNode } from '../views/explorerNodes';
@@ -78,7 +90,12 @@ export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
     return document.uri;
 }
 
-export async function getRepoPathOrActiveOrPrompt(uri: Uri | undefined, editor: TextEditor | undefined, placeholder: string, goBackCommand?: CommandQuickPickItem) {
+export async function getRepoPathOrActiveOrPrompt(
+    uri: Uri | undefined,
+    editor: TextEditor | undefined,
+    placeholder: string,
+    goBackCommand?: CommandQuickPickItem
+) {
     let repoPath = await Container.git.getRepoPathOrActive(uri, editor);
     if (!repoPath) {
         const pick = await RepositoriesQuickPick.show(placeholder, goBackCommand);
@@ -133,28 +150,52 @@ export interface CommandViewContext extends CommandBaseContext {
     node: ExplorerNode;
 }
 
-export function isCommandViewContextWithBranch(context: CommandContext): context is CommandViewContext & { node: (ExplorerNode & { branch: GitBranch }) } {
-    return context.type === 'view' && (context.node as (ExplorerNode & { branch?: GitBranch })).branch instanceof GitBranch;
+export function isCommandViewContextWithBranch(
+    context: CommandContext
+): context is CommandViewContext & { node: ExplorerNode & { branch: GitBranch } } {
+    return (
+        context.type === 'view' && (context.node as ExplorerNode & { branch?: GitBranch }).branch instanceof GitBranch
+    );
 }
 
-export function isCommandViewContextWithCommit<T extends GitCommit>(context: CommandContext): context is CommandViewContext & { node: (ExplorerNode & { commit: T }) } {
-    return context.type === 'view' && (context.node as (ExplorerNode & { commit?: GitCommit })).commit instanceof GitCommit;
+export function isCommandViewContextWithCommit<T extends GitCommit>(
+    context: CommandContext
+): context is CommandViewContext & { node: ExplorerNode & { commit: T } } {
+    return (
+        context.type === 'view' && (context.node as ExplorerNode & { commit?: GitCommit }).commit instanceof GitCommit
+    );
 }
 
-export function isCommandViewContextWithRef(context: CommandContext): context is CommandViewContext & { node: (ExplorerNode & { ref: string }) } {
-    return context.type === 'view' && (context.node instanceof ExplorerRefNode);
+export function isCommandViewContextWithRef(
+    context: CommandContext
+): context is CommandViewContext & { node: ExplorerNode & { ref: string } } {
+    return context.type === 'view' && context.node instanceof ExplorerRefNode;
 }
 
-export function isCommandViewContextWithRemote(context: CommandContext): context is CommandViewContext & { node: (ExplorerNode & { remote: GitRemote }) } {
-    return context.type === 'view' && (context.node as (ExplorerNode & { remote?: GitRemote })).remote instanceof GitRemote;
+export function isCommandViewContextWithRemote(
+    context: CommandContext
+): context is CommandViewContext & { node: ExplorerNode & { remote: GitRemote } } {
+    return (
+        context.type === 'view' && (context.node as ExplorerNode & { remote?: GitRemote }).remote instanceof GitRemote
+    );
 }
 
-export type CommandContext = CommandScmGroupsContext | CommandScmStatesContext | CommandUnknownContext | CommandUriContext | CommandViewContext;
+export type CommandContext =
+    | CommandScmGroupsContext
+    | CommandScmStatesContext
+    | CommandUnknownContext
+    | CommandUriContext
+    | CommandViewContext;
 
 function isScmResourceGroup(group: any): group is SourceControlResourceGroup {
     if (group == null) return false;
 
-    return (group as SourceControlResourceGroup).id !== undefined && (group.handle !== undefined || (group as SourceControlResourceGroup).label !== undefined || (group as SourceControlResourceGroup).resourceStates !== undefined);
+    return (
+        (group as SourceControlResourceGroup).id !== undefined &&
+        (group.handle !== undefined ||
+            (group as SourceControlResourceGroup).label !== undefined ||
+            (group as SourceControlResourceGroup).resourceStates !== undefined)
+    );
 }
 
 function isScmResourceState(state: any): state is SourceControlResourceState {
@@ -166,11 +207,13 @@ function isScmResourceState(state: any): state is SourceControlResourceState {
 function isTextEditor(editor: any): editor is TextEditor {
     if (editor == null) return false;
 
-    return editor.id !== undefined && ((editor as TextEditor).edit !== undefined || (editor as TextEditor).document !== undefined);
+    return (
+        editor.id !== undefined &&
+        ((editor as TextEditor).edit !== undefined || (editor as TextEditor).document !== undefined)
+    );
 }
 
 export abstract class Command extends Disposable {
-
     static getMarkdownCommandArgsCore<T>(command: Commands, args: T): string {
         return `command:${command}?${encodeURIComponent(JSON.stringify(args))}`;
     }
@@ -183,12 +226,18 @@ export abstract class Command extends Disposable {
         super(() => this.dispose());
 
         if (typeof command === 'string') {
-            this._disposable = commands.registerCommand(command, (...args: any[]) => this._execute(command, ...args), this);
+            this._disposable = commands.registerCommand(
+                command,
+                (...args: any[]) => this._execute(command, ...args),
+                this
+            );
 
             return;
         }
 
-        const subscriptions = command.map(cmd => commands.registerCommand(cmd, (...args: any[]) => this._execute(cmd, ...args), this));
+        const subscriptions = command.map(cmd =>
+            commands.registerCommand(cmd, (...args: any[]) => this._execute(cmd, ...args), this)
+        );
         this._disposable = Disposable.from(...subscriptions);
     }
 
@@ -209,7 +258,11 @@ export abstract class Command extends Disposable {
         return this.preExecute(context, ...rest);
     }
 
-    private static parseContext(command: string, options: CommandContextParsingOptions, ...args: any[]): [CommandContext, any[]] {
+    private static parseContext(
+        command: string,
+        options: CommandContextParsingOptions,
+        ...args: any[]
+    ): [CommandContext, any[]] {
         let editor: TextEditor | undefined = undefined;
 
         let firstArg = args[0];
@@ -239,7 +292,10 @@ export abstract class Command extends Disposable {
                 states.push(arg);
             }
 
-            return [{ command: command, type: 'scm-states', scmResourceStates: states, uri: states[0].resourceUri }, args.slice(count)];
+            return [
+                { command: command, type: 'scm-states', scmResourceStates: states, uri: states[0].resourceUri },
+                args.slice(count)
+            ];
         }
 
         if (isScmResourceGroup(firstArg)) {
@@ -260,7 +316,6 @@ export abstract class Command extends Disposable {
 }
 
 export abstract class ActiveEditorCommand extends Command {
-
     protected readonly contextParsingOptions: CommandContextParsingOptions = { editor: true, uri: true };
 
     constructor(command: Commands | Commands[]) {
@@ -278,13 +333,12 @@ export abstract class ActiveEditorCommand extends Command {
     abstract execute(editor?: TextEditor, ...args: any[]): any;
 }
 
-let lastCommand: { command: string, args: any[] } | undefined = undefined;
+let lastCommand: { command: string; args: any[] } | undefined = undefined;
 export function getLastCommand() {
     return lastCommand;
 }
 
 export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
-
     constructor(command: Commands | Commands[]) {
         super(command);
     }
@@ -301,7 +355,6 @@ export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
 }
 
 export abstract class EditorCommand extends Disposable {
-
     private _disposable: Disposable;
 
     constructor(command: Commands | Commands[]) {
@@ -313,7 +366,14 @@ export abstract class EditorCommand extends Disposable {
 
         const subscriptions = [];
         for (const cmd of command) {
-            subscriptions.push(commands.registerTextEditorCommand(cmd, (editor: TextEditor, edit: TextEditorEdit, ...args: any[]) => this.executeCore(cmd, editor, edit, ...args), this));
+            subscriptions.push(
+                commands.registerTextEditorCommand(
+                    cmd,
+                    (editor: TextEditor, edit: TextEditorEdit, ...args: any[]) =>
+                        this.executeCore(cmd, editor, edit, ...args),
+                    this
+                )
+            );
         }
         this._disposable = Disposable.from(...subscriptions);
     }
@@ -330,7 +390,10 @@ export abstract class EditorCommand extends Disposable {
     abstract execute(editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any;
 }
 
-export async function openEditor(uri: Uri, options: TextDocumentShowOptions & { rethrow?: boolean } = {}): Promise<TextEditor | undefined> {
+export async function openEditor(
+    uri: Uri,
+    options: TextDocumentShowOptions & { rethrow?: boolean } = {}
+): Promise<TextEditor | undefined> {
     const { rethrow, ...opts } = options;
     try {
         if (uri instanceof GitUri) {

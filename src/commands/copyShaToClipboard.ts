@@ -11,7 +11,6 @@ export interface CopyShaToClipboardCommandArgs {
 }
 
 export class CopyShaToClipboardCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.CopyShaToClipboard);
     }
@@ -50,9 +49,10 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 
                 try {
                     const gitUri = await GitUri.fromUri(uri);
-                    const blame = editor && editor.document && editor.document.isDirty
-                        ? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-                        : await Container.git.getBlameForLine(gitUri, blameline);
+                    const blame =
+                        editor && editor.document && editor.document.isDirty
+                            ? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
+                            : await Container.git.getBlameForLine(gitUri, blameline);
                     if (blame === undefined) return undefined;
 
                     args.sha = blame.commit.sha;
@@ -63,12 +63,14 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
                 }
             }
 
-            void await clipboard.write(args.sha);
+            void (await clipboard.write(args.sha));
             return undefined;
         }
         catch (ex) {
-            if (ex.message.includes('Couldn\'t find the required `xsel` binary')) {
-                window.showErrorMessage(`Unable to copy commit id, xsel is not installed. You can install it via \`sudo apt install xsel\``);
+            if (ex.message.includes("Couldn't find the required `xsel` binary")) {
+                window.showErrorMessage(
+                    `Unable to copy commit id, xsel is not installed. You can install it via \`sudo apt install xsel\``
+                );
                 return;
             }
 

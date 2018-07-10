@@ -1,6 +1,16 @@
 'use strict';
 import { Functions } from '../system';
-import { DecorationOptions, Disposable, Range, TextDocument, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, Uri, window } from 'vscode';
+import {
+    DecorationOptions,
+    Disposable,
+    Range,
+    TextDocument,
+    TextEditor,
+    TextEditorDecorationType,
+    TextEditorSelectionChangeEvent,
+    Uri,
+    window
+} from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { TextDocumentComparer } from '../comparers';
 import { CommandContext, setCommandContext } from '../constants';
@@ -14,7 +24,6 @@ export enum AnnotationStatus {
 export type TextEditorCorrelationKey = string;
 
 export abstract class AnnotationProviderBase extends Disposable {
-
     static getCorrelationKey(editor: TextEditor | undefined): TextEditorCorrelationKey {
         return editor !== undefined ? (editor as any).id : '';
     }
@@ -65,7 +74,7 @@ export abstract class AnnotationProviderBase extends Disposable {
         return this.editor.document.uri;
     }
 
-    protected additionalDecorations: { decoration: TextEditorDecorationType, ranges: Range[] }[] | undefined;
+    protected additionalDecorations: { decoration: TextEditorDecorationType; ranges: Range[] }[] | undefined;
 
     async clear() {
         this.status = undefined;
@@ -75,7 +84,7 @@ export abstract class AnnotationProviderBase extends Disposable {
             try {
                 this.editor.setDecorations(this.decoration, []);
             }
-            catch { }
+            catch {}
         }
 
         if (this.additionalDecorations !== undefined && this.additionalDecorations.length > 0) {
@@ -83,7 +92,7 @@ export abstract class AnnotationProviderBase extends Disposable {
                 try {
                     this.editor.setDecorations(d.decoration, []);
                 }
-                catch { }
+                catch {}
             }
 
             this.additionalDecorations = undefined;
@@ -93,13 +102,23 @@ export abstract class AnnotationProviderBase extends Disposable {
             try {
                 this.editor.setDecorations(this.highlightDecoration, []);
             }
-            catch { }
+            catch {}
         }
     }
 
-    private _resetDebounced: ((changes?: { decoration: TextEditorDecorationType, highlightDecoration: TextEditorDecorationType | undefined }) => Promise<void>) | undefined;
+    private _resetDebounced:
+        | ((
+              changes?: {
+                  decoration: TextEditorDecorationType;
+                  highlightDecoration: TextEditorDecorationType | undefined;
+              }
+          ) => Promise<void>)
+        | undefined;
 
-    async reset(changes?: { decoration: TextEditorDecorationType, highlightDecoration: TextEditorDecorationType | undefined }) {
+    async reset(changes?: {
+        decoration: TextEditorDecorationType;
+        highlightDecoration: TextEditorDecorationType | undefined;
+    }) {
         if (this._resetDebounced === undefined) {
             this._resetDebounced = Functions.debounce(this.onReset, 250);
         }
@@ -107,7 +126,10 @@ export abstract class AnnotationProviderBase extends Disposable {
         this._resetDebounced(changes);
     }
 
-    async onReset(changes?: { decoration: TextEditorDecorationType, highlightDecoration: TextEditorDecorationType | undefined }) {
+    async onReset(changes?: {
+        decoration: TextEditorDecorationType;
+        highlightDecoration: TextEditorDecorationType | undefined;
+    }) {
         if (changes !== undefined) {
             await this.clear();
 
@@ -163,4 +185,4 @@ export abstract class AnnotationProviderBase extends Disposable {
     abstract async onProvideAnnotation(shaOrLine?: string | number): Promise<boolean>;
     abstract async selection(shaOrLine?: string | number): Promise<void>;
     abstract async validate(): Promise<boolean>;
- }
+}

@@ -4,12 +4,7 @@ import { Explorer, ResourceType } from './explorerNode';
 import { GitLogCommit, IGitStatusFile } from '../gitService';
 
 export class StashFileNode extends CommitFileNode {
-
-    constructor(
-        status: IGitStatusFile,
-        commit: GitLogCommit,
-        explorer: Explorer
-    ) {
+    constructor(status: IGitStatusFile, commit: GitLogCommit, explorer: Explorer) {
         super(status, commit, explorer, CommitFileNodeDisplayAs.File);
     }
 

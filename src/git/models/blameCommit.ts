@@ -2,7 +2,6 @@
 import { GitCommit, GitCommitLine, GitCommitType } from './commit';
 
 export class GitBlameCommit extends GitCommit {
-
     constructor(
         repoPath: string,
         sha: string,
@@ -37,7 +36,14 @@ export class GitBlameCommit extends GitCommit {
         return `${this.sha}^`;
     }
 
-    with(changes: { sha?: string, fileName?: string, originalFileName?: string | null, previousFileName?: string | null, previousSha?: string | null, lines?: GitCommitLine[] | null }): GitBlameCommit {
+    with(changes: {
+        sha?: string;
+        fileName?: string;
+        originalFileName?: string | null;
+        previousFileName?: string | null;
+        previousSha?: string | null;
+        lines?: GitCommitLine[] | null;
+    }): GitBlameCommit {
         return new GitBlameCommit(
             this.repoPath,
             changes.sha || this.sha,
@@ -49,7 +55,7 @@ export class GitBlameCommit extends GitCommit {
             this.getChangedValue(changes.originalFileName, this.originalFileName),
             this.getChangedValue(changes.previousSha, this.previousSha),
             this.getChangedValue(changes.previousFileName, this.previousFileName),
-            this.getChangedValue(changes.lines, (changes.sha || changes.fileName) ? [] : this.lines) || []
+            this.getChangedValue(changes.lines, changes.sha || changes.fileName ? [] : this.lines) || []
         );
     }
 }

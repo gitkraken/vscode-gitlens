@@ -1,13 +1,21 @@
 'use strict';
 import { Iterables, Strings } from '../../system';
-import { GitDiff, GitDiffChunk, GitDiffChunkLine, GitDiffLine, GitDiffShortStat, GitStatusFile, GitStatusParser } from './../git';
+import {
+    GitDiff,
+    GitDiffChunk,
+    GitDiffChunkLine,
+    GitDiffLine,
+    GitDiffShortStat,
+    GitStatusFile,
+    GitStatusParser
+} from './../git';
 
 const nameStatusDiffRegex = /^(.*?)\t(.*?)(?:\t(.*?))?$/gm;
+// tslint:disable-next-line:max-line-length
 const shortStatDiffRegex = /^\s*(\d+)\sfiles? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
 const unifiedDiffRegex = /^@@ -([\d]+),([\d]+) [+]([\d]+),([\d]+) @@([\s\S]*?)(?=^@@)/gm;
 
 export class GitDiffParser {
-
     static parse(data: string, debug: boolean = false): GitDiff | undefined {
         if (!data) return undefined;
 
@@ -29,7 +37,19 @@ export class GitDiffParser {
             currentStart = parseInt(match[3], 10);
             previousStart = parseInt(match[1], 10);
 
-            chunks.push(new GitDiffChunk(chunk, { start: currentStart, end: currentStart + parseInt(match[4], 10) }, { start: previousStart, end: previousStart + parseInt(match[2], 10) }));
+            chunks.push(
+                new GitDiffChunk(
+                    chunk,
+                    {
+                        start: currentStart,
+                        end: currentStart + parseInt(match[4], 10)
+                    },
+                    {
+                        start: previousStart,
+                        end: previousStart + parseInt(match[2], 10)
+                    }
+                )
+            );
         } while (match != null);
 
         if (!chunks.length) return undefined;

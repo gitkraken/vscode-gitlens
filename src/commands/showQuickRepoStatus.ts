@@ -11,7 +11,6 @@ export interface ShowQuickRepoStatusCommandArgs {
 }
 
 export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
-
     constructor() {
         super(Commands.ShowQuickRepoStatus);
     }
@@ -20,7 +19,11 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
         uri = getCommandUri(uri, editor);
 
         try {
-            const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, `Show status for which repository${GlyphChars.Ellipsis}`);
+            const repoPath = await getRepoPathOrActiveOrPrompt(
+                uri,
+                editor,
+                `Show status for which repository${GlyphChars.Ellipsis}`
+            );
             if (!repoPath) return undefined;
 
             const status = await Container.git.getStatusForRepo(repoPath);

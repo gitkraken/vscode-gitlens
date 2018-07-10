@@ -9,7 +9,6 @@ import { GitUri } from '../gitService';
 import { Logger } from '../logger';
 
 export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
-
     private readonly _uri: GitUri;
 
     constructor(
@@ -48,14 +47,22 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
                 if (line.state === 'unchanged') continue;
 
-                const range = this.editor.document.validateRange(new Range(new Position(count, 0), new Position(count, Number.MAX_SAFE_INTEGER)));
+                const range = this.editor.document.validateRange(
+                    new Range(new Position(count, 0), new Position(count, Number.MAX_SAFE_INTEGER))
+                );
 
                 let message: MarkdownString | undefined = undefined;
 
                 if (cfg.hovers.enabled && cfg.hovers.annotations.enabled) {
                     if (cfg.hovers.annotations.details) {
                         this.decorations.push({
-                            hoverMessage: Annotations.getHoverMessage(commit, dateFormat, await Container.git.getRemotes(commit.repoPath), this.annotationType, this.editor.selection.active.line),
+                            hoverMessage: Annotations.getHoverMessage(
+                                commit,
+                                dateFormat,
+                                await Container.git.getRemotes(commit.repoPath),
+                                this.annotationType,
+                                this.editor.selection.active.line
+                            ),
                             range: range
                         } as DecorationOptions);
                     }
@@ -76,13 +83,14 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
         this.editor.setDecorations(this.decoration, this.decorations);
 
         const duration = process.hrtime(start);
-        Logger.log(`${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms to compute recent changes annotations`);
+        Logger.log(
+            `${duration[0] * 1000 + Math.floor(duration[1] / 1000000)} ms to compute recent changes annotations`
+        );
 
         return true;
     }
 
-    async selection(shaOrLine?: string | number): Promise<void> {
-    }
+    async selection(shaOrLine?: string | number): Promise<void> {}
 
     async validate(): Promise<boolean> {
         return true;

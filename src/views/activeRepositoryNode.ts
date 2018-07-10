@@ -9,7 +9,6 @@ import { GitUri } from '../gitService';
 import { RepositoryNode } from './repositoryNode';
 
 export class ActiveRepositoryNode extends ExplorerNode {
-
     private _repositoryNode: RepositoryNode | undefined;
 
     constructor(
@@ -84,15 +83,14 @@ export class ActiveRepositoryNode extends ExplorerNode {
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        return this._repositoryNode !== undefined
-            ? this._repositoryNode.getChildren()
-            : [];
+        return this._repositoryNode !== undefined ? this._repositoryNode.getChildren() : [];
     }
 
     getTreeItem(): TreeItem {
-        const item = this._repositoryNode !== undefined
-            ? this._repositoryNode.getTreeItem()
-            : new TreeItem('No active repository', TreeItemCollapsibleState.None);
+        const item =
+            this._repositoryNode !== undefined
+                ? this._repositoryNode.getTreeItem()
+                : new TreeItem('No active repository', TreeItemCollapsibleState.None);
         item.id = this.id;
         return item;
     }

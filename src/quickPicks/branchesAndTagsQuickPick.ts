@@ -7,7 +7,6 @@ import { GitBranch, GitTag } from '../gitService';
 import { KeyNoopCommand } from '../keyboard';
 
 export class BranchOrTagQuickPickItem implements QuickPickItem {
-
     label: string;
     description: string;
     detail: string | undefined;
@@ -16,7 +15,9 @@ export class BranchOrTagQuickPickItem implements QuickPickItem {
         public readonly branchOrTag: GitBranch | GitTag
     ) {
         if (branchOrTag instanceof GitBranch) {
-            this.label = `${branchOrTag.current ? `$(check)${GlyphChars.Space}` : GlyphChars.Space.repeat(4)} ${branchOrTag.name}`;
+            this.label = `${branchOrTag.current ? `$(check)${GlyphChars.Space}` : GlyphChars.Space.repeat(4)} ${
+                branchOrTag.name
+            }`;
             this.description = branchOrTag.remote ? `${GlyphChars.Space.repeat(2)} remote branch` : '';
         }
         else {
@@ -35,17 +36,20 @@ export class BranchOrTagQuickPickItem implements QuickPickItem {
 }
 
 export class BranchesAndTagsQuickPick {
-
     static showProgress(placeHolder: string) {
-        return showQuickPickProgress(placeHolder,
-            {
-                left: KeyNoopCommand,
-                ',': KeyNoopCommand,
-                '.': KeyNoopCommand
-            });
+        return showQuickPickProgress(placeHolder, {
+            left: KeyNoopCommand,
+            ',': KeyNoopCommand,
+            '.': KeyNoopCommand
+        });
     }
 
-    static async show(branches: GitBranch[], tags: GitTag[], placeHolder: string, options: { goBackCommand?: CommandQuickPickItem, progressCancellation?: CancellationTokenSource } = {}): Promise<BranchOrTagQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(
+        branches: GitBranch[],
+        tags: GitTag[],
+        placeHolder: string,
+        options: { goBackCommand?: CommandQuickPickItem; progressCancellation?: CancellationTokenSource } = {}
+    ): Promise<BranchOrTagQuickPickItem | CommandQuickPickItem | undefined> {
         const items = [
             ...branches.filter(b => !b.remote).map(b => new BranchOrTagQuickPickItem(b)),
             ...tags.map(t => new BranchOrTagQuickPickItem(t)),
@@ -56,17 +60,18 @@ export class BranchesAndTagsQuickPick {
             items.splice(0, 0, options.goBackCommand);
         }
 
-        if (options.progressCancellation !== undefined && options.progressCancellation.token.isCancellationRequested) return undefined;
+        if (options.progressCancellation !== undefined && options.progressCancellation.token.isCancellationRequested) {
+            return undefined;
+        }
 
         const scope = await Container.keyboard.beginScope({ left: options.goBackCommand || KeyNoopCommand });
 
         options.progressCancellation && options.progressCancellation.cancel();
 
-        const pick = await window.showQuickPick(items,
-            {
-                placeHolder: placeHolder,
-                ignoreFocusOut: getQuickPickIgnoreFocusOut()
-            } as QuickPickOptions);
+        const pick = await window.showQuickPick(items, {
+            placeHolder: placeHolder,
+            ignoreFocusOut: getQuickPickIgnoreFocusOut()
+        } as QuickPickOptions);
 
         await scope.dispose();
 

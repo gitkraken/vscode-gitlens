@@ -3,8 +3,26 @@ import { commands, Disposable, InputBoxOptions, Terminal, TextDocumentShowOption
 import { CommandContext, extensionTerminalName, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { BranchNode, ExplorerNode, TagNode } from '../views/gitExplorer';
-import { CommitFileNode, CommitNode, ExplorerRefNode, RemoteNode, StashFileNode, StashNode, StatusFileCommitsNode, StatusUpstreamNode } from './explorerNodes';
-import { Commands, DiffWithCommandArgs, DiffWithCommandArgsRevision, DiffWithPreviousCommandArgs, DiffWithWorkingCommandArgs, openEditor, OpenFileInRemoteCommandArgs, OpenFileRevisionCommandArgs } from '../commands';
+import {
+    CommitFileNode,
+    CommitNode,
+    ExplorerRefNode,
+    RemoteNode,
+    StashFileNode,
+    StashNode,
+    StatusFileCommitsNode,
+    StatusUpstreamNode
+} from './explorerNodes';
+import {
+    Commands,
+    DiffWithCommandArgs,
+    DiffWithCommandArgsRevision,
+    DiffWithPreviousCommandArgs,
+    DiffWithWorkingCommandArgs,
+    openEditor,
+    OpenFileInRemoteCommandArgs,
+    OpenFileRevisionCommandArgs
+} from '../commands';
 import { GitService, GitUri } from '../gitService';
 import { RepositoryNode } from './repositoryNode';
 import { StatusNode } from './statusNode';
@@ -21,7 +39,6 @@ interface ICompareSelected {
 }
 
 export class ExplorerCommands extends Disposable {
-
     private _disposable: Disposable | undefined;
     private _terminal: Terminal | undefined;
     private _terminalCwd: string | undefined;
@@ -36,7 +53,11 @@ export class ExplorerCommands extends Disposable {
         commands.registerCommand('gitlens.explorers.openFileRevisionInRemote', this.openFileRevisionInRemote, this);
         commands.registerCommand('gitlens.explorers.openChangedFiles', this.openChangedFiles, this);
         commands.registerCommand('gitlens.explorers.openChangedFileChanges', this.openChangedFileChanges, this);
-        commands.registerCommand('gitlens.explorers.openChangedFileChangesWithWorking', this.openChangedFileChangesWithWorking, this);
+        commands.registerCommand(
+            'gitlens.explorers.openChangedFileChangesWithWorking',
+            this.openChangedFileChangesWithWorking,
+            this
+        );
         commands.registerCommand('gitlens.explorers.openChangedFileRevisions', this.openChangedFileRevisions, this);
         commands.registerCommand('gitlens.explorers.applyChanges', this.applyChanges, this);
         commands.registerCommand('gitlens.explorers.closeRepository', this.closeRepository, this);
@@ -51,8 +72,16 @@ export class ExplorerCommands extends Disposable {
         commands.registerCommand('gitlens.explorers.terminalDeleteBranch', this.terminalDeleteBranch, this);
         commands.registerCommand('gitlens.explorers.terminalMergeBranch', this.terminalMergeBranch, this);
         commands.registerCommand('gitlens.explorers.terminalRebaseBranch', this.terminalRebaseBranch, this);
-        commands.registerCommand('gitlens.explorers.terminalRebaseBranchToRemote', this.terminalRebaseBranchToRemote, this);
-        commands.registerCommand('gitlens.explorers.terminalSquashBranchIntoCommit', this.terminalSquashBranchIntoCommit, this);
+        commands.registerCommand(
+            'gitlens.explorers.terminalRebaseBranchToRemote',
+            this.terminalRebaseBranchToRemote,
+            this
+        );
+        commands.registerCommand(
+            'gitlens.explorers.terminalSquashBranchIntoCommit',
+            this.terminalSquashBranchIntoCommit,
+            this
+        );
         commands.registerCommand('gitlens.explorers.terminalCherryPickCommit', this.terminalCherryPickCommit, this);
         commands.registerCommand('gitlens.explorers.terminalPushCommit', this.terminalPushCommit, this);
         commands.registerCommand('gitlens.explorers.terminalRebaseCommit', this.terminalRebaseCommit, this);
@@ -103,7 +132,11 @@ export class ExplorerCommands extends Disposable {
         const commonAncestor = await Container.git.getMergeBase(node.repoPath, branch.name, node.ref);
         if (commonAncestor === undefined) return;
 
-        Container.resultsExplorer.showComparisonInResults(node.repoPath, { ref: commonAncestor, label: `ancestry with ${node.ref} (${GitService.shortenSha(commonAncestor)})` }, '');
+        Container.resultsExplorer.showComparisonInResults(
+            node.repoPath,
+            { ref: commonAncestor, label: `ancestry with ${node.ref} (${GitService.shortenSha(commonAncestor)})` },
+            ''
+        );
     }
 
     private compareWithSelected(node: ExplorerNode) {
@@ -143,7 +176,6 @@ export class ExplorerCommands extends Disposable {
             showOptions: {
                 preserveFocus: true,
                 preview: false
-
             }
         };
         return commands.executeCommand(Commands.DiffWithWorking, node.commit.toGitUri(), args);
@@ -153,54 +185,87 @@ export class ExplorerCommands extends Disposable {
         return openEditor(node.uri, { preserveFocus: true, preview: false });
     }
 
-    private openFileRevision(node: CommitFileNode | StashFileNode | StatusFileCommitsNode, options: OpenFileRevisionCommandArgs = { showOptions: { preserveFocus: true, preview: false } }) {
-        const uri = options.uri || (node.commit.status === 'D'
-            ? GitUri.toRevisionUri(node.commit.previousSha!, node.commit.previousUri.fsPath, node.commit.repoPath)
-            : GitUri.toRevisionUri(node.uri));
+    private openFileRevision(
+        node: CommitFileNode | StashFileNode | StatusFileCommitsNode,
+        options: OpenFileRevisionCommandArgs = { showOptions: { preserveFocus: true, preview: false } }
+    ) {
+        const uri =
+            options.uri ||
+            (node.commit.status === 'D'
+                ? GitUri.toRevisionUri(node.commit.previousSha!, node.commit.previousUri.fsPath, node.commit.repoPath)
+                : GitUri.toRevisionUri(node.uri));
         return openEditor(uri, options.showOptions || { preserveFocus: true, preview: false });
     }
 
-    private async openChangedFileChanges(node: CommitFileNode | StashFileNode | StatusFileCommitsNode, options: TextDocumentShowOptions = { preserveFocus: false, preview: false }) {
+    private async openChangedFileChanges(
+        node: CommitFileNode | StashFileNode | StatusFileCommitsNode,
+        options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
+    ) {
         const repoPath = node.commit.repoPath;
-        const uris = node.commit.fileStatuses
-            .map(s => GitUri.fromFileStatus(s, repoPath));
+        const uris = node.commit.fileStatuses.map(s => GitUri.fromFileStatus(s, repoPath));
 
         for (const uri of uris) {
-            await this.openDiffWith(repoPath,
-                { uri: uri, sha: node.commit.previousSha !== undefined ? node.commit.previousSha : GitService.deletedSha },
-                { uri: uri, sha: node.commit.sha }, options);
+            await this.openDiffWith(
+                repoPath,
+                {
+                    uri: uri,
+                    sha: node.commit.previousSha !== undefined ? node.commit.previousSha : GitService.deletedSha
+                },
+                { uri: uri, sha: node.commit.sha },
+                options
+            );
         }
     }
 
-    private async openChangedFileChangesWithWorking(node: CommitFileNode | StashFileNode | StatusFileCommitsNode, options: TextDocumentShowOptions = { preserveFocus: false, preview: false }) {
+    private async openChangedFileChangesWithWorking(
+        node: CommitFileNode | StashFileNode | StatusFileCommitsNode,
+        options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
+    ) {
         const repoPath = node.commit.repoPath;
-        const uris = Arrays.filterMap(node.commit.fileStatuses,
-            f => f.status !== 'D' ? GitUri.fromFileStatus(f, repoPath) : undefined);
+        const uris = Arrays.filterMap(
+            node.commit.fileStatuses,
+            f => (f.status !== 'D' ? GitUri.fromFileStatus(f, repoPath) : undefined)
+        );
 
         for (const uri of uris) {
             await this.openDiffWith(repoPath, { uri: uri, sha: node.commit.sha }, { uri: uri, sha: '' }, options);
         }
     }
 
-    private async openChangedFiles(node: CommitNode | StashNode, options: TextDocumentShowOptions = { preserveFocus: false, preview: false }) {
+    private async openChangedFiles(
+        node: CommitNode | StashNode,
+        options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
+    ) {
         const repoPath = node.commit.repoPath;
-        const uris = Arrays.filterMap(node.commit.fileStatuses,
-            f => GitUri.fromFileStatus(f, repoPath));
+        const uris = Arrays.filterMap(node.commit.fileStatuses, f => GitUri.fromFileStatus(f, repoPath));
 
         for (const uri of uris) {
             await openEditor(uri, options);
         }
     }
 
-    private async openChangedFileRevisions(node: CommitNode | StashNode, options: TextDocumentShowOptions = { preserveFocus: false, preview: false }) {
-        const uris = Arrays.filterMap(node.commit.fileStatuses,
-            f => GitUri.toRevisionUri(f.status === 'D' ? node.commit.previousFileSha : node.commit.sha, f, node.commit.repoPath));
+    private async openChangedFileRevisions(
+        node: CommitNode | StashNode,
+        options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
+    ) {
+        const uris = Arrays.filterMap(node.commit.fileStatuses, f =>
+            GitUri.toRevisionUri(
+                f.status === 'D' ? node.commit.previousFileSha : node.commit.sha,
+                f,
+                node.commit.repoPath
+            )
+        );
         for (const uri of uris) {
             await openEditor(uri, options);
         }
     }
 
-    private async openDiffWith(repoPath: string, lhs: DiffWithCommandArgsRevision, rhs: DiffWithCommandArgsRevision, options: TextDocumentShowOptions = { preserveFocus: false, preview: false }) {
+    private async openDiffWith(
+        repoPath: string,
+        lhs: DiffWithCommandArgsRevision,
+        rhs: DiffWithCommandArgsRevision,
+        options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
+    ) {
         const diffArgs: DiffWithCommandArgs = {
             repoPath: repoPath,
             lhs: lhs,
@@ -211,7 +276,9 @@ export class ExplorerCommands extends Disposable {
     }
 
     private async openFileRevisionInRemote(node: CommitFileNode | StashFileNode | StatusFileCommitsNode) {
-        return commands.executeCommand(Commands.OpenFileInRemote, node.commit.toGitUri(node.commit.status === 'D'), { range: false } as OpenFileInRemoteCommandArgs);
+        return commands.executeCommand(Commands.OpenFileInRemote, node.commit.toGitUri(node.commit.status === 'D'), {
+            range: false
+        } as OpenFileInRemoteCommandArgs);
     }
 
     async terminalCheckoutBranch(node: ExplorerNode) {
@@ -289,7 +356,7 @@ export class ExplorerCommands extends Disposable {
     async terminalPushCommit(node: ExplorerNode) {
         if (!(node instanceof CommitNode)) return;
 
-        const branch = node.branch || await Container.git.getBranch(node.repoPath);
+        const branch = node.branch || (await Container.git.getBranch(node.repoPath));
         if (branch === undefined) return;
 
         this.sendTerminalCommand('push', `${branch.getRemote()} ${node.ref}:${branch.getName()}`, node.repoPath);

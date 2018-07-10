@@ -13,7 +13,6 @@ export interface DocumentBlameStateChangeEvent<T> {
 }
 
 export class TrackedDocument<T> extends Disposable {
-
     private _onDidBlameStateChange = new EventEmitter<DocumentBlameStateChangeEvent<T>>();
     get onDidBlameStateChange(): Event<DocumentBlameStateChangeEvent<T>> {
         return this._onDidBlameStateChange.event;
@@ -30,7 +29,7 @@ export class TrackedDocument<T> extends Disposable {
         private readonly _document: TextDocument,
         public readonly key: string,
         public dirty: boolean,
-        private _eventDelegates: { onDidBlameStateChange: (e: DocumentBlameStateChangeEvent<T>) => void }
+        private _eventDelegates: { onDidBlameStateChange(e: DocumentBlameStateChangeEvent<T>): void }
     ) {
         super(() => this.dispose());
 
@@ -46,8 +45,11 @@ export class TrackedDocument<T> extends Disposable {
     private async initialize(uri: Uri): Promise<Repository | undefined> {
         // Since there is a bit of a chicken & egg problem with the DocumentTracker and the GitService, wait for the GitService to load if it isn't
         if (Container.git === undefined) {
-            if (!await Functions.waitUntil(() => Container.git !== undefined, 2000)) {
-                Logger.log(`TrackedDocument.initialize(${uri.toString()})`, 'Timed out waiting for the GitService to start');
+            if (!(await Functions.waitUntil(() => Container.git !== undefined, 2000))) {
+                Logger.log(
+                    `TrackedDocument.initialize(${uri.toString()})`,
+                    'Timed out waiting for the GitService to start'
+                );
                 throw new Error('TrackedDocument timed out waiting for the GitService to start');
             }
         }
@@ -165,7 +167,7 @@ export class TrackedDocument<T> extends Disposable {
         this._forceDirtyStateChangeOnNextDocumentChange = true;
     }
 
-    async update(options: { forceBlameChange?: boolean, initializing?: boolean, repo?: Repository } = {}) {
+    async update(options: { forceBlameChange?: boolean; initializing?: boolean; repo?: Repository } = {}) {
         if (this._disposed || this._uri === undefined) {
             this._hasRemotes = false;
             this._isTracked = false;

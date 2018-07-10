@@ -3,7 +3,6 @@ import { GlyphChars } from '../../constants';
 'use strict';
 
 export class GitBranch {
-
     readonly name: string;
     readonly remote: boolean;
     readonly tracking?: string;
@@ -30,7 +29,7 @@ export class GitBranch {
         }
 
         this.name = branch;
-        this.tracking = (tracking === '' || tracking == null) ? undefined : tracking;
+        this.tracking = tracking === '' || tracking == null ? undefined : tracking;
         this.state = {
             ahead: ahead,
             behind: behind
@@ -42,9 +41,7 @@ export class GitBranch {
         if (this._basename === undefined) {
             const name = this.getName();
             const index = name.lastIndexOf('/');
-            this._basename = index !== -1
-                ? name.substring(index + 1)
-                : name;
+            this._basename = index !== -1 ? name.substring(index + 1) : name;
         }
 
         return this._basename;
@@ -53,9 +50,7 @@ export class GitBranch {
     private _name: string | undefined;
     getName(): string {
         if (this._name === undefined) {
-            this._name = this.remote
-                ? this.name.substring(this.name.indexOf('/') + 1)
-                : this.name;
+            this._name = this.remote ? this.name.substring(this.name.indexOf('/') + 1) : this.name;
         }
 
         return this._name;
@@ -68,7 +63,7 @@ export class GitBranch {
         return undefined;
     }
 
-    getTrackingStatus(options: { empty?: string, expand?: boolean, prefix?: string, separator?: string } = {}): string {
+    getTrackingStatus(options: { empty?: string; expand?: boolean; prefix?: string; separator?: string } = {}): string {
         options = { empty: '', prefix: '', separator: ' ', ...options };
         if (this.tracking === undefined || (this.state.behind === 0 && this.state.ahead === 0)) return options.empty!;
 
@@ -78,12 +73,16 @@ export class GitBranch {
                 status += `${this.state.behind} ${this.state.behind === 1 ? 'commit' : 'commits'} behind`;
             }
             if (this.state.ahead) {
-                status += `${status === '' ? '' : options.separator}${this.state.ahead} ${this.state.ahead === 1 ? 'commit' : 'commits'} ahead`;
+                status += `${status === '' ? '' : options.separator}${this.state.ahead} ${
+                    this.state.ahead === 1 ? 'commit' : 'commits'
+                } ahead`;
             }
             return `${options.prefix}${status}`;
         }
 
-        return `${options.prefix}${this.state.behind}${GlyphChars.ArrowDown}${options.separator}${this.state.ahead}${GlyphChars.ArrowUp}`;
+        return `${options.prefix}${this.state.behind}${GlyphChars.ArrowDown}${options.separator}${this.state.ahead}${
+            GlyphChars.ArrowUp
+        }`;
     }
 
     isValid(): boolean {

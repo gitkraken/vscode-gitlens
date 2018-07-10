@@ -12,7 +12,6 @@ import { CommitFormatter, GitBranch, GitLogCommit, ICommitFormatOptions } from '
 import * as path from 'path';
 
 export class CommitNode extends ExplorerRefNode {
-
     constructor(
         public readonly commit: GitLogCommit,
         private readonly explorer: Explorer,
@@ -29,15 +28,22 @@ export class CommitNode extends ExplorerRefNode {
     async getChildren(): Promise<ExplorerNode[]> {
         const commit = this.commit;
         let children: IFileExplorerNode[] = [
-            ...Iterables.map(commit.fileStatuses, s => new CommitFileNode(s, commit.toFileCommit(s), this.explorer, CommitFileNodeDisplayAs.File))
+            ...Iterables.map(
+                commit.fileStatuses,
+                s => new CommitFileNode(s, commit.toFileCommit(s), this.explorer, CommitFileNodeDisplayAs.File)
+            )
         ];
 
         if (this.explorer.config.files.layout !== ExplorerFilesLayout.List) {
-            const hierarchy = Arrays.makeHierarchical(children, n => n.uri.getRelativePath().split('/'),
-            (...paths: string[]) => Strings.normalizePath(path.join(...paths)), this.explorer.config.files.compact);
+            const hierarchy = Arrays.makeHierarchical(
+                children,
+                n => n.uri.getRelativePath().split('/'),
+                (...paths: string[]) => Strings.normalizePath(path.join(...paths)),
+                this.explorer.config.files.compact
+            );
 
             const root = new FolderNode(this.repoPath, '', undefined, hierarchy, this.explorer);
-            children = await root.getChildren() as IFileExplorerNode[];
+            children = (await root.getChildren()) as IFileExplorerNode[];
         }
         else {
             children.sort((a, b) => a.label!.localeCompare(b.label!));
@@ -53,18 +59,20 @@ export class CommitNode extends ExplorerRefNode {
 
         const branchTips = this.getBranchTips && this.getBranchTips(this.commit.sha);
         if (branchTips !== undefined) {
-            label = `${GlyphChars.AngleBracketLeftHeavy}${GlyphChars.SpaceThin}${branchTips}${GlyphChars.SpaceThin}${GlyphChars.AngleBracketRightHeavy}${GlyphChars.ArrowHeadRight}${GlyphChars.Space} ${label}`;
+            label = `${GlyphChars.AngleBracketLeftHeavy}${GlyphChars.SpaceThin}${branchTips}${GlyphChars.SpaceThin}${
+                GlyphChars.AngleBracketRightHeavy
+            }${GlyphChars.ArrowHeadRight}${GlyphChars.Space} ${label}`;
         }
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 
-        item.contextValue = (this.branch === undefined || this.branch.current)
-            ? ResourceType.CommitOnCurrentBranch
-            : ResourceType.Commit;
+        item.contextValue =
+            this.branch === undefined || this.branch.current ? ResourceType.CommitOnCurrentBranch : ResourceType.Commit;
 
         if (this.explorer.config.avatars) {
             item.iconPath = this.commit.getGravatarUri(Container.config.defaultGravatarsStyle);
-        } else {
+        }
+        else {
             item.iconPath = {
                 dark: Container.context.asAbsolutePath('images/dark/icon-commit.svg'),
                 light: Container.context.asAbsolutePath('images/light/icon-commit.svg')
@@ -74,7 +82,9 @@ export class CommitNode extends ExplorerRefNode {
         item.tooltip = CommitFormatter.fromTemplate(
             this.commit.isUncommitted
                 ? `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})`
-                : `\${author} ${GlyphChars.Dash} \${id}${branchTips !== undefined ? ` (${branchTips})` : ''}\n\${ago} (\${date})\n\n\${message}`,
+                : `\${author} ${GlyphChars.Dash} \${id}${
+                      branchTips !== undefined ? ` (${branchTips})` : ''
+                  }\n\${ago} (\${date})\n\n\${message}`,
             this.commit,
             {
                 dateFormat: Container.config.defaultDateFormat

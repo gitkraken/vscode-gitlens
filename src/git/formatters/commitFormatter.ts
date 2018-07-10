@@ -21,7 +21,6 @@ export interface ICommitFormatOptions extends IFormatOptions {
 }
 
 export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> {
-
     private get _ago() {
         return this._item.fromNow();
     }
@@ -31,7 +30,8 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
     }
 
     private get _agoOrDate() {
-        const dateStyle = this._options.dateStyle !== undefined ? this._options.dateStyle : Container.config.defaultDateStyle;
+        const dateStyle =
+            this._options.dateStyle !== undefined ? this._options.dateStyle : Container.config.defaultDateStyle;
         return dateStyle === DateStyle.Absolute ? this._date : this._ago;
     }
 
@@ -92,8 +92,16 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
 
     static fromTemplate(template: string, commit: GitCommit, dateFormat: string | null): string;
     static fromTemplate(template: string, commit: GitCommit, options?: ICommitFormatOptions): string;
-    static fromTemplate(template: string, commit: GitCommit, dateFormatOrOptions?: string | null | ICommitFormatOptions): string;
-    static fromTemplate(template: string, commit: GitCommit, dateFormatOrOptions?: string | null | ICommitFormatOptions): string {
+    static fromTemplate(
+        template: string,
+        commit: GitCommit,
+        dateFormatOrOptions?: string | null | ICommitFormatOptions
+    ): string;
+    static fromTemplate(
+        template: string,
+        commit: GitCommit,
+        dateFormatOrOptions?: string | null | ICommitFormatOptions
+    ): string {
         return super.fromTemplateCore(this, template, commit, dateFormatOrOptions);
     }
 }

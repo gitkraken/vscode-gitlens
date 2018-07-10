@@ -4,7 +4,6 @@ import { GitLogCommit } from './logCommit';
 import { GitStatusFileStatus, IGitStatusFile } from './status';
 
 export class GitStashCommit extends GitLogCommit {
-
     constructor(
         type: GitCommitType,
         public readonly stashName: string,
@@ -40,7 +39,18 @@ export class GitStashCommit extends GitLogCommit {
         return this.stashName;
     }
 
-    with(changes: { type?: GitCommitType, sha?: string | null, fileName?: string, date?: Date, message?: string, originalFileName?: string | null, previousFileName?: string | null, previousSha?: string | null, status?: GitStatusFileStatus, fileStatuses?: IGitStatusFile[] | null }): GitLogCommit {
+    with(changes: {
+        type?: GitCommitType;
+        sha?: string | null;
+        fileName?: string;
+        date?: Date;
+        message?: string;
+        originalFileName?: string | null;
+        previousFileName?: string | null;
+        previousSha?: string | null;
+        status?: GitStatusFileStatus;
+        fileStatuses?: IGitStatusFile[] | null;
+    }): GitLogCommit {
         return new GitStashCommit(
             changes.type || this.type,
             this.stashName,

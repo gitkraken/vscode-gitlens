@@ -9,7 +9,6 @@ export interface IFormatOptions {
 type Constructor<T = {}> = new (...args: any[]) => T;
 
 export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = IFormatOptions> {
-
     protected _item!: TItem;
     protected _options!: TOptions;
 
@@ -88,16 +87,27 @@ export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = I
 
     private static _formatter: Formatter | undefined = undefined;
 
-    protected static fromTemplateCore<TFormatter extends Formatter<TItem, TOptions>, TItem, TOptions extends IFormatOptions>(formatter: TFormatter | Constructor<TFormatter>, template: string, item: TItem, dateFormatOrOptions?: string | null | TOptions): string {
+    protected static fromTemplateCore<
+        TFormatter extends Formatter<TItem, TOptions>,
+        TItem,
+        TOptions extends IFormatOptions
+    >(
+        formatter: TFormatter | Constructor<TFormatter>,
+        template: string,
+        item: TItem,
+        dateFormatOrOptions?: string | null | TOptions
+    ): string {
         if (formatter instanceof Formatter) return Strings.interpolate(template, formatter);
 
         let options: TOptions | undefined = undefined;
         if (dateFormatOrOptions == null || typeof dateFormatOrOptions === 'string') {
-            const tokenOptions = Strings.getTokensFromTemplate(template)
-                .reduce((map, token) => {
+            const tokenOptions = Strings.getTokensFromTemplate(template).reduce(
+                (map, token) => {
                     map[token.key] = token.options;
                     return map;
-                }, {} as { [token: string]: Strings.ITokenOptions | undefined });
+                },
+                {} as { [token: string]: Strings.ITokenOptions | undefined }
+            );
 
             options = {
                 dateFormat: dateFormatOrOptions,

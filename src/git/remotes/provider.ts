@@ -13,27 +13,55 @@ export enum RemoteResourceType {
 }
 
 export type RemoteResource =
-    { type: RemoteResourceType.Branch, branch: string } |
-    { type: RemoteResourceType.Branches } |
-    { type: RemoteResourceType.Commit, sha: string } |
-    { type: RemoteResourceType.File, branch?: string, fileName: string, range?: Range } |
-    { type: RemoteResourceType.Repo } |
-    { type: RemoteResourceType.Revision, branch?: string, commit?: GitLogCommit, fileName: string, range?: Range, sha?: string };
+    | {
+          type: RemoteResourceType.Branch;
+          branch: string;
+      }
+    | {
+          type: RemoteResourceType.Branches;
+      }
+    | {
+          type: RemoteResourceType.Commit;
+          sha: string;
+      }
+    | {
+          type: RemoteResourceType.File;
+          branch?: string;
+          fileName: string;
+          range?: Range;
+      }
+    | {
+          type: RemoteResourceType.Repo;
+      }
+    | {
+          type: RemoteResourceType.Revision;
+          branch?: string;
+          commit?: GitLogCommit;
+          fileName: string;
+          range?: Range;
+          sha?: string;
+      };
 
 export function getNameFromRemoteResource(resource: RemoteResource) {
     switch (resource.type) {
-        case RemoteResourceType.Branch: return 'Branch';
-        case RemoteResourceType.Branches: return 'Branches';
-        case RemoteResourceType.Commit: return 'Commit';
-        case RemoteResourceType.File: return 'File';
-        case RemoteResourceType.Repo: return 'Repository';
-        case RemoteResourceType.Revision: return 'Revision';
-        default: return '';
+        case RemoteResourceType.Branch:
+            return 'Branch';
+        case RemoteResourceType.Branches:
+            return 'Branches';
+        case RemoteResourceType.Commit:
+            return 'Commit';
+        case RemoteResourceType.File:
+            return 'File';
+        case RemoteResourceType.Repo:
+            return 'Repository';
+        case RemoteResourceType.Revision:
+            return 'Revision';
+        default:
+            return '';
     }
 }
 
 export abstract class RemoteProvider {
-
     private _name: string | undefined;
 
     constructor(
@@ -67,7 +95,7 @@ export abstract class RemoteProvider {
 
     protected splitPath(): [string, string] {
         const index = this.path.indexOf('/');
-        return [ this.path.substring(0, index), this.path.substring(index + 1) ];
+        return [this.path.substring(0, index), this.path.substring(index + 1)];
     }
 
     protected getUrlForRepository(): string {
@@ -86,12 +114,18 @@ export abstract class RemoteProvider {
 
     open(resource: RemoteResource): Promise<{} | undefined> {
         switch (resource.type) {
-            case RemoteResourceType.Branch: return this.openBranch(resource.branch);
-            case RemoteResourceType.Branches: return this.openBranches();
-            case RemoteResourceType.Commit: return this.openCommit(resource.sha);
-            case RemoteResourceType.File: return this.openFile(resource.fileName, resource.branch, undefined, resource.range);
-            case RemoteResourceType.Repo: return this.openRepo();
-            case RemoteResourceType.Revision: return this.openFile(resource.fileName, resource.branch, resource.sha, resource.range);
+            case RemoteResourceType.Branch:
+                return this.openBranch(resource.branch);
+            case RemoteResourceType.Branches:
+                return this.openBranches();
+            case RemoteResourceType.Commit:
+                return this.openCommit(resource.sha);
+            case RemoteResourceType.File:
+                return this.openFile(resource.fileName, resource.branch, undefined, resource.range);
+            case RemoteResourceType.Repo:
+                return this.openRepo();
+            case RemoteResourceType.Revision:
+                return this.openFile(resource.fileName, resource.branch, resource.sha, resource.range);
         }
     }
 

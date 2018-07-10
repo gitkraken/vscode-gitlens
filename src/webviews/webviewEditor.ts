@@ -1,5 +1,15 @@
 'use strict';
-import { ConfigurationChangeEvent, ConfigurationTarget, Disposable, Uri, ViewColumn, WebviewPanel, WebviewPanelOnDidChangeViewStateEvent, window, workspace } from 'vscode';
+import {
+    ConfigurationChangeEvent,
+    ConfigurationTarget,
+    Disposable,
+    Uri,
+    ViewColumn,
+    WebviewPanel,
+    WebviewPanelOnDidChangeViewStateEvent,
+    window,
+    workspace
+} from 'vscode';
 import { configuration, IConfig } from '../configuration';
 import { Container } from '../container';
 import { Message, SettingsChangedMessage } from '../ui/ipc';
@@ -7,7 +17,6 @@ import { Logger } from '../logger';
 import * as fs from 'fs';
 
 export abstract class WebviewEditor<TBootstrap> extends Disposable {
-
     private _disposable: Disposable | undefined;
     private _disposablePanel: Disposable | undefined;
     private _panel: WebviewPanel | undefined;
@@ -70,9 +79,7 @@ export abstract class WebviewEditor<TBootstrap> extends Disposable {
 
         switch (e.type) {
             case 'saveSettings':
-                const target = e.scope === 'workspace'
-                    ? ConfigurationTarget.Workspace
-                    : ConfigurationTarget.Global;
+                const target = e.scope === 'workspace' ? ConfigurationTarget.Workspace : ConfigurationTarget.Global;
 
                 for (const key in e.changes) {
                     const inspect = await configuration.inspect(key)!;
@@ -99,10 +106,14 @@ export abstract class WebviewEditor<TBootstrap> extends Disposable {
     }
 
     async show(): Promise<void> {
-        let html = (await this.getHtml())
-            .replace(/{{root}}/g, Uri.file(Container.context.asAbsolutePath('.')).with({ scheme: 'vscode-resource' }).toString());
-        if (html.includes('\'{{bootstrap}}\'')) {
-            html = html.replace('\'{{bootstrap}}\'', JSON.stringify(this.getBootstrap()));
+        let html = (await this.getHtml()).replace(
+            /{{root}}/g,
+            Uri.file(Container.context.asAbsolutePath('.'))
+                .with({ scheme: 'vscode-resource' })
+                .toString()
+        );
+        if (html.includes("'{{bootstrap}}'")) {
+            html = html.replace("'{{bootstrap}}'", JSON.stringify(this.getBootstrap()));
         }
 
         if (this._panel === undefined) {
@@ -163,6 +174,12 @@ export abstract class WebviewEditor<TBootstrap> extends Disposable {
 
     private postUpdatedConfiguration() {
         // Make sure to get the raw config, not from the container which has the modes mixed in
-        return this.postMessage({ type: 'settingsChanged', config: configuration.get<IConfig>() } as SettingsChangedMessage, 'config');
+        return this.postMessage(
+            {
+                type: 'settingsChanged',
+                config: configuration.get<IConfig>()
+            } as SettingsChangedMessage,
+            'config'
+        );
     }
 }

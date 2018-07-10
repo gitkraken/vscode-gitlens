@@ -1,0 +1,16 @@
+{
+    "printWidth": 120,
+    "singleQuote": true,
+    "tabWidth": 4,
+    "useTabs": false,
+    "overrides": [
+        {
+            "files": ".prettierrc",
+            "options": { "parser": "json" }
+        },
+        {
+            "files": "*.md",
+            "options": { "tabWidth": 2 }
+        }
+    ]
+}

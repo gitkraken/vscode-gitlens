@@ -3,12 +3,15 @@ import { ConfigurationChangeEvent, Disposable, languages } from 'vscode';
 import { configuration } from './configuration';
 import { CommandContext, setCommandContext } from './constants';
 import { Container } from './container';
-import { DocumentBlameStateChangeEvent, DocumentDirtyIdleTriggerEvent, GitDocumentState } from './trackers/gitDocumentTracker';
+import {
+    DocumentBlameStateChangeEvent,
+    DocumentDirtyIdleTriggerEvent,
+    GitDocumentState
+} from './trackers/gitDocumentTracker';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
 import { Logger } from './logger';
 
 export class CodeLensController extends Disposable {
-
     private _canToggle: boolean = false;
     private _disposable: Disposable | undefined;
     private _provider: GitCodeLensProvider | undefined;
@@ -17,9 +20,7 @@ export class CodeLensController extends Disposable {
     constructor() {
         super(() => this.dispose());
 
-        this._disposable = Disposable.from(
-            configuration.onDidChange(this.onConfigurationChanged, this)
-        );
+        this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
         this.onConfigurationChanged(configuration.initializingChangeEvent);
     }
 
@@ -32,9 +33,12 @@ export class CodeLensController extends Disposable {
         const initializing = configuration.initializing(e);
 
         const section = configuration.name('codeLens').value;
-        if (initializing || configuration.changed(e, section, null) ||
+        if (
+            initializing ||
+            configuration.changed(e, section, null) ||
             configuration.changed(e, configuration.name('defaultDateStyle').value) ||
-            configuration.changed(e, configuration.name('defaultDateFormat').value)) {
+            configuration.changed(e, configuration.name('defaultDateFormat').value)
+        ) {
             if (!initializing) {
                 Logger.log('CodeLens config changed; resetting CodeLens provider');
             }

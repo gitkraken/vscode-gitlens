@@ -3,20 +3,23 @@ import { Disposable, TextEditor } from 'vscode';
 import { GitBlameCommit, GitLogCommit } from '../gitService';
 import { LinesChangeEvent, LineTracker } from './lineTracker';
 import { Container } from '../container';
-import { DocumentBlameStateChangeEvent, DocumentDirtyIdleTriggerEvent, DocumentDirtyStateChangeEvent, GitDocumentState } from './gitDocumentTracker';
+import {
+    DocumentBlameStateChangeEvent,
+    DocumentDirtyIdleTriggerEvent,
+    DocumentDirtyStateChangeEvent,
+    GitDocumentState
+} from './gitDocumentTracker';
 
 export * from './lineTracker';
 
 export class GitLineState {
-
     constructor(
         public readonly commit: GitBlameCommit | undefined,
         public logCommit?: GitLogCommit
-    ) { }
+    ) {}
 }
 
 export class GitLineTracker extends LineTracker<GitLineState> {
-
     private _count = 0;
     private _subscriptions: Map<any, Disposable> = new Map();
 

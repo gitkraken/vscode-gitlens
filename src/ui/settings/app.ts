@@ -6,7 +6,6 @@ import { SettingsBootstrap } from '../ipc';
 const bootstrap: SettingsBootstrap = (window as any).bootstrap;
 
 export class SettingsApp extends App<SettingsBootstrap> {
-
     private _scopes: HTMLSelectElement | null = null;
 
     constructor() {
@@ -34,15 +33,19 @@ export class SettingsApp extends App<SettingsBootstrap> {
 
     protected onBind() {
         const onSectionHeaderClicked = this.onSectionHeaderClicked.bind(this);
-        DOM.listenAll('.section__header', 'click', function(this: HTMLInputElement) { return onSectionHeaderClicked(this, ...arguments); });
+        DOM.listenAll('.section__header', 'click', function(this: HTMLInputElement) {
+            return onSectionHeaderClicked(this, ...arguments);
+        });
 
         const onActionLinkClicked = this.onActionLinkClicked.bind(this);
-        DOM.listenAll('[data-action]', 'click', function(this: HTMLAnchorElement) { return onActionLinkClicked(this, ...arguments); });
+        DOM.listenAll('[data-action]', 'click', function(this: HTMLAnchorElement) {
+            return onActionLinkClicked(this, ...arguments);
+        });
     }
 
     protected getSettingsScope(): 'user' | 'workspace' {
         return this._scopes != null
-            ? this._scopes.options[this._scopes.selectedIndex].value as 'user' | 'workspace'
+            ? (this._scopes.options[this._scopes.selectedIndex].value as 'user' | 'workspace')
             : 'user';
     }
 
@@ -78,8 +81,11 @@ export class SettingsApp extends App<SettingsBootstrap> {
     }
 
     private onSectionHeaderClicked(element: HTMLElement, e: MouseEvent) {
-        if ((e.target as HTMLElement).matches('i.icon__info') ||
-            (e.target as HTMLElement).matches('a.link__learn-more')) return;
+        if (
+            (e.target as HTMLElement).matches('i.icon__info') ||
+            (e.target as HTMLElement).matches('a.link__learn-more')
+        )
+            return;
 
         element.classList.toggle('collapsed');
     }

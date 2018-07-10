@@ -12,7 +12,6 @@ export interface ShowQuickCurrentBranchHistoryCommandArgs {
 }
 
 export class ShowQuickCurrentBranchHistoryCommand extends ActiveEditorCachedCommand {
-
     constructor() {
         super(Commands.ShowQuickCurrentBranchHistory);
     }
@@ -21,19 +20,21 @@ export class ShowQuickCurrentBranchHistoryCommand extends ActiveEditorCachedComm
         uri = getCommandUri(uri, editor);
 
         try {
-            const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, `Show current branch history for which repository${GlyphChars.Ellipsis}`);
+            const repoPath = await getRepoPathOrActiveOrPrompt(
+                uri,
+                editor,
+                `Show current branch history for which repository${GlyphChars.Ellipsis}`
+            );
             if (!repoPath) return undefined;
 
             const branch = await Container.git.getBranch(repoPath);
             if (branch === undefined) return undefined;
 
-            return commands.executeCommand(Commands.ShowQuickBranchHistory,
-                uri,
-                {
-                    branch: branch.name,
-                    repoPath: repoPath,
-                    goBackCommand: args.goBackCommand
-                } as ShowQuickBranchHistoryCommandArgs);
+            return commands.executeCommand(Commands.ShowQuickBranchHistory, uri, {
+                branch: branch.name,
+                repoPath: repoPath,
+                goBackCommand: args.goBackCommand
+            } as ShowQuickBranchHistoryCommandArgs);
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickCurrentBranchHistoryCommand');

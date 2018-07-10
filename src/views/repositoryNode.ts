@@ -13,7 +13,6 @@ import { StashesNode } from './stashesNode';
 import { TagsNode } from './tagsNode';
 
 export class RepositoryNode extends ExplorerNode {
-
     constructor(
         uri: GitUri,
         public readonly repo: Repository,
@@ -50,7 +49,10 @@ export class RepositoryNode extends ExplorerNode {
             ? `Active Repository ${Strings.pad(GlyphChars.Dash, 1, 1)} ${this.repo.formattedName || this.uri.repoPath}`
             : `${this.repo.formattedName || this.uri.repoPath}`;
 
-        const item = new TreeItem(label, this.active ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed);
+        const item = new TreeItem(
+            label,
+            this.active ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed
+        );
         item.id = this.id;
         item.contextValue = ResourceType.Repository;
         return item;
@@ -64,10 +66,12 @@ export class RepositoryNode extends ExplorerNode {
     private updateSubscription() {
         // We only need to subscribe if auto-refresh is enabled, because if it becomes enabled we will be refreshed
         if (this.explorer.autoRefresh) {
-            this.disposable = this.disposable || Disposable.from(
-                this.explorer.onDidChangeAutoRefresh(this.onAutoRefreshChanged, this),
-                this.repo.onDidChange(this.onRepoChanged, this)
-            );
+            this.disposable =
+                this.disposable ||
+                Disposable.from(
+                    this.explorer.onDidChangeAutoRefresh(this.onAutoRefreshChanged, this),
+                    this.repo.onDidChange(this.onRepoChanged, this)
+                );
         }
         else if (this.disposable !== undefined) {
             this.disposable.dispose();
@@ -82,7 +86,11 @@ export class RepositoryNode extends ExplorerNode {
     private onRepoChanged(e: RepositoryChangeEvent) {
         Logger.log(`RepositoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
 
-        if (this.children === undefined || e.changed(RepositoryChange.Repository) || e.changed(RepositoryChange.Config)) {
+        if (
+            this.children === undefined ||
+            e.changed(RepositoryChange.Repository) ||
+            e.changed(RepositoryChange.Config)
+        ) {
             this.explorer.refreshNode(this.active && this.activeParent !== undefined ? this.activeParent : this);
 
             return;

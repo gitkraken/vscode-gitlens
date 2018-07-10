@@ -27,8 +27,17 @@ const diffRegex = /diff --git a\/(.*) b\/(.*)/;
 const emptyEntry: LogEntry = {};
 
 export class GitLogParser {
-
-    static parse(data: string, type: GitCommitType, repoPath: string | undefined, fileName: string | undefined, sha: string | undefined, currentUser: string | undefined, maxCount: number | undefined, reverse: boolean, range: Range | undefined): GitLog | undefined {
+    static parse(
+        data: string,
+        type: GitCommitType,
+        repoPath: string | undefined,
+        fileName: string | undefined,
+        sha: string | undefined,
+        currentUser: string | undefined,
+        maxCount: number | undefined,
+        reverse: boolean,
+        range: Range | undefined
+    ): GitLog | undefined {
         if (!data) return undefined;
 
         let relativeFileName: string;
@@ -60,7 +69,7 @@ export class GitLogParser {
             line = next.value;
 
             // Since log --reverse doesn't properly honor a max count -- enforce it here
-            if (reverse && maxCount && (i >= maxCount)) break;
+            if (reverse && maxCount && i >= maxCount) break;
 
             // <<1-char token>> <data>
             // e.g. <r> bd1452a2dc
@@ -173,13 +182,17 @@ export class GitLogParser {
                     }
 
                     if (entry.fileStatuses !== undefined) {
-                        entry.fileName = Arrays.filterMap(entry.fileStatuses,
-                            f => !!f.fileName ? f.fileName : undefined).join(', ');
+                        entry.fileName = Arrays.filterMap(
+                            entry.fileStatuses,
+                            f => (!!f.fileName ? f.fileName : undefined)
+                        ).join(', ');
                     }
 
                     if (first && repoPath === undefined && type === GitCommitType.File && fileName !== undefined) {
                         // Try to get the repoPath from the most recent commit
-                        repoPath = Strings.normalizePath(fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName!, ''));
+                        repoPath = Strings.normalizePath(
+                            fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName!, '')
+                        );
                         relativeFileName = Strings.normalizePath(path.relative(repoPath, fileName));
                     }
                     else {
@@ -191,7 +204,16 @@ export class GitLogParser {
                     if (commit === undefined) {
                         i++;
                     }
-                    recentCommit = GitLogParser.parseEntry(entry, commit, type, repoPath, relativeFileName, commits, authors, recentCommit);
+                    recentCommit = GitLogParser.parseEntry(
+                        entry,
+                        commit,
+                        type,
+                        repoPath,
+                        relativeFileName,
+                        commits,
+                        authors,
+                        recentCommit
+                    );
 
                     break;
             }
@@ -209,7 +231,16 @@ export class GitLogParser {
         } as GitLog;
     }
 
-    private static parseEntry(entry: LogEntry, commit: GitLogCommit | undefined, type: GitCommitType, repoPath: string | undefined, relativeFileName: string, commits: Map<string, GitLogCommit>, authors: Map<string, GitAuthor>, recentCommit: GitLogCommit | undefined): GitLogCommit | undefined {
+    private static parseEntry(
+        entry: LogEntry,
+        commit: GitLogCommit | undefined,
+        type: GitCommitType,
+        repoPath: string | undefined,
+        relativeFileName: string,
+        commits: Map<string, GitLogCommit>,
+        authors: Map<string, GitAuthor>,
+        recentCommit: GitLogCommit | undefined
+    ): GitLogCommit | undefined {
         if (commit === undefined) {
             if (entry.author !== undefined) {
                 let author = authors.get(entry.author);
@@ -224,7 +255,13 @@ export class GitLogParser {
 
             const originalFileName = relativeFileName !== entry.fileName ? entry.fileName : undefined;
             if (type === GitCommitType.File) {
-                entry.fileStatuses = [{ status: entry.status, fileName: relativeFileName, originalFileName: originalFileName } as IGitStatusFile];
+                entry.fileStatuses = [
+                    {
+                        status: entry.status,
+                        fileName: relativeFileName,
+                        originalFileName: originalFileName
+                    } as IGitStatusFile
+                ];
             }
 
             commit = new GitLogCommit(
@@ -233,7 +270,7 @@ export class GitLogParser {
                 entry.ref!,
                 entry.author!,
                 entry.email,
-                new Date(entry.date! as any * 1000),
+                new Date((entry.date! as any) * 1000),
                 entry.summary === undefined ? '' : entry.summary,
                 relativeFileName,
                 entry.fileStatuses || [],
@@ -265,7 +302,7 @@ export class GitLogParser {
         return commit;
     }
 
-    static parseFileName(entry: { fileName?: string, originalFileName?: string }) {
+    static parseFileName(entry: { fileName?: string; originalFileName?: string }) {
         if (entry.fileName === undefined) return;
 
         const index = entry.fileName.indexOf('\t') + 1;

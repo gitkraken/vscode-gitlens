@@ -5,7 +5,6 @@ import { SettingsBootstrap } from '../ui/ipc';
 import { WebviewEditor } from './webviewEditor';
 
 export class SettingsEditor extends WebviewEditor<SettingsBootstrap> {
-
     constructor() {
         super();
     }
@@ -32,9 +31,7 @@ export class SettingsEditor extends WebviewEditor<SettingsBootstrap> {
     }
 
     registerCommands() {
-        return [
-            commands.registerCommand('gitlens.showSettingsPage', this.show, this)
-        ];
+        return [commands.registerCommand('gitlens.showSettingsPage', this.show, this)];
     }
 
     private getAvailableScopes(): ['user' | 'workspace', string][] {

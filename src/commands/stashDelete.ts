@@ -9,13 +9,12 @@ import { CommandQuickPickItem } from '../quickPicks/quickPicks';
 
 export interface StashDeleteCommandArgs {
     confirm?: boolean;
-    stashItem?: { stashName: string, message: string, repoPath: string };
+    stashItem?: { stashName: string; message: string; repoPath: string };
 
     goBackCommand?: CommandQuickPickItem;
 }
 
 export class StashDeleteCommand extends Command {
-
     constructor() {
         super(Commands.StashDelete);
     }
@@ -32,7 +31,13 @@ export class StashDeleteCommand extends Command {
 
     async execute(args: StashDeleteCommandArgs = { confirm: true }) {
         args = { ...args };
-        if (args.stashItem === undefined || args.stashItem.stashName === undefined || args.stashItem.repoPath === undefined) return undefined;
+        if (
+            args.stashItem === undefined ||
+            args.stashItem.stashName === undefined ||
+            args.stashItem.repoPath === undefined
+        ) {
+            return undefined;
+        }
 
         if (args.confirm === undefined) {
             args.confirm = true;
@@ -40,9 +45,18 @@ export class StashDeleteCommand extends Command {
 
         try {
             if (args.confirm) {
-                const message = args.stashItem.message.length > 80 ? `${args.stashItem.message.substring(0, 80)}${GlyphChars.Ellipsis}` : args.stashItem.message;
-                const result = await window.showWarningMessage(`Delete stashed changes '${message}'?`, { title: 'Yes' } as MessageItem, { title: 'No', isCloseAffordance: true } as MessageItem);
-                if (result === undefined || result.title !== 'Yes') return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
+                const message =
+                    args.stashItem.message.length > 80
+                        ? `${args.stashItem.message.substring(0, 80)}${GlyphChars.Ellipsis}`
+                        : args.stashItem.message;
+                const result = await window.showWarningMessage(
+                    `Delete stashed changes '${message}'?`,
+                    { title: 'Yes' } as MessageItem,
+                    { title: 'No', isCloseAffordance: true } as MessageItem
+                );
+                if (result === undefined || result.title !== 'Yes') {
+                    return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
+                }
             }
 
             return await Container.git.stashDelete(args.stashItem.repoPath, args.stashItem.stashName);

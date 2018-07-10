@@ -7,7 +7,6 @@ import { CommitFormatter, GitStashCommit, ICommitFormatOptions } from '../gitSer
 import { StashFileNode } from './stashFileNode';
 
 export class StashNode extends ExplorerRefNode {
-
     constructor(
         public readonly commit: GitStashCommit,
         private readonly explorer: Explorer
@@ -23,12 +22,15 @@ export class StashNode extends ExplorerRefNode {
         const statuses = (this.commit as GitStashCommit).fileStatuses;
 
         // Check for any untracked files -- since git doesn't return them via `git stash list` :(
-        const log = await Container.git.getLog(this.commit.repoPath, { maxCount: 1, ref: `${(this.commit as GitStashCommit).stashName}^3` });
+        const log = await Container.git.getLog(this.commit.repoPath, {
+            maxCount: 1,
+            ref: `${(this.commit as GitStashCommit).stashName}^3`
+        });
         if (log !== undefined) {
             const commit = Iterables.first(log.commits.values());
             if (commit !== undefined && commit.fileStatuses.length !== 0) {
                 // Since these files are untracked -- make them look that way
-                commit.fileStatuses.forEach(s => s.status = '?');
+                commit.fileStatuses.forEach(s => (s.status = '?'));
                 statuses.splice(statuses.length, 0, ...commit.fileStatuses);
             }
         }
@@ -39,18 +41,17 @@ export class StashNode extends ExplorerRefNode {
     }
 
     getTreeItem(): TreeItem {
-        const item = new TreeItem(CommitFormatter.fromTemplate(this.explorer.config.stashFormat, this.commit, {
-            truncateMessageAtNewLine: true,
-            dateFormat: Container.config.defaultDateFormat
-        } as ICommitFormatOptions), TreeItemCollapsibleState.Collapsed);
-        item.contextValue = ResourceType.Stash;
-        item.tooltip = CommitFormatter.fromTemplate(
-            '${ago} (${date})\n\n${message}',
-            this.commit,
-            {
+        const item = new TreeItem(
+            CommitFormatter.fromTemplate(this.explorer.config.stashFormat, this.commit, {
+                truncateMessageAtNewLine: true,
                 dateFormat: Container.config.defaultDateFormat
-            } as ICommitFormatOptions
+            } as ICommitFormatOptions),
+            TreeItemCollapsibleState.Collapsed
         );
+        item.contextValue = ResourceType.Stash;
+        item.tooltip = CommitFormatter.fromTemplate('${ago} (${date})\n\n${message}', this.commit, {
+            dateFormat: Container.config.defaultDateFormat
+        } as ICommitFormatOptions);
 
         return item;
     }

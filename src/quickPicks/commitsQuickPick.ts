@@ -4,21 +4,36 @@ import { CancellationTokenSource, QuickPickOptions, window } from 'vscode';
 import { Container } from '../container';
 import { GitLog } from '../gitService';
 import { KeyNoopCommand } from '../keyboard';
-import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, MessageQuickPickItem, showQuickPickProgress } from '../quickPicks/quickPicks';
+import {
+    CommandQuickPickItem,
+    CommitQuickPickItem,
+    getQuickPickIgnoreFocusOut,
+    MessageQuickPickItem,
+    showQuickPickProgress
+} from '../quickPicks/quickPicks';
 
 export class CommitsQuickPick {
-
     static showProgress(message: string) {
-        return showQuickPickProgress(message,
-            {
-                left: KeyNoopCommand,
-                ',': KeyNoopCommand,
-                '.': KeyNoopCommand
-            });
+        return showQuickPickProgress(message, {
+            left: KeyNoopCommand,
+            ',': KeyNoopCommand,
+            '.': KeyNoopCommand
+        });
     }
 
-    static async show(log: GitLog | undefined, placeHolder: string, progressCancellation: CancellationTokenSource, options: { goBackCommand?: CommandQuickPickItem, showAllCommand?: CommandQuickPickItem, showInResultsExplorerCommand?: CommandQuickPickItem }): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
-        const items = ((log && [...Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))]) || [new MessageQuickPickItem('No results found')]) as (CommitQuickPickItem | CommandQuickPickItem)[];
+    static async show(
+        log: GitLog | undefined,
+        placeHolder: string,
+        progressCancellation: CancellationTokenSource,
+        options: {
+            goBackCommand?: CommandQuickPickItem;
+            showAllCommand?: CommandQuickPickItem;
+            showInResultsExplorerCommand?: CommandQuickPickItem;
+        }
+    ): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+        const items = ((log && [...Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))]) || [
+            new MessageQuickPickItem('No results found')
+        ]) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
         if (options.showInResultsExplorerCommand !== undefined) {
             items.splice(0, 0, options.showInResultsExplorerCommand);

@@ -1,6 +1,17 @@
 'use strict';
 import { Arrays, Iterables } from '../system';
-import { CancellationToken, Disposable, Hover, HoverProvider, languages, Position, Range, TextDocument, TextEditor, TextEditorDecorationType } from 'vscode';
+import {
+    CancellationToken,
+    Disposable,
+    Hover,
+    HoverProvider,
+    languages,
+    Position,
+    Range,
+    TextDocument,
+    TextEditor,
+    TextEditorDecorationType
+} from 'vscode';
 import { AnnotationProviderBase } from './annotationProvider';
 import { Annotations, ComputedHeatmap } from './annotations';
 import { Container } from '../container';
@@ -8,7 +19,6 @@ import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracke
 import { GitBlame, GitCommit, GitUri } from '../gitService';
 
 export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase {
-
     protected _blame: Promise<GitBlame | undefined>;
     protected _hoverProviderDisposable: Disposable | undefined;
     protected readonly _uri: GitUri;
@@ -36,7 +46,10 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         super.clear();
     }
 
-    async onReset(changes?: { decoration: TextEditorDecorationType, highlightDecoration: TextEditorDecorationType | undefined }) {
+    async onReset(changes?: {
+        decoration: TextEditorDecorationType;
+        highlightDecoration: TextEditorDecorationType | undefined;
+    }) {
         if (this.editor !== undefined) {
             this._blame = this.editor.document.isDirty
                 ? Container.git.getBlameForFileContents(this._uri, this.editor.document.getText())
@@ -73,8 +86,13 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
             return;
         }
 
-        const highlightDecorationRanges = Arrays.filterMap(blame.lines,
-            l => l.sha === sha ? this.editor.document.validateRange(new Range(l.line, 0, l.line, Number.MAX_SAFE_INTEGER)) : undefined);
+        const highlightDecorationRanges = Arrays.filterMap(
+            blame.lines,
+            l =>
+                l.sha === sha
+                    ? this.editor.document.validateRange(new Range(l.line, 0, l.line, Number.MAX_SAFE_INTEGER))
+                    : undefined
+        );
 
         this.editor.setDecorations(this.highlightDecoration, highlightDecorationRanges);
     }
@@ -109,16 +127,15 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         dates.sort((a, b) => a.getTime() - b.getTime());
 
         const half = Math.floor(dates.length / 2);
-        const median = dates.length % 2
-            ? dates[half].getTime()
-            : (dates[half - 1].getTime() + dates[half].getTime()) / 2.0;
+        const median =
+            dates.length % 2 ? dates[half].getTime() : (dates[half - 1].getTime() + dates[half].getTime()) / 2.0;
 
         const lookup: number[] = [];
 
         const newest = dates[dates.length - 1].getTime();
         let step = (newest - median) / 5;
         for (let i = 5; i > 0; i--) {
-            lookup.push(median + (step * i));
+            lookup.push(median + step * i);
         }
 
         lookup.push(median);
@@ -126,7 +143,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         const oldest = dates[0].getTime();
         step = (median - oldest) / 4;
         for (let i = 1; i <= 4; i++) {
-            lookup.push(median - (step * i));
+            lookup.push(median - step * i);
         }
 
         const d = new Date();
@@ -154,28 +171,48 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         };
     }
 
-    registerHoverProviders(providers: { details: boolean, changes: boolean }) {
-        if (!Container.config.hovers.enabled || !Container.config.hovers.annotations.enabled || (!providers.details && !providers.changes)) return;
+    registerHoverProviders(providers: { details: boolean; changes: boolean }) {
+        if (
+            !Container.config.hovers.enabled ||
+            !Container.config.hovers.annotations.enabled ||
+            (!providers.details && !providers.changes)
+        ) {
+            return;
+        }
 
         const subscriptions: Disposable[] = [];
         if (providers.changes) {
-            subscriptions.push(languages.registerHoverProvider({ pattern: this.document.uri.fsPath }, { provideHover: this.provideChangesHover.bind(this) } as HoverProvider));
+            subscriptions.push(
+                languages.registerHoverProvider({ pattern: this.document.uri.fsPath }, {
+                    provideHover: this.provideChangesHover.bind(this)
+                } as HoverProvider)
+            );
         }
         if (providers.details) {
-            subscriptions.push(languages.registerHoverProvider({ pattern: this.document.uri.fsPath }, { provideHover: this.provideDetailsHover.bind(this) } as HoverProvider));
+            subscriptions.push(
+                languages.registerHoverProvider({ pattern: this.document.uri.fsPath }, {
+                    provideHover: this.provideDetailsHover.bind(this)
+                } as HoverProvider)
+            );
         }
 
         this._hoverProviderDisposable = Disposable.from(...subscriptions);
     }
 
-    async provideDetailsHover(document: TextDocument, position: Position, token: CancellationToken): Promise<Hover | undefined> {
+    async provideDetailsHover(
+        document: TextDocument,
+        position: Position,
+        token: CancellationToken
+    ): Promise<Hover | undefined> {
         const commit = await this.getCommitForHover(position);
         if (commit === undefined) return undefined;
 
         // Get the full commit message -- since blame only returns the summary
         let logCommit: GitCommit | undefined = undefined;
         if (!commit.isUncommitted) {
-            logCommit = await Container.git.getLogCommitForFile(commit.repoPath, commit.uri.fsPath, { ref: commit.sha });
+            logCommit = await Container.git.getLogCommitForFile(commit.repoPath, commit.uri.fsPath, {
+                ref: commit.sha
+            });
             if (logCommit !== undefined) {
                 // Preserve the previous commit from the blame commit
                 logCommit.previousFileName = commit.previousFileName;
@@ -183,18 +220,34 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
             }
         }
 
-        const message = Annotations.getHoverMessage(logCommit || commit, Container.config.defaultDateFormat, await Container.git.getRemotes(commit.repoPath), this.annotationType, this.editor.selection.active.line);
-        return new Hover(message, document.validateRange(new Range(position.line, 0, position.line, Number.MAX_SAFE_INTEGER)));
+        const message = Annotations.getHoverMessage(
+            logCommit || commit,
+            Container.config.defaultDateFormat,
+            await Container.git.getRemotes(commit.repoPath),
+            this.annotationType,
+            this.editor.selection.active.line
+        );
+        return new Hover(
+            message,
+            document.validateRange(new Range(position.line, 0, position.line, Number.MAX_SAFE_INTEGER))
+        );
     }
 
-    async provideChangesHover(document: TextDocument, position: Position, token: CancellationToken): Promise<Hover | undefined> {
+    async provideChangesHover(
+        document: TextDocument,
+        position: Position,
+        token: CancellationToken
+    ): Promise<Hover | undefined> {
         const commit = await this.getCommitForHover(position);
         if (commit === undefined) return undefined;
 
         const hover = await Annotations.changesHover(commit, position.line, await GitUri.fromUri(document.uri));
         if (hover.hoverMessage === undefined) return undefined;
 
-        return new Hover(hover.hoverMessage, document.validateRange(new Range(position.line, 0, position.line, Number.MAX_SAFE_INTEGER)));
+        return new Hover(
+            hover.hoverMessage,
+            document.validateRange(new Range(position.line, 0, position.line, Number.MAX_SAFE_INTEGER))
+        );
     }
 
     private async getCommitForHover(position: Position): Promise<GitCommit | undefined> {

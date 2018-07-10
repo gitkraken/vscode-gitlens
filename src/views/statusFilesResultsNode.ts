@@ -10,10 +10,9 @@ import { StatusFileNode } from './statusFileNode';
 import * as path from 'path';
 
 export class StatusFilesResultsNode extends ExplorerNode {
-
     readonly supportsPaging: boolean = true;
 
-    private _cache: { label: string, diff: GitStatusFile[] | undefined } | undefined;
+    private _cache: { label: string; diff: GitStatusFile[] | undefined } | undefined;
 
     constructor(
         public readonly repoPath: string,
@@ -28,14 +27,20 @@ export class StatusFilesResultsNode extends ExplorerNode {
         const diff = await this.getDiff();
         if (diff === undefined) return [];
 
-        let children: IFileExplorerNode[] = [...Iterables.map(diff, s => new StatusFileNode(this.repoPath, s, this.ref1, this.ref2, this.explorer))];
+        let children: IFileExplorerNode[] = [
+            ...Iterables.map(diff, s => new StatusFileNode(this.repoPath, s, this.ref1, this.ref2, this.explorer))
+        ];
 
         if (this.explorer.config.files.layout !== ExplorerFilesLayout.List) {
-            const hierarchy = Arrays.makeHierarchical(children, n => n.uri.getRelativePath().split('/'),
-                (...paths: string[]) => Strings.normalizePath(path.join(...paths)), this.explorer.config.files.compact);
+            const hierarchy = Arrays.makeHierarchical(
+                children,
+                n => n.uri.getRelativePath().split('/'),
+                (...paths: string[]) => Strings.normalizePath(path.join(...paths)),
+                this.explorer.config.files.compact
+            );
 
             const root = new FolderNode(this.repoPath, '', undefined, hierarchy, this.explorer);
-            children = await root.getChildren() as IFileExplorerNode[];
+            children = (await root.getChildren()) as IFileExplorerNode[];
         }
         else {
             children.sort((a, b) => (a.priority ? -1 : 1) - (b.priority ? -1 : 1) || a.label!.localeCompare(b.label!));
@@ -47,7 +52,10 @@ export class StatusFilesResultsNode extends ExplorerNode {
     async getTreeItem(): Promise<TreeItem> {
         const diff = await this.getDiff();
 
-        const item = new TreeItem(await this.getLabel(), diff && diff.length > 0 ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.None);
+        const item = new TreeItem(
+            await this.getLabel(),
+            diff && diff.length > 0 ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.None
+        );
         item.contextValue = ResourceType.ResultsFiles;
         return item;
     }

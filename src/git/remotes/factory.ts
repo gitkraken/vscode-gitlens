@@ -21,7 +21,6 @@ const defaultProviderMap = new Map<string, (domain: string, path: string) => Rem
 export type RemoteProviderMap = Map<string, (domain: string, path: string) => RemoteProvider>;
 
 export class RemoteProviderFactory {
-
     static factory(providerMap: RemoteProviderMap): (domain: string, path: string) => RemoteProvider | undefined {
         return (domain: string, path: string) => this.create(providerMap, domain, path);
     }
@@ -59,11 +58,19 @@ export class RemoteProviderFactory {
 
     private static getCustomProvider(cfg: IRemotesConfig) {
         switch (cfg.type) {
-            case CustomRemoteType.Bitbucket: return (domain: string, path: string) => new BitbucketService(domain, path, cfg.protocol, cfg.name, true);
-            case CustomRemoteType.BitbucketServer: return (domain: string, path: string) => new BitbucketServerService(domain, path, cfg.protocol, cfg.name, true);
-            case CustomRemoteType.Custom: return (domain: string, path: string) => new CustomService(domain, path, cfg.urls!, cfg.protocol, cfg.name);
-            case CustomRemoteType.GitHub: return (domain: string, path: string) => new GitHubService(domain, path, cfg.protocol, cfg.name, true);
-            case CustomRemoteType.GitLab: return (domain: string, path: string) => new GitLabService(domain, path, cfg.protocol, cfg.name, true);
+            case CustomRemoteType.Bitbucket:
+                return (domain: string, path: string) =>
+                    new BitbucketService(domain, path, cfg.protocol, cfg.name, true);
+            case CustomRemoteType.BitbucketServer:
+                return (domain: string, path: string) =>
+                    new BitbucketServerService(domain, path, cfg.protocol, cfg.name, true);
+            case CustomRemoteType.Custom:
+                return (domain: string, path: string) =>
+                    new CustomService(domain, path, cfg.urls!, cfg.protocol, cfg.name);
+            case CustomRemoteType.GitHub:
+                return (domain: string, path: string) => new GitHubService(domain, path, cfg.protocol, cfg.name, true);
+            case CustomRemoteType.GitLab:
+                return (domain: string, path: string) => new GitLabService(domain, path, cfg.protocol, cfg.name, true);
         }
         return undefined;
     }

@@ -9,7 +9,6 @@ import { StatusFilesNode } from './statusFilesNode';
 import { StatusUpstreamNode } from './statusUpstreamNode';
 
 export class StatusNode extends ExplorerNode {
-
     constructor(
         uri: GitUri,
         public readonly repo: Repository,
@@ -39,9 +38,7 @@ export class StatusNode extends ExplorerNode {
             }
 
             if (status.state.ahead || (status.files.length !== 0 && this.includeWorkingTree)) {
-                const range = status.upstream
-                    ? `${status.upstream}..${status.branch}`
-                    : undefined;
+                const range = status.upstream ? `${status.upstream}..${status.branch}` : undefined;
                 this.children.push(new StatusFilesNode(status, range, this.explorer, this.active));
             }
         }
@@ -49,7 +46,15 @@ export class StatusNode extends ExplorerNode {
         let branch = await this.repo.getBranch();
         if (branch !== undefined) {
             if (status !== undefined) {
-                branch = new GitBranch(branch.repoPath, branch.name, branch.current, branch.sha, branch.tracking, status.state.ahead, status.state.behind);
+                branch = new GitBranch(
+                    branch.repoPath,
+                    branch.name,
+                    branch.current,
+                    branch.sha,
+                    branch.tracking,
+                    status.state.ahead,
+                    status.state.behind
+                );
             }
 
             this.children.push(new StatusBranchNode(branch, this.uri, this.explorer));
@@ -79,7 +84,9 @@ export class StatusNode extends ExplorerNode {
 
         let hasChildren = false;
         const hasWorkingChanges = status.files.length !== 0 && this.includeWorkingTree;
-        let label = `${status.getUpstreamStatus({ prefix: `${GlyphChars.Space} ` })}${hasWorkingChanges ? status.getDiffStatus({ prefix: `${GlyphChars.Space} ` }) : ''}`;
+        let label = `${status.getUpstreamStatus({ prefix: `${GlyphChars.Space} ` })}${
+            hasWorkingChanges ? status.getDiffStatus({ prefix: `${GlyphChars.Space} ` }) : ''
+        }`;
         let tooltip = `${status.branch} (current)`;
         let iconSuffix = '';
 
@@ -87,7 +94,8 @@ export class StatusNode extends ExplorerNode {
             if (this.explorer.config.showTrackingBranch) {
                 label += `${GlyphChars.Space} ${GlyphChars.ArrowLeftRightLong}${GlyphChars.Space} ${status.upstream}`;
             }
-            tooltip += `\n\nTracking ${GlyphChars.Dash} ${status.upstream}\n${status.getUpstreamStatus({ empty: 'up-to-date', expand: true, separator: '\n' })}`;
+            tooltip += `\n\nTracking ${GlyphChars.Dash} ${status.upstream}
+${status.getUpstreamStatus({ empty: 'up-to-date', expand: true, separator: '\n' })}`;
 
             if (status.state.ahead || status.state.behind) {
                 hasChildren = true;
@@ -102,7 +110,11 @@ export class StatusNode extends ExplorerNode {
         }
 
         if (hasWorkingChanges) {
-            tooltip += `\n\nHas uncommitted changes${status.getDiffStatus({ expand: true, prefix: `\n`, separator: '\n' })}`;
+            tooltip += `\n\nHas uncommitted changes${status.getDiffStatus({
+                expand: true,
+                prefix: `\n`,
+                separator: '\n'
+            })}`;
         }
 
         let state: TreeItemCollapsibleState;
@@ -145,12 +157,7 @@ export class StatusNode extends ExplorerNode {
 }
 
 export class StatusBranchNode extends BranchNode {
-
-    constructor(
-        branch: GitBranch,
-        uri: GitUri,
-        explorer: GitExplorer
-    ) {
+    constructor(branch: GitBranch, uri: GitUri, explorer: GitExplorer) {
         super(branch, uri, explorer);
     }
 

@@ -6,10 +6,9 @@ import { Explorer, ExplorerNode, ResourceType, ShowAllNode } from './explorerNod
 import { GitLog, GitUri } from '../gitService';
 
 export class CommitsResultsNode extends ExplorerNode {
-
     readonly supportsPaging: boolean = true;
 
-    private _cache: { label: string, log: GitLog | undefined } | undefined;
+    private _cache: { label: string; log: GitLog | undefined } | undefined;
 
     constructor(
         public readonly repoPath: string,
@@ -25,7 +24,10 @@ export class CommitsResultsNode extends ExplorerNode {
         const log = await this.getLog();
         if (log === undefined) return [];
 
-        const children: (CommitNode | ShowAllNode)[] = [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer))];
+        const children: (CommitNode | ShowAllNode)[] = [
+            ...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer))
+        ];
+
         if (log.truncated) {
             children.push(new ShowAllNode('Show All Results', this, this.explorer));
         }
@@ -35,7 +37,10 @@ export class CommitsResultsNode extends ExplorerNode {
     async getTreeItem(): Promise<TreeItem> {
         const log = await this.getLog();
 
-        const item = new TreeItem(await this.getLabel(), log && log.count > 0 ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.None);
+        const item = new TreeItem(
+            await this.getLabel(),
+            log && log.count > 0 ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.None
+        );
         item.contextValue = this.contextValue;
         return item;
     }

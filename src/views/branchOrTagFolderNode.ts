@@ -8,7 +8,6 @@ import { GitUri } from '../gitService';
 import { TagNode } from './tagNode';
 
 export class BranchOrTagFolderNode extends ExplorerNode {
-
     constructor(
         public readonly repoPath: string,
         public readonly folderName: string,
@@ -26,7 +25,9 @@ export class BranchOrTagFolderNode extends ExplorerNode {
 
         for (const folder of Objects.values(this.root.children)) {
             if (folder.value === undefined) {
-                children.push(new BranchOrTagFolderNode(this.repoPath, folder.name, folder.relativePath, folder, this.explorer));
+                children.push(
+                    new BranchOrTagFolderNode(this.repoPath, folder.name, folder.relativePath, folder, this.explorer)
+                );
                 continue;
             }
             children.push(folder.value);

@@ -7,7 +7,6 @@ import { getGitStatusIcon, GitStatusFile, GitUri, IStatusFormatOptions, StatusFi
 import * as path from 'path';
 
 export class StatusFileNode extends ExplorerNode {
-
     constructor(
         public readonly repoPath: string,
         private readonly status: GitStatusFile,
@@ -15,13 +14,7 @@ export class StatusFileNode extends ExplorerNode {
         private readonly ref2: string,
         private readonly explorer: Explorer
     ) {
-        super(GitUri.fromFileStatus(
-            status,
-            repoPath,
-            ref1
-                ? ref1
-                : ref2 ? ref2 : undefined
-        ));
+        super(GitUri.fromFileStatus(status, repoPath, ref1 ? ref1 : ref2 ? ref2 : undefined));
     }
 
     getChildren(): ExplorerNode[] {
@@ -87,9 +80,10 @@ export class StatusFileNode extends ExplorerNode {
                     },
                     rhs: {
                         sha: this.ref2,
-                        uri: this.status.status === 'R'
-                            ? GitUri.fromFileStatus(this.status, this.uri.repoPath!, this.ref2, true)
-                            : this.uri
+                        uri:
+                            this.status.status === 'R'
+                                ? GitUri.fromFileStatus(this.status, this.uri.repoPath!, this.ref2, true)
+                                : this.uri
                     },
                     repoPath: this.uri.repoPath!,
 

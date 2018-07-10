@@ -17,7 +17,6 @@ export interface DiffWithNextCommandArgs {
 }
 
 export class DiffWithNextCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.DiffWithNext);
     }
@@ -55,8 +54,14 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
                     return commands.executeCommand(Commands.DiffWith, diffArgs);
                 }
 
-                const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: sha !== undefined ? undefined : 2, range: args.range!, renames: true });
-                if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
+                    maxCount: sha !== undefined ? undefined : 2,
+                    range: args.range!,
+                    renames: true
+                });
+                if (log === undefined) {
+                    return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                }
 
                 args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
 
@@ -74,7 +79,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 
         if (args.commit.nextSha === undefined) {
             // Check if the file is staged
-            status = status || await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
+            status = status || (await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath));
             if (status !== undefined && status.indexStatus === 'M') {
                 const diffArgs: DiffWithCommandArgs = {
                     repoPath: args.commit.repoPath,

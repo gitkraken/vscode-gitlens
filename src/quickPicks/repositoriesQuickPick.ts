@@ -6,7 +6,6 @@ import { Container } from '../container';
 import { Repository } from '../gitService';
 
 export class RepositoryQuickPickItem implements QuickPickItem {
-
     label: string;
     description: string;
     detail: string | undefined;
@@ -24,9 +23,13 @@ export class RepositoryQuickPickItem implements QuickPickItem {
 }
 
 export class RepositoriesQuickPick {
-
-    static async show(placeHolder: string, goBackCommand?: CommandQuickPickItem): Promise<RepositoryQuickPickItem | CommandQuickPickItem | undefined> {
-        const items = ([...Iterables.map(await Container.git.getRepositories(), r => new RepositoryQuickPickItem(r))]) as (RepositoryQuickPickItem | CommandQuickPickItem)[];
+    static async show(
+        placeHolder: string,
+        goBackCommand?: CommandQuickPickItem
+    ): Promise<RepositoryQuickPickItem | CommandQuickPickItem | undefined> {
+        const items = [
+            ...Iterables.map(await Container.git.getRepositories(), r => new RepositoryQuickPickItem(r))
+        ] as (RepositoryQuickPickItem | CommandQuickPickItem)[];
 
         if (goBackCommand !== undefined) {
             items.splice(0, 0, goBackCommand);

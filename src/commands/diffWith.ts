@@ -23,7 +23,6 @@ export interface DiffWithCommandArgs {
 }
 
 export class DiffWithCommand extends ActiveEditorCommand {
-
     static getMarkdownCommandArgs(args: DiffWithCommandArgs): string;
     static getMarkdownCommandArgs(commit1: GitCommit, commit2: GitCommit): string;
     static getMarkdownCommandArgs(argsOrCommit1: DiffWithCommandArgs | GitCommit, commit2?: GitCommit): string {
@@ -85,7 +84,12 @@ export class DiffWithCommand extends ActiveEditorCommand {
     }
 
     async execute(editor?: TextEditor, uri?: Uri, args: DiffWithCommandArgs = {}): Promise<any> {
-        args = { ...args, lhs: { ...args.lhs }, rhs: { ...args.rhs }, showOptions: { ...args.showOptions} } as DiffWithCommandArgs;
+        args = {
+            ...args,
+            lhs: { ...args.lhs },
+            rhs: { ...args.rhs },
+            showOptions: { ...args.showOptions }
+        } as DiffWithCommandArgs;
         if (args.repoPath === undefined || args.lhs === undefined || args.rhs === undefined) return undefined;
 
         try {
@@ -105,9 +109,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
 
             let rhsPrefix = '';
             if (rhs === undefined) {
-                rhsPrefix = GitService.isUncommitted(args.rhs.sha)
-                    ? ' (deleted)'
-                    : 'deleted in ';
+                rhsPrefix = GitService.isUncommitted(args.rhs.sha) ? ' (deleted)' : 'deleted in ';
             }
             else if (lhs === undefined || args.lhs.sha === GitService.deletedSha) {
                 rhsPrefix = 'added in ';
@@ -124,18 +126,27 @@ export class DiffWithCommand extends ActiveEditorCommand {
                 }
             }
 
-            if (args.lhs.title === undefined && args.lhs.sha !== GitService.deletedSha && (lhs !== undefined || lhsPrefix !== '')) {
+            if (
+                args.lhs.title === undefined &&
+                args.lhs.sha !== GitService.deletedSha &&
+                (lhs !== undefined || lhsPrefix !== '')
+            ) {
                 const suffix = GitService.shortenSha(args.lhs.sha) || '';
-                args.lhs.title = `${path.basename(args.lhs.uri.fsPath)}${suffix !== '' ? ` (${lhsPrefix}${suffix})` : ''}`;
+                args.lhs.title = `${path.basename(args.lhs.uri.fsPath)}${
+                    suffix !== '' ? ` (${lhsPrefix}${suffix})` : ''
+                }`;
             }
             if (args.rhs.title === undefined && args.rhs.sha !== GitService.deletedSha) {
                 const suffix = GitService.shortenSha(args.rhs.sha, { uncommitted: 'working tree' }) || '';
-                args.rhs.title = `${path.basename(args.rhs.uri.fsPath)}${suffix !== '' ? ` (${rhsPrefix}${suffix})` : rhsPrefix}`;
+                args.rhs.title = `${path.basename(args.rhs.uri.fsPath)}${
+                    suffix !== '' ? ` (${rhsPrefix}${suffix})` : rhsPrefix
+                }`;
             }
 
-            const title = (args.lhs.title !== undefined && args.rhs.title !== undefined)
-                ? `${args.lhs.title} ${GlyphChars.ArrowLeftRightLong} ${args.rhs.title}`
-                : args.lhs.title || args.rhs.title;
+            const title =
+                args.lhs.title !== undefined && args.rhs.title !== undefined
+                    ? `${args.lhs.title} ${GlyphChars.ArrowLeftRightLong} ${args.rhs.title}`
+                    : args.lhs.title || args.rhs.title;
 
             if (args.showOptions === undefined) {
                 args.showOptions = {};
@@ -149,7 +160,8 @@ export class DiffWithCommand extends ActiveEditorCommand {
                 args.showOptions.selection = new Range(args.line, 0, args.line, 0);
             }
 
-            return await commands.executeCommand(BuiltInCommands.Diff,
+            return await commands.executeCommand(
+                BuiltInCommands.Diff,
                 lhs === undefined
                     ? GitUri.toRevisionUri(GitService.deletedSha, args.lhs.uri.fsPath, args.repoPath)
                     : Uri.file(lhs),
@@ -157,7 +169,8 @@ export class DiffWithCommand extends ActiveEditorCommand {
                     ? GitUri.toRevisionUri(GitService.deletedSha, args.rhs.uri.fsPath, args.repoPath)
                     : Uri.file(rhs),
                 title,
-                args.showOptions);
+                args.showOptions
+            );
         }
         catch (ex) {
             Logger.error(ex, 'DiffWithCommand', 'getVersionedFile');

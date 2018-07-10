@@ -6,7 +6,6 @@ import { Container } from './container';
 import { GitCommit, GitUri } from './gitService';
 
 export class GitDiffWithWorkingCodeLens extends CodeLens {
-
     constructor(
         public readonly fileName: string,
         public readonly commit: GitCommit,
@@ -17,7 +16,6 @@ export class GitDiffWithWorkingCodeLens extends CodeLens {
 }
 
 export class GitDiffWithPreviousCodeLens extends CodeLens {
-
     constructor(
         public readonly fileName: string,
         public readonly commit: GitCommit,
@@ -28,7 +26,6 @@ export class GitDiffWithPreviousCodeLens extends CodeLens {
 }
 
 export class GitRevisionCodeLensProvider implements CodeLensProvider {
-
     static selector: DocumentSelector = { scheme: DocumentSchemes.GitLensGit };
 
     async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
@@ -36,7 +33,10 @@ export class GitRevisionCodeLensProvider implements CodeLensProvider {
 
         const lenses: CodeLens[] = [];
 
-        const commit = await Container.git.getLogCommitForFile(gitUri.repoPath, gitUri.fsPath, { ref: gitUri.sha, firstIfNotFound: true });
+        const commit = await Container.git.getLogCommitForFile(gitUri.repoPath, gitUri.fsPath, {
+            ref: gitUri.sha,
+            firstIfNotFound: true
+        });
         if (commit === undefined) return lenses;
 
         if (commit.previousSha) {
@@ -53,7 +53,10 @@ export class GitRevisionCodeLensProvider implements CodeLensProvider {
         return Promise.reject<CodeLens>(undefined);
     }
 
-    _resolveDiffWithWorkingTreeCodeLens(lens: GitDiffWithWorkingCodeLens, token: CancellationToken): Thenable<CodeLens> {
+    _resolveDiffWithWorkingTreeCodeLens(
+        lens: GitDiffWithWorkingCodeLens,
+        token: CancellationToken
+    ): Thenable<CodeLens> {
         lens.command = {
             title: `Compare Revision (${lens.commit.shortSha}) with Working`,
             command: Commands.DiffWithWorking,
@@ -68,7 +71,10 @@ export class GitRevisionCodeLensProvider implements CodeLensProvider {
         return Promise.resolve(lens);
     }
 
-    _resolveGitDiffWithPreviousCodeLens(lens: GitDiffWithPreviousCodeLens, token: CancellationToken): Thenable<CodeLens> {
+    _resolveGitDiffWithPreviousCodeLens(
+        lens: GitDiffWithPreviousCodeLens,
+        token: CancellationToken
+    ): Thenable<CodeLens> {
         lens.command = {
             title: `Compare Revision (${lens.commit.shortSha}) with Previous (${lens.commit.previousShortSha})`,
             command: Commands.DiffWithPrevious,

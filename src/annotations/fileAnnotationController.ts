@@ -1,11 +1,32 @@
 'use strict';
 import { Functions, Iterables } from '../system';
-import { ConfigurationChangeEvent, DecorationRangeBehavior, DecorationRenderOptions, Disposable, Event, EventEmitter, OverviewRulerLane, Progress, ProgressLocation, TextDocument, TextEditor, TextEditorDecorationType, TextEditorViewColumnChangeEvent, ThemeColor, window, workspace } from 'vscode';
+import {
+    ConfigurationChangeEvent,
+    DecorationRangeBehavior,
+    DecorationRenderOptions,
+    Disposable,
+    Event,
+    EventEmitter,
+    OverviewRulerLane,
+    Progress,
+    ProgressLocation,
+    TextDocument,
+    TextEditor,
+    TextEditorDecorationType,
+    TextEditorViewColumnChangeEvent,
+    ThemeColor,
+    window,
+    workspace
+} from 'vscode';
 import { AnnotationProviderBase, AnnotationStatus, TextEditorCorrelationKey } from './annotationProvider';
 import { AnnotationsToggleMode, configuration, FileAnnotationType, HighlightLocations } from '../configuration';
 import { CommandContext, isTextEditor, setCommandContext } from '../constants';
 import { Container } from '../container';
-import { DocumentBlameStateChangeEvent, DocumentDirtyStateChangeEvent, GitDocumentState } from '../trackers/gitDocumentTracker';
+import {
+    DocumentBlameStateChangeEvent,
+    DocumentDirtyStateChangeEvent,
+    GitDocumentState
+} from '../trackers/gitDocumentTracker';
 import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
 import { HeatmapBlameAnnotationProvider } from './heatmapBlameAnnotationProvider';
 import { KeyboardScope, KeyCommand, Keys } from '../keyboard';
@@ -35,7 +56,6 @@ export const Decorations = {
 };
 
 export class FileAnnotationController extends Disposable {
-
     private _onDidToggleAnnotations = new EventEmitter<void>();
     get onDidToggleAnnotations(): Event<void> {
         return this._onDidToggleAnnotations.event;
@@ -52,9 +72,7 @@ export class FileAnnotationController extends Disposable {
     constructor() {
         super(() => this.dispose());
 
-        this._disposable = Disposable.from(
-            configuration.onDidChange(this.onConfigurationChanged, this)
-        );
+        this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
 
         this._toggleModes = new Map();
         this.onConfigurationChanged(configuration.initializingChangeEvent);
@@ -159,19 +177,27 @@ export class FileAnnotationController extends Disposable {
 
         if (initializing) return;
 
-        if (configuration.changed(e, configuration.name('blame').value) ||
+        if (
+            configuration.changed(e, configuration.name('blame').value) ||
             configuration.changed(e, configuration.name('recentChanges').value) ||
             configuration.changed(e, configuration.name('heatmap').value) ||
-            configuration.changed(e, configuration.name('hovers').value)) {
+            configuration.changed(e, configuration.name('hovers').value)
+        ) {
             // Since the configuration has changed -- reset any visible annotations
             for (const provider of this._annotationProviders.values()) {
                 if (provider === undefined) continue;
 
                 if (provider.annotationType === FileAnnotationType.RecentChanges) {
-                    provider.reset({ decoration: Decorations.recentChangesAnnotation!, highlightDecoration: Decorations.recentChangesHighlight });
+                    provider.reset({
+                        decoration: Decorations.recentChangesAnnotation!,
+                        highlightDecoration: Decorations.recentChangesHighlight
+                    });
                 }
                 else if (provider.annotationType === FileAnnotationType.Blame) {
-                    provider.reset({ decoration: Decorations.blameAnnotation, highlightDecoration: Decorations.blameHighlight });
+                    provider.reset({
+                        decoration: Decorations.blameAnnotation,
+                        highlightDecoration: Decorations.blameHighlight
+                    });
                 }
                 else {
                     this.show(provider.editor, FileAnnotationType.Heatmap);
@@ -236,7 +262,10 @@ export class FileAnnotationController extends Disposable {
         const provider = this.getProvider(e.textEditor);
         if (provider === undefined) {
             // If we don't find an exact match, do a fuzzy match (since we can't properly track editors)
-            const fuzzyProvider = Iterables.find(this._annotationProviders.values(), p => p.editor.document === e.textEditor.document);
+            const fuzzyProvider = Iterables.find(
+                this._annotationProviders.values(),
+                p => p.editor.document === e.textEditor.document
+            );
             if (fuzzyProvider == null) return;
 
             this.clearCore(fuzzyProvider.correlationKey, AnnotationClearReason.ColumnChanged);
@@ -297,7 +326,11 @@ export class FileAnnotationController extends Disposable {
         return this._annotationProviders.get(AnnotationProviderBase.getCorrelationKey(editor));
     }
 
-    async show(editor: TextEditor | undefined, type: FileAnnotationType, shaOrLine?: string | number): Promise<boolean> {
+    async show(
+        editor: TextEditor | undefined,
+        type: FileAnnotationType,
+        shaOrLine?: string | number
+    ): Promise<boolean> {
         if (this.getToggleMode(type) === AnnotationsToggleMode.Window) {
             let first = this._annotationType === undefined;
             const reset = !first && this._annotationType !== type;
@@ -330,26 +363,44 @@ export class FileAnnotationController extends Disposable {
             return true;
         }
 
-        const provider = await window.withProgress({ location: ProgressLocation.Window }, async (progress: Progress<{ message: string }>) => {
-            await setCommandContext(CommandContext.AnnotationStatus, AnnotationStatus.Computing);
+        const provider = await window.withProgress(
+            { location: ProgressLocation.Window },
+            async (progress: Progress<{ message: string }>) => {
+                await setCommandContext(CommandContext.AnnotationStatus, AnnotationStatus.Computing);
 
-            const computingAnnotations = this.showAnnotationsCore(currentProvider, editor, type, shaOrLine, progress);
-            const provider = await computingAnnotations;
+                const computingAnnotations = this.showAnnotationsCore(
+                    currentProvider,
+                    editor,
+                    type,
+                    shaOrLine,
+                    progress
+                );
+                const provider = await computingAnnotations;
 
-            if (editor === this._editor) {
-                await setCommandContext(CommandContext.AnnotationStatus, provider && provider.status);
+                if (editor === this._editor) {
+                    await setCommandContext(CommandContext.AnnotationStatus, provider && provider.status);
+                }
+
+                return computingAnnotations;
             }
-
-            return computingAnnotations;
-        });
+        );
 
         return provider !== undefined;
     }
 
-    async toggle(editor: TextEditor | undefined, type: FileAnnotationType, shaOrLine?: string | number): Promise<boolean> {
+    async toggle(
+        editor: TextEditor | undefined,
+        type: FileAnnotationType,
+        shaOrLine?: string | number
+    ): Promise<boolean> {
         if (editor !== undefined) {
             const trackedDocument = await Container.tracker.getOrAdd(editor.document);
-            if ((type === FileAnnotationType.RecentChanges && !trackedDocument.isTracked) || !trackedDocument.isBlameable) return false;
+            if (
+                (type === FileAnnotationType.RecentChanges && !trackedDocument.isTracked) ||
+                !trackedDocument.isBlameable
+            ) {
+                return false;
+            }
         }
 
         const provider = this.getProvider(editor);
@@ -417,7 +468,13 @@ export class FileAnnotationController extends Disposable {
         this._keyboardScope = undefined;
     }
 
-    private async showAnnotationsCore(currentProvider: AnnotationProviderBase | undefined, editor: TextEditor, type: FileAnnotationType, shaOrLine?: string | number, progress?: Progress<{ message: string }>): Promise<AnnotationProviderBase | undefined> {
+    private async showAnnotationsCore(
+        currentProvider: AnnotationProviderBase | undefined,
+        editor: TextEditor,
+        type: FileAnnotationType,
+        shaOrLine?: string | number,
+        progress?: Progress<{ message: string }>
+    ): Promise<AnnotationProviderBase | undefined> {
         if (progress !== undefined) {
             let annotationsLabel = 'annotations';
             switch (type) {
@@ -434,7 +491,9 @@ export class FileAnnotationController extends Disposable {
                     break;
             }
 
-            progress!.report({ message: `Computing ${annotationsLabel} for ${path.basename(editor.document.fileName)}` });
+            progress!.report({
+                message: `Computing ${annotationsLabel} for ${path.basename(editor.document.fileName)}`
+            });
         }
 
         // Allows pressing escape to exit the annotations
@@ -445,15 +504,30 @@ export class FileAnnotationController extends Disposable {
         let provider: AnnotationProviderBase | undefined = undefined;
         switch (type) {
             case FileAnnotationType.Blame:
-                provider = new GutterBlameAnnotationProvider(editor, trackedDocument, Decorations.blameAnnotation, Decorations.blameHighlight);
+                provider = new GutterBlameAnnotationProvider(
+                    editor,
+                    trackedDocument,
+                    Decorations.blameAnnotation,
+                    Decorations.blameHighlight
+                );
                 break;
 
             case FileAnnotationType.Heatmap:
-                provider = new HeatmapBlameAnnotationProvider(editor, trackedDocument, Decorations.heatmapAnnotation, Decorations.heatmapHighlight);
+                provider = new HeatmapBlameAnnotationProvider(
+                    editor,
+                    trackedDocument,
+                    Decorations.heatmapAnnotation,
+                    Decorations.heatmapHighlight
+                );
                 break;
 
             case FileAnnotationType.RecentChanges:
-                provider = new RecentChangesAnnotationProvider(editor, trackedDocument, Decorations.recentChangesAnnotation!, Decorations.recentChangesHighlight);
+                provider = new RecentChangesAnnotationProvider(
+                    editor,
+                    trackedDocument,
+                    Decorations.recentChangesAnnotation!,
+                    Decorations.recentChangesHighlight
+                );
                 break;
         }
         if (provider === undefined || !(await provider.validate())) return undefined;

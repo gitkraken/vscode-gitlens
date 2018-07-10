@@ -14,7 +14,6 @@ export interface IFileExplorerNode extends ExplorerNode {
 }
 
 export class FolderNode extends ExplorerNode {
-
     readonly priority: boolean = true;
 
     constructor(
@@ -32,12 +31,18 @@ export class FolderNode extends ExplorerNode {
 
         let children: (FolderNode | IFileExplorerNode)[];
 
-        const nesting = FolderNode.getFileNesting(this.explorer.config.files, this.root.descendants, this.relativePath === undefined);
+        const nesting = FolderNode.getFileNesting(
+            this.explorer.config.files,
+            this.root.descendants,
+            this.relativePath === undefined
+        );
         if (nesting !== ExplorerFilesLayout.List) {
             children = [];
             for (const folder of Objects.values(this.root.children)) {
                 if (folder.value === undefined) {
-                    children.push(new FolderNode(this.repoPath, folder.name, folder.relativePath, folder, this.explorer));
+                    children.push(
+                        new FolderNode(this.repoPath, folder.name, folder.relativePath, folder, this.explorer)
+                    );
                     continue;
                 }
 
@@ -46,14 +51,16 @@ export class FolderNode extends ExplorerNode {
             }
         }
         else {
-            this.root.descendants.forEach(n => n.relativePath = this.root.relativePath);
+            this.root.descendants.forEach(n => (n.relativePath = this.root.relativePath));
             children = this.root.descendants;
         }
 
         children.sort((a, b) => {
-            return ((a instanceof FolderNode) ? -1 : 1) - ((b instanceof FolderNode) ? -1 : 1) ||
+            return (
+                (a instanceof FolderNode ? -1 : 1) - (b instanceof FolderNode ? -1 : 1) ||
                 (a.priority ? -1 : 1) - (b.priority ? -1 : 1) ||
-                a.label!.localeCompare(b.label!);
+                a.label!.localeCompare(b.label!)
+            );
         });
 
         return children;
@@ -72,7 +79,11 @@ export class FolderNode extends ExplorerNode {
         return this.folderName;
     }
 
-    static getFileNesting<T extends IFileExplorerNode>(config: IExplorersFilesConfig, children: T[], isRoot: boolean): ExplorerFilesLayout {
+    static getFileNesting<T extends IFileExplorerNode>(
+        config: IExplorersFilesConfig,
+        children: T[],
+        isRoot: boolean
+    ): ExplorerFilesLayout {
         const nesting = config.layout || ExplorerFilesLayout.Auto;
         if (nesting === ExplorerFilesLayout.Auto) {
             if (isRoot || config.compact) {

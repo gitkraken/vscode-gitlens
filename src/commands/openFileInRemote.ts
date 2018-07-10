@@ -1,6 +1,13 @@
 'use strict';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithBranch, isCommandViewContextWithCommit } from './common';
+import {
+    ActiveEditorCommand,
+    CommandContext,
+    Commands,
+    getCommandUri,
+    isCommandViewContextWithBranch,
+    isCommandViewContextWithCommit
+} from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../gitService';
@@ -14,12 +21,14 @@ export interface OpenFileInRemoteCommandArgs {
 }
 
 export class OpenFileInRemoteCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.OpenFileInRemote);
     }
 
-    protected async preExecute(context: CommandContext, args: OpenFileInRemoteCommandArgs = { range: true }): Promise<any> {
+    protected async preExecute(
+        context: CommandContext,
+        args: OpenFileInRemoteCommandArgs = { range: true }
+    ): Promise<any> {
         if (isCommandViewContextWithCommit(context)) {
             args = { ...args };
             args.range = false;
@@ -42,9 +51,14 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
         if (args.branch === undefined) {
             const branch = await Container.git.getBranch(gitUri.repoPath);
             if (branch === undefined || branch.tracking === undefined) {
-                const branches = (await Container.git.getBranches(gitUri.repoPath)).filter(b => b.tracking !== undefined);
+                const branches = (await Container.git.getBranches(gitUri.repoPath)).filter(
+                    b => b.tracking !== undefined
+                );
                 if (branches.length > 1) {
-                    const pick = await BranchesQuickPick.show(branches, `Open ${gitUri.getRelativePath()} in remote for which branch${GlyphChars.Ellipsis}`);
+                    const pick = await BranchesQuickPick.show(
+                        branches,
+                        `Open ${gitUri.getRelativePath()} in remote for which branch${GlyphChars.Ellipsis}`
+                    );
                     if (pick === undefined) return undefined;
 
                     if (pick instanceof CommandQuickPickItem) return undefined;
@@ -62,9 +76,13 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 
         try {
             const remotes = await Container.git.getRemotes(gitUri.repoPath);
-            const range = (args.range && editor != null)
-                ? new Range(editor.selection.start.with({ line: editor.selection.start.line + 1 }), editor.selection.end.with({ line: editor.selection.end.line + 1 }))
-                : undefined;
+            const range =
+                args.range && editor != null
+                    ? new Range(
+                          editor.selection.start.with({ line: editor.selection.start.line + 1 }),
+                          editor.selection.end.with({ line: editor.selection.end.line + 1 })
+                      )
+                    : undefined;
 
             return commands.executeCommand(Commands.OpenInRemote, uri, {
                 resource: {
@@ -79,7 +97,9 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'OpenFileInRemoteCommand');
-            return window.showErrorMessage(`Unable to open file in remote provider. See output channel for more details`);
+            return window.showErrorMessage(
+                `Unable to open file in remote provider. See output channel for more details`
+            );
         }
     }
 }

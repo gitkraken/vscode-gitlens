@@ -6,13 +6,7 @@ const issueEnricherRegEx = /(^|\s)(#([0-9]+))\b/gi;
 const stripGitRegex = /\/_git\/?/i;
 
 export class VisualStudioService extends RemoteProvider {
-
-    constructor(
-        domain: string,
-        path: string,
-        protocol?: string,
-        name?: string
-    ) {
+    constructor(domain: string, path: string, protocol?: string, name?: string) {
         super(domain, path, protocol, name);
     }
 

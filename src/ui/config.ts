@@ -201,28 +201,36 @@ export interface IHistoryExplorerConfig {
 }
 
 export interface IMenuConfig {
-    editor: boolean | {
-        blame: boolean;
-        clipboard: boolean;
-        compare: boolean;
-        details: boolean;
-        history: boolean;
-        remote: boolean;
-    };
-    editorGroup: boolean | {
-        compare: boolean;
-        history: boolean;
-    };
-    editorTab: boolean | {
-        compare: boolean;
-        history: boolean;
-        remote: boolean;
-    };
-    explorer: boolean | {
-        compare: boolean;
-        history: boolean;
-        remote: boolean;
-    };
+    editor:
+        | boolean
+        | {
+              blame: boolean;
+              clipboard: boolean;
+              compare: boolean;
+              details: boolean;
+              history: boolean;
+              remote: boolean;
+          };
+    editorGroup:
+        | boolean
+        | {
+              compare: boolean;
+              history: boolean;
+          };
+    editorTab:
+        | boolean
+        | {
+              compare: boolean;
+              history: boolean;
+              remote: boolean;
+          };
+    explorer:
+        | boolean
+        | {
+              compare: boolean;
+              history: boolean;
+              remote: boolean;
+          };
 }
 
 export interface IModeConfig {
@@ -312,14 +320,14 @@ export interface IConfig {
             changes: boolean;
             details: boolean;
             enabled: boolean;
-            over: 'line' | 'annotation'
+            over: 'line' | 'annotation';
         };
 
         currentLine: {
             changes: boolean;
             details: boolean;
             enabled: boolean;
-            over: 'line' | 'annotation'
+            over: 'line' | 'annotation';
         };
 
         avatars: boolean;
@@ -334,7 +342,7 @@ export interface IConfig {
         statusBar: {
             enabled: boolean;
             alignment: 'left' | 'right';
-        }
+        };
     };
     modes: { [key: string]: IModeConfig };
     outputLevel: OutputLevel;
@@ -342,7 +350,7 @@ export interface IConfig {
     recentChanges: {
         highlight: {
             locations: HighlightLocations[];
-        }
+        };
         toggleMode: AnnotationsToggleMode;
     };
 
@@ -367,8 +375,8 @@ export interface IConfig {
                 recentChangeAndAuthors: string;
                 recentChangeOnly: string;
                 authorsOnly: string;
-            }
-        }
+            };
+        };
     };
 
     advanced: IAdvancedConfig;

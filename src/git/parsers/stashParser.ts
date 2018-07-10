@@ -15,7 +15,6 @@ interface StashEntry {
 const emptyEntry: StashEntry = {};
 
 export class GitStashParser {
-
     static parse(data: string, repoPath: string): GitStash | undefined {
         if (!data) return undefined;
 
@@ -110,8 +109,10 @@ export class GitStashParser {
                         }
 
                         if (entry.fileStatuses !== undefined) {
-                            entry.fileNames = Arrays.filterMap(entry.fileStatuses,
-                                f => !!f.fileName ? f.fileName : undefined).join(', ');
+                            entry.fileNames = Arrays.filterMap(
+                                entry.fileStatuses,
+                                f => (!!f.fileName ? f.fileName : undefined)
+                            ).join(', ');
                         }
                     }
 
@@ -126,14 +127,19 @@ export class GitStashParser {
         } as GitStash;
     }
 
-    private static parseEntry(entry: StashEntry, commit: GitStashCommit | undefined, repoPath: string, commits: Map<string, GitStashCommit>): GitStashCommit | undefined {
+    private static parseEntry(
+        entry: StashEntry,
+        commit: GitStashCommit | undefined,
+        repoPath: string,
+        commits: Map<string, GitStashCommit>
+    ): GitStashCommit | undefined {
         if (commit === undefined) {
             commit = new GitStashCommit(
                 GitCommitType.Stash,
                 entry.stashName!,
                 repoPath,
                 entry.ref!,
-                new Date(entry.date! as any * 1000),
+                new Date((entry.date! as any) * 1000),
                 entry.summary === undefined ? '' : entry.summary,
                 entry.fileNames!,
                 entry.fileStatuses || []

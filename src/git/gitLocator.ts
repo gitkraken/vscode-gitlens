@@ -69,9 +69,12 @@ export async function findGitPath(path?: string): Promise<IGit> {
     catch (ex) {
         try {
             switch (process.platform) {
-                case 'darwin': return await findGitDarwin();
-                case 'win32': return await findGitWin32();
-                default: return Promise.reject('Unable to find git');
+                case 'darwin':
+                    return await findGitDarwin();
+                case 'win32':
+                    return await findGitWin32();
+                default:
+                    return Promise.reject('Unable to find git');
             }
         }
         catch (ex) {

@@ -24,9 +24,9 @@ function runDownPath(exe: string): string {
 
     const target = path.join('.', exe);
     try {
-        if (fs.statSync(target) ) return target;
+        if (fs.statSync(target)) return target;
     }
-    catch { }
+    catch {}
 
     const haystack = process.env.PATH!.split(isWindows ? ';' : ':');
     for (const p of haystack) {
@@ -34,7 +34,7 @@ function runDownPath(exe: string): string {
         try {
             if (fs.statSync(needle)) return needle;
         }
-        catch { }
+        catch {}
     }
 
     return exe;
@@ -118,28 +118,29 @@ export function runCommand(command: string, args: any[], options: CommandOptions
     const { stdin, stdinEncoding, ...opts } = { maxBuffer: 10 * 1024 * 1024, ...options } as CommandOptions;
 
     return new Promise<string>((resolve, reject) => {
-        const proc = execFile(
-            command,
-            args,
-            opts,
-            (err: Error & { code?: string | number } | null, stdout, stderr) => {
-                if (!err) {
-                    if (stderr) {
-                        Logger.warn(`Warning(${command} ${args.join(' ')}): ${stderr}`);
-                    }
-                    resolve(stdout);
-
-                    return;
+        const proc = execFile(command, args, opts, (err: Error & { code?: string | number } | null, stdout, stderr) => {
+            if (!err) {
+                if (stderr) {
+                    Logger.warn(`Warning(${command} ${args.join(' ')}): ${stderr}`);
                 }
+                resolve(stdout);
 
-                if (err.message === 'stdout maxBuffer exceeded') {
-                    reject(new Error(`Command output exceeded the allocated stdout buffer. Set 'options.maxBuffer' to a larger value than ${opts.maxBuffer} bytes`));
-                }
-
-                // Logger.warn(`Error(${opts.cwd}): ${command} ${args.join(' ')})\n    (${err.code}) ${err.message}\n${stderr}`);
-                reject(err);
+                return;
             }
-        );
+
+            if (err.message === 'stdout maxBuffer exceeded') {
+                reject(
+                    new Error(
+                        `Command output exceeded the allocated stdout buffer. Set 'options.maxBuffer' to a larger value than ${
+                            opts.maxBuffer
+                        } bytes`
+                    )
+                );
+            }
+
+            // Logger.warn(`Error(${opts.cwd}): ${command} ${args.join(' ')})\n    (${err.code}) ${err.message}\n${stderr}`);
+            reject(err);
+        });
 
         if (stdin) {
             proc.stdin.end(stdin, stdinEncoding || 'utf8');

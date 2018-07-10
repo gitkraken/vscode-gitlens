@@ -6,7 +6,6 @@ import { Explorer, ExplorerNode, ResourceType, ShowAllNode } from './explorerNod
 import { GitLog, GitUri } from '../gitService';
 
 export class CommitsNode extends ExplorerNode {
-
     readonly supportsPaging: boolean = true;
 
     constructor(
@@ -21,7 +20,10 @@ export class CommitsNode extends ExplorerNode {
         const log = await this.logFn(this.maxCount);
         if (log === undefined) return [];
 
-        const children: (CommitNode | ShowAllNode)[] = [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer))];
+        const children: (CommitNode | ShowAllNode)[] = [
+            ...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer))
+        ];
+
         if (log.truncated) {
             children.push(new ShowAllNode('Show All Commits', this, this.explorer));
         }

@@ -15,7 +15,6 @@ export interface OpenWorkingFileCommandArgs {
 }
 
 export class OpenWorkingFileCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.OpenWorkingFile);
     }
@@ -33,7 +32,10 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 
                 args.uri = await GitUri.fromUri(uri);
                 if (args.uri instanceof GitUri && args.uri.sha) {
-                    const [fileName, repoPath] = await Container.git.findWorkingFileName(args.uri.fsPath, args.uri.repoPath);
+                    const [fileName, repoPath] = await Container.git.findWorkingFileName(
+                        args.uri.fsPath,
+                        args.uri.repoPath
+                    );
                     if (fileName !== undefined && repoPath !== undefined) {
                         args.uri = new GitUri(Uri.file(path.resolve(repoPath, fileName)), repoPath);
                     }

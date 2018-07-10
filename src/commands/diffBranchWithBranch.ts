@@ -12,7 +12,6 @@ export interface DiffBranchWithBranchCommandArgs {
 }
 
 export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
-
     constructor() {
         super([Commands.DiffHeadWithBranch, Commands.DiffWorkingWithBranch]);
     }
@@ -39,7 +38,11 @@ export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
         let progressCancellation: CancellationTokenSource | undefined;
 
         try {
-            const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, `Compare with branch or tag in which repository${GlyphChars.Ellipsis}`);
+            const repoPath = await getRepoPathOrActiveOrPrompt(
+                uri,
+                editor,
+                `Compare with branch or tag in which repository${GlyphChars.Ellipsis}`
+            );
             if (!repoPath) return undefined;
 
             if (!args.ref1) {
@@ -56,7 +59,7 @@ export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
                         break;
                 }
 
-                 progressCancellation = BranchesAndTagsQuickPick.showProgress(placeHolder);
+                progressCancellation = BranchesAndTagsQuickPick.showProgress(placeHolder);
 
                 const [branches, tags] = await Promise.all([
                     Container.git.getBranches(repoPath),
@@ -65,7 +68,9 @@ export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
 
                 if (progressCancellation.token.isCancellationRequested) return undefined;
 
-                const pick = await BranchesAndTagsQuickPick.show(branches, tags, placeHolder, { progressCancellation: progressCancellation });
+                const pick = await BranchesAndTagsQuickPick.show(branches, tags, placeHolder, {
+                    progressCancellation: progressCancellation
+                });
                 if (pick === undefined) return undefined;
 
                 if (pick instanceof CommandQuickPickItem) return pick.execute();

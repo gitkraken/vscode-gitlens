@@ -7,7 +7,7 @@ const MillisecondsPerDay = 86400000; // 24 * 60 * 60 * 1000
 
 // Taken from https://github.com/date-fns/date-fns/blob/601bc8e5708cbaebee5389bdaf51c2b4b33b73c4/src/locale/en/build_distance_in_words_locale/index.js
 function buildDistanceInWordsLocale() {
-    const distanceInWordsLocale: { [key: string]: string | { one: string, other: string } } = {
+    const distanceInWordsLocale: { [key: string]: string | { one: string; other: string } } = {
         lessThanXSeconds: {
             one: 'less than a second',
             other: 'less than {{count}} seconds'
@@ -112,16 +112,15 @@ function buildDistanceInWordsLocale() {
 }
 
 // Monkey patch the locale to customize the wording
-const patch = (en as any);
+const patch = en as any;
 patch.distanceInWords = buildDistanceInWordsLocale();
 
 const formatterOptions = { addSuffix: true, locale: patch };
 
 export namespace Dates {
-
     export interface IDateFormatter {
-        fromNow: () => string;
-        format: (format: string) => string;
+        fromNow(): string;
+        format(format: string): string;
     }
 
     export function dateDaysFromNow(date: Date, now: number = Date.now()) {

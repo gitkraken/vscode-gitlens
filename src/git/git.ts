@@ -23,13 +23,13 @@ const sl = '%x2f'; // `%x${'/'.charCodeAt(0).toString(16)}`;
 
 const logFormat = [
     `${lb}${sl}f${rb}`,
-    `${lb}r${rb} %H`,   // ref
-    `${lb}a${rb} %an`,  // author
-    `${lb}e${rb} %ae`,  // email
-    `${lb}d${rb} %at`,  // date
-    `${lb}p${rb} %P`,   // parents
+    `${lb}r${rb} %H`, // ref
+    `${lb}a${rb} %an`, // author
+    `${lb}e${rb} %ae`, // email
+    `${lb}d${rb} %at`, // date
+    `${lb}p${rb} %P`, // parents
     `${lb}s${rb}`,
-    `%B`,               // summary
+    `%B`, // summary
     `${lb}${sl}s${rb}`,
     `${lb}f${rb}`
 ].join('%n');
@@ -38,11 +38,11 @@ const defaultLogParams = ['log', '--name-status', '-M', `--format=${logFormat}`]
 
 const stashFormat = [
     `${lb}${sl}f${rb}`,
-    `${lb}r${rb} %H`,   // ref
-    `${lb}d${rb} %at`,  // date
-    `${lb}l${rb} %gd`,  // reflog-selector
+    `${lb}r${rb} %H`, // ref
+    `${lb}d${rb} %at`, // date
+    `${lb}l${rb} %gd`, // reflog-selector
     `${lb}s${rb}`,
-    `%B`,               // summary
+    `%B`, // summary
     `${lb}${sl}s${rb}`,
     `${lb}f${rb}`
 ].join('%n');
@@ -62,10 +62,14 @@ const GitWarnings = {
     foundButNotInRevision: /Path \'.*?\' exists on disk, but not in/i,
     headNotABranch: /HEAD does not point to a branch/i,
     noUpstream: /no upstream configured for branch \'(.*?)\'/i,
+    // tslint:disable-next-line:max-line-length
     unknownRevision: /ambiguous argument \'.*?\': unknown revision or path not in the working tree|not stored as a remote-tracking branch/i
 };
 
-async function gitCommand(options: CommandOptions & { readonly correlationKey?: string }, ...args: any[]): Promise<string> {
+async function gitCommand(
+    options: CommandOptions & { readonly correlationKey?: string },
+    ...args: any[]
+): Promise<string> {
     try {
         return await gitCommandCore(options, ...args);
     }
@@ -77,7 +81,10 @@ async function gitCommand(options: CommandOptions & { readonly correlationKey?: 
 // A map of running git commands -- avoids running duplicate overlaping commands
 const pendingCommands: Map<string, Promise<string>> = new Map();
 
-async function gitCommandCore(options: CommandOptions & { readonly correlationKey?: string }, ...args: any[]): Promise<string> {
+async function gitCommandCore(
+    options: CommandOptions & { readonly correlationKey?: string },
+    ...args: any[]
+): Promise<string> {
     const start = process.hrtime();
 
     const { correlationKey, ...opts } = options;
@@ -122,7 +129,8 @@ async function gitCommandCore(options: CommandOptions & { readonly correlationKe
         pendingCommands.delete(command);
 
         const duration = process.hrtime(start);
-        const completedIn = `${exception === undefined ? 'Completed' : 'FAILED'} in ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`;
+        const completedIn = `${exception === undefined ? 'Completed' : 'FAILED'} in ${duration[0] * 1000 +
+            Math.floor(duration[1] / 1000000)} ms`;
 
         Logger.log(`${exception === undefined ? 'Completed' : 'FAILED'}${command} ${completedIn}`);
         Logger.logGitCommand(`${gitCommand} ${completedIn}`, runOpts.cwd!, exception);
@@ -149,7 +157,6 @@ function gitCommandDefaultErrorHandler(ex: Error, options: CommandOptions, ...ar
 }
 
 export class Git {
-
     static shaRegex = /^[0-9a-f]{40}(\^[0-9]*?)??( -)?$/;
     static shaStrictRegex = /^[0-9a-f]{40}$/;
     static stagedUncommittedRegex = /^[0]{40}(\^[0-9]*?)??:$/;
@@ -162,9 +169,7 @@ export class Git {
     }
 
     static getEncoding(encoding: string | undefined) {
-        return (encoding !== undefined && iconv.encodingExists(encoding))
-            ? encoding
-            : 'utf8';
+        return encoding !== undefined && iconv.encodingExists(encoding) ? encoding : 'utf8';
     }
 
     static async getGitInfo(gitPath?: string): Promise<IGit> {
@@ -173,7 +178,10 @@ export class Git {
         git = await findGitPath(gitPath);
 
         const duration = process.hrtime(start);
-        Logger.log(`Git found: ${git.version} @ ${git.path === 'git' ? 'PATH' : git.path} in ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);
+        Logger.log(
+            `Git found: ${git.version} @ ${git.path === 'git' ? 'PATH' : git.path} in ${duration[0] * 1000 +
+                Math.floor(duration[1] / 1000000)} ms`
+        );
 
         return git;
     }
@@ -186,12 +194,17 @@ export class Git {
             ref = '';
         }
 
-        const suffix = Strings.truncate(Strings.sanitizeForFileSystem(Git.isSha(ref) ? Git.shortenSha(ref)! : ref), 50, '');
+        const suffix = Strings.truncate(
+            Strings.sanitizeForFileSystem(Git.isSha(ref) ? Git.shortenSha(ref)! : ref),
+            50,
+            ''
+        );
         const ext = path.extname(fileName);
 
         const tmp = await import('tmp');
         return new Promise<string>((resolve, reject) => {
-            tmp.file({ prefix: `${path.basename(fileName, ext)}-${suffix}__`, postfix: ext },
+            tmp.file(
+                { prefix: `${path.basename(fileName, ext)}-${suffix}__`, postfix: ext },
                 (err, destination, fd, cleanupCallback) => {
                     if (err) {
                         reject(err);
@@ -210,7 +223,8 @@ export class Git {
                             resolve(destination);
                         });
                     });
-                });
+                }
+            );
         });
     }
 
@@ -230,7 +244,10 @@ export class Git {
         return sha === undefined ? false : Git.uncommittedRegex.test(sha);
     }
 
-    static shortenSha(sha: string, strings: { stagedUncommitted?: string, uncommitted?: string, working?: string } = {}) {
+    static shortenSha(
+        sha: string,
+        strings: { stagedUncommitted?: string; uncommitted?: string; working?: string } = {}
+    ) {
         strings = { stagedUncommitted: 'index', uncommitted: 'working', working: '', ...strings };
 
         if (sha === '') return strings.working;
@@ -261,17 +278,22 @@ export class Git {
             fileName = Strings.normalizePath(extract ? path.basename(fileName) : fileName);
         }
 
-        return [ fileName, repoPath ];
+        return [fileName, repoPath];
     }
 
     static validateVersion(major: number, minor: number): boolean {
         const [gitMajor, gitMinor] = git.version.split('.');
-        return (parseInt(gitMajor, 10) >= major && parseInt(gitMinor, 10) >= minor);
+        return parseInt(gitMajor, 10) >= major && parseInt(gitMinor, 10) >= minor;
     }
 
     // Git commands
 
-    static async blame(repoPath: string | undefined, fileName: string, sha?: string, options: { args?: string[] | null, ignoreWhitespace?: boolean, startLine?: number, endLine?: number } = {}) {
+    static async blame(
+        repoPath: string | undefined,
+        fileName: string,
+        sha?: string,
+        options: { args?: string[] | null; ignoreWhitespace?: boolean; startLine?: number; endLine?: number } = {}
+    ) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const params = [...defaultBlameParams];
@@ -303,7 +325,18 @@ export class Git {
         return gitCommand({ cwd: root, stdin: stdin }, ...params, '--', file);
     }
 
-    static async blame_contents(repoPath: string | undefined, fileName: string, contents: string, options: { args?: string[] | null, correlationKey?: string, ignoreWhitespace?: boolean, startLine?: number, endLine?: number } = {}) {
+    static async blame_contents(
+        repoPath: string | undefined,
+        fileName: string,
+        contents: string,
+        options: {
+            args?: string[] | null;
+            correlationKey?: string;
+            ignoreWhitespace?: boolean;
+            startLine?: number;
+            endLine?: number;
+        } = {}
+    ) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const params = [...defaultBlameParams];
@@ -321,7 +354,12 @@ export class Git {
         // Pipe the blame contents to stdin
         params.push('--contents', '-');
 
-        return gitCommand({ cwd: root, stdin: contents, correlationKey: options.correlationKey }, ...params, '--', file);
+        return gitCommand(
+            { cwd: root, stdin: contents, correlationKey: options.correlationKey },
+            ...params,
+            '--',
+            file
+        );
     }
 
     static branch(repoPath: string, options: { all: boolean } = { all: false }) {
@@ -413,7 +451,7 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...params);
     }
 
-    static log(repoPath: string, options: { maxCount?: number, ref?: string, reverse?: boolean }) {
+    static log(repoPath: string, options: { maxCount?: number; ref?: string; reverse?: boolean }) {
         const params = [...defaultLogParams, '--full-history', '-m'];
         if (options.maxCount && !options.reverse) {
             params.push(`-n${options.maxCount}`);
@@ -429,7 +467,18 @@ export class Git {
         return gitCommand({ cwd: repoPath }, ...params, '--');
     }
 
-    static log_file(repoPath: string, fileName: string, options: { maxCount?: number, ref?: string, renames?: boolean, reverse?: boolean, startLine?: number, endLine?: number } = { renames: true, reverse: false }) {
+    static log_file(
+        repoPath: string,
+        fileName: string,
+        options: {
+            maxCount?: number;
+            ref?: string;
+            renames?: boolean;
+            reverse?: boolean;
+            startLine?: number;
+            endLine?: number;
+        } = { renames: true, reverse: false }
+    ) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const params = [...defaultLogParams];
@@ -469,7 +518,16 @@ export class Git {
 
     static async log_resolve(repoPath: string, fileName: string, ref: string) {
         try {
-            const data = await gitCommandCore({ cwd: repoPath }, 'log', '-M', '-n1', '--format=%H', ref, '--', fileName);
+            const data = await gitCommandCore(
+                { cwd: repoPath },
+                'log',
+                '-M',
+                '-n1',
+                '--format=%H',
+                ref,
+                '--',
+                fileName
+            );
             return data.trim();
         }
         catch {
@@ -576,7 +634,12 @@ export class Git {
         }
     }
 
-    static async show(repoPath: string | undefined, fileName: string, ref: string, options: { encoding?: string } = {}): Promise<string | undefined> {
+    static async show(
+        repoPath: string | undefined,
+        fileName: string,
+        ref: string,
+        options: { encoding?: string } = {}
+    ): Promise<string | undefined> {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         if (Git.isStagedUncommitted(ref)) {
@@ -585,9 +648,7 @@ export class Git {
         if (Git.isUncommitted(ref)) throw new Error(`sha=${ref} is uncommitted`);
 
         const opts = { cwd: root, encoding: options.encoding || 'utf8' } as CommandOptions;
-        const args = ref.endsWith(':')
-            ? `${ref}./${file}`
-            : `${ref}:./${file}`;
+        const args = ref.endsWith(':') ? `${ref}./${file}` : `${ref}:./${file}`;
 
         try {
             const data = await gitCommandCore(opts, 'show', args, '--');
@@ -599,9 +660,13 @@ export class Git {
                 return Git.show(repoPath, fileName, 'HEAD:', options);
             }
 
-            if (GitErrors.badRevision.test(msg) ||
+            if (
+                GitErrors.badRevision.test(msg) ||
                 GitWarnings.notFound.test(msg) ||
-                GitWarnings.foundButNotInRevision.test(msg)) return undefined;
+                GitWarnings.foundButNotInRevision.test(msg)
+            ) {
+                return undefined;
+            }
 
             return gitCommandDefaultErrorHandler(ex, opts, args);
         }
@@ -640,14 +705,29 @@ export class Git {
 
     static status(repoPath: string, porcelainVersion: number = 1): Promise<string> {
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
-        return gitCommand({ cwd: repoPath, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }, '-c', 'color.status=false', 'status', porcelain, '--branch', '-u');
+        return gitCommand(
+            { cwd: repoPath, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } },
+            '-c',
+            'color.status=false',
+            'status',
+            porcelain,
+            '--branch',
+            '-u'
+        );
     }
 
     static status_file(repoPath: string, fileName: string, porcelainVersion: number = 1): Promise<string> {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
-        return gitCommand({ cwd: root, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }, '-c', 'color.status=false', 'status', porcelain, file);
+        return gitCommand(
+            { cwd: root, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } },
+            '-c',
+            'color.status=false',
+            'status',
+            porcelain,
+            file
+        );
     }
 
     static tag(repoPath: string) {

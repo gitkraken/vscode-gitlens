@@ -12,15 +12,11 @@ interface VsCodeApi {
 declare function acquireVsCodeApi(): VsCodeApi;
 
 export abstract class App<TBootstrap extends Bootstrap> {
-
     private readonly _api: VsCodeApi;
     private _changes: { [key: string]: any } = Object.create(null);
     private _updating: boolean = false;
 
-    constructor(
-        protected readonly appName: string,
-        protected readonly bootstrap: TBootstrap
-    ) {
+    constructor(protected readonly appName: string, protected readonly bootstrap: TBootstrap) {
         this.log(`${this.appName}.ctor`);
 
         this._api = acquireVsCodeApi();
@@ -40,7 +36,6 @@ export abstract class App<TBootstrap extends Bootstrap> {
             changes: { ...this._changes },
             removes: Object.keys(this._changes).filter(k => this._changes[k] === undefined),
             scope: this.getSettingsScope()
-
         } as SaveSettingsMessage);
 
         this._changes = Object.create(null);
@@ -54,8 +49,8 @@ export abstract class App<TBootstrap extends Bootstrap> {
         console.log(message);
     }
 
-    protected onBind() { }
-    protected onInitialize() { }
+    protected onBind() {}
+    protected onInitialize() {}
 
     protected onInputBlurred(element: HTMLInputElement) {
         this.log(`${this.appName}.onInputBlurred: name=${element.name}, value=${element.value}`);
@@ -82,7 +77,9 @@ export abstract class App<TBootstrap extends Bootstrap> {
     protected onInputChecked(element: HTMLInputElement) {
         if (this._updating) return;
 
-        this.log(`${this.appName}.onInputChecked: name=${element.name}, checked=${element.checked}, value=${element.value}`);
+        this.log(
+            `${this.appName}.onInputChecked: name=${element.name}, checked=${element.checked}, value=${element.value}`
+        );
 
         switch (element.dataset.type) {
             case 'object': {
@@ -92,8 +89,7 @@ export abstract class App<TBootstrap extends Bootstrap> {
 
                 if (element.checked) {
                     set(setting, props.join('.'), fromCheckboxValue(element.value));
-                }
-                else {
+                } else {
                     set(setting, props.join('.'), false);
                 }
 
@@ -108,8 +104,7 @@ export abstract class App<TBootstrap extends Bootstrap> {
                         if (!setting.includes(element.value)) {
                             setting.push(element.value);
                         }
-                    }
-                    else {
+                    } else {
                         const i = setting.indexOf(element.value);
                         if (i !== -1) {
                             setting.splice(i, 1);
@@ -123,8 +118,7 @@ export abstract class App<TBootstrap extends Bootstrap> {
             default: {
                 if (element.checked) {
                     this._changes[element.name] = fromCheckboxValue(element.value);
-                }
-                else {
+                } else {
                     this._changes[element.name] = false;
                 }
 
@@ -227,25 +221,39 @@ export abstract class App<TBootstrap extends Bootstrap> {
         window.addEventListener('message', onMessageReceived);
 
         const onInputChecked = this.onInputChecked.bind(this);
-        DOM.listenAll('input[type=checkbox].setting', 'change', function(this: HTMLInputElement) { return onInputChecked(this, ...arguments); });
+        DOM.listenAll('input[type=checkbox].setting', 'change', function(this: HTMLInputElement) {
+            return onInputChecked(this, ...arguments);
+        });
 
         const onInputBlurred = this.onInputBlurred.bind(this);
-        DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'blur', function(this: HTMLInputElement) { return onInputBlurred(this, ...arguments); });
+        DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'blur', function(this: HTMLInputElement) {
+            return onInputBlurred(this, ...arguments);
+        });
 
         const onInputFocused = this.onInputFocused.bind(this);
-        DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'focus', function(this: HTMLInputElement) { return onInputFocused(this, ...arguments); });
+        DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'focus', function(this: HTMLInputElement) {
+            return onInputFocused(this, ...arguments);
+        });
 
         const onInputSelected = this.onInputSelected.bind(this);
-        DOM.listenAll('select.setting', 'change', function(this: HTMLInputElement) { return onInputSelected(this, ...arguments); });
+        DOM.listenAll('select.setting', 'change', function(this: HTMLInputElement) {
+            return onInputSelected(this, ...arguments);
+        });
 
         const onTokenMouseDown = this.onTokenMouseDown.bind(this);
-        DOM.listenAll('[data-token]', 'mousedown', function(this: HTMLElement) { return onTokenMouseDown(this, ...arguments); });
+        DOM.listenAll('[data-token]', 'mousedown', function(this: HTMLElement) {
+            return onTokenMouseDown(this, ...arguments);
+        });
 
         const onPopupMouseDown = this.onPopupMouseDown.bind(this);
-        DOM.listenAll('.popup', 'mousedown', function(this: HTMLElement) { return onPopupMouseDown(this, ...arguments); });
+        DOM.listenAll('.popup', 'mousedown', function(this: HTMLElement) {
+            return onPopupMouseDown(this, ...arguments);
+        });
 
         const onJumpToLinkClicked = this.onJumpToLinkClicked.bind(this);
-        DOM.listenAll('a.jump-to[href^="#"]', 'click', function(this: HTMLAnchorElement) { return onJumpToLinkClicked(this, ...arguments); });
+        DOM.listenAll('a.jump-to[href^="#"]', 'click', function(this: HTMLAnchorElement) {
+            return onJumpToLinkClicked(this, ...arguments);
+        });
     }
 
     private evaluateStateExpression(expression: string, changes: { [key: string]: string | boolean }): boolean {
@@ -254,7 +262,8 @@ export abstract class App<TBootstrap extends Bootstrap> {
             const [lhs, op, rhs] = parseStateExpression(expr);
 
             switch (op) {
-                case '=': { // Equals
+                case '=': {
+                    // Equals
                     let value = changes[lhs];
                     if (value === undefined) {
                         value = this.getSettingValue<string | boolean>(lhs) || false;
@@ -262,7 +271,8 @@ export abstract class App<TBootstrap extends Bootstrap> {
                     state = rhs !== undefined ? rhs === '' + value : !!value;
                     break;
                 }
-                case '!': { // Not equals
+                case '!': {
+                    // Not equals
                     let value = changes[lhs];
                     if (value === undefined) {
                         value = this.getSettingValue<string | boolean>(lhs) || false;
@@ -270,7 +280,8 @@ export abstract class App<TBootstrap extends Bootstrap> {
                     state = rhs !== undefined ? rhs !== '' + value : !value;
                     break;
                 }
-                case '+': { // Contains
+                case '+': {
+                    // Contains
                     if (rhs !== undefined) {
                         const setting = this.getSettingValue<string[]>(lhs);
                         state = setting !== undefined ? setting.includes(rhs.toString()) : false;
@@ -332,13 +343,16 @@ export abstract class App<TBootstrap extends Bootstrap> {
 
         try {
             for (const el of document.querySelectorAll<HTMLInputElement>('input[type=checkbox].setting')) {
-                const checked = el.dataset.type === 'array'
-                    ? (this.getSettingValue<string[]>(el.name) || []).includes(el.value)
-                    : this.getSettingValue<boolean>(el.name) || false;
+                const checked =
+                    el.dataset.type === 'array'
+                        ? (this.getSettingValue<string[]>(el.name) || []).includes(el.value)
+                        : this.getSettingValue<boolean>(el.name) || false;
                 el.checked = checked;
             }
 
-            for (const el of document.querySelectorAll<HTMLInputElement>('input[type=text].setting, input:not([type]).setting')) {
+            for (const el of document.querySelectorAll<HTMLInputElement>(
+                'input[type=text].setting, input:not([type]).setting'
+            )) {
                 el.value = this.getSettingValue<string>(el.name) || '';
             }
 
@@ -349,8 +363,7 @@ export abstract class App<TBootstrap extends Bootstrap> {
                     option.selected = true;
                 }
             }
-        }
-        finally {
+        } finally {
             this._updating = false;
         }
 
@@ -373,15 +386,13 @@ export abstract class App<TBootstrap extends Bootstrap> {
             const disabled = !this.evaluateStateExpression(el.dataset.enablement!, state);
             if (disabled) {
                 el.setAttribute('disabled', '');
-            }
-            else {
+            } else {
                 el.removeAttribute('disabled');
             }
 
             if (el.matches('input,select')) {
                 (el as HTMLInputElement | HTMLSelectElement).disabled = disabled;
-            }
-            else {
+            } else {
                 const input = el.querySelector<HTMLInputElement | HTMLSelectElement>('input,select');
                 if (input == null) continue;
 
@@ -403,11 +414,11 @@ function ensureIfBoolean(value: string | boolean): string | boolean {
     return value;
 }
 
-function get<T>(o: { [key: string ]: any}, path: string): T | undefined {
-    return path.split('.').reduce((o = {}, key) => o == null ? undefined : o[key], o) as T;
+function get<T>(o: { [key: string]: any }, path: string): T | undefined {
+    return path.split('.').reduce((o = {}, key) => (o == null ? undefined : o[key]), o) as T;
 }
 
-function set(o: { [key: string ]: any}, path: string, value: any): { [key: string ]: any} {
+function set(o: { [key: string]: any }, path: string, value: any): { [key: string]: any } {
     const props = path.split('.');
     const length = props.length;
     const lastIndex = length - 1;
@@ -421,9 +432,7 @@ function set(o: { [key: string ]: any}, path: string, value: any): { [key: strin
 
         if (index !== lastIndex) {
             const objValue = nested[key];
-            newValue = typeof objValue === 'object'
-                ? objValue
-                : {};
+            newValue = typeof objValue === 'object' ? objValue : {};
         }
 
         nested[key] = newValue;
@@ -455,8 +464,7 @@ function flatten(o: { [key: string]: any }, path?: string): { [key: string]: any
 
         if (typeof value === 'object') {
             Object.assign(results, flatten(value, path === undefined ? key : `${path}.${key}`));
-        }
-        else {
+        } else {
             results[path === undefined ? key : `${path}.${key}`] = value;
         }
     }
@@ -466,9 +474,13 @@ function flatten(o: { [key: string]: any }, path?: string): { [key: string]: any
 
 function fromCheckboxValue(elementValue: any) {
     switch (elementValue) {
-        case 'on': return true;
-        case 'null': return null;
-        case 'undefined': return undefined;
-        default: return elementValue;
+        case 'on':
+            return true;
+        case 'null':
+            return null;
+        case 'undefined':
+            return undefined;
+        default:
+            return elementValue;
     }
 }

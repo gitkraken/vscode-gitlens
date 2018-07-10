@@ -1,6 +1,15 @@
 'use strict';
 import { Strings } from '../system';
-import { CancellationTokenSource, commands, QuickPickItem, QuickPickOptions, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import {
+    CancellationTokenSource,
+    commands,
+    QuickPickItem,
+    QuickPickOptions,
+    TextDocumentShowOptions,
+    TextEditor,
+    Uri,
+    window
+} from 'vscode';
 import { BranchesAndTagsQuickPick, BranchOrTagQuickPickItem } from './branchesAndTagsQuickPick';
 import { Commands, openEditor } from '../commands';
 import { configuration } from '../configuration';
@@ -20,13 +29,17 @@ export function showQuickPickProgress(message: string, mapping?: KeyMapping): Ca
 }
 
 async function _showQuickPickProgress(message: string, cancellation: CancellationTokenSource, mapping?: KeyMapping) {
-    const scope = mapping && await Container.keyboard.beginScope(mapping);
+    const scope = mapping && (await Container.keyboard.beginScope(mapping));
 
     try {
-        await window.showQuickPick(_getInfiniteCancellablePromise(cancellation), {
-            placeHolder: message,
-            ignoreFocusOut: getQuickPickIgnoreFocusOut()
-        } as QuickPickOptions, cancellation.token);
+        await window.showQuickPick(
+            _getInfiniteCancellablePromise(cancellation),
+            {
+                placeHolder: message,
+                ignoreFocusOut: getQuickPickIgnoreFocusOut()
+            } as QuickPickOptions,
+            cancellation.token
+        );
     }
     catch (ex) {
         // Not sure why this throws
@@ -52,7 +65,6 @@ export interface QuickPickItem extends QuickPickItem {
 }
 
 export class CommandQuickPickItem implements QuickPickItem {
-
     label!: string;
     description!: string;
     detail?: string | undefined;
@@ -89,22 +101,22 @@ export class CommandQuickPickItem implements QuickPickItem {
 }
 
 export class MessageQuickPickItem extends CommandQuickPickItem {
-
     constructor(message: string) {
         super({ label: message, description: '' } as QuickPickItem);
     }
 }
 
 export class KeyCommandQuickPickItem extends CommandQuickPickItem {
-
     constructor(command: Commands, args?: any[]) {
         super({ label: '', description: '' } as QuickPickItem, command, args);
     }
 }
 
 export class OpenFileCommandQuickPickItem extends CommandQuickPickItem {
-
-    constructor(public readonly uri: Uri, item: QuickPickItem) {
+    constructor(
+        public readonly uri: Uri,
+        item: QuickPickItem
+    ) {
         super(item, undefined, undefined);
     }
 
@@ -128,12 +140,16 @@ export class OpenFileCommandQuickPickItem extends CommandQuickPickItem {
 }
 
 export class OpenFilesCommandQuickPickItem extends CommandQuickPickItem {
-
-    constructor(public readonly uris: Uri[], item: QuickPickItem) {
+    constructor(
+        public readonly uris: Uri[],
+        item: QuickPickItem
+    ) {
         super(item, undefined, undefined);
     }
 
-    async execute(options: TextDocumentShowOptions = { preserveFocus: false, preview: false }): Promise<{} | undefined> {
+    async execute(
+        options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
+    ): Promise<{} | undefined> {
         for (const uri of this.uris) {
             await openEditor(uri, options);
         }
@@ -149,22 +165,29 @@ export class OpenFilesCommandQuickPickItem extends CommandQuickPickItem {
 }
 
 export class CommitQuickPickItem implements QuickPickItem {
-
     label: string;
     description: string;
     detail: string;
 
-    constructor(public readonly commit: GitLogCommit) {
+    constructor(
+        public readonly commit: GitLogCommit
+    ) {
         const message = commit.getShortMessage();
         if (commit.isStash) {
             this.label = message;
             this.description = '';
-            this.detail = `${GlyphChars.Space} ${(commit as GitStashCommit).stashName || commit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`;
+            this.detail = `${GlyphChars.Space} ${(commit as GitStashCommit).stashName || commit.shortSha} ${Strings.pad(
+                GlyphChars.Dot,
+                1,
+                1
+            )} ${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`;
         }
         else {
             this.label = message;
             this.description = `${Strings.pad('$(git-commit)', 1, 1)} ${commit.shortSha}`;
-            this.detail = `${GlyphChars.Space} ${commit.author}, ${commit.formattedDate}${commit.isFile ? '' : ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`}`;
+            this.detail = `${GlyphChars.Space} ${commit.author}, ${commit.formattedDate}${
+                commit.isFile ? '' : ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`
+            }`;
         }
     }
 }
@@ -180,17 +203,18 @@ export class ShowCommitInResultsQuickPickItem extends CommandQuickPickItem {
         super(item, undefined, undefined);
     }
 
-    async execute(options: TextDocumentShowOptions = { preserveFocus: false, preview: false }): Promise<{} | undefined> {
+    async execute(
+        options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
+    ): Promise<{} | undefined> {
         Container.resultsExplorer.showCommitInResults(this.commit);
         return undefined;
     }
 }
 
 export class ShowCommitsInResultsQuickPickItem extends CommandQuickPickItem {
-
     constructor(
         public readonly results: GitLog,
-        public readonly resultsLabel: string | { label: string, resultsType?: { singular: string, plural: string } },
+        public readonly resultsLabel: string | { label: string; resultsType?: { singular: string; plural: string } },
         item: QuickPickItem = {
             label: 'Show in Results',
             description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays commits in the GitLens Results explorer`
@@ -199,14 +223,15 @@ export class ShowCommitsInResultsQuickPickItem extends CommandQuickPickItem {
         super(item, undefined, undefined);
     }
 
-    async execute(options: TextDocumentShowOptions = { preserveFocus: false, preview: false }): Promise<{} | undefined> {
+    async execute(
+        options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
+    ): Promise<{} | undefined> {
         Container.resultsExplorer.showCommitsInResults(this.results, this.resultsLabel);
         return undefined;
     }
 }
 
 export class ShowCommitsSearchInResultsQuickPickItem extends ShowCommitsInResultsQuickPickItem {
-
     constructor(
         public readonly results: GitLog,
         public readonly search: string,
@@ -220,7 +245,6 @@ export class ShowCommitsSearchInResultsQuickPickItem extends ShowCommitsInResult
 }
 
 export class ShowBranchesAndTagsQuickPickItem extends CommandQuickPickItem {
-
     constructor(
         private readonly repoPath: string,
         private readonly placeHolder: string,
@@ -233,7 +257,9 @@ export class ShowBranchesAndTagsQuickPickItem extends CommandQuickPickItem {
         super(item, undefined, undefined);
     }
 
-    async execute(options: TextDocumentShowOptions = { preserveFocus: false, preview: false }): Promise<CommandQuickPickItem | BranchOrTagQuickPickItem | undefined> {
+    async execute(
+        options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
+    ): Promise<CommandQuickPickItem | BranchOrTagQuickPickItem | undefined> {
         const progressCancellation = BranchesAndTagsQuickPick.showProgress(this.placeHolder);
 
         try {
@@ -244,7 +270,10 @@ export class ShowBranchesAndTagsQuickPickItem extends CommandQuickPickItem {
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
-            return BranchesAndTagsQuickPick.show(branches, tags, this.placeHolder, { progressCancellation: progressCancellation, goBackCommand: this.goBackCommand });
+            return BranchesAndTagsQuickPick.show(branches, tags, this.placeHolder, {
+                progressCancellation: progressCancellation,
+                goBackCommand: this.goBackCommand
+            });
         }
         finally {
             progressCancellation.cancel();

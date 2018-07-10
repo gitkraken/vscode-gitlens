@@ -13,7 +13,6 @@ export interface ShowQuickStashListCommandArgs {
 }
 
 export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
-
     constructor() {
         super(Commands.ShowQuickStashList);
     }
@@ -24,7 +23,11 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
         const progressCancellation = StashListQuickPick.showProgress('list');
 
         try {
-            const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, `Show stashed changes for which repository${GlyphChars.Ellipsis}`);
+            const repoPath = await getRepoPathOrActiveOrPrompt(
+                uri,
+                editor,
+                `Show stashed changes for which repository${GlyphChars.Ellipsis}`
+            );
             if (!repoPath) return undefined;
 
             const stash = await Container.git.getStashList(repoPath);
@@ -33,28 +36,36 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
             // Create a command to get back to here
-            const currentCommand = new CommandQuickPickItem({
-                label: `go back ${GlyphChars.ArrowBack}`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to stashed changes`
-            }, Commands.ShowQuickStashList, [
+            const currentCommand = new CommandQuickPickItem(
+                {
+                    label: `go back ${GlyphChars.ArrowBack}`,
+                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to stashed changes`
+                },
+                Commands.ShowQuickStashList,
+                [
                     uri,
                     {
                         goBackCommand: args.goBackCommand
                     } as ShowQuickStashListCommandArgs
-                ]);
+                ]
+            );
 
-            const pick = await StashListQuickPick.show(stash, 'list', progressCancellation, args.goBackCommand, currentCommand);
+            const pick = await StashListQuickPick.show(
+                stash,
+                'list',
+                progressCancellation,
+                args.goBackCommand,
+                currentCommand
+            );
             if (pick === undefined) return undefined;
 
             if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-            return commands.executeCommand(Commands.ShowQuickCommitDetails,
-                pick.commit.toGitUri(),
-                {
-                    commit: pick.commit,
-                    sha: pick.commit.sha,
-                    goBackCommand: currentCommand
-                } as ShowQuickCommitDetailsCommandArgs);
+            return commands.executeCommand(Commands.ShowQuickCommitDetails, pick.commit.toGitUri(), {
+                commit: pick.commit,
+                sha: pick.commit.sha,
+                goBackCommand: currentCommand
+            } as ShowQuickCommitDetailsCommandArgs);
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickStashListCommand');

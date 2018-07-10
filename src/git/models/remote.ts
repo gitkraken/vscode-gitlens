@@ -7,7 +7,6 @@ export enum GitRemoteType {
 }
 
 export class GitRemote {
-
     constructor(
         public readonly repoPath: string,
         public readonly name: string,
@@ -15,6 +14,6 @@ export class GitRemote {
         public readonly domain: string,
         public readonly path: string,
         public readonly provider: RemoteProvider | undefined,
-        public readonly types: { type: GitRemoteType, url: string }[]
-    ) { }
+        public readonly types: { type: GitRemoteType; url: string }[]
+    ) {}
 }

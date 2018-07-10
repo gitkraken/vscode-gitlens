@@ -6,14 +6,7 @@ const issueEnricherRegEx = /(^|\s)(issue #([0-9]+))\b/gi;
 const prEnricherRegEx = /(^|\s)(pull request #([0-9]+))\b/gi;
 
 export class BitbucketServerService extends RemoteProvider {
-
-    constructor(
-        domain: string,
-        path: string,
-        protocol?: string,
-        name?: string,
-        custom: boolean = false
-    ) {
+    constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
         super(domain, path, protocol, name, custom);
     }
 
@@ -31,11 +24,13 @@ export class BitbucketServerService extends RemoteProvider {
     }
 
     enrichMessage(message: string): string {
-        return message
-            // Matches issue #123
-            .replace(issueEnricherRegEx, `$1[$2](${this.baseUrl}/issues/$3 "Open Issue $2")`)
-            // Matches pull request #123
-            .replace(prEnricherRegEx, `$1[$2](${this.baseUrl}/pull-requests/$3 "Open PR $2")`);
+        return (
+            message
+                // Matches issue #123
+                .replace(issueEnricherRegEx, `$1[$2](${this.baseUrl}/issues/$3 "Open Issue $2")`)
+                // Matches pull request #123
+                .replace(prEnricherRegEx, `$1[$2](${this.baseUrl}/pull-requests/$3 "Open PR $2")`)
+        );
     }
 
     protected getUrlForBranches(): string {

@@ -2,7 +2,7 @@
 const webpack = require('webpack');
 const path = require('path');
 const nodeExternals = require('webpack-node-externals');
-const UglifyJsPlugin = require('uglifyjs-webpack-plugin')
+const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
 
 module.exports = function(env, argv) {
     if (env === undefined) {
@@ -43,9 +43,7 @@ module.exports = function(env, argv) {
         resolve: {
             extensions: ['.ts']
         },
-        externals: [
-            nodeExternals()
-        ],
+        externals: [nodeExternals()],
         devtool: sourceMaps ? 'eval-source-map' : undefined,
         module: {
             rules: [

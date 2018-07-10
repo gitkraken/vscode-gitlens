@@ -5,7 +5,6 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 
 export class ToggleLineBlameCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.ToggleLineBlame);
     }
@@ -16,7 +15,9 @@ export class ToggleLineBlameCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'ToggleLineBlameCommand');
-            return window.showErrorMessage(`Unable to toggle line blame annotations. See output channel for more details`);
+            return window.showErrorMessage(
+                `Unable to toggle line blame annotations. See output channel for more details`
+            );
         }
     }
 }

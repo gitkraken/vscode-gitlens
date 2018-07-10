@@ -14,9 +14,13 @@ export interface DiffDirectoryCommandArgs {
 }
 
 export class DiffDirectoryCommand extends ActiveEditorCommand {
-
     constructor() {
-        super([Commands.DiffDirectory, Commands.ExternalDiffAll, Commands.ExplorersOpenDirectoryDiff, Commands.ExplorersOpenDirectoryDiffWithWorking]);
+        super([
+            Commands.DiffDirectory,
+            Commands.ExternalDiffAll,
+            Commands.ExplorersOpenDirectoryDiff,
+            Commands.ExplorersOpenDirectoryDiffWithWorking
+        ]);
     }
 
     protected async preExecute(context: CommandContext, args: DiffDirectoryCommandArgs = {}): Promise<any> {
@@ -50,7 +54,11 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
         let progressCancellation: CancellationTokenSource | undefined;
 
         try {
-            const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, `Compare directory in which repository${GlyphChars.Ellipsis}`);
+            const repoPath = await getRepoPathOrActiveOrPrompt(
+                uri,
+                editor,
+                `Compare directory in which repository${GlyphChars.Ellipsis}`
+            );
             if (!repoPath) return undefined;
 
             if (!args.ref1) {
@@ -67,7 +75,9 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 
                 if (progressCancellation.token.isCancellationRequested) return undefined;
 
-                const pick = await BranchesAndTagsQuickPick.show(branches, tags, placeHolder, { progressCancellation: progressCancellation });
+                const pick = await BranchesAndTagsQuickPick.show(branches, tags, placeHolder, {
+                    progressCancellation: progressCancellation
+                });
                 if (pick === undefined) return undefined;
 
                 if (pick instanceof CommandQuickPickItem) return pick.execute();
@@ -82,10 +92,16 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
         catch (ex) {
             const msg = ex && ex.toString();
             if (msg === 'No diff tool found') {
-                const result = await window.showWarningMessage(`Unable to open directory compare because there is no Git diff tool configured`, 'View Git Docs');
+                const result = await window.showWarningMessage(
+                    `Unable to open directory compare because there is no Git diff tool configured`,
+                    'View Git Docs'
+                );
                 if (!result) return undefined;
 
-                return commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://git-scm.com/docs/git-config#git-config-difftool'));
+                return commands.executeCommand(
+                    BuiltInCommands.Open,
+                    Uri.parse('https://git-scm.com/docs/git-config#git-config-difftool')
+                );
             }
 
             Logger.error(ex, 'DiffDirectoryCommand');

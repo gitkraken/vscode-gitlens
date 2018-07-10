@@ -8,7 +8,6 @@ import { GitBlameCommit } from '../gitService';
 import { Logger } from '../logger';
 
 export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
-
     async onProvideAnnotation(shaOrLine?: string | number, type?: FileAnnotationType): Promise<boolean> {
         this.annotationType = FileAnnotationType.Heatmap;
 
@@ -57,7 +56,7 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
         }
 
         const duration = process.hrtime(start);
-        Logger.log(`${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms to compute heatmap annotations`);
+        Logger.log(`${duration[0] * 1000 + Math.floor(duration[1] / 1000000)} ms to compute heatmap annotations`);
 
         this.registerHoverProviders(Container.config.hovers.annotations);
         this.selection(shaOrLine, blame);

@@ -18,7 +18,6 @@ export interface DiffWithBranchCommandArgs {
 }
 
 export class DiffWithBranchCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.DiffWithBranch);
     }
@@ -46,7 +45,10 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
-            const pick = await BranchesAndTagsQuickPick.show(branches, tags, placeHolder, { progressCancellation: progressCancellation, goBackCommand: args.goBackCommand });
+            const pick = await BranchesAndTagsQuickPick.show(branches, tags, placeHolder, {
+                progressCancellation: progressCancellation,
+                goBackCommand: args.goBackCommand
+            });
             if (pick === undefined) return undefined;
 
             if (pick instanceof CommandQuickPickItem) return pick.execute();
@@ -72,7 +74,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
                 repoPath: gitUri.repoPath,
                 lhs: {
                     sha: pick.remote ? `remotes/${ref}` : ref,
-                    uri: renamedUri || gitUri as Uri,
+                    uri: renamedUri || (gitUri as Uri),
                     title: renamedTitle || `${path.basename(gitUri.fsPath)} (${ref})`
                 },
                 rhs: {

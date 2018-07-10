@@ -6,7 +6,6 @@ const aheadStatusV1Regex = /(?:ahead ([0-9]+))/;
 const behindStatusV1Regex = /(?:behind ([0-9]+))/;
 
 export class GitStatusParser {
-
     static parse(data: string, repoPath: string, porcelainVersion: number): GitStatus | undefined {
         if (!data) return undefined;
 
@@ -57,13 +56,7 @@ export class GitStatusParser {
             }
         }
 
-        return new GitStatus(
-            Strings.normalizePath(repoPath),
-            branch || '',
-            '',
-            files,
-            state,
-            upstream);
+        return new GitStatus(Strings.normalizePath(repoPath), branch || '', '', files, state, upstream);
     }
 
     private static parseV2(lines: string[], repoPath: string): GitStatus {
@@ -105,7 +98,10 @@ export class GitStatusParser {
                         files.push(this.parseStatusFile(repoPath, lineParts[1], lineParts.slice(8).join(' ')));
                         break;
                     case '2': // rename
-                        const file = lineParts.slice(9).join(' ').split('\t');
+                        const file = lineParts
+                            .slice(9)
+                            .join(' ')
+                            .split('\t');
                         files.push(this.parseStatusFile(repoPath, lineParts[1], file[0], file[1]));
                         break;
                     case 'u': // unmerged
@@ -118,17 +114,15 @@ export class GitStatusParser {
             }
         }
 
-        return new GitStatus(
-            Strings.normalizePath(repoPath),
-            branch || '',
-            sha || '',
-            files,
-            state,
-            upstream
-        );
+        return new GitStatus(Strings.normalizePath(repoPath), branch || '', sha || '', files, state, upstream);
     }
 
-    static parseStatusFile(repoPath: string, rawStatus: string, fileName: string, originalFileName?: string): GitStatusFile {
+    static parseStatusFile(
+        repoPath: string,
+        rawStatus: string,
+        fileName: string,
+        originalFileName?: string
+    ): GitStatusFile {
         let indexStatus = rawStatus[0] !== '.' ? rawStatus[0].trim() : undefined;
         if (indexStatus === '' || indexStatus === null) {
             indexStatus = undefined;

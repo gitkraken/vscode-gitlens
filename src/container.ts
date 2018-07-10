@@ -20,55 +20,58 @@ import { StatusBarController } from './statusBarController';
 import { WelcomeEditor } from './webviews/welcomeEditor';
 
 export class Container {
-
     static initialize(context: ExtensionContext, config: IConfig) {
         this._context = context;
         this._config = Container.applyMode(config);
 
-        context.subscriptions.push(this._lineTracker = new GitLineTracker());
-        context.subscriptions.push(this._tracker = new GitDocumentTracker());
-        context.subscriptions.push(this._git = new GitService());
+        context.subscriptions.push((this._lineTracker = new GitLineTracker()));
+        context.subscriptions.push((this._tracker = new GitDocumentTracker()));
+        context.subscriptions.push((this._git = new GitService()));
 
         // Since there is a bit of a chicken & egg problem with the DocumentTracker and the GitService, initialize the tracker once the GitService is loaded
         this._tracker.initialize();
 
-        context.subscriptions.push(this._fileAnnotationController = new FileAnnotationController());
-        context.subscriptions.push(this._lineAnnotationController = new LineAnnotationController());
-        context.subscriptions.push(this._lineHoverController = new LineHoverController());
-        context.subscriptions.push(this._statusBarController = new StatusBarController());
-        context.subscriptions.push(this._codeLensController = new CodeLensController());
-        context.subscriptions.push(this._keyboard = new Keyboard());
-        context.subscriptions.push(this._settingsEditor = new SettingsEditor());
-        context.subscriptions.push(this._welcomeEditor = new WelcomeEditor());
+        context.subscriptions.push((this._fileAnnotationController = new FileAnnotationController()));
+        context.subscriptions.push((this._lineAnnotationController = new LineAnnotationController()));
+        context.subscriptions.push((this._lineHoverController = new LineHoverController()));
+        context.subscriptions.push((this._statusBarController = new StatusBarController()));
+        context.subscriptions.push((this._codeLensController = new CodeLensController()));
+        context.subscriptions.push((this._keyboard = new Keyboard()));
+        context.subscriptions.push((this._settingsEditor = new SettingsEditor()));
+        context.subscriptions.push((this._welcomeEditor = new WelcomeEditor()));
 
         if (config.gitExplorer.enabled) {
-            context.subscriptions.push(this._gitExplorer = new GitExplorer());
+            context.subscriptions.push((this._gitExplorer = new GitExplorer()));
         }
         else {
             let disposable: Disposable;
             disposable = configuration.onDidChange(e => {
                 if (configuration.changed(e, configuration.name('gitExplorer')('enabled').value)) {
                     disposable.dispose();
-                    context.subscriptions.push(this._gitExplorer = new GitExplorer());
+                    context.subscriptions.push((this._gitExplorer = new GitExplorer()));
                 }
             });
         }
 
         if (config.historyExplorer.enabled) {
-            context.subscriptions.push(this._historyExplorer = new HistoryExplorer());
+            context.subscriptions.push((this._historyExplorer = new HistoryExplorer()));
         }
         else {
             let disposable: Disposable;
             disposable = configuration.onDidChange(e => {
                 if (configuration.changed(e, configuration.name('historyExplorer')('enabled').value)) {
                     disposable.dispose();
-                    context.subscriptions.push(this._historyExplorer = new HistoryExplorer());
+                    context.subscriptions.push((this._historyExplorer = new HistoryExplorer()));
                 }
             });
         }
 
-        context.subscriptions.push(workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider()));
-        context.subscriptions.push(languages.registerCodeLensProvider(GitRevisionCodeLensProvider.selector, new GitRevisionCodeLensProvider()));
+        context.subscriptions.push(
+            workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider())
+        );
+        context.subscriptions.push(
+            languages.registerCodeLensProvider(GitRevisionCodeLensProvider.selector, new GitRevisionCodeLensProvider())
+        );
     }
 
     private static _codeLensController: CodeLensController;
@@ -92,7 +95,7 @@ export class Container {
     private static _explorerCommands: ExplorerCommands | undefined;
     static get explorerCommands() {
         if (this._explorerCommands === undefined) {
-            this._context.subscriptions.push(this._explorerCommands = new ExplorerCommands());
+            this._context.subscriptions.push((this._explorerCommands = new ExplorerCommands()));
         }
         return this._explorerCommands;
     }
@@ -115,7 +118,7 @@ export class Container {
     private static _historyExplorer: HistoryExplorer | undefined;
     static get historyExplorer() {
         if (this._historyExplorer === undefined) {
-            this._context.subscriptions.push(this._historyExplorer = new HistoryExplorer());
+            this._context.subscriptions.push((this._historyExplorer = new HistoryExplorer()));
         }
 
         return this._historyExplorer;
@@ -144,7 +147,7 @@ export class Container {
     private static _resultsExplorer: ResultsExplorer | undefined;
     static get resultsExplorer() {
         if (this._resultsExplorer === undefined) {
-            this._context.subscriptions.push(this._resultsExplorer = new ResultsExplorer());
+            this._context.subscriptions.push((this._resultsExplorer = new ResultsExplorer()));
         }
 
         return this._resultsExplorer;

@@ -16,7 +16,6 @@ export interface OpenInRemoteCommandArgs {
 }
 
 export class OpenInRemoteCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.OpenInRemote);
     }
@@ -60,15 +59,20 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
                     if (args.resource.commit !== undefined && args.resource.commit instanceof GitLogCommit) {
                         if (args.resource.commit.status === 'D') {
                             args.resource.sha = args.resource.commit.previousSha;
-                            placeHolder = `open ${args.resource.fileName} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${args.resource.commit.previousShortSha} in${GlyphChars.Ellipsis}`;
+                            placeHolder = `open ${args.resource.fileName} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${
+                                args.resource.commit.previousShortSha
+                            } in${GlyphChars.Ellipsis}`;
                         }
                         else {
                             args.resource.sha = args.resource.commit.sha;
-                            placeHolder = `open ${args.resource.fileName} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${args.resource.commit.shortSha} in${GlyphChars.Ellipsis}`;
+                            placeHolder = `open ${args.resource.fileName} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${
+                                args.resource.commit.shortSha
+                            } in${GlyphChars.Ellipsis}`;
                         }
                     }
                     else {
-                        const shortFileSha = args.resource.sha === undefined ? '' : GitService.shortenSha(args.resource.sha);
+                        const shortFileSha =
+                            args.resource.sha === undefined ? '' : GitService.shortenSha(args.resource.sha);
                         const shaSuffix = shortFileSha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${shortFileSha}` : '';
 
                         placeHolder = `open ${args.resource.fileName}${shaSuffix} in${GlyphChars.Ellipsis}`;
@@ -85,7 +89,6 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
             if (pick === undefined) return undefined;
 
             return await pick.execute();
-
         }
         catch (ex) {
             Logger.error(ex, 'OpenInRemoteCommand');

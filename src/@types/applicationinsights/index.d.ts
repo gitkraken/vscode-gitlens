@@ -33,32 +33,31 @@ interface AutoCollectRequests {
     isInitialized(): boolean;
 }
 
-
 declare namespace ContractsModule {
     enum DataPointType {
         Measurement = 0,
-        Aggregation = 1,
+        Aggregation = 1
     }
     enum DependencyKind {
         SQL = 0,
         Http = 1,
-        Other = 2,
+        Other = 2
     }
     enum DependencySourceType {
         Undefined = 0,
         Aic = 1,
-        Apmc = 2,
+        Apmc = 2
     }
     enum SessionState {
         Start = 0,
-        End = 1,
+        End = 1
     }
     enum SeverityLevel {
         Verbose = 0,
         Information = 1,
         Warning = 2,
         Error = 3,
-        Critical = 4,
+        Critical = 4
     }
     interface ContextTagKeys {
         applicationVersion: string;
@@ -279,9 +278,13 @@ declare namespace ContractsModule {
     }
 }
 
-
 interface Channel {
-    constructor(isDisabled: () => boolean, getBatchSize: () => number, getBatchIntervalMs: () => number, sender: Sender): Channel;
+    constructor(
+        isDisabled: () => boolean,
+        getBatchSize: () => number,
+        getBatchIntervalMs: () => number,
+        sender: Sender
+    ): Channel;
     /**
      * Add a telemetry item to the send buffer
      */
@@ -315,28 +318,39 @@ interface Client {
      * @param   properties  map[string, string] - additional data used to filter events and metrics in the portal. Defaults to empty.
      * @param   measurements    map[string, number] - metrics associated with this event, displayed in Metrics Explorer on the portal. Defaults to empty.
      */
-    trackEvent(name: string, properties?: {
-        [key: string]: string;
-    }, measurements?: {
-        [key: string]: number;
-    }): void;
+    trackEvent(
+        name: string,
+        properties?: {
+            [key: string]: string;
+        },
+        measurements?: {
+            [key: string]: number;
+        }
+    ): void;
     /**
      * Log a trace message
      * @param   message    A string to identify this event in the portal.
      * @param   properties  map[string, string] - additional data used to filter events and metrics in the portal. Defaults to empty.
      */
-    trackTrace(message: string, severityLevel?: ContractsModule.SeverityLevel, properties?: {
-        [key: string]: string;
-    }): void;
+    trackTrace(
+        message: string,
+        severityLevel?: ContractsModule.SeverityLevel,
+        properties?: {
+            [key: string]: string;
+        }
+    ): void;
     /**
      * Log an exception you have caught.
      * @param   exception   An Error from a catch clause, or the string error message.
      * @param   properties  map[string, string] - additional data used to filter events and metrics in the portal. Defaults to empty.
      * @param   measurements    map[string, number] - metrics associated with this event, displayed in Metrics Explorer on the portal. Defaults to empty.
      */
-    trackException(exception: Error, properties?: {
-        [key: string]: string;
-    }): void;
+    trackException(
+        exception: Error,
+        properties?: {
+            [key: string]: string;
+        }
+    ): void;
     /**
      * Log a numeric value that is not associated with a specific event. Typically used to send regular reports of performance indicators.
      * To send a single measurement, use just the first two parameters. If you take measurements very frequently, you can reduce the
@@ -348,9 +362,17 @@ interface Client {
      * @param max    the max sample for this set
      * @param stdDev the standard deviation of the set
      */
-    trackMetric(name: string, value: number, count?: number, min?: number, max?: number, stdDev?: number, properties?: {
-        [key: string]: string;
-    }): void;
+    trackMetric(
+        name: string,
+        value: number,
+        count?: number,
+        min?: number,
+        max?: number,
+        stdDev?: number,
+        properties?: {
+            [key: string]: string;
+        }
+    ): void;
 
     /**
      * Log an incoming http request to your server. The request data will be tracked during the response "finish" event if it is successful or the request "error"
@@ -360,9 +382,13 @@ interface Client {
      * @param response  The http.ServerResponse object for this request
      * @param properties    map[string, string] - additional data used to filter requests in the portal. Defaults to empty.
      */
-    trackRequest(request: any /* http.IncomingMessage */, response: any /* http.ServerResponse */, properties?: {
-        [key: string]: string;
-    }): void;
+    trackRequest(
+        request: any /* http.IncomingMessage */,
+        response: any /* http.ServerResponse */,
+        properties?: {
+            [key: string]: string;
+        }
+    ): void;
 
     /**
      * Log an incoming http request to your server. The request data is tracked synchronously rather than waiting for the response "finish"" or request "error"" events.
@@ -373,9 +399,15 @@ interface Client {
      * @param properties    map[string, string] - additional data used to filter requests in the portal. Defaults to empty.
      * @param error     An error that was returned for this request if it was unsuccessful. Defaults to null.
      */
-    trackRequestSync(request: any /*http.IncomingMessage */, response: any /*http.ServerResponse */, ellapsedMilliseconds?: number, properties?: {
-        [key: string]: string;
-    }, error?: any): void;
+    trackRequestSync(
+        request: any /*http.IncomingMessage */,
+        response: any /*http.ServerResponse */,
+        ellapsedMilliseconds?: number,
+        properties?: {
+            [key: string]: string;
+        },
+        error?: any
+    ): void;
 
     /**
      * Log information about a dependency of your app. Typically used to track the time database calls or outgoing http requests take from your server.
@@ -389,22 +421,38 @@ interface Client {
      * @param async  True if the dependency was executed asynchronously, false otherwise. Defaults to false
      * @param dependencySource  ContractsModule.DependencySourceType of this dependency. Defaults to Undefined.
      */
-    trackDependency(name: string, commandName: string, elapsedTimeMs: number, success: boolean, dependencyTypeName?: string, properties?: {}, dependencyKind?: any, async?: boolean, dependencySource?: number): void;
+    trackDependency(
+        name: string,
+        commandName: string,
+        elapsedTimeMs: number,
+        success: boolean,
+        dependencyTypeName?: string,
+        properties?: {},
+        dependencyKind?: any,
+        async?: boolean,
+        dependencySource?: number
+    ): void;
     /**
      * Immediately send all queued telemetry.
      */
     sendPendingData(callback?: (response: string) => void): void;
-    getEnvelope(data: ContractsModule.Data<ContractsModule.Domain>, tagOverrides?: {
-        [key: string]: string;
-    }): ContractsModule.Envelope;
+    getEnvelope(
+        data: ContractsModule.Data<ContractsModule.Domain>,
+        tagOverrides?: {
+            [key: string]: string;
+        }
+    ): ContractsModule.Envelope;
     /**
      * Generic track method for all telemetry types
      * @param data the telemetry to send
      * @param tagOverrides the context tags to use for this telemetry which overwrite default context values
      */
-    track(data: ContractsModule.Data<ContractsModule.Domain>, tagOverrides?: {
-        [key: string]: string;
-    }): void;
+    track(
+        data: ContractsModule.Data<ContractsModule.Domain>,
+        tagOverrides?: {
+            [key: string]: string;
+        }
+    ): void;
 }
 
 interface Config {
@@ -428,7 +476,7 @@ interface Context {
 
 interface Sender {
     constructor(getUrl: () => string, onSuccess?: (response: string) => void, onError?: (error: Error) => void): Sender;
-    send(payload: any/* Buffer */): void;
+    send(payload: any /* Buffer */): void;
     saveOnCrash(payload: string): void;
     /**
      * enable caching events locally on error
@@ -511,7 +559,7 @@ interface ApplicationInsights {
     setAutoDependencyCorrelation(value: boolean): ApplicationInsights;
 }
 
-declare module "applicationinsights" {
+declare module 'applicationinsights' {
     const applicationinsights: ApplicationInsights;
     export = applicationinsights;
 }

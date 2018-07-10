@@ -4,22 +4,29 @@ import { QuickPickOptions, window } from 'vscode';
 import { Commands, OpenInRemoteCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './commonQuickPicks';
 import { GlyphChars } from '../constants';
-import { getNameFromRemoteResource, GitLogCommit, GitRemote, GitService, RemoteResource, RemoteResourceType } from '../gitService';
+import {
+    getNameFromRemoteResource,
+    GitLogCommit,
+    GitRemote,
+    GitService,
+    RemoteResource,
+    RemoteResourceType
+} from '../gitService';
 import * as path from 'path';
 
 export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
-
     private remote: GitRemote;
     private resource: RemoteResource;
 
-    constructor(
-        remote: GitRemote,
-        resource: RemoteResource
-    ) {
-        super({
-            label: `$(link-external) Open ${getNameFromRemoteResource(resource)} in ${remote.provider!.name}`,
-            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(repo) ${remote.provider!.path}`
-        }, undefined, undefined);
+    constructor(remote: GitRemote, resource: RemoteResource) {
+        super(
+            {
+                label: `$(link-external) Open ${getNameFromRemoteResource(resource)} in ${remote.provider!.name}`,
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(repo) ${remote.provider!.path}`
+            },
+            undefined,
+            undefined
+        );
 
         this.remote = remote;
         this.resource = resource;
@@ -31,12 +38,7 @@ export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 }
 
 export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
-
-    constructor(
-        remotes: GitRemote[],
-        resource: RemoteResource,
-        goBackCommand?: CommandQuickPickItem
-    ) {
+    constructor(remotes: GitRemote[], resource: RemoteResource, goBackCommand?: CommandQuickPickItem) {
         const name = getNameFromRemoteResource(resource);
 
         let description = '';
@@ -66,33 +68,49 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                 if (resource.commit !== undefined && resource.commit instanceof GitLogCommit) {
                     if (resource.commit.status === 'D') {
                         resource.sha = resource.commit.previousSha;
-                        description = `$(file-text) ${path.basename(resource.fileName)} in ${GlyphChars.Space}$(git-commit) ${resource.commit.previousShortSha} (deleted in ${GlyphChars.Space}$(git-commit) ${resource.commit.shortSha})`;
+                        description = `$(file-text) ${path.basename(resource.fileName)} in ${
+                            GlyphChars.Space
+                        }$(git-commit) ${resource.commit.previousShortSha} (deleted in ${
+                            GlyphChars.Space
+                        }$(git-commit) ${resource.commit.shortSha})`;
                     }
                     else {
                         resource.sha = resource.commit.sha;
-                        description = `$(file-text) ${path.basename(resource.fileName)} in ${GlyphChars.Space}$(git-commit) ${resource.commit.shortSha}`;
+                        description = `$(file-text) ${path.basename(resource.fileName)} in ${
+                            GlyphChars.Space
+                        }$(git-commit) ${resource.commit.shortSha}`;
                     }
                 }
                 else {
                     const shortFileSha = resource.sha === undefined ? '' : GitService.shortenSha(resource.sha);
-                    description = `$(file-text) ${path.basename(resource.fileName)}${shortFileSha ? ` in ${GlyphChars.Space}$(git-commit) ${shortFileSha}` : ''}`;
+                    description = `$(file-text) ${path.basename(resource.fileName)}${
+                        shortFileSha ? ` in ${GlyphChars.Space}$(git-commit) ${shortFileSha}` : ''
+                    }`;
                 }
                 break;
         }
 
         const remote = remotes[0];
         if (remotes.length === 1) {
-            super({
-                label: `$(link-external) Open ${name} in ${remote.provider!.name}`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(repo) ${remote.provider!.path} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${description}`
-            }, Commands.OpenInRemote, [
+            super(
+                {
+                    label: `$(link-external) Open ${name} in ${remote.provider!.name}`,
+                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(repo) ${remote.provider!.path} ${Strings.pad(
+                        GlyphChars.Dot,
+                        1,
+                        1
+                    )} ${description}`
+                },
+                Commands.OpenInRemote,
+                [
                     undefined,
                     {
                         remotes,
                         resource,
                         goBackCommand
                     } as OpenInRemoteCommandArgs
-                ]);
+                ]
+            );
 
             return;
         }
@@ -101,24 +119,34 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
             ? remote.provider!.name
             : 'Remote';
 
-        super({
-            label: `$(link-external) Open ${name} in ${provider}${GlyphChars.Ellipsis}`,
-            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${description}`
-        }, Commands.OpenInRemote, [
+        super(
+            {
+                label: `$(link-external) Open ${name} in ${provider}${GlyphChars.Ellipsis}`,
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${description}`
+            },
+            Commands.OpenInRemote,
+            [
                 undefined,
                 {
                     remotes,
                     resource,
                     goBackCommand
                 } as OpenInRemoteCommandArgs
-            ]);
+            ]
+        );
     }
 }
 
 export class RemotesQuickPick {
-
-    static async show(remotes: GitRemote[], placeHolder: string, resource: RemoteResource, goBackCommand?: CommandQuickPickItem): Promise<OpenRemoteCommandQuickPickItem | CommandQuickPickItem | undefined> {
-        const items = remotes.map(r => new OpenRemoteCommandQuickPickItem(r, resource)) as (OpenRemoteCommandQuickPickItem | CommandQuickPickItem)[];
+    static async show(
+        remotes: GitRemote[],
+        placeHolder: string,
+        resource: RemoteResource,
+        goBackCommand?: CommandQuickPickItem
+    ): Promise<OpenRemoteCommandQuickPickItem | CommandQuickPickItem | undefined> {
+        const items = remotes.map(r => new OpenRemoteCommandQuickPickItem(r, resource)) as (
+            | OpenRemoteCommandQuickPickItem
+            | CommandQuickPickItem)[];
 
         if (goBackCommand) {
             items.splice(0, 0, goBackCommand);

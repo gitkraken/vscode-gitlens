@@ -4,7 +4,6 @@ import { Command, Commands, getLastCommand } from './common';
 import { Logger } from '../logger';
 
 export class ShowLastQuickPickCommand extends Command {
-
     constructor() {
         super(Commands.ShowLastQuickPick);
     }

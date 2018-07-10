@@ -5,7 +5,6 @@ import { GlyphChars } from '../constants';
 import { GitBranch } from '../gitService';
 
 export class BranchQuickPickItem implements QuickPickItem {
-
     label: string;
     description: string;
     detail: string | undefined;
@@ -19,8 +18,11 @@ export class BranchQuickPickItem implements QuickPickItem {
 }
 
 export class BranchesQuickPick {
-
-    static async show(branches: GitBranch[], placeHolder: string, options: { goBackCommand?: CommandQuickPickItem} = {}): Promise<BranchQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(
+        branches: GitBranch[],
+        placeHolder: string,
+        options: { goBackCommand?: CommandQuickPickItem } = {}
+    ): Promise<BranchQuickPickItem | CommandQuickPickItem | undefined> {
         const items = branches.map(b => new BranchQuickPickItem(b)) as (BranchQuickPickItem | CommandQuickPickItem)[];
 
         if (options.goBackCommand !== undefined) {
@@ -29,11 +31,10 @@ export class BranchesQuickPick {
 
         // const scope = await Container.keyboard.beginScope({ left: goBackCommand });
 
-        const pick = await window.showQuickPick(items,
-            {
-                placeHolder: placeHolder,
-                ignoreFocusOut: getQuickPickIgnoreFocusOut()
-            } as QuickPickOptions);
+        const pick = await window.showQuickPick(items, {
+            placeHolder: placeHolder,
+            ignoreFocusOut: getQuickPickIgnoreFocusOut()
+        } as QuickPickOptions);
 
         // await scope.dispose();
 

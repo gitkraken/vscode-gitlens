@@ -12,7 +12,6 @@ export interface GitStatusUpstreamState {
 }
 
 export class GitStatus {
-
     constructor(
         public readonly repoPath: string,
         public readonly branch: string,
@@ -20,15 +19,15 @@ export class GitStatus {
         public readonly files: GitStatusFile[],
         public readonly state: GitStatusUpstreamState,
         public readonly upstream?: string
-    ) { }
+    ) {}
 
     private _diff?: {
-        added: number,
-        deleted: number,
-        changed: number
+        added: number;
+        deleted: number;
+        changed: number;
     };
 
-    getDiffStatus(options: { empty?: string, expand?: boolean, prefix?: string, separator?: string } = {}): string {
+    getDiffStatus(options: { empty?: string; expand?: boolean; prefix?: string; separator?: string } = {}): string {
         options = { empty: '', prefix: '', separator: ' ', ...options };
         if (this.files.length === 0) return options.empty!;
 
@@ -53,7 +52,6 @@ export class GitStatus {
                         break;
                 }
             }
-
         }
 
         if (options.expand) {
@@ -62,18 +60,24 @@ export class GitStatus {
                 status += `${this._diff.added} ${this._diff.added === 1 ? 'file' : 'files'} added`;
             }
             if (this._diff.changed) {
-                status += `${status === '' ? '' : options.separator}${this._diff.changed} ${this._diff.changed === 1 ? 'file' : 'files'} changed`;
+                status += `${status === '' ? '' : options.separator}${this._diff.changed} ${
+                    this._diff.changed === 1 ? 'file' : 'files'
+                } changed`;
             }
             if (this._diff.deleted) {
-                status += `${status === '' ? '' : options.separator}${this._diff.deleted} ${this._diff.deleted === 1 ? 'file' : 'files'} deleted`;
+                status += `${status === '' ? '' : options.separator}${this._diff.deleted} ${
+                    this._diff.deleted === 1 ? 'file' : 'files'
+                } deleted`;
             }
             return `${options.prefix}${status}`;
         }
 
-        return `${options.prefix}+${this._diff.added}${options.separator}~${this._diff.changed}${options.separator}-${this._diff.deleted}`;
+        return `${options.prefix}+${this._diff.added}${options.separator}~${this._diff.changed}${options.separator}-${
+            this._diff.deleted
+        }`;
     }
 
-    getUpstreamStatus(options: { empty?: string, expand?: boolean, prefix?: string, separator?: string } = {}): string {
+    getUpstreamStatus(options: { empty?: string; expand?: boolean; prefix?: string; separator?: string } = {}): string {
         options = { empty: '', prefix: '', separator: ' ', ...options };
         if (this.upstream === undefined || (this.state.behind === 0 && this.state.ahead === 0)) return options.empty!;
 
@@ -83,12 +87,16 @@ export class GitStatus {
                 status += `${this.state.behind} ${this.state.behind === 1 ? 'commit' : 'commits'} behind`;
             }
             if (this.state.ahead) {
-                status += `${status === '' ? '' : options.separator}${this.state.ahead} ${this.state.ahead === 1 ? 'commit' : 'commits'} ahead`;
+                status += `${status === '' ? '' : options.separator}${this.state.ahead} ${
+                    this.state.ahead === 1 ? 'commit' : 'commits'
+                } ahead`;
             }
             return `${options.prefix}${status}`;
         }
 
-        return `${options.prefix}${this.state.behind}${GlyphChars.ArrowDown}${options.separator}${this.state.ahead}${GlyphChars.ArrowUp}`;
+        return `${options.prefix}${this.state.behind}${GlyphChars.ArrowDown}${options.separator}${this.state.ahead}${
+            GlyphChars.ArrowUp
+        }`;
     }
 }
 
@@ -107,14 +115,13 @@ export interface IGitStatusFileWithCommit extends IGitStatusFile {
 }
 
 export class GitStatusFile implements IGitStatusFile {
-
     constructor(
         public readonly repoPath: string,
         public readonly indexStatus: GitStatusFileStatus,
         public readonly workTreeStatus: GitStatusFileStatus,
         public readonly fileName: string,
         public readonly originalFileName?: string
-    ) { }
+    ) {}
 
     get status(): GitStatusFileStatus {
         return (this.indexStatus || this.workTreeStatus || '?') as GitStatusFileStatus;
@@ -144,7 +151,12 @@ export class GitStatusFile implements IGitStatusFile {
         return GitStatusFile.getStatusText(this.status);
     }
 
-    with(changes: { indexStatus?: GitStatusFileStatus | null, workTreeStatus?: GitStatusFileStatus | null, fileName?: string, originalFileName?: string | null }): GitStatusFile {
+    with(changes: {
+        indexStatus?: GitStatusFileStatus | null;
+        workTreeStatus?: GitStatusFileStatus | null;
+        fileName?: string;
+        originalFileName?: string | null;
+    }): GitStatusFile {
         return new GitStatusFile(
             this.repoPath,
             this.getChangedValue(changes.indexStatus, this.indexStatus) as GitStatusFileStatus,
@@ -159,14 +171,22 @@ export class GitStatusFile implements IGitStatusFile {
         return change !== null ? change : undefined;
     }
 
-    static getFormattedDirectory(status: IGitStatusFile, includeOriginal: boolean = false, relativeTo?: string): string {
+    static getFormattedDirectory(
+        status: IGitStatusFile,
+        includeOriginal: boolean = false,
+        relativeTo?: string
+    ): string {
         const directory = GitUri.getDirectory(status.fileName, relativeTo);
-        return (includeOriginal && status.status === 'R' && status.originalFileName)
+        return includeOriginal && status.status === 'R' && status.originalFileName
             ? `${directory} ${Strings.pad(GlyphChars.ArrowLeft, 1, 1)} ${status.originalFileName}`
             : directory;
     }
 
-    static getFormattedPath(status: IGitStatusFile, separator: string = Strings.pad(GlyphChars.Dot, 2, 2), relativeTo?: string): string {
+    static getFormattedPath(
+        status: IGitStatusFile,
+        separator: string = Strings.pad(GlyphChars.Dot, 2, 2),
+        relativeTo?: string
+    ): string {
         return GitUri.getFormattedPath(status.fileName, separator, relativeTo);
     }
 

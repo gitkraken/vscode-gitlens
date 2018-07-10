@@ -28,8 +28,6 @@ export class WelcomeEditor extends WebviewEditor<WelcomeBootstrap> {
     }
 
     registerCommands() {
-        return [
-            commands.registerCommand('gitlens.showWelcomePage', this.show, this)
-        ];
+        return [commands.registerCommand('gitlens.showWelcomePage', this.show, this)];
     }
 }

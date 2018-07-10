@@ -6,7 +6,6 @@ import { Container } from '../container';
 import { ModesQuickPick } from '../quickPicks/quickPicks';
 
 export class SwitchModeCommand extends Command {
-
     constructor() {
         super(Commands.SwitchMode);
     }
@@ -20,7 +19,6 @@ export class SwitchModeCommand extends Command {
 }
 
 export class ToggleReviewModeCommand extends Command {
-
     constructor() {
         super(Commands.ToggleReviewMode);
     }
@@ -34,7 +32,6 @@ export class ToggleReviewModeCommand extends Command {
 }
 
 export class ToggleZenModeCommand extends Command {
-
     constructor() {
         super(Commands.ToggleZenMode);
     }

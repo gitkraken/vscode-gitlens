@@ -7,7 +7,6 @@ import { Logger } from './logger';
 import * as path from 'path';
 
 export class GitContentProvider implements TextDocumentContentProvider {
-
     static scheme = DocumentSchemes.GitLensGit;
 
     async provideTextDocumentContent(uri: Uri, token: CancellationToken): Promise<string | undefined> {
@@ -19,7 +18,12 @@ export class GitContentProvider implements TextDocumentContentProvider {
         }
         catch (ex) {
             Logger.error(ex, 'GitContentProvider', 'getVersionedFileText');
-            window.showErrorMessage(`Unable to show Git revision ${GitService.shortenSha(gitUri.sha)} of '${path.relative(gitUri.repoPath, gitUri.fsPath)}'`);
+            window.showErrorMessage(
+                `Unable to show Git revision ${GitService.shortenSha(gitUri.sha)} of '${path.relative(
+                    gitUri.repoPath,
+                    gitUri.fsPath
+                )}'`
+            );
             return undefined;
         }
     }

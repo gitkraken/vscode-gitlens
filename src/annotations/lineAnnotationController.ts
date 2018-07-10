@@ -1,5 +1,15 @@
 'use strict';
-import { ConfigurationChangeEvent, debug, DecorationRangeBehavior, DecorationRenderOptions, Disposable, Range, TextEditor, TextEditorDecorationType, window } from 'vscode';
+import {
+    ConfigurationChangeEvent,
+    debug,
+    DecorationRangeBehavior,
+    DecorationRenderOptions,
+    Disposable,
+    Range,
+    TextEditor,
+    TextEditorDecorationType,
+    window
+} from 'vscode';
 import { Annotations } from './annotations';
 import { configuration } from './../configuration';
 import { isTextEditor } from './../constants';
@@ -15,7 +25,6 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
 } as DecorationRenderOptions);
 
 export class LineAnnotationController extends Disposable {
-
     private _disposable: Disposable;
     private _debugSessionEndDisposable: Disposable | undefined;
     private _editor: TextEditor | undefined;
@@ -190,8 +199,15 @@ export class LineAnnotationController extends Disposable {
             const state = Container.lineTracker.getState(l);
             if (state === undefined || state.commit === undefined) continue;
 
-            const decoration = Annotations.trailing(state.commit, cfg.format, cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat, scrollable);
-            decoration.range = editor.document.validateRange(new Range(l, Number.MAX_SAFE_INTEGER, l, Number.MAX_SAFE_INTEGER));
+            const decoration = Annotations.trailing(
+                state.commit,
+                cfg.format,
+                cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
+                scrollable
+            );
+            decoration.range = editor.document.validateRange(
+                new Range(l, Number.MAX_SAFE_INTEGER, l, Number.MAX_SAFE_INTEGER)
+            );
             decorations.push(decoration);
         }
 
@@ -203,9 +219,7 @@ export class LineAnnotationController extends Disposable {
             if (!Container.lineTracker.isSubscribed(this)) {
                 Container.lineTracker.start(
                     this,
-                    Disposable.from(
-                        Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)
-                    )
+                    Disposable.from(Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this))
                 );
             }
 

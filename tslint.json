@@ -1,44 +1,23 @@
 {
+    "extends": ["tslint-prettiest"],
     "rules": {
         "adjacent-overload-signatures": true,
-        "array-type": [
-            true,
-            "array"
-        ],
-        "arrow-parens": [
-            true,
-            "ban-single-arg-parens"
-        ],
+        "array-type": [true, "array"],
+        "arrow-parens": [true, "ban-single-arg-parens"],
         "arrow-return-shorthand": true,
         "class-name": true,
-        "comment-format": [
-            true,
-            "check-space"
-        ],
-        "curly": [
-            true,
-            "ignore-same-line"
-        ],
-        "indent": [
-            true,
-            "spaces",
-            4
-        ],
+        "comment-format": [true, "check-space"],
+        "curly": [true, "ignore-same-line"],
+        "eofline": true,
         "interface-over-type-literal": true,
+        "linebreak-style": [true, "LF"],
         "new-parens": true,
         "no-angle-bracket-type-assertion": true,
-        "no-consecutive-blank-lines": [
-            true,
-            1
-        ],
+        "no-consecutive-blank-lines": [true, 1],
         "no-default-export": true,
         "no-duplicate-variable": true,
         "no-eval": true,
-        "no-inferrable-types": [
-            true,
-            "ignore-params",
-            "ignore-properties"
-        ],
+        "no-inferrable-types": [true, "ignore-params", "ignore-properties"],
         "no-internal-module": true,
         "no-irregular-whitespace": true,
         "no-reference": true,
@@ -49,19 +28,9 @@
         "no-unused-expression": false,
         "no-var-keyword": true,
         "no-var-requires": false,
-        "object-literal-key-quotes": [
-            true,
-            "as-needed"
-        ],
-        "one-line": [
-            true,
-            "check-open-brace",
-            "check-whitespace"
-        ],
-        "one-variable-per-declaration": [
-            true,
-            "ignore-for-loop"
-        ],
+        "object-literal-key-quotes": [true, "as-needed"],
+        "one-line": [true, "check-open-brace", "check-whitespace"],
+        "one-variable-per-declaration": [true, "ignore-for-loop"],
         "ordered-imports": [
             true,
             {
@@ -71,20 +40,12 @@
         ],
         "prefer-const": true,
         "prefer-for-of": true,
-        "prefer-template": [
-            true,
-            "allow-single-concat"
-        ],
-        "quotemark": [
-            true,
-            "single",
-            "avoid-escape"
-        ],
+        "prefer-method-signature": true,
+        "prefer-template": [true, "allow-single-concat"],
+        "prettiest": [true, "spaces", 4],
+        "quotemark": [true, "single", "avoid-escape"],
         "radix": true,
-        "semicolon": [
-            true,
-            "always"
-        ],
+        "semicolon": [true, "always"],
         "space-before-function-paren": [
             true,
             {
@@ -100,10 +61,7 @@
                 "singleline": "never"
             }
         ],
-        "triple-equals": [
-            true,
-            "allow-null-check"
-        ],
+        "triple-equals": [true, "allow-null-check"],
         "typedef-whitespace": [
             true,
             {
@@ -115,13 +73,7 @@
             }
         ],
         "use-isnan": true,
-        "variable-name": [
-            true,
-            "allow-leading-underscore",
-            "allow-pascal-case",
-            "ban-keywords",
-            "check-format"
-        ],
+        "variable-name": [true, "allow-leading-underscore", "allow-pascal-case", "ban-keywords", "check-format"],
         "whitespace": [
             true,
             "check-branch",

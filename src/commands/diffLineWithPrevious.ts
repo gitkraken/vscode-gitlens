@@ -15,7 +15,6 @@ export interface DiffLineWithPreviousCommandArgs {
 }
 
 export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.DiffLineWithPrevious);
     }
@@ -36,10 +35,13 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
             if (blameline < 0) return undefined;
 
             try {
-                const blame = editor && editor.document && editor.document.isDirty
-                    ? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-                    : await Container.git.getBlameForLine(gitUri, blameline);
-                if (blame === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                const blame =
+                    editor && editor.document && editor.document.isDirty
+                        ? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
+                        : await Container.git.getBlameForLine(gitUri, blameline);
+                if (blame === undefined) {
+                    return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                }
 
                 args.commit = blame.commit;
 

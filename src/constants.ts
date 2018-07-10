@@ -57,7 +57,7 @@ export enum DocumentSchemes {
 
 export function getEditorIfActive(document: TextDocument): TextEditor | undefined {
     const editor = window.activeTextEditor;
-    return (editor != null && editor.document === document) ? editor : undefined;
+    return editor != null && editor.document === document ? editor : undefined;
 }
 
 export function isActiveDocument(document: TextDocument): boolean {
@@ -112,16 +112,7 @@ export enum GlobalState {
     GitLensVersion = 'gitlensVersion'
 }
 
-export const ImageExtensions = [
-    '.png',
-    '.gif',
-    '.jpg',
-    '.jpeg',
-    '.webp',
-    '.tif',
-    '.tiff',
-    '.bmp'
-];
+export const ImageExtensions = ['.png', '.gif', '.jpg', '.jpeg', '.webp', '.tif', '.tiff', '.bmp'];
 
 export enum WorkspaceState {
     GitExplorerAutoRefresh = 'gitlens:gitExplorer:autoRefresh',

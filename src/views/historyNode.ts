@@ -6,7 +6,6 @@ import { FileHistoryNode } from './fileHistoryNode';
 import { GitUri, Repository } from '../gitService';
 
 export class HistoryNode extends ExplorerNode {
-
     constructor(
         uri: GitUri,
         private readonly repo: Repository,
@@ -18,9 +17,7 @@ export class HistoryNode extends ExplorerNode {
     async getChildren(): Promise<ExplorerNode[]> {
         this.resetChildren();
 
-        this.children = [
-            new FileHistoryNode(this.uri, this.repo, this.explorer)
-        ];
+        this.children = [new FileHistoryNode(this.uri, this.repo, this.explorer)];
         return this.children;
     }
 

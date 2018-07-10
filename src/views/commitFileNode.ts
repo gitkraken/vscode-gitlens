@@ -4,7 +4,16 @@ import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
-import { CommitFormatter, getGitStatusIcon, GitLogCommit, GitUri, ICommitFormatOptions, IGitStatusFile, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
+import {
+    CommitFormatter,
+    getGitStatusIcon,
+    GitLogCommit,
+    GitUri,
+    ICommitFormatOptions,
+    IGitStatusFile,
+    IStatusFormatOptions,
+    StatusFileFormatter
+} from '../gitService';
 import * as path from 'path';
 
 export enum CommitFileNodeDisplayAs {
@@ -19,7 +28,6 @@ export enum CommitFileNodeDisplayAs {
 }
 
 export class CommitFileNode extends ExplorerNode {
-
     readonly priority: boolean = false;
     readonly repoPath: string;
 
@@ -42,7 +50,10 @@ export class CommitFileNode extends ExplorerNode {
             // See if we can get the commit directly from the multi-file commit
             const commit = this.commit.toFileCommit(this.status);
             if (commit === undefined) {
-                const log = await Container.git.getLogForFile(this.repoPath, this.status.fileName, { maxCount: 2, ref: this.commit.sha });
+                const log = await Container.git.getLogForFile(this.repoPath, this.status.fileName, {
+                    maxCount: 2,
+                    ref: this.commit.sha
+                });
                 if (log !== undefined) {
                     this.commit = log.commits.get(this.commit.sha) || this.commit;
                 }
@@ -93,22 +104,15 @@ export class CommitFileNode extends ExplorerNode {
     private _label: string | undefined;
     get label() {
         if (this._label === undefined) {
-            this._label = (this.displayAs & CommitFileNodeDisplayAs.CommitLabel)
-                ? CommitFormatter.fromTemplate(
-                    this.getCommitTemplate(),
-                    this.commit,
-                    {
-                        truncateMessageAtNewLine: true,
-                        dateFormat: Container.config.defaultDateFormat
-                    } as ICommitFormatOptions
-                )
-                : StatusFileFormatter.fromTemplate(
-                    this.getCommitFileTemplate(),
-                    this.status,
-                    {
-                        relativePath: this.relativePath
-                    } as IStatusFormatOptions
-                );
+            this._label =
+                this.displayAs & CommitFileNodeDisplayAs.CommitLabel
+                    ? CommitFormatter.fromTemplate(this.getCommitTemplate(), this.commit, {
+                          truncateMessageAtNewLine: true,
+                          dateFormat: Container.config.defaultDateFormat
+                      } as ICommitFormatOptions)
+                    : StatusFileFormatter.fromTemplate(this.getCommitFileTemplate(), this.status, {
+                          relativePath: this.relativePath
+                      } as IStatusFormatOptions);
         }
         return this._label;
     }

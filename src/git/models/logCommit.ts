@@ -7,7 +7,6 @@ import { GitStatusFileStatus, IGitStatusFile } from './status';
 import * as path from 'path';
 
 export class GitLogCommit extends GitCommit {
-
     nextSha?: string;
     nextFileName?: string;
 
@@ -57,9 +56,7 @@ export class GitLogCommit extends GitCommit {
     get previousFileSha(): string {
         if (this._resolvedPreviousFileSha !== undefined) return this._resolvedPreviousFileSha;
 
-        return (this.isFile && this.previousSha)
-            ? this.previousSha
-            : `${this.sha}^`;
+        return this.isFile && this.previousSha ? this.previousSha : `${this.sha}^`;
     }
 
     getDiffStatus(): string {
@@ -99,9 +96,7 @@ export class GitLogCommit extends GitCommit {
         }
 
         // If this isn't a single-file commit, we can't trust the previousSha
-        const previousSha = this.isFile
-            ? this.previousSha
-            : `${this.sha}^`;
+        const previousSha = this.isFile ? this.previousSha : `${this.sha}^`;
 
         return this.with({
             type: this.isStash ? GitCommitType.StashFile : GitCommitType.File,
@@ -114,7 +109,20 @@ export class GitLogCommit extends GitCommit {
         });
     }
 
-    with(changes: { type?: GitCommitType, sha?: string | null, fileName?: string, author?: string, email?: string, date?: Date, message?: string, originalFileName?: string | null, previousFileName?: string | null, previousSha?: string | null, status?: GitStatusFileStatus, fileStatuses?: IGitStatusFile[] | null }): GitLogCommit {
+    with(changes: {
+        type?: GitCommitType;
+        sha?: string | null;
+        fileName?: string;
+        author?: string;
+        email?: string;
+        date?: Date;
+        message?: string;
+        originalFileName?: string | null;
+        previousFileName?: string | null;
+        previousSha?: string | null;
+        status?: GitStatusFileStatus;
+        fileStatuses?: IGitStatusFile[] | null;
+    }): GitLogCommit {
         return new GitLogCommit(
             changes.type || this.type,
             this.repoPath,

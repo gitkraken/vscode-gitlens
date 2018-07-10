@@ -12,7 +12,6 @@ export interface ToggleFileBlameCommandArgs {
 }
 
 export class ToggleFileBlameCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.ToggleFileBlame);
     }
@@ -35,11 +34,17 @@ export class ToggleFileBlameCommand extends ActiveEditorCommand {
                 args = { ...args, type: FileAnnotationType.Blame };
             }
 
-            return Container.fileAnnotations.toggle(editor, args.type!, args.sha !== undefined ? args.sha : editor && editor.selection.active.line);
+            return Container.fileAnnotations.toggle(
+                editor,
+                args.type!,
+                args.sha !== undefined ? args.sha : editor && editor.selection.active.line
+            );
         }
         catch (ex) {
             Logger.error(ex, 'ToggleFileBlameCommand');
-            return window.showErrorMessage(`Unable to toggle file ${args.type} annotations. See output channel for more details`);
+            return window.showErrorMessage(
+                `Unable to toggle file ${args.type} annotations. See output channel for more details`
+            );
         }
     }
 }

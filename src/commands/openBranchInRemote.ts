@@ -1,6 +1,13 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, getRepoPathOrActiveOrPrompt, isCommandViewContextWithBranch } from './common';
+import {
+    ActiveEditorCommand,
+    CommandContext,
+    Commands,
+    getCommandUri,
+    getRepoPathOrActiveOrPrompt,
+    isCommandViewContextWithBranch
+} from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../gitService';
@@ -14,7 +21,6 @@ export interface OpenBranchInRemoteCommandArgs {
 }
 
 export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.OpenBranchInRemote);
     }
@@ -32,9 +38,13 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: OpenBranchInRemoteCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
-        const gitUri = uri && await GitUri.fromUri(uri);
+        const gitUri = uri && (await GitUri.fromUri(uri));
 
-        const repoPath = await getRepoPathOrActiveOrPrompt(gitUri, editor, `Open branch in remote for which repository${GlyphChars.Ellipsis}`);
+        const repoPath = await getRepoPathOrActiveOrPrompt(
+            gitUri,
+            editor,
+            `Open branch in remote for which repository${GlyphChars.Ellipsis}`
+        );
         if (!repoPath) return undefined;
 
         try {
@@ -43,7 +53,10 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
 
                 const branches = (await Container.git.getBranches(repoPath)).filter(b => b.tracking !== undefined);
                 if (branches.length > 1) {
-                    const pick = await BranchesQuickPick.show(branches, `Open which branch in remote${GlyphChars.Ellipsis}`);
+                    const pick = await BranchesQuickPick.show(
+                        branches,
+                        `Open which branch in remote${GlyphChars.Ellipsis}`
+                    );
                     if (pick === undefined) return undefined;
 
                     if (pick instanceof CommandQuickPickItem) return undefined;
@@ -68,7 +81,9 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'OpenBranchInRemoteCommandArgs');
-            return window.showErrorMessage(`Unable to open branch in remote provider. See output channel for more details`);
+            return window.showErrorMessage(
+                `Unable to open branch in remote provider. See output channel for more details`
+            );
         }
     }
 }

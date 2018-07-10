@@ -6,7 +6,6 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 
 export class ClearFileAnnotationsCommand extends EditorCommand {
-
     constructor() {
         super([Commands.ClearFileAnnotations, Commands.ComputingFileAnnotations]);
     }

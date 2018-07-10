@@ -11,22 +11,15 @@ const keyNoopCommand = Object.create(null) as KeyCommand;
 export { keyNoopCommand as KeyNoopCommand };
 
 export declare type Keys = 'left' | 'right' | ',' | '.' | 'escape';
-export const keys: Keys[] = [
-    'left',
-    'right',
-    ',',
-    '.',
-    'escape'
-];
+export const keys: Keys[] = ['left', 'right', ',', '.', 'escape'];
 
 export declare interface KeyMapping {
-    [id: string]: (KeyCommand | (() => Promise<KeyCommand>) | undefined);
+    [id: string]: KeyCommand | (() => Promise<KeyCommand>) | undefined;
 }
 
 const mappings: KeyMapping[] = [];
 
 export class KeyboardScope extends Disposable {
-
     constructor(
         private readonly mapping: KeyMapping
     ) {
@@ -40,7 +33,7 @@ export class KeyboardScope extends Disposable {
     async dispose() {
         const index = mappings.indexOf(this.mapping);
         Logger.log('KeyboardScope.dispose', mappings.length, index);
-        if (index === (mappings.length - 1)) {
+        if (index === mappings.length - 1) {
             mappings.pop();
             await this.updateKeyCommandsContext(mappings[mappings.length - 1]);
         }
@@ -89,13 +82,14 @@ export class KeyboardScope extends Disposable {
 }
 
 export class Keyboard extends Disposable {
-
     private _disposable: Disposable;
 
     constructor() {
         super(() => this.dispose());
 
-        const subscriptions = keys.map(key => commands.registerCommand(`${extensionId}.key.${key}`, () => this.execute(key), this));
+        const subscriptions = keys.map(key =>
+            commands.registerCommand(`${extensionId}.key.${key}`, () => this.execute(key), this)
+        );
         this._disposable = Disposable.from(...subscriptions);
     }
 
@@ -105,7 +99,9 @@ export class Keyboard extends Disposable {
 
     async beginScope(mapping?: KeyMapping): Promise<KeyboardScope> {
         Logger.log('Keyboard.beginScope', mappings.length);
-        return await new KeyboardScope(mapping ? Object.assign(Object.create(null), mapping) : Object.create(null)).begin();
+        return await new KeyboardScope(
+            mapping ? Object.assign(Object.create(null), mapping) : Object.create(null)
+        ).begin();
     }
 
     async execute(key: Keys): Promise<{} | undefined> {

@@ -1,6 +1,21 @@
 'use strict';
 import { Functions, IDeferrable } from './../system';
-import { ConfigurationChangeEvent, Disposable, EndOfLine, Event, EventEmitter, Position, Range, TextDocument, TextDocumentChangeEvent, TextEditor, TextLine, Uri, window, workspace } from 'vscode';
+import {
+    ConfigurationChangeEvent,
+    Disposable,
+    EndOfLine,
+    Event,
+    EventEmitter,
+    Position,
+    Range,
+    TextDocument,
+    TextDocumentChangeEvent,
+    TextEditor,
+    TextLine,
+    Uri,
+    window,
+    workspace
+} from 'vscode';
 import { configuration } from './../configuration';
 import { CommandContext, DocumentSchemes, isActiveDocument, isTextEditor, setCommandContext } from './../constants';
 import { GitUri } from '../gitService';
@@ -9,7 +24,6 @@ import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocumen
 export * from './trackedDocument';
 
 export interface DocumentDirtyStateChangeEvent<T> {
-
     readonly editor: TextEditor;
     readonly document: TrackedDocument<T>;
     readonly dirty: boolean;
@@ -21,7 +35,6 @@ export interface DocumentDirtyIdleTriggerEvent<T> {
 }
 
 export class DocumentTracker<T> extends Disposable {
-
     private _onDidChangeBlameState = new EventEmitter<DocumentBlameStateChangeEvent<T>>();
     get onDidChangeBlameState(): Event<DocumentBlameStateChangeEvent<T>> {
         return this._onDidChangeBlameState.event;
@@ -70,8 +83,11 @@ export class DocumentTracker<T> extends Disposable {
         const initializing = configuration.initializing(e);
 
         // Only rest the cached state if we aren't initializing
-        if (!initializing && (configuration.changed(e, configuration.name('blame')('ignoreWhitespace').value, null) ||
-            configuration.changed(e, configuration.name('advanced')('caching')('enabled').value))) {
+        if (
+            !initializing &&
+            (configuration.changed(e, configuration.name('blame')('ignoreWhitespace').value, null) ||
+                configuration.changed(e, configuration.name('advanced')('caching')('enabled').value))
+        ) {
             for (const d of this._documentMap.values()) {
                 d.reset('config');
             }
@@ -153,7 +169,7 @@ export class DocumentTracker<T> extends Disposable {
     private onTextDocumentSaved(document: TextDocument) {
         let doc = this._documentMap.get(document);
         if (doc !== undefined) {
-            doc.update({ forceBlameChange: true});
+            doc.update({ forceBlameChange: true });
 
             return;
         }
@@ -293,14 +309,23 @@ export class DocumentTracker<T> extends Disposable {
 
             if (this._dirtyIdleTriggerDelay > 0) {
                 if (this._dirtyIdleTriggeredDebounced === undefined) {
-                    this._dirtyIdleTriggeredDebounced = Functions.debounce(async (e: DocumentDirtyIdleTriggerEvent<T>) => {
-                        if (this._dirtyIdleTriggeredDebounced !== undefined && this._dirtyIdleTriggeredDebounced.pending!()) return;
+                    this._dirtyIdleTriggeredDebounced = Functions.debounce(
+                        async (e: DocumentDirtyIdleTriggerEvent<T>) => {
+                            if (
+                                this._dirtyIdleTriggeredDebounced !== undefined &&
+                                this._dirtyIdleTriggeredDebounced.pending!()
+                            ) {
+                                return;
+                            }
 
-                        await e.document.ensureInitialized();
+                            await e.document.ensureInitialized();
 
-                        e.document.isDirtyIdle = true;
-                        this._onDidTriggerDirtyIdle.fire(e);
-                    }, this._dirtyIdleTriggerDelay, { track: true });
+                            e.document.isDirtyIdle = true;
+                            this._onDidTriggerDirtyIdle.fire(e);
+                        },
+                        this._dirtyIdleTriggerDelay,
+                        { track: true }
+                    );
                 }
 
                 this._dirtyIdleTriggeredDebounced({ editor: e.editor, document: e.document });
@@ -323,7 +348,6 @@ export class DocumentTracker<T> extends Disposable {
 }
 
 class EmptyTextDocument implements TextDocument {
-
     readonly eol: EndOfLine;
     readonly fileName: string;
     readonly isClosed: boolean;
@@ -384,5 +408,5 @@ class EmptyTextDocument implements TextDocument {
     }
 }
 
-class BinaryTextDocument extends EmptyTextDocument { }
-class MissingRevisionTextDocument extends EmptyTextDocument { }
+class BinaryTextDocument extends EmptyTextDocument {}
+class MissingRevisionTextDocument extends EmptyTextDocument {}

@@ -67,7 +67,6 @@ export type Explorer = GitExplorer | HistoryExplorer | ResultsExplorer;
 // let id = 0;
 
 export abstract class ExplorerNode extends Disposable {
-
     readonly supportsPaging: boolean = false;
     maxCount: number | undefined;
 
@@ -98,7 +97,7 @@ export abstract class ExplorerNode extends Disposable {
         return undefined;
     }
 
-    refresh(): void { }
+    refresh(): void {}
 
     resetChildren(): void {
         if (this.children !== undefined) {
@@ -116,7 +115,6 @@ export abstract class ExplorerRefNode extends ExplorerNode {
 }
 
 export class MessageNode extends ExplorerNode {
-
     constructor(
         private readonly message: string,
         private readonly tooltip?: string
@@ -137,7 +135,6 @@ export class MessageNode extends ExplorerNode {
 }
 
 export class PagerNode extends ExplorerNode {
-
     args: RefreshNodeCommandArgs = {};
 
     constructor(
@@ -173,14 +170,13 @@ export class PagerNode extends ExplorerNode {
 }
 
 export class ShowAllNode extends PagerNode {
-
     args: RefreshNodeCommandArgs = { maxCount: 0 };
 
-    constructor(
-        message: string,
-        node: ExplorerNode,
-        explorer: Explorer
-    ) {
-        super(`${message} ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`, node, explorer);
+    constructor(message: string, node: ExplorerNode, explorer: Explorer) {
+        super(
+            `${message} ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`,
+            node,
+            explorer
+        );
     }
 }

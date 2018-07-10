@@ -5,7 +5,6 @@ const branchWithTrackingRegex = /^(\*?)\s+(.+?)\s+([0-9,a-f]+)\s+(?:\[(.*?\/.*?)
 const branchWithTrackingStateRegex = /^(?:ahead\s([0-9]+))?[,\s]*(?:behind\s([0-9]+))?/;
 
 export class GitBranchParser {
-
     static parse(data: string, repoPath: string): GitBranch[] | undefined {
         if (!data) return undefined;
 
@@ -33,9 +32,6 @@ export class GitBranchParser {
 
         const ahead = parseInt(match[1], 10);
         const behind = parseInt(match[2], 10);
-        return [
-            isNaN(ahead) ? 0 : ahead,
-            isNaN(behind) ? 0 : behind
-        ];
+        return [isNaN(ahead) ? 0 : ahead, isNaN(behind) ? 0 : behind];
     }
 }

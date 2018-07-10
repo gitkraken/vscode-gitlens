@@ -4,7 +4,6 @@ import { GitExplorerView } from '../configuration';
 import { Container } from '../container';
 
 export class ShowGitExplorerCommand extends Command {
-
     constructor() {
         super(Commands.ShowGitExplorer);
     }

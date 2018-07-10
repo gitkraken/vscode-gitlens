@@ -24,9 +24,14 @@ export namespace Iterables {
         return true;
     }
 
-    export function filter<T>(source: Iterable<T | undefined | null> | IterableIterator<T | undefined | null>): Iterable<T>;
+    export function filter<T>(
+        source: Iterable<T | undefined | null> | IterableIterator<T | undefined | null>
+    ): Iterable<T>;
     export function filter<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): Iterable<T>;
-    export function* filter<T>(source: Iterable<T> | IterableIterator<T>, predicate?: (item: T) => boolean): Iterable<T> {
+    export function* filter<T>(
+        source: Iterable<T> | IterableIterator<T>,
+        predicate?: (item: T) => boolean
+    ): Iterable<T> {
         if (predicate === undefined) {
             for (const item of source) {
                 if (item != null) yield item;
@@ -39,7 +44,10 @@ export namespace Iterables {
         }
     }
 
-    export function* filterMap<T, TMapped>(source: Iterable<T> | IterableIterator<T>, predicateMapper: (item: T) => TMapped | undefined | null): Iterable<TMapped> {
+    export function* filterMap<T, TMapped>(
+        source: Iterable<T> | IterableIterator<T>,
+        predicateMapper: (item: T) => TMapped | undefined | null
+    ): Iterable<TMapped> {
         for (const item of source) {
             const mapped = predicateMapper(item);
             if (mapped != null) yield mapped;
@@ -65,7 +73,10 @@ export namespace Iterables {
         return source[Symbol.iterator]().next().value;
     }
 
-    export function* flatMap<T, TMapped>(source: Iterable<T> | IterableIterator<T>, mapper: (item: T) => Iterable<TMapped>): Iterable<TMapped> {
+    export function* flatMap<T, TMapped>(
+        source: Iterable<T> | IterableIterator<T>,
+        mapper: (item: T) => Iterable<TMapped>
+    ): Iterable<TMapped> {
         for (const item of source) {
             yield* mapper(item);
         }
@@ -103,11 +114,16 @@ export namespace Iterables {
 
     export function last<T>(source: Iterable<T>): T | null {
         let item: T | null = null;
-        for (item of source) { /* noop */ }
+        for (item of source) {
+            /* noop */
+        }
         return item;
     }
 
-    export function* map<T, TMapped>(source: Iterable<T> | IterableIterator<T>, mapper: (item: T) => TMapped): Iterable<TMapped> {
+    export function* map<T, TMapped>(
+        source: Iterable<T> | IterableIterator<T>,
+        mapper: (item: T) => TMapped
+    ): Iterable<TMapped> {
         for (const item of source) {
             yield mapper(item);
         }
@@ -117,7 +133,10 @@ export namespace Iterables {
         return source.next().value;
     }
 
-    export function* skip<T>(source: Iterable<T> | IterableIterator<T>, count: number): Iterable<T> | IterableIterator<T> {
+    export function* skip<T>(
+        source: Iterable<T> | IterableIterator<T>,
+        count: number
+    ): Iterable<T> | IterableIterator<T> {
         let i = 0;
         for (const item of source) {
             if (i >= count) yield item;

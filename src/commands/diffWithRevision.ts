@@ -19,7 +19,6 @@ export interface DiffWithRevisionCommandArgs {
 }
 
 export class DiffWithRevisionCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.DiffWithRevision);
     }
@@ -35,47 +34,75 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 
         const gitUri = await GitUri.fromUri(uri);
 
-        const placeHolder = `Compare ${gitUri.getFormattedPath()}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''} with ${GlyphChars.Ellipsis}`;
+        const placeHolder = `Compare ${gitUri.getFormattedPath()}${
+            gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''
+        } with ${GlyphChars.Ellipsis}`;
         const progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
 
         try {
-            const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: args.maxCount, ref: gitUri.sha });
-            if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open history compare');
+            const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
+                maxCount: args.maxCount,
+                ref: gitUri.sha
+            });
+            if (log === undefined) {
+                return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open history compare');
+            }
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
             let previousPageCommand: CommandQuickPickItem | undefined = undefined;
 
             if (log.truncated) {
-                const npc = new CommandQuickPickItem({
-                    label: `$(arrow-right) Show Next Commits`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} newer commits`
-                }, Commands.DiffWithRevision, [uri, { ...args } as DiffWithRevisionCommandArgs]);
+                const npc = new CommandQuickPickItem(
+                    {
+                        label: `$(arrow-right) Show Next Commits`,
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} newer commits`
+                    },
+                    Commands.DiffWithRevision,
+                    [uri, { ...args } as DiffWithRevisionCommandArgs]
+                );
 
                 const last = Iterables.last(log.commits.values());
                 if (last != null) {
-                    previousPageCommand = new CommandQuickPickItem({
-                        label: `$(arrow-left) Show Previous Commits`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} older commits`
-                    }, Commands.DiffWithRevision, [new GitUri(uri, last), { ...args, nextPageCommand: npc } as DiffWithRevisionCommandArgs]);
+                    previousPageCommand = new CommandQuickPickItem(
+                        {
+                            label: `$(arrow-left) Show Previous Commits`,
+                            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} older commits`
+                        },
+                        Commands.DiffWithRevision,
+                        [new GitUri(uri, last), { ...args, nextPageCommand: npc } as DiffWithRevisionCommandArgs]
+                    );
                 }
             }
 
             const pick = await FileHistoryQuickPick.show(log, gitUri, placeHolder, {
                 pickerOnly: true,
                 progressCancellation: progressCancellation,
-                currentCommand: new CommandQuickPickItem({
-                    label: `go back ${GlyphChars.ArrowBack}`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${GlyphChars.Space}$(file-text) ${gitUri.getFormattedPath()}${gitUri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}` : ''}`
-                }, Commands.DiffWithRevision, [uri, { ...args }]),
+                currentCommand: new CommandQuickPickItem(
+                    {
+                        label: `go back ${GlyphChars.ArrowBack}`,
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
+                            GlyphChars.Space
+                        }$(file-text) ${gitUri.getFormattedPath()}${
+                            gitUri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}` : ''
+                        }`
+                    },
+                    Commands.DiffWithRevision,
+                    [uri, { ...args }]
+                ),
                 nextPageCommand: args.nextPageCommand,
                 previousPageCommand: previousPageCommand,
-                showAllCommand: log !== undefined && log.truncated
-                    ? new CommandQuickPickItem({
-                        label: `$(sync) Show All Commits`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
-                    }, Commands.DiffWithRevision, [uri, { ...args, maxCount: 0 }])
-                    : undefined
+                showAllCommand:
+                    log !== undefined && log.truncated
+                        ? new CommandQuickPickItem(
+                              {
+                                  label: `$(sync) Show All Commits`,
+                                  description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
+                              },
+                              Commands.DiffWithRevision,
+                              [uri, { ...args, maxCount: 0 }]
+                          )
+                        : undefined
             });
             if (pick === undefined) return undefined;
 
@@ -117,5 +144,5 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
         finally {
             progressCancellation.cancel();
         }
-   }
+    }
 }

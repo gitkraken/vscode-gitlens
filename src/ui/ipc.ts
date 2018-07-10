@@ -10,13 +10,12 @@ export interface SettingsBootstrap extends Bootstrap {
     scopes: ['user' | 'workspace', string][];
 }
 
-export interface WelcomeBootstrap extends Bootstrap {
-}
+export interface WelcomeBootstrap extends Bootstrap {}
 
 export interface SaveSettingsMessage {
     type: 'saveSettings';
     changes: {
-        [key: string]: any
+        [key: string]: any;
     };
     removes: string[];
     scope: 'user' | 'workspace';

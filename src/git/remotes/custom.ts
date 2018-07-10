@@ -5,16 +5,9 @@ import { IRemotesUrlsConfig } from '../../configuration';
 import { RemoteProvider } from './provider';
 
 export class CustomService extends RemoteProvider {
-
     private readonly urls: IRemotesUrlsConfig;
 
-    constructor(
-        domain: string,
-        path: string,
-        urls: IRemotesUrlsConfig,
-        protocol?: string,
-        name?: string
-    ) {
+    constructor(domain: string, path: string, urls: IRemotesUrlsConfig, protocol?: string, name?: string) {
         super(domain, path, protocol, name, true);
         this.urls = urls;
     }
@@ -50,8 +43,18 @@ export class CustomService extends RemoteProvider {
             }
         }
 
-        if (sha) return Strings.interpolate(this.urls.fileInCommit, this.getContext({ id: sha, file: fileName, line: line }));
-        if (branch) return Strings.interpolate(this.urls.fileInBranch, this.getContext({ branch: branch, file: fileName, line: line }));
+        if (sha) {
+            return Strings.interpolate(
+                this.urls.fileInCommit,
+                this.getContext({ id: sha, file: fileName, line: line })
+            );
+        }
+        if (branch) {
+            return Strings.interpolate(
+                this.urls.fileInBranch,
+                this.getContext({ branch: branch, file: fileName, line: line })
+            );
+        }
         return Strings.interpolate(this.urls.file, this.getContext({ file: fileName, line: line }));
     }
 

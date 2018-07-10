@@ -12,7 +12,6 @@ export interface CloseUnchangedFilesCommandArgs {
 }
 
 export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.CloseUnchangedFiles);
     }
@@ -24,7 +23,11 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
             if (args.uris === undefined) {
                 args = { ...args };
 
-                const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, `Close unchanged files in which repository${GlyphChars.Ellipsis}`);
+                const repoPath = await getRepoPathOrActiveOrPrompt(
+                    uri,
+                    editor,
+                    `Close unchanged files in which repository${GlyphChars.Ellipsis}`
+                );
                 if (!repoPath) return undefined;
 
                 const status = await Container.git.getStatusForRepo(repoPath);
@@ -46,8 +49,11 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
                         break;
                     }
 
-                    if (editor.document !== undefined &&
-                        (editor.document.isDirty || args.uris.some(uri => UriComparer.equals(uri, editor!.document && editor!.document.uri)))) {
+                    if (
+                        editor.document !== undefined &&
+                        (editor.document.isDirty ||
+                            args.uris.some(uri => UriComparer.equals(uri, editor!.document && editor!.document.uri)))
+                    ) {
                         const lastPrevious = previous;
                         previous = editor;
                         editor = await editorTracker.awaitNext(500);

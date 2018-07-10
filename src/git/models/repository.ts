@@ -1,6 +1,15 @@
 'use strict';
 import { Functions } from '../../system';
-import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, RelativePattern, Uri, workspace, WorkspaceFolder } from 'vscode';
+import {
+    ConfigurationChangeEvent,
+    Disposable,
+    Event,
+    EventEmitter,
+    RelativePattern,
+    Uri,
+    workspace,
+    WorkspaceFolder
+} from 'vscode';
 import { configuration, IRemotesConfig } from '../../configuration';
 import { Container } from '../../container';
 import { GitBranch, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
@@ -19,12 +28,11 @@ export enum RepositoryChange {
 }
 
 export class RepositoryChangeEvent {
-
     readonly changes: RepositoryChange[] = [];
 
     constructor(
         public readonly repository?: Repository
-    ) { }
+    ) {}
 
     changed(change: RepositoryChange, solely: boolean = false) {
         if (solely) return this.changes.length === 1 && this.changes[0] === change;
@@ -52,7 +60,6 @@ export enum RepositoryStorage {
 }
 
 export class Repository extends Disposable {
-
     private _onDidChange = new EventEmitter<RepositoryChangeEvent>();
     get onDidChange(): Event<RepositoryChangeEvent> {
         return this._onDidChange.event;
@@ -75,7 +82,7 @@ export class Repository extends Disposable {
     private _fireFileSystemChangeDebounced: ((e: RepositoryFileSystemChangeEvent) => void) | undefined = undefined;
     private _fsWatchCounter = 0;
     private _fsWatcherDisposable: Disposable | undefined;
-    private _pendingChanges: { repo?: RepositoryChangeEvent, fs?: RepositoryFileSystemChangeEvent } = { };
+    private _pendingChanges: { repo?: RepositoryChangeEvent; fs?: RepositoryFileSystemChangeEvent } = {};
     private _providerMap: RemoteProviderMap | undefined;
     private _remotes: Promise<GitRemote[]> | undefined;
     private _suspended: boolean;
@@ -95,9 +102,7 @@ export class Repository extends Disposable {
         }
         else {
             const relativePath = _path.relative(folder.uri.fsPath, path);
-            this.formattedName = relativePath
-                ? `${folder.name} (${relativePath})`
-                : folder.name;
+            this.formattedName = relativePath ? `${folder.name} (${relativePath})` : folder.name;
         }
         this.index = folder.index;
         this.name = folder.name;
@@ -108,7 +113,21 @@ export class Repository extends Disposable {
         this._closed = closed;
 
         // TODO: createFileSystemWatcher doesn't work unless the folder is part of the workspaceFolders
-        const watcher = workspace.createFileSystemWatcher(new RelativePattern(folder, '{**/.git/config,**/.git/index,**/.git/HEAD,**/.git/refs/stash,**/.git/refs/heads/**,**/.git/refs/remotes/**,**/.git/refs/tags/**,**/.gitignore}'));
+        const watcher = workspace.createFileSystemWatcher(
+            new RelativePattern(
+                folder,
+                '{\
+**/.git/config,\
+**/.git/index,\
+**/.git/HEAD,\
+**/.git/refs/stash,\
+**/.git/refs/heads/**,\
+**/.git/refs/remotes/**,\
+**/.git/refs/tags/**,\
+**/.gitignore\
+}'
+            )
+        );
         this._disposable = Disposable.from(
             watcher,
             watcher.onDidChange(this.onRepositoryChanged, this),
@@ -137,7 +156,9 @@ export class Repository extends Disposable {
 
         const section = configuration.name('remotes').value;
         if (initializing || configuration.changed(e, section, this.folder.uri)) {
-            this._providerMap = RemoteProviderFactory.createMap(configuration.get<IRemotesConfig[] | null | undefined>(section, this.folder.uri));
+            this._providerMap = RemoteProviderFactory.createMap(
+                configuration.get<IRemotesConfig[] | null | undefined>(section, this.folder.uri)
+            );
 
             if (!initializing) {
                 this._remotes = undefined;
@@ -201,9 +222,7 @@ export class Repository extends Disposable {
 
     containsUri(uri: Uri) {
         if (uri instanceof GitUri) {
-            uri = uri.repoPath !== undefined
-                ? Uri.file(uri.repoPath)
-                : uri.fileUri();
+            uri = uri.repoPath !== undefined ? Uri.file(uri.repoPath) : uri.fileUri();
         }
 
         return this.folder === workspace.getWorkspaceFolder(uri);
@@ -227,7 +246,10 @@ export class Repository extends Disposable {
     getRemotes(): Promise<GitRemote[]> {
         if (this._remotes === undefined) {
             if (this._providerMap === undefined) {
-                const remotesCfg = configuration.get<IRemotesConfig[] | null | undefined>(configuration.name('remotes').value, this.folder.uri);
+                const remotesCfg = configuration.get<IRemotesConfig[] | null | undefined>(
+                    configuration.name('remotes').value,
+                    this.folder.uri
+                );
                 this._providerMap = RemoteProviderFactory.createMap(remotesCfg);
             }
 
@@ -351,5 +373,4 @@ export class Repository extends Disposable {
 
         this._onDidChangeFileSystem.fire(e);
     }
-
 }

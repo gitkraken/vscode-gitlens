@@ -13,7 +13,7 @@ export namespace Strings {
     }
 
     export function getTokensFromTemplate(template: string) {
-        const tokens: { key: string, options: ITokenOptions }[] = [];
+        const tokens: { key: string; options: ITokenOptions }[] = [];
 
         let match = TokenRegex.exec(template);
         while (match != null) {
@@ -55,7 +55,9 @@ export namespace Strings {
     }
 
     export function md5(s: string, encoding: HexBase64Latin1Encoding = 'base64'): string {
-        return createHash('md5').update(s).digest(encoding);
+        return createHash('md5')
+            .update(s)
+            .digest(encoding);
     }
 
     export function normalizePath(fileName: string) {
@@ -74,7 +76,7 @@ export namespace Strings {
 
     export function padLeft(s: string, padTo: number, padding: string = '\u00a0') {
         const diff = padTo - width(s);
-        return (diff <= 0) ? s : padding.repeat(diff) + s;
+        return diff <= 0 ? s : padding.repeat(diff) + s;
     }
 
     export function padLeftOrTruncate(s: string, max: number, padding?: string) {
@@ -86,7 +88,7 @@ export namespace Strings {
 
     export function padRight(s: string, padTo: number, padding: string = '\u00a0') {
         const diff = padTo - width(s);
-        return (diff <= 0) ? s : s + padding.repeat(diff);
+        return diff <= 0 ? s : s + padding.repeat(diff);
     }
 
     export function padOrTruncate(s: string, max: number, padding?: string) {
@@ -115,7 +117,9 @@ export namespace Strings {
     }
 
     export function sha1(s: string, encoding: HexBase64Latin1Encoding = 'base64'): string {
-        return createHash('sha1').update(s).digest(encoding);
+        return createHash('sha1')
+            .update(s)
+            .digest(encoding);
     }
 
     export function truncate(s: string, truncateTo: number, ellipsis: string = '\u2026') {
@@ -139,6 +143,7 @@ export namespace Strings {
         return `${s.substring(0, chars)}${ellipsis}`;
     }
 
+    // tslint:disable-next-line:max-line-length
     const ansiRegex = /[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PRZcf-ntqry=><~]))/g;
 
     export function width(s: string): number {
@@ -155,24 +160,24 @@ export namespace Strings {
             const code = graphemes[i].codePointAt(0)!;
 
             // Ignore control characters
-            if (code <= 0x1F || (code >= 0x7F && code <= 0x9F)) continue;
+            if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) continue;
 
             // Ignore combining characters
-            if (code >= 0x300 && code <= 0x36F) continue;
+            if (code >= 0x300 && code <= 0x36f) continue;
 
             // https://stackoverflow.com/questions/30757193/find-out-if-character-in-string-is-emoji
             if (
-                (code >= 0x1F600 && code <= 0x1F64F) || // Emoticons
-                (code >= 0x1F300 && code <= 0x1F5FF) || // Misc Symbols and Pictographs
-                (code >= 0x1F680 && code <= 0x1F6FF) || // Transport and Map
-                (code >= 0x2600 && code <= 0x26FF) ||   // Misc symbols
-                (code >= 0x2700 && code <= 0x27BF) ||   // Dingbats
-                (code >= 0xFE00 && code <= 0xFE0F) ||   // Variation Selectors
-                (code >= 0x1F900 && code <= 0x1F9FF) || // Supplemental Symbols and Pictographs
-                (code >= 65024 && code <= 65039) ||     // Variation selector
-                (code >= 8400 && code <= 8447)          // Combining Diacritical Marks for Symbols
+                (code >= 0x1f600 && code <= 0x1f64f) || // Emoticons
+                (code >= 0x1f300 && code <= 0x1f5ff) || // Misc Symbols and Pictographs
+                (code >= 0x1f680 && code <= 0x1f6ff) || // Transport and Map
+                (code >= 0x2600 && code <= 0x26ff) || // Misc symbols
+                (code >= 0x2700 && code <= 0x27bf) || // Dingbats
+                (code >= 0xfe00 && code <= 0xfe0f) || // Variation Selectors
+                (code >= 0x1f900 && code <= 0x1f9ff) || // Supplemental Symbols and Pictographs
+                (code >= 65024 && code <= 65039) || // Variation selector
+                (code >= 8400 && code <= 8447) // Combining Diacritical Marks for Symbols
             ) {
-                if (code >= 0x1F3FB && code <= 0x1F3FF) continue; // emoji modifier fitzpatrick type
+                if (code >= 0x1f3fb && code <= 0x1f3ff) continue; // emoji modifier fitzpatrick type
 
                 emoji++;
                 count += 2;
@@ -187,7 +192,7 @@ export namespace Strings {
             }
 
             // Surrogates
-            if (code > 0xFFFF) {
+            if (code > 0xffff) {
                 i++;
             }
 
@@ -205,10 +210,10 @@ export namespace Strings {
         // code points are derived from:
         // http://www.unix.org/Public/UNIDATA/EastAsianWidth.txt
         if (
-            cp >= 0x1100 && (
-                cp <= 0x115f ||  // Hangul Jamo
-                cp === 0x2329 || // LEFT-POINTING ANGLE BRACKET
-                cp === 0x232a || // RIGHT-POINTING ANGLE BRACKET
+            cp >= 0x1100 &&
+            (cp <= 0x115f || // Hangul Jamo
+            cp === 0x2329 || // LEFT-POINTING ANGLE BRACKET
+            cp === 0x232a || // RIGHT-POINTING ANGLE BRACKET
                 // CJK Radicals Supplement .. Enclosed CJK Letters and Months
                 (0x2e80 <= cp && cp <= 0x3247 && cp !== 0x303f) ||
                 // Enclosed CJK Letters and Months .. CJK Unified Ideographs Extension A
@@ -233,8 +238,7 @@ export namespace Strings {
                 // Enclosed Ideographic Supplement
                 (0x1f200 <= cp && cp <= 0x1f251) ||
                 // CJK Unified Ideographs Extension B .. Tertiary Ideographic Plane
-                (0x20000 <= cp && cp <= 0x3fffd)
-            )
+                (0x20000 <= cp && cp <= 0x3fffd))
         ) {
             return true;
         }

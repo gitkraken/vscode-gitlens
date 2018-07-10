@@ -6,7 +6,6 @@ import { WelcomeBootstrap } from '../ipc';
 const bootstrap: WelcomeBootstrap = (window as any).bootstrap;
 
 export class WelcomeApp extends App<WelcomeBootstrap> {
-
     private _commandRelay: HTMLAnchorElement | null | undefined;
 
     constructor() {
@@ -19,7 +18,9 @@ export class WelcomeApp extends App<WelcomeBootstrap> {
 
     protected onBind() {
         const onClicked = this.onClicked.bind(this);
-        DOM.listenAll('button[data-href]', 'click', function(this: HTMLButtonElement) { onClicked(this); });
+        DOM.listenAll('button[data-href]', 'click', function(this: HTMLButtonElement) {
+            onClicked(this);
+        });
     }
 
     private onClicked(element: HTMLButtonElement) {
@@ -34,5 +35,4 @@ export class WelcomeApp extends App<WelcomeBootstrap> {
         this._commandRelay.setAttribute('href', command);
         this._commandRelay.click();
     }
-
 }

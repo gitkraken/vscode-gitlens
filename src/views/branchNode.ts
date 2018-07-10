@@ -10,7 +10,6 @@ import { GitExplorer } from './gitExplorer';
 import { GitBranch, GitUri } from '../gitService';
 
 export class BranchNode extends ExplorerRefNode {
-
     readonly supportsPaging: boolean = true;
 
     constructor(
@@ -47,7 +46,11 @@ export class BranchNode extends ExplorerRefNode {
         const branches = await Container.git.getBranches(this.uri.repoPath);
         // Get the sha length, since `git branch` can return variable length shas
         const shaLength = branches[0].sha!.length;
-        const branchesBySha = Arrays.groupByFilterMap(branches, b => b.sha!, b => b.name === this.branch.name ? undefined : b.name);
+        const branchesBySha = Arrays.groupByFilterMap(
+            branches,
+            b => b.sha!,
+            b => (b.name === this.branch.name ? undefined : b.name)
+        );
 
         const getBranchTips = (sha: string) => {
             const branches = branchesBySha.get(sha.substr(0, shaLength));
@@ -55,7 +58,10 @@ export class BranchNode extends ExplorerRefNode {
             return branches.join(', ');
         };
 
-        const children: (CommitNode | ShowAllNode)[] = [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer, this.branch, getBranchTips))];
+        const children: (CommitNode | ShowAllNode)[] = [
+            ...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer, this.branch, getBranchTips))
+        ];
+
         if (log.truncated) {
             children.push(new ShowAllNode('Show All Commits', this, this.explorer));
         }
@@ -69,9 +75,12 @@ export class BranchNode extends ExplorerRefNode {
 
         if (!this.branch.remote && this.branch.tracking !== undefined) {
             if (this.explorer.config.showTrackingBranch) {
-                name += `${this.branch.getTrackingStatus({ prefix: `${GlyphChars.Space} ` })}${GlyphChars.Space} ${GlyphChars.ArrowLeftRightLong}${GlyphChars.Space} ${this.branch.tracking}`;
+                name += `${this.branch.getTrackingStatus({ prefix: `${GlyphChars.Space} ` })}${GlyphChars.Space} ${
+                    GlyphChars.ArrowLeftRightLong
+                }${GlyphChars.Space} ${this.branch.tracking}`;
             }
-            tooltip += `\n\nTracking ${GlyphChars.Dash} ${this.branch.tracking}\n${this.branch.getTrackingStatus({ empty: 'up-to-date', expand: true, separator: '\n' })}`;
+            tooltip += `\n\nTracking ${GlyphChars.Dash} ${this.branch.tracking}
+${this.branch.getTrackingStatus({ empty: 'up-to-date', expand: true, separator: '\n' })}`;
 
             if (this.branch.state.ahead || this.branch.state.behind) {
                 if (this.branch.state.behind) {
@@ -83,7 +92,10 @@ export class BranchNode extends ExplorerRefNode {
             }
         }
 
-        const item = new TreeItem(`${this.markCurrent && this.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`, TreeItemCollapsibleState.Collapsed);
+        const item = new TreeItem(
+            `${this.markCurrent && this.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`,
+            TreeItemCollapsibleState.Collapsed
+        );
         item.tooltip = tooltip;
 
         if (this.branch.remote) {
@@ -95,9 +107,7 @@ export class BranchNode extends ExplorerRefNode {
                 : ResourceType.CurrentBranch;
         }
         else {
-            item.contextValue = !!this.branch.tracking
-                ? ResourceType.BranchWithTracking
-                : ResourceType.Branch;
+            item.contextValue = !!this.branch.tracking ? ResourceType.BranchWithTracking : ResourceType.Branch;
         }
 
         item.iconPath = {

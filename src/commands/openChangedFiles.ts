@@ -11,7 +11,6 @@ export interface OpenChangedFilesCommandArgs {
 }
 
 export class OpenChangedFilesCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.OpenChangedFiles);
     }
@@ -23,14 +22,17 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
             if (args.uris === undefined) {
                 args = { ...args };
 
-                const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, `Open changed files in which repository${GlyphChars.Ellipsis}`);
+                const repoPath = await getRepoPathOrActiveOrPrompt(
+                    uri,
+                    editor,
+                    `Open changed files in which repository${GlyphChars.Ellipsis}`
+                );
                 if (!repoPath) return undefined;
 
                 const status = await Container.git.getStatusForRepo(repoPath);
                 if (status === undefined) return window.showWarningMessage(`Unable to open changed files`);
 
-                args.uris = Arrays.filterMap(status.files,
-                    f => f.status !== 'D' ? f.uri : undefined);
+                args.uris = Arrays.filterMap(status.files, f => (f.status !== 'D' ? f.uri : undefined));
             }
 
             for (const uri of args.uris) {

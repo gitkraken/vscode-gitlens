@@ -1,6 +1,17 @@
 'use strict';
 import { Functions } from '../system';
-import { commands, ConfigurationChangeEvent, Disposable, Event, EventEmitter, TextEditor, TreeDataProvider, TreeItem, TreeView, window } from 'vscode';
+import {
+    commands,
+    ConfigurationChangeEvent,
+    Disposable,
+    Event,
+    EventEmitter,
+    TextEditor,
+    TreeDataProvider,
+    TreeItem,
+    TreeView,
+    window
+} from 'vscode';
 import { configuration, GitExplorerView, IExplorersConfig, IHistoryExplorerConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext } from '../constants';
 import { Container } from '../container';
@@ -12,7 +23,6 @@ import { Logger } from '../logger';
 export * from './explorerNodes';
 
 export class HistoryExplorer extends Disposable implements TreeDataProvider<ExplorerNode> {
-
     private _disposable: Disposable | undefined;
     private _root?: ExplorerNode;
     private _tree: TreeView<ExplorerNode> | undefined;
@@ -31,8 +41,16 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
         commands.registerCommand('gitlens.historyExplorer.close', () => this.dock(false), this);
         commands.registerCommand('gitlens.historyExplorer.dock', this.dock, this);
 
-        commands.registerCommand('gitlens.historyExplorer.setRenameFollowingOn', () => GitExplorer.setRenameFollowing(true), this);
-        commands.registerCommand('gitlens.historyExplorer.setRenameFollowingOff', () => GitExplorer.setRenameFollowing(false), this);
+        commands.registerCommand(
+            'gitlens.historyExplorer.setRenameFollowingOn',
+            () => GitExplorer.setRenameFollowing(true),
+            this
+        );
+        commands.registerCommand(
+            'gitlens.historyExplorer.setRenameFollowingOff',
+            () => GitExplorer.setRenameFollowing(false),
+            this
+        );
 
         Container.context.subscriptions.push(
             window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this),
@@ -49,15 +67,21 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
     private async onConfigurationChanged(e: ConfigurationChangeEvent) {
         const initializing = configuration.initializing(e);
 
-        if (!initializing &&
+        if (
+            !initializing &&
             !configuration.changed(e, configuration.name('historyExplorer').value) &&
             !configuration.changed(e, configuration.name('explorers').value) &&
             !configuration.changed(e, configuration.name('defaultGravatarsStyle').value) &&
-            !configuration.changed(e, configuration.name('advanced')('fileHistoryFollowsRenames').value)) return;
+            !configuration.changed(e, configuration.name('advanced')('fileHistoryFollowsRenames').value)
+        ) {
+            return;
+        }
 
-        if (initializing ||
+        if (
+            initializing ||
             configuration.changed(e, configuration.name('historyExplorer')('enabled').value) ||
-            configuration.changed(e, configuration.name('historyExplorer')('location').value)) {
+            configuration.changed(e, configuration.name('historyExplorer')('location').value)
+        ) {
             setCommandContext(CommandContext.HistoryExplorer, this.config.enabled ? this.config.location : false);
         }
 
@@ -80,7 +104,9 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
                 this._onDidChangeTreeData = new EventEmitter<ExplorerNode>();
             }
 
-            this._tree = window.createTreeView(`gitlens.historyExplorer:${this.config.location}`, { treeDataProvider: this });
+            this._tree = window.createTreeView(`gitlens.historyExplorer:${this.config.location}`, {
+                treeDataProvider: this
+            });
             this._disposable = this._tree;
         }
 
@@ -157,7 +183,7 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
     }
 
     refreshNode(node: ExplorerNode, args?: RefreshNodeCommandArgs) {
-        Logger.log(`HistoryExplorer.refreshNode(${(node as { id?: string}).id || ''})`);
+        Logger.log(`HistoryExplorer.refreshNode(${(node as { id?: string }).id || ''})`);
 
         if (args !== undefined && node.supportsPaging) {
             node.maxCount = args.maxCount;

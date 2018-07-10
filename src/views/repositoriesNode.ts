@@ -7,7 +7,6 @@ import { GitUri, Repository } from '../gitService';
 import { RepositoryNode } from './repositoryNode';
 
 export class RepositoriesNode extends ExplorerNode {
-
     constructor(
         private readonly repositories: Repository[],
         private readonly explorer: GitExplorer

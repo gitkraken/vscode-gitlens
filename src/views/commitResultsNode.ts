@@ -8,7 +8,6 @@ import { Explorer, ExplorerNode, MessageNode, ResourceType } from './explorerNod
 import { CommitFormatter, GitLogCommit } from '../gitService';
 
 export class CommitResultsNode extends ExplorerNode {
-
     constructor(
         public readonly commit: GitLogCommit,
         private readonly explorer: Explorer,
@@ -19,12 +18,23 @@ export class CommitResultsNode extends ExplorerNode {
 
     async getChildren(): Promise<ExplorerNode[]> {
         const children = await new CommitNode(this.commit, this.explorer).getChildren();
-        children.splice(0, 0, new MessageNode(CommitFormatter.fromTemplate('${message}', this.commit, { truncateMessageAtNewLine: true }), CommitFormatter.fromTemplate('${message}', this.commit)));
+        children.splice(
+            0,
+            0,
+            new MessageNode(
+                CommitFormatter.fromTemplate('${message}', this.commit, { truncateMessageAtNewLine: true }),
+                CommitFormatter.fromTemplate('${message}', this.commit)
+            )
+        );
         return children;
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        const label = CommitFormatter.fromTemplate(`Commit \${sha} ${Strings.pad(GlyphChars.Dash, 1, 1)} \${authorAgoOrDate}`, this.commit, Container.config.defaultDateFormat);
+        const label = CommitFormatter.fromTemplate(
+            `Commit \${sha} ${Strings.pad(GlyphChars.Dash, 1, 1)} \${authorAgoOrDate}`,
+            this.commit,
+            Container.config.defaultDateFormat
+        );
         const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
         item.contextValue = this.contextValue;
         return item;

@@ -15,7 +15,6 @@ export interface StashSaveCommandArgs {
 }
 
 export class StashSaveCommand extends Command {
-
     constructor() {
         super(Commands.StashSave);
     }
@@ -29,7 +28,10 @@ export class StashSaveCommand extends Command {
 
         if (context.type === 'scm-groups') {
             args = { ...args };
-            args.uris = context.scmResourceGroups.reduce<Uri[]>((a, b) => a.concat(b.resourceStates.map(s => s.resourceUri)), []);
+            args.uris = context.scmResourceGroups.reduce<Uri[]>(
+                (a, b) => a.concat(b.resourceStates.map(s => s.resourceUri)),
+                []
+            );
             return this.execute(args);
         }
 
@@ -39,7 +41,10 @@ export class StashSaveCommand extends Command {
     async execute(args: StashSaveCommandArgs = {}) {
         let repoPath = await Container.git.getHighlanderRepoPath();
         if (!repoPath) {
-            const pick = await RepositoriesQuickPick.show(`Stash changes for which repository${GlyphChars.Ellipsis}`, args.goBackCommand);
+            const pick = await RepositoriesQuickPick.show(
+                `Stash changes for which repository${GlyphChars.Ellipsis}`,
+                args.goBackCommand
+            );
             if (pick instanceof CommandQuickPickItem) return pick.execute();
             if (pick === undefined) return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
 
@@ -53,7 +58,9 @@ export class StashSaveCommand extends Command {
                     prompt: `Please provide a stash message`,
                     placeHolder: `Stash message`
                 } as InputBoxOptions);
-                if (args.message === undefined) return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
+                if (args.message === undefined) {
+                    return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
+                }
             }
 
             return await Container.git.stashSave(repoPath, args.message, args.uris);

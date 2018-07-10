@@ -9,7 +9,6 @@ const ConsolePrefix = `[${extensionOutputChannelName}]`;
 const isDebuggingRegex = /^--inspect(-brk)?=?/;
 
 export class Logger {
-
     static level: OutputLevel = OutputLevel.Silent;
     static output: OutputChannel | undefined;
 
@@ -45,7 +44,9 @@ export class Logger {
         }
 
         if (this.output !== undefined) {
-            this.output.appendLine((Logger.isDebugging ? [this.timestamp, message, ...params] : [message, ...params]).join(' '));
+            this.output.appendLine(
+                (Logger.isDebugging ? [this.timestamp, message, ...params] : [message, ...params]).join(' ')
+            );
         }
     }
 
@@ -57,7 +58,12 @@ export class Logger {
         }
 
         if (this.output !== undefined) {
-            this.output.appendLine((Logger.isDebugging ? [this.timestamp, classOrMethod, ...params, ex] : [classOrMethod, ...params, ex]).join(' '));
+            this.output.appendLine(
+                (Logger.isDebugging
+                    ? [this.timestamp, classOrMethod, ...params, ex]
+                    : [classOrMethod, ...params, ex]
+                ).join(' ')
+            );
         }
 
         // Telemetry.trackException(ex);
@@ -71,13 +77,19 @@ export class Logger {
         }
 
         if (this.output !== undefined) {
-            this.output.appendLine((Logger.isDebugging ? [this.timestamp, message, ...params] : [message, ...params]).join(' '));
+            this.output.appendLine(
+                (Logger.isDebugging ? [this.timestamp, message, ...params] : [message, ...params]).join(' ')
+            );
         }
     }
 
     private static get timestamp(): string {
         const now = new Date();
-        return `[${now.toISOString().replace(/T/, ' ').replace(/\..+/, '')}:${('00' + now.getUTCMilliseconds()).slice(-3)}]`;
+        const time = now
+            .toISOString()
+            .replace(/T/, ' ')
+            .replace(/\..+/, '');
+        return `[${time}:${('00' + now.getUTCMilliseconds()).slice(-3)}]`;
     }
 
     static gitOutput: OutputChannel | undefined;
@@ -88,7 +100,9 @@ export class Logger {
         if (this.gitOutput === undefined) {
             this.gitOutput = window.createOutputChannel(`${extensionOutputChannelName} (Git)`);
         }
-        this.gitOutput.appendLine(`${this.timestamp} ${command} (${cwd})${ex === undefined ? '' : `\n\n${ex.toString()}`}`);
+        this.gitOutput.appendLine(
+            `${this.timestamp} ${command} (${cwd})${ex === undefined ? '' : `\n\n${ex.toString()}`}`
+        );
     }
 
     private static _isDebugging: boolean | undefined;
@@ -97,10 +111,9 @@ export class Logger {
             try {
                 const args = process.execArgv;
 
-                this._isDebugging = args
-                    ? args.some(arg => isDebuggingRegex.test(arg))
-                    : false;
-            } catch { }
+                this._isDebugging = args ? args.some(arg => isDebuggingRegex.test(arg)) : false;
+            }
+            catch {}
         }
 
         return this._isDebugging;

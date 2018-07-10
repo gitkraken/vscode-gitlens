@@ -6,7 +6,6 @@ abstract class Comparer<T> {
 }
 
 class UriComparer extends Comparer<Uri> {
-
     equals(lhs: Uri | undefined, rhs: Uri | undefined) {
         if (lhs === rhs) return true;
         if (lhs === undefined || rhs === undefined) return false;
@@ -16,7 +15,6 @@ class UriComparer extends Comparer<Uri> {
 }
 
 class TextDocumentComparer extends Comparer<TextDocument> {
-
     equals(lhs: TextDocument | undefined, rhs: TextDocument | undefined) {
         return lhs === rhs;
         // if (lhs === rhs) return true;
@@ -27,12 +25,15 @@ class TextDocumentComparer extends Comparer<TextDocument> {
 }
 
 class TextEditorComparer extends Comparer<TextEditor> {
-
-    equals(lhs: TextEditor | undefined, rhs: TextEditor | undefined, options: { useId: boolean, usePosition: boolean } = { useId: false, usePosition: false }) {
+    equals(
+        lhs: TextEditor | undefined,
+        rhs: TextEditor | undefined,
+        options: { useId: boolean; usePosition: boolean } = { useId: false, usePosition: false }
+    ) {
         if (lhs === rhs) return true;
         if (lhs === undefined || rhs === undefined) return false;
 
-        if (options.usePosition && (lhs.viewColumn !== rhs.viewColumn)) return false;
+        if (options.usePosition && lhs.viewColumn !== rhs.viewColumn) return false;
 
         if (options.useId && (!lhs.document || !rhs.document)) {
             if ((lhs as any).id !== (rhs as any).id) return false;

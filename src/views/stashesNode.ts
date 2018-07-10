@@ -7,7 +7,6 @@ import { GitUri, Repository } from '../gitService';
 import { StashNode } from './stashNode';
 
 export class StashesNode extends ExplorerNode {
-
     constructor(
         uri: GitUri,
         private readonly repo: Repository,

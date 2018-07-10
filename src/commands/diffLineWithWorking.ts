@@ -15,7 +15,6 @@ export interface DiffLineWithWorkingCommandArgs {
 }
 
 export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.DiffLineWithWorking);
     }
@@ -36,10 +35,13 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
             if (blameline < 0) return undefined;
 
             try {
-                const blame = editor && editor.document && editor.document.isDirty
-                    ? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-                    : await Container.git.getBlameForLine(gitUri, blameline);
-                if (blame === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                const blame =
+                    editor && editor.document && editor.document.isDirty
+                        ? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
+                        : await Container.git.getBlameForLine(gitUri, blameline);
+                if (blame === undefined) {
+                    return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                }
 
                 args.commit = blame.commit;
 
@@ -47,9 +49,10 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
                 if (args.commit.isUncommitted) {
                     const status = await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
                     args.commit = args.commit.with({
-                        sha: status !== undefined && status.indexStatus !== undefined
-                            ? GitService.stagedUncommittedSha
-                            : args.commit.previousSha!,
+                        sha:
+                            status !== undefined && status.indexStatus !== undefined
+                                ? GitService.stagedUncommittedSha
+                                : args.commit.previousSha!,
                         fileName: args.commit.previousFileName!,
                         originalFileName: null,
                         previousSha: null,

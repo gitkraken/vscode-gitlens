@@ -1,6 +1,13 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, getRepoPathOrActiveOrPrompt, isCommandViewContextWithRemote } from './common';
+import {
+    ActiveEditorCommand,
+    CommandContext,
+    Commands,
+    getCommandUri,
+    getRepoPathOrActiveOrPrompt,
+    isCommandViewContextWithRemote
+} from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../gitService';
@@ -12,7 +19,6 @@ export interface OpenRepoInRemoteCommandArgs {
 }
 
 export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.OpenRepoInRemote);
     }
@@ -29,9 +35,13 @@ export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: OpenRepoInRemoteCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
-        const gitUri = uri && await GitUri.fromUri(uri);
+        const gitUri = uri && (await GitUri.fromUri(uri));
 
-        const repoPath = await getRepoPathOrActiveOrPrompt(gitUri, editor, `Open which repository in remote${GlyphChars.Ellipsis}`);
+        const repoPath = await getRepoPathOrActiveOrPrompt(
+            gitUri,
+            editor,
+            `Open which repository in remote${GlyphChars.Ellipsis}`
+        );
         if (!repoPath) return undefined;
 
         try {
@@ -47,7 +57,9 @@ export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'OpenRepoInRemoteCommand');
-            return window.showErrorMessage(`Unable to open repository in remote provider. See output channel for more details`);
+            return window.showErrorMessage(
+                `Unable to open repository in remote provider. See output channel for more details`
+            );
         }
     }
 }

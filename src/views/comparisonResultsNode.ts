@@ -9,7 +9,6 @@ import { GitLog, GitService, GitUri } from '../gitService';
 import { StatusFilesResultsNode } from './statusFilesResultsNode';
 
 export class ComparisonResultsNode extends ExplorerNode {
-
     constructor(
         public readonly repoPath: string,
         public readonly ref1: NamedRef,
@@ -22,7 +21,11 @@ export class ComparisonResultsNode extends ExplorerNode {
     async getChildren(): Promise<ExplorerNode[]> {
         this.resetChildren();
 
-        const commitsQueryFn = (maxCount: number | undefined) => Container.git.getLog(this.uri.repoPath!, { maxCount: maxCount, ref: `${this.ref1.ref}...${this.ref2.ref || 'HEAD'}` });
+        const commitsQueryFn = (maxCount: number | undefined) =>
+            Container.git.getLog(this.uri.repoPath!, {
+                maxCount: maxCount,
+                ref: `${this.ref1.ref}...${this.ref2.ref || 'HEAD'}`
+            });
         const commitsLabelFn = async (log: GitLog | undefined) => {
             const count = log !== undefined ? log.count : 0;
             const truncated = log !== undefined ? log.truncated : false;
@@ -41,12 +44,16 @@ export class ComparisonResultsNode extends ExplorerNode {
 
     async getTreeItem(): Promise<TreeItem> {
         let repository = '';
-        if (await Container.git.getRepositoryCount() > 1) {
+        if ((await Container.git.getRepositoryCount()) > 1) {
             const repo = await Container.git.getRepository(this.uri.repoPath!);
             repository = ` ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) || this.uri.repoPath}`;
         }
 
-        const item = new TreeItem(`Comparing ${this.ref1.label || GitService.shortenSha(this.ref1.ref, { working: 'Working Tree' })} to ${this.ref2.label || GitService.shortenSha(this.ref2.ref, { working: 'Working Tree' })}${repository}`, TreeItemCollapsibleState.Expanded);
+        const item = new TreeItem(
+            `Comparing ${this.ref1.label || GitService.shortenSha(this.ref1.ref, { working: 'Working Tree' })} to ${this
+                .ref2.label || GitService.shortenSha(this.ref2.ref, { working: 'Working Tree' })}${repository}`,
+            TreeItemCollapsibleState.Expanded
+        );
         item.contextValue = ResourceType.ComparisonResults;
         return item;
     }

@@ -18,7 +18,6 @@ export interface IStatusFormatOptions extends IFormatOptions {
 }
 
 export class StatusFileFormatter extends Formatter<IGitStatusFile, IStatusFormatOptions> {
-
     get directory() {
         const directory = GitStatusFile.getFormattedDirectory(this._item, false, this._options.relativePath);
         return this._padOrTruncate(directory, this._options.tokenOptions!.file);
@@ -46,13 +45,21 @@ export class StatusFileFormatter extends Formatter<IGitStatusFile, IStatusFormat
 
     get working() {
         const commit = (this._item as IGitStatusFileWithCommit).commit;
-        return (commit !== undefined && commit.isUncommitted) ? `${GlyphChars.Pencil} ${GlyphChars.Space}` : '';
+        return commit !== undefined && commit.isUncommitted ? `${GlyphChars.Pencil} ${GlyphChars.Space}` : '';
     }
 
     static fromTemplate(template: string, status: IGitStatusFile, dateFormat: string | null): string;
     static fromTemplate(template: string, status: IGitStatusFile, options?: IStatusFormatOptions): string;
-    static fromTemplate(template: string, status: IGitStatusFile, dateFormatOrOptions?: string | null | IStatusFormatOptions): string;
-    static fromTemplate(template: string, status: IGitStatusFile, dateFormatOrOptions?: string | null | IStatusFormatOptions): string {
+    static fromTemplate(
+        template: string,
+        status: IGitStatusFile,
+        dateFormatOrOptions?: string | null | IStatusFormatOptions
+    ): string;
+    static fromTemplate(
+        template: string,
+        status: IGitStatusFile,
+        dateFormatOrOptions?: string | null | IStatusFormatOptions
+    ): string {
         return super.fromTemplateCore(this, template, status, dateFormatOrOptions);
     }
 }

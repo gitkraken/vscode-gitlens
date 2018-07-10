@@ -1,6 +1,13 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, getRepoPathOrActiveOrPrompt, isCommandViewContextWithRemote } from './common';
+import {
+    ActiveEditorCommand,
+    CommandContext,
+    Commands,
+    getCommandUri,
+    getRepoPathOrActiveOrPrompt,
+    isCommandViewContextWithRemote
+} from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../gitService';
@@ -12,7 +19,6 @@ export interface OpenBranchesInRemoteCommandArgs {
 }
 
 export class OpenBranchesInRemoteCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.OpenBranchesInRemote);
     }
@@ -29,9 +35,13 @@ export class OpenBranchesInRemoteCommand extends ActiveEditorCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: OpenBranchesInRemoteCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
-        const gitUri = uri && await GitUri.fromUri(uri);
+        const gitUri = uri && (await GitUri.fromUri(uri));
 
-        const repoPath = await getRepoPathOrActiveOrPrompt(gitUri, editor, `Open branches in remote for which repository${GlyphChars.Ellipsis}`);
+        const repoPath = await getRepoPathOrActiveOrPrompt(
+            gitUri,
+            editor,
+            `Open branches in remote for which repository${GlyphChars.Ellipsis}`
+        );
         if (!repoPath) return undefined;
 
         try {
@@ -47,7 +57,9 @@ export class OpenBranchesInRemoteCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'OpenBranchesInRemoteCommand');
-            return window.showErrorMessage(`Unable to open branches in remote provider. See output channel for more details`);
+            return window.showErrorMessage(
+                `Unable to open branches in remote provider. See output channel for more details`
+            );
         }
     }
 }

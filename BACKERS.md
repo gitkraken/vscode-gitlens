@@ -14,7 +14,6 @@ None yet &mdash; could be you!
 <h2 align="center">Silver Sponsors ($150+)</h2>
 None yet &mdash; could be you!
 
-
 <h2 align="center">Bronze Sponsors ($50+)</h2>
 
 - Michael Duffy

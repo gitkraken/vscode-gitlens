@@ -12,13 +12,10 @@ export interface OpenCommitInRemoteCommandArgs {
 }
 
 export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
-
     static getMarkdownCommandArgs(sha: string): string;
     static getMarkdownCommandArgs(args: OpenCommitInRemoteCommandArgs): string;
     static getMarkdownCommandArgs(argsOrSha: OpenCommitInRemoteCommandArgs | string): string {
-        const args = typeof argsOrSha === 'string'
-            ? { sha: argsOrSha }
-            : argsOrSha;
+        const args = typeof argsOrSha === 'string' ? { sha: argsOrSha } : argsOrSha;
         return super.getMarkdownCommandArgsCore<OpenCommitInRemoteCommandArgs>(Commands.OpenCommitInRemote, args);
     }
 
@@ -47,10 +44,15 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
                 const blameline = editor == null ? 0 : editor.selection.active.line;
                 if (blameline < 0) return undefined;
 
-                const blame = editor && editor.document && editor.document.isDirty
-                    ? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-                    : await Container.git.getBlameForLine(gitUri, blameline);
-                if (blame === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open commit in remote provider');
+                const blame =
+                    editor && editor.document && editor.document.isDirty
+                        ? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
+                        : await Container.git.getBlameForLine(gitUri, blameline);
+                if (blame === undefined) {
+                    return Messages.showFileNotUnderSourceControlWarningMessage(
+                        'Unable to open commit in remote provider'
+                    );
+                }
 
                 let commit = blame.commit;
                 // If the line is uncommitted, find the previous commit
@@ -78,7 +80,9 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'OpenCommitInRemoteCommand');
-            return window.showErrorMessage(`Unable to open commit in remote provider. See output channel for more details`);
+            return window.showErrorMessage(
+                `Unable to open commit in remote provider. See output channel for more details`
+            );
         }
     }
 }

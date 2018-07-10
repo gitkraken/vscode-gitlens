@@ -24,8 +24,12 @@ interface BlameEntry {
 }
 
 export class GitBlameParser {
-
-    static parse(data: string, repoPath: string | undefined, fileName: string, currentUser: string | undefined): GitBlame | undefined {
+    static parse(
+        data: string,
+        repoPath: string | undefined,
+        fileName: string,
+        currentUser: string | undefined
+    ): GitBlame | undefined {
         if (!data) return undefined;
 
         const authors: Map<string, GitAuthor> = new Map();
@@ -61,7 +65,10 @@ export class GitBlameParser {
                         entry.author = 'You';
                     }
                     else {
-                        entry.author = lineParts.slice(1).join(' ').trim();
+                        entry.author = lineParts
+                            .slice(1)
+                            .join(' ')
+                            .trim();
                         if (currentUser !== undefined && currentUser === entry.author) {
                             entry.author = 'You';
                         }
@@ -69,7 +76,10 @@ export class GitBlameParser {
                     break;
 
                 case 'author-mail':
-                    entry.authorEmail = lineParts.slice(1).join(' ').trim();
+                    entry.authorEmail = lineParts
+                        .slice(1)
+                        .join(' ')
+                        .trim();
                     const start = entry.authorEmail.indexOf('<');
                     if (start >= 0) {
                         const end = entry.authorEmail.indexOf('>', start);
@@ -92,7 +102,10 @@ export class GitBlameParser {
                     break;
 
                 case 'summary':
-                    entry.summary = lineParts.slice(1).join(' ').trim();
+                    entry.summary = lineParts
+                        .slice(1)
+                        .join(' ')
+                        .trim();
                     break;
 
                 case 'previous':
@@ -105,7 +118,9 @@ export class GitBlameParser {
 
                     if (first && repoPath === undefined) {
                         // Try to get the repoPath from the most recent commit
-                        repoPath = Strings.normalizePath(fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName!, ''));
+                        repoPath = Strings.normalizePath(
+                            fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName!, '')
+                        );
                         relativeFileName = Strings.normalizePath(path.relative(repoPath, fileName));
                     }
                     first = false;
@@ -139,7 +154,14 @@ export class GitBlameParser {
         } as GitBlame;
     }
 
-    private static parseEntry(entry: BlameEntry, repoPath: string | undefined, fileName: string | undefined, commits: Map<string, GitBlameCommit>, authors: Map<string, GitAuthor>, lines: GitCommitLine[]) {
+    private static parseEntry(
+        entry: BlameEntry,
+        repoPath: string | undefined,
+        fileName: string | undefined,
+        commits: Map<string, GitBlameCommit>,
+        authors: Map<string, GitAuthor>,
+        lines: GitCommitLine[]
+    ) {
         let commit = commits.get(entry.sha);
         if (commit === undefined) {
             if (entry.author !== undefined) {
@@ -158,7 +180,7 @@ export class GitBlameParser {
                 entry.sha,
                 entry.author,
                 entry.authorEmail,
-                new Date(entry.authorDate as any * 1000),
+                new Date((entry.authorDate as any) * 1000),
                 entry.summary!,
                 fileName!,
                 fileName !== entry.fileName ? entry.fileName : undefined,

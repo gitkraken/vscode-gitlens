@@ -13,7 +13,6 @@ export interface IKeyIterator {
 }
 
 export class StringIterator implements IKeyIterator {
-
     private _value: string = '';
     private _pos: number = 0;
 
@@ -55,7 +54,6 @@ const enum CharCode {
 }
 
 export class PathIterator implements IKeyIterator {
-
     private _value!: string;
     private _from!: number;
     private _to!: number;
@@ -80,10 +78,12 @@ export class PathIterator implements IKeyIterator {
             if (ch === CharCode.Slash || ch === CharCode.Backslash) {
                 if (justSeps) {
                     this._from++;
-                } else {
+                }
+                else {
                     break;
                 }
-            } else {
+            }
+            else {
                 justSeps = false;
             }
         }
@@ -91,7 +91,6 @@ export class PathIterator implements IKeyIterator {
     }
 
     cmp(a: string): number {
-
         let aPos = 0;
         const aLen = a.length;
         let thisPos = this._from;
@@ -107,9 +106,11 @@ export class PathIterator implements IKeyIterator {
 
         if (aLen === this._to - this._from) {
             return 0;
-        } else if (aPos < aLen) {
+        }
+        else if (aPos < aLen) {
             return -1;
-        } else {
+        }
+        else {
             return 1;
         }
     }
@@ -133,7 +134,6 @@ class TernarySearchTreeNode<E> {
 }
 
 export class TernarySearchTree<E> {
-
     static forPaths<E>(): TernarySearchTree<E> {
         return new TernarySearchTree<E>(new PathIterator());
     }
@@ -172,16 +172,16 @@ export class TernarySearchTree<E> {
                     node.left.segment = iter.value();
                 }
                 node = node.left;
-
-            } else if (val < 0) {
+            }
+            else if (val < 0) {
                 // right
                 if (!node.right) {
                     node.right = new TernarySearchTreeNode<E>();
                     node.right.segment = iter.value();
                 }
                 node = node.right;
-
-            } else if (iter.hasNext()) {
+            }
+            else if (iter.hasNext()) {
                 // mid
                 iter.next();
                 if (!node.mid) {
@@ -189,7 +189,8 @@ export class TernarySearchTree<E> {
                     node.mid.segment = iter.value();
                 }
                 node = node.mid;
-            } else {
+            }
+            else {
                 break;
             }
         }
@@ -207,14 +208,17 @@ export class TernarySearchTree<E> {
             if (val > 0) {
                 // left
                 node = node.left;
-            } else if (val < 0) {
+            }
+            else if (val < 0) {
                 // right
                 node = node.right;
-            } else if (iter.hasNext()) {
+            }
+            else if (iter.hasNext()) {
                 // mid
                 iter.next();
                 node = node.mid;
-            } else {
+            }
+            else {
                 break;
             }
         }
@@ -233,16 +237,19 @@ export class TernarySearchTree<E> {
                 // left
                 stack.push([1, node]);
                 node = node.left;
-            } else if (val < 0) {
+            }
+            else if (val < 0) {
                 // right
                 stack.push([-1, node]);
                 node = node.right;
-            } else if (iter.hasNext()) {
+            }
+            else if (iter.hasNext()) {
                 // mid
                 iter.next();
                 stack.push([0, node]);
                 node = node.mid;
-            } else {
+            }
+            else {
                 // remove element
                 node.value = undefined;
 
@@ -250,9 +257,15 @@ export class TernarySearchTree<E> {
                 while (stack.length > 0 && node.isEmpty()) {
                     const [dir, parent] = stack.pop()!;
                     switch (dir) {
-                        case 1: parent.left = undefined; break;
-                        case 0: parent.mid = undefined; break;
-                        case -1: parent.right = undefined; break;
+                        case 1:
+                            parent.left = undefined;
+                            break;
+                        case 0:
+                            parent.mid = undefined;
+                            break;
+                        case -1:
+                            parent.right = undefined;
+                            break;
                     }
                     node = parent;
                 }
@@ -270,19 +283,22 @@ export class TernarySearchTree<E> {
             if (val > 0) {
                 // left
                 node = node.left;
-            } else if (val < 0) {
+            }
+            else if (val < 0) {
                 // right
                 node = node.right;
-            } else if (iter.hasNext()) {
+            }
+            else if (iter.hasNext()) {
                 // mid
                 iter.next();
                 candidate = node.value || candidate;
                 node = node.mid;
-            } else {
+            }
+            else {
                 break;
             }
         }
-        return node && node.value || candidate;
+        return (node && node.value) || candidate;
     }
 
     findSuperstr(key: string): TernarySearchTree<E> | undefined {
@@ -293,14 +309,17 @@ export class TernarySearchTree<E> {
             if (val > 0) {
                 // left
                 node = node.left;
-            } else if (val < 0) {
+            }
+            else if (val < 0) {
                 // right
                 node = node.right;
-            } else if (iter.hasNext()) {
+            }
+            else if (iter.hasNext()) {
                 // mid
                 iter.next();
                 node = node.mid;
-            } else {
+            }
+            else {
                 // collect
                 if (!node.mid) {
                     return undefined;

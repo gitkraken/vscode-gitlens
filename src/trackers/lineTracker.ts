@@ -4,7 +4,6 @@ import { Disposable, Event, EventEmitter, TextEditor, TextEditorSelectionChangeE
 import { isTextEditor } from './../constants';
 
 export interface LinesChangeEvent {
-
     readonly editor: TextEditor | undefined;
     readonly lines: number[] | undefined;
 
@@ -13,7 +12,6 @@ export interface LinesChangeEvent {
 }
 
 export class LineTracker<T> extends Disposable {
-
     private _onDidChangeActiveLines = new EventEmitter<LinesChangeEvent>();
     get onDidChangeActiveLines(): Event<LinesChangeEvent> {
         return this._onDidChangeActiveLines.event;
@@ -135,13 +133,19 @@ export class LineTracker<T> extends Disposable {
         }
 
         if (this._linesChangedDebounced === undefined) {
-            this._linesChangedDebounced = Functions.debounce((e: LinesChangeEvent) => {
-                if (window.activeTextEditor !== e.editor) return;
-                // Make sure we are still on the same lines
-                if (!LineTracker.includesAll(e.lines , (e.editor && e.editor.selections.map(s => s.active.line)))) return;
+            this._linesChangedDebounced = Functions.debounce(
+                (e: LinesChangeEvent) => {
+                    if (window.activeTextEditor !== e.editor) return;
+                    // Make sure we are still on the same lines
+                    if (!LineTracker.includesAll(e.lines, e.editor && e.editor.selections.map(s => s.active.line))) {
+                        return;
+                    }
 
-                this.fireLinesChanged(e);
-            }, 250, { track: true });
+                    this.fireLinesChanged(e);
+                },
+                250,
+                { track: true }
+            );
         }
 
         // If we have no pending moves, then fire an immediate pending event, and defer the real event

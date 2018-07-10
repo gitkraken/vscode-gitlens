@@ -4,11 +4,18 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { Container } from '../container';
 import { Explorer, ExplorerNode, MessageNode, ResourceType } from './explorerNode';
-import { GitCommitType, GitLogCommit, GitService, GitUri, Repository, RepositoryChange, RepositoryChangeEvent } from '../gitService';
+import {
+    GitCommitType,
+    GitLogCommit,
+    GitService,
+    GitUri,
+    Repository,
+    RepositoryChange,
+    RepositoryChangeEvent
+} from '../gitService';
 import { Logger } from '../logger';
 
 export class FileHistoryNode extends ExplorerNode {
-
     constructor(
         uri: GitUri,
         private readonly repo: Repository,
@@ -22,7 +29,9 @@ export class FileHistoryNode extends ExplorerNode {
 
         const children: ExplorerNode[] = [];
 
-        const displayAs = CommitFileNodeDisplayAs.CommitLabel | (this.explorer.config.avatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
+        const displayAs =
+            CommitFileNodeDisplayAs.CommitLabel |
+            (this.explorer.config.avatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
 
         const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
         if (status !== undefined && (status.indexStatus !== undefined || status.workTreeStatus !== undefined)) {
@@ -55,13 +64,19 @@ export class FileHistoryNode extends ExplorerNode {
                 status.status,
                 status.originalFileName,
                 previousSha,
-                status.originalFileName || status.fileName);
+                status.originalFileName || status.fileName
+            );
             children.push(new CommitFileNode(status, commit, this.explorer, displayAs));
         }
 
         const log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, { ref: this.uri.sha });
         if (log !== undefined) {
-            children.push(...Iterables.map(log.commits.values(), c => new CommitFileNode(c.fileStatuses[0], c, this.explorer, displayAs)));
+            children.push(
+                ...Iterables.map(
+                    log.commits.values(),
+                    c => new CommitFileNode(c.fileStatuses[0], c, this.explorer, displayAs)
+                )
+            );
         }
 
         if (children.length === 0) return [new MessageNode('No file history')];

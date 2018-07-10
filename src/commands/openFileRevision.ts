@@ -21,10 +21,13 @@ export interface OpenFileRevisionCommandArgs {
 }
 
 export class OpenFileRevisionCommand extends ActiveEditorCommand {
-
     static getMarkdownCommandArgs(args: OpenFileRevisionCommandArgs): string;
     static getMarkdownCommandArgs(uri: Uri, annotationType?: FileAnnotationType, line?: number): string;
-    static getMarkdownCommandArgs(argsOrUri: OpenFileRevisionCommandArgs | Uri, annotationType?: FileAnnotationType, line?: number): string {
+    static getMarkdownCommandArgs(
+        argsOrUri: OpenFileRevisionCommandArgs | Uri,
+        annotationType?: FileAnnotationType,
+        line?: number
+    ): string {
         let args: OpenFileRevisionCommandArgs | Uri;
         if (argsOrUri instanceof Uri) {
             const uri = argsOrUri;
@@ -61,46 +64,74 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 
                 const gitUri = await GitUri.fromUri(uri);
 
-                const placeHolder = `Open ${gitUri.getFormattedPath()}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''} in revision ${GlyphChars.Ellipsis}`;
+                const placeHolder = `Open ${gitUri.getFormattedPath()}${
+                    gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''
+                } in revision ${GlyphChars.Ellipsis}`;
                 progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
 
-                const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: args.maxCount, ref: gitUri.sha });
-                if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open history compare');
+                const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
+                    maxCount: args.maxCount,
+                    ref: gitUri.sha
+                });
+                if (log === undefined) {
+                    return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open history compare');
+                }
 
                 if (progressCancellation.token.isCancellationRequested) return undefined;
 
                 let previousPageCommand: CommandQuickPickItem | undefined = undefined;
 
                 if (log.truncated) {
-                    const npc = new CommandQuickPickItem({
-                        label: `$(arrow-right) Show Next Commits`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} newer commits`
-                    }, Commands.OpenFileRevision, [uri, { ...args } as OpenFileRevisionCommandArgs]);
+                    const npc = new CommandQuickPickItem(
+                        {
+                            label: `$(arrow-right) Show Next Commits`,
+                            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} newer commits`
+                        },
+                        Commands.OpenFileRevision,
+                        [uri, { ...args } as OpenFileRevisionCommandArgs]
+                    );
 
                     const last = Iterables.last(log.commits.values());
                     if (last != null) {
-                        previousPageCommand = new CommandQuickPickItem({
-                            label: `$(arrow-left) Show Previous Commits`,
-                            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} older commits`
-                        }, Commands.OpenFileRevision, [new GitUri(uri, last), { ...args, nextPageCommand: npc } as OpenFileRevisionCommandArgs]);
+                        previousPageCommand = new CommandQuickPickItem(
+                            {
+                                label: `$(arrow-left) Show Previous Commits`,
+                                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} older commits`
+                            },
+                            Commands.OpenFileRevision,
+                            [new GitUri(uri, last), { ...args, nextPageCommand: npc } as OpenFileRevisionCommandArgs]
+                        );
                     }
                 }
 
                 const pick = await FileHistoryQuickPick.show(log, gitUri, placeHolder, {
                     pickerOnly: true,
                     progressCancellation: progressCancellation,
-                    currentCommand: new CommandQuickPickItem({
-                        label: `go back ${GlyphChars.ArrowBack}`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${GlyphChars.Space}$(file-text) ${gitUri.getFormattedPath()}${gitUri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}` : ''}`
-                    }, Commands.OpenFileRevision, [uri, { ...args }]),
+                    currentCommand: new CommandQuickPickItem(
+                        {
+                            label: `go back ${GlyphChars.ArrowBack}`,
+                            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
+                                GlyphChars.Space
+                            }$(file-text) ${gitUri.getFormattedPath()}${
+                                gitUri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}` : ''
+                            }`
+                        },
+                        Commands.OpenFileRevision,
+                        [uri, { ...args }]
+                    ),
                     nextPageCommand: args.nextPageCommand,
                     previousPageCommand: previousPageCommand,
-                    showAllCommand: log !== undefined && log.truncated
-                        ? new CommandQuickPickItem({
-                            label: `$(sync) Show All Commits`,
-                            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
-                        }, Commands.OpenFileRevision, [uri, { ...args, maxCount: 0 } as OpenFileRevisionCommandArgs])
-                        : undefined
+                    showAllCommand:
+                        log !== undefined && log.truncated
+                            ? new CommandQuickPickItem(
+                                  {
+                                      label: `$(sync) Show All Commits`,
+                                      description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
+                                  },
+                                  Commands.OpenFileRevision,
+                                  [uri, { ...args, maxCount: 0 } as OpenFileRevisionCommandArgs]
+                              )
+                            : undefined
                 });
                 if (pick === undefined) return undefined;
 
@@ -117,7 +148,6 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 
                     args.uri = GitUri.toRevisionUri(pick.commit.sha, pick.commit.uri.fsPath, pick.commit.repoPath);
                 }
-
             }
 
             if (args.line !== undefined && args.line !== 0) {

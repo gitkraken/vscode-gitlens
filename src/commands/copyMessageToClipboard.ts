@@ -12,7 +12,6 @@ export interface CopyMessageToClipboardCommandArgs {
 }
 
 export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.CopyMessageToClipboard);
     }
@@ -53,9 +52,14 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                     if (blameline < 0) return undefined;
 
                     try {
-                        const blame = editor && editor.document && editor.document.isDirty
-                            ? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-                            : await Container.git.getBlameForLine(gitUri, blameline);
+                        const blame =
+                            editor && editor.document && editor.document.isDirty
+                                ? await Container.git.getBlameForLineContents(
+                                      gitUri,
+                                      blameline,
+                                      editor.document.getText()
+                                  )
+                                : await Container.git.getBlameForLine(gitUri, blameline);
                         if (!blame) return undefined;
 
                         if (blame.commit.isUncommitted) return undefined;
@@ -78,12 +82,14 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 args.message = commit.message;
             }
 
-            void await clipboard.write(args.message);
+            void (await clipboard.write(args.message));
             return undefined;
         }
         catch (ex) {
-            if (ex.message.includes('Couldn\'t find the required `xsel` binary')) {
-                window.showErrorMessage(`Unable to copy message, xsel is not installed. You can install it via \`sudo apt install xsel\``);
+            if (ex.message.includes("Couldn't find the required `xsel` binary")) {
+                window.showErrorMessage(
+                    `Unable to copy message, xsel is not installed. You can install it via \`sudo apt install xsel\``
+                );
                 return;
             }
 

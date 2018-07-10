@@ -6,14 +6,7 @@ const issueEnricherRegEx = /(^|\s)((?:#|gh-)([0-9]+))\b/gi;
 const issueEnricher3rdParyRegEx = /\b((\w+-?\w+(?!-)\/\w+-?\w+(?!-))#([0-9]+))\b/g;
 
 export class GitHubService extends RemoteProvider {
-
-    constructor(
-        domain: string,
-        path: string,
-        protocol?: string,
-        name?: string,
-        custom: boolean = false
-    ) {
+    constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
         super(domain, path, protocol, name, custom);
     }
 
@@ -26,11 +19,16 @@ export class GitHubService extends RemoteProvider {
     }
 
     enrichMessage(message: string): string {
-        return message
-            // Matches #123 or gh-123 or GH-123
-            .replace(issueEnricherRegEx, `$1[$2](${this.baseUrl}/issues/$3 "Open Issue $2")`)
-            // Matches eamodio/vscode-gitlens#123
-            .replace(issueEnricher3rdParyRegEx, `[$1](${this.protocol}://${this.domain}/$2/issues/$3 "Open Issue #$3 from $2")`);
+        return (
+            message
+                // Matches #123 or gh-123 or GH-123
+                .replace(issueEnricherRegEx, `$1[$2](${this.baseUrl}/issues/$3 "Open Issue $2")`)
+                // Matches eamodio/vscode-gitlens#123
+                .replace(
+                    issueEnricher3rdParyRegEx,
+                    `[$1](${this.protocol}://${this.domain}/$2/issues/$3 "Open Issue #$3 from $2")`
+                )
+        );
     }
 
     protected getUrlForBranches(): string {

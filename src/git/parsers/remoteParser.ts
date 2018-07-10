@@ -4,6 +4,7 @@ import { GitRemoteType } from '../models/remote';
 import { RemoteProvider } from '../remotes/factory';
 
 const remoteRegex = /^(.*)\t(.*)\s\((.*)\)$/gm;
+// tslint:disable-next-line:max-line-length
 const urlRegex = /^(?:(git:\/\/)(.*?)\/|(https?:\/\/)(?:.*?@)?(.*?)\/|git@(.*):|(ssh:\/\/)(?:.*@)?(.*?)(?::.*?)?\/|(?:.*?@)(.*?):)(.*)$/;
 
 // Test git urls
@@ -44,8 +45,11 @@ user:password@host.xz:/path/to/repo.git/
 */
 
 export class GitRemoteParser {
-
-    static parse(data: string, repoPath: string, providerFactory: (domain: string, path: string) => RemoteProvider | undefined): GitRemote[] {
+    static parse(
+        data: string,
+        repoPath: string,
+        providerFactory: (domain: string, path: string) => RemoteProvider | undefined
+    ): GitRemote[] {
         if (!data) return [];
 
         const remotes: GitRemote[] = [];
@@ -63,7 +67,9 @@ export class GitRemoteParser {
             const uniqueness = `${domain}/${path}`;
             let remote: GitRemote | undefined = groups[uniqueness];
             if (remote === undefined) {
-                remote = new GitRemote(repoPath, match[1], scheme, domain, path, providerFactory(domain, path), [{ url: url, type: match[3] as GitRemoteType }]);
+                remote = new GitRemote(repoPath, match[1], scheme, domain, path, providerFactory(domain, path), [
+                    { url: url, type: match[3] as GitRemoteType }
+                ]);
                 remotes.push(remote);
                 groups[uniqueness] = remote;
             }

@@ -18,7 +18,6 @@ export interface DiffWithPreviousCommandArgs {
 }
 
 export class DiffWithPreviousCommand extends ActiveEditorCommand {
-
     constructor() {
         super([Commands.DiffWithPrevious, Commands.DiffWithPreviousInDiff]);
     }
@@ -59,8 +58,14 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                     sha = sha + '^';
                 }
 
-                const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { maxCount: 2, ref: sha, renames: true });
-                if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
+                    maxCount: 2,
+                    ref: sha,
+                    renames: true
+                });
+                if (log === undefined) {
+                    return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                }
 
                 args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
 
@@ -73,7 +78,9 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                             const diffArgs: DiffWithCommandArgs = {
                                 repoPath: args.commit.repoPath,
                                 lhs: {
-                                    sha: args.inDiffEditor ? args.commit.previousSha || GitService.deletedSha : args.commit.sha,
+                                    sha: args.inDiffEditor
+                                        ? args.commit.previousSha || GitService.deletedSha
+                                        : args.commit.sha,
                                     uri: args.inDiffEditor ? args.commit.previousUri : args.commit.uri
                                 },
                                 rhs: {
@@ -106,7 +113,10 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                         }
 
                         if (!args.inDiffEditor) {
-                            return commands.executeCommand(Commands.DiffWithWorking, uri, { commit: args.commit, showOptions: args.showOptions } as DiffWithWorkingCommandArgs);
+                            return commands.executeCommand(Commands.DiffWithWorking, uri, {
+                                commit: args.commit,
+                                showOptions: args.showOptions
+                            } as DiffWithWorkingCommandArgs);
                         }
                     }
                 }

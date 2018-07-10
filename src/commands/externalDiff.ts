@@ -40,11 +40,10 @@ interface Resource extends SourceControlResourceState {
 }
 
 class ExternalDiffFile {
-
     constructor(
         public readonly uri: Uri,
         public readonly staged: boolean
-    ) { }
+    ) {}
 }
 
 export interface ExternalDiffCommandArgs {
@@ -52,7 +51,6 @@ export interface ExternalDiffCommandArgs {
 }
 
 export class ExternalDiffCommand extends Command {
-
     constructor() {
         super(Commands.ExternalDiff);
     }
@@ -60,15 +58,24 @@ export class ExternalDiffCommand extends Command {
     protected async preExecute(context: CommandContext, args: ExternalDiffCommandArgs = {}): Promise<any> {
         if (context.type === 'scm-states') {
             args = { ...args };
-            args.files = context.scmResourceStates
-                .map(r => new ExternalDiffFile(r.resourceUri, (r as Resource).resourceGroupType === ResourceGroupType.Index));
+            args.files = context.scmResourceStates.map(
+                r => new ExternalDiffFile(r.resourceUri, (r as Resource).resourceGroupType === ResourceGroupType.Index)
+            );
 
             return this.execute(args);
         }
         else if (context.type === 'scm-groups') {
             args = { ...args };
-            args.files = Arrays.filterMap(context.scmResourceGroups[0].resourceStates,
-                r => this.isModified(r) ? new ExternalDiffFile(r.resourceUri, (r as Resource).resourceGroupType === ResourceGroupType.Index) : undefined);
+            args.files = Arrays.filterMap(
+                context.scmResourceGroups[0].resourceStates,
+                r =>
+                    this.isModified(r)
+                        ? new ExternalDiffFile(
+                              r.resourceUri,
+                              (r as Resource).resourceGroupType === ResourceGroupType.Index
+                          )
+                        : undefined
+            );
 
             return this.execute(args);
         }
@@ -83,15 +90,25 @@ export class ExternalDiffCommand extends Command {
 
     async execute(args: ExternalDiffCommandArgs = {}) {
         try {
-            const repoPath = await getRepoPathOrActiveOrPrompt(undefined, undefined, `Open changes from which repository${GlyphChars.Ellipsis}`);
+            const repoPath = await getRepoPathOrActiveOrPrompt(
+                undefined,
+                undefined,
+                `Open changes from which repository${GlyphChars.Ellipsis}`
+            );
             if (!repoPath) return undefined;
 
             const tool = await Container.git.getDiffTool(repoPath);
             if (tool === undefined) {
-                const result = await window.showWarningMessage(`Unable to open changes in diff tool because there is no Git diff tool configured`, 'View Git Docs');
+                const result = await window.showWarningMessage(
+                    `Unable to open changes in diff tool because there is no Git diff tool configured`,
+                    'View Git Docs'
+                );
                 if (!result) return undefined;
 
-                return commands.executeCommand(BuiltInCommands.Open, Uri.parse('https://git-scm.com/docs/git-config#git-config-difftool'));
+                return commands.executeCommand(
+                    BuiltInCommands.Open,
+                    Uri.parse('https://git-scm.com/docs/git-config#git-config-difftool')
+                );
             }
 
             if (args.files === undefined) {

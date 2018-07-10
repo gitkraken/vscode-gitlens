@@ -15,7 +15,6 @@ export interface DiffWithWorkingCommandArgs {
 }
 
 export class DiffWithWorkingCommand extends ActiveEditorCommand {
-
     constructor() {
         super(Commands.DiffWithWorking);
     }
@@ -60,11 +59,20 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
             }
 
             try {
-                args.commit = await Container.git.getLogCommitForFile(gitUri.repoPath, gitUri.fsPath, { ref: gitUri.sha, firstIfNotFound: true });
-                if (args.commit === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                args.commit = await Container.git.getLogCommitForFile(gitUri.repoPath, gitUri.fsPath, {
+                    ref: gitUri.sha,
+                    firstIfNotFound: true
+                });
+                if (args.commit === undefined) {
+                    return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                }
             }
             catch (ex) {
-                Logger.error(ex, 'DiffWithWorkingCommand', `getLogCommit(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`);
+                Logger.error(
+                    ex,
+                    'DiffWithWorkingCommand',
+                    `getLogCommit(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
+                );
                 return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
             }
         }

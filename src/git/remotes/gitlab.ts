@@ -5,14 +5,7 @@ import { RemoteProvider } from './provider';
 const issueEnricherRegEx = /(^|\s)(#([0-9]+))\b/gi;
 
 export class GitLabService extends RemoteProvider {
-
-    constructor(
-        domain: string,
-        path: string,
-        protocol?: string,
-        name?: string,
-        custom: boolean = false
-    ) {
+    constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
         super(domain, path, protocol, name, custom);
     }
 

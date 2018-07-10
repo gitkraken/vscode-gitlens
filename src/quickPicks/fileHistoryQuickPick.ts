@@ -2,7 +2,13 @@
 import { Iterables, Strings } from '../system';
 import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, ShowQuickCurrentBranchHistoryCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
-import { CommandQuickPickItem, CommitQuickPickItem, getQuickPickIgnoreFocusOut, ShowBranchesAndTagsQuickPickItem, showQuickPickProgress } from './commonQuickPicks';
+import {
+    CommandQuickPickItem,
+    CommitQuickPickItem,
+    getQuickPickIgnoreFocusOut,
+    ShowBranchesAndTagsQuickPickItem,
+    showQuickPickProgress
+} from './commonQuickPicks';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitUri, RemoteResource } from '../gitService';
@@ -11,20 +17,34 @@ import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
 import * as path from 'path';
 
 export class FileHistoryQuickPick {
-
     static showProgress(placeHolder: string) {
-        return showQuickPickProgress(placeHolder,
-            {
-                left: KeyNoopCommand,
-                ',': KeyNoopCommand,
-                '.': KeyNoopCommand
-            });
+        return showQuickPickProgress(placeHolder, {
+            left: KeyNoopCommand,
+            ',': KeyNoopCommand,
+            '.': KeyNoopCommand
+        });
     }
 
-    static async show(log: GitLog, uri: GitUri, placeHolder: string, options: { currentCommand?: CommandQuickPickItem, goBackCommand?: CommandQuickPickItem, nextPageCommand?: CommandQuickPickItem, previousPageCommand?: CommandQuickPickItem, pickerOnly?: boolean, progressCancellation?: CancellationTokenSource, showAllCommand?: CommandQuickPickItem, showInResultsExplorerCommand?: CommandQuickPickItem } = {}): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(
+        log: GitLog,
+        uri: GitUri,
+        placeHolder: string,
+        options: {
+            currentCommand?: CommandQuickPickItem;
+            goBackCommand?: CommandQuickPickItem;
+            nextPageCommand?: CommandQuickPickItem;
+            previousPageCommand?: CommandQuickPickItem;
+            pickerOnly?: boolean;
+            progressCancellation?: CancellationTokenSource;
+            showAllCommand?: CommandQuickPickItem;
+            showInResultsExplorerCommand?: CommandQuickPickItem;
+        } = {}
+    ): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         options = { pickerOnly: false, ...options };
 
-        const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))) as (CommitQuickPickItem | CommandQuickPickItem)[];
+        const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))) as (
+            | CommitQuickPickItem
+            | CommandQuickPickItem)[];
 
         let index = 0;
 
@@ -44,29 +64,50 @@ export class FileHistoryQuickPick {
                 items.splice(0, 0, options.showAllCommand);
             }
             else if (!options.pickerOnly) {
-                const [workingFileName] = await Container.git.findWorkingFileName(path.relative(log.repoPath, uri.fsPath), log.repoPath);
+                const [workingFileName] = await Container.git.findWorkingFileName(
+                    path.relative(log.repoPath, uri.fsPath),
+                    log.repoPath
+                );
                 if (workingFileName) {
                     index++;
-                    items.splice(0, 0, new CommandQuickPickItem({
-                        label: `$(history) Show File History`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} of ${path.basename(workingFileName)}`
-                    }, Commands.ShowQuickFileHistory, [
-                            Uri.file(path.resolve(log.repoPath, workingFileName)),
+                    items.splice(
+                        0,
+                        0,
+                        new CommandQuickPickItem(
                             {
-                                goBackCommand: new CommandQuickPickItem({
-                                    label: `go back ${GlyphChars.ArrowBack}`,
-                                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${GlyphChars.Space}$(file-text) ${path.basename(uri.fsPath)}${uri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${uri.shortSha}` : ''}`
-                                }, Commands.ShowQuickFileHistory, [
-                                        uri,
+                                label: `$(history) Show File History`,
+                                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} of ${path.basename(
+                                    workingFileName
+                                )}`
+                            },
+                            Commands.ShowQuickFileHistory,
+                            [
+                                Uri.file(path.resolve(log.repoPath, workingFileName)),
+                                {
+                                    goBackCommand: new CommandQuickPickItem(
                                         {
-                                            log: log,
-                                            maxCount: log.maxCount,
-                                            range: log.range,
-                                            goBackCommand: options.goBackCommand
-                                        } as ShowQuickFileHistoryCommandArgs
-                                    ])
-                            } as ShowQuickFileHistoryCommandArgs
-                        ]));
+                                            label: `go back ${GlyphChars.ArrowBack}`,
+                                            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
+                                                GlyphChars.Space
+                                            }$(file-text) ${path.basename(uri.fsPath)}${
+                                                uri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${uri.shortSha}` : ''
+                                            }`
+                                        },
+                                        Commands.ShowQuickFileHistory,
+                                        [
+                                            uri,
+                                            {
+                                                log: log,
+                                                maxCount: log.maxCount,
+                                                range: log.range,
+                                                goBackCommand: options.goBackCommand
+                                            } as ShowQuickFileHistoryCommandArgs
+                                        ]
+                                    )
+                                } as ShowQuickFileHistoryCommandArgs
+                            ]
+                        )
+                    );
                 }
             }
 
@@ -85,46 +126,64 @@ export class FileHistoryQuickPick {
             const branch = await Container.git.getBranch(uri.repoPath!);
 
             if (branch !== undefined) {
-                const currentCommand = new CommandQuickPickItem({
-                    label: `go back ${GlyphChars.ArrowBack}`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${GlyphChars.Space}$(file-text) ${path.basename(uri.fsPath)}${uri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${uri.shortSha}` : ''}`
-                }, Commands.ShowQuickFileHistory, [
+                const currentCommand = new CommandQuickPickItem(
+                    {
+                        label: `go back ${GlyphChars.ArrowBack}`,
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
+                            GlyphChars.Space
+                        }$(file-text) ${path.basename(uri.fsPath)}${
+                            uri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${uri.shortSha}` : ''
+                        }`
+                    },
+                    Commands.ShowQuickFileHistory,
+                    [
                         uri,
                         {
                             log,
                             maxCount: log.maxCount,
                             range: log.range
                         } as ShowQuickFileHistoryCommandArgs
-                    ]);
+                    ]
+                );
 
                 // Only show the full repo option if we are the root
                 if (options.goBackCommand === undefined) {
-                    items.splice(index++, 0, new CommandQuickPickItem({
-                        label: `$(history) Show Branch History`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows  ${GlyphChars.Space}$(git-branch) ${branch.name} history`
-                    }, Commands.ShowQuickCurrentBranchHistory,
-                        [
-                            undefined,
+                    items.splice(
+                        index++,
+                        0,
+                        new CommandQuickPickItem(
                             {
-                                goBackCommand: currentCommand
-                            } as ShowQuickCurrentBranchHistoryCommandArgs
-                        ]));
+                                label: `$(history) Show Branch History`,
+                                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows  ${
+                                    GlyphChars.Space
+                                }$(git-branch) ${branch.name} history`
+                            },
+                            Commands.ShowQuickCurrentBranchHistory,
+                            [
+                                undefined,
+                                {
+                                    goBackCommand: currentCommand
+                                } as ShowQuickCurrentBranchHistoryCommandArgs
+                            ]
+                        )
+                    );
                 }
 
                 const remotes = await Container.git.getRemotes(uri.repoPath!);
                 if (remotes.length) {
-                    const resource = uri.sha !== undefined
-                        ? {
-                            type: 'revision',
-                            branch: branch.name,
-                            fileName: uri.getRelativePath(),
-                            sha: uri.sha
-                        } as RemoteResource
-                        : {
-                            type: 'file',
-                            branch: branch.name,
-                            fileName: uri.getRelativePath()
-                        } as RemoteResource;
+                    const resource =
+                        uri.sha !== undefined
+                            ? ({
+                                  type: 'revision',
+                                  branch: branch.name,
+                                  fileName: uri.getRelativePath(),
+                                  sha: uri.sha
+                              } as RemoteResource)
+                            : ({
+                                  type: 'file',
+                                  branch: branch.name,
+                                  fileName: uri.getRelativePath()
+                              } as RemoteResource);
                     items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, resource, currentCommand));
                 }
             }
@@ -134,7 +193,9 @@ export class FileHistoryQuickPick {
             }
         }
 
-        if (options.progressCancellation !== undefined && options.progressCancellation.token.isCancellationRequested) return undefined;
+        if (options.progressCancellation !== undefined && options.progressCancellation.token.isCancellationRequested) {
+            return undefined;
+        }
 
         const scope = await Container.keyboard.beginScope({
             left: options.goBackCommand,

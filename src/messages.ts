@@ -17,26 +17,51 @@ export enum SuppressedMessages {
 }
 
 export class Messages {
-
     static showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<MessageItem | undefined> {
-        if (commit === undefined) return Messages.showMessage('info', `Commit has no previous commit.`, SuppressedMessages.CommitHasNoPreviousCommitWarning);
-        return Messages.showMessage('info', `Commit ${commit.shortSha} (${commit.author}, ${commit.formattedDate}) has no previous commit.`, SuppressedMessages.CommitHasNoPreviousCommitWarning);
+        if (commit === undefined) {
+            return Messages.showMessage(
+                'info',
+                `Commit has no previous commit.`,
+                SuppressedMessages.CommitHasNoPreviousCommitWarning
+            );
+        }
+        return Messages.showMessage(
+            'info',
+            `Commit ${commit.shortSha} (${commit.author}, ${commit.formattedDate}) has no previous commit.`,
+            SuppressedMessages.CommitHasNoPreviousCommitWarning
+        );
     }
 
     static showCommitNotFoundWarningMessage(message: string): Promise<MessageItem | undefined> {
-        return Messages.showMessage('warn', `${message}. The commit could not be found.`, SuppressedMessages.CommitNotFoundWarning);
+        return Messages.showMessage(
+            'warn',
+            `${message}. The commit could not be found.`,
+            SuppressedMessages.CommitNotFoundWarning
+        );
     }
 
     static showFileNotUnderSourceControlWarningMessage(message: string): Promise<MessageItem | undefined> {
-        return Messages.showMessage('warn', `${message}. The file is probably not under source control.`, SuppressedMessages.FileNotUnderSourceControlWarning);
+        return Messages.showMessage(
+            'warn',
+            `${message}. The file is probably not under source control.`,
+            SuppressedMessages.FileNotUnderSourceControlWarning
+        );
     }
 
     static showGitDisabledErrorMessage() {
-        return Messages.showMessage('error', `GitLens requires Git to be enabled. Please re-enable Git \u2014 set \`git.enabled\` to true and reload`, SuppressedMessages.GitDisabledWarning);
+        return Messages.showMessage(
+            'error',
+            `GitLens requires Git to be enabled. Please re-enable Git \u2014 set \`git.enabled\` to true and reload`,
+            SuppressedMessages.GitDisabledWarning
+        );
     }
 
     static showGitVersionUnsupportedErrorMessage(version: string): Promise<MessageItem | undefined> {
-        return Messages.showMessage('error', `GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git.`, SuppressedMessages.GitVersionWarning);
+        return Messages.showMessage(
+            'error',
+            `GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git.`,
+            SuppressedMessages.GitVersionWarning
+        );
     }
 
     static async showKeyBindingsInfoMessage(): Promise<MessageItem | undefined> {
@@ -63,7 +88,11 @@ export class Messages {
 
         switch (result) {
             case actions[1]:
-                await configuration.update(configuration.name('keymap').value, KeyMap.Chorded, ConfigurationTarget.Global);
+                await configuration.update(
+                    configuration.name('keymap').value,
+                    KeyMap.Chorded,
+                    ConfigurationTarget.Global
+                );
                 break;
 
             case actions[2]:
@@ -75,14 +104,28 @@ export class Messages {
     }
 
     static showLineUncommittedWarningMessage(message: string): Promise<MessageItem | undefined> {
-        return Messages.showMessage('warn', `${message}. The line has uncommitted changes.`, SuppressedMessages.LineUncommittedWarning);
+        return Messages.showMessage(
+            'warn',
+            `${message}. The line has uncommitted changes.`,
+            SuppressedMessages.LineUncommittedWarning
+        );
     }
 
     static showNoRepositoryWarningMessage(message: string): Promise<MessageItem | undefined> {
-        return Messages.showMessage('warn', `${message}. No repository could be found.`, SuppressedMessages.NoRepositoryWarning);
+        return Messages.showMessage(
+            'warn',
+            `${message}. No repository could be found.`,
+            SuppressedMessages.NoRepositoryWarning
+        );
     }
 
-    private static async showMessage<T extends MessageItem>(type: 'info' | 'warn' | 'error', message: string, suppressionKey: SuppressedMessages, dontShowAgain: T | null = { title: 'Don\'t Show Again' } as T, ...actions: T[]): Promise<T | undefined> {
+    private static async showMessage<T extends MessageItem>(
+        type: 'info' | 'warn' | 'error',
+        message: string,
+        suppressionKey: SuppressedMessages,
+        dontShowAgain: T | null = { title: "Don't Show Again" } as T,
+        ...actions: T[]
+    ): Promise<T | undefined> {
         Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain})`);
 
         if (configuration.get<boolean>(configuration.name('advanced')('messages')(suppressionKey).value)) {
@@ -110,13 +153,19 @@ export class Messages {
         }
 
         if (dontShowAgain === null || result === dontShowAgain) {
-            Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) don't show again requested`);
+            Logger.log(
+                `ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) don't show again requested`
+            );
             await this.suppressedMessage(suppressionKey);
 
             if (result === dontShowAgain) return undefined;
         }
 
-        Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) returned ${result ? result.title : result}`);
+        Logger.log(
+            `ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) returned ${
+                result ? result.title : result
+            }`
+        );
         return result;
     }
 

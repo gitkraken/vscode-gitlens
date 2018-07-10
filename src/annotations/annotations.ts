@@ -1,15 +1,35 @@
 import { Objects, Strings } from '../system';
-import { DecorationInstanceRenderOptions, DecorationOptions, MarkdownString, ThemableDecorationRenderOptions, ThemeColor } from 'vscode';
-import { DiffWithCommand, OpenCommitInRemoteCommand, OpenFileRevisionCommand, ShowQuickCommitDetailsCommand, ShowQuickCommitFileDetailsCommand } from '../commands';
+import {
+    DecorationInstanceRenderOptions,
+    DecorationOptions,
+    MarkdownString,
+    ThemableDecorationRenderOptions,
+    ThemeColor
+} from 'vscode';
+import {
+    DiffWithCommand,
+    OpenCommitInRemoteCommand,
+    OpenFileRevisionCommand,
+    ShowQuickCommitDetailsCommand,
+    ShowQuickCommitFileDetailsCommand
+} from '../commands';
 import { FileAnnotationType } from './../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { CommitFormatter, GitCommit, GitDiffChunkLine, GitRemote, GitService, GitUri, ICommitFormatOptions } from '../gitService';
+import {
+    CommitFormatter,
+    GitCommit,
+    GitDiffChunkLine,
+    GitRemote,
+    GitService,
+    GitUri,
+    ICommitFormatOptions
+} from '../gitService';
 import { toRgba } from '../ui/shared/colors';
 
 export interface ComputedHeatmap {
     cold: boolean;
-    colors: { hot: string, cold: string };
+    colors: { hot: string; cold: string };
     median: number;
     newest: number;
     oldest: number;
@@ -32,21 +52,18 @@ const escapeMarkdownRegEx = /[`\>\#\*\_\-\+\.]/g;
 // const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
 
 let computedHeatmapColor: {
-    color: string,
-    rgb: string
+    color: string;
+    rgb: string;
 };
 
 export class Annotations {
-
     static applyHeatmap(decoration: DecorationOptions, date: Date, heatmap: ComputedHeatmap) {
         const color = this.getHeatmapColor(date, heatmap);
         (decoration.renderOptions!.before! as any).borderColor = color;
     }
 
     private static getHeatmapColor(date: Date, heatmap: ComputedHeatmap) {
-        const baseColor = heatmap.cold
-            ? heatmap.colors.cold
-            : heatmap.colors.hot;
+        const baseColor = heatmap.cold ? heatmap.colors.cold : heatmap.colors.hot;
 
         const age = heatmap.computeAge(date);
         if (age === 0) return baseColor;
@@ -64,11 +81,18 @@ export class Annotations {
             };
         }
 
-        return `rgba(${computedHeatmapColor.rgb}, ${(1 - (age / 10)).toFixed(2)})`;
+        return `rgba(${computedHeatmapColor.rgb}, ${(1 - age / 10).toFixed(2)})`;
     }
 
-    private static getHoverCommandBar(commit: GitCommit, hasRemote: boolean, annotationType?: FileAnnotationType, line: number = 0) {
-        let commandBar = `[\`${GlyphChars.MuchGreaterThan}\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") `;
+    private static getHoverCommandBar(
+        commit: GitCommit,
+        hasRemote: boolean,
+        annotationType?: FileAnnotationType,
+        line: number = 0
+    ) {
+        let commandBar = `[\`${GlyphChars.MuchGreaterThan}\`](${DiffWithCommand.getMarkdownCommandArgs(
+            commit
+        )} "Open Changes") `;
 
         if (commit.previousSha !== undefined) {
             if (annotationType === FileAnnotationType.RecentChanges) {
@@ -76,19 +100,33 @@ export class Annotations {
             }
 
             const uri = GitUri.toRevisionUri(commit.previousSha, commit.previousUri.fsPath, commit.repoPath);
-            commandBar += `[\`${GlyphChars.SquareWithTopShadow}\`](${OpenFileRevisionCommand.getMarkdownCommandArgs(uri, annotationType || FileAnnotationType.Blame, line)} "Blame Previous Revision") `;
+            commandBar += `[\`${GlyphChars.SquareWithTopShadow}\`](${OpenFileRevisionCommand.getMarkdownCommandArgs(
+                uri,
+                annotationType || FileAnnotationType.Blame,
+                line
+            )} "Blame Previous Revision") `;
         }
 
         if (hasRemote) {
-            commandBar += `[\`${GlyphChars.ArrowUpRight}\`](${OpenCommitInRemoteCommand.getMarkdownCommandArgs(commit.sha)} "Open in Remote") `;
+            commandBar += `[\`${GlyphChars.ArrowUpRight}\`](${OpenCommitInRemoteCommand.getMarkdownCommandArgs(
+                commit.sha
+            )} "Open in Remote") `;
         }
 
-        commandBar += `[\`${GlyphChars.MiddleEllipsis}\`](${ShowQuickCommitFileDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show More Actions")`;
+        commandBar += `[\`${GlyphChars.MiddleEllipsis}\`](${ShowQuickCommitFileDetailsCommand.getMarkdownCommandArgs(
+            commit.sha
+        )} "Show More Actions")`;
 
         return commandBar;
     }
 
-    static getHoverMessage(commit: GitCommit, dateFormat: string | null, remotes: GitRemote[], annotationType?: FileAnnotationType, line: number = 0): MarkdownString {
+    static getHoverMessage(
+        commit: GitCommit,
+        dateFormat: string | null,
+        remotes: GitRemote[],
+        annotationType?: FileAnnotationType,
+        line: number = 0
+    ): MarkdownString {
         if (dateFormat === null) {
             dateFormat = 'MMMM Do, YYYY h:mma';
         }
@@ -99,7 +137,9 @@ export class Annotations {
         let avatar = '';
         if (!commit.isUncommitted) {
             commandBar = `\n\n${this.getHoverCommandBar(commit, remotes.length !== 0, annotationType, line)}`;
-            showCommitDetailsCommand = `[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show Commit Details")`;
+            showCommitDetailsCommand = `[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+                commit.sha
+            )} "Show Commit Details")`;
 
             message = commit.message;
             for (const r of remotes) {
@@ -126,12 +166,20 @@ export class Annotations {
             avatar = ` &nbsp; ![](${commit.getGravatarUri(Container.config.defaultGravatarsStyle).toString()})`;
         }
 
-        const markdown = new MarkdownString(`${showCommitDetailsCommand}${avatar} &nbsp;__${commit.author}__, ${commit.fromNow()} &nbsp; _(${commit.formatDate(dateFormat)})_ ${message}${commandBar}`);
+        const markdown = new MarkdownString(
+            `${showCommitDetailsCommand}${avatar} &nbsp;__${
+                commit.author
+            }__, ${commit.fromNow()} &nbsp; _(${commit.formatDate(dateFormat)})_ ${message}${commandBar}`
+        );
         markdown.isTrusted = true;
         return markdown;
     }
 
-    static getHoverDiffMessage(commit: GitCommit, uri: GitUri, chunkLine: GitDiffChunkLine | undefined): MarkdownString | undefined {
+    static getHoverDiffMessage(
+        commit: GitCommit,
+        uri: GitUri,
+        chunkLine: GitDiffChunkLine | undefined
+    ): MarkdownString | undefined {
         if (chunkLine === undefined || commit.previousSha === undefined) return undefined;
 
         const codeDiff = this.getCodeDiff(chunkLine);
@@ -139,14 +187,28 @@ export class Annotations {
         let message: string;
         if (commit.isUncommitted) {
             if (uri.sha !== undefined && GitService.isStagedUncommitted(uri.sha)) {
-                message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; [\`${commit.previousShortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.previousSha!)} "Show Commit Details") ${GlyphChars.ArrowLeftRightLong} _${uri.shortSha}_\n${codeDiff}`;
+                message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${
+                    GlyphChars.Dash
+                } &nbsp; [\`${commit.previousShortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+                    commit.previousSha!
+                )} "Show Commit Details") ${GlyphChars.ArrowLeftRightLong} _${uri.shortSha}_\n${codeDiff}`;
             }
             else {
-                message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; _uncommitted changes_\n${codeDiff}`;
+                message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${
+                    GlyphChars.Dash
+                } &nbsp; _uncommitted changes_\n${codeDiff}`;
             }
         }
         else {
-            message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; [\`${commit.previousShortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.previousSha!)} "Show Commit Details") ${GlyphChars.ArrowLeftRightLong} [\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show Commit Details")\n${codeDiff}`;
+            message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${
+                GlyphChars.Dash
+            } &nbsp; [\`${commit.previousShortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+                commit.previousSha!
+            )} "Show Commit Details") ${GlyphChars.ArrowLeftRightLong} [\`${
+                commit.shortSha
+            }\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+                commit.sha
+            )} "Show Commit Details")\n${codeDiff}`;
         }
 
         const markdown = new MarkdownString(message);
@@ -163,9 +225,10 @@ export class Annotations {
     }
 
     static async changesHover(commit: GitCommit, line: number, uri: GitUri): Promise<DecorationOptions> {
-        const sha = !commit.isUncommitted || (uri.sha !== undefined && GitService.isStagedUncommitted(uri.sha))
-            ? commit.previousSha
-            : undefined;
+        const sha =
+            !commit.isUncommitted || (uri.sha !== undefined && GitService.isStagedUncommitted(uri.sha))
+                ? commit.previousSha
+                : undefined;
         const chunkLine = await Container.git.getDiffForLine(uri, line, sha);
         const message = this.getHoverDiffMessage(commit, uri, chunkLine);
 
@@ -181,7 +244,12 @@ export class Annotations {
     //     } as DecorationOptions;
     // }
 
-    static gutter(commit: GitCommit, format: string, dateFormatOrFormatOptions: string | null | ICommitFormatOptions, renderOptions: IRenderOptions): DecorationOptions {
+    static gutter(
+        commit: GitCommit,
+        format: string,
+        dateFormatOrFormatOptions: string | null | ICommitFormatOptions,
+        renderOptions: IRenderOptions
+    ): DecorationOptions {
         const decoration = {
             renderOptions: {
                 before: { ...renderOptions }
@@ -198,7 +266,12 @@ export class Annotations {
         return decoration;
     }
 
-    static gutterRenderOptions(separateLines: boolean, heatmap: IHeatmapConfig, format: string, options: ICommitFormatOptions): IRenderOptions {
+    static gutterRenderOptions(
+        separateLines: boolean,
+        heatmap: IHeatmapConfig,
+        format: string,
+        options: ICommitFormatOptions
+    ): IRenderOptions {
         // Get the width of all the tokens, assuming there there is a cap (bail if not)
         let width = 0;
         for (const token of Objects.values(options.tokenOptions!)) {
@@ -289,7 +362,12 @@ export class Annotations {
     //     } as IRenderOptions;
     // }
 
-    static trailing(commit: GitCommit, format: string, dateFormat: string | null, scrollable: boolean = true): DecorationOptions {
+    static trailing(
+        commit: GitCommit,
+        format: string,
+        dateFormat: string | null,
+        scrollable: boolean = true
+    ): DecorationOptions {
         const message = CommitFormatter.fromTemplate(format, commit, {
             truncateMessageAtNewLine: true,
             dateFormat: dateFormat

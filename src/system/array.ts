@@ -11,24 +11,36 @@ export namespace Arrays {
         return uniqueCounts;
     }
 
-    export function filterMap<T, TMapped>(source: T[], predicateMapper: (item: T) => TMapped | null | undefined): TMapped[] {
-        return source.reduce((accumulator, current) => {
-            const mapped = predicateMapper(current);
-            if (mapped != null) {
-                accumulator.push(mapped);
-            }
-            return accumulator;
-        }, [] as TMapped[]);
+    export function filterMap<T, TMapped>(
+        source: T[],
+        predicateMapper: (item: T) => TMapped | null | undefined
+    ): TMapped[] {
+        return source.reduce(
+            (accumulator, current) => {
+                const mapped = predicateMapper(current);
+                if (mapped != null) {
+                    accumulator.push(mapped);
+                }
+                return accumulator;
+            },
+            [] as TMapped[]
+        );
     }
 
-    export async function filterMapAsync<T, TMapped>(source: T[], predicateMapper: (item: T) => Promise<TMapped | null | undefined>): Promise<TMapped[]> {
-        return source.reduce(async (accumulator, current) => {
-            const mapped = await predicateMapper(current);
-            if (mapped != null) {
-                accumulator.push(mapped);
-            }
-            return accumulator;
-        }, [] as any);
+    export async function filterMapAsync<T, TMapped>(
+        source: T[],
+        predicateMapper: (item: T) => Promise<TMapped | null | undefined>
+    ): Promise<TMapped[]> {
+        return source.reduce(
+            async (accumulator, current) => {
+                const mapped = await predicateMapper(current);
+                if (mapped != null) {
+                    accumulator.push(mapped);
+                }
+                return accumulator;
+            },
+            [] as any
+        );
     }
 
     export function groupBy<T>(source: T[], accessor: (item: T) => string): { [key: string]: T[] } {
@@ -50,7 +62,11 @@ export namespace Arrays {
         }, new Map<TKey, TValue[]>());
     }
 
-    export function groupByFilterMap<TKey, TValue, TMapped>(source: TValue[], accessor: (item: TValue) => TKey, predicateMapper: (item: TValue) => TMapped | null | undefined): Map<TKey, TMapped[]> {
+    export function groupByFilterMap<TKey, TValue, TMapped>(
+        source: TValue[],
+        accessor: (item: TValue) => TKey,
+        predicateMapper: (item: TValue) => TMapped | null | undefined
+    ): Map<TKey, TMapped[]> {
         return source.reduce((groupings, current) => {
             const mapped = predicateMapper(current);
             if (mapped != null) {
@@ -73,7 +89,12 @@ export namespace Arrays {
         descendants: T[] | undefined;
     }
 
-    export function makeHierarchical<T>(values: T[], splitPath: (i: T) => string[], joinPath: (...paths: string[]) => string, compact: boolean = false): IHierarchicalItem<T> {
+    export function makeHierarchical<T>(
+        values: T[],
+        splitPath: (i: T) => string[],
+        joinPath: (...paths: string[]) => string,
+        compact: boolean = false
+    ): IHierarchicalItem<T> {
         const seed = {
             name: '',
             relativePath: '',
@@ -119,7 +140,11 @@ export namespace Arrays {
         return hierarchy;
     }
 
-    export function compactHierarchy<T>(root: IHierarchicalItem<T>, joinPath: (...paths: string[]) => string, isRoot: boolean = true): IHierarchicalItem<T> {
+    export function compactHierarchy<T>(
+        root: IHierarchicalItem<T>,
+        joinPath: (...paths: string[]) => string,
+        isRoot: boolean = true
+    ): IHierarchicalItem<T> {
         if (root.children === undefined) return root;
 
         const children = [...Objects.values(root.children)];

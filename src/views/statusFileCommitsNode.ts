@@ -4,11 +4,18 @@ import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { Container } from '../container';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
-import { getGitStatusIcon, GitLogCommit, GitUri, IGitStatusFile, IGitStatusFileWithCommit, IStatusFormatOptions, StatusFileFormatter } from '../gitService';
+import {
+    getGitStatusIcon,
+    GitLogCommit,
+    GitUri,
+    IGitStatusFile,
+    IGitStatusFileWithCommit,
+    IStatusFormatOptions,
+    StatusFileFormatter
+} from '../gitService';
 import * as path from 'path';
 
 export class StatusFileCommitsNode extends ExplorerNode {
-
     constructor(
         public readonly repoPath: string,
         public readonly status: IGitStatusFile,
@@ -19,7 +26,18 @@ export class StatusFileCommitsNode extends ExplorerNode {
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        return this.commits.map(c => new CommitFileNode(this.status, c, this.explorer, CommitFileNodeDisplayAs.CommitLabel | (this.explorer.config.avatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.CommitIcon)));
+        return this.commits.map(
+            c =>
+                new CommitFileNode(
+                    this.status,
+                    c,
+                    this.explorer,
+                    CommitFileNodeDisplayAs.CommitLabel |
+                        (this.explorer.config.avatars
+                            ? CommitFileNodeDisplayAs.Gravatar
+                            : CommitFileNodeDisplayAs.CommitIcon)
+                )
+        );
     }
 
     async getTreeItem(): Promise<TreeItem> {
@@ -30,16 +48,25 @@ export class StatusFileCommitsNode extends ExplorerNode {
             item.contextValue = ResourceType.StatusFile;
 
             if (this.commit.isStagedUncommitted) {
-                item.tooltip = StatusFileFormatter.fromTemplate('${status} in index\n\n${file}\n${directory}/', this.status);
+                item.tooltip = StatusFileFormatter.fromTemplate(
+                    '${status} in index\n\n${file}\n${directory}/',
+                    this.status
+                );
             }
             else {
-                item.tooltip = StatusFileFormatter.fromTemplate('${status} in working tree\n\n${file}\n${directory}/', this.status);
+                item.tooltip = StatusFileFormatter.fromTemplate(
+                    '${status} in working tree\n\n${file}\n${directory}/',
+                    this.status
+                );
             }
             item.command = this.getCommand();
         }
         else {
             item.contextValue = ResourceType.StatusFileCommits;
-            item.tooltip = StatusFileFormatter.fromTemplate(`\${status} in ${this.getChangedIn()}\n\n\${file}\n\${directory}/`, this.status);
+            item.tooltip = StatusFileFormatter.fromTemplate(
+                `\${status} in ${this.getChangedIn()}\n\n\${file}\n\${directory}/`,
+                this.status
+            );
         }
 
         const icon = getGitStatusIcon(this.status.status);

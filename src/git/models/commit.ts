@@ -45,7 +45,6 @@ export const CommitFormatting = {
 };
 
 export abstract class GitCommit {
-
     readonly type: GitCommitType;
     readonly originalFileName: string | undefined;
     previousFileName: string | undefined;
@@ -97,7 +96,11 @@ export abstract class GitCommit {
     }
 
     get isFile() {
-        return this.type === GitCommitType.Blame || this.type === GitCommitType.File || this.type === GitCommitType.StashFile;
+        return (
+            this.type === GitCommitType.Blame ||
+            this.type === GitCommitType.File ||
+            this.type === GitCommitType.StashFile
+        );
     }
 
     get isStash() {
@@ -140,7 +143,9 @@ export abstract class GitCommit {
     }
 
     get previousUri(): Uri {
-        return this.previousFileName ? Uri.file(path.resolve(this.repoPath, (this.previousFileName || this.originalFileName)!)) : this.uri;
+        return this.previousFileName
+            ? Uri.file(path.resolve(this.repoPath, (this.previousFileName || this.originalFileName)!))
+            : this.uri;
     }
 
     get uri(): Uri {
@@ -172,14 +177,16 @@ export abstract class GitCommit {
     }
 
     getGravatarUri(fallback: GravatarDefaultStyle, size: number = 16): Uri {
-        const key = this.email
-            ? `${this.email.trim().toLowerCase()}:${size}`
-            : '';
+        const key = this.email ? `${this.email.trim().toLowerCase()}:${size}` : '';
 
         let gravatar = gravatarCache.get(key);
         if (gravatar !== undefined) return gravatar;
 
-        gravatar = Uri.parse(`https://www.gravatar.com/avatar/${this.email ? Strings.md5(this.email, 'hex') : '00000000000000000000000000000000'}.jpg?s=${size}&d=${fallback}`);
+        gravatar = Uri.parse(
+            `https://www.gravatar.com/avatar/${
+                this.email ? Strings.md5(this.email, 'hex') : '00000000000000000000000000000000'
+            }.jpg?s=${size}&d=${fallback}`
+        );
 
         // HACK: Monkey patch Uri.toString to avoid the unwanted query string encoding
         const originalToStringFn = gravatar.toString;
@@ -202,14 +209,25 @@ export abstract class GitCommit {
     async resolvePreviousFileSha(): Promise<void> {
         if (this._resolvedPreviousFileSha !== undefined) return;
 
-        this._resolvedPreviousFileSha = await Container.git.resolveReference(this.repoPath, this.previousFileSha, this.fileName ? this.previousUri : undefined);
+        this._resolvedPreviousFileSha = await Container.git.resolveReference(
+            this.repoPath,
+            this.previousFileSha,
+            this.fileName ? this.previousUri : undefined
+        );
     }
 
     toGitUri(previous: boolean = false): GitUri {
         return GitUri.fromCommit(this, previous);
     }
 
-    abstract with(changes: { type?: GitCommitType, sha?: string, fileName?: string, originalFileName?: string | null, previousFileName?: string | null, previousSha?: string | null }): GitCommit;
+    abstract with(changes: {
+        type?: GitCommitType;
+        sha?: string;
+        fileName?: string;
+        originalFileName?: string | null;
+        previousFileName?: string | null;
+        previousSha?: string | null;
+    }): GitCommit;
 
     protected getChangedValue<T>(change: T | null | undefined, original: T | undefined): T | undefined {
         if (change === undefined) return original;
