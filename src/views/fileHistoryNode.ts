@@ -1,6 +1,6 @@
 'use strict';
 import { Iterables } from '../system';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { Container } from '../container';
 import { Explorer, ExplorerNode, MessageNode, ResourceType } from './explorerNode';
@@ -11,7 +11,8 @@ import {
     GitUri,
     Repository,
     RepositoryChange,
-    RepositoryChangeEvent
+    RepositoryChangeEvent,
+    RepositoryFileSystemChangeEvent
 } from '../gitService';
 import { Logger } from '../logger';
 
@@ -99,13 +100,29 @@ export class FileHistoryNode extends ExplorerNode {
     }
 
     private updateSubscription() {
-        this.disposable = this.disposable || this.repo.onDidChange(this.onRepoChanged, this);
+        if (this.disposable) return;
+
+        this.disposable = Disposable.from(
+            this.repo.onDidChange(this.onRepoChanged, this),
+            this.repo.onDidChangeFileSystem(this.onRepoFileSystemChanged, this),
+            { dispose: () => this.repo.stopWatchingFileSystem() }
+        );
+
+        this.repo.startWatchingFileSystem();
     }
 
     private onRepoChanged(e: RepositoryChangeEvent) {
         if (!e.changed(RepositoryChange.Repository)) return;
 
         Logger.log(`FileHistoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
+
+        this.explorer.refreshNode(this);
+    }
+
+    private onRepoFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
+        if (!e.uris.some(uri => uri.toString() === this.uri.toString())) return;
+
+        Logger.log(`FileHistoryNode.onRepoFileSystemChanged; triggering node refresh`);
 
         this.explorer.refreshNode(this);
     }
