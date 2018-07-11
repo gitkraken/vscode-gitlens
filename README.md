@@ -672,6 +672,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |`gitlens.hovers.annotations.details`|Specifies whether to provide a commit details hover for all lines when showing blame annotations
 |`gitlens.hovers.annotations.enabled`|Specifies whether to provide any hovers when showing blame annotations
 |`gitlens.hovers.annotations.over`|Specifies when to trigger hovers when showing blame annotations<br />`annotation` - only shown when hovering over the line annotation<br />`line` - shown when hovering anywhere over the line
+|`gitlens.hovers.avatars`|Specifies whether to show avatar images in hovers
 |`gitlens.hovers.currentLine.changes`|Specifies whether to provide a changes (diff) hover for the current line
 |`gitlens.hovers.currentLine.details`|Specifies whether to provide a commit details hover for the current line
 |`gitlens.hovers.currentLine.enabled`|Specifies whether to provide any hovers for the current line
@@ -762,6 +763,7 @@ A big thanks to the people that have contributed to this project:
 
 - Amanda Cameron ([@AmandaCameron](https://github.com/AmandaCameron)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=AmandaCameron)
 - Brett Cannon ([@brettcannon](https://github.com/brettcannon)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=brettcannon)
+- Segev Finer ([@segevfiner](https://github.com/segevfiner)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=segevfiner)
 - Cory Forsyth ([@bantic](https://github.com/bantic)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=bantic)
 - Geoffrey ([@g3offrey](https://github.com/g3offrey)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=g3offrey)
 - Yukai Huang ([@Yukaii](https://github.com/Yukaii)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=Yukaii)
