@@ -726,6 +726,7 @@ export class Git {
             'color.status=false',
             'status',
             porcelain,
+            '--',
             file
         );
     }
