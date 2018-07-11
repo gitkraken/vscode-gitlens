@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `gitlens.hovers.avatars` setting to specify whether to show avatar images in hovers &mdash; closes [#432](https://github.com/eamodio/vscode-gitlens/issues/432) thanks to [PR #441](https://github.com/eamodio/vscode-gitlens/pull/441) by Segev Finer ([@segevfiner](https://github.com/segevfiner))
 - Adds `gitlens.hovers.avatars` setting to the interactive settings editor to specify whether to show avatar images in hovers
 
+### Changed
+- Renames the *GitLens History* explorer to *GitLens File History* explorer for better clarity
+
 ### Fixed
 - Fixes [#436](https://github.com/eamodio/vscode-gitlens/issues/436) - Copy to clipboard not working
 
@@ -73,9 +76,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [8.3.1] - 2018-05-18
 ### Added
-- Adds the ability to control where the *GitLens*, *GitLens History*, and *GitLens Results* explorers are shown 🎉 &mdash; closes [#213](https://github.com/eamodio/vscode-gitlens/issues/213), [#377](https://github.com/eamodio/vscode-gitlens/issues/377)
+- Adds the ability to control where the *GitLens*, *GitLens File History*, and *GitLens Results* explorers are shown 🎉 &mdash; closes [#213](https://github.com/eamodio/vscode-gitlens/issues/213), [#377](https://github.com/eamodio/vscode-gitlens/issues/377)
   - Adds `gitlens.gitExplorer.location` setting to the interactive settings editor to specify where the *GitLens* explorer is shown &mdash; either in the *Explorer* or *Source Control* view
-  - Adds `gitlens.historyExplorer.location` setting to the interactive settings editor to specify where the *GitLens History* explorer is shown &mdash; either in the *Explorer* or *Source Control* view
+  - Adds `gitlens.historyExplorer.location` setting to the interactive settings editor to specify where the *GitLens File History* explorer is shown &mdash; either in the *Explorer* or *Source Control* view
   - Adds `gitlens.resultsExplorer.location` setting to the interactive settings editor to specify where the *GitLens Results* explorer is shown &mdash; either in the *Explorer* or *Source Control* view
 
 ### Changed
@@ -117,11 +120,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds `gitlens.settings.mode` setting to specify the display mode of the interactive settings editor
 - Adds a tree layout option to tags in the *GitLens* explorer &mdash; closes [#358](https://github.com/eamodio/vscode-gitlens/issues/358)
 - Adds *Show GitLens Explorer* (`gitlens.showGitExplorer`) command &mdash; shows/expands the *GitLens* explorer
-- Adds *Show History Explorer* (`gitlens.showHistoryExplorer`) command &mdash; shows/expands the *GitLens History* explorer
+- Adds *Show File History Explorer* (`gitlens.showHistoryExplorer`) command &mdash; shows/expands the *GitLens File History* explorer
 - Adds *Show Results Explorer* (`gitlens.showResultsExplorer`) command &mdash; shows/expands the *GitLens Results* explorer
 
 ### Changed
-- Moves the *GitLens*, *GitLens History*, and *GitLens Results* explorers under the Source Control activity (in the sidebar) 🎉 &mdash; closes [#213](https://github.com/eamodio/vscode-gitlens/issues/213)
+- Moves the *GitLens*, *GitLens File History*, and *GitLens Results* explorers under the Source Control activity (in the sidebar) 🎉 &mdash; closes [#213](https://github.com/eamodio/vscode-gitlens/issues/213)
 - Showing results in the *GitLens Results* explorer now properly shows the explorer first
 - Renames *Compare Line Revision with Previous* command (`gitlens.diffLineWithPrevious`) to *Compare Commit with Previous* for consistency with other commands
 - Renames *Compare Line Revision with Working File* command (`gitlens.diffLineWithWorking`) to *Compare Commit with Working File* for consistency with other commands
@@ -179,9 +182,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [8.2.0] - 2018-03-31
 ### Added
-- Adds new stand-alone *GitLens History* explorer to visualize the history of the current file &mdash; undocked version of the *GitLens* explorer history view
+- Adds new stand-alone *GitLens File History* explorer to visualize the history of the current file &mdash; undocked version of the *GitLens* explorer history view
 
-  ![GitLens History explorer](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-history-explorer.png)
+  ![GitLens File History explorer](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-history-explorer.png)
 
 - Adds richer tooltips to the *GitLens* and *GitLens Results* explorers, and richer working tree and upstream status to the *GitLens* explorer
 
@@ -903,16 +906,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
       - Provides a context menu on each stash with *Apply Stashed Changes* (confirmation required), *Delete Stashed Changes* (confirmation required), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit Message to Clipboard*, and *Refresh* commands
       - Provides a context menu on each stashed file with *Apply Changes*, *Open Changes*, *Open Changes with Working Tree*, *Open File*, *Open Revision*, *Open File in Remote*, and *Show File History* commands
 
-  - **History View** - provides the revision history of the active file
+  - **File History View** - provides the revision history of the active file
 
-    ![GitLens History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-explorer-history.png)
+    ![GitLens File History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-explorer-history.png)
 
     - Automatically updates to track the active editor
     - Provides a context menu with *Open File*, *Open File in Remote*, and *Refresh* commands
     - Provides a context menu on each revision (commit) with *Open Changes*, *Open Changes with Working Tree*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Apply Changes*, and *Show Commit File Details* commands
 
-  - Quickly switch between views using the *Switch to Repository View* or *Switch to History View* commands
-  - Provides toolbar commands to *Search Commits*, *Switch to Repository View* or *Switch to History View*, and *Refresh*
+  - Quickly switch between views using the *Switch to Repository View* or *Switch to File History View* commands
+  - Provides toolbar commands to *Search Commits*, *Switch to Repository View* or *Switch to File History View*, and *Refresh*
 
 - Adds all-new interactivity to the hover annotations
 

@@ -18,7 +18,7 @@
         "url": "https://github.com/eamodio/vscode-gitlens.git"
     },
     "engines": {
-        "vscode": "^1.23.0"
+        "vscode": "^1.25.0"
     },
     "main": "./out/extension",
     "icon": "images/gitlens-icon.png",
@@ -530,7 +530,7 @@
                 "gitlens.historyExplorer.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to show the current file history undocked in a `GitLens History` explorer",
+                    "description": "Specifies whether to show the current file history undocked in a `GitLens File History` explorer",
                     "scope": "window"
                 },
                 "gitlens.historyExplorer.location": {
@@ -540,7 +540,7 @@
                         "explorer",
                         "scm"
                     ],
-                    "description": "Specifies where to show the `GitLens History` explorer\n `explorer` - adds to the Explorer view\n `scm` - adds to the Source Control view",
+                    "description": "Specifies where to show the `GitLens File History` explorer\n `explorer` - adds to the Explorer view\n `scm` - adds to the Source Control view",
                     "scope": "window"
                 },
                 "gitlens.hovers.annotations.changes": {
@@ -1368,7 +1368,7 @@
             },
             {
                 "command": "gitlens.showHistoryExplorer",
-                "title": "Show History Explorer",
+                "title": "Show File History Explorer",
                 "category": "GitLens"
             },
             {
@@ -1832,7 +1832,7 @@
             },
             {
                 "command": "gitlens.gitExplorer.undockHistory",
-                "title": "Undock History from GitLens Explorer",
+                "title": "Undock File History from GitLens Explorer",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-undock.svg",
@@ -1890,7 +1890,7 @@
             },
             {
                 "command": "gitlens.gitExplorer.switchToHistoryView",
-                "title": "Switch to History View",
+                "title": "Switch to File History View",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-history.svg",
@@ -1917,7 +1917,7 @@
             },
             {
                 "command": "gitlens.historyExplorer.dock",
-                "title": "Dock History to GitLens Explorer",
+                "title": "Dock File History to GitLens Explorer",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-dock.svg",
@@ -3315,7 +3315,7 @@
                 },
                 {
                     "id": "gitlens.historyExplorer:explorer",
-                    "name": "GitLens History",
+                    "name": "GitLens File History",
                     "when": "gitlens:enabled && gitlens:historyExplorer == explorer"
                 },
                 {
@@ -3332,7 +3332,7 @@
                 },
                 {
                     "id": "gitlens.historyExplorer:scm",
-                    "name": "GitLens History",
+                    "name": "GitLens File History",
                     "when": "gitlens:enabled && gitlens:historyExplorer == scm"
                 },
                 {
