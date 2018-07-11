@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 - Fixes [#436](https://github.com/eamodio/vscode-gitlens/issues/436) - Copy to clipboard not working
 - Fixes [#442](https://github.com/eamodio/vscode-gitlens/issues/442) - GitLens File History fails if name (or path) starts with -
+- Fixes issue where changed files count was wrong when the branch was behind the upstream
 
 ## [8.4.1] - 2018-06-19
 ### Fixed

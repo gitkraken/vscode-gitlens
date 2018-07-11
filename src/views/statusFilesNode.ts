@@ -199,10 +199,26 @@ export class StatusFilesNode extends ExplorerNode {
     async getTreeItem(): Promise<TreeItem> {
         let files = this.status.files !== undefined && this.includeWorkingTree ? this.status.files.length : 0;
 
-        if (this.status.upstream !== undefined) {
-            const stats = await Container.git.getChangedFilesCount(this.repoPath, this.status.upstream);
-            if (stats !== undefined) {
-                files = stats.files;
+        if (this.status.upstream !== undefined && this.status.state.ahead > 0) {
+            if (files > 0) {
+                const aheadFiles = await Container.git.getDiffStatus(this.repoPath, `${this.status.upstream}...`);
+                if (aheadFiles !== undefined) {
+                    const uniques = new Set();
+                    for (const f of this.status.files) {
+                        uniques.add(f.fileName);
+                    }
+                    for (const f of aheadFiles) {
+                        uniques.add(f.fileName);
+                    }
+
+                    files = uniques.size;
+                }
+            }
+            else {
+                const stats = await Container.git.getChangedFilesCount(this.repoPath, `${this.status.upstream}...`);
+                if (stats !== undefined) {
+                    files += stats.files;
+                }
             }
         }
 
