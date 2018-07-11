@@ -957,53 +957,54 @@
 
                         <div class="section__settings">
                             <div class="settings-group">
-                                <div class="settings-group__setting">
-                                    <div class="settings-group__setting nowrap">
-                                        <input class="setting" id="hovers.enabled" name="hovers.enabled" type="checkbox" />
-                                        <label for="hovers.enabled">Show blame hovers</label>
-                                    </div>
+                                <div class="settings-group__setting nowrap">
+                                    <input class="setting" id="hovers.enabled" name="hovers.enabled" type="checkbox" />
+                                    <label for="hovers.enabled">Show blame hovers</label>
                                 </div>
 
-                                <div class="settings-group__setting">
-                                    <div class="settings-group__setting nowrap ml-2 hidden" data-visibility="currentLine.enabled" data-enablement="hovers.enabled">
-                                        <input class="setting" id="hovers.currentLine.enabled" name="hovers.currentLine.enabled" type="checkbox" disabled/>
-                                        <label for="hovers.currentLine.enabled">Show hovers for the current line</label>
-                                    </div>
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="hovers.enabled" data-visibility="settings.mode =advanced">
+                                    <input class="setting" id="hovers.avatars" name="hovers.avatars" type="checkbox" disabled/>
+                                    <label for="hovers.avatars">Use author avatars icons</label>
+                                </div>
 
-                                    <div class="settings-group__setting nowrap ml-2 hidden" data-visibility="currentLine.enabled =false" data-enablement="hovers.enabled">
-                                        <input class="setting" id="hovers.currentLine.enabled-1" name="hovers.currentLine.enabled" type="checkbox" data-add-settings-on="hovers.currentLine.over=line"
-                                            disabled/>
-                                        <label for="hovers.currentLine.enabled-1">Show hovers for the current line</label>
-                                    </div>
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-visibility="currentLine.enabled" data-enablement="hovers.enabled">
+                                    <input class="setting" id="hovers.currentLine.enabled" name="hovers.currentLine.enabled" type="checkbox" disabled/>
+                                    <label for="hovers.currentLine.enabled">Show hovers for the current line</label>
+                                </div>
 
-                                    <div class="settings-group__setting ml-4 hidden" data-visibility="currentLine.enabled &amp; settings.mode =advanced" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled">
-                                        <label for="hovers.currentLine.over">Shown when over the</label>
-                                        <select class="setting" id="hovers.currentLine.over" name="hovers.currentLine.over" disabled>
-                                            <option value="annotation">annotation only</option>
-                                            <option value="line">line &amp; annotation</option>
-                                        </select>
-                                    </div>
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-visibility="currentLine.enabled =false" data-enablement="hovers.enabled">
+                                    <input class="setting" id="hovers.currentLine.enabled-1" name="hovers.currentLine.enabled" type="checkbox" data-add-settings-on="hovers.currentLine.over=line"
+                                        disabled/>
+                                    <label for="hovers.currentLine.enabled-1">Show hovers for the current line</label>
+                                </div>
 
-                                    <div class="settings-group__setting ml-4 hidden" data-visibility="currentLine.enabled =false &amp; settings.mode =advanced"
-                                        data-enablement="hovers.enabled &amp; hovers.currentLine.enabled &amp; currentLine.enabled">
-                                        <label for="hovers.currentLine.over">Shown when over the</label>
-                                        <select class="setting" id="hovers.currentLine.over" name="hovers.currentLine.over" disabled>
-                                            <option value="annotation">annotation only</option>
-                                            <option value="line">line</option>
-                                        </select>
-                                    </div>
+                                <div class="settings-group__setting ml-4 hidden" data-visibility="currentLine.enabled &amp; settings.mode =advanced" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled">
+                                    <label for="hovers.currentLine.over">Shown when over the</label>
+                                    <select class="setting" id="hovers.currentLine.over" name="hovers.currentLine.over" disabled>
+                                        <option value="annotation">annotation only</option>
+                                        <option value="line">line &amp; annotation</option>
+                                    </select>
+                                </div>
 
-                                    <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled"
-                                        data-visibility="settings.mode =advanced">
-                                        <input class="setting" id="hovers.currentLine.details" name="hovers.currentLine.details" type="checkbox" disabled/>
-                                        <label for="hovers.currentLine.details">Add blame details</label>
-                                    </div>
+                                <div class="settings-group__setting ml-4 hidden" data-visibility="currentLine.enabled =false &amp; settings.mode =advanced"
+                                    data-enablement="hovers.enabled &amp; hovers.currentLine.enabled &amp; currentLine.enabled">
+                                    <label for="hovers.currentLine.over">Shown when over the</label>
+                                    <select class="setting" id="hovers.currentLine.over" name="hovers.currentLine.over" disabled>
+                                        <option value="annotation">annotation only</option>
+                                        <option value="line">line</option>
+                                    </select>
+                                </div>
 
-                                    <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled"
-                                        data-visibility="settings.mode =advanced">
-                                        <input class="setting" id="hovers.currentLine.changes" name="hovers.currentLine.changes" type="checkbox" disabled/>
-                                        <label for="hovers.currentLine.changes">Add changes (diff)</label>
-                                    </div>
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled"
+                                    data-visibility="settings.mode =advanced">
+                                    <input class="setting" id="hovers.currentLine.details" name="hovers.currentLine.details" type="checkbox" disabled/>
+                                    <label for="hovers.currentLine.details">Add blame details</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="hovers.enabled &amp; hovers.currentLine.enabled"
+                                    data-visibility="settings.mode =advanced">
+                                    <input class="setting" id="hovers.currentLine.changes" name="hovers.currentLine.changes" type="checkbox" disabled/>
+                                    <label for="hovers.currentLine.changes">Add changes (diff)</label>
                                 </div>
                             </div>
 
@@ -1014,13 +1015,23 @@
                                 />
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-blame.png" data-visibility="currentLine.enabled &amp; hovers.currentLine.over =line"
                                 />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details+changes.png" data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes"
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details+changes-avatars.png"
+                                    data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars"
                                 />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details+changes.png" data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes"
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details+changes-avatars.png"
+                                    data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars"
                                 />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details.png" data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false"
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details+changes.png" data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars =false"
                                 />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details.png" data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false"
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details+changes.png" data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars =false"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details-avatars.png" data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details-avatars.png" data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details.png" data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars =false"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-details.png" data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars =false"
                                 />
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-line-changes.png" data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details =false &amp; hovers.currentLine.changes"
                                 />
@@ -1029,10 +1040,16 @@
 
                                 <img class="image__preview hidden" src="{{root}}/images/settings/hovers-currentLine-annotation.png" data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation"
                                 />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-annotation-details+changes.png"
-                                    data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes"
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-annotation-details+changes-avatars.png"
+                                    data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars"
                                 />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-annotation-details.png" data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false"
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-annotation-details+changes.png"
+                                    data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars =false"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-annotation-details-avatars.png"
+                                    data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-annotation-details.png" data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars =false"
                                 />
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-currentLine-annotation-changes.png" data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details =false &amp; hovers.currentLine.changes"
                                 />
@@ -1073,9 +1090,14 @@
                                 />
                                 <img class="image__preview hidden" src="{{root}}/images/settings/hovers-annotations-compact.png" data-visibility="blame.compact"
                                 />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-annotations-details+changes.png" data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes"
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-annotations-details+changes-avatars.png"
+                                    data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes &amp; hovers.avatars"
                                 />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-annotations-details.png" data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes =false"
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-annotations-details+changes.png" data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes &amp; hovers.avatars =false"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-annotations-details-avatars.png" data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes =false &amp; hovers.avatars"
+                                />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-annotations-details.png" data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes =false &amp; hovers.avatars =false"
                                 />
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/hovers-annotations-changes.png" data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details =false &amp; hovers.annotations.changes"
                                 />
@@ -1083,6 +1105,7 @@
                                 />
                             </div>
                         </div>
+
                     </section>
 
                     <section id="modes">
