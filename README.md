@@ -582,7 +582,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |`gitlens.gitExplorer.files.layout`|Specifies how the *GitLens* explorer will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
 |`gitlens.gitExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the *GitLens* explorer<br />Only applies when displaying files as `auto`
 |`gitlens.gitExplorer.includeWorkingTree`|Specifies whether to include working tree files inside the `Repository Status` node of the *GitLens* explorer
-|`gitlens.gitExplorer.location`|Specifies where to show the `GitLens` explorer<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view
+|`gitlens.gitExplorer.location`|Specifies where to show the *GitLens* explorer<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view
 |`gitlens.gitExplorer.showTrackingBranch`|Specifies whether to show the tracking branch when displaying local branches in the *GitLens* explorer"
 |`gitlens.gitExplorer.view`|Specifies the starting view of the *GitLens* explorer<br /> `auto` - shows the last selected view, defaults to `repository`<br />`history` - shows the commit history of the current file<br />`repository` - shows a repository explorer"
 
@@ -593,7 +593,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |Name | Description
 |-----|------------
 |`gitlens.historyExplorer.enabled`|Specifies whether to show the current file history undocked in a *GitLens File History* explorer
-|`gitlens.historyExplorer.location`|Specifies where to show the *GitLens File History* explorer<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view
+|`gitlens.historyExplorer.location`|Specifies where to show the *GitLens File History* explorer<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view
 
 ### GitLens Results Explorer Settings
 
@@ -604,7 +604,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |`gitlens.resultsExplorer.files.compact`|Specifies whether to compact (flatten) unnecessary file nesting in the *GitLens Results* explorer<br />Only applies when displaying files as a `tree` or `auto`
 |`gitlens.resultsExplorer.files.layout`|Specifies how the *GitLens Results* explorer will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.resultsExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
 |`gitlens.resultsExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the *GitLens Results* explorer<br />Only applies when displaying files as `auto`
-|`gitlens.resultsExplorer.location`|Specifies where to show the `GitLens Results` explorer<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view
+|`gitlens.resultsExplorer.location`|Specifies where to show the *GitLens Results* explorer<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view
 
 ### Explorer Settings
 

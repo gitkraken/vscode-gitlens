@@ -190,7 +190,7 @@ export interface IGitExplorerConfig {
     enabled: boolean;
     files: IExplorersFilesConfig;
     includeWorkingTree: boolean;
-    location: 'explorer' | 'scm';
+    location: 'explorer' | 'gitlens' | 'scm';
     showTrackingBranch: boolean;
     view: GitExplorerView;
 }

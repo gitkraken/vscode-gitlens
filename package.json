@@ -476,10 +476,11 @@
                     "type": "string",
                     "default": "scm",
                     "enum": [
+                        "gitlens",
                         "explorer",
                         "scm"
                     ],
-                    "description": "Specifies where to show the `GitLens` explorer\n `explorer` - adds to the Explorer view\n `scm` - adds to the Source Control view",
+                    "description": "Specifies where to show the `GitLens` explorer\n `gitlens` - adds to the GitLens view\n `explorer` - adds to the Explorer view\n `scm` - adds to the Source Control view",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.showTrackingBranch": {
@@ -537,10 +538,11 @@
                     "type": "string",
                     "default": "explorer",
                     "enum": [
+                        "gitlens",
                         "explorer",
                         "scm"
                     ],
-                    "description": "Specifies where to show the `GitLens File History` explorer\n `explorer` - adds to the Explorer view\n `scm` - adds to the Source Control view",
+                    "description": "Specifies where to show the `GitLens File History` explorer\n `gitlens` - adds to the GitLens view\n `explorer` - adds to the Explorer view\n `scm` - adds to the Source Control view",
                     "scope": "window"
                 },
                 "gitlens.hovers.annotations.changes": {
@@ -1081,10 +1083,11 @@
                     "type": "string",
                     "default": "explorer",
                     "enum": [
+                        "gitlens",
                         "explorer",
                         "scm"
                     ],
-                    "description": "Specifies where to show the `GitLens Results` explorer\n `explorer` - adds to the Explorer view\n `scm` - adds to the Source Control view",
+                    "description": "Specifies where to show the `GitLens Results` explorer\n `gitlens` - adds to the GitLens view\n `explorer` - adds to the Explorer view\n `scm` - adds to the Source Control view",
                     "scope": "window"
                 },
                 "gitlens.settings.mode": {
@@ -3306,7 +3309,33 @@
                 "when": "gitlens:keymap == chorded && gitlens:enabled"
             }
         ],
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "gitlens",
+                    "title": "GitLens",
+                    "icon": "images/gitlens-activitybar.svg"
+                }
+            ]
+        },
         "views": {
+            "gitlens": [
+                {
+                    "id": "gitlens.gitExplorer:gitlens",
+                    "name": "Explorer",
+                    "when": "gitlens:enabled && gitlens:gitExplorer == gitlens"
+                },
+                {
+                    "id": "gitlens.historyExplorer:gitlens",
+                    "name": "File History",
+                    "when": "gitlens:enabled && gitlens:historyExplorer == gitlens"
+                },
+                {
+                    "id": "gitlens.resultsExplorer:gitlens",
+                    "name": "Results",
+                    "when": "gitlens:enabled && gitlens:resultsExplorer == gitlens"
+                }
+            ],
             "explorer": [
                 {
                     "id": "gitlens.gitExplorer:explorer",

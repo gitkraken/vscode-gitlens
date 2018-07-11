@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 ### Added
+- Adds the ability to show the *GitLens*, *GitLens File History*, and *GitLens Results* explorers in an all-new *GitLens* view (in addition to the existing locations)
 - Adds `gitlens.hovers.avatars` setting to specify whether to show avatar images in hovers &mdash; closes [#432](https://github.com/eamodio/vscode-gitlens/issues/432) thanks to [PR #441](https://github.com/eamodio/vscode-gitlens/pull/441) by Segev Finer ([@segevfiner](https://github.com/segevfiner))
 - Adds `gitlens.hovers.avatars` setting to the interactive settings editor to specify whether to show avatar images in hovers
 
