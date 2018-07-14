@@ -115,7 +115,7 @@ export interface CommandOptions {
 }
 
 export function runCommand(command: string, args: any[], options: CommandOptions = {}) {
-    const { stdin, stdinEncoding, ...opts } = { maxBuffer: 10 * 1024 * 1024, ...options } as CommandOptions;
+    const { stdin, stdinEncoding, ...opts } = { maxBuffer: 100 * 1024 * 1024, ...options } as CommandOptions;
 
     return new Promise<string>((resolve, reject) => {
         const proc = execFile(command, args, opts, (err: Error & { code?: string | number } | null, stdout, stderr) => {

@@ -113,7 +113,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                 break;
 
             case GitRepoSearchBy.Message:
-                searchLabel = `commits with a message matching '${args.search}'`;
+                searchLabel = args.search ? `commits with a message matching '${args.search}'` : 'all commits';
                 break;
 
             case GitRepoSearchBy.Sha:

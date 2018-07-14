@@ -1132,7 +1132,7 @@ export class GitService extends Disposable {
                 searchArgs = [`--`, `${search}`];
                 break;
             case GitRepoSearchBy.Message:
-                searchArgs = [`--grep=${search}`];
+                searchArgs = search ? [`--grep=${search}`] : [];
                 break;
             case GitRepoSearchBy.Sha:
                 searchArgs = [search];
