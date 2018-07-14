@@ -58,16 +58,39 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                     sha = sha + '^';
                 }
 
-                const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
+                args.commit = undefined;
+
+                let log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
                     maxCount: 2,
                     ref: sha,
                     renames: true
                 });
-                if (log === undefined) {
-                    return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
-                }
 
-                args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
+                if (log !== undefined) {
+                    args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
+                }
+                else {
+                    // Only kick out if we aren't looking for the previous sha -- since renames won't return a log above
+                    if (sha === undefined || !sha.endsWith('^')) {
+                        return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                    }
+
+                    // Check for renames
+                    log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
+                        maxCount: 4,
+                        ref: sha.substring(0, sha.length - 1),
+                        renames: true
+                    });
+
+                    if (log === undefined) {
+                        return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                    }
+
+                    args.commit = Iterables.next(Iterables.skip(log.commits.values(), 2));
+                    if (args.commit === undefined) {
+                        args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
+                    }
+                }
 
                 // If the sha is missing (i.e. working tree), check the file status
                 // If file is uncommitted, then treat it as a DiffWithWorking
