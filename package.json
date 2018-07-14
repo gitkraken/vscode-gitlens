@@ -2062,35 +2062,35 @@
                 },
                 {
                     "command": "gitlens.diffWithBranch",
-                    "when": "gitlens:activeIsTracked"
+                    "when": "gitlens:activeFileStatus =~ /tracked/"
                 },
                 {
                     "command": "gitlens.diffWithNext",
-                    "when": "gitlens:activeIsTracked && gitlens:activeIsRevision"
+                    "when": "gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /revision/"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
-                    "when": "!isInDiffEditor && gitlens:activeIsTracked"
+                    "when": "!isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
                 },
                 {
                     "command": "gitlens.diffWithPreviousInDiff",
-                    "when": "isInDiffEditor && gitlens:activeIsTracked"
+                    "when": "isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
                 },
                 {
                     "command": "gitlens.diffLineWithPrevious",
-                    "when": "gitlens:activeIsBlameable"
+                    "when": "gitlens:activeFileStatus =~ /blameable/"
                 },
                 {
                     "command": "gitlens.diffWithRevision",
-                    "when": "gitlens:activeIsTracked"
+                    "when": "gitlens:activeFileStatus =~ /tracked/"
                 },
                 {
                     "command": "gitlens.diffWithWorking",
-                    "when": "gitlens:activeIsTracked"
+                    "when": "gitlens:activeFileStatus =~ /tracked/"
                 },
                 {
                     "command": "gitlens.diffLineWithWorking",
-                    "when": "gitlens:activeIsBlameable"
+                    "when": "gitlens:activeFileStatus =~ /blameable/"
                 },
                 {
                     "command": "gitlens.externalDiff",
@@ -2102,11 +2102,11 @@
                 },
                 {
                     "command": "gitlens.toggleFileBlame",
-                    "when": "gitlens:activeIsBlameable"
+                    "when": "gitlens:activeFileStatus =~ /blameable/"
                 },
                 {
                     "command": "gitlens.clearFileAnnotations",
-                    "when": "gitlens:activeIsBlameable && gitlens:annotationStatus == computed"
+                    "when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus == computed"
                 },
                 {
                     "command": "gitlens.computingFileAnnotations",
@@ -2114,11 +2114,11 @@
                 },
                 {
                     "command": "gitlens.toggleFileHeatmap",
-                    "when": "gitlens:activeIsBlameable"
+                    "when": "gitlens:activeFileStatus =~ /blameable/"
                 },
                 {
                     "command": "gitlens.toggleFileRecentChanges",
-                    "when": "gitlens:activeIsBlameable"
+                    "when": "gitlens:activeFileStatus =~ /blameable/"
                 },
                 {
                     "command": "gitlens.toggleLineBlame",
@@ -2150,15 +2150,15 @@
                 },
                 {
                     "command": "gitlens.showQuickCommitDetails",
-                    "when": "gitlens:activeIsBlameable"
+                    "when": "gitlens:activeFileStatus =~ /blameable/"
                 },
                 {
                     "command": "gitlens.showQuickCommitFileDetails",
-                    "when": "editorTextFocus && gitlens:activeIsBlameable"
+                    "when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
-                    "when": "gitlens:activeIsTracked"
+                    "when": "gitlens:activeFileStatus =~ /tracked/"
                 },
                 {
                     "command": "gitlens.showQuickBranchHistory",
@@ -2178,11 +2178,11 @@
                 },
                 {
                     "command": "gitlens.copyShaToClipboard",
-                    "when": "gitlens:activeIsBlameable"
+                    "when": "gitlens:activeFileStatus =~ /blameable/"
                 },
                 {
                     "command": "gitlens.copyMessageToClipboard",
-                    "when": "gitlens:activeIsBlameable"
+                    "when": "gitlens:activeFileStatus =~ /blameable/"
                 },
                 {
                     "command": "gitlens.closeUnchangedFiles",
@@ -2202,15 +2202,15 @@
                 },
                 {
                     "command": "gitlens.openCommitInRemote",
-                    "when": "gitlens:activeIsBlameable && gitlens:activeHasRemotes"
+                    "when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:activeFileStatus =~ /remotes/"
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:activeIsTracked && gitlens:activeHasRemotes"
+                    "when": "gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /remotes/"
                 },
                 {
                     "command": "gitlens.openFileRevision",
-                    "when": "gitlens:activeIsTracked"
+                    "when": "gitlens:activeFileStatus =~ /tracked/"
                 },
                 {
                     "command": "gitlens.openRepoInRemote",
@@ -2218,7 +2218,7 @@
                 },
                 {
                     "command": "gitlens.openWorkingFile",
-                    "when": "gitlens:activeIsRevision"
+                    "when": "gitlens:activeFileStatus =~ /revision/"
                 },
                 {
                     "command": "gitlens.stashApply",
@@ -2488,112 +2488,112 @@
             "editor/context": [
                 {
                     "command": "gitlens.diffLineWithPrevious",
-                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.menus.editor.compare",
+                    "when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.compare",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.diffLineWithWorking",
-                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.menus.editor.compare",
+                    "when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.compare",
                     "group": "1_gitlens@2"
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "editorTextFocus && gitlens:activeHasRemotes && config.gitlens.menus.editor.remote",
+                    "when": "editorTextFocus && gitlens:activeFileStatus =~ /remotes/ && config.gitlens.menus.editor.remote",
                     "group": "1_gitlens_1@1"
                 },
                 {
                     "command": "gitlens.openCommitInRemote",
-                    "when": "editorTextFocus && gitlens:activeHasRemotes && config.gitlens.menus.editor.remote",
+                    "when": "editorTextFocus && gitlens:activeFileStatus =~ /remotes/ && config.gitlens.menus.editor.remote",
                     "group": "1_gitlens_1@2"
                 },
                 {
                     "command": "gitlens.showQuickCommitFileDetails",
-                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.menus.editor.details",
+                    "when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.details",
                     "group": "1_gitlens_1@3"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
-                    "when": "gitlens:activeIsTracked && config.gitlens.menus.editor.history",
+                    "when": "gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editor.history",
                     "group": "3_gitlens@1"
                 },
                 {
                     "command": "gitlens.toggleFileBlame",
-                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.menus.editor.blame",
+                    "when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.blame",
                     "group": "3_gitlens@2"
                 },
                 {
                     "command": "gitlens.copyShaToClipboard",
-                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.menus.editor.clipboard",
+                    "when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
                     "group": "9_gitlens@1"
                 },
                 {
                     "command": "gitlens.copyMessageToClipboard",
-                    "when": "editorTextFocus && gitlens:activeIsBlameable && config.gitlens.menus.editor.clipboard",
+                    "when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
                     "group": "9_gitlens@2"
                 }
             ],
             "editor/title": [
                 {
                     "command": "gitlens.diffWithPrevious",
-                    "when": "!isInDiffEditor && gitlens:activeIsTracked && config.gitlens.menus.editorGroup.compare",
+                    "when": "!isInDiffEditor && gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare",
                     "group": "navigation@97"
                 },
                 {
                     "command": "gitlens.diffWithPreviousInDiff",
-                    "when": "isInDiffEditor && gitlens:activeIsTracked && config.gitlens.menus.editorGroup.compare",
+                    "when": "isInDiffEditor && gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare",
                     "group": "navigation@97"
                 },
                 {
                     "command": "gitlens.diffWithNext",
-                    "when": "gitlens:activeIsTracked && gitlens:activeIsTracked && gitlens:activeIsRevision && config.gitlens.menus.editorGroup.compare",
+                    "when": "gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /revision/ && config.gitlens.menus.editorGroup.compare",
                     "group": "navigation@98"
                 },
                 {
                     "command": "gitlens.openWorkingFile",
-                    "when": "gitlens:activeIsRevision && resourceScheme != git",
+                    "when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git",
                     "group": "navigation@99"
                 },
                 {
                     "command": "gitlens.openWorkingFile",
-                    "when": "!gitlens:activeIsRevision && resourceScheme != git && isInDiffEditor",
+                    "when": "!gitlens:activeFileStatus =~ /revision/ && resourceScheme != git && isInDiffEditor",
                     "group": "navigation@99"
                 },
                 {
                     "command": "gitlens.openWorkingFile",
-                    "when": "gitlens:activeIsRevision && resourceScheme == git && !isInDiffEditor",
+                    "when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme == git && !isInDiffEditor",
                     "group": "navigation@99"
                 },
                 {
                     "command": "gitlens.toggleFileBlame",
                     "alt": "gitlens.toggleFileRecentChanges",
-                    "when": "gitlens:activeIsBlameable && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
+                    "when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
                     "group": "navigation@100"
                 },
                 {
                     "command": "gitlens.computingFileAnnotations",
-                    "when": "gitlens:activeIsBlameable && gitlens:annotationStatus == computing && config.gitlens.menus.editorGroup.blame",
+                    "when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus == computing && config.gitlens.menus.editorGroup.blame",
                     "group": "navigation@100"
                 },
                 {
                     "command": "gitlens.clearFileAnnotations",
-                    "when": "gitlens:activeIsBlameable && gitlens:annotationStatus == computed && config.gitlens.menus.editorGroup.blame",
+                    "when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus == computed && config.gitlens.menus.editorGroup.blame",
                     "group": "navigation@100"
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && gitlens:activeHasRemotes && config.gitlens.menus.editorGroup.remote",
+                    "when": "gitlens:enabled && gitlens:activeFileStatus =~ /remotes/ && config.gitlens.menus.editorGroup.remote",
                     "group": "4_gitlens"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
-                    "when": "editorFocus && gitlens:activeIsTracked && config.gitlens.menus.editorGroup.history",
+                    "when": "editorFocus && gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.history",
                     "group": "4_gitlens"
                 }
             ],
             "editor/title/context": [
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && gitlens:activeHasRemotes && config.gitlens.menus.editorTab.remote",
+                    "when": "gitlens:enabled && gitlens:activeFileStatus =~ /remotes/ && config.gitlens.menus.editorTab.remote",
                     "group": "2_files@100"
                 },
                 {
@@ -3152,7 +3152,7 @@
             {
                 "command": "gitlens.toggleFileBlame",
                 "key": "alt+b",
-                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:activeIsBlameable"
+                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /blameable/"
             },
             {
                 "command": "gitlens.toggleCodeLens",
@@ -3192,38 +3192,38 @@
             {
                 "command": "gitlens.diffWithNext",
                 "key": "alt+.",
-                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:activeIsTracked"
+                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffLineWithPrevious",
                 "key": "shift+alt+,",
-                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:activeIsTracked"
+                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffWithPrevious",
                 "key": "alt+,",
-                "when": "gitlens:keymap == alternate && editorTextFocus && !isInDiffEditor && gitlens:activeIsTracked"
+                "when": "gitlens:keymap == alternate && editorTextFocus && !isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffWithPreviousInDiff",
                 "key": "alt+,",
-                "when": "gitlens:keymap == alternate && isInDiffEditor && gitlens:activeIsTracked"
+                "when": "gitlens:keymap == alternate && isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffLineWithWorking",
                 "key": "alt+w",
-                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:activeIsTracked"
+                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffWithWorking",
                 "key": "shift+alt+w",
-                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:activeIsTracked"
+                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.toggleFileBlame",
                 "key": "ctrl+shift+g b",
                 "mac": "cmd+alt+g b",
-                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeIsBlameable"
+                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /blameable/"
             },
             {
                 "command": "gitlens.toggleCodeLens",
@@ -3271,37 +3271,37 @@
                 "command": "gitlens.diffWithNext",
                 "key": "ctrl+shift+g .",
                 "mac": "cmd+alt+g .",
-                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeIsTracked"
+                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffLineWithPrevious",
                 "key": "ctrl+shift+g shift+,",
                 "mac": "cmd+alt+g shift+,",
-                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeIsTracked"
+                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffWithPrevious",
                 "key": "ctrl+shift+g ,",
                 "mac": "cmd+alt+g ,",
-                "when": "gitlens:keymap == chorded && editorTextFocus && !isInDiffEditor && gitlens:activeIsTracked"
+                "when": "gitlens:keymap == chorded && editorTextFocus && !isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffWithPreviousInDiff",
                 "key": "ctrl+shift+g ,",
                 "mac": "cmd+alt+g ,",
-                "when": "gitlens:keymap == chorded && isInDiffEditor && gitlens:activeIsTracked"
+                "when": "gitlens:keymap == chorded && isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffLineWithWorking",
                 "key": "ctrl+shift+g w",
                 "mac": "cmd+alt+g w",
-                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeIsTracked"
+                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffWithWorking",
                 "key": "ctrl+shift+g shift+w",
                 "mac": "cmd+alt+g shift+w",
-                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeIsTracked"
+                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "workbench.view.scm",

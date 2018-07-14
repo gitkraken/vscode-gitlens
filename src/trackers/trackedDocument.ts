@@ -119,10 +119,7 @@ export class TrackedDocument<T> extends Disposable {
     }
 
     activate() {
-        setCommandContext(CommandContext.ActiveIsRevision, this.isRevision);
-        setCommandContext(CommandContext.ActiveFileIsTracked, this.isTracked);
-        setCommandContext(CommandContext.ActiveIsBlameable, this.isBlameable);
-        setCommandContext(CommandContext.ActiveHasRemotes, this.hasRemotes);
+        setCommandContext(CommandContext.ActiveFileStatus, this.getStatus());
     }
 
     async ensureInitialized() {
@@ -200,10 +197,7 @@ export class TrackedDocument<T> extends Disposable {
         if (active !== undefined) {
             const blameable = this.isBlameable;
 
-            setCommandContext(CommandContext.ActiveIsRevision, this.isRevision);
-            setCommandContext(CommandContext.ActiveFileIsTracked, this.isTracked);
-            setCommandContext(CommandContext.ActiveIsBlameable, blameable);
-            setCommandContext(CommandContext.ActiveHasRemotes, this.hasRemotes);
+            setCommandContext(CommandContext.ActiveFileStatus, this.getStatus());
 
             if (!options.initializing && wasBlameable !== blameable) {
                 const e = { editor: active, document: this, blameable: blameable } as DocumentBlameStateChangeEvent<T>;
@@ -211,5 +205,23 @@ export class TrackedDocument<T> extends Disposable {
                 this._eventDelegates.onDidBlameStateChange(e);
             }
         }
+    }
+
+    private getStatus() {
+        let status = '';
+        if (this.isTracked) {
+            status += 'tracked|';
+        }
+        if (this.isBlameable) {
+            status += 'blameable|';
+        }
+        if (this.isRevision) {
+            status += 'revision|';
+        }
+        if (this.hasRemotes) {
+            status += 'remotes|';
+        }
+
+        return status ? status : undefined;
     }
 }

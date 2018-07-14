@@ -24,10 +24,7 @@ export enum BuiltInCommands {
 }
 
 export enum CommandContext {
-    ActiveHasRemotes = 'gitlens:activeHasRemotes',
-    ActiveIsBlameable = 'gitlens:activeIsBlameable',
-    ActiveFileIsTracked = 'gitlens:activeIsTracked',
-    ActiveIsRevision = 'gitlens:activeIsRevision',
+    ActiveFileStatus = 'gitlens:activeFileStatus',
     AnnotationStatus = 'gitlens:annotationStatus',
     CanToggleCodeLens = 'gitlens:canToggleCodeLens',
     Enabled = 'gitlens:enabled',

@@ -59,7 +59,7 @@ export class DocumentTracker<T> extends Disposable {
 
         this._disposable = Disposable.from(
             configuration.onDidChange(this.onConfigurationChanged, this),
-            window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 0), this),
+            window.onDidChangeActiveTextEditor(this.onActiveTextEditorChanged, this),
             // window.onDidChangeVisibleTextEditors(Functions.debounce(this.onVisibleEditorsChanged, 5000), this),
             workspace.onDidChangeTextDocument(Functions.debounce(this.onTextDocumentChanged, 50), this),
             workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
@@ -100,14 +100,21 @@ export class DocumentTracker<T> extends Disposable {
         }
     }
 
+    private _timer: NodeJS.Timer | undefined;
     private onActiveTextEditorChanged(editor: TextEditor | undefined) {
         if (editor !== undefined && !isTextEditor(editor)) return;
 
+        if (this._timer !== undefined) {
+            clearTimeout(this._timer);
+            this._timer = undefined;
+        }
+
         if (editor === undefined) {
-            setCommandContext(CommandContext.ActiveIsRevision, false);
-            setCommandContext(CommandContext.ActiveFileIsTracked, false);
-            setCommandContext(CommandContext.ActiveIsBlameable, false);
-            setCommandContext(CommandContext.ActiveHasRemotes, false);
+            this._timer = setTimeout(() => {
+                this._timer = undefined;
+
+                setCommandContext(CommandContext.ActiveFileStatus, undefined);
+            }, 250);
 
             return;
         }
