@@ -59,21 +59,31 @@ export class GitRemoteParser {
             match = remoteRegex.exec(data);
             if (match == null) break;
 
-            const url = match[2];
+            // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+            const url = (' ' + match[2]).substr(1);
 
             const [scheme, domain, path] = this.parseGitUrl(url);
 
             const uniqueness = `${domain}/${path}`;
             let remote: GitRemote | undefined = groups[uniqueness];
             if (remote === undefined) {
-                remote = new GitRemote(repoPath, match[1], scheme, domain, path, providerFactory(domain, path), [
-                    { url: url, type: match[3] as GitRemoteType }
-                ]);
+                remote = new GitRemote(
+                    repoPath,
+                    // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+                    (' ' + match[1]).substr(1),
+                    scheme,
+                    domain,
+                    path,
+                    providerFactory(domain, path),
+                    // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+                    [{ url: url, type: (' ' + match[3]).substr(1) as GitRemoteType }]
+                );
                 remotes.push(remote);
                 groups[uniqueness] = remote;
             }
             else {
-                remote.types.push({ url: url, type: match[3] as GitRemoteType });
+                // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+                remote.types.push({ url: url, type: (' ' + match[3]).substr(1) as GitRemoteType });
             }
         } while (match != null);
 

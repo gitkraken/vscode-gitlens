@@ -16,7 +16,20 @@ export class GitBranchParser {
             if (match == null) break;
 
             const [ahead, behind] = this.parseState(match[5]);
-            branches.push(new GitBranch(repoPath, match[2], match[1] === '*', match[3], match[4], ahead, behind));
+            branches.push(
+                new GitBranch(
+                    repoPath,
+                    // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+                    (' ' + match[2]).substr(1),
+                    match[1] === '*',
+                    // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+                    match[3] === undefined ? undefined : (' ' + match[3]).substr(1),
+                    // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+                    match[4] === undefined ? undefined : (' ' + match[4]).substr(1),
+                    ahead,
+                    behind
+                )
+            );
         } while (match != null);
 
         if (!branches.length) return undefined;

@@ -30,8 +30,7 @@ export class GitDiffParser {
             match = unifiedDiffRegex.exec(`${data}\n@@`);
             if (match == null) break;
 
-            // Stops excessive memory usage
-            // https://bugs.chromium.org/p/v8/issues/detail?id=2869
+            // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
             chunk = (' ' + match[5]).substr(1);
             currentStart = parseInt(match[3], 10);
             previousStart = parseInt(match[1], 10);
@@ -148,7 +147,17 @@ export class GitDiffParser {
             match = nameStatusDiffRegex.exec(data);
             if (match == null) break;
 
-            statuses.push(GitStatusParser.parseStatusFile(repoPath, match[1], match[2], match[3]));
+            statuses.push(
+                GitStatusParser.parseStatusFile(
+                    repoPath,
+                    // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+                    (' ' + match[1]).substr(1),
+                    // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+                    (' ' + match[2]).substr(1),
+                    // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+                    match[3] === undefined ? undefined : (' ' + match[3]).substr(1)
+                )
+            );
         } while (match != null);
 
         if (!statuses.length) return undefined;

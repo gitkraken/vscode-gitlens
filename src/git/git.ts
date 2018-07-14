@@ -731,7 +731,7 @@ export class Git {
     }
 
     static tag(repoPath: string) {
-        const params = ['tag', '-l'];
+        const params = ['tag', '-l', '-n1'];
 
         return gitCommand({ cwd: repoPath }, ...params);
     }

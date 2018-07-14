@@ -45,6 +45,7 @@ export class TagNode extends ExplorerRefNode {
 
     async getTreeItem(): Promise<TreeItem> {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
+        item.tooltip = `${this.tag.name}${this.tag.annotation === undefined ? '' : `\n${this.tag.annotation}`}`;
         item.contextValue = ResourceType.Tag;
         return item;
     }
