@@ -35,3 +35,8 @@ None yet &mdash; could be you!
 - Raphael Schweikert
 - JehongAhn
 - Øyvind de Freitas Sørensen
+- Robert Leisser
+- Niklas Lochschmidt
+- Pelle Wessman
+- Jordan Oroshiba
+- Vance Dubberly
