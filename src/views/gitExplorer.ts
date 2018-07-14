@@ -37,6 +37,7 @@ import {
 } from './explorerNodes';
 import { GitUri } from '../gitService';
 import { Logger } from '../logger';
+import * as path from 'path';
 
 export * from './explorerNodes';
 
@@ -480,14 +481,31 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         // If we do have a visible trackable editor, don't change from the last state (avoids issues when focus switches to the problems/output/debug console panes)
         if (editor.document === undefined || !Container.git.isTrackable(editor.document.uri)) return root;
 
-        const uri = await GitUri.fromUri(editor.document.uri);
+        let gitUri = await GitUri.fromUri(editor.document.uri);
 
-        const repo = await Container.git.getRepository(uri);
+        const repo = await Container.git.getRepository(gitUri);
         if (repo === undefined) return undefined;
 
-        if (UriComparer.equals(uri, root && root.uri)) return root;
+        let uri;
+        if (gitUri.sha !== undefined) {
+            // If we have a sha, normalize the history to the working file (so we get a full history all the time)
+            const [fileName, repoPath] = await Container.git.findWorkingFileName(
+                gitUri.fsPath,
+                gitUri.repoPath,
+                gitUri.sha
+            );
 
-        return new HistoryNode(uri, repo, explorer);
+            if (fileName !== undefined) {
+                uri = Uri.file(repoPath !== undefined ? path.join(repoPath, fileName) : fileName);
+            }
+        }
+
+        if (UriComparer.equals(uri || gitUri, root && root.uri)) return root;
+
+        if (uri !== undefined) {
+            gitUri = await GitUri.fromUri(uri);
+        }
+        return new HistoryNode(gitUri, repo, explorer);
     }
 
     static setRenameFollowing(enabled: boolean) {

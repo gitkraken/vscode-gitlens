@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 - Renames the *GitLens History* explorer to *GitLens File History* explorer for better clarity
+- Changes the *GitLens File History* explorer to always show the full file history even when reviewing revisions
 
 ### Removed
 - Removes `gitlens:activeIsTracked`, `gitlens:activeIsBlameable`, `gitlens:activeIsRevision`, and `gitlens:activeHasRemotes` contexts and consolidates them into `gitlens:activeFileStatus` for better performance and UX
