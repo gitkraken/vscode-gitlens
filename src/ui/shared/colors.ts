@@ -1,4 +1,3 @@
-// tslint:disable-next-line:max-line-length
 const cssColorRegEx = /^(?:(#?)([0-9a-f]{3}|[0-9a-f]{6})|((?:rgb|hsl)a?)\((-?\d+%?)[,\s]+(-?\d+%?)[,\s]+(-?\d+%?)[,\s]*(-?[\d\.]+%?)?\))$/i;
 
 function adjustLight(color: number, amount: number) {

@@ -4,7 +4,6 @@ import { GitRemoteType } from '../models/remote';
 import { RemoteProvider } from '../remotes/factory';
 
 const remoteRegex = /^(.*)\t(.*)\s\((.*)\)$/gm;
-// tslint:disable-next-line:max-line-length
 const urlRegex = /^(?:(git:\/\/)(.*?)\/|(https?:\/\/)(?:.*?@)?(.*?)\/|git@(.*):|(ssh:\/\/)(?:.*@)?(.*?)(?::.*?)?\/|(?:.*?@)(.*?):)(.*)$/;
 
 // Test git urls
