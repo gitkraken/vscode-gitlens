@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issue where changed files count was wrong when the branch was behind the upstream
 - Fixes issue where the *GitLens File History* explorer wasn't being updated automatically for working changes
 - Fixes issue where the *Compare File with * Revision* commands in the editor toolbar would show and hide too often because of insignificant focus changes
+- Fixes issue where the scope box would be empty when there was no workspace open in the interactive settings editor
 
 ## [8.4.1] - 2018-06-19
 ### Fixed
