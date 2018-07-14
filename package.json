@@ -2535,7 +2535,7 @@
             "editor/title": [
                 {
                     "command": "gitlens.diffWithPrevious",
-                    "when": "editorTextFocus && !isInDiffEditor && gitlens:activeIsTracked && config.gitlens.menus.editorGroup.compare",
+                    "when": "!isInDiffEditor && gitlens:activeIsTracked && config.gitlens.menus.editorGroup.compare",
                     "group": "navigation@97"
                 },
                 {
@@ -2545,7 +2545,7 @@
                 },
                 {
                     "command": "gitlens.diffWithNext",
-                    "when": "editorTextFocus && gitlens:activeIsTracked && gitlens:activeIsTracked && gitlens:activeIsRevision && config.gitlens.menus.editorGroup.compare",
+                    "when": "gitlens:activeIsTracked && gitlens:activeIsTracked && gitlens:activeIsRevision && config.gitlens.menus.editorGroup.compare",
                     "group": "navigation@98"
                 },
                 {

@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#442](https://github.com/eamodio/vscode-gitlens/issues/442) - GitLens File History fails if name (or path) starts with -
 - Fixes issue where changed files count was wrong when the branch was behind the upstream
 - Fixes issue where the *GitLens File History* explorer wasn't being updated automatically for working changes
+- Fixes issue where the *Compare File with * Revision* commands in the editor toolbar would show and hide too often because of insignificant focus changes
 
 ## [8.4.1] - 2018-06-19
 ### Fixed
