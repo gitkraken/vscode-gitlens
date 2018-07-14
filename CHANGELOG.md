@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#440](https://github.com/eamodio/vscode-gitlens/issues/436) - Searching for commits with an empty query yields to no results anymore
 - Fixes issue where commands in the editor toolbar would flash unnecessarily when navigating history or switching tabs
 - Fixes issue where the *Compare File with Previous Revision* command wouldn't work properly when the file had been renamed in some cases
+- Fixes issue where the *Compare File with Next Revision* command wouldn't work properly when the file had been renamed in some cases
 - Fixes issue where changed files count was wrong when the branch was behind the upstream
 - Fixes issue where the *GitLens File History* explorer wasn't being updated automatically for working changes
 - Fixes issue where the *Compare File with * Revision* commands in the editor toolbar would show and hide too often because of insignificant focus changes

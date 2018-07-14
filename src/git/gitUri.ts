@@ -1,6 +1,7 @@
 'use strict';
 import { Strings } from '../system';
 import { Uri } from 'vscode';
+import { UriComparer } from '../comparers';
 import { DocumentSchemes, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitCommit, GitService, IGitStatusFile } from '../gitService';
@@ -91,6 +92,12 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
     get shortSha() {
         return this.sha && GitService.shortenSha(this.sha);
+    }
+
+    equals(uri: Uri | undefined) {
+        if (!UriComparer.equals(this, uri)) return false;
+
+        return this.sha === (uri instanceof GitUri ? uri.sha : undefined);
     }
 
     fileUri(options: { noSha?: boolean; useVersionedPath?: boolean } = {}) {
@@ -265,8 +272,8 @@ export class GitUri extends ((Uri as any) as UriEx) {
     static toKey(fileNameOrUri: string | Uri): string;
     static toKey(fileNameOrUri: string | Uri): string {
         return Strings.normalizePath(
-            typeof fileNameOrUri === 'string' ? fileNameOrUri : fileNameOrUri.fsPath
-        ).toLowerCase();
+            (typeof fileNameOrUri === 'string' ? Uri.file(fileNameOrUri) : fileNameOrUri).fsPath
+        );
     }
 
     static toRevisionUri(uri: GitUri): Uri;

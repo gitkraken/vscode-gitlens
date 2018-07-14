@@ -77,7 +77,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
                     // Check for renames
                     log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
-                        maxCount: 4,
+                        maxCount: 3,
                         ref: sha.substring(0, sha.length - 1),
                         renames: true
                     });
@@ -86,10 +86,9 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                         return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
                     }
 
-                    args.commit = Iterables.next(Iterables.skip(log.commits.values(), 2));
-                    if (args.commit === undefined) {
-                        args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
-                    }
+                    args.commit =
+                        Iterables.next(Iterables.skip(log.commits.values(), 1)) ||
+                        Iterables.first(log.commits.values());
                 }
 
                 // If the sha is missing (i.e. working tree), check the file status

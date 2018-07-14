@@ -412,8 +412,39 @@ export class GitService extends Disposable {
         return Git.checkout(uri.repoPath!, uri.fsPath, ref!);
     }
 
-    private async fileExists(repoPath: string, fileName: string): Promise<boolean> {
-        return await new Promise<boolean>((resolve, reject) => fs.exists(path.resolve(repoPath, fileName), resolve));
+    private async fileExists(
+        repoPath: string,
+        fileName: string,
+        options: { ensureCase: boolean } = { ensureCase: false }
+    ): Promise<boolean> {
+        const filePath = path.resolve(repoPath, fileName);
+        const exists = await new Promise<boolean>((resolve, reject) => fs.exists(filePath, resolve));
+        if (!options.ensureCase || !exists) return exists;
+
+        // Deal with renames in case only on case-insensative file systems
+        const normalizedRepoPath = path.normalize(repoPath);
+        return this.fileExistsWithCase(filePath, normalizedRepoPath, normalizedRepoPath.length);
+    }
+
+    private async fileExistsWithCase(filePath: string, repoPath: string, repoPathLength: number): Promise<boolean> {
+        const dir = path.dirname(filePath);
+        if (dir.length < repoPathLength) return false;
+        if (dir === repoPath) return true;
+
+        const filenames = await new Promise<string[]>((resolve, reject) =>
+            fs.readdir(dir, (err: NodeJS.ErrnoException, files: string[]) => {
+                if (err) {
+                    reject(err);
+                }
+                else {
+                    resolve(files);
+                }
+            })
+        );
+        if (filenames.indexOf(path.basename(filePath)) === -1) {
+            return false;
+        }
+        return this.fileExistsWithCase(dir, repoPath, repoPathLength);
     }
 
     async findNextCommit(repoPath: string, fileName: string, ref?: string): Promise<GitLogCommit | undefined> {
@@ -438,7 +469,7 @@ export class GitService extends Disposable {
     async findNextFileName(repoPath: string | undefined, fileName: string, ref?: string): Promise<string | undefined> {
         [fileName, repoPath] = Git.splitPath(fileName, repoPath);
 
-        return (await this.fileExists(repoPath, fileName))
+        return (await this.fileExists(repoPath, fileName, { ensureCase: true }))
             ? fileName
             : await this.findNextFileNameCore(repoPath, fileName, ref);
     }
@@ -486,7 +517,7 @@ export class GitService extends Disposable {
         else {
             const c = commitOrFileName;
             repoPath = c.repoPath;
-            if (c.workingFileName && (await this.fileExists(repoPath, c.workingFileName))) {
+            if (c.workingFileName && (await this.fileExists(repoPath, c.workingFileName, { ensureCase: true }))) {
                 return [c.workingFileName, repoPath];
             }
             fileName = c.fileName;
@@ -494,7 +525,7 @@ export class GitService extends Disposable {
 
         // Keep walking up to the most recent commit for a given filename, until it exists on disk
         while (true) {
-            if (await this.fileExists(repoPath, fileName)) return [fileName, repoPath];
+            if (await this.fileExists(repoPath, fileName, { ensureCase: true })) return [fileName, repoPath];
 
             fileName = await this.findNextFileNameCore(repoPath, fileName);
             if (fileName === undefined) return [undefined, undefined];
@@ -1192,11 +1223,14 @@ export class GitService extends Disposable {
         if (options.renames) {
             key += `:follow`;
         }
+        if (options.reverse) {
+            key += `:reverse`;
+        }
 
         const doc = await Container.tracker.getOrAdd(
             new GitUri(Uri.file(fileName), { repoPath: repoPath!, sha: options.ref })
         );
-        if (this.UseCaching && options.range === undefined && !options.reverse) {
+        if (this.UseCaching && options.range === undefined) {
             if (doc.state !== undefined) {
                 const cachedLog = doc.state.get<CachedLog>(key);
                 if (cachedLog !== undefined) {
@@ -1258,7 +1292,7 @@ export class GitService extends Disposable {
 
         const promise = this.getLogForFileCore(repoPath, fileName, options, doc, key);
 
-        if (doc.state !== undefined && options.range === undefined && !options.reverse) {
+        if (doc.state !== undefined && options.range === undefined) {
             Logger.log(`Add log cache for '${doc.state.key}:${key}'`);
 
             doc.state.set<CachedLog>(key, {

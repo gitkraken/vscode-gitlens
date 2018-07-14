@@ -54,13 +54,24 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
                     return commands.executeCommand(Commands.DiffWith, diffArgs);
                 }
 
-                const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
+                let log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
                     maxCount: sha !== undefined ? undefined : 2,
                     range: args.range!,
                     renames: true
                 });
                 if (log === undefined) {
-                    return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                    const fileName = await Container.git.findNextFileName(gitUri.repoPath!, gitUri.fsPath);
+                    if (fileName !== undefined) {
+                        log = await Container.git.getLogForFile(gitUri.repoPath, fileName, {
+                            maxCount: sha !== undefined ? undefined : 2,
+                            range: args.range!,
+                            renames: true
+                        });
+                    }
+
+                    if (log === undefined) {
+                        return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                    }
                 }
 
                 args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
