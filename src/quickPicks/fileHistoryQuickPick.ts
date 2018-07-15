@@ -48,10 +48,8 @@ export class FileHistoryQuickPick {
 
         let index = 0;
 
-        if (options.pickerOnly) {
-            index++;
-            items.splice(0, 0, new ShowBranchesAndTagsQuickPickItem(log.repoPath, placeHolder, options.currentCommand));
-        }
+        index++;
+        items.splice(0, 0, new ShowBranchesAndTagsQuickPickItem(log.repoPath, placeHolder, options.currentCommand));
 
         if (options.showInResultsExplorerCommand !== undefined) {
             index++;

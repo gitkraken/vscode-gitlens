@@ -250,8 +250,8 @@ export class ShowBranchesAndTagsQuickPickItem extends CommandQuickPickItem {
         private readonly placeHolder: string,
         private readonly goBackCommand?: CommandQuickPickItem,
         item: QuickPickItem = {
-            label: 'Show Branches and Tags',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays branches and tags`
+            label: 'Choose from Branch or Tag History...',
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} shows list of branches and tags`
         }
     ) {
         super(item, undefined, undefined);

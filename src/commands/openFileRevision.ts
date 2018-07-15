@@ -1,16 +1,17 @@
 'use strict';
 import { Iterables, Strings } from '../system';
-import { CancellationTokenSource, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { CancellationTokenSource, commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
 import { FileAnnotationType } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitUri } from '../gitService';
+import { GitBranch, GitTag, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, FileHistoryQuickPick, ShowBranchesAndTagsQuickPickItem } from '../quickPicks/quickPicks';
 
 export interface OpenFileRevisionCommandArgs {
+    branchOrTag?: GitBranch | GitTag;
     uri?: Uri;
     maxCount?: number;
 
@@ -64,16 +65,22 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 
                 const gitUri = await GitUri.fromUri(uri);
 
-                const placeHolder = `Open ${gitUri.getFormattedPath()}${
-                    gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''
-                } in revision ${GlyphChars.Ellipsis}`;
+                const placeHolder = `Open revision of ${gitUri.getFormattedPath(
+                    args.branchOrTag ? ` (${args.branchOrTag.name})${Strings.pad(GlyphChars.Dot, 2, 2)}` : undefined
+                )}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}${
+                    GlyphChars.Ellipsis
+                }`;
+
                 progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
 
                 const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
                     maxCount: args.maxCount,
-                    ref: gitUri.sha
+                    ref: (args.branchOrTag && args.branchOrTag.name) || gitUri.sha
                 });
                 if (log === undefined) {
+                    if (args.branchOrTag) {
+                        return window.showWarningMessage(`The file could not be found in ${args.branchOrTag.name}`);
+                    }
                     return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open history compare');
                 }
 
@@ -104,21 +111,29 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                     }
                 }
 
+                const currentCommand = new CommandQuickPickItem(
+                    {
+                        label: `go back ${GlyphChars.ArrowBack}`,
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
+                            GlyphChars.Space
+                        }$(file-text) ${gitUri.getFormattedPath()}${
+                            args.branchOrTag
+                                ? ` from ${GlyphChars.Space}${
+                                      args.branchOrTag instanceof GitTag ? '$(tag)' : '$(git-branch)'
+                                  } ${args.branchOrTag.name}`
+                                : gitUri.sha
+                                    ? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}`
+                                    : ''
+                        }`
+                    },
+                    Commands.OpenFileRevision,
+                    [uri, { ...args }]
+                );
+
                 const pick = await FileHistoryQuickPick.show(log, gitUri, placeHolder, {
                     pickerOnly: true,
                     progressCancellation: progressCancellation,
-                    currentCommand: new CommandQuickPickItem(
-                        {
-                            label: `go back ${GlyphChars.ArrowBack}`,
-                            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
-                                GlyphChars.Space
-                            }$(file-text) ${gitUri.getFormattedPath()}${
-                                gitUri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}` : ''
-                            }`
-                        },
-                        Commands.OpenFileRevision,
-                        [uri, { ...args }]
-                    ),
+                    currentCommand: currentCommand,
                     nextPageCommand: args.nextPageCommand,
                     previousPageCommand: previousPageCommand,
                     showAllCommand:
@@ -138,10 +153,13 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                 if (pick instanceof ShowBranchesAndTagsQuickPickItem) {
                     const branchOrTag = await pick.execute();
                     if (branchOrTag === undefined) return undefined;
-
                     if (branchOrTag instanceof CommandQuickPickItem) return branchOrTag.execute();
 
-                    args.uri = GitUri.toRevisionUri(branchOrTag.name, gitUri.fsPath, gitUri.repoPath!);
+                    return commands.executeCommand(Commands.OpenFileRevision, gitUri, {
+                        ...args,
+                        branchOrTag: branchOrTag.branchOrTag,
+                        goBackCommand: currentCommand
+                    } as OpenFileRevisionCommandArgs);
                 }
                 else {
                     if (pick instanceof CommandQuickPickItem) return pick.execute();

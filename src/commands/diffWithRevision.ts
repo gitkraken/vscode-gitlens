@@ -5,12 +5,13 @@ import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { DiffWithCommandArgs } from './diffWith';
-import { GitUri } from '../gitService';
+import { GitBranch, GitTag, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, FileHistoryQuickPick, ShowBranchesAndTagsQuickPickItem } from '../quickPicks/quickPicks';
 
 export interface DiffWithRevisionCommandArgs {
+    branchOrTag?: GitBranch | GitTag;
     maxCount?: number;
 
     line?: number;
@@ -34,17 +35,20 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 
         const gitUri = await GitUri.fromUri(uri);
 
-        const placeHolder = `Compare ${gitUri.getFormattedPath()}${
-            gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''
-        } with ${GlyphChars.Ellipsis}`;
-        const progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
+        const placeHolder = `Compare ${gitUri.getFormattedPath(
+            args.branchOrTag ? ` (${args.branchOrTag.name})${Strings.pad(GlyphChars.Dot, 2, 2)}` : undefined
+        )}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''} with${GlyphChars.Ellipsis}`;
 
+        const progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
         try {
             const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
                 maxCount: args.maxCount,
-                ref: gitUri.sha
+                ref: (args.branchOrTag && args.branchOrTag.name) || gitUri.sha
             });
             if (log === undefined) {
+                if (args.branchOrTag) {
+                    return window.showWarningMessage(`The file could not be found in ${args.branchOrTag.name}`);
+                }
                 return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open history compare');
             }
 
@@ -75,21 +79,29 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
                 }
             }
 
+            const currentCommand = new CommandQuickPickItem(
+                {
+                    label: `go back ${GlyphChars.ArrowBack}`,
+                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
+                        GlyphChars.Space
+                    }$(file-text) ${gitUri.getFormattedPath()}${
+                        args.branchOrTag
+                            ? ` from ${GlyphChars.Space}${
+                                  args.branchOrTag instanceof GitTag ? '$(tag)' : '$(git-branch)'
+                              } ${args.branchOrTag.name}`
+                            : gitUri.sha
+                                ? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}`
+                                : ''
+                    }`
+                },
+                Commands.DiffWithRevision,
+                [uri, { ...args }]
+            );
+
             const pick = await FileHistoryQuickPick.show(log, gitUri, placeHolder, {
                 pickerOnly: true,
                 progressCancellation: progressCancellation,
-                currentCommand: new CommandQuickPickItem(
-                    {
-                        label: `go back ${GlyphChars.ArrowBack}`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
-                            GlyphChars.Space
-                        }$(file-text) ${gitUri.getFormattedPath()}${
-                            gitUri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}` : ''
-                        }`
-                    },
-                    Commands.DiffWithRevision,
-                    [uri, { ...args }]
-                ),
+                currentCommand: currentCommand,
                 nextPageCommand: args.nextPageCommand,
                 previousPageCommand: previousPageCommand,
                 showAllCommand:
@@ -100,7 +112,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
                                   description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
                               },
                               Commands.DiffWithRevision,
-                              [uri, { ...args, maxCount: 0 }]
+                              [uri, { ...args, maxCount: 0 } as DiffWithRevisionCommandArgs]
                           )
                         : undefined
             });
@@ -111,10 +123,13 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
             if (pick instanceof ShowBranchesAndTagsQuickPickItem) {
                 const branchOrTag = await pick.execute();
                 if (branchOrTag === undefined) return undefined;
-
                 if (branchOrTag instanceof CommandQuickPickItem) return branchOrTag.execute();
 
-                ref = branchOrTag.name;
+                return commands.executeCommand(Commands.DiffWithRevision, gitUri, {
+                    ...args,
+                    branchOrTag: branchOrTag.branchOrTag,
+                    goBackCommand: currentCommand
+                } as DiffWithRevisionCommandArgs);
             }
             else {
                 if (pick instanceof CommandQuickPickItem) return pick.execute();

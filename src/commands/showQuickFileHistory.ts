@@ -1,14 +1,15 @@
 'use strict';
-import { Iterables, Strings } from '../system';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
+import { Iterables, Strings } from '../system';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitUri } from '../gitService';
+import { GitBranch, GitLog, GitTag, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import {
     CommandQuickPickItem,
     FileHistoryQuickPick,
+    ShowBranchesAndTagsQuickPickItem,
     ShowCommitsInResultsQuickPickItem
 } from '../quickPicks/quickPicks';
 import { ShowQuickCommitFileDetailsCommandArgs } from './showQuickCommitFileDetails';
@@ -16,6 +17,7 @@ import { Messages } from '../messages';
 import * as path from 'path';
 
 export interface ShowQuickFileHistoryCommandArgs {
+    branchOrTag?: GitBranch | GitTag;
     log?: GitLog;
     maxCount?: number;
     range?: Range;
@@ -37,9 +39,9 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 
         args = { ...args };
 
-        const placeHolder = `${gitUri.getFormattedPath()}${
-            gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''
-        }`;
+        const placeHolder = `${gitUri.getFormattedPath(
+            args.branchOrTag ? ` (${args.branchOrTag.name})${Strings.pad(GlyphChars.Dot, 2, 2)}` : undefined
+        )}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}`;
 
         const progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
         try {
@@ -47,9 +49,12 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                 args.log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
                     maxCount: args.maxCount,
                     range: args.range,
-                    ref: gitUri.sha
+                    ref: (args.branchOrTag && args.branchOrTag.name) || gitUri.sha
                 });
                 if (args.log === undefined) {
+                    if (args.branchOrTag) {
+                        return window.showWarningMessage(`The file could not be found in ${args.branchOrTag.name}`);
+                    }
                     return Messages.showFileNotUnderSourceControlWarningMessage('Unable to show file history');
                 }
             }
@@ -86,8 +91,29 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                 }
             }
 
+            // Create a command to get back to where we are right now
+            const currentCommand = new CommandQuickPickItem(
+                {
+                    label: `go back ${GlyphChars.ArrowBack}`,
+                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
+                        GlyphChars.Space
+                    }$(file-text) ${path.basename(gitUri.fsPath)}${
+                        args.branchOrTag
+                            ? ` from ${GlyphChars.Space}${
+                                  args.branchOrTag instanceof GitTag ? '$(tag)' : '$(git-branch)'
+                              } ${args.branchOrTag.name}`
+                            : gitUri.sha
+                                ? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}`
+                                : ''
+                    }`
+                },
+                Commands.ShowQuickFileHistory,
+                [uri, args]
+            );
+
             const pick = await FileHistoryQuickPick.show(args.log, gitUri, placeHolder, {
                 progressCancellation: progressCancellation,
+                currentCommand: currentCommand,
                 goBackCommand: args.goBackCommand,
                 nextPageCommand: args.nextPageCommand,
                 previousPageCommand: previousPageCommand,
@@ -112,21 +138,21 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
             });
             if (pick === undefined) return undefined;
 
-            if (pick instanceof CommandQuickPickItem) return pick.execute();
+            if (pick instanceof ShowBranchesAndTagsQuickPickItem) {
+                const branchOrTag = await pick.execute();
+                if (branchOrTag === undefined) return undefined;
+                if (branchOrTag instanceof CommandQuickPickItem) return branchOrTag.execute();
 
-            // Create a command to get back to where we are right now
-            const currentCommand = new CommandQuickPickItem(
-                {
-                    label: `go back ${GlyphChars.ArrowBack}`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
-                        GlyphChars.Space
-                    }$(file-text) ${path.basename(pick.commit.fileName)}${
-                        gitUri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}` : ''
-                    }`
-                },
-                Commands.ShowQuickFileHistory,
-                [uri, args]
-            );
+                return commands.executeCommand(Commands.ShowQuickFileHistory, gitUri, {
+                    ...args,
+                    log: undefined,
+                    branchOrTag: branchOrTag.branchOrTag,
+                    goBackCommand: currentCommand
+                } as ShowQuickFileHistoryCommandArgs);
+            }
+            else {
+                if (pick instanceof CommandQuickPickItem) return pick.execute();
+            }
 
             return commands.executeCommand(Commands.ShowQuickCommitFileDetails, pick.commit.toGitUri(), {
                 commit: pick.commit,

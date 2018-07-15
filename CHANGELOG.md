@@ -10,10 +10,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds tag annotations to the tag tooltips in the *GitLens* explorer &mdash; closes [#431](https://github.com/eamodio/vscode-gitlens/issues/431)
 - Adds `gitlens.hovers.avatars` setting to specify whether to show avatar images in hovers &mdash; closes [#432](https://github.com/eamodio/vscode-gitlens/issues/432) thanks to [PR #441](https://github.com/eamodio/vscode-gitlens/pull/441) by Segev Finer ([@segevfiner](https://github.com/segevfiner))
 - Adds `gitlens.hovers.avatars` setting to the interactive settings editor to specify whether to show avatar images in hovers
+- Adds *Choose from Branch or Tag History...* to the quick pick menu shown by the *Show File History...* command (`gitlens.showQuickFileHistory`) &mdash; closes [#316](https://github.com/eamodio/vscode-gitlens/issues/316)
 
 ### Changed
 - Renames the *GitLens History* explorer to *GitLens File History* explorer for better clarity
 - Changes the *GitLens File History* explorer to always show the full file history even when reviewing revisions
+- Changes the behavior of and renames the *Show Branches and Tags* command and on the quick pick menu shown by the *Compare File with Revision...* command (`gitlens.diffWithRevision`) to *Choose from Branch or Tag History...*
+- Changes the behavior of and renames the *Show Branches and Tags* command on the quick pick menu shown by the *Open Revision...* command (`gitlens.openFileRevision`) to *Choose from Branch or Tag History...*
 
 ### Removed
 - Removes `gitlens:activeIsTracked`, `gitlens:activeIsBlameable`, `gitlens:activeIsRevision`, and `gitlens:activeHasRemotes` contexts and consolidates them into `gitlens:activeFileStatus` for better performance and UX
