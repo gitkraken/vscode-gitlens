@@ -474,7 +474,7 @@
                 },
                 "gitlens.gitExplorer.location": {
                     "type": "string",
-                    "default": "scm",
+                    "default": "gitlens",
                     "enum": [
                         "gitlens",
                         "explorer",
@@ -536,7 +536,7 @@
                 },
                 "gitlens.historyExplorer.location": {
                     "type": "string",
-                    "default": "explorer",
+                    "default": "gitlens",
                     "enum": [
                         "gitlens",
                         "explorer",
@@ -1081,7 +1081,7 @@
                 },
                 "gitlens.resultsExplorer.location": {
                     "type": "string",
-                    "default": "explorer",
+                    "default": "gitlens",
                     "enum": [
                         "gitlens",
                         "explorer",
