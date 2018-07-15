@@ -37,7 +37,9 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 
         const placeHolder = `Compare ${gitUri.getFormattedPath(
             args.branchOrTag ? ` (${args.branchOrTag.name})${Strings.pad(GlyphChars.Dot, 2, 2)}` : undefined
-        )}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''} with${GlyphChars.Ellipsis}`;
+        )}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''} with revision${
+            GlyphChars.Ellipsis
+        }`;
 
         const progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
         try {

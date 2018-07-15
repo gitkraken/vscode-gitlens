@@ -1439,7 +1439,11 @@
             {
                 "command": "gitlens.diffWithRevision",
                 "title": "Compare File with Revision...",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-prev-commit-menu.svg",
+                    "light": "images/light/icon-prev-commit-menu.svg"
+                }
             },
             {
                 "command": "gitlens.diffWithWorking",
@@ -2535,11 +2539,13 @@
             "editor/title": [
                 {
                     "command": "gitlens.diffWithPrevious",
+                    "alt": "gitlens.diffWithRevision",
                     "when": "!isInDiffEditor && gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare",
                     "group": "navigation@97"
                 },
                 {
                     "command": "gitlens.diffWithPreviousInDiff",
+                    "alt": "gitlens.diffWithRevision",
                     "when": "isInDiffEditor && gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare",
                     "group": "navigation@97"
                 },

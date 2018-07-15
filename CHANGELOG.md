@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `gitlens.hovers.avatars` setting to specify whether to show avatar images in hovers &mdash; closes [#432](https://github.com/eamodio/vscode-gitlens/issues/432) thanks to [PR #441](https://github.com/eamodio/vscode-gitlens/pull/441) by Segev Finer ([@segevfiner](https://github.com/segevfiner))
 - Adds `gitlens.hovers.avatars` setting to the interactive settings editor to specify whether to show avatar images in hovers
 - Adds *Choose from Branch or Tag History...* to the quick pick menu shown by the *Show File History...* command (`gitlens.showQuickFileHistory`) &mdash; closes [#316](https://github.com/eamodio/vscode-gitlens/issues/316)
+- Adds the *Compare File with Revision...* command (`gitlens.diffWithRevision`) as an alternate (`alt+click`) for the *Compare File with Previous Revision* command in the editor toolbar
 
 ### Changed
 - Renames the *GitLens History* explorer to *GitLens File History* explorer for better clarity
