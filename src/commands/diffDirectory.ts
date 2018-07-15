@@ -64,7 +64,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
             if (!args.ref1) {
                 args = { ...args };
 
-                const placeHolder = `Compare Working Tree to ${GlyphChars.Ellipsis}`;
+                const placeHolder = `Compare Working Tree to${GlyphChars.Ellipsis}`;
 
                 progressCancellation = BranchesAndTagsQuickPick.showProgress(placeHolder);
 
