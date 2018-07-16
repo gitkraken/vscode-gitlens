@@ -1198,7 +1198,7 @@
                 "gitlens.advanced.caching.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether git output will be cached -- changing the default is not recommended",
+                    "description": "Specifies whether git output will be cached — changing the default is not recommended",
                     "scope": "window"
                 },
                 "gitlens.advanced.git": {
@@ -1210,7 +1210,7 @@
                 "gitlens.advanced.fileHistoryFollowsRenames": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether file histories will follow renames -- will affect how merge commits are shown in histories",
+                    "description": "Specifies whether file histories will follow renames — will affect how merge commits are shown in histories",
                     "scope": "window"
                 },
                 "gitlens.advanced.maxListItems": {
