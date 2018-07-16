@@ -1,22 +1,22 @@
 'use strict';
 import { Disposable, ExtensionContext, languages, workspace } from 'vscode';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
-import { CodeLensController } from './codeLensController';
-import { configuration, IConfig } from './configuration';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
-import { LineHoverController } from './annotations/lineHoverController';
-import { ExplorerCommands } from './views/explorerCommands';
+import { CodeLensController } from './codelens/codeLensController';
+import { GitRevisionCodeLensProvider } from './codelens/gitRevisionCodeLensProvider';
+import { configuration, IConfig } from './configuration';
 import { GitContentProvider } from './gitContentProvider';
-import { GitDocumentTracker } from './trackers/gitDocumentTracker';
-import { GitExplorer } from './views/gitExplorer';
-import { GitLineTracker } from './trackers/gitLineTracker';
-import { GitRevisionCodeLensProvider } from './gitRevisionCodeLensProvider';
 import { GitService } from './gitService';
-import { HistoryExplorer } from './views/historyExplorer';
+import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
+import { StatusBarController } from './statusbar/statusBarController';
+import { GitDocumentTracker } from './trackers/gitDocumentTracker';
+import { GitLineTracker } from './trackers/gitLineTracker';
+import { ExplorerCommands } from './views/explorerCommands';
+import { GitExplorer } from './views/gitExplorer';
+import { HistoryExplorer } from './views/historyExplorer';
 import { ResultsExplorer } from './views/resultsExplorer';
 import { SettingsEditor } from './webviews/settingsEditor';
-import { StatusBarController } from './statusBarController';
 import { WelcomeEditor } from './webviews/welcomeEditor';
 
 export class Container {

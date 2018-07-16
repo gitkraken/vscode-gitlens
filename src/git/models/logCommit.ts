@@ -1,10 +1,10 @@
 'use strict';
-import { Strings } from '../../system';
-import { Uri } from 'vscode';
-import { GitCommit, GitCommitType } from './commit';
-import { Git } from '../git';
-import { GitStatusFileStatus, IGitStatusFile } from './status';
 import * as path from 'path';
+import { Uri } from 'vscode';
+import { Strings } from '../../system';
+import { Git } from '../git';
+import { GitCommit, GitCommitType } from './commit';
+import { GitStatusFileStatus, IGitStatusFile } from './status';
 
 export class GitLogCommit extends GitCommit {
     nextSha?: string;

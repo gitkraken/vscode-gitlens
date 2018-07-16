@@ -1,12 +1,12 @@
 'use strict';
 import { DecorationOptions, MarkdownString, Position, Range, TextEditor, TextEditorDecorationType } from 'vscode';
-import { AnnotationProviderBase } from './annotationProvider';
-import { Annotations } from './annotations';
-import { FileAnnotationType } from './../configuration';
+import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
-import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { GitUri } from '../gitService';
 import { Logger } from '../logger';
+import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
+import { AnnotationProviderBase } from './annotationProvider';
+import { Annotations } from './annotations';
 
 export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
     private readonly _uri: GitUri;

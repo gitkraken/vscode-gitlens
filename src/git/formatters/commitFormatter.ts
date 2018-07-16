@@ -1,8 +1,8 @@
 'use strict';
-import { Strings } from '../../system';
-import { GitCommit } from '../models/commit';
 import { DateStyle } from '../../configuration';
 import { Container } from '../../container';
+import { Strings } from '../../system';
+import { GitCommit } from '../models/commit';
 import { Formatter, IFormatOptions } from './formatter';
 
 export interface ICommitFormatOptions extends IFormatOptions {

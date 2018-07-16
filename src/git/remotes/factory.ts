@@ -1,11 +1,11 @@
 'use strict';
+import { CustomRemoteType, IRemotesConfig } from '../../configuration';
+import { Logger } from '../../logger';
 import { BitbucketService } from './bitbucket';
 import { BitbucketServerService } from './bitbucket-server';
-import { CustomRemoteType, IRemotesConfig } from '../../configuration';
 import { CustomService } from './custom';
 import { GitHubService } from './github';
 import { GitLabService } from './gitlab';
-import { Logger } from '../../logger';
 import { RemoteProvider } from './provider';
 import { VisualStudioService } from './visualStudio';
 

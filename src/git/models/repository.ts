@@ -1,5 +1,5 @@
 'use strict';
-import { Functions } from '../../system';
+import * as _path from 'path';
 import {
     ConfigurationChangeEvent,
     Disposable,
@@ -12,10 +12,10 @@ import {
 } from 'vscode';
 import { configuration, IRemotesConfig } from '../../configuration';
 import { Container } from '../../container';
-import { GitBranch, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
 import { GitUri } from '../../gitService';
+import { Functions } from '../../system';
+import { GitBranch, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
 import { RemoteProviderFactory, RemoteProviderMap } from '../remotes/factory';
-import * as _path from 'path';
 
 export enum RepositoryChange {
     Config = 'config',

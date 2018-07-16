@@ -1,7 +1,7 @@
 'use strict';
 import { Arrays, Strings } from '../../system';
 import { GitCommitType, GitLogParser, GitStash, GitStashCommit, GitStatusFileStatus, IGitStatusFile } from './../git';
-// import { Logger } from '../../logger';
+// import { Logger } from './logger';
 
 interface StashEntry {
     ref?: string;

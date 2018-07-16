@@ -1,5 +1,4 @@
 'use strict';
-import { Functions, IDeferrable } from './../system';
 import {
     ConfigurationChangeEvent,
     Disposable,
@@ -16,9 +15,10 @@ import {
     window,
     workspace
 } from 'vscode';
-import { configuration } from './../configuration';
-import { CommandContext, DocumentSchemes, isActiveDocument, isTextEditor, setCommandContext } from './../constants';
+import { configuration } from '../configuration';
+import { CommandContext, DocumentSchemes, isActiveDocument, isTextEditor, setCommandContext } from '../constants';
 import { GitUri } from '../gitService';
+import { Functions, IDeferrable } from '../system';
 import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
 
 export * from './trackedDocument';

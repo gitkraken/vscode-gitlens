@@ -1,5 +1,4 @@
 'use strict';
-import { Functions } from '../system';
 import {
     commands,
     ConfigurationChangeEvent,
@@ -15,12 +14,13 @@ import {
 import { configuration, GitExplorerView, IExplorersConfig, IHistoryExplorerConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext } from '../constants';
 import { Container } from '../container';
-import { RefreshNodeCommandArgs } from './explorerCommands';
-import { ExplorerNode, MessageNode, RefreshReason } from './explorerNodes';
-import { GitExplorer } from './gitExplorer';
 import { Logger } from '../logger';
+import { Functions } from '../system';
+import { RefreshNodeCommandArgs } from '../views/explorerCommands';
+import { GitExplorer } from '../views/gitExplorer';
+import { ExplorerNode, MessageNode, RefreshReason } from './nodes';
 
-export * from './explorerNodes';
+export * from './nodes';
 
 export class HistoryExplorer extends Disposable implements TreeDataProvider<ExplorerNode> {
     private _disposable: Disposable | undefined;

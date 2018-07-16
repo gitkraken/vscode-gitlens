@@ -1,11 +1,11 @@
 'use strict';
+import * as path from 'path';
 import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, ViewColumn, window } from 'vscode';
-import { ActiveEditorCommand, Commands } from './common';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import * as path from 'path';
+import { ActiveEditorCommand, Commands } from './common';
 
 export interface DiffWithCommandArgsRevision {
     sha: string;

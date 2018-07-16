@@ -1,18 +1,5 @@
-import { Arrays } from '../system';
+'use strict';
 import { commands, Disposable, InputBoxOptions, Terminal, TextDocumentShowOptions, Uri, window } from 'vscode';
-import { CommandContext, extensionTerminalName, setCommandContext } from '../constants';
-import { Container } from '../container';
-import { BranchNode, ExplorerNode, TagNode } from '../views/gitExplorer';
-import {
-    CommitFileNode,
-    CommitNode,
-    ExplorerRefNode,
-    RemoteNode,
-    StashFileNode,
-    StashNode,
-    StatusFileCommitsNode,
-    StatusUpstreamNode
-} from './explorerNodes';
 import {
     Commands,
     DiffWithCommandArgs,
@@ -23,10 +10,26 @@ import {
     OpenFileInRemoteCommandArgs,
     OpenFileRevisionCommandArgs
 } from '../commands';
+import { CommandContext, extensionTerminalName, setCommandContext } from '../constants';
+import { Container } from '../container';
 import { GitService, GitUri } from '../gitService';
-import { RepositoryNode } from './repositoryNode';
-import { StatusNode } from './statusNode';
-import { StatusFileNode } from './statusFileNode';
+import { Arrays } from '../system';
+import {
+    BranchNode,
+    CommitFileNode,
+    CommitNode,
+    ExplorerNode,
+    ExplorerRefNode,
+    RemoteNode,
+    RepositoryNode,
+    StashFileNode,
+    StashNode,
+    StatusFileCommitsNode,
+    StatusFileNode,
+    StatusNode,
+    StatusUpstreamNode,
+    TagNode
+} from './nodes';
 
 export interface RefreshNodeCommandArgs {
     maxCount?: number;

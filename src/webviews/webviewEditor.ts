@@ -1,4 +1,5 @@
 'use strict';
+import * as fs from 'fs';
 import {
     ConfigurationChangeEvent,
     ConfigurationTarget,
@@ -12,9 +13,8 @@ import {
 } from 'vscode';
 import { configuration, IConfig } from '../configuration';
 import { Container } from '../container';
-import { Message, SettingsChangedMessage } from '../ui/ipc';
 import { Logger } from '../logger';
-import * as fs from 'fs';
+import { Message, SettingsChangedMessage } from '../ui/ipc';
 
 export abstract class WebviewEditor<TBootstrap> extends Disposable {
     private _disposable: Disposable | undefined;

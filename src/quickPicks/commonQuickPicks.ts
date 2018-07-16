@@ -1,5 +1,4 @@
 'use strict';
-import { Strings } from '../system';
 import {
     CancellationTokenSource,
     commands,
@@ -10,13 +9,14 @@ import {
     Uri,
     window
 } from 'vscode';
-import { BranchesAndTagsQuickPick, BranchOrTagQuickPickItem } from './branchesAndTagsQuickPick';
 import { Commands, openEditor } from '../commands';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitLogCommit, GitStashCommit } from '../gitService';
 import { KeyMapping, Keys } from '../keyboard';
+import { Strings } from '../system';
+import { BranchesAndTagsQuickPick, BranchOrTagQuickPickItem } from './branchesAndTagsQuickPick';
 
 export function getQuickPickIgnoreFocusOut() {
     return !configuration.get<boolean>(configuration.name('advanced')('quickPick')('closeOnFocusOut').value);
@@ -100,15 +100,80 @@ export class CommandQuickPickItem implements QuickPickItem {
     }
 }
 
-export class MessageQuickPickItem extends CommandQuickPickItem {
-    constructor(message: string) {
-        super({ label: message, description: '' } as QuickPickItem);
+export class CommitQuickPickItem implements QuickPickItem {
+    label: string;
+    description: string;
+    detail: string;
+
+    constructor(
+        public readonly commit: GitLogCommit
+    ) {
+        const message = commit.getShortMessage();
+        if (commit.isStash) {
+            this.label = message;
+            this.description = '';
+            this.detail = `${GlyphChars.Space} ${(commit as GitStashCommit).stashName || commit.shortSha} ${Strings.pad(
+                GlyphChars.Dot,
+                1,
+                1
+            )} ${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`;
+        }
+        else {
+            this.label = message;
+            this.description = `${Strings.pad('$(git-commit)', 1, 1)} ${commit.shortSha}`;
+            this.detail = `${GlyphChars.Space} ${commit.author}, ${commit.formattedDate}${
+                commit.isFile ? '' : ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`
+            }`;
+        }
+    }
+}
+
+export class ChooseFromBranchesAndTagsQuickPickItem extends CommandQuickPickItem {
+    constructor(
+        private readonly repoPath: string,
+        private readonly placeHolder: string,
+        private readonly goBackCommand?: CommandQuickPickItem,
+        item: QuickPickItem = {
+            label: 'Choose from Branch or Tag History...',
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} shows list of branches and tags`
+        }
+    ) {
+        super(item, undefined, undefined);
+    }
+
+    async execute(
+        options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
+    ): Promise<CommandQuickPickItem | BranchOrTagQuickPickItem | undefined> {
+        const progressCancellation = BranchesAndTagsQuickPick.showProgress(this.placeHolder);
+
+        try {
+            const [branches, tags] = await Promise.all([
+                Container.git.getBranches(this.repoPath),
+                Container.git.getTags(this.repoPath)
+            ]);
+
+            if (progressCancellation.token.isCancellationRequested) return undefined;
+
+            return BranchesAndTagsQuickPick.show(branches, tags, this.placeHolder, {
+                progressCancellation: progressCancellation,
+                goBackCommand: this.goBackCommand
+            });
+        }
+        finally {
+            progressCancellation.cancel();
+        }
     }
 }
 
 export class KeyCommandQuickPickItem extends CommandQuickPickItem {
     constructor(command: Commands, args?: any[]) {
         super({ label: '', description: '' } as QuickPickItem, command, args);
+    }
+}
+
+export class MessageQuickPickItem extends CommandQuickPickItem {
+    constructor(message: string) {
+        super({ label: message, description: '' } as QuickPickItem);
     }
 }
 
@@ -164,34 +229,6 @@ export class OpenFilesCommandQuickPickItem extends CommandQuickPickItem {
     }
 }
 
-export class CommitQuickPickItem implements QuickPickItem {
-    label: string;
-    description: string;
-    detail: string;
-
-    constructor(
-        public readonly commit: GitLogCommit
-    ) {
-        const message = commit.getShortMessage();
-        if (commit.isStash) {
-            this.label = message;
-            this.description = '';
-            this.detail = `${GlyphChars.Space} ${(commit as GitStashCommit).stashName || commit.shortSha} ${Strings.pad(
-                GlyphChars.Dot,
-                1,
-                1
-            )} ${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`;
-        }
-        else {
-            this.label = message;
-            this.description = `${Strings.pad('$(git-commit)', 1, 1)} ${commit.shortSha}`;
-            this.detail = `${GlyphChars.Space} ${commit.author}, ${commit.formattedDate}${
-                commit.isFile ? '' : ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`
-            }`;
-        }
-    }
-}
-
 export class ShowCommitInResultsQuickPickItem extends CommandQuickPickItem {
     constructor(
         public readonly commit: GitLogCommit,
@@ -241,42 +278,5 @@ export class ShowCommitsSearchInResultsQuickPickItem extends ShowCommitsInResult
         }
     ) {
         super(results, { label: search }, item);
-    }
-}
-
-export class ShowBranchesAndTagsQuickPickItem extends CommandQuickPickItem {
-    constructor(
-        private readonly repoPath: string,
-        private readonly placeHolder: string,
-        private readonly goBackCommand?: CommandQuickPickItem,
-        item: QuickPickItem = {
-            label: 'Choose from Branch or Tag History...',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} shows list of branches and tags`
-        }
-    ) {
-        super(item, undefined, undefined);
-    }
-
-    async execute(
-        options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
-    ): Promise<CommandQuickPickItem | BranchOrTagQuickPickItem | undefined> {
-        const progressCancellation = BranchesAndTagsQuickPick.showProgress(this.placeHolder);
-
-        try {
-            const [branches, tags] = await Promise.all([
-                Container.git.getBranches(this.repoPath),
-                Container.git.getTags(this.repoPath)
-            ]);
-
-            if (progressCancellation.token.isCancellationRequested) return undefined;
-
-            return BranchesAndTagsQuickPick.show(branches, tags, this.placeHolder, {
-                progressCancellation: progressCancellation,
-                goBackCommand: this.goBackCommand
-            });
-        }
-        finally {
-            progressCancellation.cancel();
-        }
     }
 }

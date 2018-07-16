@@ -1,10 +1,10 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, RepoStatusQuickPick } from '../quickPicks/quickPicks';
+import { CommandQuickPickItem, RepoStatusQuickPick } from '../quickpicks';
+import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 
 export interface ShowQuickRepoStatusCommandArgs {
     goBackCommand?: CommandQuickPickItem;

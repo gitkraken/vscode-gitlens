@@ -1,12 +1,12 @@
 'use strict';
-import { Iterables } from '../system';
 import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { Container } from '../container';
-import { DiffWithCommandArgs } from './diffWith';
 import { GitLogCommit, GitService, GitStatusFile, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
+import { Iterables } from '../system';
+import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithNextCommandArgs {
     commit?: GitLogCommit;

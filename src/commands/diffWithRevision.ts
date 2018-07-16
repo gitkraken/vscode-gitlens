@@ -1,14 +1,14 @@
 'use strict';
-import { Iterables, Strings } from '../system';
 import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { DiffWithCommandArgs } from './diffWith';
 import { GitBranch, GitTag, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { CommandQuickPickItem, FileHistoryQuickPick, ShowBranchesAndTagsQuickPickItem } from '../quickPicks/quickPicks';
+import { ChooseFromBranchesAndTagsQuickPickItem, CommandQuickPickItem, FileHistoryQuickPick } from '../quickpicks';
+import { Iterables, Strings } from '../system';
+import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithRevisionCommandArgs {
     branchOrTag?: GitBranch | GitTag;
@@ -122,7 +122,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 
             let ref: string;
 
-            if (pick instanceof ShowBranchesAndTagsQuickPickItem) {
+            if (pick instanceof ChooseFromBranchesAndTagsQuickPickItem) {
                 const branchOrTag = await pick.execute();
                 if (branchOrTag === undefined) return undefined;
                 if (branchOrTag instanceof CommandQuickPickItem) return branchOrTag.execute();

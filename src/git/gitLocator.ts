@@ -1,7 +1,7 @@
 'use strict';
 // import { findActualExecutable, spawnPromise } from 'spawn-rx';
-import { findExecutable, runCommand } from './shell';
 import * as path from 'path';
+import { findExecutable, runCommand } from './shell';
 
 export interface IGit {
     path: string;

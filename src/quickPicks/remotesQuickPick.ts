@@ -1,8 +1,7 @@
 'use strict';
-import { Strings } from '../system';
+import * as path from 'path';
 import { QuickPickOptions, window } from 'vscode';
 import { Commands, OpenInRemoteCommandArgs } from '../commands';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './commonQuickPicks';
 import { GlyphChars } from '../constants';
 import {
     getNameFromRemoteResource,
@@ -12,7 +11,8 @@ import {
     RemoteResource,
     RemoteResourceType
 } from '../gitService';
-import * as path from 'path';
+import { Strings } from '../system';
+import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './commonQuickPicks';
 
 export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
     private remote: GitRemote;

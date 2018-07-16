@@ -1,10 +1,10 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands } from './common';
 import { UriComparer } from '../comparers';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { ActiveEditorCommand, Commands } from './common';
 
 export interface ToggleFileBlameCommandArgs {
     sha?: string;

@@ -1,17 +1,17 @@
 'use strict';
-import { Iterables, Strings } from '../system';
 import { CancellationTokenSource, QuickPickOptions, window } from 'vscode';
 import { Commands, ShowCommitSearchCommandArgs, ShowQuickBranchHistoryCommandArgs } from '../commands';
+import { GlyphChars } from '../constants';
+import { Container } from '../container';
+import { GitLog, GitUri, RemoteResource } from '../gitService';
+import { KeyNoopCommand } from '../keyboard';
+import { Iterables, Strings } from '../system';
 import {
     CommandQuickPickItem,
     CommitQuickPickItem,
     getQuickPickIgnoreFocusOut,
     showQuickPickProgress
 } from './commonQuickPicks';
-import { GlyphChars } from '../constants';
-import { Container } from '../container';
-import { GitLog, GitUri, RemoteResource } from '../gitService';
-import { KeyNoopCommand } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
 
 export class BranchHistoryQuickPick {

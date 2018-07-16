@@ -1,5 +1,5 @@
 'use strict';
-import { Arrays, Iterables, Strings } from '../system';
+import * as path from 'path';
 import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from 'vscode';
 import {
     Commands,
@@ -11,15 +11,6 @@ import {
     StashApplyCommandArgs,
     StashDeleteCommandArgs
 } from '../commands';
-import {
-    CommandQuickPickItem,
-    getQuickPickIgnoreFocusOut,
-    KeyCommandQuickPickItem,
-    OpenFileCommandQuickPickItem,
-    OpenFilesCommandQuickPickItem,
-    QuickPickItem,
-    ShowCommitInResultsQuickPickItem
-} from './commonQuickPicks';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import {
@@ -34,8 +25,17 @@ import {
     RemoteResource
 } from '../gitService';
 import { KeyCommand, KeyNoopCommand, Keys } from '../keyboard';
+import { Arrays, Iterables, Strings } from '../system';
+import {
+    CommandQuickPickItem,
+    getQuickPickIgnoreFocusOut,
+    KeyCommandQuickPickItem,
+    OpenFileCommandQuickPickItem,
+    OpenFilesCommandQuickPickItem,
+    QuickPickItem,
+    ShowCommitInResultsQuickPickItem
+} from './commonQuickPicks';
 import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
-import * as path from 'path';
 
 export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickItem {
     readonly status: GitStatusFileStatus;

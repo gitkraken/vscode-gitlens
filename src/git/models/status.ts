@@ -1,10 +1,10 @@
 'use strict';
-import { Strings } from '../../system';
+import * as path from 'path';
 import { Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
+import { Strings } from '../../system';
 import { GitUri } from '../gitUri';
 import { GitLogCommit } from './logCommit';
-import * as path from 'path';
 
 export interface GitStatusUpstreamState {
     ahead: number;

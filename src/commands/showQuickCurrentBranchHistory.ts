@@ -1,10 +1,10 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { CommandQuickPickItem } from '../quickPicks/quickPicks';
+import { CommandQuickPickItem } from '../quickpicks';
+import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { ShowQuickBranchHistoryCommandArgs } from './showQuickBranchHistory';
 
 export interface ShowQuickCurrentBranchHistoryCommandArgs {

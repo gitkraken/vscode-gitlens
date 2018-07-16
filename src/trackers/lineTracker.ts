@@ -1,7 +1,7 @@
 'use strict';
-import { Functions, IDeferrable } from './../system';
 import { Disposable, Event, EventEmitter, TextEditor, TextEditorSelectionChangeEvent, window } from 'vscode';
-import { isTextEditor } from './../constants';
+import { isTextEditor } from '../constants';
+import { Functions, IDeferrable } from '../system';
 
 export interface LinesChangeEvent {
     readonly editor: TextEditor | undefined;

@@ -10,11 +10,11 @@ import {
     TextEditorDecorationType,
     window
 } from 'vscode';
+import { configuration } from '../configuration';
+import { isTextEditor } from '../constants';
+import { Container } from '../container';
+import { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { Annotations } from './annotations';
-import { configuration } from './../configuration';
-import { isTextEditor } from './../constants';
-import { Container } from './../container';
-import { LinesChangeEvent } from './../trackers/gitLineTracker';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
     after: {

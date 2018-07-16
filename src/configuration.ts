@@ -1,7 +1,6 @@
 'use strict';
 export * from './ui/config';
 
-import { Functions } from './system';
 import {
     ConfigurationChangeEvent,
     ConfigurationTarget,
@@ -11,10 +10,11 @@ import {
     Uri,
     workspace
 } from 'vscode';
-import { IConfig, KeyMap } from './ui/config';
 import { CommandContext, extensionId, setCommandContext } from './constants';
 import { Container } from './container';
 import { clearGravatarCache } from './gitService';
+import { Functions } from './system';
+import { IConfig, KeyMap } from './ui/config';
 
 const emptyConfig: any = new Proxy<any>({} as IConfig, {
     get(target, propKey, receiver) {

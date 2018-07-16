@@ -1,20 +1,20 @@
 'use strict';
+import * as path from 'path';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
-import { Iterables, Strings } from '../system';
-import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitBranch, GitLog, GitTag, GitUri } from '../gitService';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import {
+    ChooseFromBranchesAndTagsQuickPickItem,
     CommandQuickPickItem,
     FileHistoryQuickPick,
-    ShowBranchesAndTagsQuickPickItem,
     ShowCommitsInResultsQuickPickItem
-} from '../quickPicks/quickPicks';
+} from '../quickpicks';
+import { Iterables, Strings } from '../system';
+import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { ShowQuickCommitFileDetailsCommandArgs } from './showQuickCommitFileDetails';
-import { Messages } from '../messages';
-import * as path from 'path';
 
 export interface ShowQuickFileHistoryCommandArgs {
     branchOrTag?: GitBranch | GitTag;
@@ -138,7 +138,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
             });
             if (pick === undefined) return undefined;
 
-            if (pick instanceof ShowBranchesAndTagsQuickPickItem) {
+            if (pick instanceof ChooseFromBranchesAndTagsQuickPickItem) {
                 const branchOrTag = await pick.execute();
                 if (branchOrTag === undefined) return undefined;
                 if (branchOrTag instanceof CommandQuickPickItem) return branchOrTag.execute();

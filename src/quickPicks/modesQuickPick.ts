@@ -1,7 +1,7 @@
 'use strict';
 import { QuickPickItem, QuickPickOptions, window } from 'vscode';
-import { Container } from '../container';
 import { GlyphChars } from '../constants';
+import { Container } from '../container';
 
 export interface ModesQuickPickItem extends QuickPickItem {
     key: string | undefined;

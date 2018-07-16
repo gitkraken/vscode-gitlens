@@ -1,5 +1,10 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
+import { GlyphChars } from '../constants';
+import { Container } from '../container';
+import { GitUri } from '../gitService';
+import { Logger } from '../logger';
+import { BranchesQuickPick, CommandQuickPickItem } from '../quickpicks';
 import {
     ActiveEditorCommand,
     CommandContext,
@@ -8,11 +13,6 @@ import {
     getRepoPathOrActiveOrPrompt,
     isCommandViewContextWithBranch
 } from './common';
-import { GlyphChars } from '../constants';
-import { Container } from '../container';
-import { GitUri } from '../gitService';
-import { Logger } from '../logger';
-import { BranchesQuickPick, CommandQuickPickItem } from '../quickPicks/quickPicks';
 import { OpenInRemoteCommandArgs } from './openInRemote';
 
 export interface OpenBranchInRemoteCommandArgs {

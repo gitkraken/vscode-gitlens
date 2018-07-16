@@ -1,11 +1,11 @@
 'use strict';
-import { Strings } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, StashListQuickPick } from '../quickPicks/quickPicks';
+import { CommandQuickPickItem, StashListQuickPick } from '../quickpicks';
+import { Strings } from '../system';
+import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
 export interface ShowQuickStashListCommandArgs {

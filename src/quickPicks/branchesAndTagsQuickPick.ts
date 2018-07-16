@@ -1,10 +1,10 @@
 'use strict';
 import { CancellationTokenSource, QuickPickItem, QuickPickOptions, window } from 'vscode';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './commonQuickPicks';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitBranch, GitTag } from '../gitService';
 import { KeyNoopCommand } from '../keyboard';
+import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './commonQuickPicks';
 
 export class BranchOrTagQuickPickItem implements QuickPickItem {
     label: string;

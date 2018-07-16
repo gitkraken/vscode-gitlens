@@ -1,17 +1,17 @@
 'use strict';
-import { Iterables, Strings } from '../system';
 import { CancellationTokenSource, QuickPickOptions, window } from 'vscode';
 import { Commands, StashSaveCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitStash } from '../gitService';
 import { KeyNoopCommand } from '../keyboard';
+import { Iterables, Strings } from '../system';
 import {
     CommandQuickPickItem,
     CommitQuickPickItem,
     getQuickPickIgnoreFocusOut,
     showQuickPickProgress
-} from '../quickPicks/quickPicks';
+} from './commonQuickPicks';
 
 export class StashListQuickPick {
     static showProgress(mode: 'list' | 'apply') {

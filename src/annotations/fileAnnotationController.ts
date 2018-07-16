@@ -1,5 +1,5 @@
 'use strict';
-import { Functions, Iterables } from '../system';
+import * as path from 'path';
 import {
     ConfigurationChangeEvent,
     DecorationRangeBehavior,
@@ -18,21 +18,21 @@ import {
     window,
     workspace
 } from 'vscode';
-import { AnnotationProviderBase, AnnotationStatus, TextEditorCorrelationKey } from './annotationProvider';
 import { AnnotationsToggleMode, configuration, FileAnnotationType, HighlightLocations } from '../configuration';
 import { CommandContext, isTextEditor, setCommandContext } from '../constants';
 import { Container } from '../container';
+import { KeyboardScope, KeyCommand, Keys } from '../keyboard';
+import { Logger } from '../logger';
+import { Functions, Iterables } from '../system';
 import {
     DocumentBlameStateChangeEvent,
     DocumentDirtyStateChangeEvent,
     GitDocumentState
 } from '../trackers/gitDocumentTracker';
+import { AnnotationProviderBase, AnnotationStatus, TextEditorCorrelationKey } from './annotationProvider';
 import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
 import { HeatmapBlameAnnotationProvider } from './heatmapBlameAnnotationProvider';
-import { KeyboardScope, KeyCommand, Keys } from '../keyboard';
-import { Logger } from '../logger';
 import { RecentChangesAnnotationProvider } from './recentChangesAnnotationProvider';
-import * as path from 'path';
 
 export enum AnnotationClearReason {
     User = 'User',

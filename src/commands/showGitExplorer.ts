@@ -1,7 +1,7 @@
 'use strict';
-import { Command, Commands } from './common';
 import { GitExplorerView } from '../configuration';
 import { Container } from '../container';
+import { Command, Commands } from './common';
 
 export class ShowGitExplorerCommand extends Command {
     constructor() {

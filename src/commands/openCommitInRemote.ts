@@ -1,10 +1,10 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
 import { Container } from '../container';
 import { GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
+import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
 import { OpenInRemoteCommandArgs } from './openInRemote';
 
 export interface OpenCommitInRemoteCommandArgs {

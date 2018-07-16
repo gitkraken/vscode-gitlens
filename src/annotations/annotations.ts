@@ -1,4 +1,3 @@
-import { Objects, Strings } from '../system';
 import {
     DecorationInstanceRenderOptions,
     DecorationOptions,
@@ -13,7 +12,7 @@ import {
     ShowQuickCommitDetailsCommand,
     ShowQuickCommitFileDetailsCommand
 } from '../commands';
-import { FileAnnotationType } from './../configuration';
+import { FileAnnotationType } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import {
@@ -25,6 +24,7 @@ import {
     GitUri,
     ICommitFormatOptions
 } from '../gitService';
+import { Objects, Strings } from '../system';
 import { toRgba } from '../ui/shared/colors';
 
 export interface ComputedHeatmap {

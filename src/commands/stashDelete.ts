@@ -1,11 +1,11 @@
 'use strict';
 import { MessageItem, window } from 'vscode';
-import { Command, CommandContext, Commands, isCommandViewContextWithCommit } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitStashCommit } from '../gitService';
 import { Logger } from '../logger';
-import { CommandQuickPickItem } from '../quickPicks/quickPicks';
+import { CommandQuickPickItem } from '../quickpicks';
+import { Command, CommandContext, Commands, isCommandViewContextWithCommit } from './common';
 
 export interface StashDeleteCommandArgs {
     confirm?: boolean;

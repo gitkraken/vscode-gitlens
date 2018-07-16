@@ -1,14 +1,14 @@
 'use strict';
 import { Disposable, TextEditor } from 'vscode';
-import { GitBlameCommit, GitLogCommit } from '../gitService';
-import { LinesChangeEvent, LineTracker } from './lineTracker';
 import { Container } from '../container';
+import { GitBlameCommit, GitLogCommit } from '../gitService';
 import {
     DocumentBlameStateChangeEvent,
     DocumentDirtyIdleTriggerEvent,
     DocumentDirtyStateChangeEvent,
     GitDocumentState
 } from './gitDocumentTracker';
+import { LinesChangeEvent, LineTracker } from './lineTracker';
 
 export * from './lineTracker';
 

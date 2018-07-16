@@ -1,9 +1,9 @@
 'use strict';
 import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { Commands, EditorCommand } from './common';
 import { UriComparer } from '../comparers';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { Commands, EditorCommand } from './common';
 
 export class ClearFileAnnotationsCommand extends EditorCommand {
     constructor() {

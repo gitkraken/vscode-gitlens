@@ -1,5 +1,5 @@
 'use strict';
-import { Iterables, Strings } from '../system';
+import * as path from 'path';
 import { commands, QuickPickOptions, TextDocumentShowOptions, window } from 'vscode';
 import {
     Commands,
@@ -9,12 +9,6 @@ import {
     ShowQuickRepoStatusCommandArgs,
     ShowQuickStashListCommandArgs
 } from '../commands';
-import {
-    CommandQuickPickItem,
-    getQuickPickIgnoreFocusOut,
-    OpenFileCommandQuickPickItem,
-    QuickPickItem
-} from './commonQuickPicks';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import {
@@ -27,7 +21,13 @@ import {
     GitUri
 } from '../gitService';
 import { Keys } from '../keyboard';
-import * as path from 'path';
+import { Iterables, Strings } from '../system';
+import {
+    CommandQuickPickItem,
+    getQuickPickIgnoreFocusOut,
+    OpenFileCommandQuickPickItem,
+    QuickPickItem
+} from './commonQuickPicks';
 
 export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
     public readonly status: GitStatusFile;

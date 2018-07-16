@@ -1,10 +1,10 @@
 'use strict';
+import * as path from 'path';
 import { CancellationToken, TextDocumentContentProvider, Uri, window } from 'vscode';
 import { DocumentSchemes } from './constants';
 import { Container } from './container';
 import { GitService, GitUri } from './gitService';
 import { Logger } from './logger';
-import * as path from 'path';
 
 export class GitContentProvider implements TextDocumentContentProvider {
     static scheme = DocumentSchemes.GitLensGit;

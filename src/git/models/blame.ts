@@ -1,6 +1,6 @@
 'use strict';
-import { GitAuthor, GitCommitLine } from './commit';
 import { GitBlameCommit } from './blameCommit';
+import { GitAuthor, GitCommitLine } from './commit';
 
 export interface GitBlame {
     readonly repoPath: string;

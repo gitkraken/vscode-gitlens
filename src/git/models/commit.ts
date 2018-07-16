@@ -1,12 +1,12 @@
 'use strict';
-import { Dates, Strings } from '../../system';
+import * as path from 'path';
 import { Uri } from 'vscode';
 import { configuration, DateStyle, GravatarDefaultStyle } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
+import { Dates, Strings } from '../../system';
 import { Git } from '../git';
 import { GitUri } from '../gitUri';
-import * as path from 'path';
 
 const gravatarCache: Map<string, Uri> = new Map();
 export function clearGravatarCache() {

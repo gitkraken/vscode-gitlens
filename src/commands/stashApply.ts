@@ -1,12 +1,12 @@
 'use strict';
-import { Strings } from '../system';
 import { MessageItem, window } from 'vscode';
-import { Command, CommandContext, Commands, isCommandViewContextWithCommit } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitStashCommit } from '../gitService';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, RepositoriesQuickPick, StashListQuickPick } from '../quickPicks/quickPicks';
+import { CommandQuickPickItem, RepositoriesQuickPick, StashListQuickPick } from '../quickpicks';
+import { Strings } from '../system';
+import { Command, CommandContext, Commands, isCommandViewContextWithCommit } from './common';
 
 export interface StashApplyCommandArgs {
     confirm?: boolean;

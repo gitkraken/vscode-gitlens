@@ -1,5 +1,9 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
+import { GlyphChars } from '../constants';
+import { Container } from '../container';
+import { GitUri } from '../gitService';
+import { Logger } from '../logger';
 import {
     ActiveEditorCommand,
     CommandContext,
@@ -8,10 +12,6 @@ import {
     getRepoPathOrActiveOrPrompt,
     isCommandViewContextWithRemote
 } from './common';
-import { GlyphChars } from '../constants';
-import { Container } from '../container';
-import { GitUri } from '../gitService';
-import { Logger } from '../logger';
 import { OpenInRemoteCommandArgs } from './openInRemote';
 
 export interface OpenRepoInRemoteCommandArgs {

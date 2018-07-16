@@ -1,7 +1,7 @@
 'use strict';
+import * as path from 'path';
 import { Strings } from '../../system';
 import { Git, GitAuthor, GitBlame, GitBlameCommit, GitCommitLine } from './../git';
-import * as path from 'path';
 
 interface BlameEntry {
     sha: string;

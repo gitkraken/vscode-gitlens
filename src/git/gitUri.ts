@@ -1,11 +1,11 @@
 'use strict';
-import { Strings } from '../system';
+import * as path from 'path';
 import { Uri } from 'vscode';
 import { UriComparer } from '../comparers';
 import { DocumentSchemes, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitCommit, GitService, IGitStatusFile } from '../gitService';
-import * as path from 'path';
+import { Strings } from '../system';
 
 export interface IGitCommitInfo {
     fileName?: string;

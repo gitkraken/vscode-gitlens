@@ -1,11 +1,11 @@
 'use strict';
 import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { Container } from '../container';
-import { DiffWithCommandArgs } from './diffWith';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
+import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithWorkingCommandArgs {
     commit?: GitCommit;

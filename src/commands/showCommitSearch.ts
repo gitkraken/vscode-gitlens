@@ -1,16 +1,12 @@
 'use strict';
-import { Strings } from '../system';
 import { commands, InputBoxOptions, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitRepoSearchBy, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import {
-    CommandQuickPickItem,
-    CommitsQuickPick,
-    ShowCommitsSearchInResultsQuickPickItem
-} from '../quickPicks/quickPicks';
+import { CommandQuickPickItem, CommitsQuickPick, ShowCommitsSearchInResultsQuickPickItem } from '../quickpicks';
+import { Strings } from '../system';
+import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
 const searchByRegex = /^([@~=:#])/;

@@ -1,12 +1,12 @@
 'use strict';
-import { Strings } from '../system';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { BranchesQuickPick, BranchHistoryQuickPick, CommandQuickPickItem } from '../quickPicks/quickPicks';
+import { BranchesQuickPick, BranchHistoryQuickPick, CommandQuickPickItem } from '../quickpicks';
+import { Strings } from '../system';
+import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
 export interface ShowQuickBranchHistoryCommandArgs {

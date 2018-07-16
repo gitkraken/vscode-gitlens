@@ -1,14 +1,14 @@
 'use strict';
-import { Strings } from '../system';
+import * as path from 'path';
 import { commands, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { DiffWithCommandArgs } from './diffWith';
 import { GitUri } from '../gitService';
 import { Messages } from '../messages';
-import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickPicks/quickPicks';
-import * as path from 'path';
+import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
+import { Strings } from '../system';
+import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithBranchCommandArgs {
     line?: number;

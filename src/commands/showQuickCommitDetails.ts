@@ -1,6 +1,13 @@
 'use strict';
-import { Strings } from '../system';
+import * as path from 'path';
 import { commands, TextEditor, Uri, window } from 'vscode';
+import { GlyphChars } from '../constants';
+import { Container } from '../container';
+import { GitCommit, GitLog, GitLogCommit, GitUri } from '../gitService';
+import { Logger } from '../logger';
+import { Messages } from '../messages';
+import { CommandQuickPickItem, CommitQuickPick, CommitWithFileStatusQuickPickItem } from '../quickpicks';
+import { Strings } from '../system';
 import {
     ActiveEditorCachedCommand,
     CommandContext,
@@ -8,14 +15,7 @@ import {
     getCommandUri,
     isCommandViewContextWithCommit
 } from './common';
-import { GlyphChars } from '../constants';
-import { GitCommit, GitLog, GitLogCommit, GitUri } from '../gitService';
-import { Logger } from '../logger';
-import { CommandQuickPickItem, CommitQuickPick, CommitWithFileStatusQuickPickItem } from '../quickPicks/quickPicks';
 import { ShowQuickCommitFileDetailsCommandArgs } from './showQuickCommitFileDetails';
-import { Messages } from '../messages';
-import * as path from 'path';
-import { Container } from '../container';
 
 export interface ShowQuickCommitDetailsCommandArgs {
     sha?: string;

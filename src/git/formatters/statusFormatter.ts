@@ -1,9 +1,9 @@
 'use strict';
-import { Strings } from '../../system';
-import { GlyphChars } from '../../constants';
-import { Formatter, IFormatOptions } from './formatter';
-import { GitStatusFile, IGitStatusFile, IGitStatusFileWithCommit } from '../models/status';
 import * as path from 'path';
+import { GlyphChars } from '../../constants';
+import { Strings } from '../../system';
+import { GitStatusFile, IGitStatusFile, IGitStatusFileWithCommit } from '../models/status';
+import { Formatter, IFormatOptions } from './formatter';
 
 export interface IStatusFormatOptions extends IFormatOptions {
     relativePath?: string;

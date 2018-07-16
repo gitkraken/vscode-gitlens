@@ -1,10 +1,10 @@
 'use strict';
-import { Iterables } from '../system';
 import { TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
 import { Container } from '../container';
 import { GitUri } from '../gitService';
 import { Logger } from '../logger';
+import { Iterables } from '../system';
+import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
 
 export interface CopyShaToClipboardCommandArgs {
     sha?: string;

@@ -1,20 +1,20 @@
 'use strict';
-import { Iterables, Strings } from '../system';
+import * as path from 'path';
 import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, ShowQuickCurrentBranchHistoryCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
-import {
-    CommandQuickPickItem,
-    CommitQuickPickItem,
-    getQuickPickIgnoreFocusOut,
-    ShowBranchesAndTagsQuickPickItem,
-    showQuickPickProgress
-} from './commonQuickPicks';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitUri, RemoteResource } from '../gitService';
 import { KeyNoopCommand } from '../keyboard';
+import { Iterables, Strings } from '../system';
+import {
+    ChooseFromBranchesAndTagsQuickPickItem,
+    CommandQuickPickItem,
+    CommitQuickPickItem,
+    getQuickPickIgnoreFocusOut,
+    showQuickPickProgress
+} from './commonQuickPicks';
 import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
-import * as path from 'path';
 
 export class FileHistoryQuickPick {
     static showProgress(placeHolder: string) {
@@ -49,7 +49,11 @@ export class FileHistoryQuickPick {
         let index = 0;
 
         index++;
-        items.splice(0, 0, new ShowBranchesAndTagsQuickPickItem(log.repoPath, placeHolder, options.currentCommand));
+        items.splice(
+            0,
+            0,
+            new ChooseFromBranchesAndTagsQuickPickItem(log.repoPath, placeHolder, options.currentCommand)
+        );
 
         if (options.showInResultsExplorerCommand !== undefined) {
             index++;

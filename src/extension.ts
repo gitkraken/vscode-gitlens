@@ -1,8 +1,7 @@
 'use strict';
 
-import { Logger } from './logger';
-import { Versions } from './system';
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
+import { Commands, configureCommands } from './commands';
 import {
     CodeLensLanguageScope,
     CodeLensScopes,
@@ -15,10 +14,11 @@ import {
     OutputLevel
 } from './configuration';
 import { CommandContext, extensionId, extensionQualifiedId, GlobalState, setCommandContext } from './constants';
-import { Commands, configureCommands } from './commands';
 import { Container } from './container';
 import { GitService } from './gitService';
+import { Logger } from './logger';
 import { Messages } from './messages';
+import { Versions } from './system';
 // import { Telemetry } from './telemetry';
 
 interface GitApi {

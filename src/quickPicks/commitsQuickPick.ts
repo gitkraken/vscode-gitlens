@@ -1,16 +1,16 @@
 'use strict';
-import { Iterables } from '../system';
 import { CancellationTokenSource, QuickPickOptions, window } from 'vscode';
 import { Container } from '../container';
 import { GitLog } from '../gitService';
 import { KeyNoopCommand } from '../keyboard';
+import { Iterables } from '../system';
 import {
     CommandQuickPickItem,
     CommitQuickPickItem,
     getQuickPickIgnoreFocusOut,
     MessageQuickPickItem,
     showQuickPickProgress
-} from '../quickPicks/quickPicks';
+} from './commonQuickPicks';
 
 export class CommitsQuickPick {
     static showProgress(message: string) {

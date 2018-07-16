@@ -1,10 +1,10 @@
 'use strict';
-import { Functions } from '../system';
 import { Disposable, Event, EventEmitter, TextDocument, TextEditor, Uri } from 'vscode';
-import { CommandContext, getEditorIfActive, isActiveDocument, setCommandContext } from './../constants';
-import { Container } from './../container';
-import { GitUri, Repository, RepositoryChange, RepositoryChangeEvent } from './../gitService';
-import { Logger } from './../logger';
+import { CommandContext, getEditorIfActive, isActiveDocument, setCommandContext } from '../constants';
+import { Container } from '../container';
+import { GitUri, Repository, RepositoryChange, RepositoryChangeEvent } from '../gitService';
+import { Logger } from '../logger';
+import { Functions } from '../system';
 
 export interface DocumentBlameStateChangeEvent<T> {
     readonly editor: TextEditor;

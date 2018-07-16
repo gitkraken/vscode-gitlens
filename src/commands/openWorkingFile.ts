@@ -1,11 +1,11 @@
 'use strict';
+import * as path from 'path';
 import { Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { GitUri } from '../gitService';
 import { Logger } from '../logger';
-import * as path from 'path';
+import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
 
 export interface OpenWorkingFileCommandArgs {
     uri?: Uri;

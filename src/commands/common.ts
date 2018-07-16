@@ -1,4 +1,5 @@
 'use strict';
+import * as path from 'path';
 import {
     commands,
     Disposable,
@@ -14,12 +15,11 @@ import {
 } from 'vscode';
 import { BuiltInCommands, DocumentSchemes, ImageExtensions } from '../constants';
 import { Container } from '../container';
-import { ExplorerNode, ExplorerRefNode } from '../views/explorerNodes';
 import { GitBranch, GitCommit, GitRemote, GitUri } from '../gitService';
 import { Logger } from '../logger';
+import { CommandQuickPickItem, RepositoriesQuickPick } from '../quickpicks';
 // import { Telemetry } from '../telemetry';
-import * as path from 'path';
-import { CommandQuickPickItem, RepositoriesQuickPick } from '../quickPicks/quickPicks';
+import { ExplorerNode, ExplorerRefNode } from '../views/nodes';
 
 export enum Commands {
     ClearFileAnnotations = 'gitlens.clearFileAnnotations',

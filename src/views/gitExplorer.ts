@@ -1,5 +1,5 @@
 'use strict';
-import { Functions } from '../system';
+import * as path from 'path';
 import {
     commands,
     ConfigurationChangeEvent,
@@ -25,7 +25,10 @@ import {
 } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
-import { RefreshNodeCommandArgs } from './explorerCommands';
+import { GitUri } from '../gitService';
+import { Logger } from '../logger';
+import { Functions } from '../system';
+import { RefreshNodeCommandArgs } from '../views/explorerCommands';
 import {
     Explorer,
     ExplorerNode,
@@ -34,12 +37,9 @@ import {
     RefreshReason,
     RepositoriesNode,
     RepositoryNode
-} from './explorerNodes';
-import { GitUri } from '../gitService';
-import { Logger } from '../logger';
-import * as path from 'path';
+} from './nodes';
 
-export * from './explorerNodes';
+export * from './nodes';
 
 export interface OpenFileRevisionCommandArgs {
     uri?: Uri;

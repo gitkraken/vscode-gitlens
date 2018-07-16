@@ -1,9 +1,9 @@
 'use strict';
 import { ConfigurationTarget } from 'vscode';
-import { Command, Commands } from './common';
 import { configuration } from '../configuration';
 import { Container } from '../container';
-import { ModesQuickPick } from '../quickPicks/quickPicks';
+import { ModesQuickPick } from '../quickpicks';
+import { Command, Commands } from './common';
 
 export class SwitchModeCommand extends Command {
     constructor() {

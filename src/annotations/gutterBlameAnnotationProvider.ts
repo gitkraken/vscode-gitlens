@@ -1,13 +1,13 @@
 'use strict';
-import { Objects, Strings } from '../system';
 import { DecorationOptions, DecorationRenderOptions, Range, TextEditorDecorationType, window } from 'vscode';
-import { Annotations } from './annotations';
-import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { FileAnnotationType, GravatarDefaultStyle } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitBlameCommit, ICommitFormatOptions } from '../gitService';
 import { Logger } from '../logger';
+import { Objects, Strings } from '../system';
+import { Annotations } from './annotations';
+import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
 export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
     async onProvideAnnotation(shaOrLine?: string | number, type?: FileAnnotationType): Promise<boolean> {

@@ -1,14 +1,14 @@
 'use strict';
-import { Iterables, Strings } from '../system';
 import { CancellationTokenSource, commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
 import { FileAnnotationType } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitBranch, GitTag, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { CommandQuickPickItem, FileHistoryQuickPick, ShowBranchesAndTagsQuickPickItem } from '../quickPicks/quickPicks';
+import { ChooseFromBranchesAndTagsQuickPickItem, CommandQuickPickItem, FileHistoryQuickPick } from '../quickpicks';
+import { Iterables, Strings } from '../system';
+import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
 
 export interface OpenFileRevisionCommandArgs {
     branchOrTag?: GitBranch | GitTag;
@@ -150,7 +150,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                 });
                 if (pick === undefined) return undefined;
 
-                if (pick instanceof ShowBranchesAndTagsQuickPickItem) {
+                if (pick instanceof ChooseFromBranchesAndTagsQuickPickItem) {
                     const branchOrTag = await pick.execute();
                     if (branchOrTag === undefined) return undefined;
                     if (branchOrTag instanceof CommandQuickPickItem) return branchOrTag.execute();

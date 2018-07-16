@@ -1,7 +1,7 @@
 'use strict';
-import { GitRemote } from './../git';
 import { GitRemoteType } from '../models/remote';
 import { RemoteProvider } from '../remotes/factory';
+import { GitRemote } from './../git';
 
 const remoteRegex = /^(.*)\t(.*)\s\((.*)\)$/gm;
 const urlRegex = /^(?:(git:\/\/)(.*?)\/|(https?:\/\/)(?:.*?@)?(.*?)\/|git@(.*):|(ssh:\/\/)(?:.*@)?(.*?)(?::.*?)?\/|(?:.*?@)(.*?):)(.*)$/;

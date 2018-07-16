@@ -1,9 +1,8 @@
 'use strict';
-import { Arrays, Strings } from '../../system';
-import { Range } from 'vscode';
-import { Git, GitAuthor, GitCommitType, GitLog, GitLogCommit, GitStatusFileStatus, IGitStatusFile } from './../git';
-// import { Logger } from '../../logger';
 import * as path from 'path';
+import { Range } from 'vscode';
+import { Arrays, Strings } from '../../system';
+import { Git, GitAuthor, GitCommitType, GitLog, GitLogCommit, GitStatusFileStatus, IGitStatusFile } from './../git';
 
 interface LogEntry {
     ref?: string;

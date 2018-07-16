@@ -1,10 +1,10 @@
 'use strict';
 import { CancellationTokenSource, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickPicks/quickPicks';
+import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
+import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 
 export interface DiffBranchWithBranchCommandArgs {
     ref1?: string;

@@ -1,7 +1,7 @@
 'use strict';
 import { ConfigurationTarget } from 'vscode';
-import { Command, Commands } from './common';
 import { configuration } from '../configuration';
+import { Command, Commands } from './common';
 
 export class ResetSuppressedWarningsCommand extends Command {
     constructor() {

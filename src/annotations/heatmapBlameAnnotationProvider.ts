@@ -1,11 +1,11 @@
 'use strict';
 import { DecorationOptions, Range } from 'vscode';
-import { Annotations } from './annotations';
-import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
-import { FileAnnotationType } from './../configuration';
+import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { GitBlameCommit } from '../gitService';
 import { Logger } from '../logger';
+import { Annotations } from './annotations';
+import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
 export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
     async onProvideAnnotation(shaOrLine?: string | number, type?: FileAnnotationType): Promise<boolean> {

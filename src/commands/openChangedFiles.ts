@@ -1,10 +1,10 @@
 'use strict';
-import { Arrays } from '../system';
 import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt, openEditor } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { Arrays } from '../system';
+import { ActiveEditorCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt, openEditor } from './common';
 
 export interface OpenChangedFilesCommandArgs {
     uris?: Uri[];

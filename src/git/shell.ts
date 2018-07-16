@@ -1,8 +1,8 @@
 'use strict';
 import { execFile } from 'child_process';
-import { Logger } from '../logger';
 import * as fs from 'fs';
 import * as path from 'path';
+import { Logger } from '../logger';
 
 const isWindows = process.platform === 'win32';
 

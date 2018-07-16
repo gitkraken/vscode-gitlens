@@ -1,6 +1,6 @@
 'use strict';
+import { GitBlame, GitDiff, GitLog } from '../git/git';
 import { DocumentTracker } from './documentTracker';
-import { GitBlame, GitDiff, GitLog } from './../git/git';
 
 export * from './documentTracker';
 

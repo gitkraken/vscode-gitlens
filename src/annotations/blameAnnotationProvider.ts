@@ -1,5 +1,4 @@
 'use strict';
-import { Arrays, Iterables } from '../system';
 import {
     CancellationToken,
     Disposable,
@@ -12,11 +11,12 @@ import {
     TextEditor,
     TextEditorDecorationType
 } from 'vscode';
+import { Container } from '../container';
+import { GitBlame, GitCommit, GitUri } from '../gitService';
+import { Arrays, Iterables } from '../system';
+import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { AnnotationProviderBase } from './annotationProvider';
 import { Annotations, ComputedHeatmap } from './annotations';
-import { Container } from '../container';
-import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
-import { GitBlame, GitCommit, GitUri } from '../gitService';
 
 export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase {
     protected _blame: Promise<GitBlame | undefined>;

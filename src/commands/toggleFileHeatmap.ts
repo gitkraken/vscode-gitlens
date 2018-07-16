@@ -1,8 +1,8 @@
 'use strict';
 import { commands, TextEditor, Uri } from 'vscode';
-import { ToggleFileBlameCommandArgs } from '../commands';
-import { ActiveEditorCommand, Commands } from './common';
 import { FileAnnotationType } from '../configuration';
+import { ActiveEditorCommand, Commands } from './common';
+import { ToggleFileBlameCommandArgs } from './toggleFileBlame';
 
 export class ToggleFileHeatmapCommand extends ActiveEditorCommand {
     constructor() {

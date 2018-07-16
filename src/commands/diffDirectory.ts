@@ -1,12 +1,18 @@
 'use strict';
 import { CancellationTokenSource, commands, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
-import { CommandContext, isCommandViewContextWithRef } from '../commands';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
-import { ComparisonResultsNode } from '../views/explorerNodes';
 import { Logger } from '../logger';
-import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickPicks/quickPicks';
+import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
+import { ComparisonResultsNode } from '../views/nodes';
+import {
+    ActiveEditorCommand,
+    CommandContext,
+    Commands,
+    getCommandUri,
+    getRepoPathOrActiveOrPrompt,
+    isCommandViewContextWithRef
+} from './common';
 
 export interface DiffDirectoryCommandArgs {
     ref1?: string;

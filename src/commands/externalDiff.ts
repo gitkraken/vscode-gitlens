@@ -1,11 +1,10 @@
 'use strict';
-import { Arrays } from '../system';
 import { commands, SourceControlResourceState, Uri, window } from 'vscode';
-import { Command, Commands, getRepoPathOrActiveOrPrompt } from './common';
 import { BuiltInCommands, GlyphChars } from '../constants';
-import { CommandContext } from '../commands';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { Arrays } from '../system';
+import { Command, CommandContext, Commands, getRepoPathOrActiveOrPrompt } from './common';
 
 enum Status {
     INDEX_MODIFIED,

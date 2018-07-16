@@ -1,5 +1,5 @@
 'use strict';
-import { Iterables, Strings } from '../system';
+import * as path from 'path';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import {
     Commands,
@@ -12,18 +12,18 @@ import {
     ShowQuickCommitFileDetailsCommandArgs,
     ShowQuickFileHistoryCommandArgs
 } from '../commands';
+import { GlyphChars } from '../constants';
+import { Container } from '../container';
+import { GitLog, GitLogCommit, GitUri, RemoteResource } from '../gitService';
+import { KeyCommand, KeyNoopCommand } from '../keyboard';
+import { Iterables, Strings } from '../system';
 import {
     CommandQuickPickItem,
     getQuickPickIgnoreFocusOut,
     KeyCommandQuickPickItem,
     OpenFileCommandQuickPickItem
 } from './commonQuickPicks';
-import { GlyphChars } from '../constants';
-import { Container } from '../container';
-import { GitLog, GitLogCommit, GitUri, RemoteResource } from '../gitService';
-import { KeyCommand, KeyNoopCommand } from '../keyboard';
 import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
-import * as path from 'path';
 
 export class ApplyCommitFileChangesCommandQuickPickItem extends CommandQuickPickItem {
     constructor(

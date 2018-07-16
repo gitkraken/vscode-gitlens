@@ -1,7 +1,7 @@
 'use strict';
-import { Functions } from './../system';
 import { commands, Disposable, TextEditor, window } from 'vscode';
-import { BuiltInCommands } from './../constants';
+import { BuiltInCommands } from '../constants';
+import { Functions } from '../system';
 
 export class ActiveEditorTracker extends Disposable {
     private _disposable: Disposable;

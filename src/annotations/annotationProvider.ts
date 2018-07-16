@@ -1,5 +1,4 @@
 'use strict';
-import { Functions } from '../system';
 import {
     DecorationOptions,
     Disposable,
@@ -11,9 +10,10 @@ import {
     Uri,
     window
 } from 'vscode';
-import { FileAnnotationType } from '../configuration';
 import { TextDocumentComparer } from '../comparers';
+import { FileAnnotationType } from '../configuration';
 import { CommandContext, setCommandContext } from '../constants';
+import { Functions } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 
 export enum AnnotationStatus {

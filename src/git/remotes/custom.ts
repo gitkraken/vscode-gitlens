@@ -1,7 +1,7 @@
 'use strict';
-import { Strings } from '../../system';
 import { Range } from 'vscode';
 import { IRemotesUrlsConfig } from '../../configuration';
+import { Strings } from '../../system';
 import { RemoteProvider } from './provider';
 
 export class CustomService extends RemoteProvider {

@@ -1,5 +1,4 @@
 'use strict';
-import { Functions, Strings } from '../system';
 import {
     commands,
     ConfigurationChangeEvent,
@@ -15,6 +14,9 @@ import {
 import { configuration, ExplorerFilesLayout, IExplorersConfig, IResultsExplorerConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
+import { GitLog, GitLogCommit } from '../gitService';
+import { Logger } from '../logger';
+import { Functions, Strings } from '../system';
 import { RefreshNodeCommandArgs } from './explorerCommands';
 import {
     CommitResultsNode,
@@ -25,12 +27,10 @@ import {
     NamedRef,
     RefreshReason,
     ResourceType
-} from './explorerNodes';
-import { GitLog, GitLogCommit } from '../gitService';
-import { Logger } from '../logger';
-// import { Messages } from '../messages';
+} from './nodes';
+// import { Messages } from './messages';
 
-export * from './explorerNodes';
+export * from './nodes';
 
 export class ResultsExplorer extends Disposable implements TreeDataProvider<ExplorerNode> {
     private _disposable: Disposable | undefined;

@@ -1,11 +1,11 @@
 'use strict';
-import { Objects, Strings } from '../system';
-import { findGitPath, IGit } from './gitLocator';
-import { Logger } from '../logger';
-import { CommandOptions, runCommand } from './shell';
 import * as fs from 'fs';
 import * as iconv from 'iconv-lite';
 import * as path from 'path';
+import { Logger } from '../logger';
+import { Objects, Strings } from '../system';
+import { findGitPath, IGit } from './gitLocator';
+import { CommandOptions, runCommand } from './shell';
 
 export { IGit };
 export * from './models/models';

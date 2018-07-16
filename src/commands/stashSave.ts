@@ -1,11 +1,10 @@
 'use strict';
 import { InputBoxOptions, Uri, window } from 'vscode';
-import { CommandContext } from '../commands';
-import { Command, Commands } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, RepositoriesQuickPick } from '../quickPicks/quickPicks';
+import { CommandQuickPickItem, RepositoriesQuickPick } from '../quickpicks';
+import { Command, CommandContext, Commands } from './common';
 
 export interface StashSaveCommandArgs {
     message?: string;

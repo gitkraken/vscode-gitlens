@@ -1,8 +1,8 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, Commands } from './common';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { ActiveEditorCommand, Commands } from './common';
 
 export class ToggleLineBlameCommand extends ActiveEditorCommand {
     constructor() {
