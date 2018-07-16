@@ -13,20 +13,29 @@
 <br />
 
 # What's new in GitLens 8
-## 8.4 &mdash; June 2018
-- Adds completely revamped heatmap annotations
-  ![cold heatmap](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-heatmap-cold.png)
-  - The indicator's color, now customizable, will either be hot or cold based on the age of the most recent change (cold after 90 days by default) &mdash; closes [#419](https://github.com/eamodio/vscode-gitlens/issues/419)
-  - The indicator's brightness ranges from bright (newer) to dim (older) based on the relative age, which is calculated from the median age of all the changes in the file
-  - Adds `gitlens.heatmap.ageThreshold` setting to specify the age of the most recent change (in days) after which the gutter heatmap annotations will be cold rather than hot (i.e. will use `gitlens.heatmap.coldColor` instead of `gitlens.heatmap.hotColor`)
-  - Adds `gitlens.heatmap.coldColor` setting to specify the base color of the gutter heatmap annotations when the most recent change is older (cold) than the `gitlens.heatmap.ageThreshold` setting
-  - Adds `gitlens.heatmap.hotColor` setting to specify the base color of the gutter heatmap annotations when the most recent change is newer (hot) than the `gitlens.heatmap.ageThreshold` setting
-- Adds new branch history node under the *Repository Status* node in the *GitLens* explorer
-- Adds GitLab and Visual Studio Team Services icons to the remote nodes in the *GitLens* explorer &mdash; thanks to [PR #421](https://github.com/eamodio/vscode-gitlens/pull/421) by Maxim Pekurin ([@pmaxim25](https://github.com/pmaxim25))
-- Fixes [#400](https://github.com/eamodio/vscode-gitlens/issues/412) - GitLens logging to debug console when debugging different extension
-- Fixes [#409](https://github.com/eamodio/vscode-gitlens/issues/409) - Literal $(ellipsis) inserted into commit QuickPick menu entry placeholder text
-- Fixes [#415](https://github.com/eamodio/vscode-gitlens/issues/415) - Branch names get mangled by color escapes &mdash; thanks to [PR #416](https://github.com/eamodio/vscode-gitlens/pull/416) by Roy Ivy III ([@rivy](https://github.com/rivy))
-- Fixes issue with insiders builds because of the new `SymbolInformation` API changes (see [Microsoft/vscode#34968](https://github.com/Microsoft/vscode/issues/34968))
+## 8.5 &mdash; July 2018
+- Adds an all-new *GitLens* sidebar view to contain the *GitLens*, *GitLens File History*, and *GitLens Results* explorers
+ - The new view is enabled by default, but can easily be configured back to the existing locations via the *GitLens* interactive settings editor
+- Adds tag annotations to the tag tooltips in the *GitLens* explorer &mdash; closes [#431](https://github.com/eamodio/vscode-gitlens/issues/431)
+- Adds a `gitlens.hovers.avatars` setting to specify whether to show avatar images in hovers &mdash; closes [#432](https://github.com/eamodio/vscode-gitlens/issues/432) thanks to [PR #441](https://github.com/eamodio/vscode-gitlens/pull/441) by Segev Finer ([@segevfiner](https://github.com/segevfiner))
+- Adds the `gitlens.hovers.avatars` setting to the *GitLens* interactive settings editor to specify whether to show avatar images in hovers
+- Adds *Choose from Branch or Tag History...* to the quick pick menu shown by the *Show File History...* command (`gitlens.showQuickFileHistory`) &mdash; closes [#316](https://github.com/eamodio/vscode-gitlens/issues/316)
+- Adds the *Compare File with Revision...* command (`gitlens.diffWithRevision`) as an alternate (`alt+click`) for the *Compare File with Previous Revision* command in the editor toolbar
+- Renames the *GitLens History* explorer to *GitLens File History* explorer for better clarity
+- Changes the *GitLens File History* explorer to always show the full file history even when reviewing revisions
+- Changes the behavior of and renames the *Show Branches and Tags* command and on the quick pick menu shown by the *Compare File with Revision...* command (`gitlens.diffWithRevision`) to *Choose from Branch or Tag History...*
+- Changes the behavior of and renames the *Show Branches and Tags* command on the quick pick menu shown by the *Open Revision...* command (`gitlens.openFileRevision`) to *Choose from Branch or Tag History...*
+- Removes `gitlens:activeIsTracked`, `gitlens:activeIsBlameable`, `gitlens:activeIsRevision`, and `gitlens:activeHasRemotes` contexts and consolidates them into `gitlens:activeFileStatus` for better performance and UX
+- Fixes [#436](https://github.com/eamodio/vscode-gitlens/issues/436) - Copy to clipboard not working
+- Fixes [#442](https://github.com/eamodio/vscode-gitlens/issues/442) - GitLens File History fails if name (or path) starts with `-`
+- Fixes [#440](https://github.com/eamodio/vscode-gitlens/issues/440) - Searching for commits with an empty query yields to no results anymore
+- Fixes issue where commands in the editor toolbar would flash unnecessarily when navigating history or switching tabs
+- Fixes issue where the *Compare File with Previous Revision* command wouldn't work properly when the file had been renamed in some cases
+- Fixes issue where the *Compare File with Next Revision* command wouldn't work properly when the file had been renamed in some cases
+- Fixes issue where changed files count was wrong when the branch was behind the upstream
+- Fixes issue where the *GitLens File History* explorer wasn't being updated automatically for working changes
+- Fixes issue where the *Compare File with * Revision* commands in the editor toolbar would show and hide too often because of insignificant focus changes
+- Fixes issue where the scope box would be empty when there was no workspace open in the interactive settings editor
 
 See the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md "Open Release Notes") for the full set of changes
 

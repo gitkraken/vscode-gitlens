@@ -43,14 +43,169 @@
                 <div class="changelog__scroller">
                     <ul class="changelog__list">
                         <li>
+                            <span class="changelog__badge changelog__badge--version">8.5</span>
+                            <span class="changelog__date">JULY &nbsp;2018</span>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds an all-new
+                            <i>GitLens</i> sidebar view to contain the
+                            <i>GitLens</i>,
+                            <i>GitLens File History</i>, and
+                            <i>GitLens Results</i> explorers
+                            <div class="changelog__details changelog__details--list">
+                                <p>The new view is enabled by default, but can easily be configured back to the existing locations
+                                    via the
+                                    <i>GitLens</i> interactive settings editor
+                                </p>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds tag annotations to the tag tooltips in the
+                            <i>GitLens</i> explorer &mdash; closes
+                            <a title="Open Issue #431" href="https://github.com/eamodio/vscode-gitlens/issues/431">#431</a>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds a
+                            <code>gitlens.hovers.avatars</code> setting to specify whether to show avatar images in hovers &mdash; closes
+                            <a title="Open Issue #432" href="https://github.com/eamodio/vscode-gitlens/issues/432">#432</a> thanks to
+                            <a title="Pull Request #441" href="https://github.com/eamodio/vscode-gitlens/pull/441">PR #441</a> by
+                            <a title="Segev Finer (@segevfiner)" href="https://github.com/segevfiner">Segev Finer</a>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds the
+                            <code>gitlens.hovers.avatars</code> setting to the
+                            <i>GitLens</i> interactive settings editor to specify whether to show avatar images in hovers
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds
+                            <i>Choose from Branch or Tag History...</i> command to the quick pick menu shown by the
+                            <i>Show File History...</i> command (
+                            <code>gitlens.showQuickFileHistory</code>) &mdash; closes
+                            <a title="Open Issue #316" href="https://github.com/eamodio/vscode-gitlens/issues/316">#316</a>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds the
+                            <i>Compare File with Revision...
+                            </i> command (
+                            <code>gitlens.diffWithRevision</code>) as an alternate (
+                            <code>alt+click</code>) for the
+                            <i>Compare File with Previous Revision</i> command in the editor toolbar
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--changed">IMPROVED</span>
+                            Renames the
+                            <i>GitLens History</i> explorer to
+                            <i>GitLens File History </i> explorer for better clarity
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--changed">IMPROVED</span>
+                            Changes the
+                            <i>GitLens File History</i> explorer to always show the full file history even when reviewing revisions
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--changed">IMPROVED</span>
+                            Changes the behavior of and renames the
+                            <i>Show Branches and Tags</i> command and on the quick pick menu shown by the
+                            <i>Compare File with Revision...</i> command (
+                            <code>gitlens.diffWithRevision</code>) to
+                            <i>Choose from Branch or Tag History...</i>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--changed">IMPROVED</span>
+                            Removes
+                            <code>gitlens:activeIsTracked</code>,
+                            <code>gitlens:activeIsBlameable</code>,
+                            <code>gitlens:activeIsRevision</code>, and
+                            <code>gitlens:activeHasRemotes</code> contexts and consolidates them into
+                            <code>gitlens:activeFileStatus</code> for better performance and UX
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes
+                            <a title="Open Issue #436" href="https://github.com/eamodio/vscode-gitlens/issues/436">#436</a> &mdash; Copy to clipboard not working
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes
+                            <a title="Open Issue #442" href="https://github.com/eamodio/vscode-gitlens/issues/442">#442</a> &mdash; GitLens File History fails if name (or path) starts with
+                            <code>-</code>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes
+                            <a title="Open Issue #440" href="https://github.com/eamodio/vscode-gitlens/issues/440">#440</a> &mdash; Searching for commits with an empty query yields to no results anymore
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes issue where commands in the editor toolbar would flash unnecessarily when navigating history or switching tabs
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes issue where the
+                            <i>Compare File with Previous Revision </i> command wouldn't work properly when the file had been
+                            renamed in some cases
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes issue where the
+                            <i>Compare File with Next Revision </i> command wouldn't work properly when the file had been renamed
+                            in some cases
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes issue where changed files count was wrong when the branch was behind the upstream
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes issue where the
+                            <i>GitLens File History</i> explorer wasn't being updated automatically for working changes
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes issue where the
+                            <i>Compare File with * Revision</i> commands in the editor toolbar would show and hide too often
+                            because of insignificant focus changes
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes issue where the scope box would be empty when there was no workspace open in the interactive settings editor
+                            <div class="changelog__details"></div>
+                        </li>
+
+                        <li class="changelog__list-item--version">
                             <span class="changelog__badge changelog__badge--version">8.4</span>
-                            <span class="changelog__date">JUNE &nbsp;2018</span>
+                            <span class="changelog__date">MAY &nbsp;2018</span>
                             <div class="changelog__details"></div>
                         </li>
                         <li>
                             <span class="changelog__badge changelog__badge--added">NEW</span>
                             Adds completely revamped heatmap annotations
-                            <div class="changelog__details changelog__details--list ">
+                            <div class="changelog__details changelog__details--list">
                                 <p>The indicator's color, now customizable, will either be hot or cold based on the age of the
                                     most recent change (cold after 90 days by default) &mdash; closes
                                     <a title="Open Issue #419" href="https://github.com/eamodio/vscode-gitlens/issues/419">#419</a>

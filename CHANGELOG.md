@@ -4,14 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [8.5.0] - 2018-07-16
 ### Added
 - Adds an all-new *GitLens* sidebar view to contain the *GitLens*, *GitLens File History*, and *GitLens Results* explorers
- - The new view is enabled by default, but can easily be configured back to the existing locations via the *GitLen* interactive settings editor
+ - The new view is enabled by default, but can easily be configured back to the existing locations via the *GitLens* interactive settings editor
 - Adds tag annotations to the tag tooltips in the *GitLens* explorer &mdash; closes [#431](https://github.com/eamodio/vscode-gitlens/issues/431)
-- Adds `gitlens.hovers.avatars` setting to specify whether to show avatar images in hovers &mdash; closes [#432](https://github.com/eamodio/vscode-gitlens/issues/432) thanks to [PR #441](https://github.com/eamodio/vscode-gitlens/pull/441) by Segev Finer ([@segevfiner](https://github.com/segevfiner))
-- Adds `gitlens.hovers.avatars` setting to the interactive settings editor to specify whether to show avatar images in hovers
-- Adds *Choose from Branch or Tag History...* to the quick pick menu shown by the *Show File History...* command (`gitlens.showQuickFileHistory`) &mdash; closes [#316](https://github.com/eamodio/vscode-gitlens/issues/316)
+- Adds a `gitlens.hovers.avatars` setting to specify whether to show avatar images in hovers &mdash; closes [#432](https://github.com/eamodio/vscode-gitlens/issues/432) thanks to [PR #441](https://github.com/eamodio/vscode-gitlens/pull/441) by Segev Finer ([@segevfiner](https://github.com/segevfiner))
+- Adds the `gitlens.hovers.avatars` setting to the *GitLens* interactive settings editor to specify whether to show avatar images in hovers
+- Adds *Choose from Branch or Tag History...* command to the quick pick menu shown by the *Show File History...* command (`gitlens.showQuickFileHistory`) &mdash; closes [#316](https://github.com/eamodio/vscode-gitlens/issues/316)
 - Adds the *Compare File with Revision...* command (`gitlens.diffWithRevision`) as an alternate (`alt+click`) for the *Compare File with Previous Revision* command in the editor toolbar
 
 ### Changed
@@ -25,8 +25,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes [#436](https://github.com/eamodio/vscode-gitlens/issues/436) - Copy to clipboard not working
-- Fixes [#442](https://github.com/eamodio/vscode-gitlens/issues/442) - GitLens File History fails if name (or path) starts with -
-- Fixes [#440](https://github.com/eamodio/vscode-gitlens/issues/436) - Searching for commits with an empty query yields to no results anymore
+- Fixes [#442](https://github.com/eamodio/vscode-gitlens/issues/442) - GitLens File History fails if name (or path) starts with `-`
+- Fixes [#440](https://github.com/eamodio/vscode-gitlens/issues/440) - Searching for commits with an empty query yields to no results anymore
 - Fixes issue where commands in the editor toolbar would flash unnecessarily when navigating history or switching tabs
 - Fixes issue where the *Compare File with Previous Revision* command wouldn't work properly when the file had been renamed in some cases
 - Fixes issue where the *Compare File with Next Revision* command wouldn't work properly when the file had been renamed in some cases
