@@ -1,5 +1,4 @@
 'use strict';
-import * as path from 'path';
 import {
     commands,
     ConfigurationChangeEvent,
@@ -15,7 +14,6 @@ import {
     Uri,
     window
 } from 'vscode';
-import { UriComparer } from '../comparers';
 import {
     configuration,
     ExplorerFilesLayout,
@@ -29,15 +27,8 @@ import { GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Functions } from '../system';
 import { RefreshNodeCommandArgs } from '../views/explorerCommands';
-import {
-    Explorer,
-    ExplorerNode,
-    HistoryNode,
-    MessageNode,
-    RefreshReason,
-    RepositoriesNode,
-    RepositoryNode
-} from './nodes';
+import { HistoryExplorer } from './historyExplorer';
+import { ExplorerNode, MessageNode, RefreshReason, RepositoriesNode, RepositoryNode } from './nodes';
 
 export * from './nodes';
 
@@ -247,7 +238,7 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         this._view = Container.config.historyExplorer.enabled ? GitExplorerView.Repository : value;
     }
 
-    getParent(element: ExplorerNode): ExplorerNode | undefined {
+    getParent(): ExplorerNode | undefined {
         return undefined;
     }
 
@@ -438,7 +429,7 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
     }
 
     private async getHistoryNode(editor: TextEditor | undefined): Promise<ExplorerNode | undefined> {
-        return GitExplorer.getHistoryNode(this, editor, this._root);
+        return HistoryExplorer.getHistoryNode(this, editor, this._root);
     }
 
     private async setFilesLayout(layout: ExplorerFilesLayout) {
@@ -462,50 +453,6 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
 
     private async undockHistory(switchView: boolean = true) {
         Container.historyExplorer.undock(switchView);
-    }
-
-    static async getHistoryNode(
-        explorer: Explorer,
-        editor: TextEditor | undefined,
-        root: ExplorerNode | undefined
-    ): Promise<ExplorerNode | undefined> {
-        // If we have no active editor, or no visible editors, or no trackable visible editors reset the view
-        if (
-            editor == null ||
-            window.visibleTextEditors.length === 0 ||
-            !window.visibleTextEditors.some(e => e.document && Container.git.isTrackable(e.document.uri))
-        ) {
-            return undefined;
-        }
-
-        // If we do have a visible trackable editor, don't change from the last state (avoids issues when focus switches to the problems/output/debug console panes)
-        if (editor.document === undefined || !Container.git.isTrackable(editor.document.uri)) return root;
-
-        let gitUri = await GitUri.fromUri(editor.document.uri);
-
-        const repo = await Container.git.getRepository(gitUri);
-        if (repo === undefined) return undefined;
-
-        let uri;
-        if (gitUri.sha !== undefined) {
-            // If we have a sha, normalize the history to the working file (so we get a full history all the time)
-            const [fileName, repoPath] = await Container.git.findWorkingFileName(
-                gitUri.fsPath,
-                gitUri.repoPath,
-                gitUri.sha
-            );
-
-            if (fileName !== undefined) {
-                uri = Uri.file(repoPath !== undefined ? path.join(repoPath, fileName) : fileName);
-            }
-        }
-
-        if (UriComparer.equals(uri || gitUri, root && root.uri)) return root;
-
-        if (uri !== undefined) {
-            gitUri = await GitUri.fromUri(uri);
-        }
-        return new HistoryNode(gitUri, repo, explorer);
     }
 
     static setRenameFollowing(enabled: boolean) {
