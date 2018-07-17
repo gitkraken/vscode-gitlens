@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Fixed
+- Fixes [#444](https://github.com/eamodio/vscode-gitlens/issues/444) - GitLens custom viewlet icon slightly larger than standard
+
 ## [8.5.0] - 2018-07-16
 ### Added
 - Adds an all-new *GitLens* sidebar view to contain the *GitLens*, *GitLens File History*, and *GitLens Results* explorers
