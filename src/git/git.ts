@@ -34,7 +34,7 @@ const logFormat = [
     `${lb}f${rb}`
 ].join('%n');
 
-const defaultLogParams = ['log', '--name-status', '-M', `--format=${logFormat}`];
+const defaultLogParams = ['log', '--name-status', `--format=${logFormat}`];
 
 const stashFormat = [
     `${lb}${sl}f${rb}`,
@@ -451,7 +451,7 @@ export class Git {
     }
 
     static log(repoPath: string, options: { maxCount?: number; ref?: string; reverse?: boolean }) {
-        const params = [...defaultLogParams, '--full-history', '-m'];
+        const params = [...defaultLogParams, '--full-history', '-M', '-m'];
         if (options.maxCount && !options.reverse) {
             params.push(`-n${options.maxCount}`);
         }
@@ -486,7 +486,7 @@ export class Git {
         }
 
         if (options.renames) {
-            params.push('--follow', '-m', '--first-parent');
+            params.push('--follow');
         }
 
         if (options.ref && !Git.isStagedUncommitted(options.ref)) {
@@ -535,7 +535,7 @@ export class Git {
     }
 
     static log_search(repoPath: string, search: string[] = [], options: { maxCount?: number } = {}) {
-        const params = [...defaultLogParams, '-m', '-i'];
+        const params = [...defaultLogParams, '-M', '-m', '-i'];
         if (options.maxCount) {
             params.push(`-n${options.maxCount}`);
         }
