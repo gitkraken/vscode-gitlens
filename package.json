@@ -2854,12 +2854,12 @@
                 },
                 {
                     "command": "gitlens.explorers.compareWithSelected",
-                    "when": "viewItem =~ /gitlens:(branch|commit|stash|tag)\\b/ && gitlens:explorers:canCompare",
+                    "when": "viewItem =~ /gitlens:(branch|commit|stash|tag|file:)\\b/ && gitlens:explorers:canCompare",
                     "group": "7_gitlens_@1"
                 },
                 {
                     "command": "gitlens.explorers.selectForCompare",
-                    "when": "viewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
+                    "when": "viewItem =~ /gitlens:(branch|commit|stash|tag|file:)\\b/",
                     "group": "7_gitlens_@2"
                 },
                 {
@@ -2939,7 +2939,7 @@
                 },
                 {
                     "command": "gitlens.copyMessageToClipboard",
-                    "when": "viewItem =~ /gitlens:(file:)?(commit|stash)\\b/",
+                    "when": "viewItem =~ /gitlens:(commit|stash|file:commit)\\b/",
                     "group": "5_gitlens@2"
                 },
                 {

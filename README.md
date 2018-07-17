@@ -153,7 +153,7 @@ The repository view provides a full Git repository explorer, which has the follo
       - Context menus for each revision (commit) provide
         -  *Open Commit in Remote* (if available), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with HEAD*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, *Cherry Pick Commit (via Terminal)* (when available), *Push to Commit (via Terminal)* (when available), *Revert Commit (via Terminal)* (when available), *Rebase to Commit (via Terminal)* (when available), *Reset to Commit (via Terminal)*  (when available), *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
       - Context menus for each changed file provide
-        - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Apply Changes*, and *Show Commit File Details* commands
+        - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Apply Changes*, *Compare with Selected* (when available), *Select for Compare*, and *Show Commit File Details* commands
       - Inline toolbars for each changed file provide an *Open File* command
 
 - **Remotes** &mdash; lists the remotes
@@ -171,7 +171,7 @@ The repository view provides a full Git repository explorer, which has the follo
     - Context menus for each stash provide
       - *Apply Stashed Changes* (confirmation required), *Delete Stashed Changes* (confirmation required), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit Message to Clipboard*, *Compare with HEAD*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, and *Refresh* commands
     - Context menus for each stashed file provide
-      - *Apply Changes*, *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote* (if available), and *Show File History* commands
+      - *Apply Changes*, *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote* (if available), *Compare with Selected* (when available), *Select for Compare*, and *Show File History* commands
 
 - **Tags** &mdash; lists the tags
   - A context menu provides a *Refresh* command
@@ -191,7 +191,7 @@ The file history view provides the revision history of the current file, which h
 - A context menu provides *Open File*, *Open File in Remote* (if available), and *Refresh* commands
 - An inline toolbar provides an *Open File* command
 - Context menus for each revision (commit) provides
-  - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote* (if available), *Open Revision in Remote* (if available), *Apply Changes*, and *Show Commit File Details* commands
+  - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote* (if available), *Open Revision in Remote* (if available), *Apply Changes*, *Compare with Selected* (when available), *Select for Compare*, and *Show Commit File Details* commands
 
 ---
 ### GitLens File History Explorer
@@ -204,7 +204,7 @@ A [customizable](#gitlens-file-history-explorer-settings "Jump to the GitLens Fi
 - A context menu provides *Open File*, *Open File in Remote* (if available), and *Refresh* commands
 - An inline toolbar provides an *Open File* command
 - Context menus for each revision (commit) provides
-  - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote* (if available), *Open Revision in Remote* (if available), *Apply Changes*, and *Show Commit File Details* commands
+  - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote* (if available), *Open Revision in Remote* (if available), *Apply Changes*, *Compare with Selected* (when available), *Select for Compare*, and *Show Commit File Details* commands
 
 ---
 ### GitLens Results Explorer
@@ -228,7 +228,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings "Jump to the Git
       - Context menus for each revision (commit) provide
         -  *Open Commit in Remote* (if available), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with HEAD*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, *Cherry Pick Commit (via Terminal)* (when available), *Push to Commit (via Terminal)* (when available), *Revert Commit (via Terminal)* (when available), *Rebase to Commit (via Terminal)* (when available), *Reset to Commit (via Terminal)*  (when available), *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
       - Context menus for each changed file provide
-        - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Apply Changes*, and *Show Commit File Details* commands
+        - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Apply Changes*, *Compare with Selected* (when available), *Select for Compare*, and *Show Commit File Details* commands
 
 #### Compare
   - Provides a semi-persistent results view for comparison operations
@@ -248,7 +248,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings "Jump to the Git
     - **Changed Files** &mdash; lists the files changed between the compared revisions (branches or commits)
         - Expands to a file-based view of all changed files
            - Context menus for each changed file provide
-             - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Apply Changes*, and *Show Commit File Details* commands
+             - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Apply Changes*, *Compare with Selected* (when available), *Select for Compare*, and *Show Commit File Details* commands
 
 ---
 ### Code Lens

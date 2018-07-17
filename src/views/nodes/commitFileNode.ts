@@ -14,7 +14,7 @@ import {
     IStatusFormatOptions,
     StatusFileFormatter
 } from '../../gitService';
-import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
+import { Explorer, ExplorerNode, ExplorerRefNode, ResourceType } from './explorerNode';
 
 export enum CommitFileNodeDisplayAs {
     CommitLabel = 1 << 0,
@@ -27,9 +27,8 @@ export enum CommitFileNodeDisplayAs {
     File = FileLabel | StatusIcon
 }
 
-export class CommitFileNode extends ExplorerNode {
+export class CommitFileNode extends ExplorerRefNode {
     readonly priority: boolean = false;
-    readonly repoPath: string;
 
     constructor(
         public readonly status: IGitStatusFile,
@@ -38,7 +37,10 @@ export class CommitFileNode extends ExplorerNode {
         private displayAs: CommitFileNodeDisplayAs
     ) {
         super(GitUri.fromFileStatus(status, commit.repoPath, commit.sha));
-        this.repoPath = commit.repoPath;
+    }
+
+    get ref(): string {
+        return this.commit.sha;
     }
 
     async getChildren(): Promise<ExplorerNode[]> {

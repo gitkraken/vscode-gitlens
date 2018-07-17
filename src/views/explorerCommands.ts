@@ -38,7 +38,7 @@ export interface RefreshNodeCommandArgs {
 interface ICompareSelected {
     ref: string;
     repoPath: string | undefined;
-    type: 'branch' | 'ref';
+    uri?: Uri;
 }
 
 export class ExplorerCommands extends Disposable {
@@ -146,6 +146,25 @@ export class ExplorerCommands extends Disposable {
         if (this._selection === undefined || !(node instanceof ExplorerRefNode)) return;
         if (this._selection.repoPath !== node.repoPath) return;
 
+        if (this._selection.uri !== undefined) {
+            if (!(node instanceof CommitFileNode)) return;
+
+            const diffArgs: DiffWithCommandArgs = {
+                repoPath: this._selection.repoPath,
+                lhs: {
+                    sha: this._selection.ref,
+                    uri: this._selection.uri!
+                },
+                rhs: {
+                    sha: node.ref,
+                    uri: node.uri
+                }
+            };
+            commands.executeCommand(Commands.DiffWith, diffArgs);
+
+            return;
+        }
+
         Container.resultsExplorer.showComparisonInResults(this._selection.repoPath, this._selection.ref, node.ref);
     }
 
@@ -154,14 +173,13 @@ export class ExplorerCommands extends Disposable {
     private selectForCompare(node: ExplorerNode) {
         if (!(node instanceof ExplorerRefNode)) return;
 
-        const type = node instanceof BranchNode ? 'branch' : 'ref';
         this._selection = {
             ref: node.ref,
             repoPath: node.repoPath,
-            type: type
+            uri: node instanceof CommitFileNode ? node.uri : undefined
         };
 
-        setCommandContext(CommandContext.ExplorersCanCompare, type);
+        setCommandContext(CommandContext.ExplorersCanCompare, true);
     }
 
     private openChanges(node: CommitNode | StashNode) {

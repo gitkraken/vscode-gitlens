@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### Added
+- Adds *Compare with Selected* and *Select for Compare* commands to file nodes in the *GitLens*, *GitLens File History*, and *GitLens Results* explorers &mdash; closes [#446](https://github.com/eamodio/vscode-gitlens/issues/446)
+
 ### Fixed
 - Fixes [#444](https://github.com/eamodio/vscode-gitlens/issues/444) - GitLens custom viewlet icon slightly larger than standard
 
