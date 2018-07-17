@@ -3411,13 +3411,13 @@
         "husky": "0.14.3",
         "prettier": "1.13.7",
         "ts-loader": "4.4.2",
-        "tslint": "5.10.0",
+        "tslint": "5.11.0",
         "tslint-prettiest": "0.0.1",
         "typescript": "2.9.2",
         "uglify-es": "3.3.9",
         "uglifyjs-webpack-plugin": "1.2.7",
         "vscode": "1.1.18",
-        "webpack": "4.16.0",
+        "webpack": "4.16.1",
         "webpack-cli": "3.0.8",
         "webpack-node-externals": "1.7.2"
     }
