@@ -8,6 +8,8 @@ export interface IFormatOptions {
 
 type Constructor<T = {}> = new (...args: any[]) => T;
 
+const spaceReplacementRegex = / /g;
+
 export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = IFormatOptions> {
     protected _item!: TItem;
     protected _options!: TOptions;
@@ -97,6 +99,8 @@ export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = I
         item: TItem,
         dateFormatOrOptions?: string | null | TOptions
     ): string {
+        // Preserve spaces
+        template = template.replace(spaceReplacementRegex, '\u00a0');
         if (formatter instanceof Formatter) return Strings.interpolate(template, formatter);
 
         let options: TOptions | undefined = undefined;
