@@ -114,7 +114,7 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
             this._disposable = this._tree;
         }
 
-        if (!initializing && this._root === undefined) {
+        if (!initializing && this._root !== undefined) {
             this.refresh(RefreshReason.ConfigurationChanged);
         }
     }
