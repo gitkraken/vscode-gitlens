@@ -18,16 +18,19 @@ import { configuration, GitExplorerView, IExplorersConfig, IHistoryExplorerConfi
 import { CommandContext, GlyphChars, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
+import { Repository } from '../gitService';
 import { Logger } from '../logger';
 import { Functions } from '../system';
 import { RefreshNodeCommandArgs } from '../views/explorerCommands';
-import { Explorer, ExplorerNode, HistoryNode, MessageNode, RefreshReason } from './nodes';
+import { FileHistoryNode, GitExplorer, HistoryNode } from './gitExplorer';
+import { Explorer, ExplorerNode, MessageNode, RefreshReason } from './nodes';
 
 export * from './nodes';
 
-export class HistoryExplorer extends Disposable implements TreeDataProvider<ExplorerNode> {
+export class FileHistoryExplorer implements TreeDataProvider<ExplorerNode>, Disposable {
+    readonly id = 'FileHistoryExplorer';
     private _disposable: Disposable | undefined;
-    private _root?: ExplorerNode;
+    private _root?: FileHistoryNode | HistoryNode;
     private _tree: TreeView<ExplorerNode> | undefined;
 
     private _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
@@ -36,8 +39,6 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
     }
 
     constructor() {
-        super(() => this.dispose());
-
         Container.explorerCommands;
         commands.registerCommand('gitlens.historyExplorer.refresh', this.refresh, this);
         commands.registerCommand('gitlens.historyExplorer.refreshNode', this.refreshNode, this);
@@ -46,12 +47,12 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
 
         commands.registerCommand(
             'gitlens.historyExplorer.setRenameFollowingOn',
-            () => HistoryExplorer.setRenameFollowing(true),
+            () => FileHistoryExplorer.setRenameFollowing(true),
             this
         );
         commands.registerCommand(
             'gitlens.historyExplorer.setRenameFollowingOff',
-            () => HistoryExplorer.setRenameFollowing(false),
+            () => FileHistoryExplorer.setRenameFollowing(false),
             this
         );
 
@@ -85,7 +86,7 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
             configuration.changed(e, configuration.name('historyExplorer')('enabled').value) ||
             configuration.changed(e, configuration.name('historyExplorer')('location').value)
         ) {
-            setCommandContext(CommandContext.HistoryExplorer, this.config.enabled ? this.config.location : false);
+            setCommandContext(CommandContext.FileHistoryExplorer, this.config.enabled ? this.config.location : false);
         }
 
         if (initializing || configuration.changed(e, configuration.name('historyExplorer')('enabled').value)) {
@@ -147,7 +148,7 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
     async getChildren(node?: ExplorerNode): Promise<ExplorerNode[]> {
         if (this._root === undefined) return [new MessageNode(`No active file ${GlyphChars.Dash} no history to show`)];
 
-        if (node === undefined) return this._root.getChildren();
+        if (node === undefined) return [this._root]; // .getChildren();
         return node.getChildren();
     }
 
@@ -160,7 +161,7 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
             void (await Container.gitExplorer.switchTo(GitExplorerView.History));
         }
 
-        void (await setCommandContext(CommandContext.HistoryExplorer, false));
+        void (await setCommandContext(CommandContext.FileHistoryExplorer, false));
         if (updateConfig) {
             void (await configuration.updateEffective(configuration.name('historyExplorer')('enabled').value, false));
         }
@@ -175,7 +176,7 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
             reason = RefreshReason.Command;
         }
 
-        Logger.log(`HistoryExplorer.refresh`, `reason='${reason}'`);
+        Logger.log(`FileHistoryExplorer.refresh`, `reason='${reason}'`);
 
         if (this._root === undefined || root === undefined) {
             this.clearRoot();
@@ -186,7 +187,7 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
     }
 
     refreshNode(node: ExplorerNode, args?: RefreshNodeCommandArgs) {
-        Logger.log(`HistoryExplorer.refreshNode(${(node as { id?: string }).id || ''})`);
+        Logger.log(`FileHistoryExplorer.refreshNode(${(node as { id?: string }).id || ''})`);
 
         if (args !== undefined && node.supportsPaging) {
             node.maxCount = args.maxCount;
@@ -213,7 +214,7 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
             void (await Container.gitExplorer.switchTo(GitExplorerView.Repository));
         }
 
-        void (await setCommandContext(CommandContext.HistoryExplorer, this.config.location));
+        void (await setCommandContext(CommandContext.FileHistoryExplorer, this.config.location));
         if (updateConfig) {
             void (await configuration.updateEffective(configuration.name('historyExplorer')('enabled').value, true));
         }
@@ -226,11 +227,16 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
         this._root = undefined;
     }
 
-    private getRootNode(editor: TextEditor | undefined): Promise<ExplorerNode | undefined> {
-        return HistoryExplorer.getHistoryNode(this, editor, this._root);
+    private getRootNode(editor: TextEditor | undefined): Promise<FileHistoryNode | undefined> {
+        return FileHistoryExplorer.getHistoryNode<FileHistoryNode>(
+            this,
+            editor,
+            this._root as FileHistoryNode,
+            FileHistoryNode
+        );
     }
 
-    private setRoot(root: ExplorerNode | undefined): boolean {
+    private setRoot(root: FileHistoryNode | HistoryNode | undefined): boolean {
         if (this._root === root) return false;
 
         if (this._root !== undefined) {
@@ -241,11 +247,12 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
         return true;
     }
 
-    static async getHistoryNode(
+    static async getHistoryNode<T extends FileHistoryNode | HistoryNode>(
         explorer: Explorer,
         editor: TextEditor | undefined,
-        root: ExplorerNode | undefined
-    ): Promise<ExplorerNode | undefined> {
+        root: T | undefined,
+        NodeType: { new (uri: GitUri, repo: Repository, explorer: Explorer): T }
+    ): Promise<T | undefined> {
         // If we have no active editor, or no visible editors, or no trackable visible editors reset the view
         if (
             editor == null ||
@@ -277,12 +284,16 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
             }
         }
 
-        if (UriComparer.equals(uri || gitUri, root && root.uri)) return root;
+        if (root !== undefined && UriComparer.equals(uri || gitUri, root.uri)) return root;
 
         if (uri !== undefined) {
             gitUri = await GitUri.fromUri(uri);
         }
-        return new HistoryNode(gitUri, repo, explorer);
+
+        if (explorer instanceof GitExplorer) {
+            return new NodeType(gitUri, repo, explorer);
+        }
+        return new NodeType(gitUri, repo, explorer);
     }
 
     static setRenameFollowing(enabled: boolean) {

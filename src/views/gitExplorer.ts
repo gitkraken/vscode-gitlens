@@ -26,8 +26,9 @@ import { GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { Functions } from '../system';
 import { RefreshNodeCommandArgs } from '../views/explorerCommands';
-import { HistoryExplorer } from './historyExplorer';
+import { FileHistoryExplorer } from './fileHistoryExplorer';
 import { ExplorerNode, MessageNode, RefreshReason, RepositoriesNode, RepositoryNode } from './nodes';
+import { HistoryNode } from './nodes/historyNode';
 
 export * from './nodes';
 
@@ -36,7 +37,8 @@ export interface OpenFileRevisionCommandArgs {
     showOptions?: TextDocumentShowOptions;
 }
 
-export class GitExplorer extends Disposable implements TreeDataProvider<ExplorerNode> {
+export class GitExplorer implements TreeDataProvider<ExplorerNode>, Disposable {
+    readonly id = 'GitExplorer';
     private _disposable: Disposable | undefined;
     private _root?: ExplorerNode;
     private _tree: TreeView<ExplorerNode> | undefined;
@@ -52,8 +54,6 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
     }
 
     constructor() {
-        super(() => this.dispose());
-
         Container.explorerCommands;
         commands.registerCommand('gitlens.gitExplorer.refresh', this.refresh, this);
         commands.registerCommand('gitlens.gitExplorer.refreshNode', this.refreshNode, this);
@@ -85,12 +85,12 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         );
         commands.registerCommand(
             'gitlens.gitExplorer.setRenameFollowingOn',
-            () => HistoryExplorer.setRenameFollowing(true),
+            () => FileHistoryExplorer.setRenameFollowing(true),
             this
         );
         commands.registerCommand(
             'gitlens.gitExplorer.setRenameFollowingOff',
-            () => HistoryExplorer.setRenameFollowing(false),
+            () => FileHistoryExplorer.setRenameFollowing(false),
             this
         );
         commands.registerCommand(
@@ -389,10 +389,6 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         return true;
     }
 
-    // async dockHistory(switchView: boolean = true) {
-    //     Container.historyExplorer.dock(switchView);
-    // }
-
     private clearRoot() {
         if (this._root === undefined) return;
 
@@ -427,8 +423,8 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         }
     }
 
-    private getHistoryNode(editor: TextEditor | undefined): Promise<ExplorerNode | undefined> {
-        return HistoryExplorer.getHistoryNode(this, editor, this._root);
+    private async getHistoryNode(editor: TextEditor | undefined): Promise<HistoryNode | undefined> {
+        return FileHistoryExplorer.getHistoryNode<HistoryNode>(this, editor, this._root as HistoryNode, HistoryNode);
     }
 
     private setFilesLayout(layout: ExplorerFilesLayout) {
@@ -447,6 +443,6 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
     }
 
     private undockHistory(switchView: boolean = true) {
-        return Container.historyExplorer.undock(switchView);
+        return Container.fileHistoryExplorer.undock(switchView);
     }
 }

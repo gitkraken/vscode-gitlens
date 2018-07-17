@@ -4,8 +4,9 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitUri } from '../../gitService';
 import { RefreshNodeCommandArgs } from '../explorerCommands';
+import { FileHistoryExplorer } from '../fileHistoryExplorer';
 import { GitExplorer } from '../gitExplorer';
-import { HistoryExplorer } from '../historyExplorer';
+import { LineHistoryExplorer } from '../lineHistoryExplorer';
 import { ResultsExplorer } from '../resultsExplorer';
 
 export interface NamedRef {
@@ -62,7 +63,7 @@ export enum ResourceType {
     Tags = 'gitlens:tags'
 }
 
-export type Explorer = GitExplorer | HistoryExplorer | ResultsExplorer;
+export type Explorer = GitExplorer | FileHistoryExplorer | LineHistoryExplorer | ResultsExplorer;
 
 // let id = 0;
 

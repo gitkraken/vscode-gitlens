@@ -3342,6 +3342,11 @@
                     "when": "gitlens:enabled && gitlens:historyExplorer == gitlens"
                 },
                 {
+                    "id": "gitlens.lineHistoryExplorer:gitlens",
+                    "name": "Line History",
+                    "when": "gitlens:enabled && gitlens:lineHistoryExplorer == gitlens"
+                },
+                {
                     "id": "gitlens.resultsExplorer:gitlens",
                     "name": "Results",
                     "when": "gitlens:enabled && gitlens:resultsExplorer == gitlens"
@@ -3359,6 +3364,11 @@
                     "when": "gitlens:enabled && gitlens:historyExplorer == explorer"
                 },
                 {
+                    "id": "gitlens.lineHistoryExplorer:explorer",
+                    "name": "Line History",
+                    "when": "gitlens:enabled && gitlens:lineHistoryExplorer == explorer"
+                },
+                {
                     "id": "gitlens.resultsExplorer:explorer",
                     "name": "GitLens Results",
                     "when": "gitlens:enabled && gitlens:resultsExplorer == explorer"
@@ -3374,6 +3384,11 @@
                     "id": "gitlens.historyExplorer:scm",
                     "name": "GitLens File History",
                     "when": "gitlens:enabled && gitlens:historyExplorer == scm"
+                },
+                {
+                    "id": "gitlens.lineHistoryExplorer:scm",
+                    "name": "Line History",
+                    "when": "gitlens:enabled && gitlens:lineHistoryExplorer == scm"
                 },
                 {
                     "id": "gitlens.resultsExplorer:scm",

@@ -10,7 +10,7 @@ export class ShowHistoryExplorerCommand extends Command {
 
     execute() {
         if (Container.config.historyExplorer.enabled) {
-            return Container.historyExplorer.show();
+            return Container.fileHistoryExplorer.show();
         }
 
         return Container.gitExplorer.show(GitExplorerView.History);
