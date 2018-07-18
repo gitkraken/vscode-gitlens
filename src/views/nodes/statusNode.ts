@@ -25,21 +25,21 @@ export class StatusNode extends ExplorerNode {
     async getChildren(): Promise<ExplorerNode[]> {
         this.resetChildren();
 
-        this.children = [];
+        const children = [];
 
         const status = await this.repo.getStatus();
         if (status !== undefined) {
             if (status.state.behind) {
-                this.children.push(new StatusUpstreamNode(status, 'behind', this.explorer, this.active));
+                children.push(new StatusUpstreamNode(status, 'behind', this.explorer, this.active));
             }
 
             if (status.state.ahead) {
-                this.children.push(new StatusUpstreamNode(status, 'ahead', this.explorer, this.active));
+                children.push(new StatusUpstreamNode(status, 'ahead', this.explorer, this.active));
             }
 
             if (status.state.ahead || (status.files.length !== 0 && this.includeWorkingTree)) {
                 const range = status.upstream ? `${status.upstream}..${status.branch}` : undefined;
-                this.children.push(new StatusFilesNode(status, range, this.explorer, this.active));
+                children.push(new StatusFilesNode(status, range, this.explorer, this.active));
             }
         }
 
@@ -57,9 +57,10 @@ export class StatusNode extends ExplorerNode {
                 );
             }
 
-            this.children.push(new StatusBranchNode(branch, this.uri, this.explorer));
+            children.push(new StatusBranchNode(branch, this.uri, this.explorer));
         }
 
+        this.children = children;
         return this.children;
     }
 
