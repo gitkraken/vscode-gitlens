@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [Unreleased]
 ### Added
 - Adds *Compare with Selected* and *Select for Compare* commands to file nodes in the *GitLens*, *GitLens File History*, and *GitLens Results* explorers &mdash; closes [#446](https://github.com/eamodio/vscode-gitlens/issues/446)
+- Adds `gitlens.historyExplorer.avatars` setting to specify whether to show avatar images instead of status icons in the `GitLens File History` explorer &mdash; allows for an independent value from the other explorers
 
 ### Fixed
 - Fixes [#444](https://github.com/eamodio/vscode-gitlens/issues/444) - GitLens custom viewlet icon slightly larger than standard

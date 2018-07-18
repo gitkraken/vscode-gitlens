@@ -528,6 +528,12 @@
                     "description": "Specifies how the gutter heatmap annotations will be toggled\n `file` - toggle each file individually\n `window` - toggle the window, i.e. all files at once",
                     "scope": "window"
                 },
+                "gitlens.historyExplorer.avatars": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether to show avatar images instead of status icons in the `GitLens File History` explorer",
+                    "scope": "window"
+                },
                 "gitlens.historyExplorer.enabled": {
                     "type": "boolean",
                     "default": true,

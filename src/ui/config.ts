@@ -196,6 +196,7 @@ export interface IGitExplorerConfig {
 }
 
 export interface IHistoryExplorerConfig {
+    avatars: boolean;
     enabled: boolean;
     location: 'explorer' | 'scm';
 }
