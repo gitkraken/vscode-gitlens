@@ -16,11 +16,14 @@
 ## 8.5 &mdash; July 2018
 - Adds an all-new *GitLens* sidebar view to contain the *GitLens*, *GitLens File History*, and *GitLens Results* explorers
  - The new view is enabled by default, but can easily be configured back to the existing locations via the *GitLens* interactive settings editor
+- Adds emoji support, e.g. :smile: in commit messages will now be 😃 &mdash; closes [#429](https://github.com/eamodio/vscode-gitlens/issues/429)
+- Adds *Compare with Selected* and *Select for Compare* commands to file nodes in the *GitLens*, *GitLens File History*, and *GitLens Results* explorers &mdash; closes [#446](https://github.com/eamodio/vscode-gitlens/issues/446)
 - Adds tag annotations to the tag tooltips in the *GitLens* explorer &mdash; closes [#431](https://github.com/eamodio/vscode-gitlens/issues/431)
-- Adds a `gitlens.hovers.avatars` setting to specify whether to show avatar images in hovers &mdash; closes [#432](https://github.com/eamodio/vscode-gitlens/issues/432) thanks to [PR #441](https://github.com/eamodio/vscode-gitlens/pull/441) by Segev Finer ([@segevfiner](https://github.com/segevfiner))
-- Adds the `gitlens.hovers.avatars` setting to the *GitLens* interactive settings editor to specify whether to show avatar images in hovers
 - Adds *Choose from Branch or Tag History...* to the quick pick menu shown by the *Show File History...* command (`gitlens.showQuickFileHistory`) &mdash; closes [#316](https://github.com/eamodio/vscode-gitlens/issues/316)
 - Adds the *Compare File with Revision...* command (`gitlens.diffWithRevision`) as an alternate (`alt+click`) for the *Compare File with Previous Revision* command in the editor toolbar
+- Adds `gitlens.historyExplorer.avatars` setting to specify whether to show avatar images instead of status icons in the *GitLens File History* explorer &mdash; allows for an independent value from the other explorers
+- Adds a `gitlens.hovers.avatars` setting to specify whether to show avatar images in hovers &mdash; closes [#432](https://github.com/eamodio/vscode-gitlens/issues/432) thanks to [PR #441](https://github.com/eamodio/vscode-gitlens/pull/441) by Segev Finer ([@segevfiner](https://github.com/segevfiner))
+- Adds the `gitlens.hovers.avatars` setting to the *GitLens* interactive settings editor to specify whether to show avatar images in hovers
 - Renames the *GitLens History* explorer to *GitLens File History* explorer for better clarity
 - Changes the *GitLens File History* explorer to always show the full file history even when reviewing revisions
 - Changes the behavior of and renames the *Show Branches and Tags* command and on the quick pick menu shown by the *Compare File with Revision...* command (`gitlens.diffWithRevision`) to *Choose from Branch or Tag History...*
@@ -29,6 +32,9 @@
 - Fixes [#436](https://github.com/eamodio/vscode-gitlens/issues/436) - Copy to clipboard not working
 - Fixes [#442](https://github.com/eamodio/vscode-gitlens/issues/442) - GitLens File History fails if name (or path) starts with `-`
 - Fixes [#440](https://github.com/eamodio/vscode-gitlens/issues/440) - Searching for commits with an empty query yields to no results anymore
+- Fixes [#444](https://github.com/eamodio/vscode-gitlens/issues/444) - GitLens custom viewlet icon slightly larger than standard
+- Fixes [#437](https://github.com/eamodio/vscode-gitlens/issues/437) - Remove `--first-parent` from git commands to show file history from merged in repositories
+- Fixes [#252](https://github.com/eamodio/vscode-gitlens/issues/252) - Cannot read property 'push' of undefined
 - Fixes issue where commands in the editor toolbar would flash unnecessarily when navigating history or switching tabs
 - Fixes issue where the *Compare File with Previous Revision* command wouldn't work properly when the file had been renamed in some cases
 - Fixes issue where the *Compare File with Next Revision* command wouldn't work properly when the file had been renamed in some cases
@@ -36,6 +42,7 @@
 - Fixes issue where the *GitLens File History* explorer wasn't being updated automatically for working changes
 - Fixes issue where the *Compare File with * Revision* commands in the editor toolbar would show and hide too often because of insignificant focus changes
 - Fixes issue where the scope box would be empty when there was no workspace open in the interactive settings editor
+- Fixes issue where GitLens saves a couple settings with default values into user settings (rather than just removing the setting)
 
 See the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md "Open Release Notes") for the full set of changes
 

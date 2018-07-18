@@ -63,25 +63,26 @@
                         </li>
                         <li>
                             <span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds emoji support, e.g. :smile: in commit messages will now be 😃 &mdash; closes
+                            <a title="Open Issue #429" href="https://github.com/eamodio/vscode-gitlens/issues/429">#429</a>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds
+                            <i>Compare with Selected</i> and
+                            <i>Select for Compare</i> commands to file nodes in the
+                            <i>GitLens</i>,
+                            <i>GitLens File History</i>, and
+                            <i>GitLens Results</i> explorers &mdash; closes
+                            <a title="Open Issue #446" href="https://github.com/eamodio/vscode-gitlens/issues/446">#446</a>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--added">NEW</span>
                             Adds tag annotations to the tag tooltips in the
                             <i>GitLens</i> explorer &mdash; closes
                             <a title="Open Issue #431" href="https://github.com/eamodio/vscode-gitlens/issues/431">#431</a>
-                            <div class="changelog__details"></div>
-                        </li>
-                        <li>
-                            <span class="changelog__badge changelog__badge--added">NEW</span>
-                            Adds a
-                            <code>gitlens.hovers.avatars</code> setting to specify whether to show avatar images in hovers &mdash; closes
-                            <a title="Open Issue #432" href="https://github.com/eamodio/vscode-gitlens/issues/432">#432</a> thanks to
-                            <a title="Pull Request #441" href="https://github.com/eamodio/vscode-gitlens/pull/441">PR #441</a> by
-                            <a title="Segev Finer (@segevfiner)" href="https://github.com/segevfiner">Segev Finer</a>
-                            <div class="changelog__details"></div>
-                        </li>
-                        <li>
-                            <span class="changelog__badge changelog__badge--added">NEW</span>
-                            Adds the
-                            <code>gitlens.hovers.avatars</code> setting to the
-                            <i>GitLens</i> interactive settings editor to specify whether to show avatar images in hovers
                             <div class="changelog__details"></div>
                         </li>
                         <li>
@@ -101,6 +102,29 @@
                             <code>gitlens.diffWithRevision</code>) as an alternate (
                             <code>alt+click</code>) for the
                             <i>Compare File with Previous Revision</i> command in the editor toolbar
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds a
+                            <code>gitlens.hovers.avatars</code> setting to specify whether to show avatar images in hovers &mdash; closes
+                            <a title="Open Issue #432" href="https://github.com/eamodio/vscode-gitlens/issues/432">#432</a> thanks to
+                            <a title="Pull Request #441" href="https://github.com/eamodio/vscode-gitlens/pull/441">PR #441</a> by
+                            <a title="Segev Finer (@segevfiner)" href="https://github.com/segevfiner">Segev Finer</a>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds
+                            <code>gitlens.historyExplorer.avatars</code> setting to specify whether to show avatar images instead of status icons in the
+                            <i>GitLens File History</i> explorer &mdash; allows for an independent value from the other explorers
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds the
+                            <code>gitlens.hovers.avatars</code> setting to the
+                            <i>GitLens</i> interactive settings editor to specify whether to show avatar images in hovers
                             <div class="changelog__details"></div>
                         </li>
                         <li>
@@ -156,6 +180,19 @@
                         </li>
                         <li>
                             <span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes
+                            <a title="Open Issue #444" href="https://github.com/eamodio/vscode-gitlens/issues/444">#444</a> &mdash; GitLens custom viewlet icon slightly larger than standard
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes
+                            <a title="Open Issue #437" href="https://github.com/eamodio/vscode-gitlens/issues/437">#437</a> &mdash; Remove
+                            <code>--first-parent</code> from git commands to show file history from merged in
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--fixed">FIXED</span>
                             Fixes issue where commands in the editor toolbar would flash unnecessarily when navigating history or switching tabs
                             <div class="changelog__details"></div>
                         </li>
@@ -196,10 +233,15 @@
                             Fixes issue where the scope box would be empty when there was no workspace open in the interactive settings editor
                             <div class="changelog__details"></div>
                         </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes issue where GitLens saves a couple settings with default values into user settings (rather than just removing the setting)
+                            <div class="changelog__details"></div>
+                        </li>
 
                         <li class="changelog__list-item--version">
                             <span class="changelog__badge changelog__badge--version">8.4</span>
-                            <span class="changelog__date">MAY &nbsp;2018</span>
+                            <span class="changelog__date">JUNE &nbsp;2018</span>
                             <div class="changelog__details"></div>
                         </li>
                         <li>

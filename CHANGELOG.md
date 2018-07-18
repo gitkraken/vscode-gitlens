@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [8.5.1] - 2018-07-18
 ### Added
 - Adds emoji support, e.g. :smile: in commit messages will now be 😃 &mdash; closes [#429](https://github.com/eamodio/vscode-gitlens/issues/429)
 - Adds *Compare with Selected* and *Select for Compare* commands to file nodes in the *GitLens*, *GitLens File History*, and *GitLens Results* explorers &mdash; closes [#446](https://github.com/eamodio/vscode-gitlens/issues/446)
@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 - Fixes [#444](https://github.com/eamodio/vscode-gitlens/issues/444) - GitLens custom viewlet icon slightly larger than standard
-- Fixes [#437](https://github.com/eamodio/vscode-gitlens/issues/437) - Remove --first-parent from git commands to show file history from merged in repositories
+- Fixes [#437](https://github.com/eamodio/vscode-gitlens/issues/437) - Remove `--first-parent` from git commands to show file history from merged in repositories
 - Fixes [#252](https://github.com/eamodio/vscode-gitlens/issues/252) - Cannot read property 'push' of undefined
 - Fixes issue where GitLens saves a couple settings with default values into user settings (rather than just removing the setting)
 

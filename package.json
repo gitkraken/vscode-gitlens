@@ -2,7 +2,7 @@
     "name": "gitlens",
     "displayName": "GitLens — Git supercharged",
     "description": "Supercharge the Git capabilities built into Visual Studio Code — Visualize code authorship at a glance via Git blame annotations and code lens, seamlessly navigate and explore Git repositories, gain valuable insights via powerful comparison commands, and so much more",
-    "version": "8.5.0",
+    "version": "8.5.1",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
