@@ -451,7 +451,7 @@ export class Git {
     }
 
     static log(repoPath: string, options: { maxCount?: number; ref?: string; reverse?: boolean }) {
-        const params = [...defaultLogParams, '--full-history', '-M', '-m'];
+        const params = ['-c', 'diff.renameLimit=0', ...defaultLogParams, '--full-history', '-M', '-m'];
         if (options.maxCount && !options.reverse) {
             params.push(`-n${options.maxCount}`);
         }
