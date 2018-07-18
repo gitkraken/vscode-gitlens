@@ -21,7 +21,6 @@ import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Functions } from '../system';
 import { RefreshNodeCommandArgs } from '../views/explorerCommands';
-import { GitExplorer } from './gitExplorer';
 import { Explorer, ExplorerNode, HistoryNode, MessageNode, RefreshReason } from './nodes';
 
 export * from './nodes';
@@ -47,12 +46,12 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
 
         commands.registerCommand(
             'gitlens.historyExplorer.setRenameFollowingOn',
-            () => GitExplorer.setRenameFollowing(true),
+            () => HistoryExplorer.setRenameFollowing(true),
             this
         );
         commands.registerCommand(
             'gitlens.historyExplorer.setRenameFollowingOff',
-            () => GitExplorer.setRenameFollowing(false),
+            () => HistoryExplorer.setRenameFollowing(false),
             this
         );
 
@@ -158,12 +157,12 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
 
     async dock(switchView: boolean = true, updateConfig: boolean = true) {
         if (switchView) {
-            await Container.gitExplorer.switchTo(GitExplorerView.History);
+            void (await Container.gitExplorer.switchTo(GitExplorerView.History));
         }
 
-        await setCommandContext(CommandContext.HistoryExplorer, false);
+        void (await setCommandContext(CommandContext.HistoryExplorer, false));
         if (updateConfig) {
-            await configuration.updateEffective(configuration.name('historyExplorer')('enabled').value, false);
+            void (await configuration.updateEffective(configuration.name('historyExplorer')('enabled').value, false));
         }
     }
 
@@ -211,12 +210,12 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
 
     async undock(switchView: boolean = true, updateConfig: boolean = true) {
         if (switchView) {
-            await Container.gitExplorer.switchTo(GitExplorerView.Repository);
+            void (await Container.gitExplorer.switchTo(GitExplorerView.Repository));
         }
 
-        await setCommandContext(CommandContext.HistoryExplorer, this.config.location);
+        void (await setCommandContext(CommandContext.HistoryExplorer, this.config.location));
         if (updateConfig) {
-            await configuration.updateEffective(configuration.name('historyExplorer')('enabled').value, true);
+            void (await configuration.updateEffective(configuration.name('historyExplorer')('enabled').value, true));
         }
     }
 
@@ -227,7 +226,7 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
         this._root = undefined;
     }
 
-    private async getRootNode(editor: TextEditor | undefined): Promise<ExplorerNode | undefined> {
+    private getRootNode(editor: TextEditor | undefined): Promise<ExplorerNode | undefined> {
         return HistoryExplorer.getHistoryNode(this, editor, this._root);
     }
 
@@ -284,5 +283,12 @@ export class HistoryExplorer extends Disposable implements TreeDataProvider<Expl
             gitUri = await GitUri.fromUri(uri);
         }
         return new HistoryNode(gitUri, repo, explorer);
+    }
+
+    static setRenameFollowing(enabled: boolean) {
+        return configuration.updateEffective(
+            configuration.name('advanced')('fileHistoryFollowsRenames').value,
+            enabled
+        );
     }
 }

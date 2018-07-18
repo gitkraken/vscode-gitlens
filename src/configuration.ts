@@ -256,22 +256,26 @@ export class Configuration {
     async updateEffective(section: string, value: any, resource: Uri | null = null) {
         const inspect = await configuration.inspect(section, resource)!;
         if (inspect.workspaceFolderValue !== undefined) {
-            if (inspect.workspaceFolderValue === value) return;
-            await configuration.update(section, value, ConfigurationTarget.WorkspaceFolder, resource);
+            if (value === inspect.workspaceFolderValue) return;
+
+            return await configuration.update(section, value, ConfigurationTarget.WorkspaceFolder, resource);
         }
-        else if (inspect.workspaceValue !== undefined) {
-            if (inspect.workspaceValue === value) return;
-            await configuration.update(section, value, ConfigurationTarget.Workspace);
+
+        if (inspect.workspaceValue !== undefined) {
+            if (value === inspect.workspaceValue) return;
+
+            return await configuration.update(section, value, ConfigurationTarget.Workspace);
         }
-        else {
-            if (
-                inspect.globalValue === value ||
-                (inspect.globalValue === undefined && inspect.defaultValue === value)
-            ) {
-                return;
-            }
-            await configuration.update(section, value, ConfigurationTarget.Global);
+
+        if (inspect.globalValue === value || (inspect.globalValue === undefined && value === inspect.defaultValue)) {
+            return;
         }
+
+        return await configuration.update(
+            section,
+            value === inspect.defaultValue ? undefined : value,
+            ConfigurationTarget.Global
+        );
     }
 }
 

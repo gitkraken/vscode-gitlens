@@ -2,7 +2,6 @@
 import {
     commands,
     ConfigurationChangeEvent,
-    ConfigurationTarget,
     Disposable,
     Event,
     EventEmitter,
@@ -298,12 +297,8 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
         this.refresh();
     }
 
-    private async setFilesLayout(layout: ExplorerFilesLayout) {
-        return configuration.update(
-            configuration.name('resultsExplorer')('files')('layout').value,
-            layout,
-            ConfigurationTarget.Global
-        );
+    private setFilesLayout(layout: ExplorerFilesLayout) {
+        return configuration.updateEffective(configuration.name('resultsExplorer')('files')('layout').value, layout);
     }
 
     private setKeepResults(enabled: boolean) {

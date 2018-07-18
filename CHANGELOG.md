@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 - Fixes [#444](https://github.com/eamodio/vscode-gitlens/issues/444) - GitLens custom viewlet icon slightly larger than standard
 - Fixes [#437](https://github.com/eamodio/vscode-gitlens/issues/437) - Remove --first-parent from git commands to show file history from merged in repositories
+- Fixes issue where GitLens saves a couple settings with default values into user settings (rather than just removing the setting)
 
 ## [8.5.0] - 2018-07-16
 ### Added

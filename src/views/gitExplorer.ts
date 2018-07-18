@@ -2,7 +2,6 @@
 import {
     commands,
     ConfigurationChangeEvent,
-    ConfigurationTarget,
     Disposable,
     Event,
     EventEmitter,
@@ -86,12 +85,12 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         );
         commands.registerCommand(
             'gitlens.gitExplorer.setRenameFollowingOn',
-            () => GitExplorer.setRenameFollowing(true),
+            () => HistoryExplorer.setRenameFollowing(true),
             this
         );
         commands.registerCommand(
             'gitlens.gitExplorer.setRenameFollowingOff',
-            () => GitExplorer.setRenameFollowing(false),
+            () => HistoryExplorer.setRenameFollowing(false),
             this
         );
         commands.registerCommand(
@@ -428,16 +427,12 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         }
     }
 
-    private async getHistoryNode(editor: TextEditor | undefined): Promise<ExplorerNode | undefined> {
+    private getHistoryNode(editor: TextEditor | undefined): Promise<ExplorerNode | undefined> {
         return HistoryExplorer.getHistoryNode(this, editor, this._root);
     }
 
-    private async setFilesLayout(layout: ExplorerFilesLayout) {
-        return configuration.update(
-            configuration.name('gitExplorer')('files')('layout').value,
-            layout,
-            ConfigurationTarget.Global
-        );
+    private setFilesLayout(layout: ExplorerFilesLayout) {
+        return configuration.updateEffective(configuration.name('gitExplorer')('files')('layout').value, layout);
     }
 
     private setRoot(root: ExplorerNode | undefined): boolean {
@@ -451,11 +446,7 @@ export class GitExplorer extends Disposable implements TreeDataProvider<Explorer
         return true;
     }
 
-    private async undockHistory(switchView: boolean = true) {
-        Container.historyExplorer.undock(switchView);
-    }
-
-    static setRenameFollowing(enabled: boolean) {
-        configuration.updateEffective(configuration.name('advanced')('fileHistoryFollowsRenames').value, enabled);
+    private undockHistory(switchView: boolean = true) {
+        return Container.historyExplorer.undock(switchView);
     }
 }
