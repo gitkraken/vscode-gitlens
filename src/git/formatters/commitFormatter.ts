@@ -1,9 +1,13 @@
 'use strict';
 import { DateStyle } from '../../configuration';
+import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { Strings } from '../../system';
 import { GitCommit } from '../models/commit';
 import { Formatter, IFormatOptions } from './formatter';
+
+const emojiMap: { [key: string]: string } = require('../../../emoji/emojis.json');
+const emojiRegex = /:([-+_a-z0-9]+):/g;
 
 export interface ICommitFormatOptions extends IFormatOptions {
     dateStyle?: DateStyle;
@@ -67,7 +71,7 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
     }
 
     get message() {
-        let message;
+        let message: string;
         if (this._item.isStagedUncommitted) {
             message = 'Staged changes';
         }
@@ -76,11 +80,17 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
         }
         else {
             if (this._options.truncateMessageAtNewLine) {
-                message = this._item.getShortMessage();
+                const index = this._item.message.indexOf('\n');
+                message =
+                    index === -1
+                        ? this._item.message
+                        : `${this._item.message.substring(0, index)}${GlyphChars.Space}${GlyphChars.Ellipsis}`;
             }
             else {
                 message = this._item.message;
             }
+
+            message = message.replace(emojiRegex, (s, code) => emojiMap[code] || s);
         }
 
         return this._padOrTruncate(message, this._options.tokenOptions!.message);

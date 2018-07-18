@@ -141,7 +141,7 @@ export class Annotations {
                 commit.sha
             )} "Show Commit Details")`;
 
-            message = commit.message;
+            message = CommitFormatter.fromTemplate('${message}', commit);
             for (const r of remotes) {
                 if (r.provider === undefined) continue;
 

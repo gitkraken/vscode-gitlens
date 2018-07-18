@@ -5,6 +5,7 @@ import { configuration, DateStyle, GravatarDefaultStyle } from '../../configurat
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { Dates, Strings } from '../../system';
+import { CommitFormatter } from '../formatters/formatters';
 import { Git } from '../git';
 import { GitUri } from '../gitUri';
 
@@ -199,11 +200,8 @@ export abstract class GitCommit {
         return gravatar;
     }
 
-    getShortMessage(truncationSuffix: string = `${GlyphChars.Space}${GlyphChars.Ellipsis}`) {
-        const index = this.message.indexOf('\n');
-        if (index === -1) return this.message;
-
-        return `${this.message.substring(0, index)}${truncationSuffix}`;
+    getShortMessage() {
+        return CommitFormatter.fromTemplate('${message}', this, { truncateMessageAtNewLine: true });
     }
 
     async resolvePreviousFileSha(): Promise<void> {

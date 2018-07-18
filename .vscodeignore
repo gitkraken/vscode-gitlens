@@ -1,3 +1,4 @@
+emoji/**
 !images/dark/**
 !images/light/**
 !images/settings/**
@@ -6,7 +7,6 @@
 !images/cl-*.png
 images/**
 .vscode/**
-.vscode-test/**
 test/**
 src/**
 out/ui/**
