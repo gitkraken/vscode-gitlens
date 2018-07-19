@@ -3385,18 +3385,18 @@
         }
     },
     "scripts": {
-        "build": "npm run lint && tsc -m commonjs -p ./ && npm run build-ui -- --env.quick",
-        "build-ui": "webpack --context ./src/ui --config ./src/ui/webpack.config.js",
+        "build": "npm run lint && tsc -m commonjs -p ./ && npm run ui:build -- --env.quick",
         "bundle": "npm run lint && webpack --env.production --context ./src/ui --config ./src/ui/webpack.config.js && webpack --env.production",
         "clean": "git clean -Xdf",
         "lint": "tslint --project tsconfig.json --fix",
         "pack": "vsce package",
         "pretty": "prettier --config .prettierrc --loglevel warn --write \"./**/*.ts\"",
         "pub": "vsce publish",
-        "rebuild": "npm run reset && npm run lint && tsc -m commonjs -p ./ && npm run build-ui",
+        "rebuild": "npm run reset && npm run lint && tsc -m commonjs -p ./ && npm run ui:build",
         "reset": "npm run clean && npm install --no-save",
         "watch": "tsc -watch -m commonjs -p ./",
-        "watch-ui": "cd \"./src/ui\" && npm run watch --no-save && cd \"../..\"",
+        "ui:build": "webpack --context ./src/ui --config ./src/ui/webpack.config.js",
+        "ui:watch": "cd \"./src/ui\" && npm run watch --no-save && cd \"../..\"",
         "postinstall": "node ./node_modules/vscode/bin/install && cd \"./src/ui\" && npm install --no-save && cd \"../..\"",
         "prepush": "npm run build",
         "vscode:prepublish": "npm run reset && npm run bundle"
@@ -3424,7 +3424,7 @@
         "uglifyjs-webpack-plugin": "1.2.7",
         "vscode": "1.1.18",
         "webpack": "4.16.1",
-        "webpack-cli": "3.0.8",
+        "webpack-cli": "3.1.0",
         "webpack-node-externals": "1.7.2"
     }
 }

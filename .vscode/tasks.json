@@ -53,7 +53,7 @@
         },
         {
             "type": "npm",
-            "script": "watch-ui",
+            "script": "ui:watch",
             "group": "build",
             "isBackground": true,
             "problemMatcher": [
@@ -88,7 +88,7 @@
         {
             "label": "watch",
             "dependsOn": [
-                "npm: watch-ui",
+                "npm: ui:watch",
                 "npm: watch"
             ],
             "group": {
