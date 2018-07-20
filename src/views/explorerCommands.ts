@@ -100,8 +100,11 @@ export class ExplorerCommands extends Disposable {
     }
 
     private async applyChanges(node: CommitFileNode | StashFileNode | StatusFileNode) {
-        await Container.git.checkoutFile(node.uri);
-        return this.openFile(node);
+        await this.openFile(node);
+
+        if (node.uri.sha !== undefined && node.uri.sha !== 'HEAD') {
+            await Container.git.checkoutFile(node.uri);
+        }
     }
 
     private closeRepository(node: RepositoryNode | StatusNode) {
