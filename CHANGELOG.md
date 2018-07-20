@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [Unreleased]
 ### Fixed
 - Fixes [#451](https://github.com/eamodio/vscode-gitlens/issues/451) - "apply Changes" has discarded all my changes.
+- Fixes [#449](https://github.com/eamodio/vscode-gitlens/issues/449) - Stop hiding explorers by default when in Zen mode
 
 ## [8.5.1] - 2018-07-18
 ### Added

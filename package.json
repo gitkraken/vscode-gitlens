@@ -910,7 +910,6 @@
                             "description": "for a zen-like experience, disables many visual features",
                             "codeLens": false,
                             "currentLine": false,
-                            "explorers": false,
                             "hovers": false,
                             "statusBar": false
                         },
