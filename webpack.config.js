@@ -1,8 +1,6 @@
 'use strict';
-const webpack = require('webpack');
 const path = require('path');
 const nodeExternals = require('webpack-node-externals');
-const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
 
 module.exports = function(env, argv) {
     if (env === undefined) {
@@ -11,49 +9,28 @@ module.exports = function(env, argv) {
 
     const production = !!env.production;
 
-    const minify = production;
-    const sourceMaps = !production;
-
-    const plugins = [
-        new webpack.optimize.ModuleConcatenationPlugin(),
-        new UglifyJsPlugin({
-            parallel: true,
-            sourceMap: sourceMaps,
-            uglifyOptions: {
-                ecma: 8,
-                compress: minify ? {} : false,
-                mangle: minify,
-                output: {
-                    beautify: !minify,
-                    comments: false
-                }
-            }
-        })
-    ];
-
     return {
         entry: './src/extension.ts',
         mode: production ? 'production' : 'development',
         target: 'node',
+        devtool: !production ? 'eval-source-map' : undefined,
         output: {
             libraryTarget: 'commonjs2',
             filename: 'extension.js',
             path: path.resolve(__dirname, 'out')
         },
         resolve: {
-            extensions: ['.ts']
+            extensions: ['.tsx', '.ts', '.js']
         },
         externals: [nodeExternals()],
-        devtool: sourceMaps ? 'eval-source-map' : undefined,
         module: {
             rules: [
                 {
-                    test: /\.ts$/,
-                    use: [{ loader: 'ts-loader' }],
+                    test: /\.tsx?$/,
+                    use: 'ts-loader',
                     exclude: /node_modules/
                 }
             ]
-        },
-        plugins: plugins
+        }
     };
 };

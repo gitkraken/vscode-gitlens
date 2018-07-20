@@ -3420,8 +3420,6 @@
         "tslint": "5.11.0",
         "tslint-prettiest": "0.0.1",
         "typescript": "2.9.2",
-        "uglify-es": "3.3.9",
-        "uglifyjs-webpack-plugin": "1.2.7",
         "vscode": "1.1.18",
         "webpack": "4.16.1",
         "webpack-cli": "3.1.0",
