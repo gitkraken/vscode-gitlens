@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Fixed
+- Fixes [#454](https://github.com/eamodio/vscode-gitlens/issues/454) - Search for string returns merge commits (unlike raw `git log -S`)
+
 ## [8.5.2] - 2018-07-20
 ### Fixed
 - Fixes [#451](https://github.com/eamodio/vscode-gitlens/issues/451) - "apply Changes" has discarded all my changes

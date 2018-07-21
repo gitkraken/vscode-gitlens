@@ -69,7 +69,7 @@ const RepoSearchWarnings = {
 
 export enum GitRepoSearchBy {
     Author = 'author',
-    ChangedOccurrences = 'changed-occurrences',
+    ChangedLines = 'changed-lines',
     Changes = 'changes',
     Files = 'files',
     Message = 'message',
@@ -1151,22 +1151,25 @@ export class GitService extends Disposable {
         let searchArgs: string[] | undefined = undefined;
         switch (searchBy) {
             case GitRepoSearchBy.Author:
-                searchArgs = [`--author=${search}`];
+                searchArgs = ['-m', '-M', '--all', '--full-history', '-i', `--author=${search}`];
                 break;
-            case GitRepoSearchBy.ChangedOccurrences:
-                searchArgs = [`-S${search}`, '--pickaxe-regex'];
+            case GitRepoSearchBy.ChangedLines:
+                searchArgs = ['-M', '--all', '--full-history', '-i', `-G${search}`];
                 break;
             case GitRepoSearchBy.Changes:
-                searchArgs = [`-G${search}`];
+                searchArgs = ['-M', '--all', '--full-history', '-i', '--pickaxe-regex', `-S${search}`];
                 break;
             case GitRepoSearchBy.Files:
-                searchArgs = [`--`, `${search}`];
+                searchArgs = ['-M', '--all', '--full-history', '-i', `--`, `${search}`];
                 break;
             case GitRepoSearchBy.Message:
-                searchArgs = search ? [`--grep=${search}`] : [];
+                searchArgs = ['-m', '-M', '--all', '--full-history'];
+                if (search) {
+                    searchArgs.push(`--grep=${search}`);
+                }
                 break;
             case GitRepoSearchBy.Sha:
-                searchArgs = [search];
+                searchArgs = [`-m`, '-M', search];
                 maxCount = 1;
                 break;
         }

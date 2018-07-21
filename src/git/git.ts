@@ -535,7 +535,7 @@ export class Git {
     }
 
     static log_search(repoPath: string, search: string[] = [], options: { maxCount?: number } = {}) {
-        const params = [...defaultLogParams, '-M', '-m', '-i'];
+        const params = [...defaultLogParams];
         if (options.maxCount) {
             params.push(`-n${options.maxCount}`);
         }
