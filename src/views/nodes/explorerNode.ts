@@ -1,5 +1,5 @@
 'use strict';
-import { Command, Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Command, Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitUri } from '../../gitService';
@@ -117,7 +117,15 @@ export abstract class ExplorerRefNode extends ExplorerNode {
 export class MessageNode extends ExplorerNode {
     constructor(
         private readonly message: string,
-        private readonly tooltip?: string
+        private readonly tooltip?: string,
+        private readonly iconPath?:
+            | string
+            | Uri
+            | {
+                  light: string | Uri;
+                  dark: string | Uri;
+              }
+            | ThemeIcon
     ) {
         super(new GitUri());
     }
@@ -130,6 +138,7 @@ export class MessageNode extends ExplorerNode {
         const item = new TreeItem(this.message, TreeItemCollapsibleState.None);
         item.contextValue = ResourceType.Message;
         item.tooltip = this.tooltip;
+        item.iconPath = this.iconPath;
         return item;
     }
 }
