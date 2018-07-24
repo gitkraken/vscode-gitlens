@@ -612,7 +612,7 @@ export class GitService extends Disposable {
                 args: Container.config.advanced.blame.customArguments,
                 ignoreWhitespace: Container.config.blame.ignoreWhitespace
             });
-            const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUsername(root));
+            const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUsername(root), await this.getCurrentUserEmail(root));
             return blame;
         }
         catch (ex) {
@@ -692,7 +692,7 @@ export class GitService extends Disposable {
                 correlationKey: `:${key}`,
                 ignoreWhitespace: Container.config.blame.ignoreWhitespace
             });
-            const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUsername(root));
+            const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUsername(root), await this.getCurrentUserEmail(root));
             return blame;
         }
         catch (ex) {
@@ -755,7 +755,8 @@ export class GitService extends Disposable {
                 data,
                 uri.repoPath,
                 fileName,
-                await this.getCurrentUsername(uri.repoPath!)
+                await this.getCurrentUsername(uri.repoPath!),
+                await this.getCurrentUserEmail(uri.repoPath!)
             );
             if (blame === undefined) return undefined;
 
@@ -809,7 +810,8 @@ export class GitService extends Disposable {
                 endLine: lineToBlame
             });
             const currentUser = await this.getCurrentUsername(uri.repoPath!);
-            const blame = GitBlameParser.parse(data, uri.repoPath, fileName, currentUser);
+            const currentUserEmail = await this.getCurrentUserEmail(uri.repoPath!);
+            const blame = GitBlameParser.parse(data, uri.repoPath, fileName, currentUser, currentUserEmail);
             if (blame === undefined) return undefined;
 
             return {
@@ -934,6 +936,17 @@ export class GitService extends Disposable {
             this._userNameMapCache.set(repoPath, user);
         }
         return user;
+    }
+    // TODO: Clear cache when git config changes
+    private _userEmailMapCache: Map<string, string | undefined> = new Map();
+
+    async getCurrentUserEmail(repoPath: string) {
+        let userEmail = this._userEmailMapCache.get(repoPath);
+        if (userEmail === undefined) {
+            userEmail = await Git.config_get('user.name', repoPath);
+            this._userNameMapCache.set(repoPath, userEmail);
+        }
+        return userEmail;
     }
 
     async getDiffForFile(uri: GitUri, sha1?: string, sha2?: string): Promise<GitDiff | undefined> {
@@ -1121,6 +1134,7 @@ export class GitService extends Disposable {
                 undefined,
                 options.ref,
                 await this.getCurrentUsername(repoPath),
+                await this.getCurrentUserEmail(repoPath),
                 maxCount,
                 options.reverse!,
                 undefined
@@ -1180,6 +1194,7 @@ export class GitService extends Disposable {
                 undefined,
                 undefined,
                 await this.getCurrentUsername(repoPath),
+                await this.getCurrentUserEmail(repoPath),
                 maxCount,
                 false,
                 undefined
@@ -1335,6 +1350,7 @@ export class GitService extends Disposable {
                 file,
                 opts.ref,
                 await this.getCurrentUsername(root),
+                await this.getCurrentUserEmail(root),
                 maxCount,
                 opts.reverse!,
                 range
