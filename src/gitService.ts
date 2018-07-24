@@ -944,7 +944,7 @@ export class GitService extends Disposable {
         let userEmail = this._userEmailMapCache.get(repoPath);
         if (userEmail === undefined) {
             userEmail = await Git.config_get('user.name', repoPath);
-            this._userNameMapCache.set(repoPath, userEmail);
+            this._userEmailMapCache.set(repoPath, userEmail);
         }
         return userEmail;
     }
