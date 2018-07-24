@@ -28,8 +28,7 @@ export class GitBlameParser {
         data: string,
         repoPath: string | undefined,
         fileName: string,
-        currentUser: string | undefined,
-        currentUserEmail: string | undefined
+        currentUser: string | undefined
     ): GitBlame | undefined {
         if (!data) return undefined;
 
@@ -70,8 +69,7 @@ export class GitBlameParser {
                             .slice(1)
                             .join(' ')
                             .trim();
-                        if (currentUser !== undefined && currentUser === entry.author &&
-                            currentUserEmail !== undefined && currentUserEmail === entry.authorEmail) {
+                        if (currentUser !== undefined && currentUser === entry.author) {
                             entry.author = 'You';
                         }
                     }

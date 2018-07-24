@@ -33,7 +33,6 @@ export class GitLogParser {
         fileName: string | undefined,
         sha: string | undefined,
         currentUser: string | undefined,
-        currentUserEmail: string | undefined,
         maxCount: number | undefined,
         reverse: boolean,
         range: Range | undefined
@@ -88,8 +87,7 @@ export class GitLogParser {
                     }
                     else {
                         entry.author = line.substring(4);
-                        if (currentUser !== undefined && currentUser === entry.author &&
-                            currentUserEmail !== undefined && currentUserEmail === entry.email) {
+                        if (currentUser !== undefined && currentUser === entry.author) {
                             entry.author = 'You';
                         }
                     }
