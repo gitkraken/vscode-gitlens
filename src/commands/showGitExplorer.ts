@@ -1,5 +1,4 @@
 'use strict';
-import { GitExplorerView } from '../configuration';
 import { Container } from '../container';
 import { Command, Commands } from './common';
 
@@ -9,6 +8,6 @@ export class ShowGitExplorerCommand extends Command {
     }
 
     execute() {
-        return Container.gitExplorer.show(GitExplorerView.Repository);
+        return Container.gitExplorer.show();
     }
 }

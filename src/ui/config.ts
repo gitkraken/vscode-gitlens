@@ -56,12 +56,6 @@ export enum FileAnnotationType {
     RecentChanges = 'recentChanges'
 }
 
-export enum GitExplorerView {
-    Auto = 'auto',
-    History = 'history',
-    Repository = 'repository'
-}
-
 export enum GravatarDefaultStyle {
     Faces = 'wavatar',
     Geometric = 'identicon',
@@ -191,7 +185,6 @@ export interface IGitExplorerConfig {
     includeWorkingTree: boolean;
     location: 'explorer' | 'gitlens' | 'scm';
     showTrackingBranch: boolean;
-    view: GitExplorerView;
 }
 
 export interface IHistoryExplorerConfig {

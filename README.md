@@ -146,19 +146,16 @@ For more advanced customizations, refer to the [settings documentation](#gitlens
 
 ### GitLens Explorer
 
-A [customizable](#gitlens-explorer-settings 'Jump to the GitLens Explorer settings') explorer to navigate and explore repositories or file histories. The _GitLens_ explorer provides two views (modes) &mdash; a Repository view and a File History view.
-
-- A toolbar provides _Search Commits_, _Switch to Repository View_ or _Switch to File History View_, and _Refresh_ commands
-  - Quickly switch between views using the _Switch to Repository View_ or _Switch to File History View_ commands
-  - A context menu provides _Automatic Layout_, _List Layout_, _Tree Layout_, _Enable Automatic Refresh_ or _Disable Automatic Refresh_, and _Follow Renames_ or _Don't Follow Renames_ commands
-
-#### Repository view
-
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-explorer-repository.png" alt="GitLens Explorer Repository view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-explorer-repository.png" alt="GitLens Explorer" />
 </p>
 
-The repository view provides a full Git repository explorer, which has the following features,
+A [customizable](#gitlens-explorer-settings 'Jump to the GitLens Explorer settings') explorer to navigate and explore repositories.
+
+- A toolbar provides _Search Commits_, and _Refresh_ commands
+  - A context menu provides _Automatic Layout_, _List Layout_, _Tree Layout_, and _Enable Automatic Refresh_ or _Disable Automatic Refresh_ commands
+
+The explorer provides a full Git repository explorer, which has the following features,
 
 - **Repository Status**
 
@@ -223,20 +220,6 @@ The repository view provides a full Git repository explorer, which has the follo
     - Revisions (commits) expand to show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
       - See the _Revisions (commits) expand_ section under **Branches** above for more details
 
-### File History view
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-explorer-history.png" alt="GitLens Explorer File History view" />
-</p>
-
-The file history view provides the revision history of the current file, which has the following features,
-
-- Automatically updates to track the current editor
-- A context menu provides _Open File_, _Open File in Remote_ (if available), and _Refresh_ commands
-- An inline toolbar provides an _Open File_ command
-- Context menus for each revision (commit) provides
-  - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File in Remote_ (if available), _Open Revision in Remote_ (if available), _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
-
 ---
 
 ### GitLens File History Explorer
@@ -245,7 +228,12 @@ The file history view provides the revision history of the current file, which h
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-history-explorer.png" alt="GitLens File History Explorer" />
 </p>
 
-A [customizable](#gitlens-file-history-explorer-settings 'Jump to the GitLens File History Explorer settings') stand-alone explorer to visualize the history of the current file &mdash; undocked version of the _GitLens_ Explorer history view
+A [customizable](#gitlens-file-history-explorer-settings 'Jump to the GitLens File History Explorer settings') explorer to visualize the revision history of the current file.
+
+- A toolbar provides a _Refresh_ command
+  - A context menu provides a _Follow Renames_ or _Don't Follow Renames_ command
+
+The file history view provides the revision history of the current file, which has the following features,
 
 - Automatically updates to track the current editor
 - A context menu provides _Open File_, _Open File in Remote_ (if available), and _Refresh_ commands
@@ -681,14 +669,13 @@ See also [Explorer Settings](#explorer-settings 'Jump to the Explorer settings')
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `gitlens.gitExplorer.autoRefresh`        | Specifies whether to automatically refresh the _GitLens_ explorer when the repository or the file system changes                                                                                                                                                                                                                 |
 | `gitlens.gitExplorer.branches.layout`    | Specifies how the _GitLens_ explorer will display branches<br />`list` - displays branches as a list<br />`tree` - displays branches as a tree when branch names contain slashes `/`                                                                                                                                             |
-| `gitlens.gitExplorer.enabled`            | Specifies whether to show the _GitLens_ explorer"                                                                                                                                                                                                                                                                                |
+| `gitlens.gitExplorer.enabled`            | Specifies whether to show the _GitLens_ explorer                                                                                                                                                                                                                                                                                 |
 | `gitlens.gitExplorer.files.compact`      | Specifies whether to compact (flatten) unnecessary file nesting in the _GitLens_ explorer<br />Only applies when `gitlens.gitExplorer.files.layout` is set to `tree` or `auto`                                                                                                                                                   |
 | `gitlens.gitExplorer.files.layout`       | Specifies how the _GitLens_ explorer will display files<br />`auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` value and the number of files at each nesting level<br />`list` - displays files as a list<br />`tree` - displays files as a tree |
 | `gitlens.gitExplorer.files.threshold`    | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _GitLens_ explorer<br />Only applies when `gitlens.gitExplorer.files.layout` is set to `auto`                                                                                                     |
 | `gitlens.gitExplorer.includeWorkingTree` | Specifies whether to include working tree files inside the `Repository Status` node of the _GitLens_ explorer                                                                                                                                                                                                                    |
 | `gitlens.gitExplorer.location`           | Specifies where to show the _GitLens_ explorer<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view                                                                                                                                                |
-| `gitlens.gitExplorer.showTrackingBranch` | Specifies whether to show the tracking branch when displaying local branches in the _GitLens_ explorer"                                                                                                                                                                                                                          |
-| `gitlens.gitExplorer.view`               | Specifies the starting view of the _GitLens_ explorer<br />`auto` - shows the last selected view, defaults to `repository`<br />`history` - shows the commit history of the current file<br />`repository` - shows a repository explorer"                                                                                        |
+| `gitlens.gitExplorer.showTrackingBranch` | Specifies whether to show the tracking branch when displaying local branches in the _GitLens_ explorer                                                                                                                                                                                                                           |
 
 ### GitLens File History Explorer Settings
 

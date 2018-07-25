@@ -272,22 +272,6 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting ml-2" data-enablement="gitExplorer.enabled &amp; historyExplorer.enabled =false">
-                                    <label for="gitExplorer.view">When opened, show the</label>
-                                    <select class="setting hidden" id="gitExplorer.view" name="gitExplorer.view" data-visibility="historyExplorer.enabled =false"
-                                        disabled>
-                                        <option value="auto">last selected view</option>
-                                        <option value="repository">Repository view</option>
-                                        <option value="history">History view</option>
-                                    </select>
-                                    <select class="setting hidden" id="gitExplorer.view-undocked" name="!gitExplorer.view" data-visibility="historyExplorer.enabled"
-                                        disabled>
-                                        <option value="auto">last selected view</option>
-                                        <option value="repository" selected>Repository view</option>
-                                        <option value="history">History view</option>
-                                    </select>
-                                </div>
-
                                 <div class="settings-group__setting ml-2 hidden" data-enablement="gitExplorer.enabled" data-visibility="settings.mode =advanced">
                                     <label for="gitExplorer.branches.layout">Layout branches</label>
                                     <select class="setting" id="gitExplorer.branches.layout" name="gitExplorer.branches.layout" disabled>
@@ -323,33 +307,13 @@
                                 </div>
                             </div>
                             <div class="section__preview">
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; gitExplorer.files.layout !tree"
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.files.layout !tree"
                                 />
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository-tree-compact.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact"
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-tree-compact.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact"
                                 />
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository-tree.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact =false"
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-tree.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact =false"
                                 />
-
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled &amp; gitExplorer.files.layout !tree"
-                                />
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository-tree-compact.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact"
-                                />
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-repository-tree.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact =false"
-                                />
-
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-repository-avatars.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; explorers.avatars"
-                                />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-repository-avatars.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled &amp; explorers.avatars"
-                                />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-repository-history-docked.png"
-                                    data-visibility="gitExplorer.enabled &amp; gitExplorer.view !history &amp; historyExplorer.enabled =false"
-                                />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-repository-history-undocked.png"
-                                    data-visibility="gitExplorer.enabled &amp; historyExplorer.enabled" />
-
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-history.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled =false"
-                                />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-history-avatars.png" data-visibility="gitExplorer.enabled &amp; gitExplorer.view =history &amp; historyExplorer.enabled =false &amp; explorers.avatars"
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-avatars.png" data-visibility="gitExplorer.enabled &amp; explorers.avatars"
                                 />
                             </div>
                             <p class="settings-group__hint">
@@ -373,7 +337,7 @@
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
-                            <p class="section__title-hint">Adds a GitLens File History explorer to visualize the history of the current file</p>
+                            <p class="section__title-hint">Adds a GitLens File History explorer to visualize the revision history of the current file</p>
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
@@ -381,7 +345,6 @@
                                     <input class="setting" id="historyExplorer.enabled" name="historyExplorer.enabled" type="checkbox" />
                                     <label for="historyExplorer.enabled">Show the GitLens File History explorer</label>
                                 </div>
-                                <p class="setting__hint hidden" data-visibility="gitExplorer.enabled &amp; historyExplorer.enabled =false">The current file history will be shown (docked) in the GitLens explorer</p>
 
                                 <div class="settings-group__setting ml-2" data-enablement="historyExplorer.enabled">
                                     <label for="historyExplorer.location">Show in the</label>
@@ -398,16 +361,9 @@
                                 </div>
                             </div>
                             <div class="section__preview">
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-history-explorer.png" data-visibility="historyExplorer.enabled"
+                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-file-history-explorer.png" data-visibility="historyExplorer.enabled"
                                 />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-history-explorer-close.png" data-visibility="historyExplorer.enabled &amp; gitExplorer.enabled =false"
-                                />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-history-avatars.png" data-visibility="historyExplorer.enabled &amp; historyExplorer.avatars"
-                                />
-
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-history.png" data-visibility="gitExplorer.enabled &amp; historyExplorer.enabled =false"
-                                />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-history-avatars.png" data-visibility="gitExplorer.enabled &amp; historyExplorer.enabled =false &amp; historyExplorer.avatars"
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-file-history-explorer-avatars.png" data-visibility="historyExplorer.enabled &amp; historyExplorer.avatars"
                                 />
                             </div>
                         </div>
