@@ -1,9 +1,10 @@
 {
-	// See http://go.microsoft.com/fwlink/?LinkId=827846
-	// for the documentation about the extensions.json format
-	"recommendations": [
+    // See http://go.microsoft.com/fwlink/?LinkId=827846
+    // for the documentation about the extensions.json format
+    "recommendations": [
+        "eg2.tslint",
+        "esbenp.prettier-vscode",
         "msjsdiag.debugger-for-chrome",
-        "ms-vscode.typescript-javascript-grammar",
-        "eg2.tslint"
-	]
+        "ms-vscode.typescript-javascript-grammar"
+    ]
 }
