@@ -6,6 +6,7 @@ import { GitRepoSearchBy, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitsQuickPick, ShowCommitsSearchInResultsQuickPickItem } from '../quickpicks';
 import { Strings } from '../system';
+import { Iterables } from '../system/iterable';
 import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
@@ -125,7 +126,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
-            const goBackCommand =
+            let goBackCommand: CommandQuickPickItem | undefined =
                 args.goBackCommand ||
                 new CommandQuickPickItem(
                     {
@@ -136,37 +137,48 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                     [uri, originalArgs]
                 );
 
-            const pick = await CommitsQuickPick.show(log, searchLabel!, progressCancellation, {
-                goBackCommand: goBackCommand,
-                showAllCommand:
-                    log !== undefined && log.truncated
-                        ? new CommandQuickPickItem(
-                              {
-                                  label: `$(sync) Show All Commits`,
-                                  description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
-                              },
-                              Commands.ShowCommitSearch,
-                              [uri, { ...args, maxCount: 0, goBackCommand: goBackCommand }]
-                          )
-                        : undefined,
-                showInResultsExplorerCommand:
-                    log !== undefined ? new ShowCommitsSearchInResultsQuickPickItem(log, searchLabel!) : undefined
-            });
-            if (pick === undefined) return undefined;
+            let commit;
+            if (args.searchBy !== GitRepoSearchBy.Sha || log === undefined || log.count !== 1) {
+                const pick = await CommitsQuickPick.show(log, searchLabel!, progressCancellation, {
+                    goBackCommand: goBackCommand,
+                    showAllCommand:
+                        log !== undefined && log.truncated
+                            ? new CommandQuickPickItem(
+                                  {
+                                      label: `$(sync) Show All Commits`,
+                                      description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
+                                  },
+                                  Commands.ShowCommitSearch,
+                                  [uri, { ...args, maxCount: 0, goBackCommand: goBackCommand }]
+                              )
+                            : undefined,
+                    showInResultsExplorerCommand:
+                        log !== undefined ? new ShowCommitsSearchInResultsQuickPickItem(log, searchLabel!) : undefined
+                });
+                if (pick === undefined) return undefined;
 
-            if (pick instanceof CommandQuickPickItem) return pick.execute();
+                if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-            return commands.executeCommand(Commands.ShowQuickCommitDetails, pick.commit.toGitUri(), {
-                sha: pick.commit.sha,
-                commit: pick.commit,
-                goBackCommand: new CommandQuickPickItem(
-                    {
-                        label: `go back ${GlyphChars.ArrowBack}`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 2)} to search for ${searchLabel}`
-                    },
-                    Commands.ShowCommitSearch,
-                    [uri, args]
-                )
+                commit = pick.commit;
+                goBackCommand = undefined;
+            }
+            else {
+                commit = Iterables.first(log.commits.values());
+            }
+
+            return commands.executeCommand(Commands.ShowQuickCommitDetails, commit.toGitUri(), {
+                sha: commit.sha,
+                commit: commit,
+                goBackCommand:
+                    goBackCommand ||
+                    new CommandQuickPickItem(
+                        {
+                            label: `go back ${GlyphChars.ArrowBack}`,
+                            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} to search for ${searchLabel}`
+                        },
+                        Commands.ShowCommitSearch,
+                        [uri, args]
+                    )
             } as ShowQuickCommitDetailsCommandArgs);
         }
         catch (ex) {
