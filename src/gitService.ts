@@ -1770,7 +1770,7 @@ export class GitService extends Disposable {
     }
 
     async resolveReference(repoPath: string, ref: string, uri?: Uri) {
-        if (!GitService.isResolveRequired(ref)) return ref;
+        if (!GitService.isResolveRequired(ref) || ref.endsWith('^3')) return ref;
 
         Logger.log(`resolveReference('${repoPath}', '${ref}', '${uri && uri.toString()}')`);
 

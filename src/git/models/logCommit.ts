@@ -95,11 +95,18 @@ export class GitLogCommit extends GitCommit {
             status = fileNameOrStatus;
         }
 
+        let sha;
+        // If this is a stash commit with an untracked file
+        if (this.type === GitCommitType.Stash && status.status === '?') {
+            sha = `${this.sha}^3`;
+        }
+
         // If this isn't a single-file commit, we can't trust the previousSha
         const previousSha = this.isFile ? this.previousSha : `${this.sha}^`;
 
         return this.with({
             type: this.isStash ? GitCommitType.StashFile : GitCommitType.File,
+            sha: sha,
             fileName: status.fileName,
             originalFileName: status.originalFileName,
             previousSha: previousSha,
