@@ -153,6 +153,10 @@ export abstract class GitCommit {
         return Uri.file(path.resolve(this.repoPath, this.fileName));
     }
 
+    get workingUri(): Uri {
+        return this.workingFileName ? Uri.file(path.resolve(this.repoPath, this.workingFileName)) : this.uri;
+    }
+
     private _dateFormatter?: Dates.IDateFormatter;
 
     formatDate(format?: string | null) {
