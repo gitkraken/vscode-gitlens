@@ -28,8 +28,7 @@ export class GitBlameParser {
         data: string,
         repoPath: string | undefined,
         fileName: string,
-        currentUser: string | undefined,
-        currentUserEmail: string | undefined
+        currentUser: { name?: string, email?: string } | undefined
     ): GitBlame | undefined {
         if (!data) return undefined;
 
@@ -70,10 +69,6 @@ export class GitBlameParser {
                             .slice(1)
                             .join(' ')
                             .trim();
-                        if (currentUser !== undefined && currentUser === entry.author &&
-                            currentUserEmail !== undefined && currentUserEmail === entry.authorEmail) {
-                            entry.author = 'You';
-                        }
                     }
                     break;
 
@@ -127,7 +122,7 @@ export class GitBlameParser {
                     }
                     first = false;
 
-                    GitBlameParser.parseEntry(entry, repoPath, relativeFileName, commits, authors, lines);
+                    GitBlameParser.parseEntry(entry, repoPath, relativeFileName, commits, authors, lines, currentUser);
 
                     entry = undefined;
                     break;
@@ -162,11 +157,16 @@ export class GitBlameParser {
         fileName: string | undefined,
         commits: Map<string, GitBlameCommit>,
         authors: Map<string, GitAuthor>,
-        lines: GitCommitLine[]
+        lines: GitCommitLine[],
+        currentUser: {name?: string, email?: string} | undefined
     ) {
         let commit = commits.get(entry.sha);
         if (commit === undefined) {
             if (entry.author !== undefined) {
+                if (currentUser !== undefined &&
+                    currentUser.name === entry.author && currentUser.email === entry.authorEmail) {
+                    entry.author = 'You';
+                }
                 let author = authors.get(entry.author);
                 if (author === undefined) {
                     author = {

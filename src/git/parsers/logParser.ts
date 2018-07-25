@@ -32,8 +32,7 @@ export class GitLogParser {
         repoPath: string | undefined,
         fileName: string | undefined,
         sha: string | undefined,
-        currentUser: string | undefined,
-        currentUserEmail: string | undefined,
+        currentUser: { name?: string; email?: string } | undefined,
         maxCount: number | undefined,
         reverse: boolean,
         range: Range | undefined
@@ -88,10 +87,6 @@ export class GitLogParser {
                     }
                     else {
                         entry.author = line.substring(4);
-                        if (currentUser !== undefined && currentUser === entry.author &&
-                            currentUserEmail !== undefined && currentUserEmail === entry.email) {
-                            entry.author = 'You';
-                        }
                     }
                     break;
 
@@ -213,7 +208,8 @@ export class GitLogParser {
                         relativeFileName,
                         commits,
                         authors,
-                        recentCommit
+                        recentCommit,
+                        currentUser
                     );
 
                     break;
@@ -240,10 +236,15 @@ export class GitLogParser {
         relativeFileName: string,
         commits: Map<string, GitLogCommit>,
         authors: Map<string, GitAuthor>,
-        recentCommit: GitLogCommit | undefined
+        recentCommit: GitLogCommit | undefined,
+        currentUser: {name?: string, email?: string} | undefined
     ): GitLogCommit | undefined {
         if (commit === undefined) {
             if (entry.author !== undefined) {
+                if (currentUser !== undefined &&
+                    currentUser.name === entry.author && currentUser.email === entry.email) {
+                    entry.author = 'You';
+                }
                 let author = authors.get(entry.author);
                 if (author === undefined) {
                     author = {

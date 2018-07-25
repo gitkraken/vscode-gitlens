@@ -612,7 +612,7 @@ export class GitService extends Disposable {
                 args: Container.config.advanced.blame.customArguments,
                 ignoreWhitespace: Container.config.blame.ignoreWhitespace
             });
-            const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUsername(root), await this.getCurrentUserEmail(root));
+            const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUser(root));
             return blame;
         }
         catch (ex) {
@@ -692,7 +692,7 @@ export class GitService extends Disposable {
                 correlationKey: `:${key}`,
                 ignoreWhitespace: Container.config.blame.ignoreWhitespace
             });
-            const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUsername(root), await this.getCurrentUserEmail(root));
+            const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUser(root));
             return blame;
         }
         catch (ex) {
@@ -755,8 +755,7 @@ export class GitService extends Disposable {
                 data,
                 uri.repoPath,
                 fileName,
-                await this.getCurrentUsername(uri.repoPath!),
-                await this.getCurrentUserEmail(uri.repoPath!)
+                await this.getCurrentUser(uri.repoPath!)
             );
             if (blame === undefined) return undefined;
 
@@ -809,9 +808,8 @@ export class GitService extends Disposable {
                 startLine: lineToBlame,
                 endLine: lineToBlame
             });
-            const currentUser = await this.getCurrentUsername(uri.repoPath!);
-            const currentUserEmail = await this.getCurrentUserEmail(uri.repoPath!);
-            const blame = GitBlameParser.parse(data, uri.repoPath, fileName, currentUser, currentUserEmail);
+            const currentUser = await this.getCurrentUser(uri.repoPath!);
+            const blame = GitBlameParser.parse(data, uri.repoPath, fileName, currentUser);
             if (blame === undefined) return undefined;
 
             return {
@@ -927,26 +925,19 @@ export class GitService extends Disposable {
     }
 
     // TODO: Clear cache when git config changes
-    private _userNameMapCache: Map<string, string | undefined> = new Map();
+    private _userMapCache: Map<string, { name: string, email: string } | undefined> = new Map();
 
-    async getCurrentUsername(repoPath: string) {
-        let user = this._userNameMapCache.get(repoPath);
+    async getCurrentUser(repoPath: string) {
+        const user = this._userMapCache.get(repoPath);
         if (user === undefined) {
-            user = await Git.config_get('user.name', repoPath);
-            this._userNameMapCache.set(repoPath, user);
+            const userName = await Git.config_get('user.name', repoPath);
+            const userEmail = await Git.config_get('user.email', repoPath);
+            if (userName !== undefined && userEmail !== undefined) {
+                this._userMapCache.set(repoPath, {name: userName, email: userEmail});
+                return {name: userName, email: userEmail};
+            }
         }
         return user;
-    }
-    // TODO: Clear cache when git config changes
-    private _userEmailMapCache: Map<string, string | undefined> = new Map();
-
-    async getCurrentUserEmail(repoPath: string) {
-        let userEmail = this._userEmailMapCache.get(repoPath);
-        if (userEmail === undefined) {
-            userEmail = await Git.config_get('user.name', repoPath);
-            this._userEmailMapCache.set(repoPath, userEmail);
-        }
-        return userEmail;
     }
 
     async getDiffForFile(uri: GitUri, sha1?: string, sha2?: string): Promise<GitDiff | undefined> {
@@ -1133,8 +1124,7 @@ export class GitService extends Disposable {
                 repoPath,
                 undefined,
                 options.ref,
-                await this.getCurrentUsername(repoPath),
-                await this.getCurrentUserEmail(repoPath),
+                await this.getCurrentUser(repoPath),
                 maxCount,
                 options.reverse!,
                 undefined
@@ -1193,8 +1183,7 @@ export class GitService extends Disposable {
                 repoPath,
                 undefined,
                 undefined,
-                await this.getCurrentUsername(repoPath),
-                await this.getCurrentUserEmail(repoPath),
+                await this.getCurrentUser(repoPath),
                 maxCount,
                 false,
                 undefined
@@ -1349,8 +1338,7 @@ export class GitService extends Disposable {
                 root,
                 file,
                 opts.ref,
-                await this.getCurrentUsername(root),
-                await this.getCurrentUserEmail(root),
+                await this.getCurrentUser(root),
                 maxCount,
                 opts.reverse!,
                 range
