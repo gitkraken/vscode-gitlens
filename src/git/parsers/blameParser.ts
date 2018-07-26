@@ -163,8 +163,12 @@ export class GitBlameParser {
         let commit = commits.get(entry.sha);
         if (commit === undefined) {
             if (entry.author !== undefined) {
-                if (currentUser !== undefined &&
-                    currentUser.name === entry.author && currentUser.email === entry.authorEmail) {
+                if (
+                    currentUser !== undefined &&
+                    (currentUser.name !== undefined || currentUser.email !== undefined) &&
+                    (currentUser.name === undefined || currentUser.name === entry.author) &&
+                    (currentUser.email === undefined || currentUser.email === entry.authorEmail)
+                ) {
                     entry.author = 'You';
                 }
                 let author = authors.get(entry.author);

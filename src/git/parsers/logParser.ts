@@ -241,8 +241,12 @@ export class GitLogParser {
     ): GitLogCommit | undefined {
         if (commit === undefined) {
             if (entry.author !== undefined) {
-                if (currentUser !== undefined &&
-                    currentUser.name === entry.author && currentUser.email === entry.email) {
+                if (
+                    currentUser !== undefined &&
+                    (currentUser.name !== undefined || currentUser.email !== undefined) &&
+                    (currentUser.name === undefined || currentUser.name === entry.author) &&
+                    (currentUser.email === undefined || currentUser.email === entry.email)
+                ) {
                     entry.author = 'You';
                 }
                 let author = authors.get(entry.author);
