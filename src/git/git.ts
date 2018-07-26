@@ -395,6 +395,16 @@ export class Git {
         }
     }
 
+    static async config_getRegex(pattern: string, repoPath?: string) {
+        try {
+            const data = await gitCommandCore({ cwd: repoPath || '' }, 'config', '--get-regex', pattern);
+            return data.trim();
+        }
+        catch {
+            return undefined;
+        }
+    }
+
     static diff(repoPath: string, fileName: string, sha1?: string, sha2?: string, options: { encoding?: string } = {}) {
         const params = ['-c', 'color.diff=false', 'diff', '--diff-filter=M', '-M', '--no-ext-diff', '--minimal'];
         if (sha1) {
