@@ -925,20 +925,37 @@ export class GitService extends Disposable {
     }
 
     // TODO: Clear cache when git config changes
-    private _userMapCache: Map<string, { name: string, email: string } | undefined> = new Map();
+    private _userMapCache = new Map<string, { name?: string; email?: string } | null>();
 
     async getCurrentUser(repoPath: string) {
-        const user = this._userMapCache.get(repoPath);
-        if (user === undefined) {
-            const userName = await Git.config_get('user.name', repoPath);
-            const userEmail = await Git.config_get('user.email', repoPath);
-            if (userName !== undefined && userEmail !== undefined) {
-                this._userMapCache.set(repoPath, {name: userName, email: userEmail});
-                return {name: userName, email: userEmail};
-            }
+        let user = this._userMapCache.get(repoPath);
+        if (user != null) return user;
+        if (user === null) return undefined;
+
+        const data = await Git.config_getRegex('user.(name|email)', repoPath);
+        if (!data) {
+            this._userMapCache.set(repoPath, null);
+            return undefined;
         }
+
+        user = { name: undefined, email: undefined };
+
+        let match: RegExpExecArray | null = null;
+        const userConfigRegex = /^user\.(name|email) (.*)$/gm;
+        do {
+            match = userConfigRegex.exec(data);
+            if (match == null) {
+                break;
+             }
+
+            // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+            user[match[1] as 'name' | 'email'] = (' ' + match[2]).substr(1);
+        } while (match !== null);
+
+        this._userMapCache.set(repoPath, user);
         return user;
     }
+
 
     async getDiffForFile(uri: GitUri, sha1?: string, sha2?: string): Promise<GitDiff | undefined> {
         if (sha1 !== undefined && sha2 === undefined && uri.sha !== undefined) {
