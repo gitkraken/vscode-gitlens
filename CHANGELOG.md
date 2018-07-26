@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [Unreleased]
 ### Changed
 - Changes commit search by sha to jump directly to the commit (if one is found), rather than having to click through to the commit
+- Updates settings descriptions to better support the new settings editor in vscode
 
 ## [8.5.3] - 2018-07-25
 ### Fixed

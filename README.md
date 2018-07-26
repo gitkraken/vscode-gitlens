@@ -582,7 +582,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 |-----|------------
 |`gitlens.defaultDateFormat`|Specifies how absolute dates will be formatted by default<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
 |`gitlens.defaultDateStyle`|Specifies how dates will be displayed by default
-|`gitlens.defaultGravatarsStyle`|Specifies the style of the gravatar default (fallback) images<br />`identicon` - a geometric pattern<br />`mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)<br />`monsterid` - a monster with different colors, faces, etc<br />`retro` - 8-bit arcade-style pixelated faces<br />`robohash` - a robot with different colors, faces, etc<br />`wavatar` - faces with differing features and backgrounds
+|`gitlens.defaultGravatarsStyle`|Specifies the style of the gravatar default (fallback) images<br />`identicon` - a geometric pattern<br />`mm` - a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)<br />`monsterid` - a monster with different colors, faces, etc<br />`retro` - 8-bit arcade-style pixelated faces<br />`robohash` - a robot with different colors, faces, etc<br />`wavatar` - a face with differing features and backgrounds
 |`gitlens.insiders`|Opts into the insiders channel &mdash; provides access to upcoming features
 |`gitlens.keymap`|Specifies the keymap to use for GitLens shortcut keys<br />`alternate` - adds an alternate set of shortcut keys that start with `Alt` (&#x2325; on macOS)<br />`chorded` - adds a chorded set of shortcut keys that start with `Ctrl+Shift+G` (<code>&#x2325;&#x2318;G</code> on macOS)<br />`none` - no shortcut keys will be added
 |`gitlens.menus`|Specifies which commands will be added to which menus
@@ -597,15 +597,15 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |Name | Description
 |-----|------------
 |`gitlens.gitExplorer.autoRefresh`|Specifies whether to automatically refresh the *GitLens* explorer when the repository or the file system changes
-|`gitlens.gitExplorer.branches.layout`|Specifies how the *GitLens* explorer will display branches<br /> `list` - displays branches as a list<br /> `tree` - displays branches as a tree when branch names contain slashes `/`
+|`gitlens.gitExplorer.branches.layout`|Specifies how the *GitLens* explorer will display branches<br />`list` - displays branches as a list<br />`tree` - displays branches as a tree when branch names contain slashes `/`
 |`gitlens.gitExplorer.enabled`|Specifies whether to show the *GitLens* explorer"
-|`gitlens.gitExplorer.files.compact`|Specifies whether to compact (flatten) unnecessary file nesting in the *GitLens* explorer<br />Only applies when displaying files as a `tree` or `auto`
-|`gitlens.gitExplorer.files.layout`|Specifies how the *GitLens* explorer will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
-|`gitlens.gitExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the *GitLens* explorer<br />Only applies when displaying files as `auto`
+|`gitlens.gitExplorer.files.compact`|Specifies whether to compact (flatten) unnecessary file nesting in the *GitLens* explorer<br />Only applies when `gitlens.gitExplorer.files.layout` is set to `tree` or `auto`
+|`gitlens.gitExplorer.files.layout`|Specifies how the *GitLens* explorer will display files<br />`auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` value and the number of files at each nesting level<br />`list` - displays files as a list<br />`tree` - displays files as a tree
+|`gitlens.gitExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the *GitLens* explorer<br />Only applies when `gitlens.gitExplorer.files.layout` is set to `auto`
 |`gitlens.gitExplorer.includeWorkingTree`|Specifies whether to include working tree files inside the `Repository Status` node of the *GitLens* explorer
 |`gitlens.gitExplorer.location`|Specifies where to show the *GitLens* explorer<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view
 |`gitlens.gitExplorer.showTrackingBranch`|Specifies whether to show the tracking branch when displaying local branches in the *GitLens* explorer"
-|`gitlens.gitExplorer.view`|Specifies the starting view of the *GitLens* explorer<br /> `auto` - shows the last selected view, defaults to `repository`<br />`history` - shows the commit history of the current file<br />`repository` - shows a repository explorer"
+|`gitlens.gitExplorer.view`|Specifies the starting view of the *GitLens* explorer<br />`auto` - shows the last selected view, defaults to `repository`<br />`history` - shows the commit history of the current file<br />`repository` - shows a repository explorer"
 
 ### GitLens File History Explorer Settings
 
@@ -622,9 +622,9 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 
 |Name | Description
 |-----|------------
-|`gitlens.resultsExplorer.files.compact`|Specifies whether to compact (flatten) unnecessary file nesting in the *GitLens Results* explorer<br />Only applies when displaying files as a `tree` or `auto`
-|`gitlens.resultsExplorer.files.layout`|Specifies how the *GitLens Results* explorer will display files<br /> `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.resultsExplorer.files.threshold` setting and the number of files at each nesting level<br /> `list` - displays files as a list<br /> `tree` - displays files as a tree
-|`gitlens.resultsExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the *GitLens Results* explorer<br />Only applies when displaying files as `auto`
+|`gitlens.resultsExplorer.files.compact`|Specifies whether to compact (flatten) unnecessary file nesting in the *GitLens Results* explorer<br />Only applies when `gitlens.resultsExplorer.files.layout` is set to `tree` or `auto`
+|`gitlens.resultsExplorer.files.layout`|Specifies how the *GitLens Results* explorer will display files<br />`auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.resultsExplorer.files.threshold` value and the number of files at each nesting level<br />`list` - displays files as a list<br />`tree` - displays files as a tree
+|`gitlens.resultsExplorer.files.threshold`|Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the *GitLens Results* explorer<br />Only applies when `gitlens.resultsExplorer.files.layout` is set to `auto`
 |`gitlens.resultsExplorer.location`|Specifies where to show the *GitLens Results* explorer<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view
 
 ### Explorer Settings
@@ -674,16 +674,16 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |`gitlens.blame.highlight.locations`|Specifies where the associated line highlights will be shown<br />`gutter` - adds a gutter glyph<br />`line` - adds a full-line highlight background color<br />`overview` - adds a decoration to the overview ruler (scroll bar)
 |`gitlens.blame.ignoreWhitespace`|Specifies whether to ignore whitespace when comparing revisions during blame operations
 |`gitlens.blame.separateLines`|Specifies whether gutter blame annotations will have line separators
-|`gitlens.blame.toggleMode`|Specifies how the gutter blame annotations will be toggled<br />`file` - toggle each file individually<br />`window` - toggle the window, i.e. all files at once
+|`gitlens.blame.toggleMode`|Specifies how the gutter blame annotations will be toggled<br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once
 
 ### Gutter Heatmap Settings
 
 |Name | Description
 |-----|------------
 |`gitlens.heatmap.ageThreshold`|Specifies the age of the most recent change (in days) after which the gutter heatmap annotations will be cold rather than hot (i.e. will use `gitlens.heatmap.coldColor` instead of `gitlens.heatmap.hotColor`)
-|`gitlens.heatmap.coldColor`|Specifies the base color of the gutter heatmap annotations when the most recent change is older (cold) than the `gitlens.heatmap.ageThreshold` setting
-|`gitlens.heatmap.hotColor`|Specifies the base color of the gutter heatmap annotations when the most recent change is newer (hot) than the `gitlens.heatmap.ageThreshold` setting
-|`gitlens.heatmap.toggleMode`|Specifies how the gutter heatmap annotations will be toggled<br />`file` - toggle each file individually<br />`window` - toggle the window, i.e. all files at once
+|`gitlens.heatmap.coldColor`|Specifies the base color of the gutter heatmap annotations when the most recent change is older (cold) than the `gitlens.heatmap.ageThreshold` value
+|`gitlens.heatmap.hotColor`|Specifies the base color of the gutter heatmap annotations when the most recent change is newer (hot) than the `gitlens.heatmap.ageThreshold` value
+|`gitlens.heatmap.toggleMode`|Specifies how the gutter heatmap annotations will be toggled<br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once
 
 ### Hover Settings
 
@@ -706,7 +706,7 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |-----|------------
 |`gitlens.mode.active`|Specifies the active GitLens mode, if any
 |`gitlens.mode.statusBar.enabled`|Specifies whether to provide the active GitLens mode on the status bar
-|`gitlens.mode.statusBar.alignment`|Specifies the active GitLens mode alignment in the status bar<br />`left` - align to the left<br />`right` - align to the right
+|`gitlens.mode.statusBar.alignment`|Specifies the active GitLens mode alignment in the status bar<br />`left` - aligns to the left<br />`right` - aligns to the right
 |`gitlens.modes`|Specifies the user-defined GitLens modes
 
 ### Recent Changes Settings
@@ -714,13 +714,13 @@ See also [Explorer Settings](#explorer-settings "Jump to the Explorer settings")
 |Name | Description
 |-----|------------
 |`gitlens.recentChanges.highlight.locations`|Specifies where the highlights of the recently changed lines will be shown<br />`gutter` - adds a gutter glyph<br />`line` - adds a full-line highlight background color<br />`overview` - adds a decoration to the overview ruler (scroll bar)
-|`gitlens.recentChanges.toggleMode`|Specifies how the recently changed lines annotations will be toggled<br />`file` - toggle each file individually<br />`window` - toggle the window, i.e. all files at once
+|`gitlens.recentChanges.toggleMode`|Specifies how the recently changed lines annotations will be toggled<br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once
 
 ### Status Bar Settings
 
 |Name | Description
 |-----|------------
-|`gitlens.statusBar.alignment`|Specifies the blame alignment in the status bar<br />`left` - align to the left<br />`right` - align to the right
+|`gitlens.statusBar.alignment`|Specifies the blame alignment in the status bar<br />`left` - aligns to the left<br />`right` - aligns to the right
 |`gitlens.statusBar.command`|Specifies the command to be executed when the blame status bar item is clicked<br />`gitlens.toggleFileBlame` - toggles file blame annotations<br />`gitlens.diffWithPrevious` - compares the current line commit with the previous<br />`gitlens.diffWithWorking` - compares the current line commit with the working tree<br />`gitlens.toggleCodeLens` - toggles Git code lens<br />`gitlens.showQuickCommitDetails` - shows a commit details quick pick<br />`gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick<br />`gitlens.showQuickFileHistory` - shows a file history quick pick<br />`gitlens.showQuickRepoHistory` - shows a branch history quick pick
 |`gitlens.statusBar.dateFormat`|Specifies the date format of absolute dates shown in the blame information on the status bar<br />See https://momentjs.com/docs/#/displaying/format/ for valid formats
 |`gitlens.statusBar.enabled`|Specifies whether to provide blame information on the status bar

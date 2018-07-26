@@ -90,7 +90,11 @@
                         "left",
                         "right"
                     ],
-                    "description": "Specifies where the heatmap indicators will be shown in the gutter blame annotations\n `left` - adds a heatmap indicator on the left edge of the gutter blame annotations\n `right` - adds a heatmap indicator on the right edge of the gutter blame annotations",
+                    "enumDescriptions": [
+                        "Adds a heatmap indicator on the left edge of the gutter blame annotations",
+                        "Adds a heatmap indicator on the right edge of the gutter blame annotations"
+                    ],
+                    "description": "Specifies where the heatmap indicators will be shown in the gutter blame annotations",
                     "scope": "window"
                 },
                 "gitlens.blame.highlight.enabled": {
@@ -112,12 +116,17 @@
                             "gutter",
                             "line",
                             "overview"
+                        ],
+                        "enumDescriptions": [
+                            "Adds a gutter glyph",
+                            "Adds a full-line highlight background color",
+                            "Adds a decoration to the overview ruler (scroll bar)"
                         ]
                     },
                     "minItems": 1,
                     "maxItems": 3,
                     "uniqueItems": true,
-                    "description": "Specifies where the associated line highlights will be shown\n `gutter` - adds a gutter glyph\n `line` - adds a full-line highlight background color\n `overview` - adds a decoration to the overview ruler (scroll bar)",
+                    "description": "Specifies where the associated line highlights will be shown",
                     "scope": "window"
                 },
                 "gitlens.blame.ignoreWhitespace": {
@@ -139,7 +148,11 @@
                         "file",
                         "window"
                     ],
-                    "description": "Specifies how the gutter blame annotations will be toggled\n `file` - toggle each file individually\n `window` - toggle the window, i.e. all files at once",
+                    "enumDescriptions": [
+                        "Toggles each file individually",
+                        "Toggles the window, i.e. all files at once"
+                    ],
+                    "description": "Specifies how the gutter blame annotations will be toggled",
                     "scope": "window"
                 },
                 "gitlens.codeLens.authors.command": {
@@ -153,7 +166,15 @@
                         "gitlens.showQuickFileHistory",
                         "gitlens.showQuickRepoHistory"
                     ],
-                    "description": "Specifies the command to be executed when the `authors` code lens is clicked\n `gitlens.toggleFileBlame` - toggles file blame annotations\n `gitlens.diffWithPrevious` - compares the current committed file with the previous commit\n `gitlens.showQuickCommitDetails` - shows a commit details quick pick\n `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick\n `gitlens.showQuickFileHistory` - shows a file history quick pick\n `gitlens.showQuickRepoHistory` - shows a branch history quick pick",
+                    "enumDescriptions": [
+                        "Toggles file blame annotations",
+                        "Compares the current committed file with the previous commit",
+                        "Shows a commit details quick pick",
+                        "Shows a commit file details quick pick",
+                        "Shows a file history quick pick",
+                        "Shows a branch history quick pick"
+                    ],
+                    "description": "Specifies the command to be executed when the `authors` code lens is clicked",
                     "scope": "window"
                 },
                 "gitlens.codeLens.authors.enabled": {
@@ -179,7 +200,15 @@
                         "gitlens.showQuickFileHistory",
                         "gitlens.showQuickRepoHistory"
                     ],
-                    "description": "Specifies the command to be executed when the `recent change` code lens is clicked\n `gitlens.toggleFileBlame` - toggles file blame annotations\n `gitlens.diffWithPrevious` - compares the current committed file with the previous commit\n `gitlens.showQuickCommitDetails` - shows a commit details quick pick\n `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick\n `gitlens.showQuickFileHistory` - shows a file history quick pick\n `gitlens.showQuickRepoHistory` - shows a branch history quick pick",
+                    "enumDescriptions": [
+                        "Toggles file blame annotations",
+                        "Compares the current committed file with the previous commit",
+                        "Shows a commit details quick pick",
+                        "Shows a commit file details quick pick",
+                        "Shows a file history quick pick",
+                        "Shows a branch history quick pick"
+                    ],
+                    "description": "Specifies the command to be executed when the `recent change` code lens is clicked",
                     "scope": "window"
                 },
                 "gitlens.codeLens.recentChange.enabled": {
@@ -200,12 +229,18 @@
                             "document",
                             "containers",
                             "blocks"
+                        ],
+                        "enumDescriptions": [
+                            "",
+"adds code lens at the top of the document",
+"adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)",
+"adds code lens at the start of block-like symbols (functions, methods, etc) lines"
                         ]
                     },
                     "minItems": 1,
                     "maxItems": 4,
                     "uniqueItems": true,
-                    "description": "Specifies where Git code lens will be shown in the document\n `document` - adds code lens at the top of the document\n `containers` - adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)\n `blocks` - adds code lens at the start of block-like symbols (functions, methods, etc) lines",
+                    "description": "Specifies where Git code lens will be shown in the document",
                     "scope": "resource"
                 },
                 "gitlens.codeLens.scopesByLanguage": {
@@ -295,12 +330,18 @@
                                         "containers",
                                         "blocks",
                                         "custom"
+                                    ],
+                                    "enumDescriptions": [
+                                        "Adds code lens at the top of the document",
+                                        "Adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)",
+                                        "Adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines",
+                                        "Adds code lens at the start of symbols contained in `symbolScopes`"
                                     ]
                                 },
                                 "minItems": 1,
                                 "maxItems": 4,
                                 "uniqueItems": true,
-                                "description": "Specifies where Git code lens will be shown in the document for the specified language\n `document` - adds code lens at the top of the document\n `containers` - adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)\n `blocks` - adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines\n `custom` - adds code lens at the start of symbols contained in `symbolScopes`"
+                                "description": "Specifies where Git code lens will be shown in the document for the specified language"
                             },
                             "symbolScopes": {
                                 "type": "array",
@@ -368,6 +409,10 @@
                         "relative",
                         "absolute"
                     ],
+                    "enumDescriptions": [
+                        "e.g. 1 day ago",
+                        "e.g. July 25th, 2018 7:18pm"
+                    ],
                     "description": "Specifies how dates will be displayed by default",
                     "scope": "window"
                 },
@@ -382,7 +427,15 @@
                         "robohash",
                         "wavatar"
                     ],
-                    "description": "Specifies the style of the gravatar default (fallback) images\n `identicon` - a geometric pattern\n `mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)\n `monsterid` - a monster with different colors, faces, etc\n `retro` - 8-bit arcade-style pixelated faces\n `robohash` - a robot with different colors, faces, etc\n `wavatar` - faces with differing features and backgrounds",
+                    "enumDescriptions": [
+                        "A geometric pattern",
+                        "A simple, cartoon-style silhouetted outline of a person (does not vary by email hash)",
+                        "A monster with different colors, faces, etc",
+                        "8-bit arcade-style pixelated faces",
+                        "A robot with different colors, faces, etc",
+                        "A face with differing features and backgrounds"
+                    ],
+                    "description": "Specifies the style of the gravatar default (fallback) images",
                     "scope": "window"
                 },
                 "gitlens.explorers.avatars": {
@@ -434,7 +487,11 @@
                         "list",
                         "tree"
                     ],
-                    "description": "Specifies how the `GitLens` explorer will display branches\n `list` - displays branches as a list \n`tree` - displays branches as a tree when branch names contain slashes `/`",
+                    "enumDescriptions": [
+                        "Displays branches as a list",
+                        "Displays branches as a tree when branch names contain slashes `/`"
+                    ],
+                    "description": "Specifies how the `GitLens` explorer will display branches",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.enabled": {
@@ -446,7 +503,7 @@
                 "gitlens.gitExplorer.files.compact": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to compact (flatten) unnecessary file nesting in the `GitLens` explorer\nOnly applies when displaying files as a `tree` or `auto`",
+                    "description": "Specifies whether to compact (flatten) unnecessary file nesting in the `GitLens` explorer\nOnly applies when `#gitlens.gitExplorer.files.layout#` is set to `tree` or `auto`",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.files.layout": {
@@ -457,13 +514,18 @@
                         "list",
                         "tree"
                     ],
-                    "description": "Specifies how the `GitLens` explorer will display files\n `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level\n `list` - displays files as a list\n `tree` - displays files as a tree",
+                    "enumDescriptions": [
+                        "Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.gitExplorer.files.threshold#` value and the number of files at each nesting level",
+                        "Displays files as a list",
+                        "Displays files as a tree"
+                    ],
+                    "description": "Specifies how the `GitLens` explorer will display files",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.files.threshold": {
                     "type": "number",
                     "default": 5,
-                    "description": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens` explorer\nOnly applies when displaying files as `auto`",
+                    "description": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens` explorer\nOnly applies when `#gitlens.gitExplorer.files.layout#` is set to `auto`",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.includeWorkingTree": {
@@ -480,7 +542,12 @@
                         "explorer",
                         "scm"
                     ],
-                    "description": "Specifies where to show the `GitLens` explorer\n `gitlens` - adds to the GitLens view\n `explorer` - adds to the Explorer view\n `scm` - adds to the Source Control view",
+                    "enumDescriptions": [
+                        "Adds to the GitLens view",
+                        "Adds to the Explorer view",
+                        "Adds to the Source Control view"
+                    ],
+                    "description": "Specifies where to show the `GitLens` explorer",
                     "scope": "window"
                 },
                 "gitlens.gitExplorer.showTrackingBranch": {
@@ -497,25 +564,30 @@
                         "history",
                         "repository"
                     ],
-                    "description": "Specifies the starting view of the `GitLens` explorer\n `auto` - shows the last selected view, defaults to `repository`\n `history` - shows the commit history of the current file\n `repository` - shows a repository explorer",
+                    "enumDescriptions": [
+                        "Shows the last selected view, defaults to `repository`",
+                        "Shows the commit history of the current file",
+                        "Shows a repository explorer"
+                    ],
+                    "description": "Specifies the starting view of the `GitLens` explorer",
                     "scope": "window"
                 },
                 "gitlens.heatmap.ageThreshold": {
                     "type": "string",
                     "default": "90",
-                    "description": "Specifies the age of the most recent change (in days) after which the gutter heatmap annotations will be cold rather than hot (i.e. will use `gitlens.heatmap.coldColor` instead of `gitlens.heatmap.hotColor`)",
+                    "description": "Specifies the age of the most recent change (in days) after which the gutter heatmap annotations will be cold rather than hot (i.e. will use `#gitlens.heatmap.coldColor#` instead of `#gitlens.heatmap.hotColor#`)",
                     "scope": "window"
                 },
                 "gitlens.heatmap.coldColor": {
                     "type": "string",
                     "default": "#0a60f6",
-                    "description": "Specifies the base color of the gutter heatmap annotations when the most recent change is older (cold) than the `gitlens.heatmap.ageThreshold` setting",
+                    "description": "Specifies the base color of the gutter heatmap annotations when the most recent change is older (cold) than the `#gitlens.heatmap.ageThreshold#` value",
                     "scope": "window"
                 },
                 "gitlens.heatmap.hotColor": {
                     "type": "string",
                     "default": "#f66a0a",
-                    "description": "Specifies the base color of the gutter heatmap annotations when the most recent change is newer (hot) than the `gitlens.heatmap.ageThreshold` setting",
+                    "description": "Specifies the base color of the gutter heatmap annotations when the most recent change is newer (hot) than the `#gitlens.heatmap.ageThreshold#` value",
                     "scope": "window"
                 },
                 "gitlens.heatmap.toggleMode": {
@@ -525,7 +597,11 @@
                         "file",
                         "window"
                     ],
-                    "description": "Specifies how the gutter heatmap annotations will be toggled\n `file` - toggle each file individually\n `window` - toggle the window, i.e. all files at once",
+                    "enumDescriptions": [
+                        "Toggles each file individually",
+                        "Toggles the window, i.e. all files at once"
+                    ],
+                    "description": "Specifies how the gutter heatmap annotations will be toggled",
                     "scope": "window"
                 },
                 "gitlens.historyExplorer.avatars": {
@@ -548,7 +624,12 @@
                         "explorer",
                         "scm"
                     ],
-                    "description": "Specifies where to show the `GitLens File History` explorer\n `gitlens` - adds to the GitLens view\n `explorer` - adds to the Explorer view\n `scm` - adds to the Source Control view",
+                    "enumDescriptions": [
+                        "Adds to the GitLens view",
+                        "Adds to the Explorer view",
+                        "Adds to the Source Control view"
+                    ],
+                    "description": "Specifies where to show the `GitLens File History` explorer",
                     "scope": "window"
                 },
                 "gitlens.hovers.annotations.changes": {
@@ -576,7 +657,11 @@
                         "annotation",
                         "line"
                     ],
-                    "description": "Specifies when to trigger hovers when showing blame annotations\n `annotation` - only shown when hovering over the line annotation\n `line` - shown when hovering anywhere over the line",
+                    "enumDescriptions": [
+                        "Only shown when hovering over the line annotation",
+                        "Shown when hovering anywhere over the line"
+                    ],
+                    "description": "Specifies when to trigger hovers when showing blame annotations",
                     "scope": "window"
                 },
                 "gitlens.hovers.currentLine.changes": {
@@ -604,7 +689,11 @@
                         "annotation",
                         "line"
                     ],
-                    "description": "Specifies when to trigger hovers for the current line\n `annotation` - only shown when hovering over the line annotation\n `line` - shown when hovering anywhere over the line",
+                    "enumDescriptions": [
+                        "Only shown when hovering over the line annotation",
+                        "Shown when hovering anywhere over the line"
+                    ],
+                    "description": "Specifies when to trigger hovers for the current line",
                     "scope": "window"
                 },
                 "gitlens.hovers.avatars": {
@@ -633,7 +722,12 @@
                         "chorded",
                         "none"
                     ],
-                    "description": "Specifies the keymap to use for GitLens shortcut keys\n `alternate` - adds an alternate set of shortcut keys that start with `Alt` (⌥ on macOS)\n `chorded` - adds a chorded set of shortcut keys that start with `Ctrl+Alt+G` (`⌥⌘G` on macOS)\n `none` - no shortcut keys will be added",
+                    "enumDescriptions": [
+                        "Adds an alternate set of shortcut keys that start with `Alt` (⌥ on macOS)",
+                        "Adds a chorded set of shortcut keys that start with `Ctrl+Alt+G` (`⌥⌘G` on macOS)",
+                        "No shortcut keys will be added"
+                    ],
+                    "description": "Specifies the keymap to use for GitLens shortcut keys",
                     "scope": "window"
                 },
                 "gitlens.menus": {
@@ -800,7 +894,11 @@
                         "left",
                         "right"
                     ],
-                    "description": "Specifies the active GitLens mode alignment in the status bar\n `left` - align to the left\n `right` - align to the right",
+                    "enumDescriptions": [
+                        "Aligns to the left",
+                        "Aligns to the right"
+                    ],
+                    "description": "Specifies the active GitLens mode alignment in the status bar",
                     "scope": "window"
                 },
                 "gitlens.modes": {
@@ -950,12 +1048,17 @@
                             "gutter",
                             "line",
                             "overview"
+                        ],
+                        "enumDescriptions": [
+                            "Adds a gutter glyph",
+                            "Adds a full-line highlight background color",
+                            "Adds a decoration to the overview ruler (scroll bar)"
                         ]
                     },
                     "minItems": 1,
                     "maxItems": 3,
                     "uniqueItems": true,
-                    "description": "Specifies where the highlights of the recently changed lines will be shown\n `gutter` - adds a gutter glyph\n `line` - adds a full-line highlight background color\n `overview` - adds a decoration to the overview ruler (scroll bar)",
+                    "description": "Specifies where the highlights of the recently changed lines will be shown",
                     "scope": "window"
                 },
                 "gitlens.recentChanges.toggleMode": {
@@ -965,7 +1068,11 @@
                         "file",
                         "window"
                     ],
-                    "description": "Specifies how the recently changed lines annotations will be toggled\n `file` - toggle each file individually\n `window` - toggle the window, i.e. all files at once",
+                    "enumDescriptions": [
+                        "Toggles each file individually",
+                        "Toggles the window, i.e. all files at once"
+                    ],
+                    "description": "Specifies how the recently changed lines annotations will be toggled",
                     "scope": "window"
                 },
                 "gitlens.remotes": {
@@ -987,7 +1094,7 @@
                                     "GitHub",
                                     "GitLab"
                                 ],
-                                "description": "Specifies the type of the custom remote service\n `Bitbucket`, `BitbucketServer`, `GitHub`, or `GitLab`"
+                                "description": "Specifies the type of the custom remote service"
                             },
                             "domain": {
                                 "type": "string",
@@ -1064,7 +1171,7 @@
                 "gitlens.resultsExplorer.files.compact": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to compact (flatten) unnecessary file nesting in the `GitLens Results` explorer\nOnly applies when displaying files as a `tree` or `auto`",
+                    "description": "Specifies whether to compact (flatten) unnecessary file nesting in the `GitLens Results` explorer\nOnly applies when `#gitlens.resultsExplorer.files.layout#` is set to `tree` or `auto`",
                     "scope": "window"
                 },
                 "gitlens.resultsExplorer.files.layout": {
@@ -1075,13 +1182,18 @@
                         "list",
                         "tree"
                     ],
-                    "description": "Specifies how the `GitLens Results` explorer will display files\n `auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` setting and the number of files at each nesting level\n `list` - displays files as a list\n `tree` - displays files as a tree",
+                    "enumDescriptions": [
+                        "Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.gitExplorer.files.threshold#` value and the number of files at each nesting level",
+                        "Displays files as a list",
+                        "Displays files as a tree"
+                    ],
+                    "description": "Specifies how the `GitLens Results` explorer will display files",
                     "scope": "window"
                 },
                 "gitlens.resultsExplorer.files.threshold": {
                     "type": "number",
                     "default": 5,
-                    "description": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens Results` explorer\nOnly applies when displaying files as `auto`",
+                    "description": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens Results` explorer\nOnly applies when `#gitlens.resultsExplorer.files.layout#` is set to `auto`",
                     "scope": "window"
                 },
                 "gitlens.resultsExplorer.location": {
@@ -1092,7 +1204,12 @@
                         "explorer",
                         "scm"
                     ],
-                    "description": "Specifies where to show the `GitLens Results` explorer\n `gitlens` - adds to the GitLens view\n `explorer` - adds to the Explorer view\n `scm` - adds to the Source Control view",
+                    "enumDescriptions": [
+                        "Adds to the GitLens view",
+                        "Adds to the Explorer view",
+                        "Adds to the Source Control view"
+                    ],
+                    "description": "Specifies where to show the `GitLens Results` explorer",
                     "scope": "window"
                 },
                 "gitlens.settings.mode": {
@@ -1102,7 +1219,11 @@
                         "simple",
                         "advanced"
                     ],
-                    "description": "Specifies the display mode of the interactive settings editor\n `simple` - only displays common settings\n `advanced` - displays all settings",
+                    "enumDescriptions": [
+                        "Only displays common settings",
+                        "Displays all settings"
+                    ],
+                    "description": "Specifies the display mode of the interactive settings editor",
                     "scope": "window"
                 },
                 "gitlens.showWhatsNewAfterUpgrades": {
@@ -1118,7 +1239,11 @@
                         "left",
                         "right"
                     ],
-                    "description": "Specifies the blame alignment in the status bar\n `left` - align to the left\n `right` - align to the right",
+                    "enumDescriptions": [
+                        "Aligns to the left",
+                        "Aligns to the right"
+                    ],
+                    "description": "Specifies the blame alignment in the status bar",
                     "scope": "window"
                 },
                 "gitlens.statusBar.command": {
@@ -1134,7 +1259,17 @@
                         "gitlens.showQuickFileHistory",
                         "gitlens.showQuickRepoHistory"
                     ],
-                    "description": "Specifies the command to be executed when the blame status bar item is clicked\n `gitlens.toggleFileBlame` - toggles file blame annotations\n `gitlens.diffWithPrevious` - compares the current line commit with the previous\n `gitlens.diffWithWorking` - compares the current line commit with the working tree\n `gitlens.toggleCodeLens` - toggles Git code lens\n `gitlens.showQuickCommitDetails` - shows a commit details quick pick\n `gitlens.showQuickCommitFileDetails` - shows a commit file details quick pick\n `gitlens.showQuickFileHistory` - shows a file history quick pick\n `gitlens.showQuickRepoHistory` - shows a branch history quick pick",
+                    "enumDescriptions": [
+                        "Toggles file blame annotations",
+                        "Compares the current line commit with the previous",
+                        "Compares the current line commit with the working tree",
+                        "Toggles Git code lens",
+                        "Shows a commit details quick pick",
+                        "Shows a commit file details quick pick",
+                        "Shows a file history quick pick",
+                        "Shows a branch history quick pick"
+                    ],
+                    "description": "Specifies the command to be executed when the blame status bar item is clicked",
                     "scope": "window"
                 },
                 "gitlens.statusBar.dateFormat": {
