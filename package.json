@@ -3451,7 +3451,8 @@
             },
             {
                 "command": "workbench.view.scm",
-                "key": "ctrl+shift+g g",
+                "key": "ctrl+alt+g g",
+                "mac": "ctrl+shift+g",
                 "when": "gitlens:keymap == chorded && gitlens:enabled"
             }
         ],

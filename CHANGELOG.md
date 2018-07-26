@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes commit search by sha to jump directly to the commit (if one is found), rather than having to click through to the commit
 - Updates settings descriptions to better support the new settings editor in vscode
 
+### Fixed
+- Fixes [#462](https://github.com/eamodio/vscode-gitlens/issues/462) - Source Control shortcut on macOS (⌃⇧G) shouldn't be overridden
+
 ## [8.5.3] - 2018-07-25
 ### Fixed
 - Fixes [#454](https://github.com/eamodio/vscode-gitlens/issues/454) - Search for string returns merge commits (unlike raw `git log -S`)
