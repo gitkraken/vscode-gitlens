@@ -1611,13 +1611,17 @@ export class GitService extends Disposable {
         return GitTagParser.parse(data, repoPath) || [];
     }
 
-    async getVersionedFile(repoPath: string | undefined, fileName: string, sha: string | undefined) {
+    async getVersionedFile(
+        repoPath: string | undefined,
+        fileName: string,
+        sha: string | undefined
+    ): Promise<Uri | undefined> {
         Logger.log(`getVersionedFile('${repoPath}', '${fileName}', '${sha}')`);
 
         if (sha === GitService.deletedSha) return undefined;
 
         if (!sha || (Git.isUncommitted(sha) && !Git.isStagedUncommitted(sha))) {
-            if (await this.fileExists(repoPath!, fileName)) return fileName;
+            if (await this.fileExists(repoPath!, fileName)) return Uri.file(fileName);
 
             return undefined;
         }
@@ -1630,7 +1634,7 @@ export class GitService extends Disposable {
             new GitUri(Uri.file(fileName), { sha: sha, repoPath: repoPath!, versionedPath: file })
         );
 
-        return file;
+        return Uri.file(file);
     }
 
     getVersionedFileText(repoPath: string, fileName: string, sha: string) {

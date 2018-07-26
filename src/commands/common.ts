@@ -405,9 +405,8 @@ export async function openEditor(
         if (uri.scheme === DocumentSchemes.GitLensGit) {
             const gitUri = GitUri.fromRevisionUri(uri);
             if (ImageExtensions.includes(path.extname(gitUri.fsPath))) {
-                const fileName = await Container.git.getVersionedFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha);
-                if (fileName !== undefined) {
-                    uri = Uri.file(fileName);
+                const uri = await Container.git.getVersionedFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha);
+                if (uri !== undefined) {
                     await commands.executeCommand(BuiltInCommands.Open, uri);
 
                     return undefined;

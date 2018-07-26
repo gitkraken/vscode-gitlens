@@ -164,10 +164,10 @@ export class DiffWithCommand extends ActiveEditorCommand {
                 BuiltInCommands.Diff,
                 lhs === undefined
                     ? GitUri.toRevisionUri(GitService.deletedSha, args.lhs.uri.fsPath, args.repoPath)
-                    : Uri.file(lhs),
+                    : lhs,
                 rhs === undefined
                     ? GitUri.toRevisionUri(GitService.deletedSha, args.rhs.uri.fsPath, args.repoPath)
-                    : Uri.file(rhs),
+                    : rhs,
                 title,
                 args.showOptions
             );
