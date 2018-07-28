@@ -612,7 +612,7 @@ export class GitService extends Disposable {
                 args: Container.config.advanced.blame.customArguments,
                 ignoreWhitespace: Container.config.blame.ignoreWhitespace
             });
-            const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUsername(root));
+            const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUser(root));
             return blame;
         }
         catch (ex) {
@@ -692,7 +692,7 @@ export class GitService extends Disposable {
                 correlationKey: `:${key}`,
                 ignoreWhitespace: Container.config.blame.ignoreWhitespace
             });
-            const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUsername(root));
+            const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUser(root));
             return blame;
         }
         catch (ex) {
@@ -755,7 +755,7 @@ export class GitService extends Disposable {
                 data,
                 uri.repoPath,
                 fileName,
-                await this.getCurrentUsername(uri.repoPath!)
+                await this.getCurrentUser(uri.repoPath!)
             );
             if (blame === undefined) return undefined;
 
@@ -808,7 +808,7 @@ export class GitService extends Disposable {
                 startLine: lineToBlame,
                 endLine: lineToBlame
             });
-            const currentUser = await this.getCurrentUsername(uri.repoPath!);
+            const currentUser = await this.getCurrentUser(uri.repoPath!);
             const blame = GitBlameParser.parse(data, uri.repoPath, fileName, currentUser);
             if (blame === undefined) return undefined;
 
@@ -925,14 +925,34 @@ export class GitService extends Disposable {
     }
 
     // TODO: Clear cache when git config changes
-    private _userNameMapCache: Map<string, string | undefined> = new Map();
+    private _userMapCache = new Map<string, { name?: string; email?: string } | null>();
 
-    async getCurrentUsername(repoPath: string) {
-        let user = this._userNameMapCache.get(repoPath);
-        if (user === undefined) {
-            user = await Git.config_get('user.name', repoPath);
-            this._userNameMapCache.set(repoPath, user);
+    async getCurrentUser(repoPath: string) {
+        let user = this._userMapCache.get(repoPath);
+        if (user != null) return user;
+        if (user === null) return undefined;
+
+        const data = await Git.config_getRegex('user.(name|email)', repoPath);
+        if (!data) {
+            this._userMapCache.set(repoPath, null);
+            return undefined;
         }
+
+        user = { name: undefined, email: undefined };
+
+        let match: RegExpExecArray | null = null;
+        const userConfigRegex = /^user\.(name|email) (.*)$/gm;
+        do {
+            match = userConfigRegex.exec(data);
+            if (match == null) {
+                break;
+             }
+
+            // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+            user[match[1] as 'name' | 'email'] = (' ' + match[2]).substr(1);
+        } while (match !== null);
+
+        this._userMapCache.set(repoPath, user);
         return user;
     }
 
@@ -1120,7 +1140,7 @@ export class GitService extends Disposable {
                 repoPath,
                 undefined,
                 options.ref,
-                await this.getCurrentUsername(repoPath),
+                await this.getCurrentUser(repoPath),
                 maxCount,
                 options.reverse!,
                 undefined
@@ -1182,7 +1202,7 @@ export class GitService extends Disposable {
                 repoPath,
                 undefined,
                 undefined,
-                await this.getCurrentUsername(repoPath),
+                await this.getCurrentUser(repoPath),
                 maxCount,
                 false,
                 undefined
@@ -1337,7 +1357,7 @@ export class GitService extends Disposable {
                 root,
                 file,
                 opts.ref,
-                await this.getCurrentUsername(root),
+                await this.getCurrentUser(root),
                 maxCount,
                 opts.reverse!,
                 range
