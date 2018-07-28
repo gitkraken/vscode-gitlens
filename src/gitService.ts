@@ -67,6 +67,8 @@ const RepoSearchWarnings = {
     doesNotExist: /no such file or directory/i
 };
 
+const userConfigRegex = /^user\.(name|email) (.*)$/gm;
+
 export enum GitRepoSearchBy {
     Author = 'author',
     ChangedLines = 'changed-lines',
@@ -125,6 +127,10 @@ export class GitService extends Disposable {
 
     private onAnyRepositoryChanged(repo: Repository, reason: RepositoryChange) {
         this._trackedCache.clear();
+
+        if (reason === RepositoryChange.Config) {
+            this._userMapCache.delete(repo.path);
+        }
 
         if (reason === RepositoryChange.Closed) {
             // Send a notification that the repositories changed
@@ -751,12 +757,7 @@ export class GitService extends Disposable {
                 startLine: lineToBlame,
                 endLine: lineToBlame
             });
-            const blame = GitBlameParser.parse(
-                data,
-                uri.repoPath,
-                fileName,
-                await this.getCurrentUser(uri.repoPath!)
-            );
+            const blame = GitBlameParser.parse(data, uri.repoPath, fileName, await this.getCurrentUser(uri.repoPath!));
             if (blame === undefined) return undefined;
 
             return {
@@ -924,16 +925,17 @@ export class GitService extends Disposable {
         return await Git.config_get(key, repoPath);
     }
 
-    // TODO: Clear cache when git config changes
     private _userMapCache = new Map<string, { name?: string; email?: string } | null>();
 
     async getCurrentUser(repoPath: string) {
         let user = this._userMapCache.get(repoPath);
         if (user != null) return user;
+        // If we found the repo, but no user data was found just return
         if (user === null) return undefined;
 
         const data = await Git.config_getRegex('user.(name|email)', repoPath);
         if (!data) {
+            // If we found no user data, mark it so we won't bother trying again
             this._userMapCache.set(repoPath, null);
             return undefined;
         }
@@ -941,16 +943,13 @@ export class GitService extends Disposable {
         user = { name: undefined, email: undefined };
 
         let match: RegExpExecArray | null = null;
-        const userConfigRegex = /^user\.(name|email) (.*)$/gm;
         do {
             match = userConfigRegex.exec(data);
-            if (match == null) {
-                break;
-             }
+            if (match == null) break;
 
             // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
             user[match[1] as 'name' | 'email'] = (' ' + match[2]).substr(1);
-        } while (match !== null);
+        } while (match != null);
 
         this._userMapCache.set(repoPath, user);
         return user;

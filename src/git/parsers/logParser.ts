@@ -237,18 +237,22 @@ export class GitLogParser {
         commits: Map<string, GitLogCommit>,
         authors: Map<string, GitAuthor>,
         recentCommit: GitLogCommit | undefined,
-        currentUser: {name?: string, email?: string} | undefined
+        currentUser: { name?: string; email?: string } | undefined
     ): GitLogCommit | undefined {
         if (commit === undefined) {
             if (entry.author !== undefined) {
                 if (
                     currentUser !== undefined &&
+                    // Name or e-mail is configured
                     (currentUser.name !== undefined || currentUser.email !== undefined) &&
+                    // Match on name if configured
                     (currentUser.name === undefined || currentUser.name === entry.author) &&
+                    // Match on email if configured
                     (currentUser.email === undefined || currentUser.email === entry.email)
                 ) {
                     entry.author = 'You';
                 }
+
                 let author = authors.get(entry.author);
                 if (author === undefined) {
                     author = {

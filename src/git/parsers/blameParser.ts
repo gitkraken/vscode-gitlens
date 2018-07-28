@@ -28,7 +28,7 @@ export class GitBlameParser {
         data: string,
         repoPath: string | undefined,
         fileName: string,
-        currentUser: { name?: string, email?: string } | undefined
+        currentUser: { name?: string; email?: string } | undefined
     ): GitBlame | undefined {
         if (!data) return undefined;
 
@@ -158,19 +158,23 @@ export class GitBlameParser {
         commits: Map<string, GitBlameCommit>,
         authors: Map<string, GitAuthor>,
         lines: GitCommitLine[],
-        currentUser: {name?: string, email?: string} | undefined
+        currentUser: { name?: string; email?: string } | undefined
     ) {
         let commit = commits.get(entry.sha);
         if (commit === undefined) {
             if (entry.author !== undefined) {
                 if (
                     currentUser !== undefined &&
+                    // Name or e-mail is configured
                     (currentUser.name !== undefined || currentUser.email !== undefined) &&
+                    // Match on name if configured
                     (currentUser.name === undefined || currentUser.name === entry.author) &&
+                    // Match on email if configured
                     (currentUser.email === undefined || currentUser.email === entry.authorEmail)
                 ) {
                     entry.author = 'You';
                 }
+
                 let author = authors.get(entry.author);
                 if (author === undefined) {
                     author = {
