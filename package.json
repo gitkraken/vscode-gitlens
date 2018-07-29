@@ -231,10 +231,9 @@
                             "blocks"
                         ],
                         "enumDescriptions": [
-                            "",
-"adds code lens at the top of the document",
-"adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)",
-"adds code lens at the start of block-like symbols (functions, methods, etc) lines"
+                            "Adds code lens at the top of the document",
+                            "Adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)",
+                            "Adds code lens at the start of block-like symbols (functions, methods, etc) lines"
                         ]
                     },
                     "minItems": 1,
