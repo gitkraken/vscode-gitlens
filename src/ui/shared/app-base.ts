@@ -1,7 +1,7 @@
 'use strict';
-import { DOM } from './../shared/dom';
 import { darken, lighten, opacity } from '../shared/colors';
 import { Bootstrap, Message, SaveSettingsMessage } from './../ipc';
+import { DOM } from './../shared/dom';
 
 interface VsCodeApi {
     postMessage(msg: {}): void;
@@ -16,7 +16,10 @@ export abstract class App<TBootstrap extends Bootstrap> {
     private _changes: { [key: string]: any } = Object.create(null);
     private _updating: boolean = false;
 
-    constructor(protected readonly appName: string, protected readonly bootstrap: TBootstrap) {
+    constructor(
+        protected readonly appName: string,
+        protected readonly bootstrap: TBootstrap
+    ) {
         this.log(`${this.appName}.ctor`);
 
         this._api = acquireVsCodeApi();
@@ -89,7 +92,8 @@ export abstract class App<TBootstrap extends Bootstrap> {
 
                 if (element.checked) {
                     set(setting, props.join('.'), fromCheckboxValue(element.value));
-                } else {
+                }
+                else {
                     set(setting, props.join('.'), false);
                 }
 
@@ -104,7 +108,8 @@ export abstract class App<TBootstrap extends Bootstrap> {
                         if (!setting.includes(element.value)) {
                             setting.push(element.value);
                         }
-                    } else {
+                    }
+                    else {
                         const i = setting.indexOf(element.value);
                         if (i !== -1) {
                             setting.splice(i, 1);
@@ -118,7 +123,8 @@ export abstract class App<TBootstrap extends Bootstrap> {
             default: {
                 if (element.checked) {
                     this._changes[element.name] = fromCheckboxValue(element.value);
-                } else {
+                }
+                else {
                     this._changes[element.name] = false;
                 }
 
@@ -329,6 +335,19 @@ export abstract class App<TBootstrap extends Bootstrap> {
 
             color = computedStyle.getPropertyValue('--link-color').trim();
             bodyStyle.setProperty('--link-color--darken-20', darken(color, 20));
+
+            bodyStyle.setProperty(
+                '--focus-border-color',
+                computedStyle.getPropertyValue('--vscode-focusBorder').trim()
+            );
+
+            color = computedStyle.getPropertyValue('--vscode-button-background').trim();
+            bodyStyle.setProperty('--button-background-color', color);
+            bodyStyle.setProperty('--button-background-color--darken-30', darken(color, 30));
+            bodyStyle.setProperty(
+                '--button-color',
+                computedStyle.getPropertyValue('--vscode-button-foreground').trim()
+            );
         };
 
         const observer = new MutationObserver(onColorThemeChanged);
@@ -363,7 +382,8 @@ export abstract class App<TBootstrap extends Bootstrap> {
                     option.selected = true;
                 }
             }
-        } finally {
+        }
+        finally {
             this._updating = false;
         }
 
@@ -386,13 +406,15 @@ export abstract class App<TBootstrap extends Bootstrap> {
             const disabled = !this.evaluateStateExpression(el.dataset.enablement!, state);
             if (disabled) {
                 el.setAttribute('disabled', '');
-            } else {
+            }
+            else {
                 el.removeAttribute('disabled');
             }
 
             if (el.matches('input,select')) {
                 (el as HTMLInputElement | HTMLSelectElement).disabled = disabled;
-            } else {
+            }
+            else {
                 const input = el.querySelector<HTMLInputElement | HTMLSelectElement>('input,select');
                 if (input == null) continue;
 
@@ -464,7 +486,8 @@ function flatten(o: { [key: string]: any }, path?: string): { [key: string]: any
 
         if (typeof value === 'object') {
             Object.assign(results, flatten(value, path === undefined ? key : `${path}.${key}`));
-        } else {
+        }
+        else {
             results[path === undefined ? key : `${path}.${key}`] = value;
         }
     }

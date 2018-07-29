@@ -1,7 +1,7 @@
 'use strict';
-import { DOM } from './../shared/dom';
-import { App } from '../shared/app-base';
 import { SettingsBootstrap } from '../ipc';
+import { App } from '../shared/app-base';
+import { DOM } from './../shared/dom';
 
 const bootstrap: SettingsBootstrap = (window as any).bootstrap;
 
@@ -84,8 +84,9 @@ export class SettingsApp extends App<SettingsBootstrap> {
         if (
             (e.target as HTMLElement).matches('i.icon__info') ||
             (e.target as HTMLElement).matches('a.link__learn-more')
-        )
+        ) {
             return;
+        }
 
         element.classList.toggle('collapsed');
     }

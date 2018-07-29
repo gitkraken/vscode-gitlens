@@ -24,13 +24,7 @@ a {
     }
 
     &:focus {
-        .vscode-light & {
-            outline-color: var(--background-color--darken-30);
-        }
-
-        .vscode-dark & {
-            outline-color: var(--background-color--lighten-30);
-        }
+        outline-color: var(--focus-border-color);
     }
 }
 
@@ -113,7 +107,7 @@ button {
     margin: 0;
 }
 
-input[type=checkbox] {
+input[type='checkbox'] {
     background: none;
     border: none;
     cursor: pointer;
@@ -132,18 +126,33 @@ input[type=checkbox] {
     }
 }
 
-input[type=text],
+input[type='text'],
 input:not([type]) {
     background: none;
-    border: 1px solid var(--color);
     color: var(--color);
     margin: 0 0.75em;
     max-width: 300px;
     padding: 4px;
     width: 100%;
 
+    .vscode-light & {
+        border: 1px solid rgba(0, 0, 0, 0.3);
+    }
+
+    .vscode-dark & {
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
     &:focus {
-        background: rgba(0, 0, 0, 0.1);
+        outline-color: var(--focus-border-color);
+
+        .vscode-light & {
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .vscode-dark & {
+            background-color: rgba(0, 0, 0, 0.2);
+        }
     }
 
     &[disabled] {
@@ -152,12 +161,12 @@ input:not([type]) {
     }
 
     &::placeholder {
-        color: var(--color--50);
+        color: var(--vscode-input-placeholderForeground);
     }
 }
 
 label {
-    cursor : pointer;
+    cursor: pointer;
 }
 
 section {
@@ -176,17 +185,29 @@ section {
 }
 
 select {
+    background: none;
     color: var(--color);
     cursor: pointer;
     margin: 0 0.75em;
     padding: 2px;
 
     .vscode-light & {
-        background-color: var(--background-color--darken-05);
+        border: 1px solid rgba(0, 0, 0, 0.3);
     }
 
     .vscode-dark & {
-        background-color: var(--background-color--lighten-05);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    &:focus {
+        outline-color: var(--focus-border-color);
+        .vscode-light & {
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .vscode-dark & {
+            background-color: rgba(0, 0, 0, 0.2);
+        }
     }
 
     &[disabled] {
@@ -202,6 +223,17 @@ select option {
 
     .vscode-dark & {
         background-color: var(--background-color--lighten-05);
+    }
+
+    &:focus {
+        outline-color: var(--focus-border-color);
+        .vscode-light & {
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .vscode-dark & {
+            background-color: rgba(0, 0, 0, 0.2);
+        }
     }
 }
 
@@ -237,13 +269,27 @@ ul {
 }
 
 .button--flat {
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    color: white !important;
+    .vscode-light & {
+        border: 1px solid rgba(0, 0, 0, 0.6);
+        color: black;
+    }
+    .vscode-dark & {
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        color: white !important;
+    }
     transition: background-color 250ms, border-color 250ms, color 250ms;
 
     &:hover {
-        background-color: white;
-        color: black !important;
+        .vscode-light & {
+            background-color: var(--button-background-color--darken-30);
+            border-color: var(--button-background-color--darken-30);
+            color: white !important;
+        }
+        .vscode-dark & {
+            background-color: white;
+            border-color: white;
+            color: black !important;
+        }
     }
 
     .preload & {
@@ -270,16 +316,23 @@ ul {
 }
 
 .button--flat-primary {
-    background-color: var(--link-color--darken-20);
-    border: 1px solid var(--link-color--darken-20);
-    color: white !important;
+    background-color: var(--button-background-color);
+    border: 1px solid var(--button-background-color);
+    color: var(--button-color) !important;
     font-weight: 600;
     transition: background-color 250ms, border-color 250ms, color 250ms;
 
     &:hover {
-        background-color: white;
-        border-color: white;
-        color: black !important;
+        .vscode-light & {
+            background-color: var(--button-background-color--darken-30);
+            border-color: var(--button-background-color--darken-30);
+            color: white !important;
+        }
+        .vscode-dark & {
+            background-color: white;
+            border-color: white;
+            color: black !important;
+        }
     }
 
     .preload & {
@@ -379,7 +432,7 @@ ul {
 
     &:before {
         border-left: 1px solid rgba(122, 122, 122, 0.15);
-        content: " ";
+        content: ' ';
         height: calc(100% + 7px);
         left: 37px;
         position: absolute;
@@ -499,7 +552,7 @@ ul {
 
     & p {
         margin-top: -1em;
-        opacity: 0.4;
+        opacity: 0.6;
     }
 }
 
@@ -538,7 +591,9 @@ ul {
     color: var(--color);
     outline: none;
 
-    &:hover, &:active, &:focus {
+    &:hover,
+    &:active,
+    &:focus {
         color: var(--color);
         outline: none;
     }
@@ -623,7 +678,8 @@ ul {
         background-color: var(--background-color--lighten-05);
     }
 
-    &:hover, &:focus {
+    &:hover,
+    &:focus {
         .vscode-light & {
             background-color: var(--background-color--darken-075);
         }
@@ -646,15 +702,14 @@ ul {
     }
 }
 
-.list-button__title{
+.list-button__title {
     font-size: 1em;
     font-weight: 400;
     margin: 0;
-    margin-bottom: .25em;
+    margin-bottom: 0.25em;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
 
 .list-button__detail {
     color: var(--color--75);
@@ -707,13 +762,14 @@ ul {
         margin-right: -9px;
     }
 
-    select, option {
+    select,
+    option {
         background-color: var(--background-color) !important;
     }
 }
 
 .page-header__subtitle {
-    color: var(--color--50);
+    color: var(--color--75);
     margin: 0.25em 0 0 0;
 }
 
@@ -732,7 +788,7 @@ ul {
 }
 
 .section__settings--multi {
-    & >.settings-group {
+    & > .settings-group {
         flex-basis: 100%;
         margin-left: 1em;
     }
@@ -889,7 +945,7 @@ ul {
     margin-bottom: 0.75em;
     position: relative;
 
-    & input[type=checkbox] {
+    & input[type='checkbox'] {
         flex: 16px 0 0;
         height: 16px;
         margin: 0 0.75em 0 0;
