@@ -3,10 +3,7 @@ const path = require('path');
 const nodeExternals = require('webpack-node-externals');
 
 module.exports = function(env, argv) {
-    if (env === undefined) {
-        env = {};
-    }
-
+    env = env || {};
     const production = !!env.production;
 
     return {

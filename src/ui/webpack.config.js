@@ -5,14 +5,10 @@ const path = require('path');
 const HtmlWebpackInlineSourcePlugin = require('html-webpack-inline-source-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const ImageminPlugin = require('imagemin-webpack-plugin').default;
-const MiniCssExtractPlugin = require("mini-css-extract-plugin");
-const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = function(env, argv) {
-    if (env === undefined) {
-        env = {};
-    }
-
+    env = env || {};
     const production = !!env.production;
 
     const quick = !production && !!env.quick;
@@ -34,14 +30,14 @@ module.exports = function(env, argv) {
             // inlineSource: '.(js|css)$',
             minify: minify
                 ? {
-                    removeComments: true,
-                    collapseWhitespace: true,
-                    removeRedundantAttributes: true,
-                    useShortDoctype: true,
-                    removeEmptyAttributes: true,
-                    removeStyleLinkTypeAttributes: true,
-                    keepClosingSlash: true
-                }
+                      removeComments: true,
+                      collapseWhitespace: true,
+                      removeRedundantAttributes: true,
+                      useShortDoctype: true,
+                      removeEmptyAttributes: true,
+                      removeStyleLinkTypeAttributes: true,
+                      keepClosingSlash: true
+                  }
                 : false
         }),
         new HtmlWebpackPlugin({
@@ -54,31 +50,17 @@ module.exports = function(env, argv) {
             // inlineSource: '.(js|css)$',
             minify: minify
                 ? {
-                    removeComments: true,
-                    collapseWhitespace: true,
-                    removeRedundantAttributes: true,
-                    useShortDoctype: true,
-                    removeEmptyAttributes: true,
-                    removeStyleLinkTypeAttributes: true,
-                    keepClosingSlash: true
-                }
+                      removeComments: true,
+                      collapseWhitespace: true,
+                      removeRedundantAttributes: true,
+                      useShortDoctype: true,
+                      removeEmptyAttributes: true,
+                      removeStyleLinkTypeAttributes: true,
+                      keepClosingSlash: true
+                  }
                 : false
         }),
-        new HtmlWebpackInlineSourcePlugin(),
-        new UglifyJsPlugin({
-            parallel: true,
-            sourceMap: sourceMaps,
-            uglifyOptions: {
-                ecma: 5,
-                compress: minify,
-                mangle: minify,
-                output: {
-                    beautify: !minify,
-                    comments: false,
-                    ecma: 5
-                }
-            }
-        })
+        new HtmlWebpackInlineSourcePlugin()
     ];
 
     if (!quick) {
@@ -109,6 +91,7 @@ module.exports = function(env, argv) {
             // main: ['./scss/main.scss']
         },
         mode: production ? 'production' : 'development',
+        devtool: sourceMaps ? 'eval-source-map' : undefined,
         output: {
             filename: '[name].js',
             path: path.resolve(__dirname, '../../', 'out/ui'),
@@ -116,26 +99,25 @@ module.exports = function(env, argv) {
         },
         optimization: {
             splitChunks: {
-              cacheGroups: {
-                styles: {
-                  name: 'styles',
-                  test: /\.css$/,
-                  chunks: 'all',
-                  enforce: true
+                cacheGroups: {
+                    styles: {
+                        name: 'styles',
+                        test: /\.css$/,
+                        chunks: 'all',
+                        enforce: true
+                    }
                 }
-              }
             }
         },
         resolve: {
-            extensions: ['.ts', '.js'],
+            extensions: ['.tsx', '.ts', '.js'],
             modules: [path.resolve(__dirname), 'node_modules']
         },
-        devtool: sourceMaps ? 'eval-source-map' : undefined,
         module: {
             rules: [
                 {
-                    test: /\.ts$/,
-                    use: [{ loader: 'ts-loader' }],
+                    test: /\.tsx?$/,
+                    use: 'ts-loader',
                     exclude: /node_modules/
                 },
                 {
