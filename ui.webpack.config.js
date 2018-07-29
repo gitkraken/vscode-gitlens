@@ -13,7 +13,7 @@ module.exports = function(env, argv) {
     const production = !!env.production;
     const optimizeImages = production || !!env.optimizeImages;
 
-    const clean = ['out/ui'];
+    const clean = [];
     if (optimizeImages) {
         console.log('Optimizing images (src/ui/images/settings/*.png)...');
         clean.push('images/settings');
