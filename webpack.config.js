@@ -1,10 +1,13 @@
 'use strict';
 const path = require('path');
 const nodeExternals = require('webpack-node-externals');
+const CleanWebpackPlugin = require("clean-webpack-plugin");
 
 module.exports = function(env, argv) {
     env = env || {};
     const production = !!env.production;
+
+    const plugins = [new CleanWebpackPlugin(["out"])];
 
     return {
         entry: './src/extension.ts',
@@ -28,6 +31,7 @@ module.exports = function(env, argv) {
                     exclude: /node_modules/
                 }
             ]
-        }
+        },
+        plugins: plugins
     };
 };

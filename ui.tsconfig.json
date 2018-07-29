@@ -3,21 +3,20 @@
     "compileOnSave": false,
     "compilerOptions": {
         "forceConsistentCasingInFileNames": true,
-        "lib": [ "es5", "dom", "dom.iterable",  "es2015", "es2015.iterable", "es2016" ],
+        "lib": ["es5", "dom", "dom.iterable", "es2015", "es2015.iterable", "es2016"],
         "module": "es2015",
         "moduleResolution": "node",
         "noFallthroughCasesInSwitch": true,
         "noImplicitReturns": true,
         "noUnusedLocals": true,
-        "outDir": "out",
+        "outDir": "out/ui",
         "removeComments": true,
-        "rootDir": ".",
+        "rootDir": "./src/ui",
         "skipLibCheck": true,
         "sourceMap": true,
         "strict": true,
         "target": "es2016"
     },
-    "exclude": [
-        "node_modules"
-    ]
+    "include": ["src/ui/**/*"],
+    "exclude": ["node_modules"]
 }
