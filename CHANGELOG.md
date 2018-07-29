@@ -5,9 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+### Added
+- Adds *Checkout Commit (via Terminal)* command (`gitlens.terminalCheckoutCommit`) to commit node(s) of the *GitLens* explorer &mdash; closes [#463](https://github.com/eamodio/vscode-gitlens/issues/463)
+
 ### Changed
 - Changes commit search by sha to jump directly to the commit (if one is found), rather than having to click through to the commit
 - Updates settings descriptions to better support the new settings editor in vscode
+- Changes *Rebase to Commit (via Terminal)* command (`gitlens.terminalRebaseCommit`) to apply to all commit node(s) of the *GitLens* explorer
+- Changes *Reset to Commit (via Terminal)* command (`gitlens.terminalResetCommit`) to apply to all commit node(s) of the *GitLens* explorer
 
 ### Fixed
 - Fixes [#462](https://github.com/eamodio/vscode-gitlens/issues/462) - Source Control shortcut on macOS (⌃⇧G) shouldn't be overridden

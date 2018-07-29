@@ -1937,6 +1937,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.explorers.terminalCheckoutCommit",
+                "title": "Checkout Commit (via Terminal)",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.explorers.terminalCherryPickCommit",
                 "title": "Cherry Pick Commit (via Terminal)",
                 "category": "GitLens"
@@ -2481,6 +2486,10 @@
                 },
                 {
                     "command": "gitlens.explorers.terminalSquashBranchIntoCommit",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.explorers.terminalCheckoutCommit",
                     "when": "false"
                 },
                 {
@@ -3094,22 +3103,27 @@
                 {
                     "command": "gitlens.explorers.terminalPushCommit",
                     "when": "viewItem == gitlens:commit:current",
-                    "group": "8_gitlens@1"
+                    "group": "8_gitlens@2"
                 },
                 {
                     "command": "gitlens.explorers.terminalRevertCommit",
                     "when": "viewItem == gitlens:commit:current",
-                    "group": "8_gitlens@1"
+                    "group": "8_gitlens@3"
+                },
+                {
+                    "command": "gitlens.explorers.terminalCheckoutCommit",
+                    "when": "viewItem =~ /gitlens:commit\\b/",
+                    "group": "8_gitlens@4"
                 },
                 {
                     "command": "gitlens.explorers.terminalRebaseCommit",
-                    "when": "viewItem == gitlens:commit:current",
-                    "group": "8_gitlens@2"
+                    "when": "viewItem =~ /gitlens:commit\\b/",
+                    "group": "8_gitlens@5"
                 },
                 {
                     "command": "gitlens.explorers.terminalResetCommit",
-                    "when": "viewItem == gitlens:commit:current",
-                    "group": "8_gitlens@3"
+                    "when": "viewItem =~ /gitlens:commit\\b/",
+                    "group": "8_gitlens@6"
                 },
                 {
                     "command": "gitlens.explorers.openFile",

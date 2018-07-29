@@ -85,6 +85,7 @@ export class ExplorerCommands extends Disposable {
             this.terminalSquashBranchIntoCommit,
             this
         );
+        commands.registerCommand('gitlens.explorers.terminalCheckoutCommit', this.terminalCheckoutCommit, this);
         commands.registerCommand('gitlens.explorers.terminalCherryPickCommit', this.terminalCherryPickCommit, this);
         commands.registerCommand('gitlens.explorers.terminalPushCommit', this.terminalPushCommit, this);
         commands.registerCommand('gitlens.explorers.terminalRebaseCommit', this.terminalRebaseCommit, this);
@@ -369,6 +370,12 @@ export class ExplorerCommands extends Disposable {
         if (!(node instanceof BranchNode)) return;
 
         this.sendTerminalCommand('merge', `--squash ${node.ref}`, node.repoPath);
+    }
+
+    terminalCheckoutCommit(node: ExplorerNode) {
+        if (!(node instanceof CommitNode)) return;
+
+        this.sendTerminalCommand('checkout', `${node.ref}`, node.repoPath);
     }
 
     terminalCherryPickCommit(node: ExplorerNode) {
