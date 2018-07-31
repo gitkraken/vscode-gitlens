@@ -1,5 +1,4 @@
 'use strict';
-const webpack = require('webpack');
 const glob = require('glob');
 const path = require('path');
 const CleanWebpackPlugin = require('clean-webpack-plugin');
@@ -21,7 +20,6 @@ module.exports = function(env, argv) {
 
     const plugins = [
         new CleanWebpackPlugin(clean),
-        new webpack.optimize.ModuleConcatenationPlugin(),
         new MiniCssExtractPlugin({
             filename: '[name].css'
         }),
