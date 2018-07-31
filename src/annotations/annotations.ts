@@ -3,7 +3,8 @@ import {
     DecorationOptions,
     MarkdownString,
     ThemableDecorationRenderOptions,
-    ThemeColor
+    ThemeColor,
+    workspace
 } from 'vscode';
 import {
     DiffWithCommand,
@@ -272,26 +273,26 @@ export class Annotations {
         format: string,
         options: ICommitFormatOptions
     ): IRenderOptions {
-        // Get the width of all the tokens, assuming there there is a cap (bail if not)
-        let width = 0;
+        // Get the character count of all the tokens, assuming there there is a cap (bail if not)
+        let chars = 0;
         for (const token of Objects.values(options.tokenOptions!)) {
             if (token === undefined) continue;
 
             // If any token is uncapped, kick out and set no max
             if (token.truncateTo == null) {
-                width = -1;
+                chars = -1;
                 break;
             }
 
-            width += token.truncateTo;
+            chars += token.truncateTo;
         }
 
-        if (width >= 0) {
-            // Add the width of the template string (without tokens)
-            width += Strings.getWidth(Strings.interpolate(format, undefined));
-            // If we have some width, add a bit of padding
-            if (width > 0) {
-                width += 3;
+        if (chars >= 0) {
+            // Add the chars of the template string (without tokens)
+            chars += Strings.getWidth(Strings.interpolate(format, undefined));
+            // If we have chars, add a bit of padding
+            if (chars > 0) {
+                chars += 3;
             }
         }
 
@@ -302,6 +303,17 @@ export class Annotations {
             borderWidth = heatmap.location === 'left' ? '0 0 0 2px' : '0 2px 0 0';
         }
 
+        let width;
+        if (chars >= 0) {
+            const spacing = workspace.getConfiguration('editor').get<number>('letterSpacing');
+            if (spacing != null && spacing !== 0) {
+                width = `calc(${chars}ch + ${Math.round(chars * spacing)}px)`;
+            }
+            else {
+                width = `${chars}ch`;
+            }
+        }
+
         return {
             backgroundColor: new ThemeColor('gitlens.gutterBackgroundColor'),
             borderStyle: borderStyle,
@@ -310,9 +322,9 @@ export class Annotations {
             fontWeight: 'normal',
             fontStyle: 'normal',
             height: '100%',
-            margin: '0 26px -1px 0',
+            margin: `0 26px -1px 0`,
             textDecoration: separateLines ? 'overline solid rgba(0, 0, 0, .2)' : 'none',
-            width: width >= 0 ? `${width}ch` : undefined,
+            width: width,
             uncommittedColor: new ThemeColor('gitlens.gutterUncommittedForegroundColor')
         } as IRenderOptions;
     }

@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 - Fixes [#462](https://github.com/eamodio/vscode-gitlens/issues/462) - Source Control shortcut on macOS (⌃⇧G) shouldn't be overridden
 - Fixes [#457](https://github.com/eamodio/vscode-gitlens/issues/457) - Displays the wrong username (You) &mdash; thanks to [PR #460](https://github.com/eamodio/vscode-gitlens/pull/460) by Zyck ([@qzyse2017](https://github.com/qzyse2017))
+- Fixes [#459](https://github.com/eamodio/vscode-gitlens/issues/459) - File blame annotation text overflow with letter spacing setting
 - Fixes issues with GitLens Welcome and the interactive settings editor with light themes
 
 ## [8.5.3] - 2018-07-25
