@@ -52,9 +52,10 @@ export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = I
 
         let max = options.truncateTo;
 
-        const width = Strings.width(s);
         if (max === undefined) {
             if (this.collapsableWhitespace === 0) return s;
+
+            const width = Strings.getWidth(s);
 
             // If we have left over whitespace make sure it gets re-added
             const diff = this.collapsableWhitespace - width;
@@ -62,27 +63,28 @@ export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = I
 
             if (diff <= 0) return s;
             if (options.truncateTo === undefined) return s;
-            return Strings.padLeft(s, diff);
+            return Strings.padLeft(s, diff, undefined, width);
         }
 
         max += this.collapsableWhitespace;
         this.collapsableWhitespace = 0;
 
+        const width = Strings.getWidth(s);
         const diff = max - width;
         if (diff > 0) {
             if (options.collapseWhitespace) {
                 this.collapsableWhitespace = diff;
             }
 
-            if (options.padDirection === 'left') return Strings.padLeft(s, max);
+            if (options.padDirection === 'left') return Strings.padLeft(s, max, undefined, width);
 
             if (options.collapseWhitespace) {
                 max -= diff;
             }
-            return Strings.padRight(s, max);
+            return Strings.padRight(s, max, undefined, width);
         }
 
-        if (diff < 0) return Strings.truncate(s, max);
+        if (diff < 0) return Strings.truncate(s, max, undefined, width);
 
         return s;
     }

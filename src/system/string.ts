@@ -74,37 +74,37 @@ export namespace Strings {
         return `${before === 0 ? '' : padding.repeat(before)}${s}${after === 0 ? '' : padding.repeat(after)}`;
     }
 
-    export function padLeft(s: string, padTo: number, padding: string = '\u00a0') {
-        const diff = padTo - width(s);
+    export function padLeft(s: string, padTo: number, padding: string = '\u00a0', width?: number) {
+        const diff = padTo - (width || getWidth(s));
         return diff <= 0 ? s : padding.repeat(diff) + s;
     }
 
-    export function padLeftOrTruncate(s: string, max: number, padding?: string) {
-        const len = width(s);
-        if (len < max) return padLeft(s, max, padding);
-        if (len > max) return truncate(s, max);
+    export function padLeftOrTruncate(s: string, max: number, padding?: string, width?: number) {
+        width = width || getWidth(s);
+        if (width < max) return padLeft(s, max, padding, width);
+        if (width > max) return truncate(s, max, undefined, width);
         return s;
     }
 
-    export function padRight(s: string, padTo: number, padding: string = '\u00a0') {
-        const diff = padTo - width(s);
+    export function padRight(s: string, padTo: number, padding: string = '\u00a0', width?: number) {
+        const diff = padTo - (width || getWidth(s));
         return diff <= 0 ? s : s + padding.repeat(diff);
     }
 
-    export function padOrTruncate(s: string, max: number, padding?: string) {
+    export function padOrTruncate(s: string, max: number, padding?: string, width?: number) {
         const left = max < 0;
         max = Math.abs(max);
 
-        const len = width(s);
-        if (len < max) return left ? padLeft(s, max, padding) : padRight(s, max, padding);
-        if (len > max) return truncate(s, max);
+        width = width || getWidth(s);
+        if (width < max) return left ? padLeft(s, max, padding, width) : padRight(s, max, padding, width);
+        if (width > max) return truncate(s, max, undefined, width);
         return s;
     }
 
-    export function padRightOrTruncate(s: string, max: number, padding?: string) {
-        const len = width(s);
-        if (len < max) return padRight(s, max, padding);
-        if (len > max) return truncate(s, max);
+    export function padRightOrTruncate(s: string, max: number, padding?: string, width?: number) {
+        width = width || getWidth(s);
+        if (width < max) return padRight(s, max, padding, width);
+        if (width > max) return truncate(s, max);
         return s;
     }
 
@@ -122,18 +122,18 @@ export namespace Strings {
             .digest(encoding);
     }
 
-    export function truncate(s: string, truncateTo: number, ellipsis: string = '\u2026') {
+    export function truncate(s: string, truncateTo: number, ellipsis: string = '\u2026', width?: number) {
         if (!s) return s;
 
-        const len = width(s);
-        if (len <= truncateTo) return s;
-        if (len === s.length) return `${s.substring(0, truncateTo - 1)}${ellipsis}`;
+        width = width || getWidth(s);
+        if (width <= truncateTo) return s;
+        if (width === s.length) return `${s.substring(0, truncateTo - 1)}${ellipsis}`;
 
         // Skip ahead to start as far as we can by assuming all the double-width characters won't be truncated
-        let chars = Math.floor(truncateTo / (len / s.length));
-        let count = width(s.substring(0, chars));
+        let chars = Math.floor(truncateTo / (width / s.length));
+        let count = getWidth(s.substring(0, chars));
         while (count < truncateTo) {
-            count += width(s[chars++]);
+            count += getWidth(s[chars++]);
         }
 
         if (count >= truncateTo) {
@@ -144,9 +144,13 @@ export namespace Strings {
     }
 
     const ansiRegex = /[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PRZcf-ntqry=><~]))/g;
+    const containsNonAsciiRegex = /[^\x20-\x7F\u00a0\u2026]/;
 
-    export function width(s: string): number {
-        if (!s || s.length === 0) return 0;
+    export function getWidth(s: string): number {
+        if (s == null || s.length === 0) return 0;
+
+        // Shortcut to avoid needless string `RegExp`s, replacements, and allocations
+        if (!containsNonAsciiRegex.test(s)) return s.length;
 
         s = s.replace(ansiRegex, '');
 

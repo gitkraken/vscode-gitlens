@@ -68,7 +68,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
                         before: {
                             ...gutter.renderOptions!.before,
                             contentText: GlyphChars.Space.repeat(
-                                Strings.width(gutter.renderOptions!.before!.contentText!)
+                                Strings.getWidth(gutter.renderOptions!.before!.contentText!)
                             )
                         }
                     };

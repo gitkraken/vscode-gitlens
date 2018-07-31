@@ -288,7 +288,7 @@ export class Annotations {
 
         if (width >= 0) {
             // Add the width of the template string (without tokens)
-            width += Strings.width(Strings.interpolate(format, undefined));
+            width += Strings.getWidth(Strings.interpolate(format, undefined));
             // If we have some width, add a bit of padding
             if (width > 0) {
                 width += 3;
