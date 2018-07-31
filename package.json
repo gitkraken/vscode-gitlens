@@ -3538,7 +3538,7 @@
         "clean": "git clean -Xdf",
         "lint": "tslint --project tsconfig.json && npm run ui:lint",
         "pack": "vsce package",
-        "pretty": "prettier --config .prettierrc --loglevel warn --write \"./**/*.ts\"",
+        "pretty": "prettier --config .prettierrc --loglevel warn --write \"./**/*.ts\" && tslint --project tsconfig.json --fix && tslint --project ui.tsconfig.json --fix",
         "pub": "vsce publish",
         "rebuild": "npm run reset && npm run lint && tsc -m commonjs -p ./ && npm run ui:build",
         "reset": "npm run clean && npm install --no-save",
