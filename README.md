@@ -21,13 +21,19 @@
 - Adds tag annotations to the tag tooltips in the *GitLens* explorer &mdash; closes [#431](https://github.com/eamodio/vscode-gitlens/issues/431)
 - Adds *Choose from Branch or Tag History...* to the quick pick menu shown by the *Show File History...* command (`gitlens.showQuickFileHistory`) &mdash; closes [#316](https://github.com/eamodio/vscode-gitlens/issues/316)
 - Adds the *Compare File with Revision...* command (`gitlens.diffWithRevision`) as an alternate (`alt+click`) for the *Compare File with Previous Revision* command in the editor toolbar
+- Adds *Checkout Commit (via Terminal)* command (`gitlens.terminalCheckoutCommit`) to commit node(s) of the *GitLens* explorer &mdash; closes [#463](https://github.com/eamodio/vscode-gitlens/issues/463)
 - Adds `gitlens.historyExplorer.avatars` setting to specify whether to show avatar images instead of status icons in the *GitLens File History* explorer &mdash; allows for an independent value from the other explorers
 - Adds a `gitlens.hovers.avatars` setting to specify whether to show avatar images in hovers &mdash; closes [#432](https://github.com/eamodio/vscode-gitlens/issues/432) thanks to [PR #441](https://github.com/eamodio/vscode-gitlens/pull/441) by Segev Finer ([@segevfiner](https://github.com/segevfiner))
 - Adds the `gitlens.hovers.avatars` setting to the *GitLens* interactive settings editor to specify whether to show avatar images in hovers
+- Improves performance of providing blame annotations, especially for large files (a ~33% improvement on some files)
+- Changes commit search by sha to jump directly to the commit (if one is found), rather than having to click through to the commit
 - Renames the *GitLens History* explorer to *GitLens File History* explorer for better clarity
 - Changes the *GitLens File History* explorer to always show the full file history even when reviewing revisions
 - Changes the behavior of and renames the *Show Branches and Tags* command and on the quick pick menu shown by the *Compare File with Revision...* command (`gitlens.diffWithRevision`) to *Choose from Branch or Tag History...*
 - Changes the behavior of and renames the *Show Branches and Tags* command on the quick pick menu shown by the *Open Revision...* command (`gitlens.openFileRevision`) to *Choose from Branch or Tag History...*
+- Changes *Rebase to Commit (via Terminal)* command (`gitlens.terminalRebaseCommit`) to apply to all commit node(s) of the *GitLens* explorer
+- Changes *Reset to Commit (via Terminal)* command (`gitlens.terminalResetCommit`) to apply to all commit node(s) of the *GitLens* explorer
+- Updates settings descriptions to better support the new settings editor in vscode
 - Removes `gitlens:activeIsTracked`, `gitlens:activeIsBlameable`, `gitlens:activeIsRevision`, and `gitlens:activeHasRemotes` contexts and consolidates them into `gitlens:activeFileStatus` for better performance and UX
 - Fixes [#436](https://github.com/eamodio/vscode-gitlens/issues/436) - Copy to clipboard not working
 - Fixes [#442](https://github.com/eamodio/vscode-gitlens/issues/442) - GitLens File History fails if name (or path) starts with `-`
@@ -38,6 +44,10 @@
 - Fixes [#451](https://github.com/eamodio/vscode-gitlens/issues/451) - "apply Changes" has discarded all my changes
 - Fixes [#449](https://github.com/eamodio/vscode-gitlens/issues/449) - Stop hiding explorers by default when in Zen mode
 - Fixes [#454](https://github.com/eamodio/vscode-gitlens/issues/454) - Search for string returns merge commits (unlike raw `git log -S`)
+- Fixes [#462](https://github.com/eamodio/vscode-gitlens/issues/462) - Source Control shortcut on macOS (⌃⇧G) shouldn't be overridden
+- Fixes [#457](https://github.com/eamodio/vscode-gitlens/issues/457) - Displays the wrong username (You) &mdash; thanks to [PR #460](https://github.com/eamodio/vscode-gitlens/pull/460) by Zyck ([@qzyse2017](https://github.com/qzyse2017))
+- Fixes [#459](https://github.com/eamodio/vscode-gitlens/issues/459) - File blame annotation text overflow with letter spacing setting
+- Fixes issues with GitLens Welcome and the interactive settings editor with light themes
 - Fixes issue where commands in the editor toolbar would flash unnecessarily when navigating history or switching tabs
 - Fixes issue where the *Compare File with Previous Revision* command wouldn't work properly when the file had been renamed in some cases
 - Fixes issue where the *Compare File with Next Revision* command wouldn't work properly when the file had been renamed in some cases
