@@ -7,11 +7,10 @@
         "moduleResolution": "node",
         "noFallthroughCasesInSwitch": true,
         "noImplicitReturns": true,
-        "noUnusedLocals": true,
+        "noUnusedLocals": false,
         "outDir": "out",
         "removeComments": true,
         "rootDir": "./src",
-        "skipLibCheck": true,
         "sourceMap": true,
         "strict": true,
         "target": "es2017"
