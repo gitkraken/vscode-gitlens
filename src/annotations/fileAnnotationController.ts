@@ -55,7 +55,7 @@ export const Decorations = {
     recentChangesHighlight: undefined as TextEditorDecorationType | undefined
 };
 
-export class FileAnnotationController extends Disposable {
+export class FileAnnotationController implements Disposable {
     private _onDidToggleAnnotations = new EventEmitter<void>();
     get onDidToggleAnnotations(): Event<void> {
         return this._onDidToggleAnnotations.event;
@@ -70,8 +70,6 @@ export class FileAnnotationController extends Disposable {
     private _annotationType: FileAnnotationType | undefined = undefined;
 
     constructor() {
-        super(() => this.dispose());
-
         this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
 
         this._toggleModes = new Map();

@@ -11,15 +11,13 @@ import {
 } from '../trackers/gitDocumentTracker';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
 
-export class CodeLensController extends Disposable {
+export class CodeLensController implements Disposable {
     private _canToggle: boolean = false;
     private _disposable: Disposable | undefined;
     private _provider: GitCodeLensProvider | undefined;
     private _providerDisposable: Disposable | undefined;
 
     constructor() {
-        super(() => this.dispose());
-
         this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
         this.onConfigurationChanged(configuration.initializingChangeEvent);
     }

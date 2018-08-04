@@ -31,7 +31,7 @@ import {
 
 export * from './nodes';
 
-export class ResultsExplorer extends Disposable implements TreeDataProvider<ExplorerNode> {
+export class ResultsExplorer implements TreeDataProvider<ExplorerNode>, Disposable {
     private _disposable: Disposable | undefined;
     private _roots: ExplorerNode[] = [];
     private _tree: TreeView<ExplorerNode> | undefined;
@@ -42,8 +42,6 @@ export class ResultsExplorer extends Disposable implements TreeDataProvider<Expl
     }
 
     constructor() {
-        super(() => this.dispose());
-
         Container.explorerCommands;
         commands.registerCommand('gitlens.resultsExplorer.refresh', this.refreshNodes, this);
         commands.registerCommand('gitlens.resultsExplorer.refreshNode', this.refreshNode, this);

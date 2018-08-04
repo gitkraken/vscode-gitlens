@@ -18,14 +18,12 @@ import { configuration } from '../configuration';
 import { Container } from '../container';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 
-export class LineHoverController extends Disposable {
+export class LineHoverController implements Disposable {
     private _debugSessionEndDisposable: Disposable | undefined;
     private _disposable: Disposable;
     private _hoverProviderDisposable: Disposable | undefined;
 
     constructor() {
-        super(() => this.dispose());
-
         this._disposable = Disposable.from(
             configuration.onDidChange(this.onConfigurationChanged, this),
             debug.onDidStartDebugSession(this.onDebugSessionStarted, this)

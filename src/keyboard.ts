@@ -19,12 +19,10 @@ export declare interface KeyMapping {
 
 const mappings: KeyMapping[] = [];
 
-export class KeyboardScope extends Disposable {
+export class KeyboardScope implements Disposable {
     constructor(
         private readonly mapping: KeyMapping
     ) {
-        super(() => this.dispose());
-
         for (const key in mapping) {
             mapping[key] = mapping[key] || keyNoopCommand;
         }
@@ -81,12 +79,10 @@ export class KeyboardScope extends Disposable {
     }
 }
 
-export class Keyboard extends Disposable {
+export class Keyboard implements Disposable {
     private _disposable: Disposable;
 
     constructor() {
-        super(() => this.dispose());
-
         const subscriptions = keys.map(key =>
             commands.registerCommand(`${extensionId}.key.${key}`, () => this.execute(key), this)
         );

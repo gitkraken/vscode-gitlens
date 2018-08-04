@@ -59,7 +59,7 @@ export enum RepositoryStorage {
     StatusNode = 'statusNode'
 }
 
-export class Repository extends Disposable {
+export class Repository implements Disposable {
     private _onDidChange = new EventEmitter<RepositoryChangeEvent>();
     get onDidChange(): Event<RepositoryChangeEvent> {
         return this._onDidChange.event;
@@ -95,8 +95,6 @@ export class Repository extends Disposable {
         suspended: boolean,
         closed: boolean = false
     ) {
-        super(() => this.dispose());
-
         if (root) {
             this.formattedName = folder.name;
         }

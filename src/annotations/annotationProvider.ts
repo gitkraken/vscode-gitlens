@@ -23,7 +23,7 @@ export enum AnnotationStatus {
 
 export type TextEditorCorrelationKey = string;
 
-export abstract class AnnotationProviderBase extends Disposable {
+export abstract class AnnotationProviderBase implements Disposable {
     static getCorrelationKey(editor: TextEditor | undefined): TextEditorCorrelationKey {
         return editor !== undefined ? (editor as any).id : '';
     }
@@ -42,8 +42,6 @@ export abstract class AnnotationProviderBase extends Disposable {
         protected decoration: TextEditorDecorationType,
         protected highlightDecoration: TextEditorDecorationType | undefined
     ) {
-        super(() => this.dispose());
-
         this.correlationKey = AnnotationProviderBase.getCorrelationKey(this.editor);
         this.document = this.editor.document;
 

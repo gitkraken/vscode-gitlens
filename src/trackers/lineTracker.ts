@@ -11,7 +11,7 @@ export interface LinesChangeEvent {
     readonly pending?: boolean;
 }
 
-export class LineTracker<T> extends Disposable {
+export class LineTracker<T> implements Disposable {
     private _onDidChangeActiveLines = new EventEmitter<LinesChangeEvent>();
     get onDidChangeActiveLines(): Event<LinesChangeEvent> {
         return this._onDidChangeActiveLines.event;
@@ -21,10 +21,6 @@ export class LineTracker<T> extends Disposable {
     private _editor: TextEditor | undefined;
 
     private readonly _state: Map<number, T | undefined> = new Map();
-
-    constructor() {
-        super(() => this.dispose());
-    }
 
     dispose() {
         this.stop();

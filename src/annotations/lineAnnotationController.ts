@@ -24,15 +24,13 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
     rangeBehavior: DecorationRangeBehavior.ClosedOpen
 } as DecorationRenderOptions);
 
-export class LineAnnotationController extends Disposable {
+export class LineAnnotationController implements Disposable {
     private _disposable: Disposable;
     private _debugSessionEndDisposable: Disposable | undefined;
     private _editor: TextEditor | undefined;
     private _enabled: boolean = false;
 
     constructor() {
-        super(() => this.dispose());
-
         this._disposable = Disposable.from(
             configuration.onDidChange(this.onConfigurationChanged, this),
             Container.fileAnnotations.onDidToggleAnnotations(this.onFileAnnotationsToggled, this),

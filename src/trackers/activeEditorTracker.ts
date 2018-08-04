@@ -3,13 +3,11 @@ import { commands, Disposable, TextEditor, window } from 'vscode';
 import { BuiltInCommands } from '../constants';
 import { Functions } from '../system';
 
-export class ActiveEditorTracker extends Disposable {
+export class ActiveEditorTracker implements Disposable {
     private _disposable: Disposable;
     private _resolver: ((editor: TextEditor | undefined) => void) | undefined;
 
     constructor() {
-        super(() => this.dispose());
-
         const fn = Functions.debounce((e: TextEditor | undefined) => this._resolver && this._resolver(e), 50);
         this._disposable = window.onDidChangeActiveTextEditor(fn);
     }

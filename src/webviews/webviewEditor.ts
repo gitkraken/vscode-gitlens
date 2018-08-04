@@ -16,14 +16,12 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 import { Message, SettingsChangedMessage } from '../ui/ipc';
 
-export abstract class WebviewEditor<TBootstrap> extends Disposable {
+export abstract class WebviewEditor<TBootstrap> implements Disposable {
     private _disposable: Disposable | undefined;
     private _disposablePanel: Disposable | undefined;
     private _panel: WebviewPanel | undefined;
 
     constructor() {
-        super(() => this.dispose());
-
         this._disposable = Disposable.from(
             configuration.onDidChange(this.onConfigurationChanged, this),
             ...this.registerCommands()

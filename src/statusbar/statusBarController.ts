@@ -7,14 +7,12 @@ import { Container } from '../container';
 import { CommitFormatter, GitCommit, ICommitFormatOptions } from '../gitService';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 
-export class StatusBarController extends Disposable {
+export class StatusBarController implements Disposable {
     private _blameStatusBarItem: StatusBarItem | undefined;
     private _disposable: Disposable;
     private _modeStatusBarItem: StatusBarItem | undefined;
 
     constructor() {
-        super(() => this.dispose());
-
         this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
         this.onConfigurationChanged(configuration.initializingChangeEvent);
     }

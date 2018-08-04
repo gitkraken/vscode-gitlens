@@ -12,7 +12,7 @@ export interface DocumentBlameStateChangeEvent<T> {
     readonly blameable: boolean;
 }
 
-export class TrackedDocument<T> extends Disposable {
+export class TrackedDocument<T> implements Disposable {
     private _onDidBlameStateChange = new EventEmitter<DocumentBlameStateChangeEvent<T>>();
     get onDidBlameStateChange(): Event<DocumentBlameStateChangeEvent<T>> {
         return this._onDidBlameStateChange.event;
@@ -31,8 +31,6 @@ export class TrackedDocument<T> extends Disposable {
         public dirty: boolean,
         private _eventDelegates: { onDidBlameStateChange(e: DocumentBlameStateChangeEvent<T>): void }
     ) {
-        super(() => this.dispose());
-
         this._repo = this.initialize(_document.uri);
     }
 

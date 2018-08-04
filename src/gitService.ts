@@ -78,7 +78,7 @@ export enum GitRepoSearchBy {
     Sha = 'sha'
 }
 
-export class GitService extends Disposable {
+export class GitService implements Disposable {
     static emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
     static deletedSha = 'ffffffffffffffffffffffffffffffffffffffff';
     static stagedUncommittedSha = Git.stagedUncommittedSha;
@@ -97,8 +97,6 @@ export class GitService extends Disposable {
     private _versionedUriCache: Map<string, GitUri>;
 
     constructor() {
-        super(() => this.dispose());
-
         this._repositoryTree = TernarySearchTree.forPaths();
         this._trackedCache = new Map();
         this._versionedUriCache = new Map();

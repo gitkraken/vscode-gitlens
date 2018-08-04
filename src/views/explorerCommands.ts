@@ -41,14 +41,12 @@ interface ICompareSelected {
     uri?: Uri;
 }
 
-export class ExplorerCommands extends Disposable {
+export class ExplorerCommands implements Disposable {
     private _disposable: Disposable | undefined;
     private _terminal: Terminal | undefined;
     private _terminalCwd: string | undefined;
 
     constructor() {
-        super(() => this.dispose());
-
         commands.registerCommand('gitlens.explorers.openChanges', this.openChanges, this);
         commands.registerCommand('gitlens.explorers.openChangesWithWorking', this.openChangesWithWorking, this);
         commands.registerCommand('gitlens.explorers.openFile', this.openFile, this);

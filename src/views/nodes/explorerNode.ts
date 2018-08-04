@@ -66,7 +66,7 @@ export type Explorer = GitExplorer | HistoryExplorer | ResultsExplorer;
 
 // let id = 0;
 
-export abstract class ExplorerNode extends Disposable {
+export abstract class ExplorerNode implements Disposable {
     readonly supportsPaging: boolean = false;
     maxCount: number | undefined;
 
@@ -77,7 +77,6 @@ export abstract class ExplorerNode extends Disposable {
     constructor(
         public readonly uri: GitUri
     ) {
-        super(() => this.dispose());
         // this.id = id++;
     }
 

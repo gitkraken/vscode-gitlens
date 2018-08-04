@@ -213,7 +213,7 @@ function isTextEditor(editor: any): editor is TextEditor {
     );
 }
 
-export abstract class Command extends Disposable {
+export abstract class Command implements Disposable {
     static getMarkdownCommandArgsCore<T>(command: Commands, args: T): string {
         return `command:${command}?${encodeURIComponent(JSON.stringify(args))}`;
     }
@@ -223,8 +223,6 @@ export abstract class Command extends Disposable {
     private _disposable: Disposable;
 
     constructor(command: Commands | Commands[]) {
-        super(() => this.dispose());
-
         if (typeof command === 'string') {
             this._disposable = commands.registerCommand(
                 command,
@@ -354,12 +352,10 @@ export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
     abstract execute(editor: TextEditor, ...args: any[]): any;
 }
 
-export abstract class EditorCommand extends Disposable {
+export abstract class EditorCommand implements Disposable {
     private _disposable: Disposable;
 
     constructor(command: Commands | Commands[]) {
-        super(() => this.dispose());
-
         if (!Array.isArray(command)) {
             command = [command];
         }

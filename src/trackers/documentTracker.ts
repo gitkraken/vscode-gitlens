@@ -34,7 +34,7 @@ export interface DocumentDirtyIdleTriggerEvent<T> {
     readonly document: TrackedDocument<T>;
 }
 
-export class DocumentTracker<T> extends Disposable {
+export class DocumentTracker<T> implements Disposable {
     private _onDidChangeBlameState = new EventEmitter<DocumentBlameStateChangeEvent<T>>();
     get onDidChangeBlameState(): Event<DocumentBlameStateChangeEvent<T>> {
         return this._onDidChangeBlameState.event;
@@ -55,8 +55,6 @@ export class DocumentTracker<T> extends Disposable {
     private readonly _documentMap: Map<TextDocument | string, TrackedDocument<T>> = new Map();
 
     constructor() {
-        super(() => this.dispose());
-
         this._disposable = Disposable.from(
             configuration.onDidChange(this.onConfigurationChanged, this),
             window.onDidChangeActiveTextEditor(this.onActiveTextEditorChanged, this),
