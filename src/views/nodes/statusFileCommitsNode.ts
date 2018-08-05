@@ -12,6 +12,7 @@ import {
     IStatusFormatOptions,
     StatusFileFormatter
 } from '../../gitService';
+import { Strings } from '../../system';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 
@@ -145,7 +146,7 @@ export class StatusFileCommitsNode extends ExplorerNode {
         }
 
         if (commits > 0) {
-            changedIn.push(`${commits} ${commits === 1 ? 'commit' : 'commits'}`);
+            changedIn.push(Strings.pluralize('commit', commits));
         }
 
         if (changedIn.length > 2) {

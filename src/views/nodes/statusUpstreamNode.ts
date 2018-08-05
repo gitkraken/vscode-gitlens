@@ -2,7 +2,7 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { GitStatus, GitUri } from '../../gitService';
-import { Iterables } from '../../system';
+import { Iterables, Strings } from '../../system';
 import { CommitNode } from './commitNode';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 
@@ -49,20 +49,17 @@ export class StatusUpstreamNode extends ExplorerNode {
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        const label =
-            this.direction === 'ahead'
-                ? `${this.status.state.ahead} ${this.status.state.ahead === 1 ? 'commit' : 'commits'} (ahead of ${
-                      this.status.upstream
-                  })`
-                : `${this.status.state.behind} ${this.status.state.behind === 1 ? 'commit' : 'commits'} (behind ${
-                      this.status.upstream
-                  })`;
+        const ahead = this.direction === 'ahead';
+        const label = ahead
+            ? `${Strings.pluralize('commit', this.status.state.ahead)} ahead`
+            : `${Strings.pluralize('commit', this.status.state.behind)} behind`;
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
         item.id = this.id;
         item.contextValue = ResourceType.StatusUpstream;
+        item.tooltip = `${label}${ahead ? ' of ' : ''}${this.status.upstream}`;
 
-        const iconSuffix = this.direction === 'ahead' ? 'upload' : 'download';
+        const iconSuffix = ahead ? 'upload' : 'download';
         item.iconPath = {
             dark: Container.context.asAbsolutePath(`images/dark/icon-${iconSuffix}.svg`),
             light: Container.context.asAbsolutePath(`images/light/icon-${iconSuffix}.svg`)

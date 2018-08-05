@@ -69,7 +69,7 @@ export class StatusFilesResultsNode extends ExplorerNode {
             const diff = await Container.git.getDiffStatus(this.uri.repoPath!, this.ref1, this.ref2);
 
             const count = diff !== undefined ? diff.length : 0;
-            const label = `${count === 0 ? 'No' : count} ${count === 1 ? 'file' : 'files'} changed`;
+            const label = `${Strings.pluralize('file', count, { zero: 'No' })} changed`;
 
             this._cache = {
                 label: label,

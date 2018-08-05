@@ -51,6 +51,7 @@ const defaultHeatmapHotColor = '#f66a0a';
 const defaultHeatmapColdColor = '#0a60f6';
 const escapeMarkdownRegEx = /[`\>\#\*\_\-\+\.]/g;
 // const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
+const markdownHeaderReplacement = `${GlyphChars.ZeroWidthSpace}===`;
 
 let computedHeatmapColor: {
     color: string;
@@ -154,7 +155,7 @@ export class Annotations {
                 // Escape markdown
                 .replace(escapeMarkdownRegEx, '\\$&')
                 // Escape markdown header (since the above regex won't match it)
-                .replace(/^===/gm, `${GlyphChars.ZeroWidthSpace}===`)
+                .replace(/^===/gm, markdownHeaderReplacement)
                 // Keep under the same block-quote
                 .replace(/\n/g, '  \n');
             message = `\n\n> ${message}`;

@@ -30,8 +30,7 @@ export class ComparisonResultsNode extends ExplorerNode {
             const count = log !== undefined ? log.count : 0;
             const truncated = log !== undefined ? log.truncated : false;
 
-            if (count === 1) return `1 commit`;
-            return `${count === 0 ? 'No' : `${count}${truncated ? '+' : ''}`} commits`;
+            return Strings.pluralize('commit', count, { number: truncated ? `${count}+` : undefined, zero: 'No' });
         };
 
         this.children = [

@@ -237,10 +237,11 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode>, Disposab
                     results.repoPath}`;
             }
 
-            if (count === 1) return `1 ${resultsType.singular} for ${resultsLabel.label}${repository}`;
-            return `${count === 0 ? 'No' : `${count}${truncated ? '+' : ''}`} ${resultsType.plural} for ${
-                resultsLabel.label
-            }${repository}`;
+            return `${Strings.pluralize(resultsType.singular, count, {
+                number: truncated ? `${count}+` : undefined,
+                plural: resultsType.plural,
+                zero: 'No'
+            })} for ${resultsLabel.label}${repository}`;
         };
 
         this.showResults(

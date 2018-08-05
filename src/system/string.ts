@@ -108,6 +108,18 @@ export namespace Strings {
         return s;
     }
 
+    export function pluralize(
+        s: string,
+        count: number,
+        options?: { number?: string; plural?: string; suffix?: string; zero?: string }
+    ) {
+        if (options === undefined) return `${count} ${s}${count === 1 ? '' : 's'}`;
+
+        return `${count === 0 ? options.zero || count : options.number || count} ${
+            count === 1 ? s : options.plural || `${s}${options.suffix}`
+        }`;
+    }
+
     // Removes \ / : * ? " < > | and C0 and C1 control codes
     const illegalCharsForFSRegEx = /[\\/:*?"<>|\x00-\x1f\x80-\x9f]/g;
 

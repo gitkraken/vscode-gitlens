@@ -57,17 +57,19 @@ export class GitStatus {
         if (options.expand) {
             let status = '';
             if (this._diff.added) {
-                status += `${this._diff.added} ${this._diff.added === 1 ? 'file' : 'files'} added`;
+                status += `${Strings.pluralize('file', this._diff.added)} added`;
             }
             if (this._diff.changed) {
-                status += `${status === '' ? '' : options.separator}${this._diff.changed} ${
-                    this._diff.changed === 1 ? 'file' : 'files'
-                } changed`;
+                status += `${status === '' ? '' : options.separator}${this._diff.changed} ${Strings.pluralize(
+                    'file',
+                    this._diff.changed
+                )} changed`;
             }
             if (this._diff.deleted) {
-                status += `${status === '' ? '' : options.separator}${this._diff.deleted} ${
-                    this._diff.deleted === 1 ? 'file' : 'files'
-                } deleted`;
+                status += `${status === '' ? '' : options.separator}${this._diff.deleted} ${Strings.pluralize(
+                    'file',
+                    this._diff.deleted
+                )} deleted`;
             }
             return `${options.prefix}${status}`;
         }
@@ -77,24 +79,30 @@ export class GitStatus {
         }`;
     }
 
-    getUpstreamStatus(options: { empty?: string; expand?: boolean; prefix?: string; separator?: string } = {}): string {
+    getUpstreamStatus(options: { empty?: string; expand?: boolean; prefix?: string; separator?: string }): string {
+        return GitStatus.getUpstreamStatus(this.upstream, this.state, options);
+    }
+
+    static getUpstreamStatus(
+        upstream: string | undefined,
+        state: { ahead: number; behind: number },
+        options: { empty?: string; expand?: boolean; prefix?: string; separator?: string } = {}
+    ): string {
         options = { empty: '', prefix: '', separator: ' ', ...options };
-        if (this.upstream === undefined || (this.state.behind === 0 && this.state.ahead === 0)) return options.empty!;
+        if (upstream === undefined || (state.behind === 0 && state.ahead === 0)) return options.empty!;
 
         if (options.expand) {
             let status = '';
-            if (this.state.behind) {
-                status += `${this.state.behind} ${this.state.behind === 1 ? 'commit' : 'commits'} behind`;
+            if (state.behind) {
+                status += `${Strings.pluralize('commit', state.behind)} behind`;
             }
-            if (this.state.ahead) {
-                status += `${status === '' ? '' : options.separator}${this.state.ahead} ${
-                    this.state.ahead === 1 ? 'commit' : 'commits'
-                } ahead`;
+            if (state.ahead) {
+                status += `${status === '' ? '' : options.separator}${Strings.pluralize('commit', state.ahead)} ahead`;
             }
             return `${options.prefix}${status}`;
         }
 
-        return `${options.prefix}${this.state.behind}${GlyphChars.ArrowDown}${options.separator}${this.state.ahead}${
+        return `${options.prefix}${state.behind}${GlyphChars.ArrowDown}${options.separator}${state.ahead}${
             GlyphChars.ArrowUp
         }`;
     }
