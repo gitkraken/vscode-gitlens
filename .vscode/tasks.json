@@ -21,46 +21,44 @@
             "script": "build",
             "group": "build",
             "problemMatcher": [
-                "$tsc",
-                "$tslint5"
-            ],
-        },
-        {
-            "type": "npm",
-            "script": "lint",
-            "group": "build",
-            "problemMatcher": [
-                "$tslint5"
-            ]
-        },
-        {
-            "type": "npm",
-            "script": "rebuild",
-            "problemMatcher": [
-                "$tsc",
-                "$tslint5"
-            ],
-            "group": "build"
-        },
-        {
-            "type": "npm",
-            "script": "watch",
-            "group": "build",
-            "isBackground": true,
-            "problemMatcher": [
-                "$tsc-watch"
-            ]
-        },
-        {
-            "type": "npm",
-            "script": "ui:watch",
-            "group": "build",
-            "isBackground": true,
-            "problemMatcher": [
                 {
+                    "fileLocation": "absolute",
                     "owner": "typescript",
+                    "pattern": [
+                        {
+                            "regexp": "\\[tsl\\] ERROR in (.*)?\\((\\d+),(\\d+)\\)",
+                            "file": 1,
+                            "line": 2,
+                            "column": 3
+                        },
+                        {
+                            "regexp": "\\s*TS\\d+:\\s*(.*)",
+                            "message": 1
+                        }
+                    ],
                     "severity": "error",
+                    "source": "ts"
+                },
+                {
                     "fileLocation": "relative",
+                    "owner": "typescript",
+                    "pattern": [
+                        {
+                            "regexp": "WARNING in (.*)",
+                            "file": 1
+                        },
+                        {
+                            "regexp": "Module Warning (.*)"
+                        },
+                        {
+                            "regexp": "\\[(\\d+), (\\d+)\\]: (.*)",
+                            "line": 1,
+                            "column": 2,
+                            "message": 3
+                        }
+                    ],
+                    "severity": "warning",
+                    "source": "tslint",
                     "background": {
                         "activeOnStart": true,
                         "beginsPattern": {
@@ -69,39 +67,42 @@
                         "endsPattern": {
                             "regexp": "Built at\\:(.*)"
                         }
-                    },
-                    "pattern": [
-                        {
-                            "regexp": "ERROR in \\[at-loader\\] ([^:]*):(\\d+):(\\d+)",
-                            "file": 1,
-                            "line": 2,
-                            "column": 3
-                        },
-                        {
-                            "regexp": "TS(.*)",
-                            "message": 1
-                        }
-                    ]
+                    }
                 }
             ]
         },
         {
-            "label": "watch",
-            "dependsOn": [
-                "npm: ui:watch",
-                "npm: watch"
-            ],
+            "type": "npm",
+            "script": "lint",
+            "group": "build",
+            "problemMatcher": ["$tslint5"]
+        },
+        {
+            "type": "npm",
+            "script": "watch",
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
             "isBackground": true,
             "problemMatcher": [
-                "$tsc-watch",
                 {
+                    "fileLocation": "absolute",
                     "owner": "typescript",
+                    "pattern": [
+                        {
+                            "regexp": "\\[tsl\\] ERROR in (.*)?\\((\\d+),(\\d+)\\)",
+                            "file": 1,
+                            "line": 2,
+                            "column": 3
+                        },
+                        {
+                            "regexp": "\\s*TS\\d+:\\s*(.*)",
+                            "message": 1
+                        }
+                    ],
                     "severity": "error",
-                    "fileLocation": "relative",
+                    "source": "ts",
                     "background": {
                         "activeOnStart": true,
                         "beginsPattern": {
@@ -110,19 +111,37 @@
                         "endsPattern": {
                             "regexp": "Built at\\:(.*)"
                         }
-                    },
+                    }
+                },
+                {
+                    "fileLocation": "relative",
+                    "owner": "typescript",
                     "pattern": [
                         {
-                            "regexp": "ERROR in \\[at-loader\\] ([^:]*):(\\d+):(\\d+)",
-                            "file": 1,
-                            "line": 2,
-                            "column": 3
+                            "regexp": "WARNING in (.*)",
+                            "file": 1
                         },
                         {
-                            "regexp": "TS(.*)",
-                            "message": 1
+                            "regexp": "Module Warning (.*)"
+                        },
+                        {
+                            "regexp": "\\[(\\d+), (\\d+)\\]: (.*)",
+                            "line": 1,
+                            "column": 2,
+                            "message": 3
                         }
-                    ]
+                    ],
+                    "severity": "warning",
+                    "source": "tslint",
+                    "background": {
+                        "activeOnStart": true,
+                        "beginsPattern": {
+                            "regexp": "webpack is watching the files..."
+                        },
+                        "endsPattern": {
+                            "regexp": "Built at\\:(.*)"
+                        }
+                    }
                 }
             ]
         }

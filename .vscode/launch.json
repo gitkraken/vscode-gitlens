@@ -7,29 +7,23 @@
             "type": "extensionHost",
             "request": "launch",
             "runtimeExecutable": "${execPath}",
-            "args": [
-                "--extensionDevelopmentPath=${workspaceRoot}"
-            ],
+            "args": ["--extensionDevelopmentPath=${workspaceRoot}"],
             "stopOnEntry": false,
+            "smartStep": true,
             "sourceMaps": true,
-            "outFiles": [
-                "${workspaceRoot}/out/**/*.js"
-            ]
+            "outFiles": ["${workspaceRoot}/out/**/*.js"]
         },
         {
             "name": "Watch & Launch GitLens",
             "type": "extensionHost",
             "request": "launch",
             "runtimeExecutable": "${execPath}",
-            "args": [
-                "--extensionDevelopmentPath=${workspaceRoot}"
-            ],
+            "args": ["--extensionDevelopmentPath=${workspaceRoot}"],
+            "smartStep": true,
             "stopOnEntry": false,
             "sourceMaps": true,
-            "outFiles": [
-                "${workspaceRoot}/out/**/*.js"
-            ],
-            "preLaunchTask": "watch"
+            "outFiles": ["${workspaceRoot}/out/**/*.js"],
+            "preLaunchTask": "npm: watch"
         }
     ]
 }
