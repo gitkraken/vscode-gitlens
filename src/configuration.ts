@@ -43,8 +43,9 @@ export class Configuration {
             `gitlens.${this.name('codeLens').value}`,
             `gitlens.${this.name('currentLine').value}`,
             `gitlens.${this.name('gitExplorer').value}`,
-            `gitlens.${this.name('historyExplorer').value}`,
+            `gitlens.${this.name('fileHistoryExplorer').value}`,
             `gitlens.${this.name('hovers').value}`,
+            `gitlens.${this.name('lineHistoryExplorer').value}`,
             `gitlens.${this.name('statusBar').value}`
         ];
     }

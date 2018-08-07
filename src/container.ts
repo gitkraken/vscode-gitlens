@@ -12,8 +12,9 @@ import { StatusBarController } from './statusbar/statusBarController';
 import { GitDocumentTracker } from './trackers/gitDocumentTracker';
 import { GitLineTracker } from './trackers/gitLineTracker';
 import { ExplorerCommands } from './views/explorerCommands';
+import { FileHistoryExplorer } from './views/fileHistoryExplorer';
 import { GitExplorer } from './views/gitExplorer';
-import { HistoryExplorer } from './views/historyExplorer';
+import { LineHistoryExplorer } from './views/lineHistoryExplorer';
 import { ResultsExplorer } from './views/resultsExplorer';
 import { SettingsEditor } from './webviews/settingsEditor';
 import { WelcomeEditor } from './webviews/welcomeEditor';
@@ -52,15 +53,28 @@ export class Container {
             });
         }
 
-        if (config.historyExplorer.enabled) {
-            context.subscriptions.push((this._historyExplorer = new HistoryExplorer()));
+        if (config.fileHistoryExplorer.enabled) {
+            context.subscriptions.push((this._fileHistoryExplorer = new FileHistoryExplorer()));
         }
         else {
             let disposable: Disposable;
             disposable = configuration.onDidChange(e => {
-                if (configuration.changed(e, configuration.name('historyExplorer')('enabled').value)) {
+                if (configuration.changed(e, configuration.name('fileHistoryExplorer')('enabled').value)) {
                     disposable.dispose();
-                    context.subscriptions.push((this._historyExplorer = new HistoryExplorer()));
+                    context.subscriptions.push((this._fileHistoryExplorer = new FileHistoryExplorer()));
+                }
+            });
+        }
+
+        if (config.lineHistoryExplorer.enabled) {
+            context.subscriptions.push((this._lineHistoryExplorer = new LineHistoryExplorer()));
+        }
+        else {
+            let disposable: Disposable;
+            disposable = configuration.onDidChange(e => {
+                if (configuration.changed(e, configuration.name('lineHistoryExplorer')('enabled').value)) {
+                    disposable.dispose();
+                    context.subscriptions.push((this._lineHistoryExplorer = new LineHistoryExplorer()));
                 }
             });
         }
@@ -99,6 +113,15 @@ export class Container {
         return this._fileAnnotationController;
     }
 
+    private static _fileHistoryExplorer: FileHistoryExplorer | undefined;
+    static get fileHistoryExplorer() {
+        if (this._fileHistoryExplorer === undefined) {
+            this._context.subscriptions.push((this._fileHistoryExplorer = new FileHistoryExplorer()));
+        }
+
+        return this._fileHistoryExplorer;
+    }
+
     private static _git: GitService;
     static get git() {
         return this._git;
@@ -109,15 +132,6 @@ export class Container {
         return this._gitExplorer!;
     }
 
-    private static _historyExplorer: HistoryExplorer | undefined;
-    static get historyExplorer() {
-        if (this._historyExplorer === undefined) {
-            this._context.subscriptions.push((this._historyExplorer = new HistoryExplorer()));
-        }
-
-        return this._historyExplorer;
-    }
-
     private static _keyboard: Keyboard;
     static get keyboard() {
         return this._keyboard;
@@ -126,6 +140,15 @@ export class Container {
     private static _lineAnnotationController: LineAnnotationController;
     static get lineAnnotations() {
         return this._lineAnnotationController;
+    }
+
+    private static _lineHistoryExplorer: LineHistoryExplorer | undefined;
+    static get lineHistoryExplorer() {
+        if (this._lineHistoryExplorer === undefined) {
+            this._context.subscriptions.push((this._lineHistoryExplorer = new LineHistoryExplorer()));
+        }
+
+        return this._lineHistoryExplorer;
     }
 
     private static _lineHoverController: LineHoverController;
@@ -187,7 +210,7 @@ export class Container {
             config.gitExplorer.enabled = mode.explorers;
         }
         if (mode.explorers != null) {
-            config.historyExplorer.enabled = mode.explorers;
+            config.fileHistoryExplorer.enabled = mode.explorers;
         }
         if (mode.hovers != null) {
             config.hovers.enabled = mode.hovers;

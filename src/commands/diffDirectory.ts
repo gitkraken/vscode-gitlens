@@ -5,7 +5,7 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
-import { ComparisonResultsNode } from '../views/nodes';
+import { ResultsComparisonNode } from '../views/nodes';
 import {
     ActiveEditorCommand,
     CommandContext,
@@ -38,7 +38,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
                 break;
 
             case Commands.ExplorersOpenDirectoryDiff:
-                if (context.type === 'view' && context.node instanceof ComparisonResultsNode) {
+                if (context.type === 'view' && context.node instanceof ResultsComparisonNode) {
                     args.ref1 = context.node.ref1.ref;
                     args.ref2 = context.node.ref2.ref;
                 }

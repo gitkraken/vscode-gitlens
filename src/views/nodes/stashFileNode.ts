@@ -1,7 +1,8 @@
 'use strict';
 import { GitLogCommit, IGitStatusFile } from '../../git/gitService';
+import { Explorer } from '../explorer';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
-import { Explorer, ResourceType } from './explorerNode';
+import { ResourceType } from './explorerNode';
 
 export class StashFileNode extends CommitFileNode {
     constructor(status: IGitStatusFile, commit: GitLogCommit, explorer: Explorer) {

@@ -5,7 +5,8 @@ import { ExplorerFilesLayout } from '../../configuration';
 import { Container } from '../../container';
 import { GitStatusFile, GitUri } from '../../git/gitService';
 import { Arrays, Iterables, Strings } from '../../system';
-import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
+import { Explorer } from '../explorer';
+import { ExplorerNode, ResourceType } from './explorerNode';
 import { FolderNode, IFileExplorerNode } from './folderNode';
 import { StatusFileNode } from './statusFileNode';
 

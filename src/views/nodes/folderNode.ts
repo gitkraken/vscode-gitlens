@@ -3,7 +3,8 @@ import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerFilesLayout, IExplorersFilesConfig } from '../../configuration';
 import { GitUri } from '../../git/gitService';
 import { Arrays, Objects } from '../../system';
-import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
+import { Explorer } from '../explorer';
+import { ExplorerNode, ResourceType } from './explorerNode';
 
 export interface IFileExplorerNode extends ExplorerNode {
     folderName: string;

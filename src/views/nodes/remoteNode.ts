@@ -20,6 +20,10 @@ export class RemoteNode extends ExplorerNode {
         super(uri);
     }
 
+    get id(): string {
+        return `gitlens:repository(${this.remote.repoPath}):remote(${this.remote.name})`;
+    }
+
     async getChildren(): Promise<ExplorerNode[]> {
         const branches = await this.repo.getBranches();
         if (branches === undefined) return [];
@@ -45,7 +49,14 @@ export class RemoteNode extends ExplorerNode {
             this.explorer.config.files.compact
         );
 
-        const root = new BranchOrTagFolderNode(this.repo.path, '', undefined, hierarchy, this.explorer);
+        const root = new BranchOrTagFolderNode(
+            'remote-branch',
+            this.repo.path,
+            '',
+            undefined,
+            hierarchy,
+            this.explorer
+        );
         const children = (await root.getChildren()) as (BranchOrTagFolderNode | BranchNode)[];
 
         return children;
@@ -74,6 +85,7 @@ export class RemoteNode extends ExplorerNode {
         } ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${this.remote.path}`;
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
+        item.id = this.id;
         item.contextValue = ResourceType.Remote;
         item.tooltip = `${this.remote.name}
 ${this.remote.path} (${this.remote.provider !== undefined ? this.remote.provider.name : this.remote.domain})`;

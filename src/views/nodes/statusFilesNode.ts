@@ -3,6 +3,7 @@ import * as path from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerFilesLayout } from '../../configuration';
 import { Container } from '../../container';
+import { GitStatusFile } from '../../git/git';
 import {
     GitCommitType,
     GitLog,
@@ -14,26 +15,24 @@ import {
 } from '../../git/gitService';
 import { Arrays, Iterables, Objects, Strings } from '../../system';
 import { GitExplorer } from '../gitExplorer';
-import { ExplorerNode, ResourceType, ShowAllNode } from './explorerNode';
+import { ExplorerNode, ResourceType } from './explorerNode';
 import { FolderNode, IFileExplorerNode } from './folderNode';
 import { StatusFileCommitsNode } from './statusFileCommitsNode';
 
 export class StatusFilesNode extends ExplorerNode {
     readonly repoPath: string;
-    readonly supportsPaging: boolean = true;
 
     constructor(
         public readonly status: GitStatus,
         public readonly range: string | undefined,
-        private readonly explorer: GitExplorer,
-        private readonly active: boolean = false
+        private readonly explorer: GitExplorer
     ) {
         super(GitUri.fromRepoPath(status.repoPath));
         this.repoPath = status.repoPath;
     }
 
     get id(): string {
-        return `gitlens:repository(${this.status.repoPath})${this.active ? ':active' : ''}:status:files`;
+        return `gitlens:repository(${this.status.repoPath}):status:files`;
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
@@ -43,15 +42,13 @@ export class StatusFilesNode extends ExplorerNode {
 
         let log: GitLog | undefined;
         if (this.range !== undefined) {
-            log = await Container.git.getLog(repoPath, { maxCount: this.maxCount, ref: this.range });
+            log = await Container.git.getLog(repoPath, { maxCount: 0, ref: this.range });
             if (log !== undefined) {
-                statuses = Array.from(
-                    Iterables.flatMap(log.commits.values(), c => {
-                        return c.fileStatuses.map(s => {
-                            return { ...s, commit: c } as IGitStatusFileWithCommit;
-                        });
-                    })
-                );
+                statuses = [
+                    ...Iterables.flatMap(log.commits.values(), c =>
+                        c.fileStatuses.map(s => ({ ...s, commit: c } as IGitStatusFileWithCommit))
+                    )
+                ];
             }
         }
 
@@ -66,91 +63,15 @@ export class StatusFilesNode extends ExplorerNode {
                         older.setMilliseconds(older.getMilliseconds() - 1);
 
                         return [
-                            {
-                                ...s,
-                                status: s.status,
-                                commit: new GitLogCommit(
-                                    GitCommitType.File,
-                                    repoPath,
-                                    GitService.uncommittedSha,
-                                    'You',
-                                    undefined,
-                                    new Date(),
-                                    '',
-                                    s.fileName,
-                                    [s],
-                                    s.status,
-                                    s.originalFileName,
-                                    GitService.stagedUncommittedSha,
-                                    s.fileName
-                                )
-                            } as IGitStatusFileWithCommit,
-                            {
-                                ...s,
-                                status: s.status,
-                                commit: new GitLogCommit(
-                                    GitCommitType.File,
-                                    repoPath,
-                                    GitService.stagedUncommittedSha,
-                                    'You',
-                                    undefined,
-                                    older,
-                                    '',
-                                    s.fileName,
-                                    [s],
-                                    s.status,
-                                    s.originalFileName,
-                                    'HEAD',
-                                    s.fileName
-                                )
-                            } as IGitStatusFileWithCommit
+                            this.toStatusFile(s, GitService.uncommittedSha, GitService.stagedUncommittedSha),
+                            this.toStatusFile(s, GitService.stagedUncommittedSha, 'HEAD', older)
                         ];
                     }
                     else if (s.indexStatus !== undefined) {
-                        return [
-                            {
-                                ...s,
-                                status: s.status,
-                                commit: new GitLogCommit(
-                                    GitCommitType.File,
-                                    repoPath,
-                                    GitService.stagedUncommittedSha,
-                                    'You',
-                                    undefined,
-                                    new Date(),
-                                    '',
-                                    s.fileName,
-                                    [s],
-                                    s.status,
-                                    s.originalFileName,
-                                    'HEAD',
-                                    s.fileName
-                                )
-                            } as IGitStatusFileWithCommit
-                        ];
+                        return [this.toStatusFile(s, GitService.stagedUncommittedSha, 'HEAD')];
                     }
                     else {
-                        return [
-                            {
-                                ...s,
-                                status: s.status,
-                                commit: new GitLogCommit(
-                                    GitCommitType.File,
-                                    repoPath,
-                                    GitService.uncommittedSha,
-                                    'You',
-                                    undefined,
-                                    new Date(),
-                                    '',
-                                    s.fileName,
-                                    [s],
-                                    s.status,
-                                    s.originalFileName,
-                                    'HEAD',
-                                    s.fileName
-                                )
-                            } as IGitStatusFileWithCommit
-                        ];
+                        return [this.toStatusFile(s, GitService.uncommittedSha, 'HEAD')];
                     }
                 })
             );
@@ -188,11 +109,6 @@ export class StatusFilesNode extends ExplorerNode {
             children.sort((a, b) => (a.priority ? -1 : 1) - (b.priority ? -1 : 1) || a.label!.localeCompare(b.label!));
         }
 
-        if (log !== undefined && log.truncated) {
-            (children as (IFileExplorerNode | ShowAllNode)[]).push(
-                new ShowAllNode('Show All Changes', this, this.explorer)
-            );
-        }
         return children;
     }
 
@@ -236,5 +152,31 @@ export class StatusFilesNode extends ExplorerNode {
 
     private get includeWorkingTree(): boolean {
         return this.explorer.config.includeWorkingTree;
+    }
+
+    private toStatusFile(s: GitStatusFile, ref: string, previousRef: string, date?: Date): IGitStatusFileWithCommit {
+        return {
+            status: s.status,
+            repoPath: s.repoPath,
+            indexStatus: s.indexStatus,
+            workTreeStatus: s.workTreeStatus,
+            fileName: s.fileName,
+            originalFileName: s.originalFileName,
+            commit: new GitLogCommit(
+                GitCommitType.File,
+                s.repoPath,
+                ref,
+                'You',
+                undefined,
+                date || new Date(),
+                '',
+                s.fileName,
+                [s],
+                s.status,
+                s.originalFileName,
+                previousRef,
+                s.fileName
+            )
+        };
     }
 }

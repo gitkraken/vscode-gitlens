@@ -7,8 +7,9 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { CommitFormatter, GitBranch, GitLogCommit, ICommitFormatOptions } from '../../git/gitService';
 import { Arrays, Iterables, Strings } from '../../system';
+import { Explorer } from '../explorer';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
-import { Explorer, ExplorerNode, ExplorerRefNode, ResourceType } from './explorerNode';
+import { ExplorerNode, ExplorerRefNode, ResourceType } from './explorerNode';
 import { FolderNode, IFileExplorerNode } from './folderNode';
 
 export class CommitNode extends ExplorerRefNode {

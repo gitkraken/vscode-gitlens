@@ -247,7 +247,7 @@ export class ShowCommitInResultsQuickPickItem extends CommandQuickPickItem {
     async execute(
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ): Promise<{} | undefined> {
-        await Container.resultsExplorer.showCommitInResults(this.commit);
+        await Container.resultsExplorer.addCommit(this.commit);
         return undefined;
     }
 }
@@ -267,7 +267,7 @@ export class ShowCommitsInResultsQuickPickItem extends CommandQuickPickItem {
     async execute(
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ): Promise<{} | undefined> {
-        Container.resultsExplorer.showCommitsInResults(this.results, this.resultsLabel);
+        await Container.resultsExplorer.addSearchResults(this.results, this.resultsLabel);
         return undefined;
     }
 }
