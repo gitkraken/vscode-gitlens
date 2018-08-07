@@ -6,7 +6,7 @@ import { extensionOutputChannelName } from './constants';
 
 const ConsolePrefix = `[${extensionOutputChannelName}]`;
 
-const isDebuggingRegex = /^--inspect(-brk)?=?/;
+const isDebuggingRegex = /^--(debug|inspect)\b(-brk\b|(?!-))=?/;
 
 export class Logger {
     static level: OutputLevel = OutputLevel.Silent;
