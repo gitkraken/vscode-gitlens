@@ -5,7 +5,7 @@ import { ResultsExplorer } from '../resultsExplorer';
 import { CommitNode } from './commitNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 
-export class CommitResultsNode extends ExplorerNode {
+export class ResultsCommitNode extends ExplorerNode {
     constructor(
         public readonly commit: GitLogCommit,
         private readonly explorer: ResultsExplorer

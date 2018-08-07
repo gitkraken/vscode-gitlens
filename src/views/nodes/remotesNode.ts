@@ -4,21 +4,21 @@ import { Container } from '../../container';
 import { GitUri, Repository } from '../../git/gitService';
 import { Iterables } from '../../system';
 import { GitExplorer } from '../gitExplorer';
-import { ExplorerNode, MessageNode, ResourceType } from './explorerNode';
+import { MessageNode } from './common';
+import { ExplorerNode, ResourceType } from './explorerNode';
 import { RemoteNode } from './remoteNode';
 
 export class RemotesNode extends ExplorerNode {
     constructor(
         uri: GitUri,
         private readonly repo: Repository,
-        private readonly explorer: GitExplorer,
-        private readonly active: boolean = false
+        private readonly explorer: GitExplorer
     ) {
         super(uri);
     }
 
     get id(): string {
-        return `gitlens:repository(${this.repo.path})${this.active ? ':active' : ''}:remotes`;
+        return `gitlens:repository(${this.repo.path}):remotes`;
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
@@ -31,6 +31,7 @@ export class RemotesNode extends ExplorerNode {
 
     getTreeItem(): TreeItem {
         const item = new TreeItem(`Remotes`, TreeItemCollapsibleState.Collapsed);
+        item.id = this.id;
         item.contextValue = ResourceType.Remotes;
 
         item.iconPath = {

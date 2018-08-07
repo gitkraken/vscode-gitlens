@@ -13,8 +13,9 @@ import {
     StatusFileFormatter
 } from '../../git/gitService';
 import { Strings } from '../../system';
+import { Explorer } from '../explorer';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
-import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
+import { ExplorerNode, ResourceType } from './explorerNode';
 
 export class StatusFileCommitsNode extends ExplorerNode {
     constructor(

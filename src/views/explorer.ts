@@ -6,91 +6,171 @@ import {
     EventEmitter,
     TreeDataProvider,
     TreeItem,
-    TreeView
+    TreeView,
+    TreeViewVisibilityChangeEvent,
+    window
 } from 'vscode';
-// import { configuration } from '../configuration';
-// import { Container } from '../container';
+import { configuration } from '../configuration';
+import { Container } from '../container';
 import { Logger } from '../logger';
 import { RefreshNodeCommandArgs } from './explorerCommands';
-import { ExplorerNode, RefreshReason } from './nodes';
+import { FileHistoryExplorer } from './fileHistoryExplorer';
+import { GitExplorer } from './gitExplorer';
+import { LineHistoryExplorer } from './lineHistoryExplorer';
+import { ExplorerNode } from './nodes';
+import { isPageable } from './nodes/explorerNode';
+import { ResultsExplorer } from './resultsExplorer';
 
-export abstract class ExplorerBase implements TreeDataProvider<ExplorerNode>, Disposable {
+export enum RefreshReason {
+    ActiveEditorChanged = 'active-editor-changed',
+    AutoRefreshChanged = 'auto-refresh-changed',
+    Command = 'command',
+    ConfigurationChanged = 'configuration',
+    NodeCommand = 'node-command',
+    RepoChanged = 'repo-changed',
+    ViewChanged = 'view-changed',
+    VisibleEditorsChanged = 'visible-editors-changed'
+}
+
+export type Explorer = GitExplorer | FileHistoryExplorer | LineHistoryExplorer | ResultsExplorer;
+
+export abstract class ExplorerBase<TRoot extends ExplorerNode> implements TreeDataProvider<ExplorerNode>, Disposable {
     protected _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
     public get onDidChangeTreeData(): Event<ExplorerNode> {
         return this._onDidChangeTreeData.event;
     }
 
+    private _onDidChangeVisibility = new EventEmitter<TreeViewVisibilityChangeEvent>();
+    public get onDidChangeVisibility(): Event<TreeViewVisibilityChangeEvent> {
+        return this._onDidChangeVisibility.event;
+    }
+
     protected _disposable: Disposable | undefined;
-    protected _roots: ExplorerNode[] = [];
+    protected _root: TRoot | undefined;
     protected _tree: TreeView<ExplorerNode> | undefined;
 
-    constructor() {
+    constructor(
+        public readonly id: string
+    ) {
         this.registerCommands();
+
+        Container.context.subscriptions.push(configuration.onDidChange(this.onConfigurationChanged, this));
+        setImmediate(() => this.onConfigurationChanged(configuration.initializingChangeEvent));
     }
 
     dispose() {
         this._disposable && this._disposable.dispose();
     }
 
-    abstract get id(): string;
+    getQualifiedCommand(command: string) {
+        return `${this.id}.${command}`;
+    }
 
+    protected abstract getRoot(): TRoot;
     protected abstract registerCommands(): void;
     protected abstract onConfigurationChanged(e: ConfigurationChangeEvent): void;
 
-    abstract getChildren(node?: ExplorerNode): Promise<ExplorerNode[]>;
-    getParent(element: ExplorerNode): ExplorerNode | undefined {
+    protected initialize(container?: string) {
+        if (this._disposable) {
+            this._disposable.dispose();
+            this._onDidChangeTreeData = new EventEmitter<ExplorerNode>();
+        }
+
+        this._tree = window.createTreeView(`${this.id}${container ? `:${container}` : ''}`, {
+            treeDataProvider: this
+        });
+        this._disposable = Disposable.from(
+            this._tree,
+            this._tree.onDidChangeVisibility(this.onVisibilityChanged, this)
+        );
+    }
+
+    getChildren(node?: ExplorerNode): ExplorerNode[] | Promise<ExplorerNode[]> {
+        if (node !== undefined) return node.getChildren();
+
+        if (this._root === undefined) {
+            this._root = this.getRoot();
+        }
+
+        return this._root.getChildren();
+    }
+
+    getParent(): ExplorerNode | undefined {
         return undefined;
     }
-    abstract getTreeItem(node: ExplorerNode): Promise<TreeItem>;
 
-    protected getQualifiedCommand(command: string) {
-        return `gitlens.${this.id}.${command}`;
+    getTreeItem(node: ExplorerNode): TreeItem | Promise<TreeItem> {
+        return node.getTreeItem();
     }
 
-    refresh(reason?: RefreshReason) {
+    protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
+        this._onDidChangeVisibility.fire(e);
+    }
+
+    get visible(): boolean {
+        return this._tree !== undefined ? this._tree.visible : false;
+    }
+
+    async refresh(reason?: RefreshReason) {
         if (reason === undefined) {
             reason = RefreshReason.Command;
         }
 
         Logger.log(`Explorer(${this.id}).refresh`, `reason='${reason}'`);
-        this._onDidChangeTreeData.fire();
+
+        if (this._root !== undefined) {
+            await this._root.refresh();
+        }
+
+        this.triggerNodeUpdate();
     }
 
-    refreshNode(node: ExplorerNode, args?: RefreshNodeCommandArgs) {
+    async refreshNode(node: ExplorerNode, args?: RefreshNodeCommandArgs) {
         Logger.log(`Explorer(${this.id}).refreshNode(${(node as { id?: string }).id || ''})`);
 
-        if (args !== undefined && node.supportsPaging) {
-            node.maxCount = args.maxCount;
+        if (args !== undefined) {
+            if (isPageable(node)) {
+                if (args.maxCount === undefined || args.maxCount === 0) {
+                    node.maxCount = args.maxCount;
+                }
+                else {
+                    node.maxCount = (node.maxCount || args.maxCount) + args.maxCount;
+                }
+            }
         }
-        node.refresh();
 
-        // Since a root node won't actually refresh, force everything
-        this.updateNode(node);
+        await node.refresh();
+
+        this.triggerNodeUpdate(node);
     }
 
-    refreshNodes() {
-        Logger.log(`Explorer(${this.id}).refreshNodes`);
-
-        this._roots.forEach(n => n.refresh());
-        this._onDidChangeTreeData.fire();
-    }
-
-    async show() {
-        if (this._tree === undefined || this._roots === undefined || this._roots.length === 0) return;
+    async reveal(
+        node: ExplorerNode,
+        options?: {
+            select?: boolean | undefined;
+            focus?: boolean | undefined;
+        }
+    ) {
+        if (this._tree === undefined || this._root === undefined) return;
 
         try {
-            await this._tree.reveal(this._roots[0], { select: false });
+            await this._tree.reveal(node, options);
         }
         catch (ex) {
             Logger.error(ex);
         }
     }
 
-    updateNode(node: ExplorerNode | undefined) {
-        Logger.log(`Explorer(${this.id}).updateNode`);
-        if (node !== undefined) {
-            node = this._roots.includes(node) ? undefined : node;
-        }
-        this._onDidChangeTreeData.fire(node);
+    async show() {
+        if (this._tree === undefined || this._root === undefined) return;
+
+        // This sucks -- have to get the first child to reveal the tree
+        const [child] = await this._root.getChildren();
+        return this.reveal(child, { select: false, focus: true });
+    }
+
+    triggerNodeUpdate(node?: ExplorerNode) {
+        // Since the root node won't actually refresh, force everything
+        this._onDidChangeTreeData.fire(node !== undefined && node !== this._root ? node : undefined);
     }
 }

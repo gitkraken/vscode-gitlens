@@ -1,83 +1,73 @@
 'use strict';
-import {
-    commands,
-    ConfigurationChangeEvent,
-    Disposable,
-    Event,
-    EventEmitter,
-    TreeDataProvider,
-    TreeItem,
-    TreeView,
-    window
-} from 'vscode';
+import { commands, ConfigurationChangeEvent } from 'vscode';
 import { configuration, ExplorerFilesLayout, IExplorersConfig, IResultsExplorerConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitLogCommit } from '../git/gitService';
-import { Logger } from '../logger';
 import { Functions, Strings } from '../system';
+import { ExplorerBase, RefreshReason } from './explorer';
 import { RefreshNodeCommandArgs } from './explorerCommands';
 import {
-    CommitResultsNode,
-    CommitsResultsNode,
-    ComparisonResultsNode,
     ExplorerNode,
-    MessageNode,
     NamedRef,
-    RefreshReason,
-    ResourceType
+    ResourceType,
+    ResultsCommitNode,
+    ResultsCommitsNode,
+    ResultsComparisonNode,
+    ResultsNode
 } from './nodes';
-// import { Messages } from './messages';
 
-export * from './nodes';
+export class ResultsExplorer extends ExplorerBase<ResultsNode> {
+    constructor() {
+        super('gitlens.resultsExplorer');
 
-export class ResultsExplorer implements TreeDataProvider<ExplorerNode>, Disposable {
-    private _disposable: Disposable | undefined;
-    private _roots: ExplorerNode[] = [];
-    private _tree: TreeView<ExplorerNode> | undefined;
-
-    private _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
-    public get onDidChangeTreeData(): Event<ExplorerNode> {
-        return this._onDidChangeTreeData.event;
+        setCommandContext(CommandContext.ResultsExplorerKeepResults, this.keepResults);
     }
 
-    constructor() {
+    getRoot() {
+        return new ResultsNode(this);
+    }
+
+    protected registerCommands() {
         Container.explorerCommands;
-        commands.registerCommand('gitlens.resultsExplorer.refresh', this.refreshNodes, this);
-        commands.registerCommand('gitlens.resultsExplorer.refreshNode', this.refreshNode, this);
+        commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
         commands.registerCommand(
-            'gitlens.resultsExplorer.setFilesLayoutToAuto',
+            this.getQualifiedCommand('refreshNode'),
+            (node: ExplorerNode, args?: RefreshNodeCommandArgs) => this.refreshNode(node, args),
+            this
+        );
+        commands.registerCommand(
+            this.getQualifiedCommand('setFilesLayoutToAuto'),
             () => this.setFilesLayout(ExplorerFilesLayout.Auto),
             this
         );
         commands.registerCommand(
-            'gitlens.resultsExplorer.setFilesLayoutToList',
+            this.getQualifiedCommand('setFilesLayoutToList'),
             () => this.setFilesLayout(ExplorerFilesLayout.List),
             this
         );
         commands.registerCommand(
-            'gitlens.resultsExplorer.setFilesLayoutToTree',
+            this.getQualifiedCommand('setFilesLayoutToTree'),
             () => this.setFilesLayout(ExplorerFilesLayout.Tree),
             this
         );
 
-        commands.registerCommand('gitlens.resultsExplorer.clearResultsNode', this.clearResultsNode, this);
-        commands.registerCommand('gitlens.resultsExplorer.close', this.close, this);
-        commands.registerCommand('gitlens.resultsExplorer.setKeepResultsToOn', () => this.setKeepResults(true), this);
-        commands.registerCommand('gitlens.resultsExplorer.setKeepResultsToOff', () => this.setKeepResults(false), this);
-        commands.registerCommand('gitlens.resultsExplorer.swapComparision', this.swapComparision, this);
-
-        setCommandContext(CommandContext.ResultsExplorerKeepResults, this.keepResults);
-
-        Container.context.subscriptions.push(configuration.onDidChange(this.onConfigurationChanged, this));
-        void this.onConfigurationChanged(configuration.initializingChangeEvent);
+        commands.registerCommand(
+            this.getQualifiedCommand('dismissNode'),
+            (node: ExplorerNode) => this.dismissNode(node),
+            this
+        );
+        commands.registerCommand(this.getQualifiedCommand('close'), () => this.close(), this);
+        commands.registerCommand(this.getQualifiedCommand('setKeepResultsToOn'), () => this.setKeepResults(true), this);
+        commands.registerCommand(
+            this.getQualifiedCommand('setKeepResultsToOff'),
+            () => this.setKeepResults(false),
+            this
+        );
+        commands.registerCommand(this.getQualifiedCommand('swapComparision'), this.swapComparision, this);
     }
 
-    dispose() {
-        this._disposable && this._disposable.dispose();
-    }
-
-    private async onConfigurationChanged(e: ConfigurationChangeEvent) {
+    protected onConfigurationChanged(e: ConfigurationChangeEvent) {
         const initializing = configuration.initializing(e);
 
         if (
@@ -94,18 +84,10 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode>, Disposab
         }
 
         if (initializing || configuration.changed(e, configuration.name('resultsExplorer')('location').value)) {
-            if (this._disposable) {
-                this._disposable.dispose();
-                this._onDidChangeTreeData = new EventEmitter<ExplorerNode>();
-            }
-
-            this._tree = window.createTreeView(`gitlens.resultsExplorer:${this.config.location}`, {
-                treeDataProvider: this
-            });
-            this._disposable = this._tree;
+            this.initialize(this.config.location);
         }
 
-        if (!initializing && this._roots.length !== 0) {
+        if (!initializing && this._root !== undefined) {
             void this.refresh(RefreshReason.ConfigurationChanged);
         }
     }
@@ -124,90 +106,30 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode>, Disposab
     }
 
     close() {
-        this.clearResults();
+        if (this._root === undefined) return;
+
+        this._root.clear();
 
         this._enabled = false;
         setCommandContext(CommandContext.ResultsExplorer, false);
     }
 
-    getParent(element: ExplorerNode): ExplorerNode | undefined {
-        return undefined;
+    addCommit(commit: GitLogCommit) {
+        return this.addResults(new ResultsCommitNode(commit, this));
     }
 
-    async getChildren(node?: ExplorerNode): Promise<ExplorerNode[]> {
-        if (this._roots.length === 0) return [new MessageNode('No results')];
-
-        if (node === undefined) return this._roots;
-        return node.getChildren();
-    }
-
-    async getTreeItem(node: ExplorerNode): Promise<TreeItem> {
-        return node.getTreeItem();
-    }
-
-    getQualifiedCommand(command: string) {
-        return `gitlens.resultsExplorer.${command}`;
-    }
-
-    async refresh(reason?: RefreshReason) {
-        if (reason === undefined) {
-            reason = RefreshReason.Command;
-        }
-
-        Logger.log(`ResultsExplorer.refresh`, `reason='${reason}'`);
-
-        this._onDidChangeTreeData.fire();
-    }
-
-    refreshNode(node: ExplorerNode, args?: RefreshNodeCommandArgs) {
-        Logger.log(`ResultsExplorer.refreshNode(${(node as { id?: string }).id || ''})`);
-
-        if (args !== undefined && node.supportsPaging) {
-            node.maxCount = args.maxCount;
-        }
-        node.refresh();
-
-        // Since a root node won't actually refresh, force everything
-        this._onDidChangeTreeData.fire(this._roots.includes(node) ? undefined : node);
-    }
-
-    refreshNodes() {
-        Logger.log(`ResultsExplorer.refreshNodes`);
-
-        this._roots.forEach(n => n.refresh());
-
-        this._onDidChangeTreeData.fire();
-    }
-
-    async show() {
-        if (this._roots === undefined || this._roots.length === 0 || this._tree === undefined) return;
-
-        try {
-            await this._tree.reveal(this._roots[0], { select: false });
-        }
-        catch (ex) {
-            Logger.error(ex);
-        }
-    }
-
-    showComparisonInResults(repoPath: string, ref1: string | NamedRef, ref2: string | NamedRef) {
-        void this.showResults(
-            this.addResults(
-                new ComparisonResultsNode(
-                    repoPath,
-                    typeof ref1 === 'string' ? { ref: ref1 } : ref1,
-                    typeof ref2 === 'string' ? { ref: ref2 } : ref2,
-                    this
-                )
+    addComparison(repoPath: string, ref1: string | NamedRef, ref2: string | NamedRef) {
+        return this.addResults(
+            new ResultsComparisonNode(
+                repoPath,
+                typeof ref1 === 'string' ? { ref: ref1 } : ref1,
+                typeof ref2 === 'string' ? { ref: ref2 } : ref2,
+                this
             )
         );
     }
 
-    showCommitInResults(commit: GitLogCommit) {
-        void this.showResults(this.addResults(new CommitResultsNode(commit, this)));
-    }
-
-    showCommitsInResults(
+    addSearchResults(
         results: GitLog,
         resultsLabel:
             | string
@@ -216,84 +138,69 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode>, Disposab
                   resultsType?: { singular: string; plural: string };
               }
     ) {
-        const query =
-            results.query === undefined ? (maxCount: number | undefined) => Promise.resolve(results) : results.query;
+        const getCommitsQuery = async (maxCount: number | undefined) => {
+            const log = await Functions.seeded(
+                results.query === undefined
+                    ? (maxCount: number | undefined) => Promise.resolve(results)
+                    : results.query,
+                results
+            )(maxCount);
 
-        const labelFn = async (log: GitLog | undefined) => {
-            if (typeof resultsLabel === 'string') return resultsLabel;
+            let label;
+            if (typeof resultsLabel === 'string') {
+                label = resultsLabel;
+            }
+            else {
+                const count = log !== undefined ? log.count : 0;
+                const truncated = log !== undefined ? log.truncated : false;
 
-            const count = log !== undefined ? log.count : 0;
-            const truncated = log !== undefined ? log.truncated : false;
+                const resultsType =
+                    resultsLabel.resultsType === undefined
+                        ? { singular: 'result', plural: 'results' }
+                        : resultsLabel.resultsType;
 
-            const resultsType =
-                resultsLabel.resultsType === undefined
-                    ? { singular: 'result', plural: 'results' }
-                    : resultsLabel.resultsType;
+                let repository = '';
+                if ((await Container.git.getRepositoryCount()) > 1) {
+                    const repo = await Container.git.getRepository(results.repoPath);
+                    repository = ` ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) ||
+                        results.repoPath}`;
+                }
 
-            let repository = '';
-            if ((await Container.git.getRepositoryCount()) > 1) {
-                const repo = await Container.git.getRepository(results.repoPath);
-                repository = ` ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) ||
-                    results.repoPath}`;
+                label = `${Strings.pluralize(resultsType.singular, count, {
+                    number: truncated ? `${count}+` : undefined,
+                    plural: resultsType.plural,
+                    zero: 'No'
+                })} for ${resultsLabel.label}${repository}`;
             }
 
-            return `${Strings.pluralize(resultsType.singular, count, {
-                number: truncated ? `${count}+` : undefined,
-                plural: resultsType.plural,
-                zero: 'No'
-            })} for ${resultsLabel.label}${repository}`;
+            return {
+                label: label,
+                log: log
+            };
         };
 
-        void this.showResults(
-            this.addResults(
-                new CommitsResultsNode(
-                    results.repoPath,
-                    labelFn,
-                    Functions.seeded(query, results),
-                    this,
-                    ResourceType.SearchResults
-                )
-            )
+        return this.addResults(
+            new ResultsCommitsNode(results.repoPath, getCommitsQuery, this, ResourceType.SearchResults)
         );
     }
 
-    private async showResults(results: ExplorerNode) {
+    private async addResults(results: ExplorerNode) {
+        if (this._root === undefined) {
+            this._root = this.getRoot();
+        }
+
+        this._root.addOrReplace(results, !this.keepResults);
+
         this._enabled = true;
         await setCommandContext(CommandContext.ResultsExplorer, this.config.location);
 
         setTimeout(() => this._tree!.reveal(results, { select: true }), 250);
     }
 
-    private addResults(results: ExplorerNode): ExplorerNode {
-        if (this._roots.includes(results)) return results;
+    private dismissNode(node: ExplorerNode) {
+        if (this._root === undefined) return;
 
-        if (this._roots.length > 0 && !this.keepResults) {
-            this.clearResults();
-        }
-
-        this._roots.splice(0, 0, results);
-        this.refreshNode(results);
-        return results;
-    }
-
-    private clearResults() {
-        if (this._roots.length === 0) return;
-
-        this._roots.forEach(r => r.dispose());
-        this._roots = [];
-
-        void this.refresh();
-    }
-
-    private clearResultsNode(node: ExplorerNode) {
-        const index = this._roots.findIndex(n => n === node);
-        if (index === -1) return;
-
-        this._roots.splice(index, 1);
-
-        node.dispose();
-
-        void this.refresh();
+        this._root.dismiss(node);
     }
 
     private setFilesLayout(layout: ExplorerFilesLayout) {
@@ -306,8 +213,8 @@ export class ResultsExplorer implements TreeDataProvider<ExplorerNode>, Disposab
     }
 
     private swapComparision(node: ExplorerNode) {
-        if (!(node instanceof ComparisonResultsNode)) return;
+        if (!(node instanceof ResultsComparisonNode)) return;
 
-        this.showComparisonInResults(node.repoPath, node.ref2, node.ref1);
+        node.swap();
     }
 }

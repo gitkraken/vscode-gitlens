@@ -6,28 +6,23 @@ import {
     GitLogCommit,
     GitService,
     GitUri,
-    Repository,
     RepositoryChange,
     RepositoryChangeEvent,
     RepositoryFileSystemChangeEvent
 } from '../../git/gitService';
 import { Logger } from '../../logger';
 import { Iterables } from '../../system';
+import { FileHistoryExplorer } from '../fileHistoryExplorer';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
-import { Explorer, ExplorerNode, MessageNode, ResourceType } from './explorerNode';
+import { MessageNode } from './common';
+import { ExplorerNode, ResourceType, SubscribeableExplorerNode } from './explorerNode';
 
-export class FileHistoryNode extends ExplorerNode {
-    constructor(
-        uri: GitUri,
-        private readonly repo: Repository,
-        private readonly explorer: Explorer
-    ) {
-        super(uri);
+export class FileHistoryNode extends SubscribeableExplorerNode<FileHistoryExplorer> {
+    constructor(uri: GitUri, explorer: FileHistoryExplorer) {
+        super(uri, explorer);
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        this.updateSubscription();
-
         const children: ExplorerNode[] = [];
 
         const displayAs =
@@ -52,12 +47,13 @@ export class FileHistoryNode extends ExplorerNode {
                 previousSha = 'HEAD';
             }
 
+            const user = await Container.git.getCurrentUser(this.uri.repoPath!);
             const commit = new GitLogCommit(
                 GitCommitType.File,
                 this.uri.repoPath!,
                 sha,
                 'You',
-                undefined,
+                user !== undefined ? user.email : undefined,
                 new Date(),
                 '',
                 status.fileName,
@@ -85,8 +81,6 @@ export class FileHistoryNode extends ExplorerNode {
     }
 
     getTreeItem(): TreeItem {
-        this.updateSubscription();
-
         const item = new TreeItem(`${this.uri.getFormattedPath()}`, TreeItemCollapsibleState.Expanded);
         item.contextValue = ResourceType.FileHistory;
         item.tooltip = `History of ${this.uri.getFilename()}\n${this.uri.getDirectory()}/`;
@@ -96,19 +90,24 @@ export class FileHistoryNode extends ExplorerNode {
             light: Container.context.asAbsolutePath('images/light/icon-history.svg')
         };
 
+        void this.ensureSubscription();
+
         return item;
     }
 
-    private updateSubscription() {
-        if (this.disposable) return;
+    protected async subscribe() {
+        const repo = await Container.git.getRepository(this.uri);
+        if (repo === undefined) return undefined;
 
-        this.disposable = Disposable.from(
-            this.repo.onDidChange(this.onRepoChanged, this),
-            this.repo.onDidChangeFileSystem(this.onRepoFileSystemChanged, this),
-            { dispose: () => this.repo.stopWatchingFileSystem() }
+        const subscription = Disposable.from(
+            repo.onDidChange(this.onRepoChanged, this),
+            repo.onDidChangeFileSystem(this.onRepoFileSystemChanged, this),
+            { dispose: () => repo.stopWatchingFileSystem() }
         );
 
-        this.repo.startWatchingFileSystem();
+        repo.startWatchingFileSystem();
+
+        return subscription;
     }
 
     private onRepoChanged(e: RepositoryChangeEvent) {
@@ -116,7 +115,7 @@ export class FileHistoryNode extends ExplorerNode {
 
         Logger.log(`FileHistoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
 
-        this.explorer.refreshNode(this);
+        void this.explorer.refreshNode(this);
     }
 
     private onRepoFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
@@ -124,6 +123,6 @@ export class FileHistoryNode extends ExplorerNode {
 
         Logger.log(`FileHistoryNode.onRepoFileSystemChanged; triggering node refresh`);
 
-        this.explorer.refreshNode(this);
+        void this.explorer.refreshNode(this);
     }
 }

@@ -6,21 +6,21 @@ import { GitUri, Repository } from '../../git/gitService';
 import { Arrays } from '../../system';
 import { GitExplorer } from '../gitExplorer';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
-import { ExplorerNode, MessageNode, ResourceType } from './explorerNode';
+import { MessageNode } from './common';
+import { ExplorerNode, ResourceType } from './explorerNode';
 import { TagNode } from './tagNode';
 
 export class TagsNode extends ExplorerNode {
     constructor(
         uri: GitUri,
         private readonly repo: Repository,
-        private readonly explorer: GitExplorer,
-        private readonly active: boolean = false
+        private readonly explorer: GitExplorer
     ) {
         super(uri);
     }
 
     get id(): string {
-        return `gitlens:repository(${this.repo.path})${this.active ? ':active' : ''}:tags`;
+        return `gitlens:repository(${this.repo.path}):tags`;
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
@@ -38,13 +38,14 @@ export class TagsNode extends ExplorerNode {
             this.explorer.config.files.compact
         );
 
-        const root = new BranchOrTagFolderNode(this.repo.path, '', undefined, hierarchy, this.explorer);
+        const root = new BranchOrTagFolderNode('tag', this.repo.path, '', undefined, hierarchy, this.explorer);
         const children = (await root.getChildren()) as (BranchOrTagFolderNode | TagNode)[];
         return children;
     }
 
     async getTreeItem(): Promise<TreeItem> {
         const item = new TreeItem(`Tags`, TreeItemCollapsibleState.Collapsed);
+        item.id = this.id;
         item.contextValue = ResourceType.Tags;
 
         item.iconPath = {

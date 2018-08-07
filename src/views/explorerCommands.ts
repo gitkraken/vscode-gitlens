@@ -29,7 +29,6 @@ import {
     StashNode,
     StatusFileCommitsNode,
     StatusFileNode,
-    StatusNode,
     StatusUpstreamNode,
     TagNode
 } from './nodes';
@@ -111,8 +110,8 @@ export class ExplorerCommands implements Disposable {
         }
     }
 
-    private closeRepository(node: RepositoryNode | StatusNode) {
-        if (!(node instanceof RepositoryNode) && !(node instanceof StatusNode)) return;
+    private closeRepository(node: RepositoryNode) {
+        if (!(node instanceof RepositoryNode)) return;
 
         node.repo.closed = true;
     }
@@ -120,19 +119,19 @@ export class ExplorerCommands implements Disposable {
     private compareWithHead(node: ExplorerNode) {
         if (!(node instanceof ExplorerRefNode)) return;
 
-        Container.resultsExplorer.showComparisonInResults(node.repoPath, node.ref, 'HEAD');
+        return Container.resultsExplorer.addComparison(node.repoPath, node.ref, 'HEAD');
     }
 
     private compareWithRemote(node: BranchNode) {
         if (!node.branch.tracking) return;
 
-        Container.resultsExplorer.showComparisonInResults(node.repoPath, node.branch.tracking, node.ref);
+        return Container.resultsExplorer.addComparison(node.repoPath, node.branch.tracking, node.ref);
     }
 
     private compareWithWorking(node: ExplorerNode) {
         if (!(node instanceof ExplorerRefNode)) return;
 
-        Container.resultsExplorer.showComparisonInResults(node.repoPath, node.ref, '');
+        return Container.resultsExplorer.addComparison(node.repoPath, node.ref, '');
     }
 
     private async compareAncestryWithWorking(node: BranchNode) {
@@ -142,7 +141,7 @@ export class ExplorerCommands implements Disposable {
         const commonAncestor = await Container.git.getMergeBase(node.repoPath, branch.ref, node.ref);
         if (commonAncestor === undefined) return;
 
-        Container.resultsExplorer.showComparisonInResults(
+        return Container.resultsExplorer.addComparison(
             node.repoPath,
             { ref: commonAncestor, label: `ancestry with ${node.ref} (${GitService.shortenSha(commonAncestor)})` },
             ''
@@ -172,7 +171,7 @@ export class ExplorerCommands implements Disposable {
             return;
         }
 
-        Container.resultsExplorer.showComparisonInResults(this._selection.repoPath, this._selection.ref, node.ref);
+        return Container.resultsExplorer.addComparison(this._selection.repoPath, this._selection.ref, node.ref);
     }
 
     private _selection: ICompareSelected | undefined;

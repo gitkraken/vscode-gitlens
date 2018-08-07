@@ -1,30 +1,11 @@
 'use strict';
-import { Command, Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
-import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
+import { Command, Disposable, Event, TreeItem, TreeViewVisibilityChangeEvent } from 'vscode';
 import { GitUri } from '../../git/gitService';
-import { RefreshNodeCommandArgs } from '../explorerCommands';
-import { GitExplorer } from '../gitExplorer';
-import { HistoryExplorer } from '../historyExplorer';
-import { ResultsExplorer } from '../resultsExplorer';
-
-export interface NamedRef {
-    label?: string;
-    ref: string;
-}
-
-export enum RefreshReason {
-    ActiveEditorChanged = 'active-editor-changed',
-    AutoRefreshChanged = 'auto-refresh-changed',
-    Command = 'command',
-    ConfigurationChanged = 'configuration',
-    NodeCommand = 'node-command',
-    RepoChanged = 'repo-changed',
-    ViewChanged = 'view-changed',
-    VisibleEditorsChanged = 'visible-editors-changed'
-}
+import { Explorer } from '../explorer';
 
 export enum ResourceType {
+    ActiveFileHistory = 'gitlens:active:history-file',
+    ActiveLineHistory = 'gitlens:active:history-line',
     Branch = 'gitlens:branch',
     BranchWithTracking = 'gitlens:branch:tracking',
     Branches = 'gitlens:branches',
@@ -39,7 +20,6 @@ export enum ResourceType {
     ComparisonResults = 'gitlens:results:comparison',
     FileHistory = 'gitlens:history-file',
     Folder = 'gitlens:folder',
-    History = 'gitlens:history',
     Message = 'gitlens:message',
     Pager = 'gitlens:pager',
     Remote = 'gitlens:remote',
@@ -53,7 +33,6 @@ export enum ResourceType {
     Stash = 'gitlens:stash',
     StashFile = 'gitlens:file:stash',
     Stashes = 'gitlens:stashes',
-    Status = 'gitlens:status',
     StatusFile = 'gitlens:file:status',
     StatusFiles = 'gitlens:status:files',
     StatusFileCommits = 'gitlens:status:file-commits',
@@ -62,31 +41,21 @@ export enum ResourceType {
     Tags = 'gitlens:tags'
 }
 
-export type Explorer = GitExplorer | HistoryExplorer | ResultsExplorer;
+export interface NamedRef {
+    label?: string;
+    ref: string;
+}
 
-// let id = 0;
+export const unknownGitUri = new GitUri();
 
-export abstract class ExplorerNode implements Disposable {
-    readonly supportsPaging: boolean = false;
-    maxCount: number | undefined;
-
-    protected children: ExplorerNode[] | undefined;
-    protected disposable: Disposable | undefined;
-    // protected readonly id: number;
-
-    constructor(
-        public readonly uri: GitUri
-    ) {
-        // this.id = id++;
+export abstract class ExplorerNode {
+    constructor(uri: GitUri) {
+        this._uri = uri;
     }
 
-    dispose() {
-        if (this.disposable !== undefined) {
-            this.disposable.dispose();
-            this.disposable = undefined;
-        }
-
-        this.resetChildren();
+    protected _uri: GitUri;
+    get uri() {
+        return this._uri;
     }
 
     abstract getChildren(): ExplorerNode[] | Promise<ExplorerNode[]>;
@@ -96,95 +65,92 @@ export abstract class ExplorerNode implements Disposable {
         return undefined;
     }
 
-    refresh(): void {}
-
-    resetChildren(): void {
-        if (this.children !== undefined) {
-            this.children.forEach(c => c.dispose());
-            this.children = undefined;
-        }
-    }
+    refresh(): void | Promise<void> {}
 }
 
 export abstract class ExplorerRefNode extends ExplorerNode {
     abstract get ref(): string;
+
     get repoPath(): string {
         return this.uri.repoPath!;
     }
 }
 
-export class MessageNode extends ExplorerNode {
-    constructor(
-        private readonly message: string,
-        private readonly tooltip?: string,
-        private readonly iconPath?:
-            | string
-            | Uri
-            | {
-                  light: string | Uri;
-                  dark: string | Uri;
-              }
-            | ThemeIcon
-    ) {
-        super(new GitUri());
-    }
-
-    getChildren(): ExplorerNode[] | Promise<ExplorerNode[]> {
-        return [];
-    }
-
-    getTreeItem(): TreeItem | Promise<TreeItem> {
-        const item = new TreeItem(this.message, TreeItemCollapsibleState.None);
-        item.contextValue = ResourceType.Message;
-        item.tooltip = this.tooltip;
-        item.iconPath = this.iconPath;
-        return item;
-    }
+export interface PageableExplorerNode {
+    readonly supportsPaging: boolean;
+    maxCount: number | undefined;
 }
 
-export class PagerNode extends ExplorerNode {
-    args: RefreshNodeCommandArgs = {};
-
-    constructor(
-        private readonly message: string,
-        private readonly node: ExplorerNode,
-        protected readonly explorer: Explorer
-    ) {
-        super(new GitUri());
-    }
-
-    getChildren(): ExplorerNode[] | Promise<ExplorerNode[]> {
-        return [];
-    }
-
-    getTreeItem(): TreeItem | Promise<TreeItem> {
-        const item = new TreeItem(this.message, TreeItemCollapsibleState.None);
-        item.contextValue = ResourceType.Pager;
-        item.command = this.getCommand();
-        item.iconPath = {
-            dark: Container.context.asAbsolutePath('images/dark/icon-unfold.svg'),
-            light: Container.context.asAbsolutePath('images/light/icon-unfold.svg')
-        };
-        return item;
-    }
-
-    getCommand(): Command | undefined {
-        return {
-            title: 'Refresh',
-            command: this.explorer.getQualifiedCommand('refreshNode'),
-            arguments: [this.node, this.args]
-        } as Command;
-    }
+export function isPageable(
+    node: ExplorerNode
+): node is ExplorerNode & { supportsPaging: boolean; maxCount: number | undefined } {
+    return !!(node as any).supportsPaging;
 }
 
-export class ShowAllNode extends PagerNode {
-    args: RefreshNodeCommandArgs = { maxCount: 0 };
+export function supportsAutoRefresh(
+    explorer: Explorer
+): explorer is Explorer & { autoRefresh: boolean; onDidChangeAutoRefresh: Event<void> } {
+    return (explorer as any).onDidChangeAutoRefresh !== undefined;
+}
 
-    constructor(message: string, node: ExplorerNode, explorer: Explorer) {
-        super(
-            `${message} ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`,
-            node,
-            explorer
-        );
+export abstract class SubscribeableExplorerNode<TExplorer extends Explorer> extends ExplorerNode {
+    protected _disposable: Disposable;
+    protected _subscription: Disposable | undefined;
+
+    constructor(
+        uri: GitUri,
+        protected readonly explorer: TExplorer
+    ) {
+        super(uri);
+
+        const disposables = [this.explorer.onDidChangeVisibility(this.onVisibilityChanged, this)];
+
+        if (supportsAutoRefresh(this.explorer)) {
+            disposables.push(this.explorer.onDidChangeAutoRefresh(this.onAutoRefreshChanged, this));
+        }
+
+        this._disposable = Disposable.from(...disposables);
+    }
+
+    dispose() {
+        this.unsubscribe();
+
+        if (this._disposable !== undefined) {
+            this._disposable.dispose();
+        }
+    }
+
+    protected abstract async subscribe(): Promise<Disposable | undefined>;
+    protected unsubscribe(): void {
+        if (this._subscription !== undefined) {
+            this._subscription.dispose();
+            this._subscription = undefined;
+        }
+    }
+
+    protected onAutoRefreshChanged() {
+        this.onVisibilityChanged({ visible: this.explorer.visible });
+    }
+
+    protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
+        void this.ensureSubscription();
+
+        if (e.visible) {
+            void this.explorer.refreshNode(this);
+        }
+    }
+
+    async ensureSubscription() {
+        // We only need to subscribe if we are visible and if auto-refresh enabled (when supported)
+        if (!this.explorer.visible || (supportsAutoRefresh(this.explorer) && !this.explorer.autoRefresh)) {
+            this.unsubscribe();
+
+            return;
+        }
+
+        // If we already have a subscription, just kick out
+        if (this._subscription !== undefined) return;
+
+        this._subscription = await this.subscribe();
     }
 }

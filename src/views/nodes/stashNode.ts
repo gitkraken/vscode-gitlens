@@ -3,7 +3,8 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { CommitFormatter, GitStashCommit, ICommitFormatOptions } from '../../git/gitService';
 import { Iterables } from '../../system';
-import { Explorer, ExplorerNode, ExplorerRefNode, ResourceType } from './explorerNode';
+import { Explorer } from '../explorer';
+import { ExplorerNode, ExplorerRefNode, ResourceType } from './explorerNode';
 import { StashFileNode } from './stashFileNode';
 
 export class StashNode extends ExplorerRefNode {
@@ -12,6 +13,10 @@ export class StashNode extends ExplorerRefNode {
         private readonly explorer: Explorer
     ) {
         super(commit.toGitUri());
+    }
+
+    get id(): string {
+        return `gitlens:repository(${this.commit.repoPath}):stash(${this.commit.sha})`;
     }
 
     get ref(): string {
@@ -48,6 +53,7 @@ export class StashNode extends ExplorerRefNode {
             } as ICommitFormatOptions),
             TreeItemCollapsibleState.Collapsed
         );
+        item.id = this.id;
         item.contextValue = ResourceType.Stash;
         item.tooltip = CommitFormatter.fromTemplate('${ago} (${date})\n\n${message}', this.commit, {
             dateFormat: Container.config.defaultDateFormat
