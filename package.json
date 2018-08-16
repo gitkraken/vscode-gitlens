@@ -710,7 +710,7 @@
                 "gitlens.insiders": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Specifies whether to enable new experimental features (expect there to be issues)",
+                    "description": "Specifies whether to enable experimental features",
                     "scope": "window"
                 },
                 "gitlens.keymap": {
@@ -3560,7 +3560,7 @@
     },
     "devDependencies": {
         "@types/clipboardy": "1.1.0",
-        "@types/node": "8.10.24",
+        "@types/node": "8.10.26",
         "@types/tmp": "0.0.33",
         "clean-webpack-plugin": "0.1.19",
         "css-loader": "1.0.0",
@@ -3569,8 +3569,8 @@
         "husky": "0.14.3",
         "imagemin-webpack-plugin": "2.2.0",
         "mini-css-extract-plugin": "0.4.1",
-        "node-sass": "4.9.2",
-        "prettier": "1.14.1",
+        "node-sass": "4.9.3",
+        "prettier": "1.14.2",
         "prettier-tslint": "0.4.0",
         "sass-loader": "7.1.0",
         "style-loader": "0.22.1",
@@ -3579,7 +3579,7 @@
         "tslint-prettiest": "0.0.1",
         "ts-loader": "4.4.2",
         "typescript": "3.0.1",
-        "vscode": "1.1.18",
+        "vscode": "1.1.21",
         "webpack": "4.16.5",
         "webpack-cli": "3.1.0",
         "webpack-node-externals": "1.7.2"

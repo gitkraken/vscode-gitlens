@@ -13,7 +13,7 @@
         "reveal": "always",
         "focus": false,
         "panel": "dedicated",
-        "showReuseMessage": true
+        "showReuseMessage": false
     },
     "tasks": [
         {

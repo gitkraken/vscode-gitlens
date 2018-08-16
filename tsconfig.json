@@ -9,7 +9,6 @@
         "noImplicitReturns": true,
         "noUnusedLocals": false,
         "outDir": "out",
-        "removeComments": true,
         "rootDir": "./src",
         "sourceMap": true,
         "strict": true,
