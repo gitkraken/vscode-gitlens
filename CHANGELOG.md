@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased] - 2018-08-16
+### Fixed
+- Fixes [#471](https://github.com/eamodio/vscode-gitlens/issues/471) - Don't use Ctrl+Alt+[character] as a shortcut
 ## [8.5.4] - 2018-07-31
 ### Added
 - Adds *Checkout Commit (via Terminal)* command (`gitlens.terminalCheckoutCommit`) to commit node(s) of the *GitLens* explorer &mdash; closes [#463](https://github.com/eamodio/vscode-gitlens/issues/463)
