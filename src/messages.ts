@@ -65,11 +65,10 @@ export class Messages {
     }
 
     static async showKeyBindingsInfoMessage(): Promise<MessageItem | undefined> {
-        if (Container.config.advanced.messages.suppressShowKeyBindingsNotice) return undefined;
-
-        if (Container.config.keymap !== KeyMap.Alternate) {
-            await this.suppressedMessage(SuppressedMessages.ShowKeyBindingsNotice);
-
+        if (
+            Container.config.keymap !== KeyMap.Alternate ||
+            Container.config.advanced.messages.suppressShowKeyBindingsNotice
+        ) {
             return undefined;
         }
 

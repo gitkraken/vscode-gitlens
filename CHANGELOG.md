@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [Unreleased] - 2018-08-16
 ### Fixed
 - Fixes [#471](https://github.com/eamodio/vscode-gitlens/issues/471) - Don't use Ctrl+Alt+[character] as a shortcut
+- Fixes [#478](https://github.com/eamodio/vscode-gitlens/issues/478) - `suppressShowKeyBindingsNotice` gets saved even when it is not required
+
 ## [8.5.4] - 2018-07-31
 ### Added
 - Adds *Checkout Commit (via Terminal)* command (`gitlens.terminalCheckoutCommit`) to commit node(s) of the *GitLens* explorer &mdash; closes [#463](https://github.com/eamodio/vscode-gitlens/issues/463)
