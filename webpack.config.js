@@ -17,7 +17,7 @@ module.exports = function(env, argv) {
 };
 
 function getExtensionConfig(env) {
-    const plugins = [new CleanPlugin(['out'])];
+    const plugins = [new CleanPlugin(['out'], { verbose: false })];
 
     return {
         name: 'extension',
@@ -50,7 +50,15 @@ function getExtensionConfig(env) {
             ]
         },
         plugins: plugins,
-        stats: { all: false, assets: true, builtAt: true, errors: true, timings: true, warnings: true }
+        stats: {
+            all: false,
+            assets: true,
+            builtAt: true,
+            env: true,
+            errors: true,
+            timings: true,
+            warnings: true
+        }
     };
 }
 
@@ -62,7 +70,7 @@ function getUIConfig(env) {
     }
 
     const plugins = [
-        new CleanPlugin(clean),
+        new CleanPlugin(clean, { verbose: false }),
         new MiniCssExtractPlugin({
             filename: '[name].css'
         }),
@@ -207,6 +215,14 @@ function getUIConfig(env) {
             ]
         },
         plugins: plugins,
-        stats: { all: false, assets: true, builtAt: true, errors: true, timings: true, warnings: true }
+        stats: {
+            all: false,
+            assets: true,
+            builtAt: true,
+            env: true,
+            errors: true,
+            timings: true,
+            warnings: true
+        }
     };
 }
