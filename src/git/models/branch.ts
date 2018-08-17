@@ -1,8 +1,10 @@
+import { Git } from '../git';
 import { GitStatus } from './status';
 
 'use strict';
 
 export class GitBranch {
+    readonly detached: boolean;
     readonly name: string;
     readonly remote: boolean;
     readonly tracking?: string;
@@ -18,7 +20,8 @@ export class GitBranch {
         public readonly sha?: string,
         tracking?: string,
         ahead: number = 0,
-        behind: number = 0
+        behind: number = 0,
+        detached: boolean = false
     ) {
         if (branch.startsWith('remotes/')) {
             branch = branch.substring(8);
@@ -28,12 +31,23 @@ export class GitBranch {
             this.remote = false;
         }
 
-        this.name = branch;
+        this.detached = detached || (this.current ? GitBranch.isDetached(branch) : false);
+        if (this.detached) {
+            this.name = GitBranch.formatDetached(this.sha!);
+        }
+        else {
+            this.name = branch;
+        }
+
         this.tracking = tracking === '' || tracking == null ? undefined : tracking;
         this.state = {
             ahead: ahead,
             behind: behind
         };
+    }
+
+    get ref() {
+        return this.detached ? this.sha! : this.name;
     }
 
     private _basename: string | undefined;
@@ -73,17 +87,17 @@ export class GitBranch {
         return GitStatus.getUpstreamStatus(this.tracking, this.state, options);
     }
 
-    isValid(): boolean {
-        return GitBranch.isValid(this.name);
-    }
-
     static getRemote(branch: string): string {
         return branch.substring(0, branch.indexOf('/'));
     }
 
-    static isValid(name: string): boolean {
+    static formatDetached(sha: string): string {
+        return `(${Git.shortenSha(sha)}...)`;
+    }
+
+    static isDetached(name: string): boolean {
         // If there is whitespace in the name assume this is not a valid branch name
         // Deals with detached HEAD states
-        return name.match(/\s/) === null;
+        return name.match(/\s/) !== null || name.match(/\(detached\)/) !== null;
     }
 }

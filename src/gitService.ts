@@ -891,8 +891,8 @@ export class GitService implements Disposable {
         const data = await Git.revparse_currentBranch(repoPath);
         if (data === undefined) return undefined;
 
-        const branch = data.split('\n');
-        return new GitBranch(repoPath, branch[0], true, undefined, branch[1]);
+        const branch = data[0].split('\n');
+        return new GitBranch(repoPath, branch[0], true, data[1], branch[1]);
     }
 
     async getBranches(repoPath: string | undefined): Promise<GitBranch[]> {

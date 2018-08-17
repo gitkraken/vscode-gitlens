@@ -40,7 +40,7 @@ export class BranchesNode extends ExplorerNode {
 
         const hierarchy = Arrays.makeHierarchical(
             branchNodes,
-            n => (n.branch.isValid() ? n.branch.getName().split('/') : [n.branch.name]),
+            n => (n.branch.detached ? [n.branch.name] : n.branch.getName().split('/')),
             (...paths: string[]) => paths.join('/'),
             this.explorer.config.files.compact
         );

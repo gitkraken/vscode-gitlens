@@ -53,7 +53,8 @@ export class StatusNode extends ExplorerNode {
                     branch.sha,
                     branch.tracking,
                     status.state.ahead,
-                    status.state.behind
+                    status.state.behind,
+                    branch.detached
                 );
             }
 
@@ -168,7 +169,12 @@ export class StatusBranchNode extends BranchNode {
 
     async getTreeItem(): Promise<TreeItem> {
         const item = await super.getTreeItem();
-        item.label = `History (${item.label})`;
+        if (item.label!.startsWith('(') && item.label!.endsWith(')')) {
+            item.label = `History ${item.label}`;
+        }
+        else {
+            item.label = `History (${item.label})`;
+        }
         return item;
     }
 }

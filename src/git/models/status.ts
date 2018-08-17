@@ -4,6 +4,7 @@ import { Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Strings } from '../../system';
 import { GitUri } from '../gitUri';
+import { GitBranch } from './branch';
 import { GitLogCommit } from './logCommit';
 
 export interface GitStatusUpstreamState {
@@ -19,7 +20,11 @@ export class GitStatus {
         public readonly files: GitStatusFile[],
         public readonly state: GitStatusUpstreamState,
         public readonly upstream?: string
-    ) {}
+    ) {
+        if (GitBranch.isDetached(branch)) {
+            this.branch = GitBranch.formatDetached(this.sha);
+        }
+    }
 
     private _diff?: {
         added: number;

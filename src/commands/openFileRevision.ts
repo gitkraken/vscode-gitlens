@@ -75,7 +75,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 
                 const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
                     maxCount: args.maxCount,
-                    ref: (args.branchOrTag && args.branchOrTag.name) || gitUri.sha
+                    ref: (args.branchOrTag && args.branchOrTag.ref) || gitUri.sha
                 });
                 if (log === undefined) {
                     if (args.branchOrTag) {

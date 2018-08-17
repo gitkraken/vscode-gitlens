@@ -28,7 +28,7 @@ export class BranchNode extends ExplorerRefNode {
         const branchName = this.branch.getName();
         if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) return branchName;
 
-        return GitBranch.isValid(branchName) && !this.current ? this.branch.getBasename() : branchName;
+        return this.current || GitBranch.isDetached(branchName) ? branchName : this.branch.getBasename();
     }
 
     get markCurrent(): boolean {
@@ -36,11 +36,11 @@ export class BranchNode extends ExplorerRefNode {
     }
 
     get ref(): string {
-        return this.branch.name;
+        return this.branch.ref;
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        const log = await Container.git.getLog(this.uri.repoPath!, { maxCount: this.maxCount, ref: this.branch.name });
+        const log = await Container.git.getLog(this.uri.repoPath!, { maxCount: this.maxCount, ref: this.ref });
         if (log === undefined) return [new MessageNode('No commits yet')];
 
         const branches = await Container.git.getBranches(this.uri.repoPath);

@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 - Fixes [#471](https://github.com/eamodio/vscode-gitlens/issues/471) - Don't use Ctrl+Alt+[character] as a shortcut
 - Fixes [#478](https://github.com/eamodio/vscode-gitlens/issues/478) - `suppressShowKeyBindingsNotice` gets saved even when it is not required
+- Fixes [#468](https://github.com/eamodio/vscode-gitlens/issues/468) - Commit history for detached HEAD doesn't work properly
 
 ## [8.5.4] - 2018-07-31
 ### Added

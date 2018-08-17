@@ -603,33 +603,47 @@ export class Git {
         }
     }
 
-    static async revparse_currentBranch(repoPath: string): Promise<string | undefined> {
+    static async revparse_currentBranch(repoPath: string): Promise<[string, string?] | undefined> {
         const params = ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@', '@{u}'];
 
         const opts = { cwd: repoPath } as CommandOptions;
         try {
             const data = await gitCommandCore(opts, ...params);
-            return data;
+            return [data, undefined];
         }
         catch (ex) {
             const msg = ex && ex.toString();
-            if (GitWarnings.headNotABranch.test(msg)) return undefined;
-
-            const result = GitWarnings.noUpstream.exec(msg);
-            if (result !== null) return result[1];
-
-            if (GitWarnings.unknownRevision.test(msg)) {
+            if (GitWarnings.headNotABranch.test(msg)) {
                 try {
-                    const params = ['symbolic-ref', '-q', '--short', 'HEAD'];
+                    const params = ['log', '-n1', '--format=%H', '--'];
                     const data = await gitCommandCore(opts, ...params);
-                    return data;
+                    if (data === undefined) return undefined;
+
+                    // Matches output of `git branch -vv`
+                    const sha = data.trim();
+                    return [`(HEAD detached at ${this.shortenSha(sha)})`, sha];
                 }
                 catch {
                     return undefined;
                 }
             }
 
-            return gitCommandDefaultErrorHandler(ex, opts, ...params);
+            const result = GitWarnings.noUpstream.exec(msg);
+            if (result !== null) return [result[1], undefined];
+
+            if (GitWarnings.unknownRevision.test(msg)) {
+                try {
+                    const params = ['symbolic-ref', '-q', '--short', 'HEAD'];
+                    const data = await gitCommandCore(opts, ...params);
+                    return [data, undefined];
+                }
+                catch {
+                    return undefined;
+                }
+            }
+
+            gitCommandDefaultErrorHandler(ex, opts, ...params);
+            return undefined;
         }
     }
 

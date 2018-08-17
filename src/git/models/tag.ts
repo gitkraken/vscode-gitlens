@@ -7,6 +7,10 @@ export class GitTag {
         public readonly annotation?: string
     ) {}
 
+    get ref() {
+        return this.name;
+    }
+
     private _basename: string | undefined;
     getBasename(): string {
         if (this._basename === undefined) {

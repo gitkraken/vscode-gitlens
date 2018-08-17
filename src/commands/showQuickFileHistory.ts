@@ -49,7 +49,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                 args.log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
                     maxCount: args.maxCount,
                     range: args.range,
-                    ref: (args.branchOrTag && args.branchOrTag.name) || gitUri.sha
+                    ref: (args.branchOrTag && args.branchOrTag.ref) || gitUri.sha
                 });
                 if (args.log === undefined) {
                     if (args.branchOrTag) {

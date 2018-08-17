@@ -134,7 +134,7 @@ export class ExplorerCommands implements Disposable {
         const branch = await Container.git.getBranch(node.repoPath);
         if (branch === undefined) return;
 
-        const commonAncestor = await Container.git.getMergeBase(node.repoPath, branch.name, node.ref);
+        const commonAncestor = await Container.git.getMergeBase(node.repoPath, branch.ref, node.ref);
         if (commonAncestor === undefined) return;
 
         Container.resultsExplorer.showComparisonInResults(
