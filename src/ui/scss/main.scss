@@ -34,9 +34,10 @@ b {
 
 code,
 .shortcut-key {
-    border-radius: 3px;
-    padding: 1px 5px;
-    vertical-align: bottom;
+    border-radius: 4px;
+    color: var(--color);
+    padding: 2px 6px 0 6px;
+    vertical-align: baseline;
 
     .vscode-dark & {
         background-color: var(--background-color--lighten-15);
@@ -476,7 +477,7 @@ ul {
     }
 
     & code {
-        font-size: 0.9em;
+        font-size: 0.8em;
     }
 }
 

@@ -145,6 +145,13 @@
                             <div class="changelog__details"></div>
                         </li>
                         <li>
+                            <span class="changelog__badge changelog__badge--added">NEW</span>
+                            Adds <i>Copy Remote File Url to Clipboard</i> (<code>gitlens.copyRemoteFileUrlToClipboard</code>)
+                            command &mdash; copies the remote url of the current file and line to the clipboard &mdash; closes
+                            <a title="Open Issue #467" href="https://github.com/eamodio/vscode-gitlens/issues/467">#467</a>
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
                             <span class="changelog__badge changelog__badge--changed">IMPROVED</span>
                             Improves performance of providing blame annotations, especially for large files (a ~33% improvement on some files)
                             <div class="changelog__details"></div>
@@ -288,6 +295,27 @@
                             Fixes
                             <a title="Open Issue #459" href="https://github.com/eamodio/vscode-gitlens/issues/459">#459</a>
                             &mdash; File blame annotation text overflow with letter spacing setting
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes
+                            <a title="Open Issue #471" href="https://github.com/eamodio/vscode-gitlens/issues/471">#471</a>
+                            &mdash; Don't use Ctrl+Alt+[character] as a shortcut
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes
+                            <a title="Open Issue #478" href="https://github.com/eamodio/vscode-gitlens/issues/478">#478</a>
+                            &mdash; <code>suppressShowKeyBindingsNotice</code> gets saved even when it is not required
+                            <div class="changelog__details"></div>
+                        </li>
+                        <li>
+                            <span class="changelog__badge changelog__badge--fixed">FIXED</span>
+                            Fixes
+                            <a title="Open Issue #468" href="https://github.com/eamodio/vscode-gitlens/issues/468">#468</a>
+                            &mdash; Commit history for detached HEAD doesn't work properly
                             <div class="changelog__details"></div>
                         </li>
                         <li>
@@ -1011,8 +1039,8 @@
                         <li>
                             <span class="changelog__badge changelog__badge--added">NEW</span>
                             Adds a tree layout option to branches in the
-                            <i>GitLens</i> explorer &mdash; thanks to Yukai Huang (
-                            <a href="https://github.com/Yukaii">@Yukaii</a>)!
+                            <i>GitLens</i> explorer &mdash; thanks to
+                            <a title="Yukai Huang (@Yukaii)" href="https://github.com/Yukaii">Yukai Huang</a>!
                             <div class="changelog__details"></div>
                         </li>
                         <li>

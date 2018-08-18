@@ -25,6 +25,7 @@
 - Adds `gitlens.historyExplorer.avatars` setting to specify whether to show avatar images instead of status icons in the *GitLens File History* explorer &mdash; allows for an independent value from the other explorers
 - Adds a `gitlens.hovers.avatars` setting to specify whether to show avatar images in hovers &mdash; closes [#432](https://github.com/eamodio/vscode-gitlens/issues/432) thanks to [PR #441](https://github.com/eamodio/vscode-gitlens/pull/441) by Segev Finer ([@segevfiner](https://github.com/segevfiner))
 - Adds the `gitlens.hovers.avatars` setting to the *GitLens* interactive settings editor to specify whether to show avatar images in hovers
+- Adds *Copy Remote File Url to Clipboard* (`gitlens.copyRemoteFileUrlToClipboard`) command &mdash; copies the remote url of the current file and line to the clipboard &mdash; closes [#467](https://github.com/eamodio/vscode-gitlens/issues/467)
 - Improves performance of providing blame annotations, especially for large files (a ~33% improvement on some files)
 - Changes commit search by sha to jump directly to the commit (if one is found), rather than having to click through to the commit
 - Renames the *GitLens History* explorer to *GitLens File History* explorer for better clarity
@@ -47,6 +48,9 @@
 - Fixes [#462](https://github.com/eamodio/vscode-gitlens/issues/462) - Source Control shortcut on macOS (⌃⇧G) shouldn't be overridden
 - Fixes [#457](https://github.com/eamodio/vscode-gitlens/issues/457) - Displays the wrong username (You) &mdash; thanks to [PR #460](https://github.com/eamodio/vscode-gitlens/pull/460) by Zyck ([@qzyse2017](https://github.com/qzyse2017))
 - Fixes [#459](https://github.com/eamodio/vscode-gitlens/issues/459) - File blame annotation text overflow with letter spacing setting
+- Fixes [#471](https://github.com/eamodio/vscode-gitlens/issues/471) - Don't use Ctrl+Alt+[character] as a shortcut
+- Fixes [#478](https://github.com/eamodio/vscode-gitlens/issues/478) - `suppressShowKeyBindingsNotice` gets saved even when it is not required
+- Fixes [#468](https://github.com/eamodio/vscode-gitlens/issues/468) - Commit history for detached HEAD doesn't work properly
 - Fixes issues with GitLens Welcome and the interactive settings editor with light themes
 - Fixes issue where commands in the editor toolbar would flash unnecessarily when navigating history or switching tabs
 - Fixes issue where the *Compare File with Previous Revision* command wouldn't work properly when the file had been renamed in some cases
