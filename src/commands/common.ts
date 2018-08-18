@@ -26,6 +26,7 @@ export enum Commands {
     CloseUnchangedFiles = 'gitlens.closeUnchangedFiles',
     ComputingFileAnnotations = 'gitlens.computingFileAnnotations',
     CopyMessageToClipboard = 'gitlens.copyMessageToClipboard',
+    CopyRemoteFileUrlToClipboard = 'gitlens.copyRemoteFileUrlToClipboard',
     CopyShaToClipboard = 'gitlens.copyShaToClipboard',
     DiffDirectory = 'gitlens.diffDirectory',
     DiffHeadWithBranch = 'gitlens.diffHeadWithBranch',

@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - 2018-08-16
+### Added
+- Adds *Copy Remote File Url to Clipboard* (`gitlens.copyRemoteFileUrlToClipboard`) command &mdash; copies the remote url of the current file and line to the clipboard &mdash; closes [#467](https://github.com/eamodio/vscode-gitlens/issues/467)
+
 ### Fixed
 - Fixes [#471](https://github.com/eamodio/vscode-gitlens/issues/471) - Don't use Ctrl+Alt+[character] as a shortcut
 - Fixes [#478](https://github.com/eamodio/vscode-gitlens/issues/478) - `suppressShowKeyBindingsNotice` gets saved even when it is not required

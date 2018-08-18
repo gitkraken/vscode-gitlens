@@ -18,10 +18,18 @@ export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
     private remote: GitRemote;
     private resource: RemoteResource;
 
-    constructor(remote: GitRemote, resource: RemoteResource) {
+    constructor(
+        remote: GitRemote,
+        resource: RemoteResource,
+        public readonly clipboard?: boolean
+    ) {
         super(
             {
-                label: `$(link-external) Open ${getNameFromRemoteResource(resource)} in ${remote.provider!.name}`,
+                label: clipboard
+                    ? `$(link-external) Copy ${getNameFromRemoteResource(resource)} Url to Clipboard from ${
+                          remote.provider!.name
+                      }`
+                    : `$(link-external) Open ${getNameFromRemoteResource(resource)} in ${remote.provider!.name}`,
                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(repo) ${remote.provider!.path}`
             },
             undefined,
@@ -33,6 +41,8 @@ export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
     }
 
     async execute(): Promise<{} | undefined> {
+        if (this.clipboard) return this.remote.provider!.copy(this.resource);
+
         return this.remote.provider!.open(this.resource);
     }
 }
@@ -142,9 +152,10 @@ export class RemotesQuickPick {
         remotes: GitRemote[],
         placeHolder: string,
         resource: RemoteResource,
+        clipboard?: boolean,
         goBackCommand?: CommandQuickPickItem
     ): Promise<OpenRemoteCommandQuickPickItem | CommandQuickPickItem | undefined> {
-        const items = remotes.map(r => new OpenRemoteCommandQuickPickItem(r, resource)) as (
+        const items = remotes.map(r => new OpenRemoteCommandQuickPickItem(r, resource, clipboard)) as (
             | OpenRemoteCommandQuickPickItem
             | CommandQuickPickItem)[];
 

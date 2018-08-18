@@ -1710,13 +1710,18 @@
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.copyShaToClipboard",
-                "title": "Copy Commit ID to Clipboard",
+                "command": "gitlens.copyMessageToClipboard",
+                "title": "Copy Commit Message to Clipboard",
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.copyMessageToClipboard",
-                "title": "Copy Commit Message to Clipboard",
+                "command": "gitlens.copyRemoteFileUrlToClipboard",
+                "title": "Copy Remote File Url to Clipboard",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.copyShaToClipboard",
+                "title": "Copy Commit ID to Clipboard",
                 "category": "GitLens"
             },
             {
@@ -2325,11 +2330,15 @@
                     "when": "gitlens:enabled"
                 },
                 {
-                    "command": "gitlens.copyShaToClipboard",
+                    "command": "gitlens.copyMessageToClipboard",
                     "when": "gitlens:activeFileStatus =~ /blameable/"
                 },
                 {
-                    "command": "gitlens.copyMessageToClipboard",
+                    "command": "gitlens.copyRemoteFileUrlToClipboard",
+                    "when": "gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /remotes/"
+                },
+                {
+                    "command": "gitlens.copyShaToClipboard",
                     "when": "gitlens:activeFileStatus =~ /blameable/"
                 },
                 {
@@ -2682,6 +2691,11 @@
                     "command": "gitlens.copyMessageToClipboard",
                     "when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
                     "group": "9_gitlens@2"
+                },
+                {
+                    "command": "gitlens.copyRemoteFileUrlToClipboard",
+                    "when": "editorTextFocus && gitlens:activeFileStatus =~ /remotes/ && config.gitlens.menus.editor.clipboard",
+                    "group": "9_gitlens@3"
                 }
             ],
             "editor/title": [
@@ -2781,6 +2795,11 @@
                     "command": "gitlens.diffWithPrevious",
                     "when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.compare",
                     "group": "3_compare@1"
+                },
+                {
+                    "command": "gitlens.copyRemoteFileUrlToClipboard",
+                    "when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.explorer.remote",
+                    "group": "9_gitlens@1"
                 }
             ],
             "scm/resourceGroup/context": [
@@ -2840,6 +2859,11 @@
                     "command": "gitlens.stashSave",
                     "when": "gitlens:enabled",
                     "group": "2_gitlens@1"
+                },
+                {
+                    "command": "gitlens.copyRemoteFileUrlToClipboard",
+                    "when": "gitlens:enabled && gitlens:hasRemotes",
+                    "group": "9_gitlens@1"
                 }
             ],
             "view/title": [
@@ -3156,6 +3180,11 @@
                     "group": "4_gitlens@1"
                 },
                 {
+                    "command": "gitlens.copyRemoteFileUrlToClipboard",
+                    "when": "viewItem =~ /gitlens:file\\b/ && gitlens:hasRemotes",
+                    "group": "5_gitlens@3"
+                },
+                {
                     "command": "gitlens.explorers.openFileRevisionInRemote",
                     "when": "viewItem == gitlens:file:commit && gitlens:hasRemotes",
                     "group": "4_gitlens@2"
@@ -3164,6 +3193,11 @@
                     "command": "gitlens.openFileInRemote",
                     "when": "viewItem =~ /gitlens:(history-file|status:file)\\b/ && gitlens:hasRemotes",
                     "group": "3_gitlens@2"
+                },
+                {
+                    "command": "gitlens.copyRemoteFileUrlToClipboard",
+                    "when": "viewItem =~ /gitlens:(history-file|status:file)\\b/ && gitlens:hasRemotes",
+                    "group": "5_gitlens@3"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",

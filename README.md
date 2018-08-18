@@ -175,7 +175,7 @@ The repository view provides a full Git repository explorer, which has the follo
       - Context menus for each revision (commit) provide
         -  *Open Commit in Remote* (if available), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with HEAD*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, *Cherry Pick Commit (via Terminal)* (when available), *Push to Commit (via Terminal)* (when available), *Revert Commit (via Terminal)* (when available), *Checkout Commit (via Terminal)*, *Rebase to Commit (via Terminal)*, *Reset to Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
       - Context menus for each changed file provide
-        - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Apply Changes*, *Compare with Selected* (when available), *Select for Compare*, and *Show Commit File Details* commands
+        - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Copy Remote File Url to Clipboard*, *Apply Changes*, *Compare with Selected* (when available), *Select for Compare*, and *Show Commit File Details* commands
       - Inline toolbars for each changed file provide an *Open File* command
 
 - **Remotes** &mdash; lists the remotes
@@ -250,7 +250,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings "Jump to the Git
       - Context menus for each revision (commit) provide
         -  *Open Commit in Remote* (if available), *Open All Changes*, *Open All Changes with Working Tree*, *Open Files*, *Open Revisions*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Show Commit Details*, *Compare with HEAD*, *Compare with Working Tree*, *Compare with Selected* (when available), *Select for Compare*, *Cherry Pick Commit (via Terminal)* (when available), *Push to Commit (via Terminal)* (when available), *Revert Commit (via Terminal)* (when available), *Checkout Commit (via Terminal)*, *Rebase to Commit (via Terminal)*, *Reset to Commit (via Terminal)*, *Create Branch (via Terminal)...*, *Create Tag (via Terminal)...*, and *Refresh* commands
       - Context menus for each changed file provide
-        - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Apply Changes*, *Compare with Selected* (when available), *Select for Compare*, and *Show Commit File Details* commands
+        - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Copy Remote File Url to Clipboard*, *Apply Changes*, *Compare with Selected* (when available), *Select for Compare*, and *Show Commit File Details* commands
 
 #### Compare
   - Provides a semi-persistent results view for comparison operations
@@ -270,7 +270,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings "Jump to the Git
     - **Changed Files** &mdash; lists the files changed between the compared revisions (branches or commits)
         - Expands to a file-based view of all changed files
            - Context menus for each changed file provide
-             - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Apply Changes*, *Compare with Selected* (when available), *Select for Compare*, and *Show Commit File Details* commands
+             - *Open Changes*, *Open Changes with Working File*, *Open File*, *Open Revision*, *Open File in Remote*, *Open Revision in Remote*, *Copy Commit ID to Clipboard*, *Copy Commit Message to Clipboard*, *Copy Remote File Url to Clipboard*, *Apply Changes*, *Compare with Selected* (when available), *Select for Compare*, and *Show Commit File Details* commands
 
 ---
 ### Code Lens
@@ -567,6 +567,8 @@ An on-demand, [customizable](#gitlens-results-explorer-settings "Jump to the Git
 - Adds a *Copy Commit ID to Clipboard* command (`gitlens.copyShaToClipboard`) to copy the commit id (sha) of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor
 
 - Adds a *Copy Commit Message to Clipboard* command (`gitlens.copyMessageToClipboard`) to copy the commit message of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor
+
+- Adds a *Copy Remote File Url to Clipboard* command (`gitlens.copyRemoteFileUrlToClipboard`) to copy the remote url of the current file and line to the clipboard
 
 - Adds a *Open Working File"* command (`gitlens.openWorkingFile`) to open the working file for the current file revision
 

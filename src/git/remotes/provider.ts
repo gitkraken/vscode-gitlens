@@ -1,7 +1,8 @@
 'use strict';
-import { commands, Range, Uri } from 'vscode';
+import { commands, Range, Uri, window } from 'vscode';
 import { BuiltInCommands } from '../../constants';
 import { GitLogCommit } from '../../gitService';
+import { Logger } from '../../logger';
 
 export enum RemoteResourceType {
     Branch = 'branch',
@@ -106,46 +107,55 @@ export abstract class RemoteProvider {
     protected abstract getUrlForCommit(sha: string): string;
     protected abstract getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string;
 
-    private async openUrl(url: string): Promise<{} | undefined> {
+    private async openUrl(url?: string): Promise<{} | undefined> {
         if (url === undefined) return undefined;
 
         return commands.executeCommand(BuiltInCommands.Open, Uri.parse(url));
     }
 
-    open(resource: RemoteResource): Promise<{} | undefined> {
-        switch (resource.type) {
-            case RemoteResourceType.Branch:
-                return this.openBranch(resource.branch);
-            case RemoteResourceType.Branches:
-                return this.openBranches();
-            case RemoteResourceType.Commit:
-                return this.openCommit(resource.sha);
-            case RemoteResourceType.File:
-                return this.openFile(resource.fileName, resource.branch, undefined, resource.range);
-            case RemoteResourceType.Repo:
-                return this.openRepo();
-            case RemoteResourceType.Revision:
-                return this.openFile(resource.fileName, resource.branch, resource.sha, resource.range);
+    async copy(resource: RemoteResource): Promise<{} | undefined> {
+        const url = this.url(resource);
+        if (url === undefined) return undefined;
+
+        try {
+            const clipboard = await import('clipboardy');
+            void (await clipboard.write(url));
+
+            return undefined;
+        }
+        catch (ex) {
+            if (ex.message.includes("Couldn't find the required `xsel` binary")) {
+                window.showErrorMessage(
+                    `Unable to copy remote url, xsel is not installed. You can install it via \`sudo apt install xsel\``
+                );
+                return;
+            }
+
+            Logger.error(ex, 'CopyRemoteUrlToClipboardCommand');
+            return window.showErrorMessage(`Unable to copy remote url. See output channel for more details`);
         }
     }
 
-    openRepo() {
-        return this.openUrl(this.getUrlForRepository());
+    open(resource: RemoteResource): Promise<{} | undefined> {
+        return this.openUrl(this.url(resource));
     }
 
-    openBranches() {
-        return this.openUrl(this.getUrlForBranches());
-    }
+    url(resource: RemoteResource): string | undefined {
+        switch (resource.type) {
+            case RemoteResourceType.Branch:
+                return this.getUrlForBranch(resource.branch);
+            case RemoteResourceType.Branches:
+                return this.getUrlForBranches();
+            case RemoteResourceType.Commit:
+                return this.getUrlForCommit(resource.sha);
+            case RemoteResourceType.File:
+                return this.getUrlForFile(resource.fileName, resource.branch, undefined, resource.range);
+            case RemoteResourceType.Repo:
+                return this.getUrlForRepository();
+            case RemoteResourceType.Revision:
+                return this.getUrlForFile(resource.fileName, resource.branch, resource.sha, resource.range);
+        }
 
-    openBranch(branch: string) {
-        return this.openUrl(this.getUrlForBranch(branch));
-    }
-
-    openCommit(sha: string) {
-        return this.openUrl(this.getUrlForCommit(sha));
-    }
-
-    openFile(fileName: string, branch?: string, sha?: string, range?: Range) {
-        return this.openUrl(this.getUrlForFile(fileName, branch, sha, range));
+        return undefined;
     }
 }

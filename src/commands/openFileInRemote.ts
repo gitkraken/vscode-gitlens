@@ -18,6 +18,7 @@ import { OpenInRemoteCommandArgs } from './openInRemote';
 export interface OpenFileInRemoteCommandArgs {
     branch?: string;
     range?: boolean;
+    clipboard?: boolean;
 }
 
 export class OpenFileInRemoteCommand extends ActiveEditorCommand {
@@ -57,7 +58,11 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
                 if (branches.length > 1) {
                     const pick = await BranchesQuickPick.show(
                         branches,
-                        `Open ${gitUri.getRelativePath()} in remote for which branch${GlyphChars.Ellipsis}`
+                        args.clipboard
+                            ? `Copy url for ${gitUri.getRelativePath()} to clipboard for which branch${
+                                  GlyphChars.Ellipsis
+                              }`
+                            : `Open ${gitUri.getRelativePath()} in remote for which branch${GlyphChars.Ellipsis}`
                     );
                     if (pick === undefined) return undefined;
 
@@ -92,7 +97,8 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
                     range: range,
                     sha: gitUri.sha
                 },
-                remotes
+                remotes,
+                clipboard: args.clipboard
             } as OpenInRemoteCommandArgs);
         }
         catch (ex) {

@@ -11,6 +11,7 @@ export interface OpenInRemoteCommandArgs {
     remote?: string;
     remotes?: GitRemote[];
     resource?: RemoteResource;
+    clipboard?: boolean;
 
     goBackCommand?: CommandQuickPickItem;
 }
@@ -35,39 +36,41 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
         try {
             if (args.remotes.length === 1) {
                 this.ensureRemoteBranchName(args);
-                const command = new OpenRemoteCommandQuickPickItem(args.remotes[0], args.resource);
+                const command = new OpenRemoteCommandQuickPickItem(args.remotes[0], args.resource, args.clipboard);
                 return await command.execute();
             }
 
+            const verb = args.clipboard ? 'Copy url for' : 'Open';
+            const suffix = args.clipboard ? `to clipboard from${GlyphChars.Ellipsis}` : `in${GlyphChars.Ellipsis}`;
             let placeHolder = '';
             switch (args.resource.type) {
                 case RemoteResourceType.Branch:
                     this.ensureRemoteBranchName(args);
-                    placeHolder = `open ${args.resource.branch} branch in${GlyphChars.Ellipsis}`;
+                    placeHolder = `${verb} ${args.resource.branch} branch ${suffix}`;
                     break;
 
                 case RemoteResourceType.Commit:
                     const shortSha = GitService.shortenSha(args.resource.sha);
-                    placeHolder = `open commit ${shortSha} in${GlyphChars.Ellipsis}`;
+                    placeHolder = `${verb} commit ${shortSha} ${suffix}`;
                     break;
 
                 case RemoteResourceType.File:
-                    placeHolder = `open ${args.resource.fileName} in${GlyphChars.Ellipsis}`;
+                    placeHolder = `${verb} ${args.resource.fileName} ${suffix}`;
                     break;
 
                 case RemoteResourceType.Revision:
                     if (args.resource.commit !== undefined && args.resource.commit instanceof GitLogCommit) {
                         if (args.resource.commit.status === 'D') {
                             args.resource.sha = args.resource.commit.previousSha;
-                            placeHolder = `open ${args.resource.fileName} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${
+                            placeHolder = `${verb} ${args.resource.fileName} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${
                                 args.resource.commit.previousShortSha
-                            } in${GlyphChars.Ellipsis}`;
+                            } ${suffix}`;
                         }
                         else {
                             args.resource.sha = args.resource.commit.sha;
-                            placeHolder = `open ${args.resource.fileName} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${
+                            placeHolder = `${verb} ${args.resource.fileName} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${
                                 args.resource.commit.shortSha
-                            } in${GlyphChars.Ellipsis}`;
+                            } ${suffix}`;
                         }
                     }
                     else {
@@ -75,17 +78,18 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
                             args.resource.sha === undefined ? '' : GitService.shortenSha(args.resource.sha);
                         const shaSuffix = shortFileSha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${shortFileSha}` : '';
 
-                        placeHolder = `open ${args.resource.fileName}${shaSuffix} in${GlyphChars.Ellipsis}`;
+                        placeHolder = `${verb} ${args.resource.fileName}${shaSuffix} ${suffix}`;
                     }
                     break;
             }
 
-            if (args.remotes.length === 1) {
-                const command = new OpenRemoteCommandQuickPickItem(args.remotes[0], args.resource);
-                return await command.execute();
-            }
-
-            const pick = await RemotesQuickPick.show(args.remotes, placeHolder, args.resource, args.goBackCommand);
+            const pick = await RemotesQuickPick.show(
+                args.remotes,
+                placeHolder,
+                args.resource,
+                args.clipboard,
+                args.goBackCommand
+            );
             if (pick === undefined) return undefined;
 
             return await pick.execute();

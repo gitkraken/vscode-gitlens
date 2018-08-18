@@ -7,6 +7,7 @@ export * from './commands/common';
 export * from './commands/clearFileAnnotations';
 export * from './commands/closeUnchangedFiles';
 export * from './commands/copyMessageToClipboard';
+export * from './commands/copyRemoteFileUrlToClipboard';
 export * from './commands/copyShaToClipboard';
 export * from './commands/diffBranchWithBranch';
 export * from './commands/diffDirectory';
@@ -59,6 +60,7 @@ export function configureCommands(): void {
     Container.context.subscriptions.push(new Commands.ClearFileAnnotationsCommand());
     Container.context.subscriptions.push(new Commands.CloseUnchangedFilesCommand());
     Container.context.subscriptions.push(new Commands.CopyMessageToClipboardCommand());
+    Container.context.subscriptions.push(new Commands.CopyRemoteFileUrlToClipboardCommand());
     Container.context.subscriptions.push(new Commands.CopyShaToClipboardCommand());
     Container.context.subscriptions.push(new Commands.DiffBranchWithBranchCommand());
     Container.context.subscriptions.push(new Commands.DiffDirectoryCommand());
