@@ -7,6 +7,7 @@ const HtmlInlineSourcePlugin = require('html-webpack-inline-source-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
 const ImageminPlugin = require('imagemin-webpack-plugin').default;
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const WebpackDeepScopeAnalysisPlugin = require('webpack-deep-scope-plugin').default;
 
 module.exports = function(env, argv) {
     env = env || {};
@@ -18,6 +19,10 @@ module.exports = function(env, argv) {
 
 function getExtensionConfig(env) {
     const plugins = [new CleanPlugin(['out'], { verbose: false })];
+    // Comment out for now, as it errors
+    // if (env.production) {
+    //     plugins.push(new WebpackDeepScopeAnalysisPlugin());
+    // }
 
     return {
         name: 'extension',
@@ -132,6 +137,10 @@ function getUIConfig(env) {
             svgo: null
         })
     ];
+
+    if (env.production) {
+        plugins.push(new WebpackDeepScopeAnalysisPlugin());
+    }
 
     return {
         name: 'ui',
