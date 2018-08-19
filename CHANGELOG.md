@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Fixed
+- Fixes [#477](https://github.com/eamodio/vscode-gitlens/issues/477) - Can't load any GitLens features or UI
+
 ## [8.5.5] - 2018-08-18
 ### Added
 - Adds *Copy Remote File Url to Clipboard* (`gitlens.copyRemoteFileUrlToClipboard`) command &mdash; copies the remote url of the current file and line to the clipboard &mdash; closes [#467](https://github.com/eamodio/vscode-gitlens/issues/467)

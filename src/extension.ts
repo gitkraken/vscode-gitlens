@@ -57,7 +57,7 @@ export async function activate(context: ExtensionContext) {
             try {
                 const gitExtension = extensions.getExtension('vscode.git');
                 if (gitExtension !== undefined) {
-                    gitPath = await (gitExtension.exports as GitApi).getGitPath();
+                    gitPath = await ((await gitExtension.activate()) as GitApi).getGitPath();
                 }
             }
             catch {}
