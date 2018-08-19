@@ -38,7 +38,7 @@ export class StatusNode extends ExplorerNode {
             }
 
             if (status.state.ahead || (status.files.length !== 0 && this.includeWorkingTree)) {
-                const range = status.upstream ? `${status.upstream}..${status.branch}` : undefined;
+                const range = status.upstream ? `${status.upstream}..${status.ref}` : undefined;
                 children.push(new StatusFilesNode(status, range, this.explorer, this.active));
             }
         }

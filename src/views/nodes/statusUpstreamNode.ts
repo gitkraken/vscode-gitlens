@@ -25,8 +25,8 @@ export class StatusUpstreamNode extends ExplorerNode {
     async getChildren(): Promise<ExplorerNode[]> {
         const range =
             this.direction === 'ahead'
-                ? `${this.status.upstream}..${this.status.branch}`
-                : `${this.status.branch}..${this.status.upstream}`;
+                ? `${this.status.upstream}..${this.status.ref}`
+                : `${this.status.ref}..${this.status.upstream}`;
 
         let log = await Container.git.getLog(this.uri.repoPath!, { maxCount: 0, ref: range });
         if (log === undefined) return [];

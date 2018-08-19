@@ -391,9 +391,9 @@ export class RepoStatusQuickPick {
                     },
                     Commands.ShowQuickBranchHistory,
                     [
-                        GitUri.fromRepoPath(status.repoPath, `${status.upstream}..${status.branch}`),
+                        GitUri.fromRepoPath(status.repoPath, `${status.upstream}..${status.ref}`),
                         {
-                            branch: status.branch,
+                            branch: status.ref,
                             maxCount: 0,
                             goBackCommand: currentCommand
                         } as ShowQuickBranchHistoryCommandArgs
@@ -421,7 +421,7 @@ export class RepoStatusQuickPick {
                     },
                     Commands.ShowQuickBranchHistory,
                     [
-                        GitUri.fromRepoPath(status.repoPath, `${status.branch}..${status.upstream}`),
+                        GitUri.fromRepoPath(status.repoPath, `${status.ref}..${status.upstream}`),
                         {
                             branch: status.upstream,
                             maxCount: 0,

@@ -13,6 +13,8 @@ export interface GitStatusUpstreamState {
 }
 
 export class GitStatus {
+    readonly detached: boolean;
+
     constructor(
         public readonly repoPath: string,
         public readonly branch: string,
@@ -21,9 +23,14 @@ export class GitStatus {
         public readonly state: GitStatusUpstreamState,
         public readonly upstream?: string
     ) {
-        if (GitBranch.isDetached(branch)) {
+        this.detached = GitBranch.isDetached(branch);
+        if (this.detached) {
             this.branch = GitBranch.formatDetached(this.sha);
         }
+    }
+
+    get ref() {
+        return this.detached ? this.sha : this.branch;
     }
 
     private _diff?: {
