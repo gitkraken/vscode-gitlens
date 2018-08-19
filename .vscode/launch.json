@@ -8,10 +8,10 @@
             "request": "launch",
             "runtimeExecutable": "${execPath}",
             "args": ["--extensionDevelopmentPath=${workspaceRoot}"],
-            "stopOnEntry": false,
+            "outFiles": ["${workspaceRoot}/out/**/*.js"],
+            "skipFiles": ["<node_internals>/**/*.js", "**/node_modules/**/*.js", "**/extensions/**/*.js"],
             "smartStep": true,
-            "sourceMaps": true,
-            "outFiles": ["${workspaceRoot}/out/**/*.js"]
+            "sourceMaps": true
         },
         {
             "name": "Watch & Launch GitLens",
@@ -19,10 +19,10 @@
             "request": "launch",
             "runtimeExecutable": "${execPath}",
             "args": ["--extensionDevelopmentPath=${workspaceRoot}"],
-            "smartStep": true,
-            "stopOnEntry": false,
-            "sourceMaps": true,
             "outFiles": ["${workspaceRoot}/out/**/*.js"],
+            "skipFiles": ["<node_internals>/**/*.js", "**/node_modules/**/*.js", "**/extensions/**/*.js"],
+            "smartStep": true,
+            "sourceMaps": true,
             "preLaunchTask": "npm: watch"
         }
     ]
