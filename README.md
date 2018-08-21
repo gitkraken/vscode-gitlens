@@ -51,6 +51,8 @@
 - Fixes [#471](https://github.com/eamodio/vscode-gitlens/issues/471) - Don't use Ctrl+Alt+[character] as a shortcut
 - Fixes [#478](https://github.com/eamodio/vscode-gitlens/issues/478) - `suppressShowKeyBindingsNotice` gets saved even when it is not required
 - Fixes [#468](https://github.com/eamodio/vscode-gitlens/issues/468) - Commit history for detached HEAD doesn't work properly
+- Fixes [#477](https://github.com/eamodio/vscode-gitlens/issues/477) - Can't load any GitLens features or UI
+- Fixes [#482](https://github.com/eamodio/vscode-gitlens/issues/482) - UI displays "undefined" in results panel when comparing
 - Fixes issues with GitLens Welcome and the interactive settings editor with light themes
 - Fixes issue where commands in the editor toolbar would flash unnecessarily when navigating history or switching tabs
 - Fixes issue where the *Compare File with Previous Revision* command wouldn't work properly when the file had been renamed in some cases

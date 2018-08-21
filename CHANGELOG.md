@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [8.5.6] - 2018-08-21
 ### Fixed
 - Fixes [#477](https://github.com/eamodio/vscode-gitlens/issues/477) - Can't load any GitLens features or UI
 - Fixes [#482](https://github.com/eamodio/vscode-gitlens/issues/482) - UI displays "undefined" in results panel when comparing
