@@ -465,8 +465,11 @@ export class Git {
         return git({ cwd: repoPath }, ...params);
     }
 
-    static log(repoPath: string, options: { maxCount?: number; ref?: string; reverse?: boolean }) {
+    static log(repoPath: string, options: { author?: string; maxCount?: number; ref?: string; reverse?: boolean }) {
         const params = ['-c', 'diff.renameLimit=0', ...defaultLogParams, '--full-history', '-M', '-m'];
+        if (options.author) {
+            params.push(`--author=${options.author}`);
+        }
         if (options.maxCount && !options.reverse) {
             params.push(`-n${options.maxCount}`);
         }

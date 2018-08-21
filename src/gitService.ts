@@ -1122,7 +1122,7 @@ export class GitService implements Disposable {
 
     async getLog(
         repoPath: string,
-        options: { maxCount?: number; ref?: string; reverse?: boolean } = {}
+        options: { author?: string; maxCount?: number; ref?: string; reverse?: boolean } = {}
     ): Promise<GitLog | undefined> {
         options = { reverse: false, ...options };
 
@@ -1131,7 +1131,12 @@ export class GitService implements Disposable {
         const maxCount = options.maxCount == null ? Container.config.advanced.maxListItems || 0 : options.maxCount;
 
         try {
-            const data = await Git.log(repoPath, { maxCount: maxCount, ref: options.ref, reverse: options.reverse });
+            const data = await Git.log(repoPath, {
+                author: options.author,
+                maxCount: maxCount,
+                ref: options.ref,
+                reverse: options.reverse
+            });
             const log = GitLogParser.parse(
                 data,
                 GitCommitType.Branch,
