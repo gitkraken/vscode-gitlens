@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [Unreleased]
 ### Fixed
 - Fixes [#477](https://github.com/eamodio/vscode-gitlens/issues/477) - Can't load any GitLens features or UI
+- Fixes [#482](https://github.com/eamodio/vscode-gitlens/issues/482) - UI displays "undefined" in results panel when comparing
 
 ## [8.5.5] - 2018-08-18
 ### Added

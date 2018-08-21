@@ -116,7 +116,7 @@ export namespace Strings {
         if (options === undefined) return `${count} ${s}${count === 1 ? '' : 's'}`;
 
         return `${count === 0 ? options.zero || count : options.number || count} ${
-            count === 1 ? s : options.plural || `${s}${options.suffix}`
+            count === 1 ? s : options.plural || `${s}${options.suffix || 's'}`
         }`;
     }
 
