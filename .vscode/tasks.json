@@ -38,7 +38,8 @@
             "isBackground": true,
             "problemMatcher": [
                 {
-                    "base": "$ts-webpack",
+                    "base": "$ts-webpack-watch",
+                    "applyTo": "closedDocuments",
                     "fileLocation": "absolute",
                     "background": {
                         "activeOnStart": true,
@@ -51,7 +52,8 @@
                     }
                 },
                 {
-                    "base": "$tslint-webpack",
+                    "base": "$tslint-webpack-watch",
+                    "applyTo": "closedDocuments",
                     "background": {
                         "activeOnStart": true,
                         "beginsPattern": {

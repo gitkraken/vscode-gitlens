@@ -1,4 +1,5 @@
-out
+.image-cache
+dist
 node_modules
 settings.html
 welcome.html

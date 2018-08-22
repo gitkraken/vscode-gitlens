@@ -8,7 +8,7 @@
         "noFallthroughCasesInSwitch": true,
         "noImplicitReturns": true,
         "noUnusedLocals": false,
-        "outDir": "out",
+        "outDir": "dist",
         "rootDir": "./src",
         "sourceMap": true,
         "strict": true,

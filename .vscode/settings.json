@@ -1,9 +1,5 @@
 {
     "editor.insertSpaces": true,
-    "files.exclude": {
-        "**/node_modules": true,
-        "**/out": true
-    },
     "files.trimTrailingWhitespace": true,
     "postcssSorting.config": {
         "order": ["custom-properties", "dollar-variables", "declarations", "at-rules", "rules"],
@@ -11,9 +7,5 @@
         "unspecified-properties-position": "bottom"
     },
     "prettier.requireConfig": true,
-    "prettier.tslintIntegration": true,
-    "search.exclude": {
-        "**/node_modules": true,
-        "**/out": true
-    }
+    "prettier.tslintIntegration": true
 }

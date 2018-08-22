@@ -20,7 +20,7 @@
     "engines": {
         "vscode": "^1.25.0"
     },
-    "main": "./out/extension",
+    "main": "./dist/extension",
     "icon": "images/gitlens-icon.png",
     "preview": false,
     "badges": [
@@ -3585,7 +3585,7 @@
     "dependencies": {
         "clipboardy": "1.2.3",
         "date-fns": "1.29.0",
-        "iconv-lite": "0.4.23",
+        "iconv-lite": "0.4.24",
         "lodash.debounce": "4.0.8",
         "lodash.once": "4.1.1",
         "tmp": "0.0.33",
@@ -3593,7 +3593,7 @@
     },
     "devDependencies": {
         "@types/clipboardy": "1.1.0",
-        "@types/node": "8.10.26",
+        "@types/node": "8.10.29",
         "@types/tmp": "0.0.33",
         "clean-webpack-plugin": "0.1.19",
         "css-loader": "1.0.0",
@@ -3601,21 +3601,22 @@
         "html-webpack-plugin": "3.2.0",
         "husky": "0.14.3",
         "imagemin-webpack-plugin": "2.2.0",
-        "mini-css-extract-plugin": "0.4.1",
+        "mini-css-extract-plugin": "0.4.2",
         "node-sass": "4.9.3",
         "prettier": "1.14.2",
         "prettier-tslint": "0.4.0",
         "sass-loader": "7.1.0",
-        "style-loader": "0.22.1",
+        "size-plugin": "1.0.1",
+        "style-loader": "0.23.0",
         "tslint": "5.11.0",
         "tslint-loader": "3.6.0",
         "tslint-prettiest": "0.0.1",
-        "ts-loader": "4.5.0",
-        "typescript": "3.0.1",
+        "ts-loader": "5.0.0",
+        "typescript": "3.0.3",
         "vscode": "1.1.21",
-        "webpack": "4.16.5",
+        "webpack": "4.17.2",
         "webpack-cli": "3.1.0",
-        "webpack-deep-scope-plugin": "1.3.6",
+        "webpack-deep-scope-plugin": "1.5.3",
         "webpack-node-externals": "1.7.2"
     }
 }

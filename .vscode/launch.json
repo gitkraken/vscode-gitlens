@@ -8,7 +8,7 @@
             "request": "launch",
             "runtimeExecutable": "${execPath}",
             "args": ["--extensionDevelopmentPath=${workspaceRoot}"],
-            "outFiles": ["${workspaceRoot}/out/**/*.js"],
+            "outFiles": ["${workspaceRoot}/dist/**/*.js"],
             "skipFiles": ["<node_internals>/**/*.js", "**/node_modules/**/*.js", "**/extensions/**/*.js"],
             "smartStep": true,
             "sourceMaps": true
@@ -19,7 +19,7 @@
             "request": "launch",
             "runtimeExecutable": "${execPath}",
             "args": ["--extensionDevelopmentPath=${workspaceRoot}"],
-            "outFiles": ["${workspaceRoot}/out/**/*.js"],
+            "outFiles": ["${workspaceRoot}/dist/**/*.js"],
             "skipFiles": ["<node_internals>/**/*.js", "**/node_modules/**/*.js", "**/extensions/**/*.js"],
             "smartStep": true,
             "sourceMaps": true,

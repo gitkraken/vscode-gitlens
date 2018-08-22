@@ -1,3 +1,4 @@
+.image-cache/**
 emoji/**
 !images/dark/**
 !images/light/**
@@ -9,7 +10,7 @@ images/**
 .vscode/**
 test/**
 src/**
-out/ui/**
+dist/ui/**
 *.map
 .github/**
 .gitignore
