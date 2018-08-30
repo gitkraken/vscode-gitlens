@@ -1263,9 +1263,11 @@ export class GitService implements Disposable {
                     return cachedLog.item;
                 }
 
-                if (key !== 'log') {
+                if (options.ref !== undefined || options.maxCount !== undefined) {
                     // Since we are looking for partial log, see if we have the log of the whole file
-                    const cachedLog = doc.state.get<CachedLog>('log');
+                    const cachedLog = doc.state.get<CachedLog>(
+                        `log${options.renames ? ':follow' : ''}${options.reverse ? ':reverse' : ''}`
+                    );
                     if (cachedLog !== undefined) {
                         if (options.ref === undefined) {
                             Logger.log(

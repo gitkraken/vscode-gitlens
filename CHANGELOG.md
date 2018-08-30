@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Switches to use the new git extension's api to get the git path
 
+### Fixed
+
+- Fixes issues with git log caching
+
 ### Removed
 
 - Removes `gitlens.advanced.git` setting as it is really no longer needed
