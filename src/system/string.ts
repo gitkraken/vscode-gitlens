@@ -2,6 +2,11 @@
 import { createHash, HexBase64Latin1Encoding } from 'crypto';
 
 export namespace Strings {
+    export function getDurationMilliseconds(start: [number, number]) {
+        const [secs, nanosecs] = process.hrtime(start);
+        return secs * 1000 + Math.floor(nanosecs / 1000000);
+    }
+
     const pathNormalizer = /\\/g;
     const TokenRegex = /\$\{([^|]*?)(?:\|(\d+)(\-|\?)?)?\}/g;
     const TokenSanitizeRegex = /\$\{(\w*?)(?:\W|\d)*?\}/g;

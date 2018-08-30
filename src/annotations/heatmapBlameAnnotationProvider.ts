@@ -4,6 +4,7 @@ import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { GitBlameCommit } from '../gitService';
 import { Logger } from '../logger';
+import { Strings } from '../system';
 import { Annotations } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
@@ -55,8 +56,7 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
             this.editor.setDecorations(this.decoration!, this.decorations);
         }
 
-        const duration = process.hrtime(start);
-        Logger.log(`${duration[0] * 1000 + Math.floor(duration[1] / 1000000)} ms to compute heatmap annotations`);
+        Logger.log(`${Strings.getDurationMilliseconds(start)} ms to compute heatmap annotations`);
 
         this.registerHoverProviders(Container.config.hovers.annotations);
         void this.selection(shaOrLine, blame);

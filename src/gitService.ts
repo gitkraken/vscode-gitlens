@@ -18,7 +18,7 @@ import {
 } from 'vscode';
 import { GitExtension } from './@types/git';
 import { configuration, IRemotesConfig } from './configuration';
-import { CommandContext, DocumentSchemes, setCommandContext } from './constants';
+import { CommandContext, DocumentSchemes, GlyphChars, setCommandContext } from './constants';
 import { Container } from './container';
 import {
     CommitFormatting,
@@ -243,10 +243,10 @@ export class GitService implements Disposable {
         }
 
         if (depth <= 0) {
-            const duration = process.hrtime(start);
             Logger.log(
-                `Searching for repositories (depth=${depth}) in '${folderUri.fsPath}' took ${duration[0] * 1000 +
-                    Math.floor(duration[1] / 1000000)} ms`
+                `Completed repository search (depth=${depth}) in '${folderUri.fsPath}' ${
+                    GlyphChars.Dot
+                } ${Strings.getDurationMilliseconds(start)} ms`
             );
 
             return repositories;
@@ -281,13 +281,13 @@ export class GitService implements Disposable {
         catch (ex) {
             if (RepoSearchWarnings.doesNotExist.test(ex.message || '')) {
                 Logger.log(
-                    `Searching for repositories (depth=${depth}) in '${folderUri.fsPath}' FAILED${
-                        ex.message ? ` (${ex.message})` : ''
+                    `Repository search (depth=${depth}) in '${folderUri.fsPath}' FAILED${
+                        ex.message ? `(${ex.message})` : ''
                     }`
                 );
             }
             else {
-                Logger.error(ex, `Searching for repositories (depth=${depth}) in '${folderUri.fsPath}' FAILED`);
+                Logger.error(ex, `Repository search (depth=${depth}) in '${folderUri.fsPath}' FAILED`);
             }
 
             return repositories;
@@ -305,10 +305,10 @@ export class GitService implements Disposable {
             repositories.push(new Repository(folder, rp, false, anyRepoChangedFn, this._suspended));
         }
 
-        const duration = process.hrtime(start);
         Logger.log(
-            `Searching for repositories (depth=${depth}) in '${folderUri.fsPath}' took ${duration[0] * 1000 +
-                Math.floor(duration[1] / 1000000)} ms`
+            `Completed repository search (depth=${depth}) in '${folderUri.fsPath}' ${
+                GlyphChars.Dot
+            } ${Strings.getDurationMilliseconds(start)} ms`
         );
 
         return repositories;

@@ -1,8 +1,9 @@
 // 'use strict';
+// import * as os from 'os';
 // import { env, version, workspace } from 'vscode';
 // import { configuration } from './configuration';
 // import { Logger } from './logger';
-// import * as os from 'os';
+// import { Strings } from './system';
 
 // let _reporter: TelemetryReporter | undefined;
 
@@ -18,8 +19,7 @@
 
 //         _reporter = new TelemetryReporter(key);
 
-//         const duration = process.hrtime(start);
-//         Logger.log(`Telemetry.configure took ${(duration[0] * 1000) + Math.floor(duration[1] / 1000000)} ms`);
+//         Logger.log(`Telemetry.configure ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 //     }
 
 //     static setContext(context?: { [key: string]: string }) {
