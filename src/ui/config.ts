@@ -112,7 +112,6 @@ export interface IAdvancedConfig {
         enabled: boolean;
     };
 
-    git: string;
     fileHistoryFollowsRenames: boolean;
     maxListItems: number;
 

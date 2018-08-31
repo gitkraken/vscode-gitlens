@@ -1340,12 +1340,6 @@
                     "description": "Specifies whether git output will be cached — changing the default is not recommended",
                     "scope": "window"
                 },
-                "gitlens.advanced.git": {
-                    "type": "string",
-                    "default": null,
-                    "description": "Specifies the path to the git executable to use. Use as a last resort as GitLens will use the built-in `git.path` setting first",
-                    "scope": "window"
-                },
                 "gitlens.advanced.fileHistoryFollowsRenames": {
                     "type": "boolean",
                     "default": true,

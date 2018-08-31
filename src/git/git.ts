@@ -4,15 +4,13 @@ import * as iconv from 'iconv-lite';
 import * as path from 'path';
 import { Logger } from '../logger';
 import { Objects, Strings } from '../system';
-import { findGitPath, IGit } from './gitLocator';
+import { findGitPath, IGitInfo } from './gitLocator';
 import { CommandOptions, runCommand } from './shell';
 
-export { IGit };
+export { IGitInfo };
 export * from './models/models';
 export * from './parsers/parsers';
 export * from './remotes/provider';
-
-let git: IGit;
 
 const defaultBlameParams = ['blame', '--root', '--incremental'];
 
@@ -107,7 +105,7 @@ async function gitCommandCore(
         // See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
         args.splice(0, 0, '-c', 'core.quotepath=false', '-c', 'color.ui=false');
 
-        promise = runCommand(git.path, args, runOpts);
+        promise = runCommand(gitInfo.path, args, runOpts);
 
         pendingCommands.set(command, promise);
     }
@@ -155,6 +153,8 @@ function gitCommandDefaultErrorHandler(ex: Error, options: CommandOptions, ...ar
     throw ex;
 }
 
+let gitInfo: IGitInfo;
+
 export class Git {
     static shaRegex = /^[0-9a-f]{40}(\^[0-9]*?)??( -)?$/;
     static shaStrictRegex = /^[0-9a-f]{40}$/;
@@ -163,26 +163,28 @@ export class Git {
     static uncommittedRegex = /^[0]{40}(\^[0-9]*?)??:??$/;
     static uncommittedSha = '0000000000000000000000000000000000000000';
 
-    static gitInfo(): IGit {
-        return git;
-    }
-
     static getEncoding(encoding: string | undefined) {
         return encoding !== undefined && iconv.encodingExists(encoding) ? encoding : 'utf8';
     }
 
-    static async getGitInfo(gitPath?: string): Promise<IGit> {
+    static getGitPath(): string {
+        return gitInfo.path;
+    }
+
+    static getGitVersion(): string {
+        return gitInfo.version;
+    }
+
+    static async setOrFindGitPath(gitPath?: string): Promise<void> {
         const start = process.hrtime();
 
-        git = await findGitPath(gitPath);
+        gitInfo = await findGitPath(gitPath);
 
         const duration = process.hrtime(start);
         Logger.log(
-            `Git found: ${git.version} @ ${git.path === 'git' ? 'PATH' : git.path} in ${duration[0] * 1000 +
+            `Git found: ${gitInfo.version} @ ${gitInfo.path === 'git' ? 'PATH' : gitInfo.path} in ${duration[0] * 1000 +
                 Math.floor(duration[1] / 1000000)} ms`
         );
-
-        return git;
     }
 
     static async getVersionedFile(repoPath: string | undefined, fileName: string, ref: string) {
@@ -281,7 +283,7 @@ export class Git {
     }
 
     static validateVersion(major: number, minor: number): boolean {
-        const [gitMajor, gitMinor] = git.version.split('.');
+        const [gitMajor, gitMinor] = gitInfo.version.split('.');
         return parseInt(gitMajor, 10) >= major && parseInt(gitMinor, 10) >= minor;
     }
 

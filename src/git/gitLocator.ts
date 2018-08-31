@@ -3,7 +3,7 @@
 import * as path from 'path';
 import { findExecutable, runCommand } from './shell';
 
-export interface IGit {
+export interface IGitInfo {
     path: string;
     version: string;
 }
@@ -12,7 +12,7 @@ function parseVersion(raw: string): string {
     return raw.replace(/^git version /, '');
 }
 
-async function findSpecificGit(path: string): Promise<IGit> {
+async function findSpecificGit(path: string): Promise<IGitInfo> {
     const version = await runCommand(path, ['--version']);
     // If needed, let's update our path to avoid the search on every command
     if (!path || path === 'git') {
@@ -25,7 +25,7 @@ async function findSpecificGit(path: string): Promise<IGit> {
     };
 }
 
-async function findGitDarwin(): Promise<IGit> {
+async function findGitDarwin(): Promise<IGitInfo> {
     try {
         let path = await runCommand('which', ['git']);
         path = path.replace(/^\s+|\s+$/g, '');
@@ -50,19 +50,19 @@ async function findGitDarwin(): Promise<IGit> {
     }
 }
 
-function findSystemGitWin32(basePath: string): Promise<IGit> {
+function findSystemGitWin32(basePath: string): Promise<IGitInfo> {
     if (!basePath) return Promise.reject(new Error('Unable to find git'));
     return findSpecificGit(path.join(basePath, 'Git', 'cmd', 'git.exe'));
 }
 
-function findGitWin32(): Promise<IGit> {
+function findGitWin32(): Promise<IGitInfo> {
     return findSystemGitWin32(process.env['ProgramW6432']!)
         .then(null, () => findSystemGitWin32(process.env['ProgramFiles(x86)']!))
         .then(null, () => findSystemGitWin32(process.env['ProgramFiles']!))
         .then(null, () => findSpecificGit('git'));
 }
 
-export async function findGitPath(path?: string): Promise<IGit> {
+export async function findGitPath(path?: string): Promise<IGitInfo> {
     try {
         return await findSpecificGit(path || 'git');
     }

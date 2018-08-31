@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Switches to use the new git extension's api to get the git path
+
+### Removed
+
+- Removes `gitlens.advanced.git` setting as it is really no longer needed
+
 ## [8.5.6] - 2018-08-21
 
 ### Fixed

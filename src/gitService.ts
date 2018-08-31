@@ -6,6 +6,7 @@ import {
     Disposable,
     Event,
     EventEmitter,
+    extensions,
     Range,
     TextEditor,
     Uri,
@@ -15,6 +16,7 @@ import {
     WorkspaceFolder,
     WorkspaceFoldersChangeEvent
 } from 'vscode';
+import { GitExtension } from './@types/git';
 import { configuration, IRemotesConfig } from './configuration';
 import { CommandContext, DocumentSchemes, setCommandContext } from './constants';
 import { Container } from './container';
@@ -47,7 +49,6 @@ import {
     GitStatusParser,
     GitTag,
     GitTagParser,
-    IGit,
     Repository,
     RepositoryChange
 } from './git/git';
@@ -57,7 +58,7 @@ import { Logger } from './logger';
 import { Iterables, Objects, Strings, TernarySearchTree, Versions } from './system';
 import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from './trackers/gitDocumentTracker';
 
-export { GitUri, IGit, IGitCommitInfo };
+export { GitUri, IGitCommitInfo };
 export * from './git/models/models';
 export * from './git/formatters/formatters';
 export { getNameFromRemoteResource, RemoteProvider, RemoteResource, RemoteResourceType } from './git/remotes/provider';
@@ -1835,16 +1836,27 @@ export class GitService implements Disposable {
         return Git.getEncoding(workspace.getConfiguration('files', uri).get<string>('encoding'));
     }
 
-    static initialize(gitPath?: string): Promise<IGit> {
-        return Git.getGitInfo(gitPath);
+    static async initialize(): Promise<void> {
+        // Try to use the same git as the built-in vscode git extension
+        let gitPath;
+        try {
+            const gitExtension = extensions.getExtension('vscode.git');
+            if (gitExtension !== undefined) {
+                const gitApi = ((await gitExtension.activate()) as GitExtension).getAPI(1);
+                gitPath = gitApi.git.path;
+            }
+        }
+        catch {}
+
+        await Git.setOrFindGitPath(gitPath || workspace.getConfiguration('git').get<string>('path'));
     }
 
     static getGitPath(): string {
-        return Git.gitInfo().path;
+        return Git.getGitPath();
     }
 
     static getGitVersion(): string {
-        return Git.gitInfo().version;
+        return Git.getGitVersion();
     }
 
     static isResolveRequired(sha: string): boolean {

@@ -13,17 +13,13 @@ import {
     KeyMap,
     OutputLevel
 } from './configuration';
-import { CommandContext, extensionId, extensionQualifiedId, GlobalState, setCommandContext } from './constants';
+import { CommandContext, extensionQualifiedId, GlobalState, setCommandContext } from './constants';
 import { Container } from './container';
 import { GitService } from './gitService';
 import { Logger } from './logger';
 import { Messages } from './messages';
 import { Versions } from './system';
 // import { Telemetry } from './telemetry';
-
-interface GitApi {
-    getGitPath(): Promise<string>;
-}
 
 export async function activate(context: ExtensionContext) {
     const start = process.hrtime();
@@ -36,7 +32,7 @@ export async function activate(context: ExtensionContext) {
     const enabled = workspace.getConfiguration('git', null!).get<boolean>('enabled', true);
     if (!enabled) {
         Logger.log(`GitLens(v${gitlensVersion}) was NOT activated -- "git.enabled": false`);
-        setCommandContext(CommandContext.Enabled, enabled);
+        setCommandContext(CommandContext.Enabled, false);
 
         void Messages.showGitDisabledErrorMessage();
 
@@ -48,36 +44,23 @@ export async function activate(context: ExtensionContext) {
     const previousVersion = context.globalState.get<string>(GlobalState.GitLensVersion);
     await migrateSettings(context, previousVersion);
 
-    const cfg = configuration.get<IConfig>();
-
     try {
-        let gitPath = cfg.advanced.git;
-        if (!gitPath) {
-            // Try to use the same git as the built-in vscode git extension
-            try {
-                const gitExtension = extensions.getExtension('vscode.git');
-                if (gitExtension !== undefined) {
-                    gitPath = await ((await gitExtension.activate()) as GitApi).getGitPath();
-                }
-            }
-            catch {}
-        }
-
-        await GitService.initialize(gitPath || workspace.getConfiguration('git').get<string>('path'));
+        await GitService.initialize();
     }
     catch (ex) {
         Logger.error(ex, `GitLens(v${gitlensVersion}).activate`);
+        setCommandContext(CommandContext.Enabled, false);
+
         if (ex.message.includes('Unable to find git')) {
             await window.showErrorMessage(
-                `GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that '${extensionId}.${
-                    configuration.name('advanced')('git').value
-                }' is pointed to its installed location.`
+                `GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'git.path' is pointed to its installed location.`
             );
         }
-        setCommandContext(CommandContext.Enabled, false);
+
         return;
     }
 
+    const cfg = configuration.get<IConfig>();
     Container.initialize(context, cfg);
 
     configureCommands();

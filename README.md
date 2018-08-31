@@ -818,7 +818,6 @@ See also [Explorer Settings](#explorer-settings 'Jump to the Explorer settings')
 | `gitlens.advanced.blame.delayAfterEdit`         | Specifies the time (in milliseconds) to wait before re-blaming an unsaved document after an edit. Use 0 to specify an infinite wait   |
 | `gitlens.advanced.blame.sizeThresholdAfterEdit` | Specifies the maximum document size (in lines) allowed to be re-blamed after an edit while still unsaved. Use 0 to specify no maximum |
 | `gitlens.advanced.caching.enabled`              | Specifies whether git output will be cached &mdash; changing the default is not recommended                                           |
-| `gitlens.advanced.git`                          | Specifies the path to the git executable to use. Use as a last resort as GitLens will use the built-in `git.path` setting first       |
 | `gitlens.advanced.fileHistoryFollowsRenames`    | Specifies whether file histories will follow renames -- will affect how merge commits are shown in histories                          |
 | `gitlens.advanced.maxListItems`                 | Specifies the maximum number of items to show in a list. Use 0 to specify no maximum                                                  |
 | `gitlens.advanced.messages`                     | Specifies which messages should be suppressed                                                                                         |
