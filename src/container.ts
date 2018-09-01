@@ -3,7 +3,6 @@ import { Disposable, ExtensionContext, languages, workspace } from 'vscode';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
 import { CodeLensController } from './codelens/codeLensController';
-import { GitRevisionCodeLensProvider } from './codelens/gitRevisionCodeLensProvider';
 import { configuration, IConfig } from './configuration';
 import { GitContentProvider } from './gitContentProvider';
 import { GitService } from './gitService';
@@ -68,9 +67,6 @@ export class Container {
 
         context.subscriptions.push(
             workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider())
-        );
-        context.subscriptions.push(
-            languages.registerCodeLensProvider(GitRevisionCodeLensProvider.selector, new GitRevisionCodeLensProvider())
         );
     }
 

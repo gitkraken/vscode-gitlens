@@ -222,7 +222,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
                         gitUri.getFilename(),
                         SymbolKind.File,
                         '',
-                        new Location(gitUri.fileUri(), new Range(0, 0, 0, blameRange.start.character))
+                        new Location(gitUri.documentUri(), new Range(0, 0, 0, blameRange.start.character))
                     );
                     lenses.push(
                         new GitRecentChangeCodeLens(
@@ -249,7 +249,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
                         gitUri.getFilename(),
                         SymbolKind.File,
                         '',
-                        new Location(gitUri.fileUri(), new Range(0, 1, 0, blameRange.start.character))
+                        new Location(gitUri.documentUri(), new Range(0, 1, 0, blameRange.start.character))
                     );
                     lenses.push(
                         new GitAuthorsCodeLens(

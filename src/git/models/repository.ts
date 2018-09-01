@@ -218,13 +218,13 @@ export class Repository implements Disposable {
         }
     }
 
-    containsUri(uri: Uri) {
-        if (uri instanceof GitUri) {
-            uri = uri.repoPath !== undefined ? Uri.file(uri.repoPath) : uri.fileUri();
-        }
+    // containsUri(uri: Uri) {
+    //     if (uri instanceof GitUri) {
+    //         uri = uri.repoPath !== undefined ? Uri.file(uri.repoPath) : uri.documentUri();
+    //     }
 
-        return this.folder === workspace.getWorkspaceFolder(uri);
-    }
+    //     return this.folder === workspace.getWorkspaceFolder(uri);
+    // }
 
     getBranch(): Promise<GitBranch | undefined> {
         if (this._branch === undefined) {

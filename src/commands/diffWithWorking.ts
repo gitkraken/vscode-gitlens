@@ -44,11 +44,11 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
                         repoPath: gitUri.repoPath,
                         lhs: {
                             sha: GitService.stagedUncommittedSha,
-                            uri: gitUri.fileUri()
+                            uri: gitUri.documentUri()
                         },
                         rhs: {
                             sha: '',
-                            uri: gitUri.fileUri()
+                            uri: gitUri.documentUri()
                         },
                         line: args.line,
                         showOptions: args.showOptions

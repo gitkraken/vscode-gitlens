@@ -1,8 +1,7 @@
 'use strict';
 import * as path from 'path';
-import { CancellationToken, TextDocumentContentProvider, Uri, window } from 'vscode';
+import { CancellationToken, TextDocumentContentProvider, Uri, window, workspace } from 'vscode';
 import { DocumentSchemes } from './constants';
-import { Container } from './container';
 import { GitService, GitUri } from './gitService';
 import { Logger } from './logger';
 
@@ -14,7 +13,10 @@ export class GitContentProvider implements TextDocumentContentProvider {
         if (!gitUri.repoPath || gitUri.sha === GitService.deletedSha) return '';
 
         try {
-            return await Container.git.getVersionedFileText(gitUri.repoPath, gitUri.fsPath, gitUri.sha || 'HEAD');
+            const document = await workspace.openTextDocument(
+                Uri.parse(`git:/${gitUri.fsPath}?${JSON.stringify({ path: gitUri.fsPath, ref: gitUri.sha || 'HEAD' })}`)
+            );
+            return document.getText();
         }
         catch (ex) {
             Logger.error(ex, 'GitContentProvider', 'getVersionedFileText');

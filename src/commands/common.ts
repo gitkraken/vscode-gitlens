@@ -13,7 +13,7 @@ import {
     window,
     workspace
 } from 'vscode';
-import { BuiltInCommands, DocumentSchemes, ImageExtensions } from '../constants';
+import { BuiltInCommands, DocumentSchemes, ImageMimetypes } from '../constants';
 import { Container } from '../container';
 import { GitBranch, GitCommit, GitRemote, GitUri } from '../gitService';
 import { Logger } from '../logger';
@@ -394,21 +394,18 @@ export async function openEditor(
     const { rethrow, ...opts } = options;
     try {
         if (uri instanceof GitUri) {
-            uri = uri.fileUri({ noSha: true });
+            uri = uri.documentUri({ noSha: true });
         }
 
-        // TODO: revist this
         // This is a bit of an ugly hack, but I added it because there a bunch of call sites and toRevisionUri can't be easily made async because of its use in ctors
-        if (uri.scheme === DocumentSchemes.GitLensGit) {
+        if (uri.scheme === DocumentSchemes.GitLensGit && ImageMimetypes[path.extname(uri.fsPath)]) {
             const gitUri = GitUri.fromRevisionUri(uri);
-            if (ImageExtensions.includes(path.extname(gitUri.fsPath))) {
-                const uri = await Container.git.getVersionedFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha);
-                if (uri !== undefined) {
-                    await commands.executeCommand(BuiltInCommands.Open, uri);
-
-                    return undefined;
-                }
+            const imageUri = await Container.git.getVersionedFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha);
+            if (imageUri !== undefined) {
+                await commands.executeCommand(BuiltInCommands.Open, imageUri);
             }
+
+            return undefined;
         }
 
         const document = await workspace.openTextDocument(uri);

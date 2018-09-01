@@ -18,7 +18,7 @@ import {
 } from 'vscode';
 import { GitExtension } from './@types/git';
 import { configuration, IRemotesConfig } from './configuration';
-import { CommandContext, DocumentSchemes, GlyphChars, setCommandContext } from './constants';
+import { CommandContext, DocumentSchemes, GlyphChars, ImageMimetypes, setCommandContext } from './constants';
 import { Container } from './container';
 import {
     CommitFormatting,
@@ -1652,15 +1652,19 @@ export class GitService implements Disposable {
             return undefined;
         }
 
-        const file = await Git.getVersionedFile(repoPath, fileName, sha);
-        if (file === undefined) return undefined;
+        if (ImageMimetypes[path.extname(fileName)]) {
+            const file = await Git.getVersionedFile(repoPath, fileName, sha);
+            if (file === undefined) return undefined;
 
-        this._versionedUriCache.set(
-            GitUri.toKey(file),
-            new GitUri(Uri.file(fileName), { sha: sha, repoPath: repoPath!, versionedPath: file })
-        );
+            this._versionedUriCache.set(
+                GitUri.toKey(file),
+                new GitUri(Uri.file(fileName), { sha: sha, repoPath: repoPath!, versionedPath: file })
+            );
 
-        return Uri.file(file);
+            return Uri.file(file);
+        }
+
+        return GitUri.toRevisionUri(sha, fileName, repoPath!);
     }
 
     getVersionedFileText(repoPath: string, fileName: string, sha: string) {

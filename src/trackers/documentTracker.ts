@@ -238,7 +238,7 @@ export class DocumentTracker<T> implements Disposable {
     private async _add(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
         if (documentOrId instanceof GitUri) {
             try {
-                documentOrId = await workspace.openTextDocument(documentOrId.fileUri({ useVersionedPath: true }));
+                documentOrId = await workspace.openTextDocument(documentOrId.documentUri({ useVersionedPath: true }));
             }
             catch (ex) {
                 const msg = ex.toString();
@@ -271,7 +271,7 @@ export class DocumentTracker<T> implements Disposable {
 
     private async _get(documentOrId: string | TextDocument | Uri) {
         if (documentOrId instanceof GitUri) {
-            documentOrId = GitUri.toKey(documentOrId.fileUri({ useVersionedPath: true }));
+            documentOrId = GitUri.toKey(documentOrId.documentUri({ useVersionedPath: true }));
         }
         else if (typeof documentOrId === 'string' || documentOrId instanceof Uri) {
             documentOrId = GitUri.toKey(documentOrId);
@@ -366,7 +366,7 @@ class EmptyTextDocument implements TextDocument {
     constructor(
         public readonly gitUri: GitUri
     ) {
-        this.uri = gitUri.fileUri({ useVersionedPath: true });
+        this.uri = gitUri.documentUri({ useVersionedPath: true });
 
         this.eol = EndOfLine.LF;
         this.fileName = this.uri.fsPath;

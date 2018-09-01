@@ -33,7 +33,6 @@ interface UriEx {
 export class GitUri extends ((Uri as any) as UriEx) {
     repoPath?: string;
     sha?: string;
-
     versionedPath?: string;
 
     constructor(uri?: Uri);
@@ -94,16 +93,16 @@ export class GitUri extends ((Uri as any) as UriEx) {
         return this.sha && GitService.shortenSha(this.sha);
     }
 
+    documentUri(options: { noSha?: boolean; useVersionedPath?: boolean } = {}) {
+        if (options.useVersionedPath && this.versionedPath !== undefined) return Uri.file(this.versionedPath);
+
+        return this.scheme === 'file' ? Uri.file(!options.noSha && this.sha ? this.path : this.fsPath) : this;
+    }
+
     equals(uri: Uri | undefined) {
         if (!UriComparer.equals(this, uri)) return false;
 
         return this.sha === (uri instanceof GitUri ? uri.sha : undefined);
-    }
-
-    fileUri(options: { noSha?: boolean; useVersionedPath?: boolean } = {}) {
-        if (options.useVersionedPath && this.versionedPath !== undefined) return Uri.file(this.versionedPath);
-
-        return Uri.file(!options.noSha && this.sha ? this.path : this.fsPath);
     }
 
     getDirectory(relativeTo?: string): string {
@@ -314,7 +313,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
         const parsed = path.parse(fileName);
         return Uri.parse(
-            `${DocumentSchemes.GitLensGit}:${path.join(parsed.dir, parsed.name)}:${shortSha}${
+            `${DocumentSchemes.GitLensGit}:${path.join(parsed.dir, parsed.name)} (${shortSha})${
                 parsed.ext
             }?${JSON.stringify(data)}`
         );
