@@ -116,13 +116,17 @@ export class CommitQuickPickItem implements QuickPickItem {
                 GlyphChars.Dot,
                 1,
                 1
-            )} ${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getFormattedDiffStatus()}`;
+            )} ${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getFormattedDiffStatus({
+                compact: true
+            })}`;
         }
         else {
             this.label = message;
             this.description = `${Strings.pad('$(git-commit)', 1, 1)} ${commit.shortSha}`;
             this.detail = `${GlyphChars.Space} ${commit.author}, ${commit.formattedDate}${
-                commit.isFile ? '' : ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getFormattedDiffStatus()}`
+                commit.isFile
+                    ? ''
+                    : ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getFormattedDiffStatus({ compact: true })}`
             }`;
         }
     }

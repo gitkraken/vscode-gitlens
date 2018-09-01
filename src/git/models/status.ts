@@ -81,7 +81,7 @@ export class GitStatus {
         const { added, changed, deleted } = this.getDiffStatus();
         if (added === 0 && changed === 0 && deleted === 0) return options.empty || '';
 
-        options = { compact: true, empty: '', prefix: '', separator: ' ', suffix: '', ...options };
+        options = { empty: '', prefix: '', separator: ' ', suffix: '', ...options };
         if (options.expand) {
             let status = '';
             if (added) {
