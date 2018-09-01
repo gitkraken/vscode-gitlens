@@ -142,7 +142,7 @@ export class CommitFileQuickPick {
             items.push(
                 new CommandQuickPickItem(
                     {
-                        label: `$(git-compare) Open Changes with Working Tree`,
+                        label: `$(git-compare) Open Changes with Working File`,
                         description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha} ${
                             GlyphChars.Space
                         } $(git-compare) ${GlyphChars.Space} $(file-text) ${workingName}`

@@ -22,7 +22,7 @@
 - Adds _Compare with Selected_ and _Select for Compare_ commands to file nodes in the _GitLens_, _GitLens File History_, and _GitLens Results_ explorers &mdash; closes [#446](https://github.com/eamodio/vscode-gitlens/issues/446)
 - Adds tag annotations to the tag tooltips in the _GitLens_ explorer &mdash; closes [#431](https://github.com/eamodio/vscode-gitlens/issues/431)
 - Adds _Choose from Branch or Tag History..._ to the quick pick menu shown by the _Show File History..._ command (`gitlens.showQuickFileHistory`) &mdash; closes [#316](https://github.com/eamodio/vscode-gitlens/issues/316)
-- Adds the _Compare File with Revision..._ command (`gitlens.diffWithRevision`) as an alternate (`alt+click`) for the _Compare File with Previous Revision_ command in the editor toolbar
+- Adds the _Open Changes with Revision..._ command (`gitlens.diffWithRevision`) as an alternate (`alt+click`) for the _Open Changes with Previous Revision_ command in the editor toolbar
 - Adds _Checkout Commit (via Terminal)_ command (`gitlens.terminalCheckoutCommit`) to commit node(s) of the _GitLens_ explorer &mdash; closes [#463](https://github.com/eamodio/vscode-gitlens/issues/463)
 - Adds `gitlens.historyExplorer.avatars` setting to specify whether to show avatar images instead of status icons in the _GitLens File History_ explorer &mdash; allows for an independent value from the other explorers
 - Adds a `gitlens.hovers.avatars` setting to specify whether to show avatar images in hovers &mdash; closes [#432](https://github.com/eamodio/vscode-gitlens/issues/432) thanks to [PR #441](https://github.com/eamodio/vscode-gitlens/pull/441) by Segev Finer ([@segevfiner](https://github.com/segevfiner))
@@ -32,7 +32,7 @@
 - Changes commit search by sha to jump directly to the commit (if one is found), rather than having to click through to the commit
 - Renames the _GitLens History_ explorer to _GitLens File History_ explorer for better clarity
 - Changes the _GitLens File History_ explorer to always show the full file history even when reviewing revisions
-- Changes the behavior of and renames the _Show Branches and Tags_ command and on the quick pick menu shown by the _Compare File with Revision..._ command (`gitlens.diffWithRevision`) to _Choose from Branch or Tag History..._
+- Changes the behavior of and renames the _Show Branches and Tags_ command and on the quick pick menu shown by the _Open Changes with Revision..._ command (`gitlens.diffWithRevision`) to _Choose from Branch or Tag History..._
 - Changes the behavior of and renames the _Show Branches and Tags_ command on the quick pick menu shown by the _Open Revision..._ command (`gitlens.openFileRevision`) to _Choose from Branch or Tag History..._
 - Changes _Rebase to Commit (via Terminal)_ command (`gitlens.terminalRebaseCommit`) to apply to all commit node(s) of the _GitLens_ explorer
 - Changes _Reset to Commit (via Terminal)_ command (`gitlens.terminalResetCommit`) to apply to all commit node(s) of the _GitLens_ explorer
@@ -57,8 +57,8 @@
 - Fixes [#482](https://github.com/eamodio/vscode-gitlens/issues/482) - UI displays "undefined" in results panel when comparing
 - Fixes issues with GitLens Welcome and the interactive settings editor with light themes
 - Fixes issue where commands in the editor toolbar would flash unnecessarily when navigating history or switching tabs
-- Fixes issue where the _Compare File with Previous Revision_ command wouldn't work properly when the file had been renamed in some cases
-- Fixes issue where the _Compare File with Next Revision_ command wouldn't work properly when the file had been renamed in some cases
+- Fixes issue where the _Open Changes with Previous Revision_ command wouldn't work properly when the file had been renamed in some cases
+- Fixes issue where the _Open Changes with Next Revision_ command wouldn't work properly when the file had been renamed in some cases
 - Fixes issue where changed files count was wrong when the branch was behind the upstream
 - Fixes issue where the _GitLens File History_ explorer wasn't being updated automatically for working changes
 - Fixes issue where the _Compare File with \* Revision_ commands in the editor toolbar would show and hide too often because of insignificant focus changes
@@ -393,7 +393,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 - Adds a **details hover** annotation to the current line to show more commit details ([optional](#hover-settings 'Jump to the Hover settings'), on by default)
   - Provides automatic issue linking to Bitbucket, GitHub, GitLab, and Visual Studio Team Services in commit messages
   - Provides a **quick-access command bar** with _Open Changes_, _Blame Previous Revision_, _Open in Remote_, and _Show More Actions_ command buttons
-  - Click the commit id to execute the _Show Commit Details_ command (`gitlens.showQuickCommitDetails`)
+  - Click the commit id to execute the _Show Commit Details_ command
 
 ##### Changes (diff) Hover
 
@@ -402,8 +402,8 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 </p>
 
 - Adds a **changes (diff) hover** annotation to the current line to show the line's previous version ([optional](#hover-settings 'Jump to the Hover settings'), on by default)
-  - Click the **Changes** to execute the _Compare File Revisions_ command (`gitlens.diffWith`)
-  - Click the current and previous commit ids to execute the _Show Commit Details_ command (`gitlens.showQuickCommitDetails`)
+  - Click the **Changes** to execute the _Open Changes_ command
+  - Click the current and previous commit ids to execute the _Show Commit Details_ command
 
 #### Annotation Hovers
 
@@ -422,7 +422,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 - Adds a **details hover** annotation to each line while annotating to show more commit details ([optional](#hover-settings 'Jump to the Hover settings'), on by default)
   - Provides automatic issue linking to Bitbucket, GitHub, GitLab, and Visual Studio Team Services in commit messages
   - Provides a **quick-access command bar** with _Open Changes_, _Blame Previous Revision_, _Open in Remote_, and _Show More Actions_ command buttons
-  - Click the commit id to execute the _Show Commit Details_ command (`gitlens.showQuickCommitDetails`)
+  - Click the commit id to execute the _Show Commit Details_ command
 
 ##### Changes (diff) Hover
 
@@ -431,8 +431,8 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 </p>
 
 - Adds a **changes (diff) hover** annotation to each line while annotating to show the line's previous version ([optional](#hover-settings 'Jump to the Hover settings'), on by default)
-  - Click the **Changes** to execute the _Compare File Revisions_ command (`gitlens.diffWith`)
-  - Click the current and previous commit ids to execute the _Show Commit Details_ command (`gitlens.showQuickCommitDetails`)
+  - Click the **Changes** to execute the _Open Changes_ command
+  - Click the current and previous commit ids to execute the _Show Commit Details_ command
 
 ---
 
@@ -615,19 +615,19 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 
 - Adds a _Compare Working Tree with Branch or Tag..._ command (`gitlens.diffWorkingWithBranch`) to compare the working tree with the selected branch or tag
 
-- Adds a _Compare File with Branch or Tag..._ command (`gitlens.diffWithBranch`) to compare the current file with the same file on the selected branch or tag
+- Adds a _Open Changes with Branch or Tag..._ command (`gitlens.diffWithBranch`) to compare the current file with the same file on the selected branch or tag
 
-- Adds a _Compare File with Next Revision_ command (`gitlens.diffWithNext`) with a shortcut of `alt+.` to compare the current file/diff with the next commit revision
+- Adds a _Open Changes with Next Revision_ command (`gitlens.diffWithNext`) with a shortcut of `alt+.` to compare the current file/diff with the next commit revision
 
-- Adds a _Compare File with Previous Revision_ command (`gitlens.diffWithPrevious`) with a shortcut of `alt+,` to compare the current file/diff with the previous commit revision
+- Adds a _Open Changes with Previous Revision_ command (`gitlens.diffWithPrevious`) with a shortcut of `alt+,` to compare the current file/diff with the previous commit revision
 
-- Adds a _Compare Line Revision with Previous_ command (`gitlens.diffLineWithPrevious`) with a shortcut of `shift+alt+,` to compare the current file/diff with the previous line commit revision
+- Adds a _Open Line Changes with Previous Revision_ command (`gitlens.diffLineWithPrevious`) with a shortcut of `shift+alt+,` to compare the current file/diff with the previous line commit revision
 
-- Adds a _Compare File with Revision..._ command (`gitlens.diffWithRevision`) to compare the current file with the selected revision of the same file
+- Adds a _Open Changes with Revision..._ command (`gitlens.diffWithRevision`) to compare the current file with the selected revision of the same file
 
-- Adds a _Compare File with Working Revision_ command (`gitlens.diffWithWorking`) with a shortcut of `shift+alt+w` to compare the most recent commit revision of the current file/diff with the working tree
+- Adds a _Open Changes with Working File_ command (`gitlens.diffWithWorking`) with a shortcut of `shift+alt+w` to compare the most recent commit revision of the current file/diff with the working tree
 
-- Adds a _Compare Line Revision with Working File_ command (`gitlens.diffLineWithWorking`) with a shortcut of `alt+w` to compare the commit revision of the current line with the working tree
+- Adds a _Open Line Changes with Working File_ command (`gitlens.diffLineWithWorking`) with a shortcut of `alt+w` to compare the commit revision of the current line with the working tree
 
 ---
 

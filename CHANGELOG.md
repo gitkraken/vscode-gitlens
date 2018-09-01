@@ -6,8 +6,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds _Open Changes with Working File_ (`gitlens.diffWithWorking`) command to the editor toolbar when comparing revisions
+
 ### Changed
 
+- Renames _Compare File with Branch or Tag..._ (`gitlens.diffWithBranch`) command to _Open Changes with Branch or Tag..._
+- Renames _Compare File with Next Revision_ (`gitlens.diffWithNext`) command to _Open Changes with Next Revision_
+- Renames _Compare File with Previous Revision_ (`gitlens.diffWithPrevious`) command to _Open Changes with Previous Revision_
+- Renames _Compare Commit with Previous_ (`gitlens.diffLineWithPrevious`) command to _Open Line Changes with Previous Revision_
+- Renames _Compare File with Revision..._ (`gitlens.diffWithRevision`) command to _Open Changes with Revision..._
+- Renames _Compare File with Working Revision_ (`gitlens.diffWithWorking`) command to _Open Changes with Working File_
+- Renames _Compare Commit with Working File_ (`gitlens.diffLineWithWorking`) command to _Open Line Changes with Working File_
 - Switches to use the new git extension's api to get the git path
 
 ### Fixed
@@ -1212,10 +1223,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   ![Hover Annotations](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-hovers-annotations.png)
 
   - Adds the following command-links to the **details** hover annotation
-    - Clicking the commit id will run the _Show Commit Details_ command (`gitlens.showQuickCommitDetails`)
+    - Clicking the commit id will run the _Show Commit Details_ command
   - Adds the following command-links to the **changes** hover annotation
-    - Clicking on **Changes** will run the _Compare File Revisions_ command (`gitlens.diffWith`)
-    - Clicking the current and previous commit ids will run the _Show Commit Details_ command (`gitlens.showQuickCommitDetails`)
+    - Clicking on **Changes** will run the _Open Changes_ command
+    - Clicking the current and previous commit ids will run the _Show Commit Details_ command
 
 - Adds support for remote services with custom domains &mdash; closes [#120](https://github.com/eamodio/vscode-gitlens/issues/120)
 - Adds support for the Bitbucket Server (previously called Stash) remote service &mdash; closes [#120](https://github.com/eamodio/vscode-gitlens/issues/120)

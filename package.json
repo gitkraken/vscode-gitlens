@@ -1528,18 +1528,13 @@
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.diffWith",
-                "title": "Compare File Revisions",
-                "category": "GitLens"
-            },
-            {
                 "command": "gitlens.diffWithBranch",
-                "title": "Compare File with Branch or Tag...",
+                "title": "Open Changes with Branch or Tag...",
                 "category": "GitLens"
             },
             {
                 "command": "gitlens.diffWithNext",
-                "title": "Compare File with Next Revision",
+                "title": "Open Changes with Next Revision",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-next-commit.svg",
@@ -1548,7 +1543,7 @@
             },
             {
                 "command": "gitlens.diffWithPrevious",
-                "title": "Compare File with Previous Revision",
+                "title": "Open Changes with Previous Revision",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-prev-commit.svg",
@@ -1557,7 +1552,7 @@
             },
             {
                 "command": "gitlens.diffWithPreviousInDiff",
-                "title": "Compare File with Previous Revision",
+                "title": "Open Changes with Previous Revision",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-prev-commit.svg",
@@ -1566,12 +1561,12 @@
             },
             {
                 "command": "gitlens.diffLineWithPrevious",
-                "title": "Compare Commit with Previous",
+                "title": "Open Line Changes with Previous Revision",
                 "category": "GitLens"
             },
             {
                 "command": "gitlens.diffWithRevision",
-                "title": "Compare File with Revision...",
+                "title": "Open Changes with Revision...",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-prev-commit-menu.svg",
@@ -1580,12 +1575,16 @@
             },
             {
                 "command": "gitlens.diffWithWorking",
-                "title": "Compare File with Working Revision",
-                "category": "GitLens"
+                "title": "Open Changes with Working File",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-compare.svg",
+                    "light": "images/light/icon-compare.svg"
+                }
             },
             {
                 "command": "gitlens.diffLineWithWorking",
-                "title": "Compare Commit with Working File",
+                "title": "Open Line Changes with Working File",
                 "category": "GitLens"
             },
             {
@@ -2204,10 +2203,6 @@
                     "when": "gitlens:enabled"
                 },
                 {
-                    "command": "gitlens.diffWith",
-                    "when": "false"
-                },
-                {
                     "command": "gitlens.diffWithBranch",
                     "when": "gitlens:activeFileStatus =~ /tracked/"
                 },
@@ -2694,35 +2689,40 @@
             ],
             "editor/title": [
                 {
+                    "command": "gitlens.diffWithWorking",
+                    "when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git",
+                    "group": "navigation@0"
+                },
+                {
+                    "command": "gitlens.openWorkingFile",
+                    "when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git",
+                    "group": "navigation@0"
+                },
+                {
+                    "command": "gitlens.openWorkingFile",
+                    "when": "!gitlens:activeFileStatus =~ /revision/ && resourceScheme != git && isInDiffEditor",
+                    "group": "navigation@0"
+                },
+                {
+                    "command": "gitlens.openWorkingFile",
+                    "when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme == git && !isInDiffEditor",
+                    "group": "navigation@0"
+                },
+                {
                     "command": "gitlens.diffWithPrevious",
                     "alt": "gitlens.diffWithRevision",
                     "when": "!isInDiffEditor && gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare",
-                    "group": "navigation@97"
+                    "group": "navigation@98"
                 },
                 {
                     "command": "gitlens.diffWithPreviousInDiff",
                     "alt": "gitlens.diffWithRevision",
                     "when": "isInDiffEditor && gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare",
-                    "group": "navigation@97"
+                    "group": "navigation@98"
                 },
                 {
                     "command": "gitlens.diffWithNext",
                     "when": "gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /revision/ && config.gitlens.menus.editorGroup.compare",
-                    "group": "navigation@98"
-                },
-                {
-                    "command": "gitlens.openWorkingFile",
-                    "when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git",
-                    "group": "navigation@99"
-                },
-                {
-                    "command": "gitlens.openWorkingFile",
-                    "when": "!gitlens:activeFileStatus =~ /revision/ && resourceScheme != git && isInDiffEditor",
-                    "group": "navigation@99"
-                },
-                {
-                    "command": "gitlens.openWorkingFile",
-                    "when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme == git && !isInDiffEditor",
                     "group": "navigation@99"
                 },
                 {
