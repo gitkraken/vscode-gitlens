@@ -8,13 +8,15 @@ export namespace Strings {
     }
 
     const pathNormalizer = /\\/g;
-    const TokenRegex = /\$\{([^|]*?)(?:\|(\d+)(\-|\?)?)?\}/g;
-    const TokenSanitizeRegex = /\$\{(\w*?)(?:\W|\d)*?\}/g;
+    const TokenRegex = /\$\{(\W*)?([^|]*?)(?:\|(\d+)(\-|\?)?)?(\W*)?\}/g;
+    const TokenSanitizeRegex = /\$\{(?:\W*)?(\w*?)(?:[\W\d]*)\}/g;
 
     export interface ITokenOptions {
-        padDirection: 'left' | 'right';
-        truncateTo: number | undefined;
         collapseWhitespace: boolean;
+        padDirection: 'left' | 'right';
+        prefix: string | undefined;
+        suffix: string | undefined;
+        truncateTo: number | undefined;
     }
 
     export function getTokensFromTemplate(template: string) {
@@ -22,14 +24,15 @@ export namespace Strings {
 
         let match = TokenRegex.exec(template);
         while (match != null) {
-            const truncateTo = match[2];
-            const option = match[3];
+            const [, prefix, key, truncateTo, option, suffix] = match;
             tokens.push({
-                key: match[1],
+                key: key,
                 options: {
-                    truncateTo: truncateTo == null ? undefined : parseInt(truncateTo, 10),
+                    collapseWhitespace: option === '?',
                     padDirection: option === '-' ? 'left' : 'right',
-                    collapseWhitespace: option === '?'
+                    prefix: prefix,
+                    suffix: suffix,
+                    truncateTo: truncateTo == null ? undefined : parseInt(truncateTo, 10)
                 }
             });
             match = TokenRegex.exec(template);

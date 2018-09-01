@@ -91,6 +91,14 @@ export class CommitNode extends ExplorerRefNode {
             } as ICommitFormatOptions
         );
 
+        if (!this.commit.isUncommitted) {
+            item.tooltip += this.commit.getFormattedDiffStatus({
+                expand: true,
+                prefix: '\n\n',
+                separator: '\n'
+            });
+        }
+
         return item;
     }
 

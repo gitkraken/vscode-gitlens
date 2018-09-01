@@ -59,27 +59,72 @@ export class GitLogCommit extends GitCommit {
         return this.isFile && this.previousSha ? this.previousSha : `${this.sha}^`;
     }
 
-    getDiffStatus(): string {
-        let added = 0;
-        let deleted = 0;
-        let changed = 0;
+    private _diff?: {
+        added: number;
+        deleted: number;
+        changed: number;
+    };
 
-        for (const f of this.fileStatuses) {
-            switch (f.status) {
-                case 'A':
-                case '?':
-                    added++;
-                    break;
-                case 'D':
-                    deleted++;
-                    break;
-                default:
-                    changed++;
-                    break;
+    getDiffStatus() {
+        if (this._diff === undefined) {
+            this._diff = {
+                added: 0,
+                deleted: 0,
+                changed: 0
+            };
+
+            if (this.fileStatuses.length !== 0) {
+                for (const f of this.fileStatuses) {
+                    switch (f.status) {
+                        case 'A':
+                        case '?':
+                            this._diff.added++;
+                            break;
+                        case 'D':
+                            this._diff.deleted++;
+                            break;
+                        default:
+                            this._diff.changed++;
+                            break;
+                    }
+                }
             }
         }
 
-        return `+${added} ~${changed} -${deleted}`;
+        return this._diff;
+    }
+
+    getFormattedDiffStatus(
+        options: {
+            compact?: boolean;
+            empty?: string;
+            expand?: boolean;
+            prefix?: string;
+            separator?: string;
+            suffix?: string;
+        } = {}
+    ): string {
+        const { added, changed, deleted } = this.getDiffStatus();
+        if (added === 0 && changed === 0 && deleted === 0) return options.empty || '';
+
+        options = { compact: true, empty: '', prefix: '', separator: ' ', suffix: '', ...options };
+        if (options.expand) {
+            let status = '';
+            if (added) {
+                status += `${Strings.pluralize('file', added)} added`;
+            }
+            if (changed) {
+                status += `${status === '' ? '' : options.separator}${Strings.pluralize('file', changed)} changed`;
+            }
+            if (deleted) {
+                status += `${status === '' ? '' : options.separator}${Strings.pluralize('file', deleted)} deleted`;
+            }
+            return `${options.prefix}${status}${options.suffix}`;
+        }
+
+        return `${options.prefix}${options.compact && added === 0 ? '' : `+${added}${options.separator}`}${
+            options.compact && changed === 0 ? '' : `~${changed}${options.separator}`
+        }${options.compact && deleted === 0 ? '' : `-${deleted}`}${options.suffix}`;
     }
 
     toFileCommit(fileName: string): GitLogCommit | undefined;

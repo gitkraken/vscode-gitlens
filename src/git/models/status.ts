@@ -39,10 +39,7 @@ export class GitStatus {
         changed: number;
     };
 
-    getDiffStatus(options: { empty?: string; expand?: boolean; prefix?: string; separator?: string } = {}): string {
-        options = { empty: '', prefix: '', separator: ' ', ...options };
-        if (this.files.length === 0) return options.empty!;
-
+    getDiffStatus() {
         if (this._diff === undefined) {
             this._diff = {
                 added: 0,
@@ -50,45 +47,58 @@ export class GitStatus {
                 changed: 0
             };
 
-            for (const f of this.files) {
-                switch (f.status) {
-                    case 'A':
-                    case '?':
-                        this._diff.added++;
-                        break;
-                    case 'D':
-                        this._diff.deleted++;
-                        break;
-                    default:
-                        this._diff.changed++;
-                        break;
+            if (this.files.length !== 0) {
+                for (const f of this.files) {
+                    switch (f.status) {
+                        case 'A':
+                        case '?':
+                            this._diff.added++;
+                            break;
+                        case 'D':
+                            this._diff.deleted++;
+                            break;
+                        default:
+                            this._diff.changed++;
+                            break;
+                    }
                 }
             }
         }
 
+        return this._diff;
+    }
+
+    getFormattedDiffStatus(
+        options: {
+            compact?: boolean;
+            empty?: string;
+            expand?: boolean;
+            prefix?: string;
+            separator?: string;
+            suffix?: string;
+        } = {}
+    ): string {
+        const { added, changed, deleted } = this.getDiffStatus();
+        if (added === 0 && changed === 0 && deleted === 0) return options.empty || '';
+
+        options = { compact: true, empty: '', prefix: '', separator: ' ', suffix: '', ...options };
         if (options.expand) {
             let status = '';
-            if (this._diff.added) {
-                status += `${Strings.pluralize('file', this._diff.added)} added`;
+            if (added) {
+                status += `${Strings.pluralize('file', added)} added`;
             }
-            if (this._diff.changed) {
-                status += `${status === '' ? '' : options.separator}${this._diff.changed} ${Strings.pluralize(
-                    'file',
-                    this._diff.changed
-                )} changed`;
+            if (changed) {
+                status += `${status === '' ? '' : options.separator}${Strings.pluralize('file', changed)} changed`;
             }
-            if (this._diff.deleted) {
-                status += `${status === '' ? '' : options.separator}${this._diff.deleted} ${Strings.pluralize(
-                    'file',
-                    this._diff.deleted
-                )} deleted`;
+            if (deleted) {
+                status += `${status === '' ? '' : options.separator}${Strings.pluralize('file', deleted)} deleted`;
             }
-            return `${options.prefix}${status}`;
+            return `${options.prefix}${status}${options.suffix}`;
         }
 
-        return `${options.prefix}+${this._diff.added}${options.separator}~${this._diff.changed}${options.separator}-${
-            this._diff.deleted
-        }`;
+        return `${options.prefix}${options.compact && added === 0 ? '' : `+${added}${options.separator}`}${
+            options.compact && changed === 0 ? '' : `~${changed}${options.separator}`
+        }${options.compact && deleted === 0 ? '' : `-${deleted}`}${options.suffix}`;
     }
 
     getUpstreamStatus(options: { empty?: string; expand?: boolean; prefix?: string; separator?: string }): string {

@@ -451,7 +451,7 @@
                 },
                 "gitlens.explorers.commitFormat": {
                     "type": "string",
-                    "default": "${message}  •  ${authorAgoOrDate}   (${id})",
+                    "default": "${message}  •  ${authorAgoOrDate}${   (id)}",
                     "description": "Specifies the format of committed changes in the `GitLens` and `GitLens Results` explorers\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.defaultDateFormat`)\\n ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`\n ${authorAgo} - commit author, relative commit date\n ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting",
                     "scope": "window"
                 },
@@ -469,7 +469,7 @@
                 },
                 "gitlens.explorers.statusFileFormat": {
                     "type": "string",
-                    "default": "${working}${filePath}",
+                    "default": "${working  }${filePath}",
                     "description": "Specifies the format of the status of a working or committed file in the `GitLens` and `GitLens Results` explorers\nAvailable tokens\n ${directory} - directory name\n ${file} - file name\n ${filePath} - formatted file name and path\n ${path} - full file path\n ${working} - optional indicator if the file is uncommitted",
                     "scope": "window"
                 },

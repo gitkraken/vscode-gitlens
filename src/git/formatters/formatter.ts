@@ -41,50 +41,62 @@ export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = I
     private collapsableWhitespace: number = 0;
 
     protected _padOrTruncate(s: string, options: Strings.ITokenOptions | undefined) {
+        if (s === '') return s;
+
         // NOTE: the collapsable whitespace logic relies on the javascript template evaluation to be left to right
         if (options === undefined) {
             options = {
-                truncateTo: undefined,
+                collapseWhitespace: false,
                 padDirection: 'left',
-                collapseWhitespace: false
+                prefix: undefined,
+                suffix: undefined,
+                truncateTo: undefined
             };
         }
 
         let max = options.truncateTo;
-
         if (max === undefined) {
-            if (this.collapsableWhitespace === 0) return s;
+            if (this.collapsableWhitespace !== 0) {
+                const width = Strings.getWidth(s);
 
-            const width = Strings.getWidth(s);
+                // If we have left over whitespace make sure it gets re-added
+                const diff = this.collapsableWhitespace - width;
+                this.collapsableWhitespace = 0;
 
-            // If we have left over whitespace make sure it gets re-added
-            const diff = this.collapsableWhitespace - width;
+                if (diff > 0 && options.truncateTo !== undefined) {
+                    s = Strings.padLeft(s, diff, undefined, width);
+                }
+            }
+        }
+        else {
+            max += this.collapsableWhitespace;
             this.collapsableWhitespace = 0;
 
-            if (diff <= 0) return s;
-            if (options.truncateTo === undefined) return s;
-            return Strings.padLeft(s, diff, undefined, width);
+            const width = Strings.getWidth(s);
+            const diff = max - width;
+            if (diff > 0) {
+                if (options.collapseWhitespace) {
+                    this.collapsableWhitespace = diff;
+                }
+
+                if (options.padDirection === 'left') {
+                    s = Strings.padLeft(s, max, undefined, width);
+                }
+                else {
+                    if (options.collapseWhitespace) {
+                        max -= diff;
+                    }
+                    s = Strings.padRight(s, max, undefined, width);
+                }
+            }
+            else if (diff < 0) {
+                s = Strings.truncate(s, max, undefined, width);
+            }
         }
 
-        max += this.collapsableWhitespace;
-        this.collapsableWhitespace = 0;
-
-        const width = Strings.getWidth(s);
-        const diff = max - width;
-        if (diff > 0) {
-            if (options.collapseWhitespace) {
-                this.collapsableWhitespace = diff;
-            }
-
-            if (options.padDirection === 'left') return Strings.padLeft(s, max, undefined, width);
-
-            if (options.collapseWhitespace) {
-                max -= diff;
-            }
-            return Strings.padRight(s, max, undefined, width);
+        if (options.prefix || options.suffix) {
+            s = `${options.prefix || ''}${s}${options.suffix || ''}`;
         }
-
-        if (diff < 0) return Strings.truncate(s, max, undefined, width);
 
         return s;
     }
@@ -107,6 +119,15 @@ export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = I
 
         let options: TOptions | undefined = undefined;
         if (dateFormatOrOptions == null || typeof dateFormatOrOptions === 'string') {
+            options = {
+                dateFormat: dateFormatOrOptions
+            } as TOptions;
+        }
+        else {
+            options = dateFormatOrOptions;
+        }
+
+        if (options.tokenOptions == null) {
             const tokenOptions = Strings.getTokensFromTemplate(template).reduce(
                 (map, token) => {
                     map[token.key] = token.options;
@@ -115,13 +136,7 @@ export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = I
                 {} as { [token: string]: Strings.ITokenOptions | undefined }
             );
 
-            options = {
-                dateFormat: dateFormatOrOptions,
-                tokenOptions: tokenOptions
-            } as TOptions;
-        }
-        else {
-            options = dateFormatOrOptions;
+            options.tokenOptions = tokenOptions;
         }
 
         if (this._formatter === undefined) {

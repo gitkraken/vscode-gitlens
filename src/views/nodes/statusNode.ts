@@ -87,7 +87,7 @@ export class StatusNode extends ExplorerNode {
         let hasChildren = false;
         const hasWorkingChanges = status.files.length !== 0 && this.includeWorkingTree;
         let label = `${status.getUpstreamStatus({ prefix: `${GlyphChars.Space} ` })}${
-            hasWorkingChanges ? status.getDiffStatus({ prefix: `${GlyphChars.Space} ` }) : ''
+            hasWorkingChanges ? status.getFormattedDiffStatus({ prefix: `${GlyphChars.Space} ` }) : ''
         }`;
         let tooltip = `${status.branch} (current)`;
         let iconSuffix = '';
@@ -112,7 +112,7 @@ ${status.getUpstreamStatus({ empty: 'up-to-date', expand: true, separator: '\n' 
         }
 
         if (hasWorkingChanges) {
-            tooltip += `\n\nHas uncommitted changes${status.getDiffStatus({
+            tooltip += `\n\nHas uncommitted changes${status.getFormattedDiffStatus({
                 expand: true,
                 prefix: `\n`,
                 separator: '\n'

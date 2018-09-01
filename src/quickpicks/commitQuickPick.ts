@@ -276,7 +276,7 @@ export class CommitQuickPick {
             new CommandQuickPickItem(
                 {
                     label: `Changed Files`,
-                    description: commit.getDiffStatus()
+                    description: commit.getFormattedDiffStatus()
                 },
                 Commands.ShowQuickCommitDetails,
                 [

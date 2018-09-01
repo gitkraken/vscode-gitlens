@@ -14,13 +14,14 @@ export interface IStatusFormatOptions extends IFormatOptions {
         filePath?: Strings.ITokenOptions;
         path?: Strings.ITokenOptions;
         status?: Strings.ITokenOptions;
+        working?: Strings.ITokenOptions;
     };
 }
 
 export class StatusFileFormatter extends Formatter<IGitStatusFile, IStatusFormatOptions> {
     get directory() {
         const directory = GitStatusFile.getFormattedDirectory(this._item, false, this._options.relativePath);
-        return this._padOrTruncate(directory, this._options.tokenOptions!.file);
+        return this._padOrTruncate(directory, this._options.tokenOptions!.directory);
     }
 
     get file() {
@@ -45,7 +46,10 @@ export class StatusFileFormatter extends Formatter<IGitStatusFile, IStatusFormat
 
     get working() {
         const commit = (this._item as IGitStatusFileWithCommit).commit;
-        return commit !== undefined && commit.isUncommitted ? `${GlyphChars.Pencil} ${GlyphChars.Space}` : '';
+        return this._padOrTruncate(
+            commit !== undefined && commit.isUncommitted ? GlyphChars.Pencil : '',
+            this._options.tokenOptions!.working
+        );
     }
 
     static fromTemplate(template: string, status: IGitStatusFile, dateFormat: string | null): string;
