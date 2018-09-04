@@ -73,6 +73,11 @@ export class GitBlameParser {
                     break;
 
                 case 'author-mail':
+                    if (Git.isUncommitted(entry.sha)) {
+                        entry.authorEmail = currentUser !== undefined ? currentUser.email : undefined;
+                        continue;
+                    }
+
                     entry.authorEmail = lineParts
                         .slice(1)
                         .join(' ')
