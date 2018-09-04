@@ -30,7 +30,7 @@ export class StatusFileFormatter extends Formatter<IGitStatusFile, IStatusFormat
     }
 
     get filePath() {
-        const filePath = GitStatusFile.getFormattedPath(this._item, undefined, this._options.relativePath);
+        const filePath = GitStatusFile.getFormattedPath(this._item, { relativeTo: this._options.relativePath });
         return this._padOrTruncate(filePath, this._options.tokenOptions!.filePath);
     }
 

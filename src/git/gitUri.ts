@@ -113,19 +113,11 @@ export class GitUri extends ((Uri as any) as UriEx) {
         return path.basename(path.relative(this.repoPath || '', this.fsPath), relativeTo);
     }
 
-    getFormattedPath(separator: string = Strings.pad(GlyphChars.Dot, 2, 2), relativeTo?: string): string {
-        let directory = path.dirname(this.fsPath);
-        if (this.repoPath) {
-            directory = path.relative(this.repoPath, directory);
-        }
-        if (relativeTo !== undefined) {
-            directory = path.relative(relativeTo, directory);
-        }
-        directory = Strings.normalizePath(directory);
+    getFormattedPath(options: { relativeTo?: string; separator?: string; suffix?: string } = {}): string {
+        const { relativeTo = this.repoPath, separator = Strings.pad(GlyphChars.Dot, 2, 2), suffix = '' } = options;
 
-        return !directory || directory === '.'
-            ? path.basename(this.fsPath)
-            : `${path.basename(this.fsPath)}${separator}${directory}`;
+        const directory = GitUri.getDirectory(this.fsPath, relativeTo);
+        return `${path.basename(this.fsPath)}${suffix}${directory ? `${separator}${directory}` : ''}`;
     }
 
     getRelativePath(relativeTo?: string): string {
@@ -231,12 +223,13 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
     static getFormattedPath(
         fileNameOrUri: string | Uri,
-        separator: string = Strings.pad(GlyphChars.Dot, 2, 2),
-        relativeTo?: string
+        options: { relativeTo?: string; separator?: string; suffix?: string } = {}
     ): string {
+        const { relativeTo, separator = Strings.pad(GlyphChars.Dot, 2, 2), suffix = '' } = options;
+
         let fileName: string;
         if (fileNameOrUri instanceof Uri) {
-            if (fileNameOrUri instanceof GitUri) return fileNameOrUri.getFormattedPath(separator, relativeTo);
+            if (fileNameOrUri instanceof GitUri) return fileNameOrUri.getFormattedPath(options);
 
             fileName = fileNameOrUri.fsPath;
         }
@@ -245,7 +238,9 @@ export class GitUri extends ((Uri as any) as UriEx) {
         }
 
         const directory = GitUri.getDirectory(fileName, relativeTo);
-        return !directory ? path.basename(fileName) : `${path.basename(fileName)}${separator}${directory}`;
+        return !directory
+            ? `${path.basename(fileName)}${suffix}`
+            : `${path.basename(fileName)}${suffix}${separator}${directory}`;
     }
 
     static getRelativePath(fileNameOrUri: string | Uri, relativeTo?: string, repoPath?: string): string {

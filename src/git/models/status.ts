@@ -81,52 +81,58 @@ export class GitStatus {
         const { added, changed, deleted } = this.getDiffStatus();
         if (added === 0 && changed === 0 && deleted === 0) return options.empty || '';
 
-        options = { empty: '', prefix: '', separator: ' ', suffix: '', ...options };
-        if (options.expand) {
+        const { compact, expand, prefix = '', separator = ' ', suffix = '' } = options;
+        if (expand) {
             let status = '';
             if (added) {
                 status += `${Strings.pluralize('file', added)} added`;
             }
             if (changed) {
-                status += `${status === '' ? '' : options.separator}${Strings.pluralize('file', changed)} changed`;
+                status += `${status === '' ? '' : separator}${Strings.pluralize('file', changed)} changed`;
             }
             if (deleted) {
-                status += `${status === '' ? '' : options.separator}${Strings.pluralize('file', deleted)} deleted`;
+                status += `${status === '' ? '' : separator}${Strings.pluralize('file', deleted)} deleted`;
             }
-            return `${options.prefix}${status}${options.suffix}`;
+            return `${prefix}${status}${suffix}`;
         }
 
-        return `${options.prefix}${options.compact && added === 0 ? '' : `+${added}${options.separator}`}${
-            options.compact && changed === 0 ? '' : `~${changed}${options.separator}`
-        }${options.compact && deleted === 0 ? '' : `-${deleted}`}${options.suffix}`;
+        return `${prefix}${compact && added === 0 ? '' : `+${added}${separator}`}${
+            compact && changed === 0 ? '' : `~${changed}${separator}`
+        }${compact && deleted === 0 ? '' : `-${deleted}`}${suffix}`;
     }
 
-    getUpstreamStatus(options: { empty?: string; expand?: boolean; prefix?: string; separator?: string }): string {
+    getUpstreamStatus(options: {
+        empty?: string;
+        expand?: boolean;
+        prefix?: string;
+        separator?: string;
+        suffix?: string;
+    }): string {
         return GitStatus.getUpstreamStatus(this.upstream, this.state, options);
     }
 
     static getUpstreamStatus(
         upstream: string | undefined,
         state: { ahead: number; behind: number },
-        options: { empty?: string; expand?: boolean; prefix?: string; separator?: string } = {}
+        options: { empty?: string; expand?: boolean; prefix?: string; separator?: string; suffix?: string } = {}
     ): string {
-        options = { empty: '', prefix: '', separator: ' ', ...options };
-        if (upstream === undefined || (state.behind === 0 && state.ahead === 0)) return options.empty!;
+        if (upstream === undefined || (state.behind === 0 && state.ahead === 0)) return options.empty || '';
 
-        if (options.expand) {
+        const { expand, prefix = '', separator = ' ', suffix = '' } = options;
+        if (expand) {
             let status = '';
             if (state.behind) {
                 status += `${Strings.pluralize('commit', state.behind)} behind`;
             }
             if (state.ahead) {
-                status += `${status === '' ? '' : options.separator}${Strings.pluralize('commit', state.ahead)} ahead`;
+                status += `${status === '' ? '' : separator}${Strings.pluralize('commit', state.ahead)} ahead`;
             }
-            return `${options.prefix}${status}`;
+            return `${prefix}${status}${suffix}`;
         }
 
-        return `${options.prefix}${state.behind}${GlyphChars.ArrowDown}${options.separator}${state.ahead}${
+        return `${prefix}${state.behind}${GlyphChars.ArrowDown}${separator}${state.ahead}${
             GlyphChars.ArrowUp
-        }`;
+        }${suffix}`;
     }
 }
 
@@ -134,10 +140,11 @@ export declare type GitStatusFileStatus = '!' | '?' | 'A' | 'C' | 'D' | 'M' | 'R
 
 export interface IGitStatusFile {
     status: GitStatusFileStatus;
+    readonly repoPath: string;
+    readonly indexStatus: GitStatusFileStatus;
+    readonly workTreeStatus: GitStatusFileStatus;
     readonly fileName: string;
     readonly originalFileName?: string;
-    readonly workTreeStatus: GitStatusFileStatus;
-    readonly indexStatus: GitStatusFileStatus;
 }
 
 export interface IGitStatusFileWithCommit extends IGitStatusFile {
@@ -169,8 +176,8 @@ export class GitStatusFile implements IGitStatusFile {
         return GitStatusFile.getFormattedDirectory(this, includeOriginal);
     }
 
-    getFormattedPath(separator: string = Strings.pad(GlyphChars.Dot, 2, 2)): string {
-        return GitStatusFile.getFormattedPath(this, separator);
+    getFormattedPath(options: { relativeTo?: string; separator?: string; suffix?: string } = {}): string {
+        return GitStatusFile.getFormattedPath(this, options);
     }
 
     getOcticon() {
@@ -214,10 +221,9 @@ export class GitStatusFile implements IGitStatusFile {
 
     static getFormattedPath(
         status: IGitStatusFile,
-        separator: string = Strings.pad(GlyphChars.Dot, 2, 2),
-        relativeTo?: string
+        options: { relativeTo?: string; separator?: string; suffix?: string } = {}
     ): string {
-        return GitUri.getFormattedPath(status.fileName, separator, relativeTo);
+        return GitUri.getFormattedPath(status.fileName, options);
     }
 
     static getRelativePath(status: IGitStatusFile, relativeTo?: string): string {

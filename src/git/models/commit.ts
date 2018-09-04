@@ -176,8 +176,8 @@ export abstract class GitCommit {
         return this._dateFormatter.fromNow();
     }
 
-    getFormattedPath(separator: string = Strings.pad(GlyphChars.Dot, 2, 2)): string {
-        return GitUri.getFormattedPath(this.fileName, separator);
+    getFormattedPath(options: { relativeTo?: string; separator?: string; suffix?: string } = {}): string {
+        return GitUri.getFormattedPath(this.fileName, options);
     }
 
     getGravatarUri(fallback: GravatarDefaultStyle, size: number = 16): Uri {

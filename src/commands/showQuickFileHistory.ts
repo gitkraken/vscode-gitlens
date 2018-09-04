@@ -39,9 +39,9 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 
         args = { ...args };
 
-        const placeHolder = `${gitUri.getFormattedPath(
-            args.branchOrTag ? ` (${args.branchOrTag.name})${Strings.pad(GlyphChars.Dot, 2, 2)}` : undefined
-        )}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}`;
+        const placeHolder = `${gitUri.getFormattedPath({
+            suffix: args.branchOrTag ? ` (${args.branchOrTag.name})` : undefined
+        })}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}`;
 
         const progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
         try {

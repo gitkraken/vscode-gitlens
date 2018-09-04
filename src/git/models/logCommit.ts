@@ -107,24 +107,24 @@ export class GitLogCommit extends GitCommit {
         const { added, changed, deleted } = this.getDiffStatus();
         if (added === 0 && changed === 0 && deleted === 0) return options.empty || '';
 
-        options = { empty: '', prefix: '', separator: ' ', suffix: '', ...options };
-        if (options.expand) {
+        const { compact, expand, prefix = '', separator = ' ', suffix = '' } = options;
+        if (expand) {
             let status = '';
             if (added) {
                 status += `${Strings.pluralize('file', added)} added`;
             }
             if (changed) {
-                status += `${status === '' ? '' : options.separator}${Strings.pluralize('file', changed)} changed`;
+                status += `${status === '' ? '' : separator}${Strings.pluralize('file', changed)} changed`;
             }
             if (deleted) {
-                status += `${status === '' ? '' : options.separator}${Strings.pluralize('file', deleted)} deleted`;
+                status += `${status === '' ? '' : separator}${Strings.pluralize('file', deleted)} deleted`;
             }
-            return `${options.prefix}${status}${options.suffix}`;
+            return `${prefix}${status}${suffix}`;
         }
 
-        return `${options.prefix}${options.compact && added === 0 ? '' : `+${added}${options.separator}`}${
-            options.compact && changed === 0 ? '' : `~${changed}${options.separator}`
-        }${options.compact && deleted === 0 ? '' : `-${deleted}`}${options.suffix}`;
+        return `${prefix}${compact && added === 0 ? '' : `+${added}${separator}`}${
+            compact && changed === 0 ? '' : `~${changed}${separator}`
+        }${compact && deleted === 0 ? '' : `-${deleted}`}${suffix}`;
     }
 
     toFileCommit(fileName: string): GitLogCommit | undefined;

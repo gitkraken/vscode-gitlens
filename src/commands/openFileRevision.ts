@@ -65,9 +65,9 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 
                 const gitUri = await GitUri.fromUri(uri);
 
-                const placeHolder = `Open revision of ${gitUri.getFormattedPath(
-                    args.branchOrTag ? ` (${args.branchOrTag.name})${Strings.pad(GlyphChars.Dot, 2, 2)}` : undefined
-                )}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}${
+                const placeHolder = `Open revision of ${gitUri.getFormattedPath({
+                    suffix: args.branchOrTag ? ` (${args.branchOrTag.name})` : undefined
+                })}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}${
                     GlyphChars.Ellipsis
                 }`;
 
