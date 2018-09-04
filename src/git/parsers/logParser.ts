@@ -160,8 +160,11 @@ export class GitLogParser {
                                 const originalFileName = matches[2];
                                 if (entry.fileName !== originalFileName) {
                                     entry.originalFileName = originalFileName;
+                                    entry.status = 'R';
                                 }
-                                entry.status = entry.fileName !== entry.originalFileName ? 'R' : 'M';
+                                else {
+                                    entry.status = 'M';
+                                }
                             }
 
                             while (true) {
