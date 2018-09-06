@@ -25,7 +25,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#405](https://github.com/eamodio/vscode-gitlens/issues/405) - Secondary, blank repository appears repeatedly in gitExplorer view
 - Fixes [#430](https://github.com/eamodio/vscode-gitlens/issues/430) - File revisions can end up being parsed by language servers (causing errors and warnings, etc)
-- Fixes issues with git log caching
+- Fixes [#388](https://github.com/eamodio/vscode-gitlens/issues/388) - Support the mailmap feature of git
 
 ### Removed
 

@@ -23,8 +23,8 @@ const sl = '%x2f'; // `%x${'/'.charCodeAt(0).toString(16)}`;
 const logFormat = [
     `${lb}${sl}f${rb}`,
     `${lb}r${rb} %H`, // ref
-    `${lb}a${rb} %an`, // author
-    `${lb}e${rb} %ae`, // email
+    `${lb}a${rb} %aN`, // author
+    `${lb}e${rb} %aE`, // email
     `${lb}d${rb} %at`, // date
     `${lb}p${rb} %P`, // parents
     `${lb}s${rb}`,
@@ -382,6 +382,10 @@ export class Git {
         }
 
         return git({ cwd: repoPath }, ...params, ref);
+    }
+
+    static check_mailmap(repoPath: string, author: string) {
+        return git({ cwd: repoPath }, 'check-mailmap', author);
     }
 
     static checkout(repoPath: string, fileName: string, sha: string) {

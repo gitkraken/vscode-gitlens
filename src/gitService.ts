@@ -69,6 +69,7 @@ const RepoSearchWarnings = {
 };
 
 const userConfigRegex = /^user\.(name|email) (.*)$/gm;
+const mappedAuthorRegex = /(.+)\s<(.+)>/;
 
 export enum GitRepoSearchBy {
     Author = 'author',
@@ -949,6 +950,16 @@ export class GitService implements Disposable {
             // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
             user[match[1] as 'name' | 'email'] = (' ' + match[2]).substr(1);
         } while (match != null);
+
+        const author = `${user.name} <${user.email}>`;
+        // Check if there is a mailmap for the current user
+        const mappedAuthor = await Git.check_mailmap(repoPath, author);
+        if (author !== mappedAuthor) {
+            match = mappedAuthorRegex.exec(mappedAuthor);
+            if (match != null) {
+                [, user.name, user.email] = match;
+            }
+        }
 
         this._userMapCache.set(repoPath, user);
         return user;
