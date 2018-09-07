@@ -2,7 +2,6 @@
 import * as path from 'path';
 import { Uri } from 'vscode';
 import { configuration, DateStyle, GravatarDefaultStyle } from '../../configuration';
-import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { Dates, Strings } from '../../system';
 import { CommitFormatter } from '../formatters/formatters';
@@ -192,13 +191,6 @@ export abstract class GitCommit {
                 this.email ? Strings.md5(this.email, 'hex') : '00000000000000000000000000000000'
             }.jpg?s=${size}&d=${fallback}`
         );
-
-        // HACK: Monkey patch Uri.toString to avoid the unwanted query string encoding
-        const originalToStringFn = gravatar.toString;
-        gravatar.toString = function(skipEncoding?: boolean | undefined) {
-            return originalToStringFn.call(gravatar, true);
-        };
-
         gravatarCache.set(key, gravatar);
 
         return gravatar;

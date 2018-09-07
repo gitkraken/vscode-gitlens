@@ -420,7 +420,7 @@
                     "default": "robohash",
                     "enum": [
                         "identicon",
-                        "mm",
+                        "mp",
                         "monsterid",
                         "retro",
                         "robohash",

@@ -108,7 +108,7 @@ export abstract class WebviewEditor<TBootstrap> implements Disposable {
             /{{root}}/g,
             Uri.file(Container.context.asAbsolutePath('.'))
                 .with({ scheme: 'vscode-resource' })
-                .toString()
+                .toString(true)
         );
         if (html.includes("'{{bootstrap}}'")) {
             html = html.replace("'{{bootstrap}}'", JSON.stringify(this.getBootstrap()));

@@ -66,7 +66,7 @@ export enum GravatarDefaultStyle {
     Faces = 'wavatar',
     Geometric = 'identicon',
     Monster = 'monsterid',
-    MysteryMan = 'mm',
+    MysteryPerson = 'mp',
     Retro = 'retro',
     Robot = 'robohash'
 }

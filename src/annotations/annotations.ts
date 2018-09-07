@@ -165,7 +165,7 @@ export class Annotations {
         }
 
         if (Container.config.hovers.avatars) {
-            avatar = ` &nbsp; ![](${commit.getGravatarUri(Container.config.defaultGravatarsStyle).toString()})`;
+            avatar = ` &nbsp; ![](${commit.getGravatarUri(Container.config.defaultGravatarsStyle).toString(true)})`;
         }
 
         const markdown = new MarkdownString(

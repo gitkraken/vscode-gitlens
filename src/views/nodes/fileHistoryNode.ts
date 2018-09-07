@@ -120,7 +120,7 @@ export class FileHistoryNode extends ExplorerNode {
     }
 
     private onRepoFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
-        if (!e.uris.some(uri => uri.toString() === this.uri.toString())) return;
+        if (!e.uris.some(uri => uri.toString(true) === this.uri.toString(true))) return;
 
         Logger.log(`FileHistoryNode.onRepoFileSystemChanged; triggering node refresh`);
 

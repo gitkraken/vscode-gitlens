@@ -271,9 +271,9 @@ export class GitUri extends ((Uri as any) as UriEx) {
     static toKey(uri: Uri): string;
     static toKey(fileNameOrUri: string | Uri): string;
     static toKey(fileNameOrUri: string | Uri): string {
-        return Strings.normalizePath(
-            (typeof fileNameOrUri === 'string' ? Uri.file(fileNameOrUri) : fileNameOrUri).fsPath
-        );
+        return typeof fileNameOrUri === 'string'
+            ? Uri.file(fileNameOrUri).toString(true)
+            : fileNameOrUri.toString(true);
     }
 
     static toRevisionUri(uri: GitUri): Uri;

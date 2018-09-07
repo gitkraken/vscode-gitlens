@@ -45,7 +45,7 @@ export class TrackedDocument<T> implements Disposable {
         if (Container.git === undefined) {
             if (!(await Functions.waitUntil(() => Container.git !== undefined, 2000))) {
                 Logger.log(
-                    `TrackedDocument.initialize(${uri.toString()})`,
+                    `TrackedDocument.initialize(${uri.toString(true)})`,
                     'Timed out waiting for the GitService to start'
                 );
                 throw new Error('TrackedDocument timed out waiting for the GitService to start');
