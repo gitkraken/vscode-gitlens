@@ -397,13 +397,8 @@ export async function openEditor(
             uri = uri.documentUri({ noSha: true });
         }
 
-        // This is a bit of an ugly hack, but I added it because there a bunch of call sites and toRevisionUri can't be easily made async because of its use in ctors
-        if (uri.scheme === DocumentSchemes.GitLensGit && ImageMimetypes[path.extname(uri.fsPath)]) {
-            const gitUri = GitUri.fromRevisionUri(uri);
-            const imageUri = await Container.git.getVersionedFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha);
-            if (imageUri !== undefined) {
-                await commands.executeCommand(BuiltInCommands.Open, imageUri);
-            }
+        if (uri.scheme === DocumentSchemes.GitLens && ImageMimetypes[path.extname(uri.fsPath)]) {
+            await commands.executeCommand(BuiltInCommands.Open, uri);
 
             return undefined;
         }
@@ -429,4 +424,15 @@ export async function openEditor(
         Logger.error(ex, 'openEditor');
         return undefined;
     }
+}
+
+export function openWorkspace(uri: Uri, name: string, options: { openInNewWindow?: boolean } = {}) {
+    if (options.openInNewWindow) {
+        commands.executeCommand(BuiltInCommands.OpenFolder, uri, true);
+
+        return true;
+    }
+
+    const count = (workspace.workspaceFolders && workspace.workspaceFolders.length) || 0;
+    return workspace.updateWorkspaceFolders(count, 0, { uri, name });
 }

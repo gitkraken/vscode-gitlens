@@ -12,9 +12,9 @@ import {
 } from 'vscode';
 import { configuration, IRemotesConfig } from '../../configuration';
 import { Container } from '../../container';
-import { GitUri } from '../../gitService';
 import { Functions } from '../../system';
 import { GitBranch, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
+import { GitUri } from '../gitUri';
 import { RemoteProviderFactory, RemoteProviderMap } from '../remotes/factory';
 
 export enum RepositoryChange {

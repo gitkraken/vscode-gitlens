@@ -8,3 +8,4 @@ export * from './remoteParser';
 export * from './stashParser';
 export * from './statusParser';
 export * from './tagParser';
+export * from './treeParser';

@@ -13,3 +13,4 @@ export * from './stash';
 export * from './stashCommit';
 export * from './status';
 export * from './tag';
+export * from './tree';

@@ -16,6 +16,7 @@ export enum BuiltInCommands {
     ExecuteDocumentSymbolProvider = 'vscode.executeDocumentSymbolProvider',
     ExecuteCodeLensProvider = 'vscode.executeCodeLensProvider',
     Open = 'vscode.open',
+    OpenFolder = 'vscode.openFolder',
     NextEditor = 'workbench.action.nextEditor',
     PreviewHtml = 'vscode.previewHtml',
     RevealLine = 'revealLine',
@@ -48,7 +49,7 @@ export enum DocumentSchemes {
     DebugConsole = 'debug',
     File = 'file',
     Git = 'git',
-    GitLensGit = 'gitlens-git',
+    GitLens = 'gitlens',
     Output = 'output'
 }
 

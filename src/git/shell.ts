@@ -104,7 +104,7 @@ export class RunError extends Error {
 export interface RunOptions {
     readonly cwd?: string;
     readonly env?: Object;
-    readonly encoding?: BufferEncoding;
+    readonly encoding?: BufferEncoding | 'buffer';
     /**
      * The size the output buffer to allocate to the spawned process. Set this
      * if you are anticipating a large amount of output.
@@ -126,10 +126,15 @@ export interface RunOptions {
     readonly stdinEncoding?: string;
 }
 
-export function run(command: string, args: any[], encoding: BufferEncoding, options: RunOptions = {}): Promise<string> {
+export function run<TOut extends string | Buffer>(
+    command: string,
+    args: any[],
+    encoding: BufferEncoding | 'buffer',
+    options: RunOptions = {}
+): Promise<TOut> {
     const { stdin, stdinEncoding, ...opts } = { maxBuffer: 100 * 1024 * 1024, ...options } as RunOptions;
 
-    return new Promise<string>((resolve, reject) => {
+    return new Promise<TOut>((resolve, reject) => {
         const proc = execFile(
             command,
             args,
@@ -155,9 +160,9 @@ export function run(command: string, args: any[], encoding: BufferEncoding, opti
                 }
 
                 resolve(
-                    encoding === 'utf8' || encoding === 'binary'
-                        ? stdout
-                        : iconv.decode(Buffer.from(stdout, 'binary'), encoding)
+                    encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer'
+                        ? (stdout as TOut)
+                        : (iconv.decode(Buffer.from(stdout, 'binary'), encoding) as TOut)
                 );
             }
         );

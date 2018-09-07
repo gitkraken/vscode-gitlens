@@ -1801,6 +1801,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.explorers.exploreRepoRevision",
+                "title": "Explore the Repository from Here",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.explorers.openDirectoryDiff",
                 "title": "Open Directory Compare",
                 "category": "GitLens"
@@ -2381,6 +2386,10 @@
                 {
                     "command": "gitlens.resetSuppressedWarnings",
                     "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.explorers.exploreRepoRevision",
+                    "when": "false"
                 },
                 {
                     "command": "gitlens.explorers.openChanges",
@@ -3031,7 +3040,7 @@
                 {
                     "command": "gitlens.explorers.openDirectoryDiffWithWorking",
                     "when": "viewItem =~ /gitlens:(branch|tag)\\b/",
-                    "group": "7_gitlens_diff@1"
+                    "group": "7_gitlens_more@2"
                 },
                 {
                     "command": "gitlens.explorers.terminalCheckoutBranch",
@@ -3237,6 +3246,11 @@
                     "command": "gitlens.explorers.terminalRemoveRemote",
                     "when": "viewItem == gitlens:remote",
                     "group": "8_gitlens@1"
+                },
+                {
+                    "command": "gitlens.explorers.exploreRepoRevision",
+                    "when": "viewItem =~ /gitlens:(branch|commit|file:(commit|status)|stash|tag)\\b/",
+                    "group": "7_gitlens_more@1"
                 },
                 {
                     "command": "gitlens.openRepoInRemote",
@@ -3582,13 +3596,11 @@
         "iconv-lite": "0.4.24",
         "lodash.debounce": "4.0.8",
         "lodash.once": "4.1.1",
-        "tmp": "0.0.33",
         "tslib": "1.9.3"
     },
     "devDependencies": {
         "@types/clipboardy": "1.1.0",
         "@types/node": "8.10.29",
-        "@types/tmp": "0.0.33",
         "clean-webpack-plugin": "0.1.19",
         "css-loader": "1.0.0",
         "html-webpack-inline-source-plugin": "0.0.10",

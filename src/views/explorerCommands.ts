@@ -1,4 +1,5 @@
 'use strict';
+import * as path from 'path';
 import { commands, Disposable, InputBoxOptions, Terminal, TextDocumentShowOptions, Uri, window } from 'vscode';
 import {
     Commands,
@@ -8,10 +9,12 @@ import {
     DiffWithWorkingCommandArgs,
     openEditor,
     OpenFileInRemoteCommandArgs,
-    OpenFileRevisionCommandArgs
+    OpenFileRevisionCommandArgs,
+    openWorkspace
 } from '../commands';
 import { CommandContext, extensionTerminalName, setCommandContext } from '../constants';
 import { Container } from '../container';
+import { toGitLensFSUri } from '../git/fsProvider';
 import { GitService, GitUri } from '../gitService';
 import { Arrays } from '../system';
 import {
@@ -47,6 +50,8 @@ export class ExplorerCommands implements Disposable {
     private _terminalCwd: string | undefined;
 
     constructor() {
+        commands.registerCommand('gitlens.explorers.exploreRepoRevision', this.exploreRepoRevision, this);
+
         commands.registerCommand('gitlens.explorers.openChanges', this.openChanges, this);
         commands.registerCommand('gitlens.explorers.openChangesWithWorking', this.openChangesWithWorking, this);
         commands.registerCommand('gitlens.explorers.openFile', this.openFile, this);
@@ -182,6 +187,15 @@ export class ExplorerCommands implements Disposable {
         };
 
         setCommandContext(CommandContext.ExplorersCanCompare, true);
+    }
+
+    private exploreRepoRevision(node: ExplorerRefNode, options: { openInNewWindow?: boolean } = {}) {
+        if (!(node instanceof ExplorerRefNode)) return;
+
+        const uri = toGitLensFSUri(node.ref, node.repoPath);
+        const gitUri = GitUri.fromRevisionUri(uri);
+
+        openWorkspace(uri, `${path.basename(gitUri.repoPath!)} @ ${gitUri.shortSha}`, options);
     }
 
     private openChanges(node: CommitNode | StashNode) {

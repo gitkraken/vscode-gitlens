@@ -18,7 +18,7 @@ import {
 } from 'vscode';
 import { GitExtension } from './@types/git';
 import { configuration, IRemotesConfig } from './configuration';
-import { CommandContext, DocumentSchemes, GlyphChars, ImageMimetypes, setCommandContext } from './constants';
+import { CommandContext, DocumentSchemes, GlyphChars, setCommandContext } from './constants';
 import { Container } from './container';
 import {
     CommitFormatting,
@@ -49,6 +49,8 @@ import {
     GitStatusParser,
     GitTag,
     GitTagParser,
+    GitTree,
+    GitTreeParser,
     Repository,
     RepositoryChange
 } from './git/git';
@@ -191,17 +193,24 @@ export class GitService implements Disposable {
             if (f.uri.scheme !== DocumentSchemes.File) continue;
 
             const fsPath = f.uri.fsPath;
-            const filteredTree = this._repositoryTree.findSuperstr(fsPath);
+            const repos = this._repositoryTree.findSuperstr(fsPath);
             const reposToDelete =
-                filteredTree !== undefined
+                repos !== undefined
                     ? // Since the filtered tree will have keys that are relative to the fsPath, normalize to the full path
-                      [
-                          ...Iterables.map<[Repository, string], [Repository, string]>(
-                              filteredTree.entries(),
-                              ([r, k]) => [r, path.join(fsPath, k)]
-                          )
-                      ]
+                      [...Iterables.map<Repository, [Repository, string]>(repos, r => [r, r.path])]
                     : [];
+
+            // const filteredTree = this._repositoryTree.findSuperstr(fsPath);
+            // const reposToDelete =
+            //     filteredTree !== undefined
+            //         ? // Since the filtered tree will have keys that are relative to the fsPath, normalize to the full path
+            //           [
+            //               ...Iterables.map<[Repository, string], [Repository, string]>(
+            //                   filteredTree.entries(),
+            //                   ([r, k]) => [r, path.join(fsPath, k)]
+            //               )
+            //           ]
+            //         : [];
 
             const repo = this._repositoryTree.get(fsPath);
             if (repo !== undefined) {
@@ -1648,6 +1657,25 @@ export class GitService implements Disposable {
         return GitTagParser.parse(data, repoPath) || [];
     }
 
+    async getTreeFileForRevision(repoPath: string, fileName: string, ref: string): Promise<GitTree | undefined> {
+        if (repoPath === undefined) return undefined;
+
+        Logger.log(`getTreeFileForRevision('${repoPath}', '${fileName}', '${ref}')`);
+
+        const data = await Git.ls_tree(repoPath, ref, { fileName: fileName });
+        const trees = GitTreeParser.parse(data);
+        return trees === undefined || trees.length === 0 ? undefined : trees[0];
+    }
+
+    async getTreeForRevision(repoPath: string, ref: string): Promise<GitTree[]> {
+        if (repoPath === undefined) return [];
+
+        Logger.log(`getTreeForRevision('${repoPath}', '${ref}')`);
+
+        const data = await Git.ls_tree(repoPath, ref);
+        return GitTreeParser.parse(data) || [];
+    }
+
     async getVersionedFile(
         repoPath: string | undefined,
         fileName: string,
@@ -1663,26 +1691,20 @@ export class GitService implements Disposable {
             return undefined;
         }
 
-        if (ImageMimetypes[path.extname(fileName)]) {
-            const file = await Git.getVersionedFile(repoPath, fileName, sha);
-            if (file === undefined) return undefined;
-
-            this._versionedUriCache.set(
-                GitUri.toKey(file),
-                new GitUri(Uri.file(fileName), { sha: sha, repoPath: repoPath!, versionedPath: file })
-            );
-
-            return Uri.file(file);
-        }
-
         return GitUri.toRevisionUri(sha, fileName, repoPath!);
     }
 
-    getVersionedFileText(repoPath: string, fileName: string, sha: string) {
-        Logger.log(`getVersionedFileText('${repoPath}', '${fileName}', ${sha})`);
+    getVersionedFileBuffer(repoPath: string, fileName: string, sha: string) {
+        Logger.log(`getVersionedFileBuffer('${repoPath}', '${fileName}', ${sha})`);
 
-        return Git.show(repoPath, fileName, sha, { encoding: GitService.getEncoding(repoPath, fileName) });
+        return Git.show<Buffer>(repoPath, fileName, sha, { encoding: 'buffer' });
     }
+
+    // getVersionedFileText(repoPath: string, fileName: string, sha: string) {
+    //     Logger.log(`getVersionedFileText('${repoPath}', '${fileName}', ${sha})`);
+
+    //     return Git.show<string>(repoPath, fileName, sha, { encoding: GitService.getEncoding(repoPath, fileName) });
+    // }
 
     getVersionedUri(uri: Uri) {
         return this._versionedUriCache.get(GitUri.toKey(uri));
@@ -1699,9 +1721,7 @@ export class GitService implements Disposable {
             scheme = schemeOruri.scheme;
         }
 
-        return (
-            scheme === DocumentSchemes.File || scheme === DocumentSchemes.Git || scheme === DocumentSchemes.GitLensGit
-        );
+        return scheme === DocumentSchemes.File || scheme === DocumentSchemes.Git || scheme === DocumentSchemes.GitLens;
     }
 
     async isTracked(

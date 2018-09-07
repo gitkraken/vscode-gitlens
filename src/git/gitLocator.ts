@@ -13,7 +13,7 @@ function parseVersion(raw: string): string {
 }
 
 async function findSpecificGit(path: string): Promise<IGitInfo> {
-    const version = await run(path, ['--version'], 'utf8');
+    const version = await run<string>(path, ['--version'], 'utf8');
     // If needed, let's update our path to avoid the search on every command
     if (!path || path === 'git') {
         path = findExecutable(path, ['--version']).cmd;
@@ -27,7 +27,7 @@ async function findSpecificGit(path: string): Promise<IGitInfo> {
 
 async function findGitDarwin(): Promise<IGitInfo> {
     try {
-        let path = await run('which', ['git'], 'utf8');
+        let path = await run<string>('which', ['git'], 'utf8');
         path = path.replace(/^\s+|\s+$/g, '');
 
         if (path !== '/usr/bin/git') {
@@ -35,7 +35,7 @@ async function findGitDarwin(): Promise<IGitInfo> {
         }
 
         try {
-            await run('xcode-select', ['-p'], 'utf8');
+            await run<string>('xcode-select', ['-p'], 'utf8');
             return findSpecificGit(path);
         }
         catch (ex) {

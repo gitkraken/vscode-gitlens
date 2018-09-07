@@ -1,10 +1,10 @@
 'use strict';
-import { Disposable, ExtensionContext, languages, workspace } from 'vscode';
+import { Disposable, ExtensionContext } from 'vscode';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
 import { CodeLensController } from './codelens/codeLensController';
 import { configuration, IConfig } from './configuration';
-import { GitContentProvider } from './gitContentProvider';
+import { GitFileSystemProvider } from './git/fsProvider';
 import { GitService } from './gitService';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
@@ -65,9 +65,7 @@ export class Container {
             });
         }
 
-        context.subscriptions.push(
-            workspace.registerTextDocumentContentProvider(GitContentProvider.scheme, new GitContentProvider())
-        );
+        context.subscriptions.push(new GitFileSystemProvider());
     }
 
     private static _codeLensController: CodeLensController;

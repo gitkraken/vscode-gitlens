@@ -30,6 +30,8 @@ interface UriEx {
     new (components: UriComponents): Uri;
 }
 
+const stripRepoRevisionFromPathRegex = /\/[^\/]+\/?(.*)/;
+
 export class GitUri extends ((Uri as any) as UriEx) {
     repoPath?: string;
     sha?: string;
@@ -45,18 +47,25 @@ export class GitUri extends ((Uri as any) as UriEx) {
             return;
         }
 
-        if (uri.scheme === DocumentSchemes.GitLensGit) {
-            const data: IUriRevisionData = JSON.parse(uri.query);
+        if (uri.scheme === DocumentSchemes.GitLens) {
+            const data = JSON.parse(uri.query) as IUriRevisionData;
 
-            const [authority, fsPath] = GitUri.ensureValidUNCPath(
-                uri.authority,
-                path.resolve(data.repoPath, data.fileName)
+            data.repoPath = Strings.normalizePath(data.repoPath);
+            data.path = Strings.normalizePath(
+                `/${data.repoPath}/${uri.path.replace(stripRepoRevisionFromPathRegex, '$1')}`
             );
-            super({ scheme: uri.scheme, authority: authority, path: fsPath, query: uri.query, fragment: uri.fragment });
+
+            super({
+                scheme: uri.scheme,
+                authority: uri.authority,
+                path: data.path,
+                query: JSON.stringify(data),
+                fragment: uri.fragment
+            });
 
             this.repoPath = data.repoPath;
-            if (GitService.isStagedUncommitted(data.sha) || !GitService.isUncommitted(data.sha)) {
-                this.sha = data.sha;
+            if (GitService.isStagedUncommitted(data.ref) || !GitService.isUncommitted(data.ref)) {
+                this.sha = data.ref;
             }
 
             return;
@@ -131,7 +140,10 @@ export class GitUri extends ((Uri as any) as UriEx) {
     private static ensureValidUNCPath(authority: string, fsPath: string): [string, string] {
         // Taken from https://github.com/Microsoft/vscode/blob/master/src/vs/base/common/uri.ts#L239-L251
         // check for authority as used in UNC shares or use the path as given
-        if (fsPath[0] === '\\' && fsPath[1] === '\\') {
+        if (
+            fsPath.charCodeAt(0) === Strings.CharCode.Backslash &&
+            fsPath.charCodeAt(1) === Strings.CharCode.Backslash
+        ) {
             const index = fsPath.indexOf('\\', 2);
             if (index === -1) {
                 authority = fsPath.substring(2);
@@ -175,7 +187,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
         if (!Container.git.isTrackable(uri)) return new GitUri(uri);
 
-        if (uri.scheme === DocumentSchemes.GitLensGit) return new GitUri(uri);
+        if (uri.scheme === DocumentSchemes.GitLens) return new GitUri(uri);
 
         // If this is a git uri, find its repoPath
         if (uri.scheme === DocumentSchemes.Git) {
@@ -300,23 +312,28 @@ export class GitUri extends ((Uri as any) as UriEx) {
             shortSha = uriOrSha.shortSha;
         }
 
+        repoPath = Strings.normalizePath(repoPath!);
+        const repoName = path.basename(repoPath);
         const data: IUriRevisionData = {
-            fileName: Strings.normalizePath(path.relative(repoPath!, fileName)),
-            repoPath: repoPath!,
-            sha: sha
+            path: Strings.normalizePath(fileName, { addLeadingSlash: true }),
+            ref: sha,
+            repoPath: repoPath
         };
 
-        const parsed = path.parse(fileName);
-        return Uri.parse(
-            `${DocumentSchemes.GitLensGit}:${path.join(parsed.dir, parsed.name)} (${shortSha})${
-                parsed.ext
-            }?${JSON.stringify(data)}`
+        let filePath = Strings.normalizePath(path.relative(repoPath, fileName), { addLeadingSlash: true });
+        if (filePath === '/') {
+            filePath = '';
+        }
+
+        const uri = Uri.parse(
+            `${DocumentSchemes.GitLens}://git/${repoName}@${shortSha}${filePath}?${JSON.stringify(data)}`
         );
+        return uri;
     }
 }
 
 interface IUriRevisionData {
-    sha?: string;
-    fileName: string;
+    path: string;
+    ref?: string;
     repoPath: string;
 }

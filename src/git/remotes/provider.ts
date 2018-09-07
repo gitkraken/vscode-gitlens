@@ -1,8 +1,8 @@
 'use strict';
 import { commands, Range, Uri, window } from 'vscode';
 import { BuiltInCommands } from '../../constants';
-import { GitLogCommit } from '../../gitService';
 import { Logger } from '../../logger';
+import { GitLogCommit } from '../models/logCommit';
 
 export enum RemoteResourceType {
     Branch = 'branch',
