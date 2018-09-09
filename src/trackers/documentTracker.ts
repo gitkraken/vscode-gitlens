@@ -17,7 +17,7 @@ import {
 } from 'vscode';
 import { configuration } from '../configuration';
 import { CommandContext, DocumentSchemes, isActiveDocument, isTextEditor, setCommandContext } from '../constants';
-import { GitUri } from '../gitService';
+import { GitUri } from '../git/gitService';
 import { Functions, IDeferrable } from '../system';
 import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
 

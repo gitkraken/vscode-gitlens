@@ -15,7 +15,7 @@ import {
 import { CommandContext, extensionTerminalName, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { toGitLensFSUri } from '../git/fsProvider';
-import { GitService, GitUri } from '../gitService';
+import { GitService, GitUri } from '../git/gitService';
 import { Arrays } from '../system';
 import {
     BranchNode,

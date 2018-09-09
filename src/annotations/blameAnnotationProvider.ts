@@ -12,7 +12,7 @@ import {
     TextEditorDecorationType
 } from 'vscode';
 import { Container } from '../container';
-import { GitBlame, GitCommit, GitUri } from '../gitService';
+import { GitBlame, GitCommit, GitUri } from '../git/gitService';
 import { Arrays, Iterables } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { AnnotationProviderBase } from './annotationProvider';

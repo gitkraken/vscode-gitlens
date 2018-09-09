@@ -1,7 +1,7 @@
 'use strict';
 import { CancellationTokenSource, QuickPickOptions, window } from 'vscode';
 import { Container } from '../container';
-import { GitLog } from '../gitService';
+import { GitLog } from '../git/gitService';
 import { KeyNoopCommand } from '../keyboard';
 import { Iterables } from '../system';
 import {

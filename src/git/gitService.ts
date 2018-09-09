@@ -16,10 +16,13 @@ import {
     WorkspaceFolder,
     WorkspaceFoldersChangeEvent
 } from 'vscode';
-import { GitExtension } from './@types/git';
-import { configuration, IRemotesConfig } from './configuration';
-import { CommandContext, DocumentSchemes, GlyphChars, setCommandContext } from './constants';
-import { Container } from './container';
+import { GitExtension } from '../@types/git';
+import { configuration, IRemotesConfig } from '../configuration';
+import { CommandContext, DocumentSchemes, GlyphChars, setCommandContext } from '../constants';
+import { Container } from '../container';
+import { Logger } from '../logger';
+import { Iterables, Objects, Strings, TernarySearchTree, Versions } from '../system';
+import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import {
     CommitFormatting,
     Git,
@@ -53,18 +56,15 @@ import {
     GitTreeParser,
     Repository,
     RepositoryChange
-} from './git/git';
-import { GitUri, IGitCommitInfo } from './git/gitUri';
-import { RemoteProviderFactory, RemoteProviderMap } from './git/remotes/factory';
-import { Logger } from './logger';
-import { Iterables, Objects, Strings, TernarySearchTree, Versions } from './system';
-import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from './trackers/gitDocumentTracker';
+} from './git';
+import { GitUri, IGitCommitInfo } from './gitUri';
+import { RemoteProviderFactory, RemoteProviderMap } from './remotes/factory';
 
 export { GitUri, IGitCommitInfo };
-export * from './git/models/models';
-export * from './git/formatters/formatters';
-export { getNameFromRemoteResource, RemoteProvider, RemoteResource, RemoteResourceType } from './git/remotes/provider';
-export { RemoteProviderFactory } from './git/remotes/factory';
+export * from './models/models';
+export * from './formatters/formatters';
+export { getNameFromRemoteResource, RemoteProvider, RemoteResource, RemoteResourceType } from './remotes/provider';
+export { RemoteProviderFactory } from './remotes/factory';
 
 const RepoSearchWarnings = {
     doesNotExist: /no such file or directory/i

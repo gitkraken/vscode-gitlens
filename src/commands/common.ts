@@ -15,7 +15,7 @@ import {
 } from 'vscode';
 import { BuiltInCommands, DocumentSchemes, ImageMimetypes } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitCommit, GitRemote, GitUri } from '../gitService';
+import { GitBranch, GitCommit, GitRemote, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepositoriesQuickPick } from '../quickpicks';
 // import { Telemetry } from '../telemetry';

@@ -4,7 +4,7 @@ import { Commands } from '../commands';
 import { configuration, StatusBarCommand } from '../configuration';
 import { isTextEditor } from '../constants';
 import { Container } from '../container';
-import { CommitFormatter, GitCommit, ICommitFormatOptions } from '../gitService';
+import { CommitFormatter, GitCommit, ICommitFormatOptions } from '../git/gitService';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 
 export class StatusBarController implements Disposable {

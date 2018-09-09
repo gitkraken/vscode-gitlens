@@ -23,7 +23,7 @@ import {
     GitUri,
     IGitStatusFile,
     RemoteResource
-} from '../gitService';
+} from '../git/gitService';
 import { KeyCommand, KeyNoopCommand, Keys } from '../keyboard';
 import { Arrays, Iterables, Strings } from '../system';
 import {

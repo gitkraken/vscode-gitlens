@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitRemote, GitRemoteType, GitUri, Repository } from '../../gitService';
+import { GitRemote, GitRemoteType, GitUri, Repository } from '../../git/gitService';
 import { Arrays, Iterables } from '../../system';
 import { GitExplorer } from '../gitExplorer';
 import { BranchNode } from './branchNode';

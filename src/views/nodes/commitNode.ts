@@ -5,7 +5,7 @@ import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { ExplorerFilesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { CommitFormatter, GitBranch, GitLogCommit, ICommitFormatOptions } from '../../gitService';
+import { CommitFormatter, GitBranch, GitLogCommit, ICommitFormatOptions } from '../../git/gitService';
 import { Arrays, Iterables, Strings } from '../../system';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { Explorer, ExplorerNode, ExplorerRefNode, ResourceType } from './explorerNode';

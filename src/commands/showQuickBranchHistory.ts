@@ -2,7 +2,7 @@
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitUri } from '../gitService';
+import { GitLog, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { BranchesQuickPick, BranchHistoryQuickPick, CommandQuickPickItem } from '../quickpicks';
 import { Strings } from '../system';

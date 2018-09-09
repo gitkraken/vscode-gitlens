@@ -13,7 +13,7 @@ import { Commands, openEditor } from '../commands';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitLogCommit, GitStashCommit } from '../gitService';
+import { GitLog, GitLogCommit, GitStashCommit } from '../git/gitService';
 import { KeyMapping, Keys } from '../keyboard';
 import { Strings } from '../system';
 import { BranchesAndTagsQuickPick, BranchOrTagQuickPickItem } from './branchesAndTagsQuickPick';

@@ -3,7 +3,7 @@ import * as path from 'path';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitLog, GitTag, GitUri } from '../gitService';
+import { GitBranch, GitLog, GitTag, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import {

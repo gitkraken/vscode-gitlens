@@ -1,5 +1,4 @@
 'use strict';
-// import { findActualExecutable, spawnPromise } from 'spawn-rx';
 import * as path from 'path';
 import { findExecutable, run } from './shell';
 

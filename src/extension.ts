@@ -15,7 +15,7 @@ import {
 } from './configuration';
 import { CommandContext, extensionQualifiedId, GlobalState, GlyphChars, setCommandContext } from './constants';
 import { Container } from './container';
-import { GitService } from './gitService';
+import { GitService } from './git/gitService';
 import { Logger } from './logger';
 import { Messages } from './messages';
 import { Strings, Versions } from './system';

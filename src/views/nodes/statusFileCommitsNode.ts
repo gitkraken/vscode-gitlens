@@ -11,7 +11,7 @@ import {
     IGitStatusFileWithCommit,
     IStatusFormatOptions,
     StatusFileFormatter
-} from '../../gitService';
+} from '../../git/gitService';
 import { Strings } from '../../system';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';

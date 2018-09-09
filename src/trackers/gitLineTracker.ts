@@ -1,7 +1,7 @@
 'use strict';
 import { Disposable, TextEditor } from 'vscode';
 import { Container } from '../container';
-import { GitBlameCommit, GitLogCommit } from '../gitService';
+import { GitBlameCommit, GitLogCommit } from '../git/gitService';
 import {
     DocumentBlameStateChangeEvent,
     DocumentDirtyIdleTriggerEvent,

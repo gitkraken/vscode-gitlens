@@ -12,7 +12,7 @@ import {
 } from 'vscode';
 import { CommandContext, extensionId, setCommandContext } from './constants';
 import { Container } from './container';
-import { clearGravatarCache } from './gitService';
+import { clearGravatarCache } from './git/gitService';
 import { Functions } from './system';
 import { IConfig, KeyMap } from './ui/config';
 

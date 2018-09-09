@@ -3,7 +3,7 @@ import { CancellationTokenSource, QuickPickOptions, window } from 'vscode';
 import { Commands, StashSaveCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitStash } from '../gitService';
+import { GitStash } from '../git/gitService';
 import { KeyNoopCommand } from '../keyboard';
 import { Iterables, Strings } from '../system';
 import {

@@ -2,7 +2,7 @@
 import { Disposable, Event, EventEmitter, TextDocument, TextEditor, Uri } from 'vscode';
 import { CommandContext, getEditorIfActive, isActiveDocument, setCommandContext } from '../constants';
 import { Container } from '../container';
-import { GitUri, Repository, RepositoryChange, RepositoryChangeEvent } from '../gitService';
+import { GitUri, Repository, RepositoryChange, RepositoryChangeEvent } from '../git/gitService';
 import { Logger } from '../logger';
 import { Functions } from '../system';
 

@@ -1,7 +1,7 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
-import { GitLogCommit, GitRemote, GitService, RemoteResource, RemoteResourceType } from '../gitService';
+import { GitLogCommit, GitRemote, GitService, RemoteResource, RemoteResourceType } from '../git/gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, OpenRemoteCommandQuickPickItem, RemotesQuickPick } from '../quickpicks';
 import { Strings } from '../system';

@@ -3,7 +3,7 @@ import { CancellationTokenSource, commands, Range, TextDocumentShowOptions, Text
 import { FileAnnotationType } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitTag, GitUri } from '../gitService';
+import { GitBranch, GitTag, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ChooseFromBranchesAndTagsQuickPickItem, CommandQuickPickItem, FileHistoryQuickPick } from '../quickpicks';

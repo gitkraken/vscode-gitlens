@@ -1,7 +1,7 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerFilesLayout, IExplorersFilesConfig } from '../../configuration';
-import { GitUri } from '../../gitService';
+import { GitUri } from '../../git/gitService';
 import { Arrays, Objects } from '../../system';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 

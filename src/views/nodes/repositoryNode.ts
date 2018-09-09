@@ -1,7 +1,7 @@
 'use strict';
 import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { GitUri, Repository, RepositoryChange, RepositoryChangeEvent } from '../../gitService';
+import { GitUri, Repository, RepositoryChange, RepositoryChangeEvent } from '../../git/gitService';
 import { Logger } from '../../logger';
 import { Strings } from '../../system';
 import { GitExplorer } from '../gitExplorer';

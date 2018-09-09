@@ -1,7 +1,7 @@
 'use strict';
 import { QuickPickItem, QuickPickOptions, window } from 'vscode';
 import { Container } from '../container';
-import { Repository } from '../gitService';
+import { Repository } from '../git/gitService';
 import { Iterables } from '../system';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './commonQuickPicks';
 

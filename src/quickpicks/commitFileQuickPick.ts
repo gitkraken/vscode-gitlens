@@ -14,7 +14,7 @@ import {
 } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitLogCommit, GitUri, RemoteResource } from '../gitService';
+import { GitLog, GitLogCommit, GitUri, RemoteResource } from '../git/gitService';
 import { KeyCommand, KeyNoopCommand } from '../keyboard';
 import { Iterables, Strings } from '../system';
 import {

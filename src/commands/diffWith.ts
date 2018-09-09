@@ -3,7 +3,7 @@ import * as path from 'path';
 import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, ViewColumn, window } from 'vscode';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitCommit, GitService, GitUri } from '../gitService';
+import { GitCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { ActiveEditorCommand, Commands } from './common';
 

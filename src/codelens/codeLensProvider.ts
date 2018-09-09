@@ -33,7 +33,7 @@ import {
 } from '../configuration';
 import { BuiltInCommands, DocumentSchemes } from '../constants';
 import { Container } from '../container';
-import { GitBlame, GitBlameCommit, GitBlameLines, GitService, GitUri } from '../gitService';
+import { GitBlame, GitBlameCommit, GitBlameLines, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Functions, Iterables } from '../system';
 import { DocumentTracker, GitDocumentState } from '../trackers/gitDocumentTracker';

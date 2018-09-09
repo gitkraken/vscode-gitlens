@@ -2,7 +2,7 @@
 import { Command, Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitUri } from '../../gitService';
+import { GitUri } from '../../git/gitService';
 import { RefreshNodeCommandArgs } from '../explorerCommands';
 import { GitExplorer } from '../gitExplorer';
 import { HistoryExplorer } from '../historyExplorer';

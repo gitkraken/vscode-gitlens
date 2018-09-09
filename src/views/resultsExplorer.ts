@@ -13,7 +13,7 @@ import {
 import { configuration, ExplorerFilesLayout, IExplorersConfig, IResultsExplorerConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitLogCommit } from '../gitService';
+import { GitLog, GitLogCommit } from '../git/gitService';
 import { Logger } from '../logger';
 import { Functions, Strings } from '../system';
 import { RefreshNodeCommandArgs } from './explorerCommands';

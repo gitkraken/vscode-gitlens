@@ -4,7 +4,7 @@ import { Uri } from 'vscode';
 import { UriComparer } from '../comparers';
 import { DocumentSchemes, GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitCommit, GitService, IGitStatusFile } from '../gitService';
+import { GitCommit, GitService, IGitStatusFile } from '../git/gitService';
 import { Strings } from '../system';
 
 export interface IGitCommitInfo {

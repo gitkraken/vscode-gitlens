@@ -3,7 +3,7 @@ import { DecorationOptions, DecorationRenderOptions, Range, TextEditorDecoration
 import { FileAnnotationType, GravatarDefaultStyle } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBlameCommit, ICommitFormatOptions } from '../gitService';
+import { GitBlameCommit, ICommitFormatOptions } from '../git/gitService';
 import { Logger } from '../logger';
 import { Objects, Strings } from '../system';
 import { Annotations } from './annotations';

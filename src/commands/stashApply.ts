@@ -2,7 +2,7 @@
 import { MessageItem, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitStashCommit } from '../gitService';
+import { GitStashCommit } from '../git/gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepositoriesQuickPick, StashListQuickPick } from '../quickpicks';
 import { Strings } from '../system';

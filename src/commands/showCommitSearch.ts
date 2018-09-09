@@ -2,7 +2,7 @@
 import { commands, InputBoxOptions, TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitRepoSearchBy, GitService, GitUri } from '../gitService';
+import { GitRepoSearchBy, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitsQuickPick, ShowCommitsSearchInResultsQuickPickItem } from '../quickpicks';
 import { Strings } from '../system';

@@ -11,7 +11,7 @@ import {
     GitStatus,
     GitUri,
     IGitStatusFileWithCommit
-} from '../../gitService';
+} from '../../git/gitService';
 import { Arrays, Iterables, Objects, Strings } from '../../system';
 import { GitExplorer } from '../gitExplorer';
 import { ExplorerNode, ResourceType, ShowAllNode } from './explorerNode';

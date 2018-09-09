@@ -2,7 +2,7 @@
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitUri } from '../gitService';
+import { GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import {
     ActiveEditorCommand,

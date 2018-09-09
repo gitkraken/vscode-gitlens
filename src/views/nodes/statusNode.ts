@@ -1,7 +1,7 @@
 import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitBranch, GitUri, Repository, RepositoryFileSystemChangeEvent } from '../../gitService';
+import { GitBranch, GitUri, Repository, RepositoryFileSystemChangeEvent } from '../../git/gitService';
 import { GitExplorer } from '../gitExplorer';
 import { BranchNode } from './branchNode';
 import { ExplorerNode, ResourceType } from './explorerNode';

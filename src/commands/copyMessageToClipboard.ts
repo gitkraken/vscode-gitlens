@@ -1,7 +1,7 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
-import { GitUri } from '../gitService';
+import { GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Iterables } from '../system';
 import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';

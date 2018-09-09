@@ -1,6 +1,6 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitUri } from '../../gitService';
+import { GitUri } from '../../git/gitService';
 import { Arrays, Objects } from '../../system';
 import { BranchNode } from './branchNode';
 // import { Container } from '../../container';

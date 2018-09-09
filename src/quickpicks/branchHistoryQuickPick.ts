@@ -3,7 +3,7 @@ import { CancellationTokenSource, QuickPickOptions, window } from 'vscode';
 import { Commands, ShowCommitSearchCommandArgs, ShowQuickBranchHistoryCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitUri, RemoteResource } from '../gitService';
+import { GitLog, GitUri, RemoteResource } from '../git/gitService';
 import { KeyNoopCommand } from '../keyboard';
 import { Iterables, Strings } from '../system';
 import {

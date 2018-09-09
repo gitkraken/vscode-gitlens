@@ -3,7 +3,7 @@ import * as path from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ExplorerFilesLayout } from '../../configuration';
 import { Container } from '../../container';
-import { GitStatusFile, GitUri } from '../../gitService';
+import { GitStatusFile, GitUri } from '../../git/gitService';
 import { Arrays, Iterables, Strings } from '../../system';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 import { FolderNode, IFileExplorerNode } from './folderNode';

@@ -2,7 +2,7 @@
 import { DecorationOptions, MarkdownString, Position, Range, TextEditor, TextEditorDecorationType } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
-import { GitUri } from '../gitService';
+import { GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Strings } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';

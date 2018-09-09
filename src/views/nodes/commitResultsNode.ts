@@ -1,6 +1,6 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitLogCommit } from '../../gitService';
+import { GitLogCommit } from '../../git/gitService';
 import { ResultsExplorer } from '../resultsExplorer';
 import { CommitNode } from './commitNode';
 import { ExplorerNode, ResourceType } from './explorerNode';

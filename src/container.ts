@@ -5,7 +5,7 @@ import { LineAnnotationController } from './annotations/lineAnnotationController
 import { CodeLensController } from './codelens/codeLensController';
 import { configuration, IConfig } from './configuration';
 import { GitFileSystemProvider } from './git/fsProvider';
-import { GitService } from './gitService';
+import { GitService } from './git/gitService';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { StatusBarController } from './statusbar/statusBarController';

@@ -2,7 +2,7 @@
 import { TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { isTextEditor } from '../../constants';
 import { Container } from '../../container';
-import { GitUri } from '../../gitService';
+import { GitUri } from '../../git/gitService';
 import { Functions } from '../../system';
 import { GitExplorer } from '../gitExplorer';
 import { ExplorerNode } from './explorerNode';

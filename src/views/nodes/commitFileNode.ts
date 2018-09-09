@@ -13,7 +13,7 @@ import {
     IGitStatusFile,
     IStatusFormatOptions,
     StatusFileFormatter
-} from '../../gitService';
+} from '../../git/gitService';
 import { Explorer, ExplorerNode, ExplorerRefNode, ResourceType } from './explorerNode';
 
 export enum CommitFileNodeDisplayAs {

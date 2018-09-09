@@ -10,7 +10,7 @@ import {
     RepositoryChange,
     RepositoryChangeEvent,
     RepositoryFileSystemChangeEvent
-} from '../../gitService';
+} from '../../git/gitService';
 import { Logger } from '../../logger';
 import { Iterables } from '../../system';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';

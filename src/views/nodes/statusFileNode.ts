@@ -3,7 +3,7 @@ import * as path from 'path';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs } from '../../commands';
 import { Container } from '../../container';
-import { getGitStatusIcon, GitStatusFile, GitUri, IStatusFormatOptions, StatusFileFormatter } from '../../gitService';
+import { getGitStatusIcon, GitStatusFile, GitUri, IStatusFormatOptions, StatusFileFormatter } from '../../git/gitService';
 import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
 
 export class StatusFileNode extends ExplorerNode {

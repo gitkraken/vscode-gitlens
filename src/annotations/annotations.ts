@@ -24,7 +24,7 @@ import {
     GitService,
     GitUri,
     ICommitFormatOptions
-} from '../gitService';
+} from '../git/gitService';
 import { Objects, Strings } from '../system';
 import { toRgba } from '../ui/shared/colors';
 

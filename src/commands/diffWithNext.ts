@@ -1,7 +1,7 @@
 'use strict';
 import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
-import { GitLogCommit, GitService, GitStatusFile, GitUri } from '../gitService';
+import { GitLogCommit, GitService, GitStatusFile, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Iterables } from '../system';

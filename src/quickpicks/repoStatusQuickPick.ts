@@ -19,7 +19,7 @@ import {
     GitStatusFile,
     GitStatusFileStatus,
     GitUri
-} from '../gitService';
+} from '../git/gitService';
 import { Keys } from '../keyboard';
 import { Iterables, Strings } from '../system';
 import {

@@ -1,5 +1,5 @@
 'use strict';
-import { GitLogCommit, IGitStatusFile } from '../../gitService';
+import { GitLogCommit, IGitStatusFile } from '../../git/gitService';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { Explorer, ResourceType } from './explorerNode';
 

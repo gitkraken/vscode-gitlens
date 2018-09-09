@@ -4,7 +4,7 @@ import * as path from 'path';
 import { GlyphChars } from '../constants';
 import { Logger } from '../logger';
 import { Objects, Strings } from '../system';
-import { findGitPath, IGitInfo } from './gitLocator';
+import { findGitPath, IGitInfo } from './locator';
 import { run, RunOptions } from './shell';
 
 export { IGitInfo };

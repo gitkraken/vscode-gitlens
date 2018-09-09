@@ -13,7 +13,7 @@ import {
 } from 'vscode';
 import { DocumentSchemes } from '../constants';
 import { Container } from '../container';
-import { GitService, GitTree, GitUri } from '../gitService';
+import { GitService, GitTree, GitUri } from '../git/gitService';
 import { Iterables, TernarySearchTree } from '../system';
 
 export function fromGitLensFSUri(uri: Uri): { path: string; ref: string; repoPath: string } {

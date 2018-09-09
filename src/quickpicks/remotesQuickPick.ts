@@ -10,7 +10,7 @@ import {
     GitService,
     RemoteResource,
     RemoteResourceType
-} from '../gitService';
+} from '../git/gitService';
 import { Strings } from '../system';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './commonQuickPicks';
 

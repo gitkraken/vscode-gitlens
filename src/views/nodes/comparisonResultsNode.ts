@@ -2,7 +2,7 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitLog, GitService, GitUri } from '../../gitService';
+import { GitLog, GitService, GitUri } from '../../git/gitService';
 import { Strings } from '../../system';
 import { CommitsResultsNode } from './commitsResultsNode';
 import { Explorer, ExplorerNode, NamedRef, ResourceType } from './explorerNode';
