@@ -79,7 +79,7 @@ export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
                 if (args.ref1 === undefined) return undefined;
             }
 
-            Container.resultsExplorer.showComparisonInResults(repoPath, args.ref1, args.ref2);
+            await Container.resultsExplorer.showComparisonInResults(repoPath, args.ref1, args.ref2);
 
             return undefined;
         }

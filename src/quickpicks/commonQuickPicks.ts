@@ -247,7 +247,7 @@ export class ShowCommitInResultsQuickPickItem extends CommandQuickPickItem {
     async execute(
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ): Promise<{} | undefined> {
-        Container.resultsExplorer.showCommitInResults(this.commit);
+        await Container.resultsExplorer.showCommitInResults(this.commit);
         return undefined;
     }
 }
