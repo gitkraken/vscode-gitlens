@@ -7,7 +7,7 @@ import { Container } from '../container';
 import { GitCommit, GitService, IGitStatusFile } from '../git/gitService';
 import { Strings } from '../system';
 
-export interface IGitCommitInfo {
+export interface GitCommitish {
     fileName?: string;
     repoPath: string;
     sha?: string;
@@ -38,9 +38,9 @@ export class GitUri extends ((Uri as any) as UriEx) {
     versionedPath?: string;
 
     constructor(uri?: Uri);
-    constructor(uri: Uri, commit: IGitCommitInfo);
+    constructor(uri: Uri, commit: GitCommitish);
     constructor(uri: Uri, repoPath: string | undefined);
-    constructor(uri?: Uri, commitOrRepoPath?: IGitCommitInfo | string) {
+    constructor(uri?: Uri, commitOrRepoPath?: GitCommitish | string) {
         if (uri == null) {
             super();
 
@@ -215,7 +215,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
                 fileName: data.path,
                 repoPath: repoPath,
                 sha: ref
-            } as IGitCommitInfo);
+            } as GitCommitish);
         }
 
         const versionedUri = await Container.git.getVersionedUri(uri);

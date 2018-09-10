@@ -4,10 +4,10 @@ import * as path from 'path';
 import { GlyphChars } from '../constants';
 import { Logger } from '../logger';
 import { Objects, Strings } from '../system';
-import { findGitPath, IGitInfo } from './locator';
+import { findGitPath, GitLocation } from './locator';
 import { run, RunOptions } from './shell';
 
-export { IGitInfo };
+export { GitLocation } from './locator';
 export * from './models/models';
 export * from './parsers/parsers';
 export * from './remotes/provider';
@@ -161,7 +161,7 @@ function throwExceptionHandler(ex: Error) {
     throw ex;
 }
 
-let gitInfo: IGitInfo;
+let gitInfo: GitLocation;
 
 export class Git {
     static shaRegex = /^[0-9a-f]{40}(\^[0-9]*?)??( -)?$/;

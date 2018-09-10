@@ -57,10 +57,10 @@ import {
     Repository,
     RepositoryChange
 } from './git';
-import { GitUri, IGitCommitInfo } from './gitUri';
+import { GitUri } from './gitUri';
 import { RemoteProviderFactory, RemoteProviderMap } from './remotes/factory';
 
-export { GitUri, IGitCommitInfo };
+export * from './gitUri';
 export * from './models/models';
 export * from './formatters/formatters';
 export { getNameFromRemoteResource, RemoteProvider, RemoteResource, RemoteResourceType } from './remotes/provider';
