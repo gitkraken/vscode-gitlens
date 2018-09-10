@@ -3,6 +3,7 @@ import { TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { CommandQuickPickItem, RepoStatusQuickPick } from '../quickpicks';
 import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 
@@ -38,7 +39,7 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickRepoStatusCommand');
-            return window.showErrorMessage(`Unable to show repository status. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to show repository status');
         }
     }
 }

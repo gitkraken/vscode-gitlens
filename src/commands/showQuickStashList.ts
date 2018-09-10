@@ -3,6 +3,7 @@ import { commands, TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { CommandQuickPickItem, StashListQuickPick } from '../quickpicks';
 import { Strings } from '../system';
 import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
@@ -69,7 +70,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickStashListCommand');
-            return window.showErrorMessage(`Unable to show stashed changes. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to show stashed changes');
         }
         finally {
             progressCancellation.cancel();

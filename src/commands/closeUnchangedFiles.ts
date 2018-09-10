@@ -4,6 +4,7 @@ import { TextEditorComparer, UriComparer } from '../comparers';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { ActiveEditorTracker } from '../trackers/activeEditorTracker';
 import { ActiveEditorCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 
@@ -86,7 +87,7 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'CloseUnchangedFilesCommand');
-            return window.showErrorMessage(`Unable to close unchanged files. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to close unchanged files');
         }
     }
 }

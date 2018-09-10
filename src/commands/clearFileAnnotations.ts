@@ -3,6 +3,7 @@ import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { UriComparer } from '../comparers';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { Commands, EditorCommand } from './common';
 
 export class ClearFileAnnotationsCommand extends EditorCommand {
@@ -26,7 +27,7 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'ClearFileAnnotationsCommand');
-            return window.showErrorMessage(`Unable to clear file annotations. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to clear file annotations');
         }
     }
 }

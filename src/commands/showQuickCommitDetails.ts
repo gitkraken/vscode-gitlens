@@ -87,7 +87,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
             }
             catch (ex) {
                 Logger.error(ex, 'ShowQuickCommitDetailsCommand', `getBlameForLine(${blameline})`);
-                return window.showErrorMessage(`Unable to show commit details. See output channel for more details`);
+                return Messages.showGenericErrorMessage('Unable to show commit details');
             }
         }
 
@@ -165,7 +165,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickCommitDetailsCommand');
-            return window.showErrorMessage(`Unable to show commit details. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to show commit details');
         }
     }
 }

@@ -40,6 +40,22 @@ export class Messages {
         );
     }
 
+    static async showGenericErrorMessage(message: string): Promise<MessageItem | undefined> {
+        const actions: MessageItem[] = [{ title: 'Open Output Channel' }];
+        const result = await Messages.showMessage(
+            'error',
+            `${message}. See output channel for more details`,
+            undefined,
+            null,
+            ...actions
+        );
+
+        if (result !== undefined) {
+            Logger.showOutputChannel();
+        }
+        return result;
+    }
+
     static showFileNotUnderSourceControlWarningMessage(message: string): Promise<MessageItem | undefined> {
         return Messages.showMessage(
             'warn',
@@ -121,18 +137,21 @@ export class Messages {
     private static async showMessage<T extends MessageItem>(
         type: 'info' | 'warn' | 'error',
         message: string,
-        suppressionKey: SuppressedMessages,
+        suppressionKey?: SuppressedMessages,
         dontShowAgain: T | null = { title: "Don't Show Again" } as T,
         ...actions: T[]
     ): Promise<T | undefined> {
         Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain})`);
 
-        if (configuration.get<boolean>(configuration.name('advanced')('messages')(suppressionKey).value)) {
+        if (
+            suppressionKey !== undefined &&
+            configuration.get<boolean>(configuration.name('advanced')('messages')(suppressionKey).value)
+        ) {
             Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) skipped`);
             return undefined;
         }
 
-        if (dontShowAgain !== null) {
+        if (suppressionKey !== undefined && dontShowAgain !== null) {
             actions.push(dontShowAgain);
         }
 
@@ -151,11 +170,11 @@ export class Messages {
                 break;
         }
 
-        if (dontShowAgain === null || result === dontShowAgain) {
+        if ((suppressionKey !== undefined && dontShowAgain === null) || result === dontShowAgain) {
             Logger.log(
                 `ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) don't show again requested`
             );
-            await this.suppressedMessage(suppressionKey);
+            await this.suppressedMessage(suppressionKey!);
 
             if (result === dontShowAgain) return undefined;
         }

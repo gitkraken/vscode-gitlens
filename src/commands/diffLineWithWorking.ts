@@ -63,7 +63,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
             }
             catch (ex) {
                 Logger.error(ex, 'DiffLineWithWorkingCommand', `getBlameForLine(${blameline})`);
-                return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
+                return Messages.showGenericErrorMessage('Unable to open compare');
             }
         }
 

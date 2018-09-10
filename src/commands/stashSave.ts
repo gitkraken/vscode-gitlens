@@ -3,6 +3,7 @@ import { InputBoxOptions, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { CommandQuickPickItem, RepositoriesQuickPick } from '../quickpicks';
 import { Command, CommandContext, Commands } from './common';
 
@@ -71,7 +72,7 @@ export class StashSaveCommand extends Command {
             if (msg.includes('newer version of Git')) {
                 return window.showErrorMessage(`Unable to save stash. ${msg}`);
             }
-            return window.showErrorMessage(`Unable to save stash. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to save stash');
         }
     }
 }

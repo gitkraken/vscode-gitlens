@@ -4,6 +4,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitStashCommit } from '../git/gitService';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { CommandQuickPickItem, RepositoriesQuickPick, StashListQuickPick } from '../quickpicks';
 import { Strings } from '../system';
 import { Command, CommandContext, Commands, isCommandViewContextWithCommit } from './common';
@@ -132,7 +133,7 @@ export class StashApplyCommand extends Command {
                 return window.showInformationMessage(`Stash applied with conflicts`);
             }
             else {
-                return window.showErrorMessage(`Unable to apply stash. See output channel for more details`);
+                return Messages.showGenericErrorMessage('Unable to apply stash');
             }
         }
     }

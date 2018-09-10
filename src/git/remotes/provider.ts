@@ -3,6 +3,7 @@ import * as clipboard from 'clipboardy';
 import { commands, Range, Uri, window } from 'vscode';
 import { BuiltInCommands } from '../../constants';
 import { Logger } from '../../logger';
+import { Messages } from '../../messages';
 import { GitLogCommit } from '../models/logCommit';
 
 export enum RemoteResourceType {
@@ -132,7 +133,7 @@ export abstract class RemoteProvider {
             }
 
             Logger.error(ex, 'CopyRemoteUrlToClipboardCommand');
-            return window.showErrorMessage(`Unable to copy remote url. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to copy remote url');
         }
     }
 

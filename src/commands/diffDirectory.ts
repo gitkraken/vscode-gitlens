@@ -3,6 +3,7 @@ import { CancellationTokenSource, commands, TextEditor, Uri, window } from 'vsco
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
 import { ComparisonResultsNode } from '../views/nodes';
 import {
@@ -111,7 +112,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
             }
 
             Logger.error(ex, 'DiffDirectoryCommand');
-            return window.showErrorMessage(`Unable to open directory compare. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to open directory compare');
         }
         finally {
             progressCancellation && progressCancellation.cancel();

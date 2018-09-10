@@ -3,6 +3,7 @@ import { commands, SourceControlResourceState, Uri, window } from 'vscode';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { Arrays } from '../system';
 import { Command, CommandContext, Commands, getRepoPathOrActiveOrPrompt } from './common';
 
@@ -135,7 +136,7 @@ export class ExternalDiffCommand extends Command {
         }
         catch (ex) {
             Logger.error(ex, 'ExternalDiffCommand');
-            return window.showErrorMessage(`Unable to open changes in diff tool. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to open changes in diff tool');
         }
     }
 }

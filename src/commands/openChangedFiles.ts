@@ -3,6 +3,7 @@ import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { Arrays } from '../system';
 import { ActiveEditorCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt, openEditor } from './common';
 
@@ -43,7 +44,7 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'OpenChangedFilesCommand');
-            return window.showErrorMessage(`Unable to open changed files. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to open changed files');
         }
     }
 }

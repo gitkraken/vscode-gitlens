@@ -73,7 +73,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
                     'DiffWithWorkingCommand',
                     `getLogCommit(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
                 );
-                return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
+                return Messages.showGenericErrorMessage('Unable to open compare');
             }
         }
 

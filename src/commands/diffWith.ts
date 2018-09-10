@@ -1,10 +1,11 @@
 'use strict';
 import * as path from 'path';
-import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, ViewColumn, window } from 'vscode';
+import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, ViewColumn } from 'vscode';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { ActiveEditorCommand, Commands } from './common';
 
 export interface DiffWithCommandArgsRevision {
@@ -174,7 +175,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'DiffWithCommand', 'getVersionedFile');
-            return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to open compare');
         }
     }
 }

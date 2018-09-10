@@ -1,8 +1,9 @@
 'use strict';
-import { commands, TextEditor, Uri, window } from 'vscode';
+import { commands, TextEditor, Uri } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { CommandQuickPickItem } from '../quickpicks';
 import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { ShowQuickBranchHistoryCommandArgs } from './showQuickBranchHistory';
@@ -38,7 +39,7 @@ export class ShowQuickCurrentBranchHistoryCommand extends ActiveEditorCachedComm
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickCurrentBranchHistoryCommand');
-            return window.showErrorMessage(`Unable to show branch history. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to show branch history');
         }
     }
 }

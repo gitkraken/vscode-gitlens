@@ -4,6 +4,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitRepoSearchBy, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitsQuickPick, ShowCommitsSearchInResultsQuickPickItem } from '../quickpicks';
 import { Strings } from '../system';
 import { Iterables } from '../system/iterable';
@@ -183,7 +184,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
         }
         catch (ex) {
             Logger.error(ex, 'ShowCommitSearchCommand');
-            return window.showErrorMessage(`Unable to find commits. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to find commits');
         }
         finally {
             progressCancellation.cancel();

@@ -1,8 +1,9 @@
 'use strict';
-import { TextEditor, Uri, window } from 'vscode';
+import { TextEditor, Uri } from 'vscode';
 import { GlyphChars } from '../constants';
 import { GitLogCommit, GitRemote, GitService, RemoteResource, RemoteResourceType } from '../git/gitService';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { CommandQuickPickItem, OpenRemoteCommandQuickPickItem, RemotesQuickPick } from '../quickpicks';
 import { Strings } from '../system';
 import { ActiveEditorCommand, Commands } from './common';
@@ -96,7 +97,7 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'OpenInRemoteCommand');
-            return window.showErrorMessage(`Unable to open in remote provider. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to open in remote provider');
         }
     }
 

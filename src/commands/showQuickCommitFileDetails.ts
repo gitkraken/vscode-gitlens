@@ -179,7 +179,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickCommitFileDetailsCommand');
-            return window.showErrorMessage(`Unable to show commit file details. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to show commit file details');
         }
     }
 }

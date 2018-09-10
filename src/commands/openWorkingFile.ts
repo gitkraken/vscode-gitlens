@@ -1,10 +1,11 @@
 'use strict';
 import * as path from 'path';
-import { Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { Range, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { GitUri } from '../git/gitService';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
 
 export interface OpenWorkingFileCommandArgs {
@@ -56,7 +57,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'OpenWorkingFileCommand');
-            return window.showErrorMessage(`Unable to open working file. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to open working file');
         }
     }
 }

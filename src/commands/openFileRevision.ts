@@ -182,7 +182,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'OpenFileRevisionCommand');
-            return window.showErrorMessage(`Unable to open file revision. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to open file revision');
         }
         finally {
             progressCancellation && progressCancellation.cancel();

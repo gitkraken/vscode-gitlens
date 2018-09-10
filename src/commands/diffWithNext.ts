@@ -84,7 +84,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
             }
             catch (ex) {
                 Logger.error(ex, 'DiffWithNextCommand', `getLogForFile(${gitUri.repoPath}, ${gitUri.fsPath})`);
-                return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
+                return Messages.showGenericErrorMessage('Unable to open compare');
             }
         }
 

@@ -4,6 +4,7 @@ import { TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
 import { GitUri } from '../git/gitService';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { Iterables } from '../system';
 import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
 
@@ -58,7 +59,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
                 }
                 catch (ex) {
                     Logger.error(ex, 'CopyShaToClipboardCommand', `getBlameForLine(${blameline})`);
-                    return window.showErrorMessage(`Unable to copy commit id. See output channel for more details`);
+                    return Messages.showGenericErrorMessage('Unable to copy ommit id');
                 }
             }
 
@@ -74,7 +75,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
             }
 
             Logger.error(ex, 'CopyShaToClipboardCommand');
-            return window.showErrorMessage(`Unable to copy commit id. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to copy ommit id');
         }
     }
 }
