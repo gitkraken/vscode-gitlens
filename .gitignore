@@ -1,5 +1,7 @@
-.image-cache
+.cache-images
+.cache-loader
 dist
+fallbacks
 node_modules
 settings.html
 welcome.html

@@ -1,4 +1,5 @@
 'use strict';
+import * as clipboard from 'clipboardy';
 import { commands, Range, Uri, window } from 'vscode';
 import { BuiltInCommands } from '../../constants';
 import { Logger } from '../../logger';
@@ -118,7 +119,6 @@ export abstract class RemoteProvider {
         if (url === undefined) return undefined;
 
         try {
-            const clipboard = await import('clipboardy');
             void (await clipboard.write(url));
 
             return undefined;

@@ -1,4 +1,5 @@
 'use strict';
+import * as clipboard from 'clipboardy';
 import { TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
 import { GitUri } from '../git/gitService';
@@ -30,8 +31,6 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
         uri = getCommandUri(uri, editor);
 
         try {
-            const clipboard = await import('clipboardy');
-
             args = { ...args };
 
             // If we don't have an editor then get the message of the last commit to the branch

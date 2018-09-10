@@ -3577,7 +3577,7 @@
     "scripts": {
         "build": "webpack --env.development",
         "bundle": "webpack --env.production",
-        "clean": "git clean -Xdf",
+        "clean": "git clean -Xdf -e !.cache-images",
         "lint": "tslint --project tsconfig.json && tslint --project ui.tsconfig.json",
         "pack": "vsce package",
         "pretty": "prettier --config .prettierrc --loglevel warn --write \"./**/*.{ts,md,json}\" && tslint --project tsconfig.json --fix && tslint --project ui.tsconfig.json --fix",
@@ -3603,9 +3603,9 @@
         "@types/node": "8.10.29",
         "clean-webpack-plugin": "0.1.19",
         "css-loader": "1.0.0",
+        "filemanager-webpack-plugin": "2.0.5",
         "html-webpack-inline-source-plugin": "0.0.10",
         "html-webpack-plugin": "3.2.0",
-        "husky": "0.14.3",
         "imagemin-webpack-plugin": "2.2.0",
         "mini-css-extract-plugin": "0.4.2",
         "node-sass": "4.9.3",
@@ -3613,16 +3613,14 @@
         "prettier-tslint": "0.4.0",
         "sass-loader": "7.1.0",
         "size-plugin": "1.0.1",
-        "style-loader": "0.23.0",
         "tslint": "5.11.0",
         "tslint-loader": "3.6.0",
         "tslint-prettiest": "0.0.1",
-        "ts-loader": "5.0.0",
+        "ts-loader": "5.1.0",
         "typescript": "3.0.3",
         "vscode": "1.1.21",
-        "webpack": "4.17.2",
+        "webpack": "4.18.0",
         "webpack-cli": "3.1.0",
-        "webpack-deep-scope-plugin": "1.5.3",
-        "webpack-node-externals": "1.7.2"
+        "webpack-deep-scope-plugin": "1.6.0"
     }
 }
