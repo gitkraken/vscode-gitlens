@@ -1829,6 +1829,42 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.gitExplorer.fetchAll",
+                "title": "Fetch Repositories",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-sync.svg",
+                    "light": "images/light/icon-sync.svg"
+                }
+            },
+            {
+                "command": "gitlens.explorers.fetch",
+                "title": "Fetch Repository",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-sync.svg",
+                    "light": "images/light/icon-sync.svg"
+                }
+            },
+            {
+                "command": "gitlens.explorers.pull",
+                "title": "Pull Repository",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-pull.svg",
+                    "light": "images/light/icon-pull.svg"
+                }
+            },
+            {
+                "command": "gitlens.explorers.push",
+                "title": "Push Repository",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-push.svg",
+                    "light": "images/light/icon-push.svg"
+                }
+            },
+            {
                 "command": "gitlens.explorers.openDirectoryDiff",
                 "title": "Open Directory Compare",
                 "category": "GitLens"
@@ -2385,6 +2421,22 @@
                     "when": "false"
                 },
                 {
+                    "command": "gitlens.gitExplorer.fetchAll",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.explorers.fetch",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.explorers.pull",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.explorers.push",
+                    "when": "false"
+                },
+                {
                     "command": "gitlens.explorers.openChanges",
                     "when": "false"
                 },
@@ -2749,6 +2801,11 @@
                     "group": "2_files@100"
                 },
                 {
+                    "command": "gitlens.copyRemoteFileUrlToClipboard",
+                    "when": "gitlens:enabled && gitlens:activeFileStatus =~ /remotes/ && config.gitlens.menus.editorTab.remote",
+                    "group": "2_files@101"
+                },
+                {
                     "command": "gitlens.diffWithPrevious",
                     "when": "gitlens:enabled && config.gitlens.menus.editorTab.compare",
                     "group": "1_gitlens_1@1"
@@ -2855,6 +2912,11 @@
                     "command": "gitlens.showCommitSearch",
                     "when": "view =~ /^gitlens.gitExplorer:/",
                     "group": "navigation@1"
+                },
+                {
+                    "command": "gitlens.gitExplorer.fetchAll",
+                    "when": "view =~ /^gitlens.gitExplorer:/",
+                    "group": "navigation@7"
                 },
                 {
                     "command": "gitlens.gitExplorer.refresh",
@@ -3202,6 +3264,21 @@
                     "command": "gitlens.explorers.exploreRepoRevision",
                     "when": "viewItem =~ /gitlens:(branch|commit|file:(commit|status)|stash|tag)\\b/",
                     "group": "7_gitlens_more@1"
+                },
+                {
+                    "command": "gitlens.explorers.fetch",
+                    "when": "viewItem == gitlens:repository && gitlens:hasRemotes",
+                    "group": "inline@97"
+                },
+                {
+                    "command": "gitlens.explorers.push",
+                    "when": "viewItem == gitlens:repository && gitlens:hasRemotes",
+                    "group": "inline@99"
+                },
+                {
+                    "command": "gitlens.explorers.pull",
+                    "when": "viewItem == gitlens:repository && gitlens:hasRemotes",
+                    "group": "inline@98"
                 },
                 {
                     "command": "gitlens.openRepoInRemote",

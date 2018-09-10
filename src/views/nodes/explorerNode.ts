@@ -99,7 +99,7 @@ export abstract class SubscribeableExplorerNode<TExplorer extends Explorer> exte
 
     constructor(
         uri: GitUri,
-        protected readonly explorer: TExplorer
+        public readonly explorer: TExplorer
     ) {
         super(uri);
 

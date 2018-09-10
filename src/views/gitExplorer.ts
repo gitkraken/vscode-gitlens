@@ -24,6 +24,9 @@ export class GitExplorer extends ExplorerBase<RepositoriesNode> {
 
     protected registerCommands() {
         Container.explorerCommands;
+
+        commands.registerCommand(this.getQualifiedCommand('fetchAll'), () => this.fetchAll(), this);
+
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
         commands.registerCommand(
             this.getQualifiedCommand('refreshNode'),
@@ -100,6 +103,12 @@ export class GitExplorer extends ExplorerBase<RepositoriesNode> {
 
     get config(): IExplorersConfig & IGitExplorerConfig {
         return { ...Container.config.explorers, ...Container.config.gitExplorer };
+    }
+
+    private fetchAll() {
+        if (this._root === undefined) return;
+
+        return this._root.fetchAll();
     }
 
     private async setAutoRefresh(enabled: boolean, workspaceEnabled?: boolean) {
