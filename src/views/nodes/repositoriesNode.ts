@@ -56,6 +56,16 @@ export class RepositoriesNode extends SubscribeableExplorerNode<GitExplorer> {
         return item;
     }
 
+    async fetchAll() {
+        if (this._children === undefined || this._children.length === 0) return;
+
+        for (const node of this._children) {
+            if (node instanceof MessageNode) continue;
+
+            await node.fetch();
+        }
+    }
+
     async refresh() {
         if (this._children === undefined) return;
 

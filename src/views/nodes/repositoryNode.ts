@@ -1,5 +1,7 @@
 'use strict';
-import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+import { commands, Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import {
@@ -12,7 +14,7 @@ import {
     RepositoryFileSystemChangeEvent
 } from '../../git/gitService';
 import { Logger } from '../../logger';
-import { Strings } from '../../system';
+import { Dates, Functions, Strings } from '../../system';
 import { GitExplorer } from '../gitExplorer';
 import { BranchesNode } from './branchesNode';
 import { BranchNode } from './branchNode';
@@ -26,6 +28,7 @@ import { TagsNode } from './tagsNode';
 
 export class RepositoryNode extends SubscribeableExplorerNode<GitExplorer> {
     private _children: ExplorerNode[] | undefined;
+    private _lastFetched: number = 0;
     private _status: Promise<GitStatus | undefined>;
 
     constructor(
@@ -90,7 +93,16 @@ export class RepositoryNode extends SubscribeableExplorerNode<GitExplorer> {
     async getTreeItem(): Promise<TreeItem> {
         let label = this.repo.formattedName || this.uri.repoPath || '';
 
-        let tooltip = this.repo.formattedName ? `${this.repo.formattedName}\n${this.uri.repoPath}` : this.uri.repoPath;
+        this._lastFetched = await this.getLastFetched();
+
+        const lastFetchedTooltip = this.formatLastFetched({
+            prefix: `${Strings.pad(GlyphChars.Dash, 2, 2)}Last fetched on `,
+            format: 'dddd MMMM Do, YYYY h:mm a'
+        });
+
+        let tooltip = this.repo.formattedName
+            ? `${this.repo.formattedName}${lastFetchedTooltip}\n${this.uri.repoPath}`
+            : `${this.uri.repoPath}${lastFetchedTooltip}`;
         let iconSuffix = '';
         let workingStatus = '';
 
@@ -109,7 +121,7 @@ export class RepositoryNode extends SubscribeableExplorerNode<GitExplorer> {
                 prefix: `${GlyphChars.Space} `
             });
 
-            label += ` ${Strings.pad(GlyphChars.Dash, 2, 3)}${status.branch}${upstreamStatus}${workingStatus}`;
+            label += `${Strings.pad(GlyphChars.Dash, 3, 3)}${status.branch}${upstreamStatus}${workingStatus}`;
 
             iconSuffix = workingStatus ? '-blue' : '';
             if (status.upstream !== undefined) {
@@ -137,7 +149,12 @@ export class RepositoryNode extends SubscribeableExplorerNode<GitExplorer> {
             }
         }
 
-        const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
+        const item = new TreeItem(
+            `${label}${this.formatLastFetched({
+                prefix: `${Strings.pad(GlyphChars.Dash, 4, 4)}Last fetched `
+            })}`,
+            TreeItemCollapsibleState.Expanded
+        );
         item.id = this.id;
         item.contextValue = ResourceType.Repository;
         item.tooltip = tooltip;
@@ -151,6 +168,26 @@ export class RepositoryNode extends SubscribeableExplorerNode<GitExplorer> {
         return item;
     }
 
+    async fetch() {
+        await commands.executeCommand('git.fetch', this.repo.path);
+
+        await this.updateLastFetched();
+        this.explorer.triggerNodeUpdate(this);
+    }
+
+    async pull() {
+        await commands.executeCommand('git.pull', this.repo.path);
+
+        await this.updateLastFetched();
+        this.explorer.triggerNodeUpdate(this);
+    }
+
+    async push() {
+        await commands.executeCommand('git.push', this.repo.path);
+
+        this.explorer.triggerNodeUpdate(this);
+    }
+
     refresh() {
         this._status = this.repo.getStatus();
 
@@ -162,9 +199,13 @@ export class RepositoryNode extends SubscribeableExplorerNode<GitExplorer> {
         const disposables = [this.repo.onDidChange(this.onRepoChanged, this)];
 
         if (this.includeWorkingTree) {
-            disposables.push(this.repo.onDidChangeFileSystem(this.onFileSystemChanged, this), {
-                dispose: () => this.repo.stopWatchingFileSystem()
-            });
+            disposables.push(
+                this.repo.onDidChangeFileSystem(this.onFileSystemChanged, this),
+                {
+                    dispose: () => this.repo.stopWatchingFileSystem()
+                },
+                Functions.interval(() => void this.updateLastFetched(), 60000)
+            );
 
             this.repo.startWatchingFileSystem();
         }
@@ -219,5 +260,38 @@ export class RepositoryNode extends SubscribeableExplorerNode<GitExplorer> {
                 void this.explorer.refreshNode(node);
             }
         }
+    }
+
+    private formatLastFetched(options: { prefix?: string; format?: string } = {}) {
+        if (this._lastFetched === 0) return '';
+
+        if (options.format === undefined && Date.now() - this._lastFetched < Dates.MillisecondsPerDay) {
+            return `${options.prefix || ''}${Dates.toFormatter(new Date(this._lastFetched)).fromNow()}`;
+        }
+
+        return `${options.prefix || ''}${Dates.toFormatter(new Date(this._lastFetched)).format(
+            options.format || 'MMM DD, YYYY'
+        )}`;
+    }
+
+    private async getLastFetched(): Promise<number> {
+        const hasRemotes = await this.repo.hasRemotes();
+        if (!hasRemotes) return 0;
+
+        return new Promise<number>((resolve, reject) =>
+            fs.stat(path.join(this.repo.path, '.git/FETCH_HEAD'), (err, stat) =>
+                resolve(err ? 0 : stat.mtime.getTime())
+            )
+        );
+    }
+
+    private async updateLastFetched() {
+        const prevLastFetched = this._lastFetched;
+        this._lastFetched = await this.getLastFetched();
+
+        // If the fetched date hasn't changed and it was over a day ago, kick out
+        if (this._lastFetched === prevLastFetched && Date.now() - this._lastFetched >= Dates.MillisecondsPerDay) return;
+
+        this.explorer.triggerNodeUpdate(this);
     }
 }

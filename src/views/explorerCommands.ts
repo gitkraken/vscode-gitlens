@@ -49,6 +49,10 @@ export class ExplorerCommands implements Disposable {
     private _terminalCwd: string | undefined;
 
     constructor() {
+        commands.registerCommand('gitlens.explorers.fetch', this.fetch, this);
+        commands.registerCommand('gitlens.explorers.pull', this.pull, this);
+        commands.registerCommand('gitlens.explorers.push', this.push, this);
+
         commands.registerCommand('gitlens.explorers.exploreRepoRevision', this.exploreRepoRevision, this);
 
         commands.registerCommand('gitlens.explorers.openChanges', this.openChanges, this);
@@ -100,6 +104,24 @@ export class ExplorerCommands implements Disposable {
 
     dispose() {
         this._disposable && this._disposable.dispose();
+    }
+
+    private fetch(node: RepositoryNode) {
+        if (!(node instanceof RepositoryNode)) return;
+
+        return node.fetch();
+    }
+
+    private pull(node: RepositoryNode) {
+        if (!(node instanceof RepositoryNode)) return;
+
+        return node.pull();
+    }
+
+    private push(node: RepositoryNode) {
+        if (!(node instanceof RepositoryNode)) return;
+
+        return node.push();
     }
 
     private async applyChanges(node: CommitFileNode | StashFileNode | StatusFileNode) {

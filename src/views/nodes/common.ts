@@ -7,9 +7,9 @@ import { ExplorerNode, ResourceType, unknownGitUri } from '../nodes/explorerNode
 
 export class MessageNode extends ExplorerNode {
     constructor(
-        private readonly message: string,
-        private readonly tooltip?: string,
-        private readonly iconPath?:
+        private readonly _message: string,
+        private readonly _tooltip?: string,
+        private readonly _iconPath?:
             | string
             | Uri
             | {
@@ -26,11 +26,73 @@ export class MessageNode extends ExplorerNode {
     }
 
     getTreeItem(): TreeItem | Promise<TreeItem> {
-        const item = new TreeItem(this.message, TreeItemCollapsibleState.None);
+        const item = new TreeItem(this._message, TreeItemCollapsibleState.None);
         item.contextValue = ResourceType.Message;
-        item.tooltip = this.tooltip;
-        item.iconPath = this.iconPath;
+        item.tooltip = this._tooltip;
+        item.iconPath = this._iconPath;
         return item;
+    }
+}
+
+export class UpdateableMessageNode extends ExplorerNode {
+    constructor(
+        public readonly id: string,
+        private _message: string,
+        private _tooltip?: string,
+        private _iconPath?:
+            | string
+            | Uri
+            | {
+                  light: string | Uri;
+                  dark: string | Uri;
+              }
+            | ThemeIcon
+    ) {
+        super(unknownGitUri);
+    }
+
+    getChildren(): ExplorerNode[] | Promise<ExplorerNode[]> {
+        return [];
+    }
+
+    getTreeItem(): TreeItem | Promise<TreeItem> {
+        const item = new TreeItem(this._message, TreeItemCollapsibleState.None);
+        item.id = this.id;
+        item.contextValue = ResourceType.Message;
+        item.tooltip = this._tooltip;
+        item.iconPath = this._iconPath;
+        return item;
+    }
+
+    update(
+        changes: {
+            message?: string;
+            tooltip?: string | null;
+            iconPath?:
+                | string
+                | null
+                | Uri
+                | {
+                      light: string | Uri;
+                      dark: string | Uri;
+                  }
+                | ThemeIcon;
+        },
+        explorer: Explorer
+    ) {
+        if (changes.message !== undefined) {
+            this._message = changes.message;
+        }
+
+        if (changes.tooltip !== undefined) {
+            this._tooltip = changes.tooltip === null ? undefined : changes.tooltip;
+        }
+
+        if (changes.iconPath !== undefined) {
+            this._iconPath = changes.iconPath === null ? undefined : changes.iconPath;
+        }
+
+        explorer.triggerNodeUpdate(this);
     }
 }
 
