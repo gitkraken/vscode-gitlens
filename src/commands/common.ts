@@ -434,6 +434,9 @@ export function openWorkspace(uri: Uri, name: string, options: { openInNewWindow
         return true;
     }
 
-    const count = (workspace.workspaceFolders && workspace.workspaceFolders.length) || 0;
-    return workspace.updateWorkspaceFolders(count, 0, { uri, name });
+    return workspace.updateWorkspaceFolders(
+        workspace.workspaceFolders !== undefined ? workspace.workspaceFolders.length : 0,
+        null,
+        { uri, name }
+    );
 }

@@ -7,5 +7,8 @@
         "unspecified-properties-position": "bottom"
     },
     "prettier.requireConfig": true,
-    "prettier.tslintIntegration": true
+    "prettier.tslintIntegration": true,
+    "search.exclude": {
+        "**/dist": true
+    }
 }

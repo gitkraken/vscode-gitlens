@@ -12,7 +12,7 @@ import {
     OpenFileRevisionCommandArgs,
     openWorkspace
 } from '../commands';
-import { CommandContext, extensionTerminalName, setCommandContext } from '../constants';
+import { BuiltInCommands, CommandContext, extensionTerminalName, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { toGitLensFSUri } from '../git/fsProvider';
 import { GitService, GitUri } from '../git/gitService';
@@ -206,7 +206,6 @@ export class ExplorerCommands implements Disposable {
             repoPath: node.repoPath,
             uri: node instanceof CommitFileNode ? node.uri : undefined
         };
-
         setCommandContext(CommandContext.ExplorersCanCompare, true);
     }
 
@@ -217,6 +216,8 @@ export class ExplorerCommands implements Disposable {
         const gitUri = GitUri.fromRevisionUri(uri);
 
         openWorkspace(uri, `${path.basename(gitUri.repoPath!)} @ ${gitUri.shortSha}`, options);
+
+        void commands.executeCommand(BuiltInCommands.FocusFilesExplorer);
     }
 
     private openChanges(node: CommitNode | StashNode) {
