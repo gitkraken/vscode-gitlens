@@ -15,12 +15,14 @@ export enum BuiltInCommands {
     EditorScroll = 'editorScroll',
     ExecuteDocumentSymbolProvider = 'vscode.executeDocumentSymbolProvider',
     ExecuteCodeLensProvider = 'vscode.executeCodeLensProvider',
+    FocusFilesExplorer = 'workbench.files.action.focusFilesExplorer',
     Open = 'vscode.open',
     OpenFolder = 'vscode.openFolder',
     NextEditor = 'workbench.action.nextEditor',
     PreviewHtml = 'vscode.previewHtml',
     RevealLine = 'revealLine',
     SetContext = 'setContext',
+    ShowExplorerActivity = 'workbench.view.explorer',
     ShowReferences = 'editor.action.showReferences'
 }
 
