@@ -1,5 +1,5 @@
 'use strict';
-import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { Disposable, ProgressLocation, TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { Container } from '../../container';
 import { GitUri } from '../../git/gitService';
 import { Logger } from '../../logger';
@@ -59,11 +59,29 @@ export class RepositoriesNode extends SubscribeableExplorerNode<GitExplorer> {
     async fetchAll() {
         if (this._children === undefined || this._children.length === 0) return;
 
-        for (const node of this._children) {
-            if (node instanceof MessageNode) continue;
+        const children = this._children;
+        await window.withProgress(
+            {
+                location: ProgressLocation.Notification,
+                title: `Fetching repositories`,
+                cancellable: false
+            },
+            async progress => {
+                const total = children.length + 1;
+                let i = 0;
+                for (const node of children) {
+                    if (node instanceof MessageNode) continue;
 
-            await node.fetch();
-        }
+                    i++;
+                    progress.report({
+                        message: `${node.repo.formattedName}...`,
+                        increment: (i / total) * 100
+                    });
+
+                    await node.fetch(false);
+                }
+            }
+        );
     }
 
     async refresh() {

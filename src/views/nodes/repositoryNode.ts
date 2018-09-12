@@ -1,7 +1,7 @@
 'use strict';
 import * as fs from 'fs';
 import * as path from 'path';
-import { commands, Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { commands, Disposable, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import {
@@ -168,21 +168,60 @@ export class RepositoryNode extends SubscribeableExplorerNode<GitExplorer> {
         return item;
     }
 
-    async fetch() {
+    async fetch(progress: boolean = true) {
+        if (!progress) return this.fetchCore();
+
+        await window.withProgress(
+            {
+                location: ProgressLocation.Notification,
+                title: `Fetching ${this.repo.formattedName}...`,
+                cancellable: false
+            },
+            () => this.fetchCore()
+        );
+    }
+
+    private async fetchCore() {
         await commands.executeCommand('git.fetch', this.repo.path);
 
         await this.updateLastFetched();
         this.explorer.triggerNodeUpdate(this);
     }
 
-    async pull() {
+    async pull(progress: boolean = true) {
+        if (!progress) return this.pullCore();
+
+        await window.withProgress(
+            {
+                location: ProgressLocation.Notification,
+                title: `Pulling ${this.repo.formattedName}...`,
+                cancellable: false
+            },
+            () => this.pullCore()
+        );
+    }
+
+    private async pullCore() {
         await commands.executeCommand('git.pull', this.repo.path);
 
         await this.updateLastFetched();
         this.explorer.triggerNodeUpdate(this);
     }
 
-    async push() {
+    async push(progress: boolean = true) {
+        if (!progress) return this.pushCore();
+
+        await window.withProgress(
+            {
+                location: ProgressLocation.Notification,
+                title: `Pushing ${this.repo.formattedName}...`,
+                cancellable: false
+            },
+            () => this.pushCore()
+        );
+    }
+
+    private async pushCore() {
         await commands.executeCommand('git.push', this.repo.path);
 
         this.explorer.triggerNodeUpdate(this);
