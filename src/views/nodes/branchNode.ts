@@ -14,6 +14,8 @@ export class BranchNode extends ExplorerRefNode implements PageableExplorerNode 
     readonly supportsPaging: boolean = true;
     maxCount: number | undefined;
 
+    private _children: ExplorerNode[] | undefined;
+
     constructor(
         public readonly branch: GitBranch,
         uri: GitUri,
@@ -45,35 +47,42 @@ export class BranchNode extends ExplorerRefNode implements PageableExplorerNode 
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        const log = await Container.git.getLog(this.uri.repoPath!, {
-            maxCount: this.maxCount || this.explorer.config.defaultItemLimit,
-            ref: this.ref
-        });
-        if (log === undefined) return [new MessageNode('No commits yet')];
+        if (this._children === undefined) {
+            const log = await Container.git.getLog(this.uri.repoPath!, {
+                maxCount: this.maxCount || this.explorer.config.defaultItemLimit,
+                ref: this.ref
+            });
+            if (log === undefined) return [new MessageNode('No commits yet')];
 
-        const branches = await Container.git.getBranches(this.uri.repoPath);
-        // Get the sha length, since `git branch` can return variable length shas
-        const shaLength = branches[0].sha!.length;
-        const branchesBySha = Arrays.groupByFilterMap(
-            branches,
-            b => b.sha!,
-            b => (b.name === this.branch.name ? undefined : b.name)
-        );
+            const branches = await Container.git.getBranches(this.uri.repoPath);
+            // Get the sha length, since `git branch` can return variable length shas
+            const shaLength = branches[0].sha!.length;
+            const branchesBySha = Arrays.groupByFilterMap(
+                branches,
+                b => b.sha!,
+                b => (b.name === this.branch.name ? undefined : b.name)
+            );
 
-        const getBranchTips = (sha: string) => {
-            const branches = branchesBySha.get(sha.substr(0, shaLength));
-            if (branches === undefined || branches.length === 0) return undefined;
-            return branches.join(', ');
-        };
+            const getBranchTips = (sha: string) => {
+                const branches = branchesBySha.get(sha.substr(0, shaLength));
+                if (branches === undefined || branches.length === 0) return undefined;
+                return branches.join(', ');
+            };
 
-        const children: (CommitNode | ShowMoreNode)[] = [
-            ...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer, this.branch, getBranchTips))
-        ];
+            const children: (CommitNode | ShowMoreNode)[] = [
+                ...Iterables.map(
+                    log.commits.values(),
+                    c => new CommitNode(c, this.explorer, this.branch, getBranchTips)
+                )
+            ];
 
-        if (log.truncated) {
-            children.push(new ShowMoreNode('Commits', this, this.explorer));
+            if (log.truncated) {
+                children.push(new ShowMoreNode('Commits', this, this.explorer));
+            }
+
+            this._children = children;
         }
-        return children;
+        return this._children;
     }
 
     async getTreeItem(): Promise<TreeItem> {
@@ -128,5 +137,9 @@ export class BranchNode extends ExplorerRefNode implements PageableExplorerNode 
         };
 
         return item;
+    }
+
+    refresh() {
+        this._children = undefined;
     }
 }
