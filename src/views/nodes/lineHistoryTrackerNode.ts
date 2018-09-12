@@ -1,23 +1,16 @@
 'use strict';
-import {
-    Disposable,
-    Selection,
-    TextEditor,
-    TextEditorSelectionChangeEvent,
-    TreeItem,
-    TreeItemCollapsibleState,
-    window
-} from 'vscode';
+import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { UriComparer } from '../../comparers';
 import { Container } from '../../container';
 import { GitUri } from '../../git/gitService';
 import { Functions } from '../../system';
+import { LinesChangeEvent } from '../../trackers/gitLineTracker';
 import { LineHistoryExplorer } from '../lineHistoryExplorer';
 import { MessageNode } from './common';
 import { ExplorerNode, ResourceType, SubscribeableExplorerNode, unknownGitUri } from './explorerNode';
 import { LineHistoryNode } from './lineHistoryNode';
 
-export class ActiveLineHistoryNode extends SubscribeableExplorerNode<LineHistoryExplorer> {
+export class LineHistoryTrackerNode extends SubscribeableExplorerNode<LineHistoryExplorer> {
     private _child: LineHistoryNode | undefined;
     private _selection: Selection | undefined;
 
@@ -67,21 +60,21 @@ export class ActiveLineHistoryNode extends SubscribeableExplorerNode<LineHistory
                 (Container.git.isTrackable(this.uri) &&
                     window.visibleTextEditors.some(e => e.document && UriComparer.equals(e.document.uri, this.uri)))
             ) {
-                return;
+                return true;
             }
 
             this._uri = unknownGitUri;
             this._selection = undefined;
             this.resetChild();
 
-            return;
+            return false;
         }
 
         if (
             UriComparer.equals(editor!.document.uri, this.uri) &&
             (this._selection !== undefined && editor.selection.isEqual(this._selection))
         ) {
-            return;
+            return true;
         }
 
         const gitUri = await GitUri.fromUri(editor!.document.uri);
@@ -91,26 +84,34 @@ export class ActiveLineHistoryNode extends SubscribeableExplorerNode<LineHistory
             UriComparer.equals(gitUri, this.uri) &&
             (this._selection !== undefined && editor.selection.isEqual(this._selection))
         ) {
-            return;
+            return true;
         }
 
         this._uri = gitUri;
         this._selection = editor.selection;
         this.resetChild();
+
+        return false;
     }
 
     protected async subscribe() {
-        return Disposable.from(
-            window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this),
-            window.onDidChangeTextEditorSelection(Functions.debounce(this.onSelectionChanged, 500), this)
+        if (Container.lineTracker.isSubscribed(this)) return undefined;
+
+        const onActiveLinesChanged = Functions.debounce(this.onActiveLinesChanged.bind(this), 250);
+
+        return Container.lineTracker.start(
+            this,
+            Disposable.from(
+                Container.lineTracker.onDidChangeActiveLines((e: LinesChangeEvent) => {
+                    if (e.pending) return;
+
+                    onActiveLinesChanged(e);
+                })
+            )
         );
     }
 
-    private onActiveEditorChanged(editor: TextEditor | undefined) {
-        void this.explorer.refreshNode(this);
-    }
-
-    private onSelectionChanged(e: TextEditorSelectionChangeEvent) {
+    private onActiveLinesChanged(e: LinesChangeEvent) {
         void this.explorer.refreshNode(this);
     }
 }

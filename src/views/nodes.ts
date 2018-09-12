@@ -1,14 +1,14 @@
 'use strict';
 
 export * from './nodes/explorerNode';
-export * from './nodes/activeFileHistoryNode';
-export * from './nodes/activeLineHistoryNode';
 export * from './nodes/branchesNode';
 export * from './nodes/branchNode';
 export * from './nodes/commitFileNode';
 export * from './nodes/commitNode';
 export * from './nodes/fileHistoryNode';
-export * from './nodes/activeFileHistoryNode';
+export * from './nodes/fileHistoryTrackerNode';
+export * from './nodes/lineHistoryNode';
+export * from './nodes/lineHistoryTrackerNode';
 export * from './nodes/remoteNode';
 export * from './nodes/remotesNode';
 export * from './nodes/repositoriesNode';

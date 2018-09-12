@@ -10,7 +10,7 @@ import { MessageNode } from './common';
 import { ExplorerNode, ResourceType, SubscribeableExplorerNode, unknownGitUri } from './explorerNode';
 import { FileHistoryNode } from './fileHistoryNode';
 
-export class ActiveFileHistoryNode extends SubscribeableExplorerNode<FileHistoryExplorer> {
+export class FileHistoryTrackerNode extends SubscribeableExplorerNode<FileHistoryExplorer> {
     private _child: FileHistoryNode | undefined;
 
     constructor(explorer: FileHistoryExplorer) {
@@ -59,16 +59,18 @@ export class ActiveFileHistoryNode extends SubscribeableExplorerNode<FileHistory
                 (Container.git.isTrackable(this.uri) &&
                     window.visibleTextEditors.some(e => e.document && UriComparer.equals(e.document.uri, this.uri)))
             ) {
-                return;
+                return true;
             }
 
             this._uri = unknownGitUri;
             this.resetChild();
 
-            return;
+            return false;
         }
 
-        if (UriComparer.equals(editor!.document.uri, this.uri)) return;
+        if (UriComparer.equals(editor!.document.uri, this.uri)) {
+            return true;
+        }
 
         let gitUri = await GitUri.fromUri(editor!.document.uri);
 
@@ -86,7 +88,9 @@ export class ActiveFileHistoryNode extends SubscribeableExplorerNode<FileHistory
             }
         }
 
-        if (this.uri !== unknownGitUri && UriComparer.equals(uri || gitUri, this.uri)) return;
+        if (this.uri !== unknownGitUri && UriComparer.equals(uri || gitUri, this.uri)) {
+            return true;
+        }
 
         if (uri !== undefined) {
             gitUri = await GitUri.fromUri(uri);
@@ -94,6 +98,8 @@ export class ActiveFileHistoryNode extends SubscribeableExplorerNode<FileHistory
 
         this._uri = gitUri;
         this.resetChild();
+
+        return false;
     }
 
     protected async subscribe() {

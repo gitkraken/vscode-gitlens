@@ -74,8 +74,12 @@ export class GitLineTracker extends LineTracker<GitLineState> {
         return this._subscriptions.has(subscriber);
     }
 
-    start(subscriber: any, subscription: Disposable): void {
-        if (this.isSubscribed(subscriber)) return;
+    start(subscriber: any, subscription: Disposable): Disposable {
+        const disposable = {
+            dispose: () => this.stop(subscriber)
+        };
+
+        if (this.isSubscribed(subscriber)) return disposable;
 
         this._subscriptions.set(subscriber, subscription);
 
@@ -90,6 +94,8 @@ export class GitLineTracker extends LineTracker<GitLineState> {
                 Container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this)
             );
         }
+
+        return disposable;
     }
 
     stop(subscriber: any) {

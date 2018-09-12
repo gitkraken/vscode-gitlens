@@ -5,15 +5,15 @@ import { CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { ExplorerBase, RefreshReason } from './explorer';
 import { RefreshNodeCommandArgs } from './explorerCommands';
-import { ActiveFileHistoryNode, ExplorerNode } from './nodes';
+import { ExplorerNode, FileHistoryTrackerNode } from './nodes';
 
-export class FileHistoryExplorer extends ExplorerBase<ActiveFileHistoryNode> {
+export class FileHistoryExplorer extends ExplorerBase<FileHistoryTrackerNode> {
     constructor() {
         super('gitlens.fileHistoryExplorer');
     }
 
     getRoot() {
-        return new ActiveFileHistoryNode(this);
+        return new FileHistoryTrackerNode(this);
     }
 
     protected registerCommands() {

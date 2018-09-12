@@ -5,16 +5,15 @@ import { CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { ExplorerBase, RefreshReason } from './explorer';
 import { RefreshNodeCommandArgs } from './explorerCommands';
-import { ExplorerNode } from './nodes';
-import { ActiveLineHistoryNode } from './nodes/activeLineHistoryNode';
+import { ExplorerNode, LineHistoryTrackerNode } from './nodes';
 
-export class LineHistoryExplorer extends ExplorerBase<ActiveLineHistoryNode> {
+export class LineHistoryExplorer extends ExplorerBase<LineHistoryTrackerNode> {
     constructor() {
         super('gitlens.lineHistoryExplorer');
     }
 
     getRoot() {
-        return new ActiveLineHistoryNode(this);
+        return new LineHistoryTrackerNode(this);
     }
 
     protected registerCommands() {

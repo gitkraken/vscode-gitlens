@@ -22,14 +22,9 @@ import { isPageable } from './nodes/explorerNode';
 import { ResultsExplorer } from './resultsExplorer';
 
 export enum RefreshReason {
-    ActiveEditorChanged = 'active-editor-changed',
-    AutoRefreshChanged = 'auto-refresh-changed',
-    Command = 'command',
-    ConfigurationChanged = 'configuration',
-    NodeCommand = 'node-command',
-    RepoChanged = 'repo-changed',
-    ViewChanged = 'view-changed',
-    VisibleEditorsChanged = 'visible-editors-changed'
+    Command = 'Command',
+    ConfigurationChanged = 'ConfigurationChanged',
+    VisibilityChanged = 'VisibilityChanged'
 }
 
 export type Explorer = GitExplorer | FileHistoryExplorer | LineHistoryExplorer | ResultsExplorer;
@@ -139,7 +134,8 @@ export abstract class ExplorerBase<TRoot extends ExplorerNode> implements TreeDa
             }
         }
 
-        await node.refresh();
+        const cancel = await node.refresh();
+        if (cancel === true) return;
 
         this.triggerNodeUpdate(node);
     }

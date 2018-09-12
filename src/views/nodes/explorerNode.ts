@@ -65,7 +65,7 @@ export abstract class ExplorerNode {
         return undefined;
     }
 
-    refresh(): void | Promise<void> {}
+    refresh(): void | boolean | Promise<void> | Promise<boolean> {}
 }
 
 export abstract class ExplorerRefNode extends ExplorerNode {
