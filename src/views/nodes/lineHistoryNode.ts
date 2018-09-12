@@ -20,9 +20,10 @@ export class LineHistoryNode extends SubscribeableExplorerNode<LineHistoryExplor
     constructor(
         uri: GitUri,
         public readonly selection: Selection,
+        parent: ExplorerNode,
         explorer: LineHistoryExplorer
     ) {
-        super(uri, explorer);
+        super(uri, parent, explorer);
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
@@ -40,7 +41,7 @@ export class LineHistoryNode extends SubscribeableExplorerNode<LineHistoryExplor
             children.push(
                 ...Iterables.filterMap(
                     log.commits.values(),
-                    c => new CommitFileNode(c.fileStatuses[0], c, this.explorer, displayAs, this.selection)
+                    c => new CommitFileNode(c.fileStatuses[0], c, this, this.explorer, displayAs, this.selection)
                 )
             );
         }
@@ -75,11 +76,15 @@ export class LineHistoryNode extends SubscribeableExplorerNode<LineHistoryExplor
                     blame.commit.originalFileName || blame.commit.fileName
                 );
 
-                children.splice(0, 0, new CommitFileNode(status, commit, this.explorer, displayAs, this.selection));
+                children.splice(
+                    0,
+                    0,
+                    new CommitFileNode(status, commit, this, this.explorer, displayAs, this.selection)
+                );
             }
         }
 
-        if (children.length === 0) return [new MessageNode('No line history')];
+        if (children.length === 0) return [new MessageNode(this, 'No line history')];
         return children;
     }
 

@@ -18,8 +18,8 @@ import { MessageNode } from './common';
 import { ExplorerNode, ResourceType, SubscribeableExplorerNode } from './explorerNode';
 
 export class FileHistoryNode extends SubscribeableExplorerNode<FileHistoryExplorer> {
-    constructor(uri: GitUri, explorer: FileHistoryExplorer) {
-        super(uri, explorer);
+    constructor(uri: GitUri, parent: ExplorerNode, explorer: FileHistoryExplorer) {
+        super(uri, parent, explorer);
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
@@ -63,7 +63,7 @@ export class FileHistoryNode extends SubscribeableExplorerNode<FileHistoryExplor
                 previousSha,
                 status.originalFileName || status.fileName
             );
-            children.push(new CommitFileNode(status, commit, this.explorer, displayAs));
+            children.push(new CommitFileNode(status, commit, this, this.explorer, displayAs));
         }
 
         const log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, { ref: this.uri.sha });
@@ -71,12 +71,12 @@ export class FileHistoryNode extends SubscribeableExplorerNode<FileHistoryExplor
             children.push(
                 ...Iterables.map(
                     log.commits.values(),
-                    c => new CommitFileNode(c.fileStatuses[0], c, this.explorer, displayAs)
+                    c => new CommitFileNode(c.fileStatuses[0], c, this, this.explorer, displayAs)
                 )
             );
         }
 
-        if (children.length === 0) return [new MessageNode('No file history')];
+        if (children.length === 0) return [new MessageNode(this, 'No file history')];
         return children;
     }
 

@@ -16,9 +16,10 @@ export class TagNode extends ExplorerRefNode implements PageableExplorerNode {
     constructor(
         public readonly tag: GitTag,
         uri: GitUri,
-        private readonly explorer: GitExplorer
+        parent: ExplorerNode,
+        public readonly explorer: GitExplorer
     ) {
-        super(uri);
+        super(uri, parent);
     }
 
     get id(): string {
@@ -40,10 +41,10 @@ export class TagNode extends ExplorerRefNode implements PageableExplorerNode {
             maxCount: this.maxCount || this.explorer.config.defaultItemLimit,
             ref: this.tag.name
         });
-        if (log === undefined) return [new MessageNode('No commits yet')];
+        if (log === undefined) return [new MessageNode(this, 'No commits yet')];
 
         const children: (CommitNode | ShowMoreNode)[] = [
-            ...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer))
+            ...Iterables.map(log.commits.values(), c => new CommitNode(c, this, this.explorer))
         ];
 
         if (log.truncated) {

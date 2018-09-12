@@ -14,10 +14,11 @@ export class RemoteNode extends ExplorerNode {
     constructor(
         public readonly remote: GitRemote,
         uri: GitUri,
-        private readonly repo: Repository,
-        private readonly explorer: GitExplorer
+        public readonly repo: Repository,
+        parent: ExplorerNode,
+        public readonly explorer: GitExplorer
     ) {
-        super(uri);
+        super(uri, parent);
     }
 
     get id(): string {
@@ -37,7 +38,7 @@ export class RemoteNode extends ExplorerNode {
                 b =>
                     !b.remote || !b.name.startsWith(this.remote.name)
                         ? undefined
-                        : new BranchNode(b, this.uri, this.explorer)
+                        : new BranchNode(b, this.uri, this, this.explorer)
             )
         ];
         if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) return branchNodes;
@@ -55,6 +56,7 @@ export class RemoteNode extends ExplorerNode {
             '',
             undefined,
             hierarchy,
+            this,
             this.explorer
         );
         const children = (await root.getChildren()) as (BranchOrTagFolderNode | BranchNode)[];

@@ -13,7 +13,7 @@ export class RepositoriesNode extends SubscribeableExplorerNode<GitExplorer> {
     private _children: (RepositoryNode | MessageNode)[] | undefined;
 
     constructor(explorer: GitExplorer) {
-        super(unknownGitUri, explorer);
+        super(unknownGitUri, undefined, explorer);
     }
 
     dispose() {
@@ -32,13 +32,13 @@ export class RepositoriesNode extends SubscribeableExplorerNode<GitExplorer> {
     async getChildren(): Promise<ExplorerNode[]> {
         if (this._children === undefined) {
             const repositories = [...(await Container.git.getRepositories())];
-            if (repositories.length === 0) return [new MessageNode('No repositories found')];
+            if (repositories.length === 0) return [new MessageNode(this, 'No repositories found')];
 
             const children = [];
             for (const repo of repositories.sort((a, b) => a.index - b.index)) {
                 if (repo.closed) continue;
 
-                children.push(new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this.explorer));
+                children.push(new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this, this.explorer));
             }
 
             this._children = children;
@@ -91,7 +91,7 @@ export class RepositoriesNode extends SubscribeableExplorerNode<GitExplorer> {
         if (repositories.length === 0 && (this._children === undefined || this._children.length === 0)) return;
 
         if (repositories.length === 0) {
-            this._children = [new MessageNode('No repositories found')];
+            this._children = [new MessageNode(this, 'No repositories found')];
             return;
         }
 
@@ -104,7 +104,7 @@ export class RepositoriesNode extends SubscribeableExplorerNode<GitExplorer> {
                 child.refresh();
             }
             else {
-                children.push(new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this.explorer));
+                children.push(new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this, this.explorer));
             }
         }
 
@@ -119,6 +119,8 @@ export class RepositoriesNode extends SubscribeableExplorerNode<GitExplorer> {
     }
 
     protected async subscribe() {
+        // TODO: Add a setting to control tracking the active editor
+
         return Disposable.from(
             window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this),
             Container.git.onDidChangeRepositories(this.onRepositoriesChanged, this)
@@ -138,6 +140,14 @@ export class RepositoriesNode extends SubscribeableExplorerNode<GitExplorer> {
                 | RepositoryNode
                 | undefined;
             if (node === undefined) return;
+
+            // Check to see if this repo has a descendent that is already selected
+            let parent = this.explorer.selection.length === 0 ? undefined : this.explorer.selection[0];
+            while (parent !== undefined) {
+                if (parent === node) return;
+
+                parent = parent.getParent();
+            }
 
             // HACK: Since we have no expand/collapse api, reveal the first child to force an expand
             // See https://github.com/Microsoft/vscode/issues/55879

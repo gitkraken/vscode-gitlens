@@ -11,10 +11,11 @@ import { RemoteNode } from './remoteNode';
 export class RemotesNode extends ExplorerNode {
     constructor(
         uri: GitUri,
-        private readonly repo: Repository,
-        private readonly explorer: GitExplorer
+        public readonly repo: Repository,
+        parent: ExplorerNode,
+        public readonly explorer: GitExplorer
     ) {
-        super(uri);
+        super(uri, parent);
     }
 
     get id(): string {
@@ -23,10 +24,10 @@ export class RemotesNode extends ExplorerNode {
 
     async getChildren(): Promise<ExplorerNode[]> {
         const remotes = await this.repo.getRemotes();
-        if (remotes === undefined || remotes.length === 0) return [new MessageNode('No remotes configured')];
+        if (remotes === undefined || remotes.length === 0) return [new MessageNode(this, 'No remotes configured')];
 
         remotes.sort((a, b) => a.name.localeCompare(b.name));
-        return [...Iterables.map(remotes, r => new RemoteNode(r, this.uri, this.repo, this.explorer))];
+        return [...Iterables.map(remotes, r => new RemoteNode(r, this.uri, this.repo, this, this.explorer))];
     }
 
     getTreeItem(): TreeItem {

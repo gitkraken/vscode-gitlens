@@ -7,6 +7,7 @@ import { ExplorerNode, ResourceType, unknownGitUri } from '../nodes/explorerNode
 
 export class MessageNode extends ExplorerNode {
     constructor(
+        parent: ExplorerNode,
         private readonly _message: string,
         private readonly _tooltip?: string,
         private readonly _iconPath?:
@@ -18,7 +19,7 @@ export class MessageNode extends ExplorerNode {
               }
             | ThemeIcon
     ) {
-        super(unknownGitUri);
+        super(unknownGitUri, parent);
     }
 
     getChildren(): ExplorerNode[] | Promise<ExplorerNode[]> {
@@ -36,6 +37,7 @@ export class MessageNode extends ExplorerNode {
 
 export class UpdateableMessageNode extends ExplorerNode {
     constructor(
+        parent: ExplorerNode,
         public readonly id: string,
         private _message: string,
         private _tooltip?: string,
@@ -48,7 +50,7 @@ export class UpdateableMessageNode extends ExplorerNode {
               }
             | ThemeIcon
     ) {
-        super(unknownGitUri);
+        super(unknownGitUri, parent);
     }
 
     getChildren(): ExplorerNode[] | Promise<ExplorerNode[]> {
@@ -101,10 +103,10 @@ export abstract class PagerNode extends ExplorerNode {
 
     constructor(
         protected readonly message: string,
-        protected readonly node: ExplorerNode,
+        protected readonly parent: ExplorerNode,
         protected readonly explorer: Explorer
     ) {
-        super(unknownGitUri);
+        super(unknownGitUri, parent);
     }
 
     getChildren(): ExplorerNode[] | Promise<ExplorerNode[]> {
@@ -126,7 +128,7 @@ export abstract class PagerNode extends ExplorerNode {
         return {
             title: 'Refresh',
             command: this.explorer.getQualifiedCommand('refreshNode'),
-            arguments: [this.node, this._args]
+            arguments: [this.parent, this._args]
         } as Command;
     }
 }
@@ -134,7 +136,7 @@ export abstract class PagerNode extends ExplorerNode {
 export class ShowMoreNode extends PagerNode {
     constructor(
         type: string,
-        node: ExplorerNode,
+        parent: ExplorerNode,
         explorer: Explorer,
         maxCount: number = Container.config.advanced.maxListItems
     ) {
@@ -142,7 +144,7 @@ export class ShowMoreNode extends PagerNode {
             maxCount === 0
                 ? `Show All ${type} ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`
                 : `Show More ${type}`,
-            node,
+            parent,
             explorer
         );
         this._args.maxCount = maxCount;

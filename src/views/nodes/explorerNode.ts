@@ -49,7 +49,10 @@ export interface NamedRef {
 export const unknownGitUri = new GitUri();
 
 export abstract class ExplorerNode {
-    constructor(uri: GitUri) {
+    constructor(
+        uri: GitUri,
+        private readonly _parent: ExplorerNode | undefined
+    ) {
         this._uri = uri;
     }
 
@@ -59,6 +62,9 @@ export abstract class ExplorerNode {
     }
 
     abstract getChildren(): ExplorerNode[] | Promise<ExplorerNode[]>;
+    getParent(): ExplorerNode | undefined {
+        return this._parent;
+    }
     abstract getTreeItem(): TreeItem | Promise<TreeItem>;
 
     getCommand(): Command | undefined {
@@ -99,9 +105,10 @@ export abstract class SubscribeableExplorerNode<TExplorer extends Explorer> exte
 
     constructor(
         uri: GitUri,
+        parent: ExplorerNode | undefined,
         public readonly explorer: TExplorer
     ) {
-        super(uri);
+        super(uri, parent);
 
         const disposables = [this.explorer.onDidChangeVisibility(this.onVisibilityChanged, this)];
 

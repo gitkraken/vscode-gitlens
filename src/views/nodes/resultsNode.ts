@@ -10,11 +10,11 @@ export class ResultsNode extends ExplorerNode {
     constructor(
         public readonly explorer: ResultsExplorer
     ) {
-        super(unknownGitUri);
+        super(unknownGitUri, undefined);
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        if (this._children.length === 0) return [new MessageNode('No results')];
+        if (this._children.length === 0) return [new MessageNode(this, 'No results')];
 
         return this._children;
     }

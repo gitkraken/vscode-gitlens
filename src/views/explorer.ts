@@ -90,8 +90,8 @@ export abstract class ExplorerBase<TRoot extends ExplorerNode> implements TreeDa
         return this._root.getChildren();
     }
 
-    getParent(): ExplorerNode | undefined {
-        return undefined;
+    getParent(node: ExplorerNode): ExplorerNode | undefined {
+        return node.getParent();
     }
 
     getTreeItem(node: ExplorerNode): TreeItem | Promise<TreeItem> {
@@ -100,6 +100,12 @@ export abstract class ExplorerBase<TRoot extends ExplorerNode> implements TreeDa
 
     protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
         this._onDidChangeVisibility.fire(e);
+    }
+
+    get selection(): ExplorerNode[] {
+        if (this._tree === undefined || this._root === undefined) return [];
+
+        return this._tree.selection;
     }
 
     get visible(): boolean {

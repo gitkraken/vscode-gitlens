@@ -15,11 +15,12 @@ import { FolderNode, IFileExplorerNode } from './folderNode';
 export class CommitNode extends ExplorerRefNode {
     constructor(
         public readonly commit: GitLogCommit,
-        private readonly explorer: Explorer,
+        parent: ExplorerNode,
+        public readonly explorer: Explorer,
         public readonly branch?: GitBranch,
         private readonly getBranchTips?: (sha: string) => string | undefined
     ) {
-        super(commit.toGitUri());
+        super(commit.toGitUri(), parent);
     }
 
     get ref(): string {
@@ -31,7 +32,7 @@ export class CommitNode extends ExplorerRefNode {
         let children: IFileExplorerNode[] = [
             ...Iterables.map(
                 commit.fileStatuses,
-                s => new CommitFileNode(s, commit.toFileCommit(s), this.explorer, CommitFileNodeDisplayAs.File)
+                s => new CommitFileNode(s, commit.toFileCommit(s), this, this.explorer, CommitFileNodeDisplayAs.File)
             )
         ];
 
@@ -43,7 +44,7 @@ export class CommitNode extends ExplorerRefNode {
                 this.explorer.config.files.compact
             );
 
-            const root = new FolderNode(this.repoPath, '', undefined, hierarchy, this.explorer);
+            const root = new FolderNode(this.repoPath, '', undefined, hierarchy, this, this.explorer);
             children = (await root.getChildren()) as IFileExplorerNode[];
         }
         else {

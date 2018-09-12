@@ -11,10 +11,11 @@ import { StashNode } from './stashNode';
 export class StashesNode extends ExplorerNode {
     constructor(
         uri: GitUri,
-        private readonly repo: Repository,
-        private readonly explorer: Explorer
+        public readonly repo: Repository,
+        parent: ExplorerNode,
+        public readonly explorer: Explorer
     ) {
-        super(uri);
+        super(uri, parent);
     }
 
     get id(): string {
@@ -23,9 +24,9 @@ export class StashesNode extends ExplorerNode {
 
     async getChildren(): Promise<ExplorerNode[]> {
         const stash = await this.repo.getStashList();
-        if (stash === undefined) return [new MessageNode('No stashed changes')];
+        if (stash === undefined) return [new MessageNode(this, 'No stashed changes')];
 
-        return [...Iterables.map(stash.commits.values(), c => new StashNode(c, this.explorer))];
+        return [...Iterables.map(stash.commits.values(), c => new StashNode(c, this, this.explorer))];
     }
 
     getTreeItem(): TreeItem {

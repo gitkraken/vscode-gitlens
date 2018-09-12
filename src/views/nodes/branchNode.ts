@@ -19,16 +19,17 @@ export class BranchNode extends ExplorerRefNode implements PageableExplorerNode 
     constructor(
         public readonly branch: GitBranch,
         uri: GitUri,
-        protected readonly explorer: GitExplorer,
-        private readonly markCurrent: boolean = true
+        parent: ExplorerNode,
+        public readonly explorer: GitExplorer,
+        private readonly _markCurrent: boolean = true
     ) {
-        super(uri);
+        super(uri, parent);
     }
 
     get id(): string {
         return `gitlens:repository(${this.branch.repoPath}):branch(${this.branch.name})${
             this.branch.remote ? ':remote' : ''
-        }${this.markCurrent ? ':current' : ''}`;
+        }${this._markCurrent ? ':current' : ''}`;
     }
 
     get current(): boolean {
@@ -52,7 +53,7 @@ export class BranchNode extends ExplorerRefNode implements PageableExplorerNode 
                 maxCount: this.maxCount || this.explorer.config.defaultItemLimit,
                 ref: this.ref
             });
-            if (log === undefined) return [new MessageNode('No commits yet')];
+            if (log === undefined) return [new MessageNode(this, 'No commits yet')];
 
             const branches = await Container.git.getBranches(this.uri.repoPath);
             // Get the sha length, since `git branch` can return variable length shas
@@ -72,7 +73,7 @@ export class BranchNode extends ExplorerRefNode implements PageableExplorerNode 
             const children: (CommitNode | ShowMoreNode)[] = [
                 ...Iterables.map(
                     log.commits.values(),
-                    c => new CommitNode(c, this.explorer, this.branch, getBranchTips)
+                    c => new CommitNode(c, this, this.explorer, this.branch, getBranchTips)
                 )
             ];
 
@@ -113,7 +114,7 @@ export class BranchNode extends ExplorerRefNode implements PageableExplorerNode 
         }
 
         const item = new TreeItem(
-            `${this.markCurrent && this.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`,
+            `${this._markCurrent && this.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`,
             TreeItemCollapsibleState.Collapsed
         );
         item.id = this.id;

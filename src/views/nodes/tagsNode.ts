@@ -13,10 +13,11 @@ import { TagNode } from './tagNode';
 export class TagsNode extends ExplorerNode {
     constructor(
         uri: GitUri,
-        private readonly repo: Repository,
-        private readonly explorer: GitExplorer
+        public readonly repo: Repository,
+        parent: ExplorerNode,
+        public readonly explorer: GitExplorer
     ) {
-        super(uri);
+        super(uri, parent);
     }
 
     get id(): string {
@@ -25,10 +26,10 @@ export class TagsNode extends ExplorerNode {
 
     async getChildren(): Promise<ExplorerNode[]> {
         const tags = await this.repo.getTags();
-        if (tags.length === 0) return [new MessageNode('No tags yet')];
+        if (tags.length === 0) return [new MessageNode(this, 'No tags yet')];
 
         tags.sort((a, b) => a.name.localeCompare(b.name));
-        const tagNodes = [...tags.map(t => new TagNode(t, this.uri, this.explorer))];
+        const tagNodes = [...tags.map(t => new TagNode(t, this.uri, this, this.explorer))];
         if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) return tagNodes;
 
         const hierarchy = Arrays.makeHierarchical(
@@ -38,7 +39,7 @@ export class TagsNode extends ExplorerNode {
             this.explorer.config.files.compact
         );
 
-        const root = new BranchOrTagFolderNode('tag', this.repo.path, '', undefined, hierarchy, this.explorer);
+        const root = new BranchOrTagFolderNode('tag', this.repo.path, '', undefined, hierarchy, this, this.explorer);
         const children = (await root.getChildren()) as (BranchOrTagFolderNode | TagNode)[];
         return children;
     }

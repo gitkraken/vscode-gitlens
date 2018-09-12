@@ -22,9 +22,10 @@ export class StatusFileCommitsNode extends ExplorerNode {
         public readonly repoPath: string,
         public readonly status: IGitStatusFile,
         public readonly commits: GitLogCommit[],
-        private readonly explorer: Explorer
+        parent: ExplorerNode,
+        public readonly explorer: Explorer
     ) {
-        super(GitUri.fromFileStatus(status, repoPath, 'HEAD'));
+        super(GitUri.fromFileStatus(status, repoPath, 'HEAD'), parent);
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
@@ -33,6 +34,7 @@ export class StatusFileCommitsNode extends ExplorerNode {
                 new CommitFileNode(
                     this.status,
                     c,
+                    this,
                     this.explorer,
                     CommitFileNodeDisplayAs.CommitLabel |
                         (this.explorer.config.avatars

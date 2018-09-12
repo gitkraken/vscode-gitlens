@@ -10,9 +10,10 @@ import { StashFileNode } from './stashFileNode';
 export class StashNode extends ExplorerRefNode {
     constructor(
         public readonly commit: GitStashCommit,
-        private readonly explorer: Explorer
+        parent: ExplorerNode,
+        public readonly explorer: Explorer
     ) {
-        super(commit.toGitUri());
+        super(commit.toGitUri(), parent);
     }
 
     get id(): string {
@@ -40,7 +41,7 @@ export class StashNode extends ExplorerRefNode {
             }
         }
 
-        const children = statuses.map(s => new StashFileNode(s, this.commit.toFileCommit(s), this.explorer));
+        const children = statuses.map(s => new StashFileNode(s, this.commit.toFileCommit(s), this, this.explorer));
         children.sort((a, b) => a.label!.localeCompare(b.label!));
         return children;
     }

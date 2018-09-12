@@ -25,9 +25,10 @@ export class StatusFilesNode extends ExplorerNode {
     constructor(
         public readonly status: GitStatus,
         public readonly range: string | undefined,
-        private readonly explorer: GitExplorer
+        parent: ExplorerNode,
+        public readonly explorer: GitExplorer
     ) {
-        super(GitUri.fromRepoPath(status.repoPath));
+        super(GitUri.fromRepoPath(status.repoPath), parent);
         this.repoPath = status.repoPath;
     }
 
@@ -89,6 +90,7 @@ export class StatusFilesNode extends ExplorerNode {
                         repoPath,
                         statuses[statuses.length - 1],
                         statuses.map(s => s.commit),
+                        this,
                         this.explorer
                     )
             )
@@ -102,7 +104,7 @@ export class StatusFilesNode extends ExplorerNode {
                 this.explorer.config.files.compact
             );
 
-            const root = new FolderNode(repoPath, '', undefined, hierarchy, this.explorer);
+            const root = new FolderNode(repoPath, '', undefined, hierarchy, this, this.explorer);
             children = (await root.getChildren()) as IFileExplorerNode[];
         }
         else {

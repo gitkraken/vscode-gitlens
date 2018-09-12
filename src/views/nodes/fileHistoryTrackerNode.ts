@@ -14,7 +14,7 @@ export class FileHistoryTrackerNode extends SubscribeableExplorerNode<FileHistor
     private _child: FileHistoryNode | undefined;
 
     constructor(explorer: FileHistoryExplorer) {
-        super(unknownGitUri, explorer);
+        super(unknownGitUri, undefined, explorer);
     }
 
     dispose() {
@@ -33,10 +33,10 @@ export class FileHistoryTrackerNode extends SubscribeableExplorerNode<FileHistor
     async getChildren(): Promise<ExplorerNode[]> {
         if (this._child === undefined) {
             if (this.uri === unknownGitUri) {
-                return [new MessageNode('There are no editors open that can provide file history')];
+                return [new MessageNode(this, 'There are no editors open that can provide file history')];
             }
 
-            this._child = new FileHistoryNode(this.uri, this.explorer);
+            this._child = new FileHistoryNode(this.uri, this, this.explorer);
         }
 
         return [this._child];

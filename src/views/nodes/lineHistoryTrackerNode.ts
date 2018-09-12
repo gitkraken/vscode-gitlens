@@ -15,7 +15,7 @@ export class LineHistoryTrackerNode extends SubscribeableExplorerNode<LineHistor
     private _selection: Selection | undefined;
 
     constructor(explorer: LineHistoryExplorer) {
-        super(unknownGitUri, explorer);
+        super(unknownGitUri, undefined, explorer);
     }
 
     dispose() {
@@ -34,10 +34,10 @@ export class LineHistoryTrackerNode extends SubscribeableExplorerNode<LineHistor
     async getChildren(): Promise<ExplorerNode[]> {
         if (this._child === undefined) {
             if (this.uri === unknownGitUri) {
-                return [new MessageNode('There are no editors open that can provide line history')];
+                return [new MessageNode(this, 'There are no editors open that can provide line history')];
             }
 
-            this._child = new LineHistoryNode(this.uri, this._selection!, this.explorer);
+            this._child = new LineHistoryNode(this.uri, this._selection!, this, this.explorer);
         }
 
         return [this._child];

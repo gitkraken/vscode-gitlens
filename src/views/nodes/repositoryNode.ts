@@ -34,9 +34,10 @@ export class RepositoryNode extends SubscribeableExplorerNode<GitExplorer> {
     constructor(
         uri: GitUri,
         public readonly repo: Repository,
+        parent: ExplorerNode,
         explorer: GitExplorer
     ) {
-        super(uri, explorer);
+        super(uri, parent, explorer);
 
         this._status = this.repo.getStatus();
     }
@@ -61,29 +62,29 @@ export class RepositoryNode extends SubscribeableExplorerNode<GitExplorer> {
                     status.state.behind,
                     status.detached
                 );
-                children.push(new BranchNode(branch, this.uri, this.explorer, false));
+                children.push(new BranchNode(branch, this.uri, this, this.explorer, false));
 
                 if (status.state.behind) {
-                    children.push(new StatusUpstreamNode(status, 'behind', this.explorer));
+                    children.push(new StatusUpstreamNode(status, 'behind', this, this.explorer));
                 }
 
                 if (status.state.ahead) {
-                    children.push(new StatusUpstreamNode(status, 'ahead', this.explorer));
+                    children.push(new StatusUpstreamNode(status, 'ahead', this, this.explorer));
                 }
 
                 if (status.state.ahead || (status.files.length !== 0 && this.includeWorkingTree)) {
                     const range = status.upstream ? `${status.upstream}..${branch.ref}` : undefined;
-                    children.push(new StatusFilesNode(status, range, this.explorer));
+                    children.push(new StatusFilesNode(status, range, this, this.explorer));
                 }
 
-                children.push(new MessageNode(GlyphChars.Dash.repeat(2), ''));
+                children.push(new MessageNode(this, GlyphChars.Dash.repeat(2), ''));
             }
 
             children.push(
-                new BranchesNode(this.uri, this.repo, this.explorer),
-                new RemotesNode(this.uri, this.repo, this.explorer),
-                new StashesNode(this.uri, this.repo, this.explorer),
-                new TagsNode(this.uri, this.repo, this.explorer)
+                new BranchesNode(this.uri, this.repo, this, this.explorer),
+                new RemotesNode(this.uri, this.repo, this, this.explorer),
+                new StashesNode(this.uri, this.repo, this, this.explorer),
+                new TagsNode(this.uri, this.repo, this, this.explorer)
             );
             this._children = children;
         }

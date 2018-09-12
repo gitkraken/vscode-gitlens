@@ -180,7 +180,7 @@ export class ResultsExplorer extends ExplorerBase<ResultsNode> {
         };
 
         return this.addResults(
-            new ResultsCommitsNode(results.repoPath, getCommitsQuery, this, ResourceType.SearchResults)
+            new ResultsCommitsNode(results.repoPath, getCommitsQuery, undefined, this, ResourceType.SearchResults)
         );
     }
 

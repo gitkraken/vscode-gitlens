@@ -16,12 +16,13 @@ import { ExplorerNode, ResourceType } from './explorerNode';
 export class StatusFileNode extends ExplorerNode {
     constructor(
         public readonly repoPath: string,
-        private readonly status: GitStatusFile,
-        private readonly ref1: string,
-        private readonly ref2: string,
-        private readonly explorer: Explorer
+        private readonly _status: GitStatusFile,
+        private readonly _ref1: string,
+        private readonly _ref2: string,
+        parent: ExplorerNode,
+        public readonly explorer: Explorer
     ) {
-        super(GitUri.fromFileStatus(status, repoPath, ref1 ? ref1 : ref2 ? ref2 : undefined));
+        super(GitUri.fromFileStatus(_status, repoPath, _ref1 ? _ref1 : _ref2 ? _ref2 : undefined), parent);
     }
 
     getChildren(): ExplorerNode[] {
@@ -31,9 +32,9 @@ export class StatusFileNode extends ExplorerNode {
     getTreeItem(): TreeItem {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
         item.contextValue = ResourceType.StatusFile;
-        item.tooltip = StatusFileFormatter.fromTemplate('${file}\n${directory}/\n\n${status}', this.status);
+        item.tooltip = StatusFileFormatter.fromTemplate('${file}\n${directory}/\n\n${status}', this._status);
 
-        const statusIcon = getGitStatusIcon(this.status.status);
+        const statusIcon = getGitStatusIcon(this._status.status);
         item.iconPath = {
             dark: Container.context.asAbsolutePath(path.join('images', 'dark', statusIcon)),
             light: Container.context.asAbsolutePath(path.join('images', 'light', statusIcon))
@@ -54,7 +55,7 @@ export class StatusFileNode extends ExplorerNode {
     private _label: string | undefined;
     get label() {
         if (this._label === undefined) {
-            this._label = StatusFileFormatter.fromTemplate(this.explorer.config.statusFileFormat, this.status, {
+            this._label = StatusFileFormatter.fromTemplate(this.explorer.config.statusFileFormat, this._status, {
                 relativePath: this.relativePath
             } as IStatusFormatOptions);
         }
@@ -82,14 +83,14 @@ export class StatusFileNode extends ExplorerNode {
                 this.uri,
                 {
                     lhs: {
-                        sha: this.ref1,
+                        sha: this._ref1,
                         uri: this.uri
                     },
                     rhs: {
-                        sha: this.ref2,
+                        sha: this._ref2,
                         uri:
-                            this.status.status === 'R'
-                                ? GitUri.fromFileStatus(this.status, this.uri.repoPath!, this.ref2, true)
+                            this._status.status === 'R'
+                                ? GitUri.fromFileStatus(this._status, this.uri.repoPath!, this._ref2, true)
                                 : this.uri
                     },
                     repoPath: this.uri.repoPath!,

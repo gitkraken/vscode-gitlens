@@ -14,10 +14,11 @@ export class BranchOrTagFolderNode extends ExplorerNode {
         public readonly folderName: string,
         public readonly relativePath: string | undefined,
         public readonly root: Arrays.IHierarchicalItem<BranchNode | TagNode>,
-        private readonly explorer: Explorer,
-        private readonly expanded: boolean = false
+        parent: ExplorerNode,
+        public readonly explorer: Explorer,
+        private readonly _expanded: boolean = false
     ) {
-        super(GitUri.fromRepoPath(repoPath));
+        super(GitUri.fromRepoPath(repoPath), parent);
     }
 
     get id(): string {
@@ -42,6 +43,7 @@ export class BranchOrTagFolderNode extends ExplorerNode {
                         folder.name,
                         folder.relativePath,
                         folder,
+                        this,
                         this.explorer,
                         expanded
                     )
@@ -58,7 +60,7 @@ export class BranchOrTagFolderNode extends ExplorerNode {
     async getTreeItem(): Promise<TreeItem> {
         const item = new TreeItem(
             this.label,
-            this.expanded ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed
+            this._expanded ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed
         );
         item.id = this.id;
         item.contextValue = ResourceType.Folder;

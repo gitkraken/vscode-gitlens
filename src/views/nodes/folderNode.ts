@@ -22,9 +22,10 @@ export class FolderNode extends ExplorerNode {
         public readonly folderName: string,
         public readonly relativePath: string | undefined,
         public readonly root: Arrays.IHierarchicalItem<IFileExplorerNode>,
-        private readonly explorer: Explorer
+        parent: ExplorerNode,
+        public readonly explorer: Explorer
     ) {
-        super(GitUri.fromRepoPath(repoPath));
+        super(GitUri.fromRepoPath(repoPath), parent);
     }
 
     async getChildren(): Promise<(FolderNode | IFileExplorerNode)[]> {
@@ -42,7 +43,7 @@ export class FolderNode extends ExplorerNode {
             for (const folder of Objects.values(this.root.children)) {
                 if (folder.value === undefined) {
                     children.push(
-                        new FolderNode(this.repoPath, folder.name, folder.relativePath, folder, this.explorer)
+                        new FolderNode(this.repoPath, folder.name, folder.relativePath, folder, this, this.explorer)
                     );
                     continue;
                 }

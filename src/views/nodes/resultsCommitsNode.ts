@@ -18,11 +18,12 @@ export class ResultsCommitsNode extends ExplorerNode implements PageableExplorer
 
     constructor(
         public readonly repoPath: string,
-        private readonly commitsQuery: (maxCount: number | undefined) => Promise<CommitsQueryResults>,
-        private readonly explorer: ResultsExplorer,
-        private readonly contextValue: ResourceType = ResourceType.ResultsCommits
+        private readonly _commitsQuery: (maxCount: number | undefined) => Promise<CommitsQueryResults>,
+        parent: ExplorerNode | undefined,
+        public readonly explorer: ResultsExplorer,
+        private readonly _contextValue: ResourceType = ResourceType.ResultsCommits
     ) {
-        super(GitUri.fromRepoPath(repoPath));
+        super(GitUri.fromRepoPath(repoPath), parent);
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
@@ -30,7 +31,7 @@ export class ResultsCommitsNode extends ExplorerNode implements PageableExplorer
         if (log === undefined) return [];
 
         const children: (CommitNode | ShowAllNode)[] = [
-            ...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer))
+            ...Iterables.map(log.commits.values(), c => new CommitNode(c, this, this.explorer))
         ];
 
         if (log.truncated) {
@@ -47,20 +48,20 @@ export class ResultsCommitsNode extends ExplorerNode implements PageableExplorer
             label,
             log && log.count > 0 ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.None
         );
-        item.contextValue = this.contextValue;
+        item.contextValue = this._contextValue;
 
         return item;
     }
 
     async refresh() {
-        this._commitsQueryResults = this.commitsQuery(this.maxCount);
+        this._commitsQueryResults = this._commitsQuery(this.maxCount);
     }
 
     private _commitsQueryResults: Promise<CommitsQueryResults> | undefined;
 
     private getCommitsQueryResults() {
         if (this._commitsQueryResults === undefined) {
-            this._commitsQueryResults = this.commitsQuery(this.maxCount);
+            this._commitsQueryResults = this._commitsQuery(this.maxCount);
         }
 
         return this._commitsQueryResults;

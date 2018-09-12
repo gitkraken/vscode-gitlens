@@ -17,11 +17,12 @@ export class StatusFilesResultsNode extends ExplorerNode {
 
     constructor(
         public readonly repoPath: string,
-        private readonly ref1: string,
-        private readonly ref2: string,
-        private readonly explorer: Explorer
+        private readonly _ref1: string,
+        private readonly _ref2: string,
+        parent: ExplorerNode,
+        public readonly explorer: Explorer
     ) {
-        super(GitUri.fromRepoPath(repoPath));
+        super(GitUri.fromRepoPath(repoPath), parent);
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
@@ -29,7 +30,10 @@ export class StatusFilesResultsNode extends ExplorerNode {
         if (diff === undefined) return [];
 
         let children: IFileExplorerNode[] = [
-            ...Iterables.map(diff, s => new StatusFileNode(this.repoPath, s, this.ref1, this.ref2, this.explorer))
+            ...Iterables.map(
+                diff,
+                s => new StatusFileNode(this.repoPath, s, this._ref1, this._ref2, this, this.explorer)
+            )
         ];
 
         if (this.explorer.config.files.layout !== ExplorerFilesLayout.List) {
@@ -40,7 +44,7 @@ export class StatusFilesResultsNode extends ExplorerNode {
                 this.explorer.config.files.compact
             );
 
-            const root = new FolderNode(this.repoPath, '', undefined, hierarchy, this.explorer);
+            const root = new FolderNode(this.repoPath, '', undefined, hierarchy, this, this.explorer);
             children = (await root.getChildren()) as IFileExplorerNode[];
         }
         else {
@@ -67,7 +71,7 @@ export class StatusFilesResultsNode extends ExplorerNode {
 
     private async ensureCache() {
         if (this._cache === undefined) {
-            const diff = await Container.git.getDiffStatus(this.uri.repoPath!, this.ref1, this.ref2);
+            const diff = await Container.git.getDiffStatus(this.uri.repoPath!, this._ref1, this._ref2);
 
             const count = diff !== undefined ? diff.length : 0;
             const label = `${Strings.pluralize('file', count, { zero: 'No' })} changed`;

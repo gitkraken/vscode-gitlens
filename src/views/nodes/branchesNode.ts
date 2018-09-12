@@ -14,10 +14,11 @@ export class BranchesNode extends ExplorerNode {
 
     constructor(
         uri: GitUri,
-        private readonly repo: Repository,
-        private readonly explorer: GitExplorer
+        public readonly repo: Repository,
+        parent: ExplorerNode,
+        public readonly explorer: GitExplorer
     ) {
-        super(uri);
+        super(uri, parent);
     }
 
     get id(): string {
@@ -35,7 +36,7 @@ export class BranchesNode extends ExplorerNode {
             const branchNodes = [
                 ...Iterables.filterMap(
                     branches,
-                    b => (b.remote ? undefined : new BranchNode(b, this.uri, this.explorer))
+                    b => (b.remote ? undefined : new BranchNode(b, this.uri, this, this.explorer))
                 )
             ];
             if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) return branchNodes;
@@ -47,7 +48,15 @@ export class BranchesNode extends ExplorerNode {
                 this.explorer.config.files.compact
             );
 
-            const root = new BranchOrTagFolderNode('branch', this.repo.path, '', undefined, hierarchy, this.explorer);
+            const root = new BranchOrTagFolderNode(
+                'branch',
+                this.repo.path,
+                '',
+                undefined,
+                hierarchy,
+                this,
+                this.explorer
+            );
             this._children = await root.getChildren();
         }
         return this._children;

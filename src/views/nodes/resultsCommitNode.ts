@@ -8,13 +8,13 @@ import { ExplorerNode, ResourceType } from './explorerNode';
 export class ResultsCommitNode extends ExplorerNode {
     constructor(
         public readonly commit: GitLogCommit,
-        private readonly explorer: ResultsExplorer
+        public readonly explorer: ResultsExplorer
     ) {
-        super(commit.toGitUri());
+        super(commit.toGitUri(), undefined);
     }
 
     getChildren(): ExplorerNode[] {
-        return [new CommitNode(this.commit, this.explorer)];
+        return [new CommitNode(this.commit, this, this.explorer)];
     }
 
     getTreeItem(): TreeItem {

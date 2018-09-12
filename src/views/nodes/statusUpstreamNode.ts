@@ -15,9 +15,10 @@ export class StatusUpstreamNode extends ExplorerNode implements PageableExplorer
     constructor(
         public readonly status: GitStatus,
         public readonly direction: 'ahead' | 'behind',
-        private readonly explorer: GitExplorer
+        parent: ExplorerNode,
+        public readonly explorer: GitExplorer
     ) {
-        super(GitUri.fromRepoPath(status.repoPath));
+        super(GitUri.fromRepoPath(status.repoPath), parent);
     }
 
     get id(): string {
@@ -48,10 +49,10 @@ export class StatusUpstreamNode extends ExplorerNode implements PageableExplorer
                 }
             }
 
-            children = commits.map(c => new CommitNode(c, this.explorer));
+            children = commits.map(c => new CommitNode(c, this, this.explorer));
         }
         else {
-            children = [...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer))];
+            children = [...Iterables.map(log.commits.values(), c => new CommitNode(c, this, this.explorer))];
         }
 
         if (log.truncated) {

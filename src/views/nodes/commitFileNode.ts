@@ -34,11 +34,12 @@ export class CommitFileNode extends ExplorerRefNode {
     constructor(
         public readonly status: IGitStatusFile,
         public commit: GitLogCommit,
-        protected readonly explorer: Explorer,
+        parent: ExplorerNode,
+        public readonly explorer: Explorer,
         private readonly _displayAs: CommitFileNodeDisplayAs,
         private readonly _selection?: Selection
     ) {
-        super(GitUri.fromFileStatus(status, commit.repoPath, commit.sha));
+        super(GitUri.fromFileStatus(status, commit.repoPath, commit.sha), parent);
     }
 
     get ref(): string {

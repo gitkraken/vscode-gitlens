@@ -14,9 +14,9 @@ export class ResultsComparisonNode extends ExplorerNode {
         public readonly repoPath: string,
         ref1: NamedRef,
         ref2: NamedRef,
-        private readonly explorer: ResultsExplorer
+        public readonly explorer: ResultsExplorer
     ) {
-        super(GitUri.fromRepoPath(repoPath));
+        super(GitUri.fromRepoPath(repoPath), undefined);
 
         this._ref1 = ref1;
         this._ref2 = ref2;
@@ -34,8 +34,8 @@ export class ResultsComparisonNode extends ExplorerNode {
 
     async getChildren(): Promise<ExplorerNode[]> {
         return [
-            new ResultsCommitsNode(this.uri.repoPath!, this.getCommitsQuery.bind(this), this.explorer),
-            new StatusFilesResultsNode(this.uri.repoPath!, this._ref1.ref, this._ref2.ref, this.explorer)
+            new ResultsCommitsNode(this.uri.repoPath!, this.getCommitsQuery.bind(this), this, this.explorer),
+            new StatusFilesResultsNode(this.uri.repoPath!, this._ref1.ref, this._ref2.ref, this, this.explorer)
         ];
     }
 
