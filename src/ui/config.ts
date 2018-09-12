@@ -198,7 +198,7 @@ export interface ILineHistoryExplorerConfig extends IFileHistoryExplorerConfig {
 
 export interface IMenuConfig {
     editor:
-        | boolean
+        | false
         | {
               blame: boolean;
               clipboard: boolean;
@@ -208,20 +208,20 @@ export interface IMenuConfig {
               remote: boolean;
           };
     editorGroup:
-        | boolean
+        | false
         | {
               compare: boolean;
               history: boolean;
           };
     editorTab:
-        | boolean
+        | false
         | {
               compare: boolean;
               history: boolean;
               remote: boolean;
           };
     explorer:
-        | boolean
+        | false
         | {
               compare: boolean;
               history: boolean;
