@@ -268,7 +268,7 @@ export class ExplorerCommands implements Disposable {
                 repoPath,
                 {
                     uri: uri,
-                    sha: node.commit.previousSha !== undefined ? node.commit.previousSha : GitService.deletedSha
+                    sha: node.commit.previousSha !== undefined ? node.commit.previousSha : GitService.deletedOrMissingSha
                 },
                 { uri: uri, sha: node.commit.sha },
                 options

@@ -1,4 +1,5 @@
 'use strict';
+import * as paths from 'path';
 import {
     Disposable,
     Event,
@@ -14,7 +15,7 @@ import {
 import { DocumentSchemes } from '../constants';
 import { Container } from '../container';
 import { GitService, GitTree, GitUri } from '../git/gitService';
-import { Iterables, TernarySearchTree } from '../system';
+import { Iterables, Strings, TernarySearchTree } from '../system';
 
 export function fromGitLensFSUri(uri: Uri): { path: string; ref: string; repoPath: string } {
     const gitUri = uri instanceof GitUri ? uri : GitUri.fromRevisionUri(uri);
@@ -60,20 +61,27 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
     }
 
     async readDirectory(uri: Uri): Promise<[string, FileType][]> {
-        const tree = await this.getTree(uri);
+        const { path, ref, repoPath } = fromGitLensFSUri(uri);
+
+        const tree = await this.getTree(path, ref, repoPath);
         if (tree === undefined) {
             debugger;
             throw FileSystemError.FileNotFound(uri);
         }
 
-        const items = [...Iterables.map<GitTree, [string, FileType]>(tree, t => [t.path, typeToFileType(t.type)])];
+        const items = [
+            ...Iterables.map<GitTree, [string, FileType]>(tree, t => [
+                path !== '' ? Strings.normalizePath(paths.relative(path, t.path)) : t.path,
+                typeToFileType(t.type)
+            ])
+        ];
         return items;
     }
 
     async readFile(uri: Uri): Promise<Uint8Array> {
         const { path, ref, repoPath } = fromGitLensFSUri(uri);
 
-        if (ref === GitService.deletedSha) return emptyArray;
+        if (ref === GitService.deletedOrMissingSha) return emptyArray;
 
         const buffer = await Container.git.getVersionedFileBuffer(repoPath, path, ref);
         if (buffer === undefined) return emptyArray;
@@ -88,7 +96,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
     async stat(uri: Uri): Promise<FileStat> {
         const { path, ref, repoPath } = fromGitLensFSUri(uri);
 
-        if (ref === GitService.deletedSha) {
+        if (ref === GitService.deletedOrMissingSha) {
             return {
                 type: FileType.File,
                 size: 0,
@@ -151,9 +159,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
         return searchTree;
     }
 
-    private async getTree(uri: Uri) {
-        const { path, ref, repoPath } = fromGitLensFSUri(uri);
-
+    private async getTree(path: string, ref: string, repoPath: string) {
         const searchTree = await this.getOrCreateSearchTree(ref, repoPath);
         // Add the fake root folder to the path
         return searchTree!.findSuperstr(`/~/${path}`, true);

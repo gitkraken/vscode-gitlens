@@ -84,7 +84,7 @@ export enum GitRepoSearchBy {
 
 export class GitService implements Disposable {
     static emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
-    static deletedSha = 'ffffffffffffffffffffffffffffffffffffffff';
+    static deletedOrMissingSha = Git.deletedOrMissingSha;
     static stagedUncommittedSha = Git.stagedUncommittedSha;
     static uncommittedSha = Git.uncommittedSha;
 
@@ -1681,9 +1681,9 @@ export class GitService implements Disposable {
         fileName: string,
         sha: string | undefined
     ): Promise<Uri | undefined> {
-        Logger.log(`getVersionedFile('${repoPath}', '${fileName}', '${sha}')`);
+        if (sha === GitService.deletedOrMissingSha) return undefined;
 
-        if (sha === GitService.deletedSha) return undefined;
+        Logger.log(`getVersionedFile('${repoPath}', '${fileName}', '${sha}')`);
 
         if (!sha || (Git.isUncommitted(sha) && !Git.isStagedUncommitted(sha))) {
             if (await this.fileExists(repoPath!, fileName)) return Uri.file(fileName);
@@ -1735,7 +1735,7 @@ export class GitService implements Disposable {
         repoPath?: string,
         options: { ref?: string; skipCacheUpdate?: boolean } = {}
     ): Promise<boolean> {
-        if (options.ref === GitService.deletedSha) return false;
+        if (options.ref === GitService.deletedOrMissingSha) return false;
 
         let ref = options.ref;
         let cacheKey: string;
@@ -1784,7 +1784,7 @@ export class GitService implements Disposable {
     }
 
     private async isTrackedCore(fileName: string, repoPath: string, ref?: string) {
-        if (ref === GitService.deletedSha) return false;
+        if (ref === GitService.deletedOrMissingSha) return false;
 
         try {
             // Even if we have a sha, check first to see if the file exists (that way the cache will be better reused)
@@ -1833,15 +1833,19 @@ export class GitService implements Disposable {
     }
 
     async resolveReference(repoPath: string, ref: string, uri?: Uri) {
-        if (!GitService.isResolveRequired(ref) || ref.endsWith('^3')) return ref;
+        if (ref.endsWith('^3')) return ref;
 
         Logger.log(`resolveReference('${repoPath}', '${ref}', '${uri && uri.toString(true)}')`);
 
         if (uri == null) return (await Git.revparse(repoPath, ref)) || ref;
 
-        return (
-            (await Git.log_resolve(repoPath, Strings.normalizePath(path.relative(repoPath, uri.fsPath)), ref)) || ref
-        );
+        const fileName = Strings.normalizePath(path.relative(repoPath, uri.fsPath));
+        const resolvedRef = await Git.log_resolve(repoPath, fileName, ref);
+
+        const ensuredRef = await Git.cat_file_validate(repoPath, fileName, resolvedRef || ref);
+        if (ensuredRef === undefined) return ref;
+
+        return ensuredRef;
     }
 
     stopWatchingFileSystem() {
@@ -1919,14 +1923,14 @@ export class GitService implements Disposable {
 
     static shortenSha(
         sha: string | undefined,
-        strings: { deleted?: string; stagedUncommitted?: string; uncommitted?: string; working?: string } = {}
+        strings: { deletedOrMissing?: string; stagedUncommitted?: string; uncommitted?: string; working?: string } = {}
     ) {
         if (sha === undefined) return undefined;
 
-        strings = { deleted: '(deleted)', working: '', ...strings };
+        strings = { deletedOrMissing: '(deleted)', working: '', ...strings };
 
         if (sha === '') return strings.working;
-        if (sha === GitService.deletedSha) return strings.deleted;
+        if (sha === GitService.deletedOrMissingSha) return strings.deletedOrMissing;
 
         return Git.isSha(sha) || Git.isStagedUncommitted(sha) ? Git.shortenSha(sha, strings) : sha;
     }

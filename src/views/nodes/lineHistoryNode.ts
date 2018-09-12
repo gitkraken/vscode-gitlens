@@ -2,7 +2,13 @@
 import { Disposable, Selection, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { GitCommitType, GitLogCommit, IGitStatusFile } from '../../git/git';
-import { GitUri, RepositoryChange, RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/gitService';
+import {
+    GitService,
+    GitUri,
+    RepositoryChange,
+    RepositoryChangeEvent,
+    RepositoryFileSystemChangeEvent
+} from '../../git/gitService';
 import { Logger } from '../../logger';
 import { Iterables } from '../../system';
 import { LineHistoryExplorer } from '../lineHistoryExplorer';
@@ -82,7 +88,17 @@ export class LineHistoryNode extends SubscribeableExplorerNode<LineHistoryExplor
             ? ` #${this.selection.start.line + 1}`
             : ` #${this.selection.start.line + 1}-${this.selection.end.line + 1}`;
         const item = new TreeItem(
-            `${this.uri.getFormattedPath({ suffix: `${lines}${this.uri.sha ? ` (${this.uri.shortSha})` : ''}` })}`,
+            `${this.uri.getFormattedPath({
+                suffix: `${lines}${
+                    this.uri.sha
+                        ? ` ${
+                              this.uri.sha === GitService.deletedOrMissingSha
+                                  ? this.uri.shortSha
+                                  : `(${this.uri.shortSha})`
+                          }`
+                        : ''
+                }`
+            })}`,
             TreeItemCollapsibleState.Expanded
         );
         item.contextValue = ResourceType.FileHistory;

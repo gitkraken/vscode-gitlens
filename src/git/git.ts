@@ -48,7 +48,8 @@ const stashFormat = [
 const defaultStashParams = ['stash', 'list', '--name-status', '-M', `--format=${stashFormat}`];
 
 const GitErrors = {
-    badRevision: /bad revision \'.*?\'/i
+    badRevision: /bad revision \'.*?\'/i,
+    notAValidObjectName: /Not a valid object name/i
 };
 
 const GitWarnings = {
@@ -66,7 +67,7 @@ const GitWarnings = {
 
 interface GitCommandOptions extends RunOptions {
     readonly correlationKey?: string;
-    exceptionHandler?(ex: Error): string;
+    exceptionHandler?(ex: Error): string | void;
 }
 
 // A map of running git commands -- avoids running duplicate overlaping commands
@@ -164,6 +165,7 @@ function throwExceptionHandler(ex: Error) {
 let gitInfo: GitLocation;
 
 export class Git {
+    static deletedOrMissingSha = 'ffffffffffffffffffffffffffffffffffffffff';
     static shaRegex = /^[0-9a-f]{40}(\^[0-9]*?)??( -)?$/;
     static shaStrictRegex = /^[0-9a-f]{40}$/;
     static stagedUncommittedRegex = /^[0]{40}(\^[0-9]*?)??:$/;
@@ -543,6 +545,26 @@ export class Git {
             fileName
         );
         return data === '' ? undefined : data.trim();
+    }
+
+    static async cat_file_validate(repoPath: string, fileName: string, ref: string) {
+        try {
+            await git<string>(
+                { cwd: repoPath, exceptionHandler: throwExceptionHandler },
+                'cat-file',
+                '-e',
+                `${ref}:./${fileName}`
+            );
+            return ref;
+        }
+        catch (ex) {
+            const msg = ex && ex.toString();
+            if (GitErrors.notAValidObjectName.test(msg)) {
+                return Git.deletedOrMissingSha;
+            }
+
+            return undefined;
+        }
     }
 
     static async log_resolve(repoPath: string, fileName: string, ref: string) {

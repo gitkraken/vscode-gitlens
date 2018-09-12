@@ -49,7 +49,10 @@ export class DiffWithCommand extends ActiveEditorCommand {
                     args = {
                         repoPath: commit1.repoPath,
                         lhs: {
-                            sha: commit1.previousSha !== undefined ? commit1.previousSha : GitService.deletedSha,
+                            sha:
+                                commit1.previousSha !== undefined
+                                    ? commit1.previousSha
+                                    : GitService.deletedOrMissingSha,
                             uri: commit1.previousUri!
                         },
                         rhs: {
@@ -94,13 +97,19 @@ export class DiffWithCommand extends ActiveEditorCommand {
         if (args.repoPath === undefined || args.lhs === undefined || args.rhs === undefined) return undefined;
 
         try {
-            // If the shas aren't resolved (e.g. a2d24f^), resolve them
-            if (GitService.isResolveRequired(args.lhs.sha)) {
-                args.lhs.sha = await Container.git.resolveReference(args.repoPath, args.lhs.sha, args.lhs.uri);
-            }
+            let lhsSha = args.lhs.sha;
+            let rhsSha = args.rhs.sha;
 
-            if (GitService.isResolveRequired(args.rhs.sha)) {
-                args.rhs.sha = await Container.git.resolveReference(args.repoPath, args.rhs.sha, args.rhs.uri);
+            [args.lhs.sha, args.rhs.sha] = await Promise.all([
+                await Container.git.resolveReference(args.repoPath, args.lhs.sha, args.lhs.uri),
+                await Container.git.resolveReference(args.repoPath, args.rhs.sha, args.rhs.uri)
+            ]);
+
+            if (args.lhs.sha !== GitService.deletedOrMissingSha) {
+                lhsSha = args.lhs.sha;
+            }
+            if (args.rhs.sha !== GitService.deletedOrMissingSha) {
+                rhsSha = args.rhs.sha;
             }
 
             const [lhs, rhs] = await Promise.all([
@@ -112,7 +121,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
             if (rhs === undefined) {
                 rhsPrefix = GitService.isUncommitted(args.rhs.sha) ? ' (deleted)' : 'deleted in ';
             }
-            else if (lhs === undefined || args.lhs.sha === GitService.deletedSha) {
+            else if (lhs === undefined) {
                 rhsPrefix = 'added in ';
             }
 
@@ -127,18 +136,14 @@ export class DiffWithCommand extends ActiveEditorCommand {
                 }
             }
 
-            if (
-                args.lhs.title === undefined &&
-                args.lhs.sha !== GitService.deletedSha &&
-                (lhs !== undefined || lhsPrefix !== '')
-            ) {
-                const suffix = GitService.shortenSha(args.lhs.sha) || '';
+            if (args.lhs.title === undefined && (lhs !== undefined || lhsPrefix !== '')) {
+                const suffix = GitService.shortenSha(lhsSha) || '';
                 args.lhs.title = `${path.basename(args.lhs.uri.fsPath)}${
                     suffix !== '' ? ` (${lhsPrefix}${suffix})` : ''
                 }`;
             }
-            if (args.rhs.title === undefined && args.rhs.sha !== GitService.deletedSha) {
-                const suffix = GitService.shortenSha(args.rhs.sha, { uncommitted: 'working tree' }) || '';
+            if (args.rhs.title === undefined) {
+                const suffix = GitService.shortenSha(rhsSha, { uncommitted: 'working tree' }) || '';
                 args.rhs.title = `${path.basename(args.rhs.uri.fsPath)}${
                     suffix !== '' ? ` (${rhsPrefix}${suffix})` : rhsPrefix
                 }`;
@@ -164,10 +169,10 @@ export class DiffWithCommand extends ActiveEditorCommand {
             return await commands.executeCommand(
                 BuiltInCommands.Diff,
                 lhs === undefined
-                    ? GitUri.toRevisionUri(GitService.deletedSha, args.lhs.uri.fsPath, args.repoPath)
+                    ? GitUri.toRevisionUri(GitService.deletedOrMissingSha, args.lhs.uri.fsPath, args.repoPath)
                     : lhs,
                 rhs === undefined
-                    ? GitUri.toRevisionUri(GitService.deletedSha, args.rhs.uri.fsPath, args.repoPath)
+                    ? GitUri.toRevisionUri(GitService.deletedOrMissingSha, args.rhs.uri.fsPath, args.repoPath)
                     : rhs,
                 title,
                 args.showOptions
