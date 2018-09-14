@@ -485,6 +485,12 @@
                     "description": "Specifies whether to automatically refresh the `Repositories` explorer when the repository or the file system changes",
                     "scope": "window"
                 },
+                "gitlens.repositoriesExplorer.autoReveal": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether to automatically reveal repositories in the `Repositories` explorer when opening files",
+                    "scope": "window"
+                },
                 "gitlens.repositoriesExplorer.branches.layout": {
                     "type": "string",
                     "default": "tree",

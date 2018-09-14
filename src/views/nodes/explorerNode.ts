@@ -1,7 +1,7 @@
 'use strict';
 import { Command, Disposable, Event, TreeItem, TreeViewVisibilityChangeEvent } from 'vscode';
 import { GitUri } from '../../git/gitService';
-import { Explorer } from '../explorer';
+import { Explorer, RefreshReason } from '../explorer';
 
 export enum ResourceType {
     ActiveFileHistory = 'gitlens:active:history-file',
@@ -71,7 +71,7 @@ export abstract class ExplorerNode {
         return undefined;
     }
 
-    refresh(): void | boolean | Promise<void> | Promise<boolean> {}
+    refresh(reason?: RefreshReason): void | boolean | Promise<void> | Promise<boolean> {}
 }
 
 export abstract class ExplorerRefNode extends ExplorerNode {

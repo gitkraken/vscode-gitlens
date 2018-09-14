@@ -4,6 +4,7 @@ import { Container } from '../../container';
 import { GitUri } from '../../git/gitService';
 import { Logger } from '../../logger';
 import { Functions } from '../../system';
+import { RefreshReason } from '../explorer';
 import { RepositoriesExplorer } from '../repositoriesExplorer';
 import { MessageNode } from './common';
 import { ExplorerNode, ResourceType, SubscribeableExplorerNode, unknownGitUri } from './explorerNode';
@@ -112,7 +113,7 @@ export class RepositoriesNode extends SubscribeableExplorerNode<RepositoriesExpl
         );
     }
 
-    async refresh() {
+    async refresh(reason?: RefreshReason) {
         if (this._children === undefined) return;
 
         const repositories = [...(await Container.git.getRepositories())];
@@ -143,16 +144,25 @@ export class RepositoriesNode extends SubscribeableExplorerNode<RepositoriesExpl
         }
 
         this._children = children;
+
+        // Reset our subscription if the configuration changed
+        if (reason === RefreshReason.ConfigurationChanged) {
+            this.unsubscribe();
+        }
+
         void this.ensureSubscription();
     }
 
     protected async subscribe() {
-        // TODO: Add a setting to control tracking the active editor
+        const subscriptions = [Container.git.onDidChangeRepositories(this.onRepositoriesChanged, this)];
 
-        return Disposable.from(
-            window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this),
-            Container.git.onDidChangeRepositories(this.onRepositoriesChanged, this)
-        );
+        if (this.explorer.config.autoReveal) {
+            subscriptions.push(
+                window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this)
+            );
+        }
+
+        return Disposable.from(...subscriptions);
     }
 
     private async onActiveEditorChanged(editor: TextEditor | undefined) {

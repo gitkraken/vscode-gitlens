@@ -216,6 +216,7 @@ export interface ModeConfig {
 
 export interface RepositoriesExplorerConfig {
     autoRefresh: boolean;
+    autoReveal: boolean;
     branches: {
         layout: ExplorerBranchesLayout;
     };

@@ -120,7 +120,7 @@ export abstract class ExplorerBase<TRoot extends ExplorerNode> implements TreeDa
         Logger.log(`Explorer(${this.id}).refresh`, `reason='${reason}'`);
 
         if (this._root !== undefined) {
-            await this._root.refresh();
+            await this._root.refresh(reason);
         }
 
         this.triggerNodeUpdate();
