@@ -26,6 +26,7 @@ export class RepositoriesExplorer extends ExplorerBase<RepositoriesNode> {
         Container.explorerCommands;
 
         commands.registerCommand(this.getQualifiedCommand('fetchAll'), () => this.fetchAll(), this);
+        commands.registerCommand(this.getQualifiedCommand('pullAll'), () => this.pullAll(), this);
 
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
         commands.registerCommand(
@@ -111,6 +112,12 @@ export class RepositoriesExplorer extends ExplorerBase<RepositoriesNode> {
         return this._root.fetchAll();
     }
 
+    private pullAll() {
+        if (this._root === undefined) return;
+
+        return this._root.pullAll();
+    }
+
     private async setAutoRefresh(enabled: boolean, workspaceEnabled?: boolean) {
         if (enabled) {
             if (workspaceEnabled === undefined) {
@@ -133,6 +140,9 @@ export class RepositoriesExplorer extends ExplorerBase<RepositoriesNode> {
     }
 
     private setFilesLayout(layout: ExplorerFilesLayout) {
-        return configuration.updateEffective(configuration.name('repositoriesExplorer')('files')('layout').value, layout);
+        return configuration.updateEffective(
+            configuration.name('repositoriesExplorer')('files')('layout').value,
+            layout
+        );
     }
 }

@@ -1838,6 +1838,15 @@
                 }
             },
             {
+                "command": "gitlens.repositoriesExplorer.pullAll",
+                "title": "Pull Repositories",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-pull.svg",
+                    "light": "images/light/icon-pull.svg"
+                }
+            },
+            {
                 "command": "gitlens.explorers.fetch",
                 "title": "Fetch Repository",
                 "category": "GitLens",
@@ -2425,6 +2434,10 @@
                     "when": "false"
                 },
                 {
+                    "command": "gitlens.repositoriesExplorer.pullAll",
+                    "when": "false"
+                },
+                {
                     "command": "gitlens.explorers.fetch",
                     "when": "false"
                 },
@@ -2919,9 +2932,14 @@
                     "group": "navigation@7"
                 },
                 {
-                    "command": "gitlens.repositoriesExplorer.refresh",
+                    "command": "gitlens.repositoriesExplorer.pullAll",
                     "when": "view =~ /^gitlens.repositoriesExplorer:/",
                     "group": "navigation@8"
+                },
+                {
+                    "command": "gitlens.repositoriesExplorer.refresh",
+                    "when": "view =~ /^gitlens.repositoriesExplorer:/",
+                    "group": "navigation@9"
                 },
                 {
                     "command": "gitlens.repositoriesExplorer.setFilesLayoutToAuto",

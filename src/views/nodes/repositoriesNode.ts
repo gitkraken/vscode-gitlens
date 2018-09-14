@@ -84,6 +84,34 @@ export class RepositoriesNode extends SubscribeableExplorerNode<RepositoriesExpl
         );
     }
 
+    async pullAll() {
+        if (this._children === undefined || this._children.length === 0) return;
+
+        const children = this._children;
+        await window.withProgress(
+            {
+                location: ProgressLocation.Notification,
+                title: `Pulling repositories`,
+                cancellable: false
+            },
+            async progress => {
+                const total = children.length + 1;
+                let i = 0;
+                for (const node of children) {
+                    if (node instanceof MessageNode) continue;
+
+                    i++;
+                    progress.report({
+                        message: `${node.repo.formattedName}...`,
+                        increment: (i / total) * 100
+                    });
+
+                    await node.pull(false);
+                }
+            }
+        );
+    }
+
     async refresh() {
         if (this._children === undefined) return;
 
