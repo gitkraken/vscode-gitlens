@@ -18,7 +18,7 @@
         "url": "https://github.com/eamodio/vscode-gitlens.git"
     },
     "engines": {
-        "vscode": "^1.25.0"
+        "vscode": "^1.27.0"
     },
     "main": "./dist/extension",
     "icon": "images/gitlens-icon.png",
@@ -3691,7 +3691,7 @@
         "ts-loader": "5.1.0",
         "typescript": "3.0.3",
         "vscode": "1.1.21",
-        "webpack": "4.18.0",
+        "webpack": "4.19.0",
         "webpack-cli": "3.1.0",
         "webpack-deep-scope-plugin": "1.6.0"
     }
