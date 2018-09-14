@@ -117,36 +117,38 @@ export class DiffWithCommand extends ActiveEditorCommand {
                 Container.git.getVersionedFile(args.repoPath, args.rhs.uri.fsPath, args.rhs.sha)
             ]);
 
-            let rhsPrefix = '';
+            let rhsSuffix = GitService.shortenSha(rhsSha, { uncommitted: 'working tree' }) || '';
             if (rhs === undefined) {
-                rhsPrefix = GitService.isUncommitted(args.rhs.sha) ? ' (deleted)' : 'deleted in ';
-            }
-            else if (lhs === undefined) {
-                rhsPrefix = 'added in ';
-            }
-
-            let lhsPrefix = '';
-            if (lhs === undefined && args.rhs.sha === '') {
-                if (rhs !== undefined) {
-                    lhsPrefix = 'not in ';
-                    rhsPrefix = '';
+                if (GitService.isUncommitted(args.rhs.sha)) {
+                    rhsSuffix = 'deleted';
+                }
+                else if (rhsSuffix === '' && args.rhs.sha === GitService.deletedOrMissingSha) {
+                    rhsSuffix = 'not in working tree';
                 }
                 else {
-                    lhsPrefix = 'deleted in ';
+                    rhsSuffix = `deleted in ${rhsSuffix}`;
+                }
+            }
+            else if (lhs === undefined) {
+                rhsSuffix = `added in ${rhsSuffix}`;
+            }
+
+            let lhsSuffix = GitService.shortenSha(lhsSha) || '';
+            if (lhs === undefined && args.rhs.sha === '') {
+                if (rhs !== undefined) {
+                    lhsSuffix = `not in ${lhsSuffix}`;
+                    rhsSuffix = '';
+                }
+                else {
+                    lhsSuffix = `deleted in ${lhsSuffix})`;
                 }
             }
 
-            if (args.lhs.title === undefined && (lhs !== undefined || lhsPrefix !== '')) {
-                const suffix = GitService.shortenSha(lhsSha) || '';
-                args.lhs.title = `${path.basename(args.lhs.uri.fsPath)}${
-                    suffix !== '' ? ` (${lhsPrefix}${suffix})` : ''
-                }`;
+            if (args.lhs.title === undefined && (lhs !== undefined || lhsSuffix !== '')) {
+                args.lhs.title = `${path.basename(args.lhs.uri.fsPath)}${lhsSuffix ? ` (${lhsSuffix})` : ''}`;
             }
             if (args.rhs.title === undefined) {
-                const suffix = GitService.shortenSha(rhsSha, { uncommitted: 'working tree' }) || '';
-                args.rhs.title = `${path.basename(args.rhs.uri.fsPath)}${
-                    suffix !== '' ? ` (${rhsPrefix}${suffix})` : rhsPrefix
-                }`;
+                args.rhs.title = `${path.basename(args.rhs.uri.fsPath)}${rhsSuffix ? ` (${rhsSuffix})` : ''}`;
             }
 
             const title =
