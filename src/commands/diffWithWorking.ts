@@ -32,7 +32,12 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
         if (args.commit === undefined || GitService.isUncommitted(args.commit.sha)) {
             // If the sha is missing, just let the user know the file matches
-            if (gitUri.sha === undefined) return window.showInformationMessage(`File matches the working tree`);
+            if (gitUri.sha === undefined) return window.showInformationMessage('File matches the working tree');
+            if (gitUri.sha === GitService.deletedOrMissingSha) {
+                return window.showInformationMessage(
+                    'Unable to open compare. File has been deleted from the working tree'
+                );
+            }
 
             // If we are a fake "staged" sha, check the status
             if (GitService.isStagedUncommitted(gitUri.sha!)) {
@@ -78,7 +83,9 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
         }
 
         const [workingFileName] = await Container.git.findWorkingFileName(gitUri.fsPath, gitUri.repoPath);
-        if (workingFileName === undefined) return undefined;
+        if (workingFileName === undefined) {
+            return window.showInformationMessage('Unable to open compare. File has been deleted from the working tree');
+        }
 
         args.commit.workingFileName = workingFileName;
 
