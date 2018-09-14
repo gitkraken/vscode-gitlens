@@ -1888,7 +1888,7 @@ export class GitService implements Disposable {
         try {
             const gitExtension = extensions.getExtension('vscode.git');
             if (gitExtension !== undefined) {
-                const gitApi = ((await gitExtension.activate()) as GitExtension).getAPI(1);
+                const gitApi = ((gitExtension.isActive ? gitExtension.exports : await gitExtension.activate()) as GitExtension).getAPI(1);
                 gitPath = gitApi.git.path;
             }
         }
