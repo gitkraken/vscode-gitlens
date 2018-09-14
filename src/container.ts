@@ -2,7 +2,7 @@
 import { Disposable, ExtensionContext } from 'vscode';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
-import { CodeLensController } from './codelens/codeLensController';
+import { GitCodeLensController } from './codelens/codeLensController';
 import { Config, configuration } from './configuration';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitService } from './git/gitService';
@@ -35,7 +35,7 @@ export class Container {
         context.subscriptions.push((this._lineAnnotationController = new LineAnnotationController()));
         context.subscriptions.push((this._lineHoverController = new LineHoverController()));
         context.subscriptions.push((this._statusBarController = new StatusBarController()));
-        context.subscriptions.push((this._codeLensController = new CodeLensController()));
+        context.subscriptions.push((this._codeLensController = new GitCodeLensController()));
         context.subscriptions.push((this._keyboard = new Keyboard()));
         context.subscriptions.push((this._settingsEditor = new SettingsEditor()));
         context.subscriptions.push((this._welcomeEditor = new WelcomeEditor()));
@@ -82,7 +82,7 @@ export class Container {
         context.subscriptions.push(new GitFileSystemProvider());
     }
 
-    private static _codeLensController: CodeLensController;
+    private static _codeLensController: GitCodeLensController;
     static get codeLens() {
         return this._codeLensController;
     }
