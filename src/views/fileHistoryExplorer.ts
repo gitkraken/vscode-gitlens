@@ -1,6 +1,6 @@
 'use strict';
 import { commands, ConfigurationChangeEvent } from 'vscode';
-import { configuration, IExplorersConfig, IFileHistoryExplorerConfig } from '../configuration';
+import { configuration, ExplorersConfig, FileHistoryExplorerConfig } from '../configuration';
 import { CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { ExplorerBase, RefreshReason } from './explorer';
@@ -67,7 +67,7 @@ export class FileHistoryExplorer extends ExplorerBase<FileHistoryTrackerNode> {
         }
     }
 
-    get config(): IExplorersConfig & IFileHistoryExplorerConfig {
+    get config(): ExplorersConfig & FileHistoryExplorerConfig {
         return { ...Container.config.explorers, ...Container.config.fileHistoryExplorer };
     }
 

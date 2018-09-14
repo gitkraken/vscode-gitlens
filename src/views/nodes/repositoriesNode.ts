@@ -4,15 +4,15 @@ import { Container } from '../../container';
 import { GitUri } from '../../git/gitService';
 import { Logger } from '../../logger';
 import { Functions } from '../../system';
-import { GitExplorer } from '../gitExplorer';
+import { RepositoriesExplorer } from '../repositoriesExplorer';
 import { MessageNode } from './common';
 import { ExplorerNode, ResourceType, SubscribeableExplorerNode, unknownGitUri } from './explorerNode';
 import { RepositoryNode } from './repositoryNode';
 
-export class RepositoriesNode extends SubscribeableExplorerNode<GitExplorer> {
+export class RepositoriesNode extends SubscribeableExplorerNode<RepositoriesExplorer> {
     private _children: (RepositoryNode | MessageNode)[] | undefined;
 
-    constructor(explorer: GitExplorer) {
+    constructor(explorer: RepositoriesExplorer) {
         super(unknownGitUri, undefined, explorer);
     }
 

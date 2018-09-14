@@ -4,13 +4,8 @@
 .vscode/**
 dist/ui/**
 emoji/**
-!images/dark/**
-!images/light/**
-!images/settings/**
-!images/gitlens-icon.png
-!images/gitlens-activitybar.svg
-!images/cl-*.png
-images/**
+images/docs/**
+images/**/*.pdn
 node_modules/**
 src/**
 test/**

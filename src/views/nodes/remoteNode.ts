@@ -5,7 +5,7 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitRemote, GitRemoteType, GitUri, Repository } from '../../git/gitService';
 import { Arrays, Iterables } from '../../system';
-import { GitExplorer } from '../gitExplorer';
+import { RepositoriesExplorer } from '../repositoriesExplorer';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
@@ -16,7 +16,7 @@ export class RemoteNode extends ExplorerNode {
         uri: GitUri,
         public readonly repo: Repository,
         parent: ExplorerNode,
-        public readonly explorer: GitExplorer
+        public readonly explorer: RepositoriesExplorer
     ) {
         super(uri, parent);
     }

@@ -3,7 +3,7 @@ import { Disposable, ExtensionContext } from 'vscode';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
 import { CodeLensController } from './codelens/codeLensController';
-import { configuration, IConfig } from './configuration';
+import { Config, configuration } from './configuration';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitService } from './git/gitService';
 import { LineHoverController } from './hovers/lineHoverController';
@@ -13,14 +13,14 @@ import { GitDocumentTracker } from './trackers/gitDocumentTracker';
 import { GitLineTracker } from './trackers/gitLineTracker';
 import { ExplorerCommands } from './views/explorerCommands';
 import { FileHistoryExplorer } from './views/fileHistoryExplorer';
-import { GitExplorer } from './views/gitExplorer';
 import { LineHistoryExplorer } from './views/lineHistoryExplorer';
+import { RepositoriesExplorer } from './views/repositoriesExplorer';
 import { ResultsExplorer } from './views/resultsExplorer';
 import { SettingsEditor } from './webviews/settingsEditor';
 import { WelcomeEditor } from './webviews/welcomeEditor';
 
 export class Container {
-    static initialize(context: ExtensionContext, config: IConfig) {
+    static initialize(context: ExtensionContext, config: Config) {
         this._context = context;
         this._config = Container.applyMode(config);
 
@@ -40,15 +40,15 @@ export class Container {
         context.subscriptions.push((this._settingsEditor = new SettingsEditor()));
         context.subscriptions.push((this._welcomeEditor = new WelcomeEditor()));
 
-        if (config.gitExplorer.enabled) {
-            context.subscriptions.push((this._gitExplorer = new GitExplorer()));
+        if (config.repositoriesExplorer.enabled) {
+            context.subscriptions.push((this._repositoriesExplorer = new RepositoriesExplorer()));
         }
         else {
             let disposable: Disposable;
             disposable = configuration.onDidChange(e => {
-                if (configuration.changed(e, configuration.name('gitExplorer')('enabled').value)) {
+                if (configuration.changed(e, configuration.name('repositoriesExplorer')('enabled').value)) {
                     disposable.dispose();
-                    context.subscriptions.push((this._gitExplorer = new GitExplorer()));
+                    context.subscriptions.push((this._repositoriesExplorer = new RepositoriesExplorer()));
                 }
             });
         }
@@ -87,10 +87,10 @@ export class Container {
         return this._codeLensController;
     }
 
-    private static _config: IConfig | undefined;
+    private static _config: Config | undefined;
     static get config() {
         if (this._config === undefined) {
-            this._config = Container.applyMode(configuration.get<IConfig>());
+            this._config = Container.applyMode(configuration.get<Config>());
         }
         return this._config;
     }
@@ -127,9 +127,9 @@ export class Container {
         return this._git;
     }
 
-    private static _gitExplorer: GitExplorer | undefined;
-    static get gitExplorer(): GitExplorer {
-        return this._gitExplorer!;
+    private static _repositoriesExplorer: RepositoriesExplorer | undefined;
+    static get repositoriesExplorer(): RepositoriesExplorer {
+        return this._repositoriesExplorer!;
     }
 
     private static _keyboard: Keyboard;
@@ -194,7 +194,7 @@ export class Container {
         this._config = undefined;
     }
 
-    private static applyMode(config: IConfig) {
+    private static applyMode(config: Config) {
         if (!config.mode.active) return config;
 
         const mode = config.modes[config.mode.active];
@@ -207,7 +207,7 @@ export class Container {
             config.currentLine.enabled = mode.currentLine;
         }
         if (mode.explorers != null) {
-            config.gitExplorer.enabled = mode.explorers;
+            config.repositoriesExplorer.enabled = mode.explorers;
         }
         if (mode.explorers != null) {
             config.fileHistoryExplorer.enabled = mode.explorers;

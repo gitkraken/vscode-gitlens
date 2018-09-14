@@ -11,7 +11,7 @@ import {
     window,
     workspace
 } from 'vscode';
-import { configuration, IConfig } from '../configuration';
+import { Config, configuration } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Message, SettingsChangedMessage } from '../ui/ipc';
@@ -175,7 +175,7 @@ export abstract class WebviewEditor<TBootstrap> implements Disposable {
         return this.postMessage(
             {
                 type: 'settingsChanged',
-                config: configuration.get<IConfig>()
+                config: configuration.get<Config>()
             } as SettingsChangedMessage,
             'config'
         );

@@ -1,5 +1,5 @@
 'use strict';
-import { CustomRemoteType, IRemotesConfig } from '../../configuration';
+import { CustomRemoteType, RemotesConfig } from '../../configuration';
 import { Logger } from '../../logger';
 import { BitbucketService } from './bitbucket';
 import { BitbucketServerService } from './bitbucket-server';
@@ -43,7 +43,7 @@ export class RemoteProviderFactory {
         }
     }
 
-    static createMap(cfg: IRemotesConfig[] | null | undefined): RemoteProviderMap {
+    static createMap(cfg: RemotesConfig[] | null | undefined): RemoteProviderMap {
         const providerMap = new Map(defaultProviderMap);
         if (cfg != null && cfg.length > 0) {
             for (const rc of cfg) {
@@ -56,7 +56,7 @@ export class RemoteProviderFactory {
         return providerMap;
     }
 
-    private static getCustomProvider(cfg: IRemotesConfig) {
+    private static getCustomProvider(cfg: RemotesConfig) {
         switch (cfg.type) {
             case CustomRemoteType.Bitbucket:
                 return (domain: string, path: string) =>

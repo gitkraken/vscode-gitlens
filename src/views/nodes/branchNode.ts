@@ -5,7 +5,7 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitBranch, GitUri } from '../../git/gitService';
 import { Arrays, Iterables } from '../../system';
-import { GitExplorer } from '../gitExplorer';
+import { RepositoriesExplorer } from '../repositoriesExplorer';
 import { CommitNode } from './commitNode';
 import { MessageNode, ShowMoreNode } from './common';
 import { ExplorerNode, ExplorerRefNode, PageableExplorerNode, ResourceType } from './explorerNode';
@@ -20,7 +20,7 @@ export class BranchNode extends ExplorerRefNode implements PageableExplorerNode 
         public readonly branch: GitBranch,
         uri: GitUri,
         parent: ExplorerNode,
-        public readonly explorer: GitExplorer,
+        public readonly explorer: RepositoriesExplorer,
         private readonly _markCurrent: boolean = true
     ) {
         super(uri, parent);

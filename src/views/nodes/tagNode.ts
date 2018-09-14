@@ -4,7 +4,7 @@ import { ExplorerBranchesLayout } from '../../configuration';
 import { Container } from '../../container';
 import { GitTag, GitUri } from '../../git/gitService';
 import { Iterables } from '../../system';
-import { GitExplorer } from '../gitExplorer';
+import { RepositoriesExplorer } from '../repositoriesExplorer';
 import { CommitNode } from './commitNode';
 import { MessageNode, ShowMoreNode } from './common';
 import { ExplorerNode, ExplorerRefNode, PageableExplorerNode, ResourceType } from './explorerNode';
@@ -17,7 +17,7 @@ export class TagNode extends ExplorerRefNode implements PageableExplorerNode {
         public readonly tag: GitTag,
         uri: GitUri,
         parent: ExplorerNode,
-        public readonly explorer: GitExplorer
+        public readonly explorer: RepositoriesExplorer
     ) {
         super(uri, parent);
     }

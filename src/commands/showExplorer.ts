@@ -5,7 +5,7 @@ import { Command, CommandContext, Commands } from './common';
 export class ShowExplorerCommand extends Command {
     constructor() {
         super([
-            Commands.ShowGitExplorer,
+            Commands.ShowRepositoriesExplorer,
             Commands.ShowFileHistoryExplorer,
             Commands.ShowLineHistoryExplorer,
             Commands.ShowResultsExplorer
@@ -18,8 +18,8 @@ export class ShowExplorerCommand extends Command {
 
     execute(command: Commands) {
         switch (command) {
-            case Commands.ShowGitExplorer:
-                return Container.gitExplorer.show();
+            case Commands.ShowRepositoriesExplorer:
+                return Container.repositoriesExplorer.show();
             case Commands.ShowFileHistoryExplorer:
                 return Container.fileHistoryExplorer.show();
             case Commands.ShowLineHistoryExplorer:

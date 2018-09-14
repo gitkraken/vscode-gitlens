@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { GitStatus, GitUri } from '../../git/gitService';
 import { Iterables, Strings } from '../../system';
-import { GitExplorer } from '../gitExplorer';
+import { RepositoriesExplorer } from '../repositoriesExplorer';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
 import { ExplorerNode, PageableExplorerNode, ResourceType } from './explorerNode';
@@ -16,7 +16,7 @@ export class StatusUpstreamNode extends ExplorerNode implements PageableExplorer
         public readonly status: GitStatus,
         public readonly direction: 'ahead' | 'behind',
         parent: ExplorerNode,
-        public readonly explorer: GitExplorer
+        public readonly explorer: RepositoriesExplorer
     ) {
         super(GitUri.fromRepoPath(status.repoPath), parent);
     }

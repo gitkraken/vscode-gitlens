@@ -14,7 +14,7 @@ import {
     IGitStatusFileWithCommit
 } from '../../git/gitService';
 import { Arrays, Iterables, Objects, Strings } from '../../system';
-import { GitExplorer } from '../gitExplorer';
+import { RepositoriesExplorer } from '../repositoriesExplorer';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { FolderNode, IFileExplorerNode } from './folderNode';
 import { StatusFileCommitsNode } from './statusFileCommitsNode';
@@ -26,7 +26,7 @@ export class StatusFilesNode extends ExplorerNode {
         public readonly status: GitStatus,
         public readonly range: string | undefined,
         parent: ExplorerNode,
-        public readonly explorer: GitExplorer
+        public readonly explorer: RepositoriesExplorer
     ) {
         super(GitUri.fromRepoPath(status.repoPath), parent);
         this.repoPath = status.repoPath;

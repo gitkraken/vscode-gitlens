@@ -17,7 +17,7 @@ import {
     WorkspaceFoldersChangeEvent
 } from 'vscode';
 import { GitExtension } from '../@types/git';
-import { configuration, IRemotesConfig } from '../configuration';
+import { configuration, RemotesConfig } from '../configuration';
 import { CommandContext, DocumentSchemes, GlyphChars, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
@@ -1466,7 +1466,7 @@ export class GitService implements Disposable {
         providerMap =
             providerMap ||
             RemoteProviderFactory.createMap(
-                configuration.get<IRemotesConfig[] | null | undefined>(configuration.name('remotes').value, null)
+                configuration.get<RemotesConfig[] | null | undefined>(configuration.name('remotes').value, null)
             );
 
         try {

@@ -1,6 +1,6 @@
 'use strict';
 import { commands, ConfigurationChangeEvent } from 'vscode';
-import { configuration, IExplorersConfig, ILineHistoryExplorerConfig } from '../configuration';
+import { configuration, ExplorersConfig, LineHistoryExplorerConfig } from '../configuration';
 import { CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { ExplorerBase, RefreshReason } from './explorer';
@@ -66,7 +66,7 @@ export class LineHistoryExplorer extends ExplorerBase<LineHistoryTrackerNode> {
         }
     }
 
-    get config(): IExplorersConfig & ILineHistoryExplorerConfig {
+    get config(): ExplorersConfig & LineHistoryExplorerConfig {
         return { ...Container.config.explorers, ...Container.config.lineHistoryExplorer };
     }
 

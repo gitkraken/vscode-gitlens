@@ -1,6 +1,6 @@
 'use strict';
 import { commands, ConfigurationChangeEvent } from 'vscode';
-import { configuration, ExplorerFilesLayout, IExplorersConfig, IResultsExplorerConfig } from '../configuration';
+import { configuration, ExplorerFilesLayout, ExplorersConfig, ResultsExplorerConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitLogCommit } from '../git/gitService';
@@ -92,7 +92,7 @@ export class ResultsExplorer extends ExplorerBase<ResultsNode> {
         }
     }
 
-    get config(): IExplorersConfig & IResultsExplorerConfig {
+    get config(): ExplorersConfig & ResultsExplorerConfig {
         return { ...Container.config.explorers, ...Container.config.resultsExplorer };
     }
 

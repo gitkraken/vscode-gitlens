@@ -20,8 +20,7 @@
                     </div>
                 </a>
                 <p class="header__blurb">
-                    GitLens
-                    <b>supercharges</b> the Git capabilities built into Visual Studio Code. It helps you to
+                    GitLens <b>supercharges</b> the Git capabilities built into Visual Studio Code. It helps you to
                     <b>visualize code authorship</b> at a glance via Git blame annotations and code lens,
                     <b>seamlessly navigate and explore</b> Git repositories,
                     <b>gain valuable insights</b> via powerful comparison commands, and so much more.
@@ -50,10 +49,13 @@
                     </div>
                 </div>
                 <p class="page-header__subtitle">For advanced customizations refer to the
-                    <a title="See the GitLens settings docs" href="https://github.com/eamodio/vscode-gitlens/#gitlens-settings">GitLens
-                        settings docs</a> and edit your
-                    <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User
-                        Settings</a>
+                    <a title="See the GitLens settings docs" href="https://github.com/eamodio/vscode-gitlens/#gitlens-settings">
+                        GitLens settings docs
+                    </a>
+                    and edit your
+                    <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">
+                        User Settings
+                    </a>
                 </p>
             </div>
 
@@ -113,17 +115,18 @@
                                 </span>
                                 <span class="label__hint hidden" data-visibility="keymap =none">
                                     GitLens won't bind any keyboard shortcuts. Configure your own via the
-                                    <a class="command" title="Open Keyboard Shortcuts" href="command:workbench.action.openGlobalKeybindings">Keyboard
-                                        Shortcuts</a> editor
+                                    <a class="command" title="Open Keyboard Shortcuts" href="command:workbench.action.openGlobalKeybindings">
+                                        Keyboard Shortcuts
+                                    </a>
+                                    editor
                                 </span>
                                 <p class="settings-group__hint">
                                     <i class="icon icon--lg icon__info"></i>
-                                    Search for
-                                    <b>
-                                        <i>gitlens</i>
-                                    </b> in the
-                                    <a class="command" title="Open Keyboard Shortcuts" href="command:workbench.action.openGlobalKeybindings">Keyboard
-                                        Shortcuts</a> editor to see the shortcuts and to customize them further
+                                    Search for <b><i>gitlens</i></b> in the
+                                    <a class="command" title="Open Keyboard Shortcuts" href="command:workbench.action.openGlobalKeybindings">
+                                        Keyboard Shortcuts
+                                    </a>
+                                    editor to see the shortcuts and to customize them further
                                 </p>
                             </div>
 
@@ -280,35 +283,36 @@
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
                                 For more advanced customizations open
-                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User
-                                    Settings</a> and search for
-                                <b>
-                                    <i>gitlens</i>
-                                </b>
+                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">
+                                    User Settings
+                                </a>
+                                and search for <b><i>gitlens</i></b>
                             </p>
                         </div>
                     </section>
 
-                    <section id="gitlens-explorer">
+                    <section id="repositories-explorer">
                         <div class="section__header">
-                            <h2 class="section__title">GitLens Explorer
-                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#gitlens-explorer">
+                            <h2 class="section__title">Repositories Explorer
+                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#repositories-explorer">
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
-                            <p class="section__title-hint">Adds a GitLens explorer to navigate and explore repositories
-                                or file histories</p>
+                            <p class="section__title-hint">
+                                Adds a Repositories explorer to visualize, navigate, and explore Git repositories
+                            </p>
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
-                                    <input class="setting" id="gitExplorer.enabled" name="gitExplorer.enabled" type="checkbox" />
-                                    <label for="gitExplorer.enabled">Show the GitLens explorer</label>
+                                    <input class="setting" id="repositoriesExplorer.enabled" name="repositoriesExplorer.enabled"
+                                        type="checkbox" />
+                                    <label for="repositoriesExplorer.enabled">Show the Repositories explorer</label>
                                 </div>
 
-                                <div class="settings-group__setting ml-2" data-enablement="gitExplorer.enabled">
-                                    <label for="gitExplorer.location">Show in the</label>
-                                    <select class="setting" id="gitExplorer.location" name="gitExplorer.location"
+                                <div class="settings-group__setting ml-2" data-enablement="repositoriesExplorer.enabled">
+                                    <label for="repositoriesExplorer.location">Show in the</label>
+                                    <select class="setting" id="repositoriesExplorer.location" name="repositoriesExplorer.location"
                                         disabled>
                                         <option value="gitlens">GitLens view</option>
                                         <option value="explorer">Explorer view</option>
@@ -316,94 +320,95 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting ml-2 hidden" data-enablement="gitExplorer.enabled"
+                                <div class="settings-group__setting ml-2 hidden" data-enablement="repositoriesExplorer.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <label for="gitExplorer.branches.layout">Layout branches</label>
-                                    <select class="setting" id="gitExplorer.branches.layout" name="gitExplorer.branches.layout"
+                                    <label for="repositoriesExplorer.branches.layout">Layout branches</label>
+                                    <select class="setting" id="repositoriesExplorer.branches.layout" name="repositoriesExplorer.branches.layout"
                                         disabled>
                                         <option value="list">as a list</option>
                                         <option value="tree">as a tree</option>
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting ml-2 hidden" data-enablement="gitExplorer.enabled"
+                                <div class="settings-group__setting ml-2 hidden" data-enablement="repositoriesExplorer.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <label for="gitExplorer.files.layout">Layout files</label>
-                                    <select class="setting" id="gitExplorer.files.layout" name="gitExplorer.files.layout"
+                                    <label for="repositoriesExplorer.files.layout">Layout files</label>
+                                    <select class="setting" id="repositoriesExplorer.files.layout" name="repositoriesExplorer.files.layout"
                                         disabled>
                                         <option value="auto">automatically</option>
                                         <option value="list">as a list</option>
                                         <option value="tree">as a tree</option>
                                     </select>
                                 </div>
-                                <p class="setting__hint ml-3 hidden" data-visibility="gitExplorer.files.layout =auto &amp; settings.mode =advanced">Chooses
-                                    the best layout based on the number of files at each nesting level</p>
+                                <p class="setting__hint ml-3 hidden" data-visibility="repositoriesExplorer.files.layout =auto &amp; settings.mode =advanced">
+                                    Chooses the best layout based on the number of files at each nesting level
+                                </p>
 
-                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="gitExplorer.enabled"
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="repositoriesExplorer.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="gitExplorer.files.compact" name="gitExplorer.files.compact"
+                                    <input class="setting" id="repositoriesExplorer.files.compact" name="repositoriesExplorer.files.compact"
                                         type="checkbox" disabled />
-                                    <label for="gitExplorer.files.compact">Use compact layout</label>
+                                    <label for="repositoriesExplorer.files.compact">Use compact layout</label>
                                 </div>
-                                <p class="setting__hint ml-3 hidden" data-visibility="settings.mode =advanced">Compacts
-                                    (flattens) unnecessary nesting when using a tree layouts</p>
+                                <p class="setting__hint ml-3 hidden" data-visibility="settings.mode =advanced">
+                                    Compacts (flattens) unnecessary nesting when using a tree layouts
+                                </p>
 
-                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="gitExplorer.enabled"
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="repositoriesExplorer.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="gitExplorer.avatars" name="explorers.avatars" type="checkbox"
-                                        disabled />
-                                    <label for="gitExplorer.avatars">Use author avatars icons</label>
-                                </div>
-
-                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="gitExplorer.enabled"
-                                    data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="gitExplorer.autoRefresh" name="gitExplorer.autoRefresh"
+                                    <input class="setting" id="repositoriesExplorer.avatars" name="explorers.avatars"
                                         type="checkbox" disabled />
-                                    <label for="gitExplorer.autoRefresh">Automatically refreshes when the file system
-                                        or any repository changes</label>
+                                    <label for="repositoriesExplorer.avatars">Use author avatars icons</label>
+                                </div>
+
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="repositoriesExplorer.enabled"
+                                    data-visibility="settings.mode =advanced">
+                                    <input class="setting" id="repositoriesExplorer.autoRefresh" name="repositoriesExplorer.autoRefresh"
+                                        type="checkbox" disabled />
+                                    <label for="repositoriesExplorer.autoRefresh">
+                                        Automatically refreshes when the file system or any repository changes
+                                    </label>
                                 </div>
                             </div>
                             <div class="section__preview">
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer.png"
-                                    data-visibility="gitExplorer.enabled &amp; gitExplorer.files.layout !tree" />
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-tree-compact.png"
-                                    data-visibility="gitExplorer.enabled &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact" />
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-explorer-tree.png"
-                                    data-visibility="gitExplorer.enabled &amp; gitExplorer.files.layout =tree &amp; gitExplorer.files.compact =false" />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-explorer-avatars.png"
-                                    data-visibility="gitExplorer.enabled &amp; explorers.avatars" />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/repositories-explorer.png"
+                                    data-visibility="repositoriesExplorer.enabled &amp; repositoriesExplorer.files.layout !tree" />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/repositories-explorer-tree-compact.png"
+                                    data-visibility="repositoriesExplorer.enabled &amp; repositoriesExplorer.files.layout =tree &amp; repositoriesExplorer.files.compact" />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/repositories-explorer-tree.png"
+                                    data-visibility="repositoriesExplorer.enabled &amp; repositoriesExplorer.files.layout =tree &amp; repositoriesExplorer.files.compact =false" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/repositories-explorer-avatars.png"
+                                    data-visibility="repositoriesExplorer.enabled &amp; explorers.avatars" />
                             </div>
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
                                 For more advanced customizations open
-                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User
-                                    Settings</a> and search for
-                                <b>
-                                    <i>gitlens.gitExplorer</i>
-                                </b> or
-                                <b>
-                                    <i>gitlens.explorers</i>
-                                </b>
+                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">
+                                    User Settings
+                                </a>
+                                and search for <b><i>gitlens.repositoriesExplorer</i></b> or <b><i>gitlens.explorers</i></b>
                             </p>
                         </div>
                     </section>
 
-                    <section id="gitlens-file-history-explorer">
+                    <section id="file-history-explorer">
                         <div class="section__header">
-                            <h2 class="section__title">GitLens File History Explorer
-                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#gitlens-file-history-explorer">
+                            <h2 class="section__title">File History Explorer
+                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#file-history-explorer">
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
-                            <p class="section__title-hint">Adds a GitLens File History explorer to visualize the
-                                revision history of the current file</p>
+                            <p class="section__title-hint">
+                                Adds a File History explorer to visualize, navigate, and explore the revision history
+                                of the current file
+                            </p>
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
                                     <input class="setting" id="fileHistoryExplorer.enabled" name="fileHistoryExplorer.enabled"
                                         type="checkbox" />
-                                    <label for="fileHistoryExplorer.enabled">Show the GitLens File History explorer</label>
+                                    <label for="fileHistoryExplorer.enabled">Show the File History explorer</label>
                                 </div>
 
                                 <div class="settings-group__setting ml-2" data-enablement="fileHistoryExplorer.enabled">
@@ -424,30 +429,32 @@
                                 </div>
                             </div>
                             <div class="section__preview">
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-file-history-explorer.png"
+                                <img class="image__preview hidden" src="{{root}}/images/settings/file-history-explorer.png"
                                     data-visibility="fileHistoryExplorer.enabled" />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-file-history-explorer-avatars.png"
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/file-history-explorer-avatars.png"
                                     data-visibility="fileHistoryExplorer.enabled &amp; fileHistoryExplorer.avatars" />
                             </div>
                         </div>
                     </section>
 
-                    <section id="gitlens-line-history-explorer">
+                    <section id="line-history-explorer">
                         <div class="section__header">
-                            <h2 class="section__title">GitLens Line History Explorer
-                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#gitlens-line-history-explorer">
+                            <h2 class="section__title">Line History Explorer
+                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#line-history-explorer">
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
-                            <p class="section__title-hint">Adds a GitLens Line History explorer to visualize the
-                                revision history of the selected lines of current file</p>
+                            <p class="section__title-hint">
+                                Adds a Line History explorer to visualize, navigate, and explore the revision history
+                                of the selected lines of current file
+                            </p>
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
                                     <input class="setting" id="lineHistoryExplorer.enabled" name="lineHistoryExplorer.enabled"
                                         type="checkbox" />
-                                    <label for="lineHistoryExplorer.enabled">Show the GitLens Line History explorer</label>
+                                    <label for="lineHistoryExplorer.enabled">Show the Line History explorer</label>
                                 </div>
 
                                 <div class="settings-group__setting ml-2" data-enablement="lineHistoryExplorer.enabled">
@@ -468,24 +475,25 @@
                                 </div>
                             </div>
                             <div class="section__preview">
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-line-history-explorer.png"
+                                <img class="image__preview hidden" src="{{root}}/images/settings/line-history-explorer.png"
                                     data-visibility="lineHistoryExplorer.enabled" />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-line-history-explorer-avatars.png"
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/line-history-explorer-avatars.png"
                                     data-visibility="lineHistoryExplorer.enabled &amp; lineHistoryExplorer.avatars" />
                             </div>
                         </div>
                     </section>
 
-                    <section id="gitlens-results-explorer">
+                    <section id="results-explorer">
                         <div class="section__header">
-                            <h2 class="section__title">GitLens Results Explorer
-                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#gitlens-results-explorer">
+                            <h2 class="section__title">Results Explorer
+                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#results-explorer">
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
-                            <p class="section__title-hint">Adds an on-demand GitLens Results explorer to navigate and
-                                explore commits, histories, and searches,
-                                or visualize comparisons between branches, tags, commits, and more</p>
+                            <p class="section__title-hint">
+                                Adds an on-demand Results explorer to navigate and explore commits, histories, and
+                                searches, or visualize comparisons between branches, tags, commits, and more
+                            </p>
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
@@ -512,8 +520,9 @@
                                         type="checkbox" />
                                     <label for="resultsExplorer.files.compact">Use compact layout</label>
                                 </div>
-                                <p class="setting__hint hidden" data-visibility="settings.mode =advanced">Compacts
-                                    (flattens) unnecessary nesting when using a tree layouts</p>
+                                <p class="setting__hint hidden" data-visibility="settings.mode =advanced">
+                                    Compacts (flattens) unnecessary nesting when using a tree layouts
+                                </p>
 
                                 <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
                                     <input class="setting" id="resultsExplorer.avatars" name="explorers.avatars" type="checkbox" />
@@ -522,26 +531,22 @@
                             </div>
 
                             <div class="section__preview">
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-results.png"
+                                <img class="image__preview hidden" src="{{root}}/images/settings/results-explorer.png"
                                     data-visibility="resultsExplorer.files.layout !tree" />
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-results-tree-compact.png"
+                                <img class="image__preview hidden" src="{{root}}/images/settings/results-explorer-tree-compact.png"
                                     data-visibility="resultsExplorer.files.layout =tree &amp; resultsExplorer.files.compact" />
-                                <img class="image__preview hidden" src="{{root}}/images/settings/gitlens-results-tree.png"
+                                <img class="image__preview hidden" src="{{root}}/images/settings/results-explorer-tree.png"
                                     data-visibility="resultsExplorer.files.layout =tree &amp; resultsExplorer.files.compact =false" />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/gitlens-results-avatars.png"
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/results-explorer-avatars.png"
                                     data-visibility="explorers.avatars" />
                             </div>
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
                                 For more advanced customizations open
-                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User
-                                    Settings</a> and search for
-                                <b>
-                                    <i>gitlens.resultsExplorer</i>
-                                </b> or
-                                <b>
-                                    <i>gitlens.explorers</i>
-                                </b>
+                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">
+                                    User Settings
+                                </a>
+                                and search for <b><i>gitlens.resultsExplorer</i></b> or <b><i>gitlens.explorers</i></b>
                             </p>
                         </div>
                     </section>
@@ -553,8 +558,9 @@
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
-                            <p class="section__title-hint">Adds authorship code lens to the top of files and on code
-                                blocks</p>
+                            <p class="section__title-hint">
+                                Adds authorship code lens to the top of files and on code blocks
+                            </p>
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
@@ -566,8 +572,9 @@
                                 <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled">
                                     <input class="setting" id="codeLens.recentChange.enabled" name="codeLens.recentChange.enabled"
                                         type="checkbox" disabled />
-                                    <label for="codeLens.recentChange.enabled">Add the author and date of the most
-                                        recent change for the file or code block</label>
+                                    <label for="codeLens.recentChange.enabled">
+                                        Add the author and date of the most recent change for the file or code block
+                                    </label>
                                 </div>
                                 <div class="settings-group__setting ml-4 hidden" data-enablement="codeLens.enabled &amp; codeLens.recentChange.enabled"
                                     data-visibility="settings.mode =advanced">
@@ -577,8 +584,9 @@
                                         <option value="gitlens.toggleFileBlame">toggles the file blame annotations</option>
                                         <option value="gitlens.diffWithPrevious">compares the commit with the previous</option>
                                         <option value="gitlens.showQuickCommitDetails">shows details of the commit</option>
-                                        <option value="gitlens.showQuickCommitFileDetails">shows file details of the
-                                            commit</option>
+                                        <option value="gitlens.showQuickCommitFileDetails">
+                                            shows file details of the commit
+                                        </option>
                                         <option value="gitlens.showQuickFileHistory">shows the current file history</option>
                                         <option value="gitlens.showQuickRepoHistory">shows the current branch history</option>
                                     </select>
@@ -587,8 +595,10 @@
                                 <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled">
                                     <input class="setting" id="codeLens.authors.enabled" name="codeLens.authors.enabled"
                                         type="checkbox" disabled />
-                                    <label for="codeLens.authors.enabled">Add the number of authors and the most
-                                        prominent author of the file or code block</label>
+                                    <label for="codeLens.authors.enabled">
+                                        Add the number of authors and the most prominent author of the file or code
+                                        block
+                                    </label>
                                 </div>
                                 <div class="settings-group__setting ml-4 hidden" data-enablement="codeLens.enabled &amp; codeLens.authors.enabled"
                                     data-visibility="settings.mode =advanced">
@@ -598,8 +608,9 @@
                                         <option value="gitlens.toggleFileBlame">toggles the file blame annotations</option>
                                         <option value="gitlens.diffWithPrevious">compares the commit with the previous</option>
                                         <option value="gitlens.showQuickCommitDetails">shows details of the commit</option>
-                                        <option value="gitlens.showQuickCommitFileDetails">show file details of the
-                                            commit</option>
+                                        <option value="gitlens.showQuickCommitFileDetails">
+                                            show file details of the commit
+                                        </option>
                                         <option value="gitlens.showQuickFileHistory">shows the current file history</option>
                                         <option value="gitlens.showQuickRepoHistory">shows the current branch history</option>
                                     </select>
@@ -619,15 +630,18 @@
                                     data-visibility="settings.mode =advanced">
                                     <input class="setting" id="codeLens.scopes-1" name="codeLens.scopes" type="checkbox"
                                         value="containers" data-type="array" disabled />
-                                    <label for="codeLens.scopes-1">Containers scope &mdash; added at the start of
-                                        modules, classes, interfaces, etc</label>
+                                    <label for="codeLens.scopes-1">
+                                        Containers scope &mdash; added at the start of modules, classes, interfaces,
+                                        etc
+                                    </label>
                                 </div>
                                 <div class="settings-group__setting nowrap ml-4 hidden" data-enablement="codeLens.enabled"
                                     data-visibility="settings.mode =advanced">
                                     <input class="setting" id="codeLens.scopes-2" name="codeLens.scopes" type="checkbox"
                                         value="blocks" data-type="array" disabled />
-                                    <label for="codeLens.scopes-2">Block scope &mdash; added at the start of functions,
-                                        methods, etc</label>
+                                    <label for="codeLens.scopes-2">
+                                        Block scope &mdash; added at the start of functions, methods, etc
+                                    </label>
                                 </div>
                             </div>
                             <div class="section__preview">
@@ -656,16 +670,16 @@
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
                                 For more advanced customizations open
-                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User
-                                    Settings</a> and search for
-                                <b>
-                                    <i>gitlens.codeLens</i>
-                                </b>
+                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">
+                                    User Settings
+                                </a>
+                                and search for <b><i>gitlens.codeLens</i></b>
                                 <span class="settings-group__hint--more">
                                     Use the
-                                    <a class="command" title="Run command" href="command:gitlens.toggleCodeLens">GitLens:
-                                        Toggle Git Code Lens</a> command to override this setting for the current
-                                    window
+                                    <a class="command" title="Run command" href="command:gitlens.toggleCodeLens">
+                                        GitLens: Toggle Git Code Lens
+                                    </a>
+                                    command to override this setting for the current window
                                 </span>
                             </p>
                         </div>
@@ -678,16 +692,18 @@
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
-                            <p class="section__title-hint">Adds an unobtrusive blame annotation at the end of the
-                                current line</p>
+                            <p class="section__title-hint">
+                                Adds an unobtrusive blame annotation at the end of the current line
+                            </p>
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
                                     <input class="setting" id="currentLine.enabled" name="currentLine.enabled" type="checkbox"
                                         data-add-settings-off="hovers.currentLine.over=line" />
-                                    <label for="currentLine.enabled">Show a blame annotation at the end of the current
-                                        line</label>
+                                    <label for="currentLine.enabled">
+                                        Show a blame annotation at the end of the current line
+                                    </label>
                                 </div>
 
                                 <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="currentLine.enabled"
@@ -772,8 +788,9 @@
                                         <span class="token-popup__hint">
                                             <i class="icon icon__info"></i>
                                             <a href="https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting"
-                                                title="Open advanced formatting docs">Learn more</a> about advanced
-                                            formatting options</span>
+                                                title="Open advanced formatting docs">Learn more</a>
+                                            about advanced formatting options
+                                        </span>
                                     </div>
                                 </div>
 
@@ -781,11 +798,14 @@
                                     data-visibility="settings.mode =advanced">
                                     <input class="setting" id="currentLine.scrollable" name="currentLine.scrollable"
                                         type="checkbox" disabled />
-                                    <label for="currentLine.scrollable">Include the annotation when scrolling the
-                                        editor horizontally</label>
+                                    <label for="currentLine.scrollable">
+                                        Include the annotation when scrolling the editor horizontally
+                                    </label>
                                 </div>
-                                <p class="setting__hint ml-3 hidden" data-visibility="settings.mode =advanced">When
-                                    enabled the annotation can be scrolled into view when it is outside the viewport</p>
+                                <p class="setting__hint ml-3 hidden" data-visibility="settings.mode =advanced">
+                                    When enabled the annotation can be scrolled into view when it is outside the
+                                    viewport
+                                </p>
                             </div>
 
                             <div class="section__preview">
@@ -799,17 +819,16 @@
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
                                 For more advanced customizations open
-                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User
-                                    Settings</a> and search for
-                                <b>
-                                    <i>gitlens.currentLine</i>
-                                </b>
+                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">
+                                    User Settings
+                                </a>
+                                and search for <b><i>gitlens.currentLine</i></b>
                                 <span class="settings-group__hint--more">
                                     Use the
-                                    <a class="command" title="Run command" href="command:gitlens.toggleLineBlame">GitLens:
-                                        Toggle Line Blame Annotations</a> command to override this setting for the
-                                    current
-                                    window
+                                    <a class="command" title="Run command" href="command:gitlens.toggleLineBlame">
+                                        GitLens: Toggle Line Blame Annotations
+                                    </a>
+                                    command to override this setting for the current window
                                 </span>
                             </p>
                         </div>
@@ -915,19 +934,23 @@
                                         <span class="token-popup__hint">
                                             <i class="icon icon__info"></i>
                                             <a href="https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting"
-                                                title="Open advanced formatting docs">Learn more</a> about advanced
-                                            formatting options</span>
+                                                title="Open advanced formatting docs">Learn more</a>
+                                            about advanced formatting options
+                                        </span>
                                     </div>
                                 </div>
 
                                 <div class="settings-group__setting nowrap">
                                     <input class="setting" id="blame.heatmap.enabled" name="blame.heatmap.enabled" type="checkbox" />
-                                    <label for="blame.heatmap.enabled">Add a heatmap (age) indicator to show how
-                                        recently lines were changed</label>
+                                    <label for="blame.heatmap.enabled">
+                                        Add a heatmap (age) indicator to show how recently lines were changed
+                                    </label>
                                 </div>
-                                <p class="setting__hint">Indicator color reflects the age of the most recent change
-                                    (hot or cold), while indicator
-                                    brightness ranges from bright (newer) to dim (older) based on the relative age</p>
+                                <p class="setting__hint">
+                                    Indicator color reflects the age of the most recent change (hot or cold), while
+                                    indicator brightness ranges from bright (newer) to dim (older) based on the
+                                    relative age
+                                </p>
 
                                 <div class="settings-group__setting ml-2 hidden" data-enablement="blame.heatmap.enabled"
                                     data-visibility="settings.mode =advanced" disabled>
@@ -948,14 +971,16 @@
                                     <input class="setting" id="blame.compact" name="blame.compact" type="checkbox" />
                                     <label for="blame.compact">Use compact view</label>
                                 </div>
-                                <p class="setting__hint hidden" data-visibility="settings.mode =advanced">Compacts
-                                    (deduplicates) matching adjacent blame annotations</p>
+                                <p class="setting__hint hidden" data-visibility="settings.mode =advanced">
+                                    Compacts (deduplicates) matching adjacent blame annotations
+                                </p>
 
                                 <div class="settings-group__setting nowrap">
                                     <input class="setting" id="blame.highlight.enabled" name="blame.highlight.enabled"
                                         type="checkbox" />
-                                    <label for="blame.highlight.enabled">Highlight other lines changed by the current
-                                        line's commit</label>
+                                    <label for="blame.highlight.enabled">
+                                        Highlight other lines changed by the current line's commit
+                                    </label>
                                 </div>
 
                                 <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="blame.highlight.enabled"
@@ -1002,23 +1027,23 @@
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
                                 For more advanced customizations open
-                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User
-                                    Settings</a> and search for
-                                <b>
-                                    <i>gitlens.blame</i>
-                                </b>
+                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">
+                                    User Settings
+                                </a>
+                                and search for <b><i>gitlens.blame</i></b>
                                 <span class="settings-group__hint--more">
                                     Use the
-                                    <span class="command hidden" data-visibility="blame.toggleMode =file">GitLens:
-                                        Toggle File Blame Annotations</span>
+                                    <span class="command hidden" data-visibility="blame.toggleMode =file">
+                                        GitLens: Toggle File Blame Annotations
+                                    </span>
                                     <a class="command hidden" title="Run command" href="command:gitlens.toggleFileBlame"
-                                        data-visibility="blame.toggleMode =window">GitLens: Toggle File Blame
-                                        Annotations</a>
+                                        data-visibility="blame.toggleMode =window">
+                                        GitLens: Toggle File Blame Annotations
+                                    </a>
                                     command to turn the annotations on or off
                                 </span>
                                 <span class="settings-group__hint--more">
-                                    Press
-                                    <span class="shortcut-key">Esc</span> to turn off the annotations
+                                    Press <span class="shortcut-key">Esc</span> to turn off the annotations
                                 </span>
                             </p>
                         </div>
@@ -1031,12 +1056,11 @@
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
-                            <p class="section__title-hint">Adds on-demand heatmap (age) indicator to the edge of the
-                                gutter to show how recently lines were
-                                changed
-                                <br /> Indicator color reflects the age of the most recent change (hot or cold), while
-                                indicator
-                                brightness ranges from bright (newer) to dim (older) based on the relative age
+                            <p class="section__title-hint">
+                                Adds on-demand heatmap (age) indicator to the edge of the gutter to show how recently
+                                lines were changed <br /> Indicator color reflects the age of the most recent change
+                                (hot or cold), while indicator brightness ranges from bright (newer) to dim (older)
+                                based on the relative age
                             </p>
                         </div>
 
@@ -1059,15 +1083,16 @@
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
                                 Use the
-                                <span class="command hidden" data-visibility="heatmap.toggleMode =file">GitLens: Toggle
-                                    File Heatmap Annotations</span>
+                                <span class="command hidden" data-visibility="heatmap.toggleMode =file">
+                                    GitLens: Toggle File Heatmap Annotations
+                                </span>
                                 <a class="command hidden" title="Run command" href="command:gitlens.toggleFileHeatmap"
-                                    data-visibility="heatmap.toggleMode =window">GitLens: Toggle File Heatmap
-                                    Annotations</a>
+                                    data-visibility="heatmap.toggleMode =window">
+                                    GitLens: Toggle File Heatmap Annotations
+                                </a>
                                 command to turn the annotations on or off
                                 <span class="settings-group__hint--more">
-                                    Press
-                                    <span class="shortcut-key">Esc</span> to turn off the annotations
+                                    Press <span class="shortcut-key">Esc</span> to turn off the annotations
                                 </span>
                             </p>
                         </div>
@@ -1251,8 +1276,9 @@
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
-                            <p class="section__title-hint">GitLens supports user-defined modes for quickly toggling
-                                between sets of settings</p>
+                            <p class="section__title-hint">
+                                GitLens supports user-defined modes for quickly toggling between sets of settings
+                            </p>
                         </div>
 
                         <div class="section__settings">
@@ -1284,25 +1310,30 @@
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
                                 For more advanced customizations or to add your own modes, open
-                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User
-                                    Settings</a> and search for
-                                <b>
-                                    <i>gitlens.modes</i>
-                                </b>
+                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">
+                                    User Settings
+                                </a>
+                                and search for <b><i>gitlens.modes</i></b>
                                 <span class="settings-group__hint--more">
                                     Use the
-                                    <a class="command" title="Run command" href="command:gitlens.switchMode">GitLens:
-                                        Switch Mode</a> command to quickly switch the active mode
+                                    <a class="command" title="Run command" href="command:gitlens.switchMode">
+                                        GitLens: Switch Mode
+                                    </a>
+                                    command to quickly switch the active mode
                                 </span>
                                 <span class="settings-group__hint--more">
                                     Use the
-                                    <a class="command" title="Run command" href="command:gitlens.toggleReviewMode">GitLens:
-                                        Toggle Review Mode</a> command to toggle Review mode
+                                    <a class="command" title="Run command" href="command:gitlens.toggleReviewMode">
+                                        GitLens: Toggle Review Mode
+                                    </a>
+                                    command to toggle Review mode
                                 </span>
                                 <span class="settings-group__hint--more">
                                     Use the
-                                    <a class="command" title="Run command" href="command:gitlens.toggleZenMode">GitLens:
-                                        Toggle Zen Mode</a> command to toggle Zen mode
+                                    <a class="command" title="Run command" href="command:gitlens.toggleZenMode">
+                                        GitLens: Toggle Zen Mode
+                                    </a>
+                                    command to toggle Zen mode
                                 </span>
                             </p>
                         </div>
@@ -1315,8 +1346,10 @@
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
-                            <p class="section__title-hint">Adds on-demand recent changes annotations to highlight lines
-                                changed by the most recent commit</p>
+                            <p class="section__title-hint">
+                                Adds on-demand recent changes annotations to highlight lines changed by the most recent
+                                commit
+                            </p>
                         </div>
 
                         <div class="section__settings">
@@ -1361,15 +1394,16 @@
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
                                 Use the
-                                <span class="command hidden" data-visibility="recentChanges.toggleMode =file">GitLens:
-                                    Toggle Recent File Changes Annotations</span>
+                                <span class="command hidden" data-visibility="recentChanges.toggleMode =file">
+                                    GitLens: Toggle Recent File Changes Annotations
+                                </span>
                                 <a class="command hidden" title="Run command" href="command:gitlens.toggleFileRecentChanges"
-                                    data-visibility="recentChanges.toggleMode =window">GitLens: Toggle Recent File
-                                    Changes Annotations</a>
+                                    data-visibility="recentChanges.toggleMode =window">
+                                    GitLens: Toggle Recent File Changes Annotations
+                                </a>
                                 command to turn the annotations on or off
                                 <span class="settings-group__hint--more">
-                                    Press
-                                    <span class="shortcut-key">Esc</span> to turn off the annotations
+                                    Press <span class="shortcut-key">Esc</span> to turn off the annotations
                                 </span>
                             </p>
                         </div>
@@ -1382,16 +1416,18 @@
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
-                            <p class="section__title-hint">Adds a Git blame annotation about the current line to the
-                                status bar</p>
+                            <p class="section__title-hint">
+                                Adds a Git blame annotation about the current line to the status bar
+                            </p>
                         </div>
 
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
                                     <input class="setting" id="statusBar.enabled" name="statusBar.enabled" type="checkbox" />
-                                    <label for="statusBar.enabled">Show a Git blame annotation for the current line in
-                                        the status bar</label>
+                                    <label for="statusBar.enabled">
+                                        Show a Git blame annotation for the current line in the status bar
+                                    </label>
                                 </div>
 
                                 <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="statusBar.enabled"
@@ -1475,8 +1511,9 @@
                                         <span class="token-popup__hint">
                                             <i class="icon icon__info"></i>
                                             <a href="https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting"
-                                                title="Open advanced formatting docs">Learn more</a> about advanced
-                                            formatting options</span>
+                                                title="Open advanced formatting docs">Learn more</a>
+                                            about advanced formatting options
+                                        </span>
                                     </div>
                                 </div>
 
@@ -1494,14 +1531,17 @@
                                     <label for="statusBar.command">When clicked</label>
                                     <select class="setting" id="statusBar.command" name="statusBar.command" disabled>
                                         <option value="gitlens.toggleFileBlame">toggles the file blame annotations</option>
-                                        <option value="gitlens.diffWithPrevious">compares the line revision with the
-                                            previous</option>
-                                        <option value="gitlens.diffWithWorking">compares the line revision with the
-                                            working file</option>
+                                        <option value="gitlens.diffWithPrevious">
+                                            compares the line revision with the previous
+                                        </option>
+                                        <option value="gitlens.diffWithWorking">
+                                            compares the line revision with the working file
+                                        </option>
                                         <option value="gitlens.toggleCodeLens">toggles the Git code lens</option>
                                         <option value="gitlens.showQuickCommitDetails">shows details of the commit</option>
-                                        <option value="gitlens.showQuickCommitFileDetails">shows file details of the
-                                            commit</option>
+                                        <option value="gitlens.showQuickCommitFileDetails">
+                                            shows file details of the commit
+                                        </option>
                                         <option value="gitlens.showQuickFileHistory">shows the current file history</option>
                                         <option value="gitlens.showQuickRepoHistory">shows the current branch history</option>
                                     </select>
@@ -1513,9 +1553,10 @@
                                         type="checkbox" disabled />
                                     <label for="statusBar.reduceFlicker">Reduce flashing when updating the annotation</label>
                                 </div>
-                                <p class="setting__hint ml-3 hidden" data-visibility="settings.mode =advanced">Avoids
-                                    clearing the previous blame information when changing lines to reduce status bar
-                                    "flashing"</p>
+                                <p class="setting__hint ml-3 hidden" data-visibility="settings.mode =advanced">
+                                    Avoids clearing the previous blame information when changing lines to reduce status
+                                    bar "flashing"
+                                </p>
                             </div>
 
                             <div class="section__preview">
@@ -1529,17 +1570,16 @@
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
                                 For more advanced customizations open
-                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">User
-                                    Settings</a> and search for
-                                <b>
-                                    <i>gitlens.statusBar</i>
-                                </b>
+                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">
+                                    User Settings
+                                </a>
+                                and search for <b><i>gitlens.statusBar</i></b>
                                 <span class="settings-group__hint--more">
                                     Use the
-                                    <a class="command" title="Run command" href="command:gitlens.toggleLineBlame">GitLens:
-                                        Toggle Line Blame Annotations</a> command to override this setting for the
-                                    current
-                                    window
+                                    <a class="command" title="Run command" href="command:gitlens.toggleLineBlame">
+                                        GitLens: Toggle Line Blame Annotations
+                                    </a>
+                                    command to override this setting for the current window
                                 </span>
                             </p>
                         </div>
@@ -1554,30 +1594,40 @@
                                 <a class="jump-to" href="#general" title="Jump to General settings">General</a>
                             </li>
                             <li>
-                                <a class="jump-to" href="#gitlens-explorer" title="Jump to GitLens Explorer settings">GitLens
-                                    Explorer</a>
+                                <a class="jump-to" href="#repositories-explorer" title="Jump to Repositories Explorer settings">
+                                    Repositories Explorer
+                                </a>
                             </li>
                             <li>
-                                <a class="jump-to" href="#gitlens-file-history-explorer" title="Jump to GitLens File History Explorer settings">GitLens
-                                    File History Explorer</a>
+                                <a class="jump-to" href="#file-history-explorer" title="Jump to File History Explorer settings">
+                                    File History Explorer
+                                </a>
                             </li>
                             <li>
-                                <a class="jump-to" href="#gitlens-results-explorer" title="Jump to GitLens Results Explorer settings">GitLens
-                                    Results Explorer</a>
+                                <a class="jump-to" href="#file-history-explorer" title="Jump to Line History Explorer settings">
+                                    Line History Explorer
+                                </a>
+                            </li>
+                            <li>
+                                <a class="jump-to" href="#results-explorer" title="Jump to Results Explorer settings">
+                                    Results Explorer
+                                </a>
                             </li>
                             <li>
                                 <a class="jump-to" href="#code-lens" title="Jump to Code Lens settings">Code Lens</a>
                             </li>
                             <li>
-                                <a class="jump-to" href="#current-line" title="Jump to Current Line Blame settings">Current
-                                    Line Blame</a>
+                                <a class="jump-to" href="#current-line" title="Jump to Current Line Blame settings">
+                                    Current Line Blame
+                                </a>
                             </li>
                             <li>
                                 <a class="jump-to" href="#blame" title="Jump to Gutter Blame settings">Gutter Blame</a>
                             </li>
                             <li>
-                                <a class="jump-to" href="#heatmap" title="Jump to Gutter Heatmap settings">Gutter
-                                    Heatmap</a>
+                                <a class="jump-to" href="#heatmap" title="Jump to Gutter Heatmap settings">
+                                    Gutter Heatmap
+                                </a>
                             </li>
                             <li>
                                 <a class="jump-to" href="#hovers" title="Jump to Hovers settings">Hovers</a>
@@ -1586,12 +1636,14 @@
                                 <a class="jump-to" href="#modes" title="Jump to Modes settings">Modes</a>
                             </li>
                             <li>
-                                <a class="jump-to" href="#recent-changes" title="Jump to Recent Changes settings">Recent
-                                    Changes</a>
+                                <a class="jump-to" href="#recent-changes" title="Jump to Recent Changes settings">
+                                    Recent Changes
+                                </a>
                             </li>
                             <li>
-                                <a class="jump-to" href="#status-bar" title="Jump to Status Bar Blame settings">Status
-                                    Bar Blame</a>
+                                <a class="jump-to" href="#status-bar" title="Jump to Status Bar Blame settings">
+                                    Status Bar Blame
+                                </a>
                             </li>
                         </ul>
                     </div>
@@ -1607,12 +1659,14 @@
                         </div>
                         <ul>
                             <li>
-                                <a title="Write a review" href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details">Write
-                                    a Review</a>
+                                <a title="Write a review" href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details">
+                                    Write a Review
+                                </a>
                             </li>
                             <li>
-                                <a title="Star or fork me on GitHub" href="https://github.com/eamodio/vscode-gitlens">Star
-                                    or Fork me on GitHub</a>
+                                <a title="Star or fork me on GitHub" href="https://github.com/eamodio/vscode-gitlens">
+                                    Star or Fork me on GitHub
+                                </a>
                             </li>
                             <li>
                                 <a title="Follow me on Twitter" href="https://twitter.com/eamodio">Follow me on Twitter</a>

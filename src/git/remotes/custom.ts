@@ -1,13 +1,13 @@
 'use strict';
 import { Range } from 'vscode';
-import { IRemotesUrlsConfig } from '../../configuration';
+import { RemotesUrlsConfig } from '../../configuration';
 import { Strings } from '../../system';
 import { RemoteProvider } from './provider';
 
 export class CustomService extends RemoteProvider {
-    private readonly urls: IRemotesUrlsConfig;
+    private readonly urls: RemotesUrlsConfig;
 
-    constructor(domain: string, path: string, urls: IRemotesUrlsConfig, protocol?: string, name?: string) {
+    constructor(domain: string, path: string, urls: RemotesUrlsConfig, protocol?: string, name?: string) {
         super(domain, path, protocol, name, true);
         this.urls = urls;
     }

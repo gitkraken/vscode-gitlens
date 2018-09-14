@@ -4,7 +4,7 @@ import { ExplorerBranchesLayout } from '../../configuration';
 import { Container } from '../../container';
 import { GitUri, Repository } from '../../git/gitService';
 import { Arrays } from '../../system';
-import { GitExplorer } from '../gitExplorer';
+import { RepositoriesExplorer } from '../repositoriesExplorer';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
 import { ExplorerNode, ResourceType } from './explorerNode';
@@ -15,7 +15,7 @@ export class TagsNode extends ExplorerNode {
         uri: GitUri,
         public readonly repo: Repository,
         parent: ExplorerNode,
-        public readonly explorer: GitExplorer
+        public readonly explorer: RepositoriesExplorer
     ) {
         super(uri, parent);
     }

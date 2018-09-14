@@ -440,19 +440,19 @@
                 "gitlens.explorers.avatars": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to show avatar images instead of commit (or status) icons in the `GitLens` and `GitLens Results` explorers",
+                    "description": "Specifies whether to show avatar images instead of commit (or status) icons in the `Repositories` and `Results` explorers",
                     "scope": "window"
                 },
                 "gitlens.explorers.commitFileFormat": {
                     "type": "string",
                     "default": "${filePath}",
-                    "description": "Specifies the format of a committed file in the `GitLens` and `GitLens Results` explorers\nAvailable tokens\n ${directory} - directory name\n ${file} - file name\n ${filePath} - formatted file name and path\n ${path} - full file path",
+                    "description": "Specifies the format of a committed file in the `Repositories` and `Results` explorers\nAvailable tokens\n ${directory} - directory name\n ${file} - file name\n ${filePath} - formatted file name and path\n ${path} - full file path",
                     "scope": "window"
                 },
                 "gitlens.explorers.commitFormat": {
                     "type": "string",
                     "default": "${message}  •  ${authorAgoOrDate}${   (id)}",
-                    "description": "Specifies the format of committed changes in the `GitLens` and `GitLens Results` explorers\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.defaultDateFormat`)\\n ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`\n ${authorAgo} - commit author, relative commit date\n ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting",
+                    "description": "Specifies the format of committed changes in the `Repositories` and `Results` explorers\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.defaultDateFormat`)\\n ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`\n ${authorAgo} - commit author, relative commit date\n ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting",
                     "scope": "window"
                 },
                 "gitlens.explorers.defaultItemLimit": {
@@ -464,28 +464,28 @@
                 "gitlens.explorers.stashFileFormat": {
                     "type": "string",
                     "default": "${filePath}",
-                    "description": "Specifies the format of a stashed file in the `GitLens` and `GitLens Results` explorers\nAvailable tokens\n ${directory} - directory name\n ${file} - file name\n ${filePath} - formatted file name and path\n ${path} - full file path",
+                    "description": "Specifies the format of a stashed file in the `Repositories` and `Results` explorers\nAvailable tokens\n ${directory} - directory name\n ${file} - file name\n ${filePath} - formatted file name and path\n ${path} - full file path",
                     "scope": "window"
                 },
                 "gitlens.explorers.stashFormat": {
                     "type": "string",
                     "default": "${message}",
-                    "description": "Specifies the format of stashed changes in the `GitLens` and `GitLens Results` explorers\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)\n ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`\n ${authorAgo} - commit author, relative commit date\n ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting",
+                    "description": "Specifies the format of stashed changes in the `Repositories` and `Results` explorers\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)\n ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`\n ${authorAgo} - commit author, relative commit date\n ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting",
                     "scope": "window"
                 },
                 "gitlens.explorers.statusFileFormat": {
                     "type": "string",
                     "default": "${working  }${filePath}",
-                    "description": "Specifies the format of the status of a working or committed file in the `GitLens` and `GitLens Results` explorers\nAvailable tokens\n ${directory} - directory name\n ${file} - file name\n ${filePath} - formatted file name and path\n ${path} - full file path\n ${working} - optional indicator if the file is uncommitted",
+                    "description": "Specifies the format of the status of a working or committed file in the `Repositories` and `Results` explorers\nAvailable tokens\n ${directory} - directory name\n ${file} - file name\n ${filePath} - formatted file name and path\n ${path} - full file path\n ${working} - optional indicator if the file is uncommitted",
                     "scope": "window"
                 },
-                "gitlens.gitExplorer.autoRefresh": {
+                "gitlens.repositoriesExplorer.autoRefresh": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to automatically refresh the `GitLens` explorer when the repository or the file system changes",
+                    "description": "Specifies whether to automatically refresh the `Repositories` explorer when the repository or the file system changes",
                     "scope": "window"
                 },
-                "gitlens.gitExplorer.branches.layout": {
+                "gitlens.repositoriesExplorer.branches.layout": {
                     "type": "string",
                     "default": "tree",
                     "enum": [
@@ -496,22 +496,22 @@
                         "Displays branches as a list",
                         "Displays branches as a tree when branch names contain slashes `/`"
                     ],
-                    "description": "Specifies how the `GitLens` explorer will display branches",
+                    "description": "Specifies how the `Repositories` explorer will display branches",
                     "scope": "window"
                 },
-                "gitlens.gitExplorer.enabled": {
+                "gitlens.repositoriesExplorer.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to show the `GitLens` explorer",
+                    "description": "Specifies whether to show the `Repositories` explorer",
                     "scope": "window"
                 },
-                "gitlens.gitExplorer.files.compact": {
+                "gitlens.repositoriesExplorer.files.compact": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to compact (flatten) unnecessary file nesting in the `GitLens` explorer\nOnly applies when `#gitlens.gitExplorer.files.layout#` is set to `tree` or `auto`",
+                    "description": "Specifies whether to compact (flatten) unnecessary file nesting in the `Repositories` explorer\nOnly applies when `#gitlens.repositoriesExplorer.files.layout#` is set to `tree` or `auto`",
                     "scope": "window"
                 },
-                "gitlens.gitExplorer.files.layout": {
+                "gitlens.repositoriesExplorer.files.layout": {
                     "type": "string",
                     "default": "auto",
                     "enum": [
@@ -520,26 +520,26 @@
                         "tree"
                     ],
                     "enumDescriptions": [
-                        "Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.gitExplorer.files.threshold#` value and the number of files at each nesting level",
+                        "Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.repositoriesExplorer.files.threshold#` value and the number of files at each nesting level",
                         "Displays files as a list",
                         "Displays files as a tree"
                     ],
-                    "description": "Specifies how the `GitLens` explorer will display files",
+                    "description": "Specifies how the `Repositories` explorer will display files",
                     "scope": "window"
                 },
-                "gitlens.gitExplorer.files.threshold": {
+                "gitlens.repositoriesExplorer.files.threshold": {
                     "type": "number",
                     "default": 5,
-                    "description": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens` explorer\nOnly applies when `#gitlens.gitExplorer.files.layout#` is set to `auto`",
+                    "description": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `Repositories` explorer\nOnly applies when `#gitlens.repositoriesExplorer.files.layout#` is set to `auto`",
                     "scope": "window"
                 },
-                "gitlens.gitExplorer.includeWorkingTree": {
+                "gitlens.repositoriesExplorer.includeWorkingTree": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to include working tree files inside the `Repository Status` node of the `GitLens` explorer",
+                    "description": "Specifies whether to include working tree files inside the `Repository Status` node of the `Repositories` explorer",
                     "scope": "window"
                 },
-                "gitlens.gitExplorer.location": {
+                "gitlens.repositoriesExplorer.location": {
                     "type": "string",
                     "default": "gitlens",
                     "enum": [
@@ -552,13 +552,13 @@
                         "Adds to the Explorer view",
                         "Adds to the Source Control view"
                     ],
-                    "description": "Specifies where to show the `GitLens` explorer",
+                    "description": "Specifies where to show the `Repositories` explorer",
                     "scope": "window"
                 },
-                "gitlens.gitExplorer.showTrackingBranch": {
+                "gitlens.repositoriesExplorer.showTrackingBranch": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to show the tracking branch when displaying local branches in the `GitLens` explorer",
+                    "description": "Specifies whether to show the tracking branch when displaying local branches in the `Repositories` explorer",
                     "scope": "window"
                 },
                 "gitlens.heatmap.ageThreshold": {
@@ -596,13 +596,13 @@
                 "gitlens.fileHistoryExplorer.avatars": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to show avatar images instead of status icons in the `GitLens File History` explorer",
+                    "description": "Specifies whether to show avatar images instead of status icons in the `File History` explorer",
                     "scope": "window"
                 },
                 "gitlens.fileHistoryExplorer.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to show the `GitLens File History` explorer",
+                    "description": "Specifies whether to show the `File History` explorer",
                     "scope": "window"
                 },
                 "gitlens.fileHistoryExplorer.location": {
@@ -618,7 +618,7 @@
                         "Adds to the Explorer view",
                         "Adds to the Source Control view"
                     ],
-                    "description": "Specifies where to show the `GitLens File History` explorer",
+                    "description": "Specifies where to show the `File History` explorer",
                     "scope": "window"
                 },
                 "gitlens.hovers.annotations.changes": {
@@ -722,13 +722,13 @@
                 "gitlens.lineHistoryExplorer.avatars": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to show avatar images instead of status icons in the `GitLens Line History` explorer",
+                    "description": "Specifies whether to show avatar images instead of status icons in the `Line History` explorer",
                     "scope": "window"
                 },
                 "gitlens.lineHistoryExplorer.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to show the `GitLens Line History` explorer",
+                    "description": "Specifies whether to show the `Line History` explorer",
                     "scope": "window"
                 },
                 "gitlens.lineHistoryExplorer.location": {
@@ -744,7 +744,7 @@
                         "Adds to the Explorer view",
                         "Adds to the Source Control view"
                     ],
-                    "description": "Specifies where to show the `GitLens Line History` explorer",
+                    "description": "Specifies where to show the `Line History` explorer",
                     "scope": "window"
                 },
                 "gitlens.menus": {
@@ -1188,7 +1188,7 @@
                 "gitlens.resultsExplorer.files.compact": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to compact (flatten) unnecessary file nesting in the `GitLens Results` explorer\nOnly applies when `#gitlens.resultsExplorer.files.layout#` is set to `tree` or `auto`",
+                    "description": "Specifies whether to compact (flatten) unnecessary file nesting in the `Results` explorer\nOnly applies when `#gitlens.resultsExplorer.files.layout#` is set to `tree` or `auto`",
                     "scope": "window"
                 },
                 "gitlens.resultsExplorer.files.layout": {
@@ -1200,17 +1200,17 @@
                         "tree"
                     ],
                     "enumDescriptions": [
-                        "Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.gitExplorer.files.threshold#` value and the number of files at each nesting level",
+                        "Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.repositoriesExplorer.files.threshold#` value and the number of files at each nesting level",
                         "Displays files as a list",
                         "Displays files as a tree"
                     ],
-                    "description": "Specifies how the `GitLens Results` explorer will display files",
+                    "description": "Specifies how the `Results` explorer will display files",
                     "scope": "window"
                 },
                 "gitlens.resultsExplorer.files.threshold": {
                     "type": "number",
                     "default": 5,
-                    "description": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `GitLens Results` explorer\nOnly applies when `#gitlens.resultsExplorer.files.layout#` is set to `auto`",
+                    "description": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `Results` explorer\nOnly applies when `#gitlens.resultsExplorer.files.layout#` is set to `auto`",
                     "scope": "window"
                 },
                 "gitlens.resultsExplorer.location": {
@@ -1226,7 +1226,7 @@
                         "Adds to the Explorer view",
                         "Adds to the Source Control view"
                     ],
-                    "description": "Specifies where to show the `GitLens Results` explorer",
+                    "description": "Specifies where to show the `Results` explorer",
                     "scope": "window"
                 },
                 "gitlens.settings.mode": {
@@ -1516,11 +1516,6 @@
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.showGitExplorer",
-                "title": "Show GitLens Explorer",
-                "category": "GitLens"
-            },
-            {
                 "command": "gitlens.showFileHistoryExplorer",
                 "title": "Show File History Explorer",
                 "category": "GitLens"
@@ -1528,6 +1523,11 @@
             {
                 "command": "gitlens.showLineHistoryExplorer",
                 "title": "Show Line History Explorer",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.showRepositoriesExplorer",
+                "title": "Show Repositories Explorer",
                 "category": "GitLens"
             },
             {
@@ -1829,7 +1829,7 @@
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.gitExplorer.fetchAll",
+                "command": "gitlens.repositoriesExplorer.fetchAll",
                 "title": "Fetch Repositories",
                 "category": "GitLens",
                 "icon": {
@@ -2044,7 +2044,7 @@
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.gitExplorer.refresh",
+                "command": "gitlens.repositoriesExplorer.refresh",
                 "title": "Refresh",
                 "category": "GitLens",
                 "icon": {
@@ -2053,32 +2053,32 @@
                 }
             },
             {
-                "command": "gitlens.gitExplorer.refreshNode",
+                "command": "gitlens.repositoriesExplorer.refreshNode",
                 "title": "Refresh",
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.gitExplorer.setFilesLayoutToAuto",
+                "command": "gitlens.repositoriesExplorer.setFilesLayoutToAuto",
                 "title": "Automatic Layout",
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.gitExplorer.setFilesLayoutToList",
+                "command": "gitlens.repositoriesExplorer.setFilesLayoutToList",
                 "title": "List Layout",
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.gitExplorer.setFilesLayoutToTree",
+                "command": "gitlens.repositoriesExplorer.setFilesLayoutToTree",
                 "title": "Tree Layout",
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.gitExplorer.setAutoRefreshToOn",
+                "command": "gitlens.repositoriesExplorer.setAutoRefreshToOn",
                 "title": "Enable Automatic Refresh",
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.gitExplorer.setAutoRefreshToOff",
+                "command": "gitlens.repositoriesExplorer.setAutoRefreshToOff",
                 "title": "Disable Automatic Refresh",
                 "category": "GitLens"
             },
@@ -2208,8 +2208,8 @@
         "menus": {
             "commandPalette": [
                 {
-                    "command": "gitlens.showGitExplorer",
-                    "when": "gitlens:enabled && gitlens:gitExplorer"
+                    "command": "gitlens.showRepositoriesExplorer",
+                    "when": "gitlens:enabled && gitlens:repositoriesExplorer"
                 },
                 {
                     "command": "gitlens.showFileHistoryExplorer",
@@ -2421,7 +2421,7 @@
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.gitExplorer.fetchAll",
+                    "command": "gitlens.repositoriesExplorer.fetchAll",
                     "when": "false"
                 },
                 {
@@ -2577,31 +2577,31 @@
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.gitExplorer.refresh",
+                    "command": "gitlens.repositoriesExplorer.refresh",
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.gitExplorer.refreshNode",
+                    "command": "gitlens.repositoriesExplorer.refreshNode",
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.gitExplorer.setFilesLayoutToAuto",
+                    "command": "gitlens.repositoriesExplorer.setFilesLayoutToAuto",
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.gitExplorer.setFilesLayoutToList",
+                    "command": "gitlens.repositoriesExplorer.setFilesLayoutToList",
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.gitExplorer.setFilesLayoutToTree",
+                    "command": "gitlens.repositoriesExplorer.setFilesLayoutToTree",
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.gitExplorer.setAutoRefreshToOn",
+                    "command": "gitlens.repositoriesExplorer.setAutoRefreshToOn",
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.gitExplorer.setAutoRefreshToOff",
+                    "command": "gitlens.repositoriesExplorer.setAutoRefreshToOff",
                     "when": "false"
                 },
                 {
@@ -2910,42 +2910,42 @@
             "view/title": [
                 {
                     "command": "gitlens.showCommitSearch",
-                    "when": "view =~ /^gitlens.gitExplorer:/",
+                    "when": "view =~ /^gitlens.repositoriesExplorer:/",
                     "group": "navigation@1"
                 },
                 {
-                    "command": "gitlens.gitExplorer.fetchAll",
-                    "when": "view =~ /^gitlens.gitExplorer:/",
+                    "command": "gitlens.repositoriesExplorer.fetchAll",
+                    "when": "view =~ /^gitlens.repositoriesExplorer:/",
                     "group": "navigation@7"
                 },
                 {
-                    "command": "gitlens.gitExplorer.refresh",
-                    "when": "view =~ /^gitlens.gitExplorer:/",
+                    "command": "gitlens.repositoriesExplorer.refresh",
+                    "when": "view =~ /^gitlens.repositoriesExplorer:/",
                     "group": "navigation@8"
                 },
                 {
-                    "command": "gitlens.gitExplorer.setFilesLayoutToAuto",
-                    "when": "view =~ /^gitlens.gitExplorer:/",
+                    "command": "gitlens.repositoriesExplorer.setFilesLayoutToAuto",
+                    "when": "view =~ /^gitlens.repositoriesExplorer:/",
                     "group": "1_gitlens"
                 },
                 {
-                    "command": "gitlens.gitExplorer.setFilesLayoutToList",
-                    "when": "view =~ /^gitlens.gitExplorer:/",
+                    "command": "gitlens.repositoriesExplorer.setFilesLayoutToList",
+                    "when": "view =~ /^gitlens.repositoriesExplorer:/",
                     "group": "1_gitlens"
                 },
                 {
-                    "command": "gitlens.gitExplorer.setFilesLayoutToTree",
-                    "when": "view =~ /^gitlens.gitExplorer:/",
+                    "command": "gitlens.repositoriesExplorer.setFilesLayoutToTree",
+                    "when": "view =~ /^gitlens.repositoriesExplorer:/",
                     "group": "1_gitlens"
                 },
                 {
-                    "command": "gitlens.gitExplorer.setAutoRefreshToOn",
-                    "when": "view =~ /^gitlens.gitExplorer:/ && config.gitlens.gitExplorer.autoRefresh && !gitlens:gitExplorer:autoRefresh",
+                    "command": "gitlens.repositoriesExplorer.setAutoRefreshToOn",
+                    "when": "view =~ /^gitlens.repositoriesExplorer:/ && config.gitlens.repositoriesExplorer.autoRefresh && !gitlens:repositoriesExplorer:autoRefresh",
                     "group": "2_gitlens"
                 },
                 {
-                    "command": "gitlens.gitExplorer.setAutoRefreshToOff",
-                    "when": "view =~ /^gitlens.gitExplorer:/ && config.gitlens.gitExplorer.autoRefresh && gitlens:gitExplorer:autoRefresh",
+                    "command": "gitlens.repositoriesExplorer.setAutoRefreshToOff",
+                    "when": "view =~ /^gitlens.repositoriesExplorer:/ && config.gitlens.repositoriesExplorer.autoRefresh && gitlens:repositoriesExplorer:autoRefresh",
                     "group": "2_gitlens"
                 },
                 {
@@ -3336,8 +3336,8 @@
                     "group": "8_gitlens"
                 },
                 {
-                    "command": "gitlens.gitExplorer.refreshNode",
-                    "when": "view =~ /^gitlens.gitExplorer:/ && viewItem =~ /gitlens:(?!file\\b)/",
+                    "command": "gitlens.repositoriesExplorer.refreshNode",
+                    "when": "view =~ /^gitlens.repositoriesExplorer:/ && viewItem =~ /gitlens:(?!file\\b)/",
                     "group": "9_gitlens@1"
                 },
                 {
@@ -3556,9 +3556,9 @@
         "views": {
             "gitlens": [
                 {
-                    "id": "gitlens.gitExplorer:gitlens",
+                    "id": "gitlens.repositoriesExplorer:gitlens",
                     "name": "Repositories",
-                    "when": "gitlens:enabled && gitlens:gitExplorer == gitlens"
+                    "when": "gitlens:enabled && gitlens:repositoriesExplorer == gitlens"
                 },
                 {
                     "id": "gitlens.fileHistoryExplorer:gitlens",
@@ -3578,9 +3578,9 @@
             ],
             "explorer": [
                 {
-                    "id": "gitlens.gitExplorer:explorer",
-                    "name": "GitLens",
-                    "when": "gitlens:enabled && gitlens:gitExplorer == explorer"
+                    "id": "gitlens.repositoriesExplorer:explorer",
+                    "name": "GitLens Repositories",
+                    "when": "gitlens:enabled && gitlens:repositoriesExplorer == explorer"
                 },
                 {
                     "id": "gitlens.fileHistoryExplorer:explorer",
@@ -3589,7 +3589,7 @@
                 },
                 {
                     "id": "gitlens.lineHistoryExplorer:explorer",
-                    "name": "Line History",
+                    "name": "GitLens Line History",
                     "when": "gitlens:enabled && gitlens:lineHistoryExplorer == explorer"
                 },
                 {
@@ -3600,9 +3600,9 @@
             ],
             "scm": [
                 {
-                    "id": "gitlens.gitExplorer:scm",
-                    "name": "GitLens",
-                    "when": "gitlens:enabled && gitlens:gitExplorer == scm"
+                    "id": "gitlens.repositoriesExplorer:scm",
+                    "name": "GitLens Repositories",
+                    "when": "gitlens:enabled && gitlens:repositoriesExplorer == scm"
                 },
                 {
                     "id": "gitlens.fileHistoryExplorer:scm",
@@ -3611,7 +3611,7 @@
                 },
                 {
                     "id": "gitlens.lineHistoryExplorer:scm",
-                    "name": "Line History",
+                    "name": "GitLens Line History",
                     "when": "gitlens:enabled && gitlens:lineHistoryExplorer == scm"
                 },
                 {

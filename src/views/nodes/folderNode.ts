@@ -1,6 +1,6 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ExplorerFilesLayout, IExplorersFilesConfig } from '../../configuration';
+import { ExplorerFilesLayout, ExplorersFilesConfig } from '../../configuration';
 import { GitUri } from '../../git/gitService';
 import { Arrays, Objects } from '../../system';
 import { Explorer } from '../explorer';
@@ -82,7 +82,7 @@ export class FolderNode extends ExplorerNode {
     }
 
     static getFileNesting<T extends IFileExplorerNode>(
-        config: IExplorersFilesConfig,
+        config: ExplorersFilesConfig,
         children: T[],
         isRoot: boolean
     ): ExplorerFilesLayout {

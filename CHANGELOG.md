@@ -148,7 +148,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds completely revamped heatmap annotations
-  ![cold heatmap](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-heatmap-cold.png)
+  ![cold heatmap](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/cl-heatmap-cold.png)
   - The indicator's color, now customizable, will either be hot or cold based on the age of the most recent change (cold after 90 days by default) &mdash; closes [#419](https://github.com/eamodio/vscode-gitlens/issues/419)
   - The indicator's brightness ranges from bright (newer) to dim (older) based on the relative age, which is calculated from the median age of all the changes in the file
   - Adds `gitlens.heatmap.ageThreshold` setting to specify the age of the most recent change (in days) after which the gutter heatmap annotations will be cold rather than hot (i.e. will use `gitlens.heatmap.coldColor` instead of `gitlens.heatmap.hotColor`)
@@ -235,7 +235,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds user-defined modes for quickly toggling between sets of settings
 
-  ![mode switch](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-mode-switch.png)
+  ![mode switch](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/cl-mode-switch.png)
 
   - Adds _Switch Mode_ command (`gitlens.switchMode`) to quickly switch the active GitLens mode
   - Adds a built-in _Zen_ mode which for a zen-like experience, disables many visual features
@@ -247,7 +247,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - Adds `gitlens.mode.statusBar.alignment` setting to specify the active GitLens mode alignment in the status bar
   - Adds modes settings (`gitlens.mode.*`) to the interactive settings editor
 
-    ![modes settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-modes-settings.png)
+    ![modes settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/cl-modes-settings.png)
 
   - Adds `gitlens.mode.active` setting to specify the active GitLens mode, if any
   - Adds `gitlens.modes` setting to specify the user-defined GitLens modes
@@ -256,11 +256,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds an icon for the _Compare File with Next Revision_ command (`gitlens.diffWithNext`) and moves it into the editor toolbar
 - Adds menu settings (`gitlens.menus.*`) to the interactive settings editor
 
-  ![menu settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-menu-settings.png)
+  ![menu settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/cl-menu-settings.png)
 
 - Adds a display mode dropdown at the top of the interactive settings editor to reduce complexity
 
-  ![settings mode](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-settings-mode.png)
+  ![settings mode](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/cl-settings-mode.png)
 
   - Adds `gitlens.settings.mode` setting to specify the display mode of the interactive settings editor
 
@@ -346,33 +346,33 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds new stand-alone _GitLens File History_ explorer to visualize the history of the current file &mdash; undocked version of the _GitLens_ explorer history view
 
-  ![GitLens File History explorer](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-history-explorer.png)
+  ![GitLens File History explorer](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/ss-gitlens-history-explorer.png)
 
 - Adds richer tooltips to the _GitLens_ and _GitLens Results_ explorers, and richer working tree and upstream status to the _GitLens_ explorer
 
-  ![Rich tooltips](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-rich-tooltips.png)
+  ![Rich tooltips](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/cl-rich-tooltips.png)
 
 - Adds an indicator to the _GitLens_ explorer's branch history to mark the synchronization point between the local and remote branch (if available)
 
-  ![Branch upstream indicator](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-branch-upstream-indicator.png)
+  ![Branch upstream indicator](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/cl-branch-upstream-indicator.png)
 
 - Adds ability to easily switch between relative and absolute dates via the `gitlens.defaultDateStyle` settings &mdash; closes [#312](https://github.com/eamodio/vscode-gitlens/issues/312)
 
   - Adds `${agoOrDate}` and `${authorAgoOrDate}` tokens to `gitlens.blame.format`, `gitlens.currentLine.format`, `gitlens.explorers.commitFormat`, `gitlens.explorers.stashFormat`, and `gitlens.statusBar.format` settings which will honor the `gitlens.defaultDateStyle` setting
 
-  ![General settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-general-settings.png)
+  ![General settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/cl-general-settings.png)
 
 - Adds annotation format settings (`gitlens.*.format`) to the interactive settings editor
 
-  ![Annotation format settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-annotation-format.png)
+  ![Annotation format settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/cl-annotation-format.png)
 
 - Adds new `gitlens.currentLine.scrollable` setting to specify whether the current line blame annotation can be scrolled into view when it is outside the viewport &mdash; closes [#149](https://github.com/eamodio/vscode-gitlens/issues/149), [#290](https://github.com/eamodio/vscode-gitlens/issues/290), [#265](https://github.com/eamodio/vscode-gitlens/issues/265)
 
-  ![Allow scrolling to annotation setting](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-current-line-scrollable.png)
+  ![Allow scrolling to annotation setting](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/cl-current-line-scrollable.png)
 
 - Adds `gitlens.statusBar.reduceFlicker` setting to the interactive settings editor
 
-  ![Reduce status bar flashing setting](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-status-bar-reduce-flashing.png)
+  ![Reduce status bar flashing setting](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/cl-status-bar-reduce-flashing.png)
 
 - Adds a one-time notification on startup if the `alt-based` keyboard shortcuts are in use, with options to easily switch to another set
 - Adds _Copy Commit ID to Clipboard_ (`gitlens.copyShaToClipboard`) command to changed file nodes in the _GitLens_ explorer and _GitLens Results_ explorer
@@ -413,11 +413,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds automatic issue linking to Bitbucket, GitHub, GitLab, and Visual Studio Team Services for commit messages in hovers
 
-  ![Issue linking in commit messages](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-issue-linking.png)
+  ![Issue linking in commit messages](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/cl-issue-linking.png)
 
 - Adds support to toggle annotations for each file individually or for all files at once &mdash; closes [#289](https://github.com/eamodio/vscode-gitlens/issues/289)
 
-  ![Annotations toggle setting](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-annotations-toggle.png)
+  ![Annotations toggle setting](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/cl-annotations-toggle.png)
 
   - Adds new controls the interactive settings editor (_Open Settings_ from the Command Palette) to configure this new behavior
   - Adds `gitlens.blame.toggleMode` setting to specify how the gutter blame annotations will be toggled, per file or window
@@ -476,11 +476,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds an all-new GitLens welcome page via the _Welcome_ (`gitlens.showWelcomePage`) command &mdash; provides a welcome / onboarding experience &mdash; closes [#51](https://github.com/eamodio/vscode-gitlens/issues/51)
 
-  ![GitLens Welcome](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-welcome.png)
+  ![GitLens Welcome](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/cl-welcome.png)
 
 - Adds an all-new GitLens Settings editor via the _Open Settings_ (`gitlens.showSettingsPage`) command &mdash; provides an easy-to-use interactive settings editor for many of GitLens' features &mdash; closes [#167](https://github.com/eamodio/vscode-gitlens/issues/167)
 
-  ![GitLens Settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-settings.png)
+  ![GitLens Settings](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/cl-settings.png)
 
 - Adds a tree layout option to branches in the _GitLens_ explorer &mdash; closes [#258](https://github.com/eamodio/vscode-gitlens/issues/258) thanks to [PR #260](https://github.com/eamodio/vscode-gitlens/pull/260) by Yukai Huang ([@Yukaii](https://github.com/Yukaii))!
 - Adds _Follow Renames_ command (`gitlens.gitExplorer.setRenameFollowingOn`) to the _GitLens_ explorer _History_ view to follow file renames in the history
@@ -1047,7 +1047,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds a **quick-access** command bar to the bottom of the **details** hover annotations
 
-  ![Details Blame Annotation (hover)](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-hovers-current-line-details.png)
+  ![Details Blame Annotation (hover)](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/ss-hovers-current-line-details.png)
 
   - Provides _Open Changes_, _Blame Previous Revision_, _Open in Remote_, and _Show More Actions_ command buttons
 
@@ -1167,7 +1167,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
   - **Repository View** - provides a full repository explorer
 
-    ![GitLens Repository view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-explorer-repository.png)
+    ![GitLens Repository view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/ss-gitlens-explorer-repository.png)
 
     - **Repository Status** node &mdash; provides the status of the repository
 
@@ -1209,7 +1209,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
   - **File History View** - provides the revision history of the active file
 
-    ![GitLens File History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-explorer-history.png)
+    ![GitLens File History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/ss-gitlens-explorer-history.png)
 
     - Automatically updates to track the active editor
     - Provides a context menu with _Open File_, _Open File in Remote_, and _Refresh_ commands
@@ -1220,7 +1220,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds all-new interactivity to the hover annotations
 
-  ![Hover Annotations](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-hovers-annotations.png)
+  ![Hover Annotations](https://raw.githubusercontent.com/eamodio/vscode-gitlens/4ddb871459a3a1a1e132c8bdf83ac12e3b699649/images/ss-hovers-annotations.png)
 
   - Adds the following command-links to the **details** hover annotation
     - Clicking the commit id will run the _Show Commit Details_ command

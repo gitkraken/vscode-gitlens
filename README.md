@@ -5,67 +5,16 @@
 
 <p align="center">
   <br />
-  <a title="Learn more about GitLens" href="http://gitlens.amod.io"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/gitlens-logo.png" alt="GitLens Logo" /></a>
+  <a title="Learn more about GitLens" href="http://gitlens.amod.io"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/gitlens-logo.png" alt="GitLens Logo" /></a>
 </p>
 
 > GitLens **supercharges** the Git capabilities built into Visual Studio Code. It helps you to **visualize code authorship** at a glance via Git blame annotations and code lens, **seamlessly navigate and explore** Git repositories, **gain valuable insights** via powerful comparison commands, and so much more.
 
 <br />
+https://raw.githubusercontent.com/eamodio/vscode-gitlens/blob/cd90faa526720cb4b07a52b3cf84abaa55a978a0/images/cl-heatmap-cold.png
+# What's new in GitLens 9
 
-# What's new in GitLens 8
-
-## 8.5 &mdash; July 2018
-
-- Adds an all-new _GitLens_ sidebar view to contain the _GitLens_, _GitLens File History_, and _GitLens Results_ explorers
-- The new view is enabled by default, but can easily be configured back to the existing locations via the _GitLens_ interactive settings editor
-- Adds emoji support, e.g. :smile: in commit messages will now be 😃 &mdash; closes [#429](https://github.com/eamodio/vscode-gitlens/issues/429)
-- Adds _Compare with Selected_ and _Select for Compare_ commands to file nodes in the _GitLens_, _GitLens File History_, and _GitLens Results_ explorers &mdash; closes [#446](https://github.com/eamodio/vscode-gitlens/issues/446)
-- Adds tag annotations to the tag tooltips in the _GitLens_ explorer &mdash; closes [#431](https://github.com/eamodio/vscode-gitlens/issues/431)
-- Adds _Choose from Branch or Tag History..._ to the quick pick menu shown by the _Show File History..._ command (`gitlens.showQuickFileHistory`) &mdash; closes [#316](https://github.com/eamodio/vscode-gitlens/issues/316)
-- Adds the _Open Changes with Revision..._ command (`gitlens.diffWithRevision`) as an alternate (`alt+click`) for the _Open Changes with Previous Revision_ command in the editor toolbar
-- Adds _Checkout Commit (via Terminal)_ command (`gitlens.terminalCheckoutCommit`) to commit node(s) of the _GitLens_ explorer &mdash; closes [#463](https://github.com/eamodio/vscode-gitlens/issues/463)
-- Adds `gitlens.historyExplorer.avatars` setting to specify whether to show avatar images instead of status icons in the _GitLens File History_ explorer &mdash; allows for an independent value from the other explorers
-- Adds a `gitlens.hovers.avatars` setting to specify whether to show avatar images in hovers &mdash; closes [#432](https://github.com/eamodio/vscode-gitlens/issues/432) thanks to [PR #441](https://github.com/eamodio/vscode-gitlens/pull/441) by Segev Finer ([@segevfiner](https://github.com/segevfiner))
-- Adds the `gitlens.hovers.avatars` setting to the _GitLens_ interactive settings editor to specify whether to show avatar images in hovers
-- Adds _Copy Remote File Url to Clipboard_ (`gitlens.copyRemoteFileUrlToClipboard`) command &mdash; copies the remote url of the current file and line to the clipboard &mdash; closes [#467](https://github.com/eamodio/vscode-gitlens/issues/467)
-- Improves performance of providing blame annotations, especially for large files (a ~33% improvement on some files)
-- Changes commit search by sha to jump directly to the commit (if one is found), rather than having to click through to the commit
-- Renames the _GitLens History_ explorer to _GitLens File History_ explorer for better clarity
-- Changes the _GitLens File History_ explorer to always show the full file history even when reviewing revisions
-- Changes the behavior of and renames the _Show Branches and Tags_ command and on the quick pick menu shown by the _Open Changes with Revision..._ command (`gitlens.diffWithRevision`) to _Choose from Branch or Tag History..._
-- Changes the behavior of and renames the _Show Branches and Tags_ command on the quick pick menu shown by the _Open Revision..._ command (`gitlens.openFileRevision`) to _Choose from Branch or Tag History..._
-- Changes _Rebase to Commit (via Terminal)_ command (`gitlens.terminalRebaseCommit`) to apply to all commit node(s) of the _GitLens_ explorer
-- Changes _Reset to Commit (via Terminal)_ command (`gitlens.terminalResetCommit`) to apply to all commit node(s) of the _GitLens_ explorer
-- Updates settings descriptions to better support the new settings editor in vscode
-- Removes `gitlens:activeIsTracked`, `gitlens:activeIsBlameable`, `gitlens:activeIsRevision`, and `gitlens:activeHasRemotes` contexts and consolidates them into `gitlens:activeFileStatus` for better performance and UX
-- Fixes [#436](https://github.com/eamodio/vscode-gitlens/issues/436) - Copy to clipboard not working
-- Fixes [#442](https://github.com/eamodio/vscode-gitlens/issues/442) - GitLens File History fails if name (or path) starts with `-`
-- Fixes [#440](https://github.com/eamodio/vscode-gitlens/issues/440) - Searching for commits with an empty query yields to no results anymore
-- Fixes [#444](https://github.com/eamodio/vscode-gitlens/issues/444) - GitLens custom viewlet icon slightly larger than standard
-- Fixes [#437](https://github.com/eamodio/vscode-gitlens/issues/437) - Remove `--first-parent` from git commands to show file history from merged in repositories
-- Fixes [#252](https://github.com/eamodio/vscode-gitlens/issues/252) - Cannot read property 'push' of undefined
-- Fixes [#451](https://github.com/eamodio/vscode-gitlens/issues/451) - "apply Changes" has discarded all my changes
-- Fixes [#449](https://github.com/eamodio/vscode-gitlens/issues/449) - Stop hiding explorers by default when in Zen mode
-- Fixes [#454](https://github.com/eamodio/vscode-gitlens/issues/454) - Search for string returns merge commits (unlike raw `git log -S`)
-- Fixes [#462](https://github.com/eamodio/vscode-gitlens/issues/462) - Source Control shortcut on macOS (⌃⇧G) shouldn't be overridden
-- Fixes [#457](https://github.com/eamodio/vscode-gitlens/issues/457) - Displays the wrong username (You) &mdash; thanks to [PR #460](https://github.com/eamodio/vscode-gitlens/pull/460) by Zyck ([@qzyse2017](https://github.com/qzyse2017))
-- Fixes [#459](https://github.com/eamodio/vscode-gitlens/issues/459) - File blame annotation text overflow with letter spacing setting
-- Fixes [#471](https://github.com/eamodio/vscode-gitlens/issues/471) - Don't use Ctrl+Alt+[character] as a shortcut
-- Fixes [#478](https://github.com/eamodio/vscode-gitlens/issues/478) - `suppressShowKeyBindingsNotice` gets saved even when it is not required
-- Fixes [#468](https://github.com/eamodio/vscode-gitlens/issues/468) - Commit history for detached HEAD doesn't work properly
-- Fixes [#477](https://github.com/eamodio/vscode-gitlens/issues/477) - Can't load any GitLens features or UI
-- Fixes [#482](https://github.com/eamodio/vscode-gitlens/issues/482) - UI displays "undefined" in results panel when comparing
-- Fixes issues with GitLens Welcome and the interactive settings editor with light themes
-- Fixes issue where commands in the editor toolbar would flash unnecessarily when navigating history or switching tabs
-- Fixes issue where the _Open Changes with Previous Revision_ command wouldn't work properly when the file had been renamed in some cases
-- Fixes issue where the _Open Changes with Next Revision_ command wouldn't work properly when the file had been renamed in some cases
-- Fixes issue where changed files count was wrong when the branch was behind the upstream
-- Fixes issue where the _GitLens File History_ explorer wasn't being updated automatically for working changes
-- Fixes issue where the _Compare File with \* Revision_ commands in the editor toolbar would show and hide too often because of insignificant focus changes
-- Fixes issue where the scope box would be empty when there was no workspace open in the interactive settings editor
-- Fixes issue where GitLens saves a couple settings with default values into user settings (rather than just removing the setting)
-- Fixes issue showing changes with untracked stashed files
-- Fixes issue showing changes with working file when the file has been renamed
+## 9.0 &mdash; September 2018
 
 See the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md 'Open Release Notes') for the full set of changes
 
@@ -78,14 +27,15 @@ GitLens simply helps you understand code better. Quickly glimpse into whom, why,
 
 Here are just some of the features that GitLens provides,
 
-- a [_GitLens_ explorer](#gitlens-explorer 'Jump to the GitLens explorer') to navigate and explore repositories
-- a [_GitLens File History_ explorer](#gitlens-file-history-explorer 'Jump to the GitLens File History explorer') to navigate and explore file histories
-- a [_GitLens Line History_ explorer](#gitlens-line-history-explorer 'Jump to the GitLens Line History explorer') to navigate and explore file line histories
-- an on-demand [_GitLens Results_ explorer](#gitlens-results-explorer 'Jump to the GitLens Results explorer') to navigate and explore commit searches, visualize comparisons between branches, tags, commits, and more
-- authorship [code lens](#code-lens 'Jump to the Code Lens') showing the most recent commit and # of authors to the top of files and/or on code blocks
+- a [_Repositories_ explorer](#repositories-explorer 'Jump to the Repositories explorer') to visualize, navigate, and explore Git repositories
+- a [_File History_ explorer](#file-history-explorer 'Jump to the File History explorer') to visualize, navigate, and explore the revision history of the current file
+- a [_Line History_ explorer](#line-history-explorer 'Jump to the Line History explorer') to visualize, navigate, and explore the revision history of the selected lines of current file
+- an on-demand [_Results_ explorer](#results-explorer 'Jump to the Results explorer') to navigate and explore commits, histories, and searches, or visualize comparisons between branches, tags, commits, and more
+- [authorship code lens](#code-lens 'Jump to the Code Lens') showing the most recent commit and # of authors to the top of files and/or on code blocks
 - an unobtrusive [current line blame](#current-line-blame 'Jump to the Current Line Blame') annotation at the end of the line
 - on-demand [gutter blame](#gutter-blame 'Jump to the Gutter Blame') annotations, including a heatmap, for the whole file
 - on-demand [gutter heatmap](#gutter-heatmap 'Jump to the Gutter Heatmap') annotations to show how recently lines were changed, relative to all the other changes in the file and to now (hot vs. cold)
+- detailed blame information accessible via [hovers](#hovers 'Jump to Hovers)
 - on-demand [recent changes](#recent-changes 'Jump to the Recent Changes') annotations to highlight lines changed by the most recent commit
 - a [status bar blame](#status-bar-blame 'Jump to the Status Bar Blame') annotation showing author and date for the current line
 - [commit search](#commit-search 'Jump to the Commit Search') &mdash; by message, author, filename, commit id, or code changes
@@ -96,7 +46,7 @@ GitLens is powerful, feature rich, and also [highly customizable](#gitlens-setti
 
 <p align="center">
   <br />
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/gitlens-preview.gif" alt="GitLens Preview" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/gitlens-preview.gif" alt="GitLens Preview" />
   <br />
 </p>
 
@@ -136,7 +86,7 @@ None yet &mdash; could be you!
 ## Configuration
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/cl-settings.png" alt="GitLens Explorer Repository view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/settings.png" alt="GitLens Interactive Settings" />
 </p>
 
 GitLens has a built-in interactive settings editor which provides an easy-to-use interface to configure many of GitLens' powerful features. It can be accessed via the _Open Settings_ (`gitlens.showSettingsPage`) command from the [_Command Palette_](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette).
@@ -145,22 +95,22 @@ For more advanced customizations, refer to the [settings documentation](#gitlens
 
 ## Features
 
-### GitLens Explorer
+### Repositories Explorer
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-explorer-repository.png" alt="GitLens Explorer" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/repositories-explorer.png" alt="Repositories Explorer" />
 </p>
 
-A [customizable](#gitlens-explorer-settings 'Jump to the GitLens Explorer settings') explorer to navigate and explore repositories.
+A [customizable](#repositories-explorer-settings 'Jump to the Repositories explorer settings') explorer to visualize, navigate, and explore Git repositories.
 
 - A toolbar provides _Search Commits_, and _Refresh_ commands
   - A context menu provides _Automatic Layout_, _List Layout_, _Tree Layout_, and _Enable Automatic Refresh_ or _Disable Automatic Refresh_ commands
 
-The explorer provides a full Git repository explorer, which has the following features,
+The repositories explorer provides the following features,
 
 - **Repository Status**
 
-  - Provides the name of the current branch, [optionally](#gitlens-explorer-settings 'Jump to the GitLens explorer settings') its working tree status, and its upstream tracking branch and status (if available)
+  - Provides the name of the current branch, [optionally](#repositories-explorer-settings 'Jump to the Repositories explorer settings') its working tree status, and its upstream tracking branch and status (if available)
   - Provides indicator dots on the repository icon which denote the following:
     - _None_ &mdash; up-to-date with the upstream
     - _Green_ &mdash; ahead of the upstream
@@ -171,13 +121,13 @@ The explorer provides a full Git repository explorer, which has the following fe
     - is ahead of the upstream &mdash; quickly see and explore the specific commits ahead of the upstream (i.e. commits that haven't been pushed)
   - A context menu provides _Open Repository in Remote_, and _Refresh_ commands
   - **Changed Files** &mdash; lists all the "working" changes
-    - Expands to a file-based view of all changed files in the working tree ([optionally](#gitlens-explorer-settings 'Jump to the GitLens explorer settings')) and/or all files in all commits ahead of the upstream
+    - Expands to a file-based view of all changed files in the working tree ([optionally](#repositories-explorer-settings 'Jump to the Repositories explorer settings')) and/or all files in all commits ahead of the upstream
   - **History (current-branch)** &mdash; lists the revision (commit) history of the current branch
     - See the _Branches expand_ section under **Branches** below for more details
 
 - **Branches** &mdash; lists the local branches
 
-  - Indicates which branch is the current branch and [optionally](#gitlens-explorer-settings 'Jump to the GitLens explorer settings') shows the remote tracking branch
+  - Indicates which branch is the current branch and [optionally](#repositories-explorer-settings 'Jump to the Repositories explorer settings') shows the remote tracking branch
   - A context menu provides _Open Branches in Remote_, and _Refresh_ commands
   - Branches expand to show its revision (commit) history
     - Provides indicator dots on each branch icon which denote the following:
@@ -223,18 +173,18 @@ The explorer provides a full Git repository explorer, which has the following fe
 
 ---
 
-### GitLens File History Explorer
+### File History Explorer
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-history-explorer.png" alt="GitLens File History Explorer" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/file-history-explorer.png" alt="File History Explorer" />
 </p>
 
-A [customizable](#gitlens-file-history-explorer-settings 'Jump to the GitLens File History Explorer settings') explorer to visualize the revision history of the current file.
+A [customizable](#file-history-explorer-settings 'Jump to the File History explorer settings') explorer to visualize, navigate, and explore the revision history of the current file.
 
 - A toolbar provides a _Refresh_ command
   - A context menu provides a _Follow Renames_ or _Don't Follow Renames_ command
 
-The file history explorer provides the revision history of the current file, which has the following features,
+The file history explorer provides the following features,
 
 - Automatically updates to track the current editor
 - A context menu provides _Open File_, _Open File in Remote_ (if available), _Copy Remote File Url to Clipboard_ (if available), and _Refresh_ commands
@@ -244,18 +194,18 @@ The file history explorer provides the revision history of the current file, whi
 
 ---
 
-### GitLens Line History Explorer
+### Line History Explorer
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-line-history-explorer.png" alt="GitLens Line History Explorer" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/line-history-explorer.png" alt="Line History Explorer" />
 </p>
 
-A [customizable](#gitlens-line-history-explorer-settings 'Jump to the GitLens Line History Explorer settings') explorer to visualize the revision history of the selected lines of current file.
+A [customizable](#line-history-explorer-settings 'Jump to the Line History explorer settings') explorer to visualize, navigate, and explore the revision history of the selected lines of current file.
 
 - A toolbar provides a _Refresh_ command
   - A context menu provides a _Follow Renames_ or _Don't Follow Renames_ command
 
-The line history explorer provides the revision history of the selected lines in the current file, which has the following features,
+The line history explorer provides the following features,
 
 - Automatically updates to track the selection of the current editor
 - A context menu provides _Open File_, _Open File in Remote_ (if available), _Copy Remote File Url to Clipboard_ (if available), and _Refresh_ commands
@@ -265,16 +215,18 @@ The line history explorer provides the revision history of the selected lines in
 
 ---
 
-### GitLens Results Explorer
+### Results Explorer
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gitlens-results.png" alt="GitLens Results explorer" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/results-explorer.png" alt="Results explorer" />
 </p>
 
-An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the GitLens Results explorer settings') explorer to navigate and explore commits, histories, and searches, or visualize comparisons between branches, tags, commits, and more
+An on-demand, [customizable](#results-explorer-settings 'Jump to the Results explorer settings') explorer to navigate and explore commits, histories, and searches, or visualize comparisons between branches, tags, commits, and more
 
 - A toolbar provides _Search Commits_, _Keep Results_, and _Refresh_ commands
   - A context menu provides _Automatic Layout_, _List Layout_, _Tree Layout_, and _Close_ commands
+
+The results explorer provides the following features,
 
 #### Explore
 
@@ -319,7 +271,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 ### Code Lens
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-code-lens.png" alt="Code Lens" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/code-lens.png" alt="Code Lens" />
 </p>
 
 - Adds Git authorship **code lens** to the top of the file and on code blocks ([optional](#code-lens-settings 'Jump to the Code Lens settings'), on by default)
@@ -346,7 +298,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 ### Current Line Blame
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-current-line-blame.png" alt="Current Line Blame" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/current-line-blame.png" alt="Current Line Blame" />
 </p>
 
 - Adds an unobtrusive, [customizable](#current-line-blame-settings 'Jump to the Current Line Blame settings'), and [themable](#themable-colors 'Jump to the Themable Colors'), **blame annotation** at the end of the current line
@@ -358,7 +310,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 ### Gutter Blame
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-gutter-blame.png" alt="Gutter Blame">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/gutter-blame.png" alt="Gutter Blame">
 </p>
 
 - Adds on-demand, [customizable](#gutter-blame-settings 'Jump to the Gutter Blame settings'), and [themable](#themable-colors 'Jump to the Themable Colors'), **gutter blame annotations** for the whole file
@@ -373,7 +325,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 ### Gutter Heatmap
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-heatmap.png" alt="Gutter Heatmap" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/heatmap.png" alt="Gutter Heatmap" />
 </p>
 
 - Adds an on-demand **heatmap** to the edge of the gutter to show how recently lines were changed
@@ -389,7 +341,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 #### Current Line Hovers
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-hovers-current-line.png" alt="Current Line Hovers" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/hovers-current-line.png" alt="Current Line Hovers" />
 </p>
 
 - Adds [customizable](#hover-settings 'Jump to the Hover settings') Git blame hovers accessible over the current line
@@ -397,7 +349,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 ##### Details Hover
 
   <p align="center">
-    <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-hovers-current-line-details.png" alt="Current Line Details Hover" />
+    <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/hovers-current-line-details.png" alt="Current Line Details Hover" />
   </p>
 
 - Adds a **details hover** annotation to the current line to show more commit details ([optional](#hover-settings 'Jump to the Hover settings'), on by default)
@@ -408,7 +360,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 ##### Changes (diff) Hover
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-hovers-current-line-changes.png" alt="Current Line Changes (diff) Hover" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/hovers-current-line-changes.png" alt="Current Line Changes (diff) Hover" />
 </p>
 
 - Adds a **changes (diff) hover** annotation to the current line to show the line's previous version ([optional](#hover-settings 'Jump to the Hover settings'), on by default)
@@ -418,7 +370,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 #### Annotation Hovers
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-hovers-annotations.png" alt="Annotation Hovers" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/hovers-annotations.png" alt="Annotation Hovers" />
 </p>
 
 - Adds [customizable](#hover-settings 'Jump to the Hover settings') Git blame hovers accessible when annotating
@@ -426,7 +378,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 ##### Details Hover
 
   <p align="center">
-    <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-hovers-annotations-details.png" alt="Annotations Details Hover" />
+    <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/hovers-annotations-details.png" alt="Annotations Details Hover" />
   </p>
 
 - Adds a **details hover** annotation to each line while annotating to show more commit details ([optional](#hover-settings 'Jump to the Hover settings'), on by default)
@@ -437,7 +389,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 ##### Changes (diff) Hover
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-hovers-annotations-changes.png" alt="Annotations Changes (diff) Hover" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/hovers-annotations-changes.png" alt="Annotations Changes (diff) Hover" />
 </p>
 
 - Adds a **changes (diff) hover** annotation to each line while annotating to show the line's previous version ([optional](#hover-settings 'Jump to the Hover settings'), on by default)
@@ -461,7 +413,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 ### Recent Changes
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-recent-changes.png" alt="Recent Changes" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/recent-changes.png" alt="Recent Changes" />
 </p>
 
 - Adds an on-demand, [customizable](#recent-changes-settings 'Jump to the Recent Changes settings') and [themable](#themable-colors 'Jump to the Themable Colors'), **recent changes annotation** to highlight lines changed by the most recent commit
@@ -473,7 +425,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 ### Status Bar Blame
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-status-bar.png" alt="Status Bar Blame" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/status-bar.png" alt="Status Bar Blame" />
 </p>
 
 - Adds a [customizable](#status-bar-settings 'Jump to the Status Bar Blame settings') **Git blame annotation** about the current line to the **status bar** ([optional](#status-bar-settings 'Jump to the Status Bar Blame settings'), on by default)
@@ -502,7 +454,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
   - Use `#<sha>` to search for a commit with id of `<sha>` &mdash; See [Git docs](https://git-scm.com/docs/git-log 'Open Git docs')
   - Use `~<pattern>` to search for commits with differences whose patch text contains added/removed lines that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log--Gltregexgt 'Open Git docs')
   - Use `=<string>` to search for commits with differences that change the number of occurrences of the specified string (i.e. addition/deletion) in a file &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log--Sltstringgt 'Open Git docs')
-  - Provides a _Show in Results_ option to show the search results in the _GitLens Results_ explorer
+  - Provides a _Show in Results_ option to show the search results in the _Results_ explorer
 
 ---
 
@@ -521,7 +473,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 #### Branch History
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-menu-branch-history.png" alt="Branch History Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/menu-branch-history.png" alt="Branch History Quick Pick Menu" />
 </p>
 
 - Adds a _Show Current Branch History_ command (`gitlens.showQuickRepoHistory`) with a shortcut of `shift+alt+h` to show a paged **branch history quick pick menu** of the current branch for exploring its commit history
@@ -536,7 +488,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 #### File History
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-menu-file-history.png" alt="File History Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/menu-file-history.png" alt="File History Quick Pick Menu" />
 </p>
 
 - Adds a _Show File History_ command (`gitlens.showQuickFileHistory`) to show a paged **file history quick pick menu** of the current file for exploring its commit history
@@ -547,7 +499,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 #### Commit Details
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-menu-commit-details.png" alt="Commit Details Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/menu-commit-details.png" alt="Commit Details Quick Pick Menu" />
 </p>
 
 - Adds a _Show Commit Details_ command (`gitlens.showQuickCommitDetails`) to show a **commit details quick pick menu** of the most recent commit of the current file
@@ -558,7 +510,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
   - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the comparison of the current revision with the previous one
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-menu-commit-file-details.png" alt="Commit File Details Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/menu-commit-file-details.png" alt="Commit File Details Quick Pick Menu" />
 </p>
 
 - Adds a _Show Commit File Details_ command (`gitlens.showQuickCommitFileDetails`) with a shortcut of `alt+c` to show a **file commit details quick pick menu** of the most recent commit of the current file
@@ -569,7 +521,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 #### Repository Status
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-menu-repo-status.png" alt="Repository Status Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/menu-repo-status.png" alt="Repository Status Quick Pick Menu" />
 </p>
 
 - Adds a _Show Repository Status_ command (`gitlens.showQuickRepoStatus`) with a shortcut of `alt+s` to show a **repository status quick pick menu** for visualizing the current repository status
@@ -584,7 +536,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 #### Stashes
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-menu-stash-list.png" alt="Stashed Changes Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/menu-stash-list.png" alt="Stashed Changes Quick Pick Menu" />
 </p>
 
 - Adds a _Show Stashed Changes_ command (`gitlens.showQuickStashList`) to show a **stashed changes quick pick menu** for exploring your repository stash history
@@ -598,7 +550,7 @@ An on-demand, [customizable](#gitlens-results-explorer-settings 'Jump to the Git
 #### Stash Details
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/ss-menu-stash-details.png" alt="Stash Details Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/menu-stash-details.png" alt="Stash Details Quick Pick Menu" />
 </p>
 
 - Stashed changes show a **stash details quick pick menu** which is very similar to the **commit details quick pick menu** above
@@ -683,64 +635,64 @@ GitLens is highly customizable and provides many configuration settings to allow
 | `gitlens.settings.mode`             | Specifies the display mode of the interactive settings editor<br />`simple` - only displays common settings<br />`advanced` - displays all settings                                                                                                                                                                                                                                                                                                 |
 | `gitlens.showWhatsNewAfterUpgrades` | Specifies whether to show What's New after upgrading to new feature releases                                                                                                                                                                                                                                                                                                                                                                        |
 
-### GitLens Explorer Settings
+### Repositories Explorer Settings
 
 See also [Explorer Settings](#explorer-settings 'Jump to the Explorer settings')
 
-| Name                                     | Description                                                                                                                                                                                                                                                                                                                      |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gitlens.gitExplorer.autoRefresh`        | Specifies whether to automatically refresh the _GitLens_ explorer when the repository or the file system changes                                                                                                                                                                                                                 |
-| `gitlens.gitExplorer.branches.layout`    | Specifies how the _GitLens_ explorer will display branches<br />`list` - displays branches as a list<br />`tree` - displays branches as a tree when branch names contain slashes `/`                                                                                                                                             |
-| `gitlens.gitExplorer.enabled`            | Specifies whether to show the _GitLens_ explorer                                                                                                                                                                                                                                                                                 |
-| `gitlens.gitExplorer.files.compact`      | Specifies whether to compact (flatten) unnecessary file nesting in the _GitLens_ explorer<br />Only applies when `gitlens.gitExplorer.files.layout` is set to `tree` or `auto`                                                                                                                                                   |
-| `gitlens.gitExplorer.files.layout`       | Specifies how the _GitLens_ explorer will display files<br />`auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.gitExplorer.files.threshold` value and the number of files at each nesting level<br />`list` - displays files as a list<br />`tree` - displays files as a tree |
-| `gitlens.gitExplorer.files.threshold`    | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _GitLens_ explorer<br />Only applies when `gitlens.gitExplorer.files.layout` is set to `auto`                                                                                                     |
-| `gitlens.gitExplorer.includeWorkingTree` | Specifies whether to include working tree files inside the `Repository Status` node of the _GitLens_ explorer                                                                                                                                                                                                                    |
-| `gitlens.gitExplorer.location`           | Specifies where to show the _GitLens_ explorer<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view                                                                                                                                                |
-| `gitlens.gitExplorer.showTrackingBranch` | Specifies whether to show the tracking branch when displaying local branches in the _GitLens_ explorer                                                                                                                                                                                                                           |
+| Name                                              | Description                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.repositoriesExplorer.autoRefresh`        | Specifies whether to automatically refresh the _Repositories_ explorer when the repository or the file system changes                                                                                                                                                                                                                          |
+| `gitlens.repositoriesExplorer.branches.layout`    | Specifies how the _Repositories_ explorer will display branches<br />`list` - displays branches as a list<br />`tree` - displays branches as a tree when branch names contain slashes `/`                                                                                                                                                      |
+| `gitlens.repositoriesExplorer.enabled`            | Specifies whether to show the _Repositories_ explorer                                                                                                                                                                                                                                                                                          |
+| `gitlens.repositoriesExplorer.files.compact`      | Specifies whether to compact (flatten) unnecessary file nesting in the _Repositories_ explorer<br />Only applies when `gitlens.repositoriesExplorer.files.layout` is set to `tree` or `auto`                                                                                                                                                   |
+| `gitlens.repositoriesExplorer.files.layout`       | Specifies how the _Repositories_ explorer will display files<br />`auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.repositoriesExplorer.files.threshold` value and the number of files at each nesting level<br />`list` - displays files as a list<br />`tree` - displays files as a tree |
+| `gitlens.repositoriesExplorer.files.threshold`    | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Repositories_ explorer<br />Only applies when `gitlens.repositoriesExplorer.files.layout` is set to `auto`                                                                                                     |
+| `gitlens.repositoriesExplorer.includeWorkingTree` | Specifies whether to include working tree files inside the `Repository Status` node of the _Repositories_ explorer                                                                                                                                                                                                                             |
+| `gitlens.repositoriesExplorer.location`           | Specifies where to show the _Repositories_ explorer<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view                                                                                                                                                         |
+| `gitlens.repositoriesExplorer.showTrackingBranch` | Specifies whether to show the tracking branch when displaying local branches in the _Repositories_ explorer                                                                                                                                                                                                                                    |
 
-### GitLens File History Explorer Settings
-
-See also [Explorer Settings](#explorer-settings 'Jump to the Explorer settings')
-
-| Name                                   | Description                                                                                                                                                                                    |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gitlens.fileHistoryExplorer.avatars`  | Specifies whether to show avatar images instead of status icons in the `GitLens File History` explorer                                                                                         |
-| `gitlens.fileHistoryExplorer.enabled`  | Specifies whether to show the _GitLens File History_ explorer                                                                                                                                  |
-| `gitlens.fileHistoryExplorer.location` | Specifies where to show the _GitLens File History_ explorer<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view |
-
-### GitLens Line History Explorer Settings
+### File History Explorer Settings
 
 See also [Explorer Settings](#explorer-settings 'Jump to the Explorer settings')
 
-| Name                                   | Description                                                                                                                                                                                    |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gitlens.fileHistoryExplorer.avatars`  | Specifies whether to show avatar images instead of status icons in the `GitLens Line History` explorer                                                                                         |
-| `gitlens.lineHistoryExplorer.enabled`  | Specifies whether to show the _GitLens Line History_ explorer                                                                                                                                  |
-| `gitlens.lineHistoryExplorer.location` | Specifies where to show the _GitLens Line History_ explorer<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view |
+| Name                                   | Description                                                                                                                                                                            |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.fileHistoryExplorer.avatars`  | Specifies whether to show avatar images instead of status icons in the _File History_ explorer                                                                                         |
+| `gitlens.fileHistoryExplorer.enabled`  | Specifies whether to show the _File History_ explorer                                                                                                                                  |
+| `gitlens.fileHistoryExplorer.location` | Specifies where to show the _File History_ explorer<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view |
 
-### GitLens Results Explorer Settings
+### Line History Explorer Settings
 
 See also [Explorer Settings](#explorer-settings 'Jump to the Explorer settings')
 
-| Name                                      | Description                                                                                                                                                                                                                                                                                                                                  |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gitlens.resultsExplorer.files.compact`   | Specifies whether to compact (flatten) unnecessary file nesting in the _GitLens Results_ explorer<br />Only applies when `gitlens.resultsExplorer.files.layout` is set to `tree` or `auto`                                                                                                                                                   |
-| `gitlens.resultsExplorer.files.layout`    | Specifies how the _GitLens Results_ explorer will display files<br />`auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.resultsExplorer.files.threshold` value and the number of files at each nesting level<br />`list` - displays files as a list<br />`tree` - displays files as a tree |
-| `gitlens.resultsExplorer.files.threshold` | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _GitLens Results_ explorer<br />Only applies when `gitlens.resultsExplorer.files.layout` is set to `auto`                                                                                                     |
-| `gitlens.resultsExplorer.location`        | Specifies where to show the _GitLens Results_ explorer<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view                                                                                                                                                    |
+| Name                                   | Description                                                                                                                                                                            |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.lineHistoryExplorer.avatars`  | Specifies whether to show avatar images instead of status icons in the _Line History_ explorer                                                                                         |
+| `gitlens.lineHistoryExplorer.enabled`  | Specifies whether to show the _Line History_ explorer                                                                                                                                  |
+| `gitlens.lineHistoryExplorer.location` | Specifies where to show the _Line History_ explorer<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view |
+
+### Results Explorer Settings
+
+See also [Explorer Settings](#explorer-settings 'Jump to the Explorer settings')
+
+| Name                                      | Description                                                                                                                                                                                                                                                                                                                          |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `gitlens.resultsExplorer.files.compact`   | Specifies whether to compact (flatten) unnecessary file nesting in the _Results_ explorer<br />Only applies when `gitlens.resultsExplorer.files.layout` is set to `tree` or `auto`                                                                                                                                                   |
+| `gitlens.resultsExplorer.files.layout`    | Specifies how the _Results_ explorer will display files<br />`auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.resultsExplorer.files.threshold` value and the number of files at each nesting level<br />`list` - displays files as a list<br />`tree` - displays files as a tree |
+| `gitlens.resultsExplorer.files.threshold` | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Results_ explorer<br />Only applies when `gitlens.resultsExplorer.files.layout` is set to `auto`                                                                                                     |
+| `gitlens.resultsExplorer.location`        | Specifies where to show the _Results_ explorer<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view                                                                                                                                                    |
 
 ### Explorer Settings
 
-| Name                                 | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gitlens.explorers.avatars`          | Specifies whether to show avatar images instead of commit (or status) icons in the _GitLens_ and _GitLens Results_ explorers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `gitlens.explorers.commitFileFormat` | Specifies the format of a committed file in the _GitLens_ and _GitLens Results_ explorers<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `gitlens.explorers.commitFormat`     | Specifies the format of committed changes in the _GitLens_ and _GitLens Results_ explorers<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`<br /> ${authorAgo} - commit author, relative commit date<br /> ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting |
-| `gitlens.explorers.defaultItemLimit` | Specifies the default number of items to show in an explorer list. Use 0 to specify no limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `gitlens.explorers.stashFileFormat`  | Specifies the format of a stashed file in the _GitLens_ and _GitLens Results_ explorers<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `gitlens.explorers.stashFormat`      | Specifies the format of stashed changes in the _GitLens_ and _GitLens Results_ explorers<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`<br /> ${authorAgo} - commit author, relative commit date<br /> ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting   |
-| `gitlens.explorers.statusFileFormat` | Specifies the format of the status of a working or committed file in the _GitLens_ and _GitLens Results_ explorers<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path<br />${working} - optional indicator if the file is uncommitted                                                                                                                                                                                                                                                                                                                                         |
+| Name                                 | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.explorers.avatars`          | Specifies whether to show avatar images instead of commit (or status) icons in the _Repositories_ and _Results_ explorers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `gitlens.explorers.commitFileFormat` | Specifies the format of a committed file in the _Repositories_ and _Results_ explorers<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `gitlens.explorers.commitFormat`     | Specifies the format of committed changes in the _Repositories_ and _Results_ explorers<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`<br /> ${authorAgo} - commit author, relative commit date<br /> ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting |
+| `gitlens.explorers.defaultItemLimit` | Specifies the default number of items to show in an explorer list. Use 0 to specify no limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `gitlens.explorers.stashFileFormat`  | Specifies the format of a stashed file in the _Repositories_ and _Results_ explorers<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `gitlens.explorers.stashFormat`      | Specifies the format of stashed changes in the _Repositories_ and _Results_ explorers<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`<br /> ${authorAgo} - commit author, relative commit date<br /> ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting   |
+| `gitlens.explorers.statusFileFormat` | Specifies the format of the status of a working or committed file in the _Repositories_ and _Results_ explorers<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path<br />${working} - optional indicator if the file is uncommitted                                                                                                                                                                                                                                                                                                                                         |
 
 ### Code Lens Settings
 

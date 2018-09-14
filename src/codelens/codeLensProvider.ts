@@ -26,10 +26,10 @@ import {
 } from '../commands';
 import {
     CodeLensCommand,
+    CodeLensConfig,
     CodeLensLanguageScope,
     CodeLensScopes,
-    configuration,
-    ICodeLensConfig
+    configuration
 } from '../configuration';
 import { BuiltInCommands, DocumentSchemes } from '../constants';
 import { Container } from '../container';
@@ -117,7 +117,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
             }
         }
 
-        const cfg = configuration.get<ICodeLensConfig>(configuration.name('codeLens').value, document.uri);
+        const cfg = configuration.get<CodeLensConfig>(configuration.name('codeLens').value, document.uri);
 
         let languageScope =
             cfg.scopesByLanguage &&
@@ -353,7 +353,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         documentRangeFn: () => Range,
         blame: GitBlame | undefined,
         gitUri: GitUri | undefined,
-        cfg: ICodeLensConfig,
+        cfg: CodeLensConfig,
         dirty: boolean,
         dirtyCommand: Command | undefined
     ): void {
@@ -627,7 +627,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         return lens;
     }
 
-    private getDirtyTitle(cfg: ICodeLensConfig) {
+    private getDirtyTitle(cfg: CodeLensConfig) {
         if (cfg.recentChange.enabled && cfg.authors.enabled) {
             return Container.config.strings.codeLens.unsavedChanges.recentChangeAndAuthors;
         }

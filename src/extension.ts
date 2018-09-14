@@ -2,7 +2,7 @@
 
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
 import { Commands, configureCommands } from './commands';
-import { configuration, Configuration, IConfig } from './configuration';
+import { Config, configuration, Configuration } from './configuration';
 import { CommandContext, extensionQualifiedId, GlobalState, GlyphChars, setCommandContext } from './constants';
 import { Container } from './container';
 import { GitService } from './git/gitService';
@@ -31,12 +31,15 @@ export async function activate(context: ExtensionContext) {
 
     Configuration.configure(context);
 
-    const cfg = configuration.get<IConfig>();
+    const cfg = configuration.get<Config>();
 
     // Pretend we are enabled (until we know otherwise) and set the explorer contexts to reduce flashing on load
     await Promise.all([
         setCommandContext(CommandContext.Enabled, true),
-        setCommandContext(CommandContext.GitExplorer, cfg.gitExplorer.enabled ? cfg.gitExplorer.location : false),
+        setCommandContext(
+            CommandContext.RepositoriesExplorer,
+            cfg.repositoriesExplorer.enabled ? cfg.repositoriesExplorer.location : false
+        ),
         setCommandContext(
             CommandContext.FileHistoryExplorer,
             cfg.fileHistoryExplorer.enabled ? cfg.fileHistoryExplorer.location : false
@@ -100,6 +103,43 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
 
     try {
         if (Versions.compare(previous, Versions.from(9, 0, 0)) !== 1) {
+            await configuration.migrate(
+                'gitExplorer.autoRefresh',
+                configuration.name('repositoriesExplorer')('autoRefresh').value
+            );
+            await configuration.migrate(
+                'gitExplorer.branches.layout',
+                configuration.name('repositoriesExplorer')('branches')('layout').value
+            );
+            await configuration.migrate(
+                'gitExplorer.enabled',
+                configuration.name('repositoriesExplorer')('enabled').value
+            );
+            await configuration.migrate(
+                'gitExplorer.files.compact',
+                configuration.name('repositoriesExplorer')('files')('compact').value
+            );
+            await configuration.migrate(
+                'gitExplorer.files.layout',
+                configuration.name('repositoriesExplorer')('files')('layout').value
+            );
+            await configuration.migrate(
+                'gitExplorer.files.threshold',
+                configuration.name('repositoriesExplorer')('files')('threshold').value
+            );
+            await configuration.migrate(
+                'gitExplorer.includeWorkingTree',
+                configuration.name('repositoriesExplorer')('includeWorkingTree').value
+            );
+            await configuration.migrate(
+                'gitExplorer.location',
+                configuration.name('repositoriesExplorer')('location').value
+            );
+            await configuration.migrate(
+                'gitExplorer.showTrackingBranch',
+                configuration.name('repositoriesExplorer')('showTrackingBranch').value
+            );
+
             await configuration.migrate(
                 'historyExplorer.avatars',
                 configuration.name('fileHistoryExplorer')('avatars').value

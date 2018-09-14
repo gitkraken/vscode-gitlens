@@ -15,10 +15,10 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 import { RefreshNodeCommandArgs } from './explorerCommands';
 import { FileHistoryExplorer } from './fileHistoryExplorer';
-import { GitExplorer } from './gitExplorer';
 import { LineHistoryExplorer } from './lineHistoryExplorer';
 import { ExplorerNode } from './nodes';
 import { isPageable } from './nodes/explorerNode';
+import { RepositoriesExplorer } from './repositoriesExplorer';
 import { ResultsExplorer } from './resultsExplorer';
 
 export enum RefreshReason {
@@ -27,7 +27,7 @@ export enum RefreshReason {
     VisibilityChanged = 'VisibilityChanged'
 }
 
-export type Explorer = GitExplorer | FileHistoryExplorer | LineHistoryExplorer | ResultsExplorer;
+export type Explorer = RepositoriesExplorer | FileHistoryExplorer | LineHistoryExplorer | ResultsExplorer;
 
 export abstract class ExplorerBase<TRoot extends ExplorerNode> implements TreeDataProvider<ExplorerNode>, Disposable {
     protected _onDidChangeTreeData = new EventEmitter<ExplorerNode>();

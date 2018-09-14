@@ -95,20 +95,17 @@ export enum StatusBarCommand {
     ToggleFileBlame = 'gitlens.toggleFileBlame'
 }
 
-export interface IAdvancedConfig {
+export interface AdvancedConfig {
     blame: {
         customArguments: string[] | null;
         delayAfterEdit: number;
         sizeThresholdAfterEdit: number;
     };
-
     caching: {
         enabled: boolean;
     };
-
     fileHistoryFollowsRenames: boolean;
     maxListItems: number;
-
     messages: {
         suppressCommitHasNoPreviousCommitWarning: boolean;
         suppressCommitNotFoundWarning: boolean;
@@ -119,84 +116,61 @@ export interface IAdvancedConfig {
         suppressNoRepositoryWarning: boolean;
         suppressShowKeyBindingsNotice: boolean;
     };
-
     quickPick: {
         closeOnFocusOut: boolean;
     };
-
     repositorySearchDepth: number;
-
     telemetry: {
         enabled: boolean;
     };
 }
 
-export interface ICodeLensConfig {
+export interface CodeLensConfig {
     authors: {
         enabled: boolean;
         command: CodeLensCommand;
     };
-
     enabled: boolean;
-
     recentChange: {
         enabled: boolean;
         command: CodeLensCommand;
     };
-
     scopes: CodeLensScopes[];
     scopesByLanguage: CodeLensLanguageScope[];
     symbolScopes: string[];
 }
 
-export interface IExplorersConfig {
+export interface ExplorersConfig {
     avatars: boolean;
-
     files: {
         layout: ExplorerFilesLayout;
         compact: boolean;
         threshold: number;
     };
-
     commitFileFormat: string;
     commitFormat: string;
     // dateFormat: string | null;
     defaultItemLimit: number;
-
     stashFileFormat: string;
     stashFormat: string;
     statusFileFormat: string;
 }
 
-export interface IExplorersFilesConfig {
+export interface ExplorersFilesConfig {
     compact: boolean;
     layout: ExplorerFilesLayout;
     threshold: number;
 }
 
-export interface IGitExplorerConfig {
-    autoRefresh: boolean;
-
-    branches: {
-        layout: ExplorerBranchesLayout;
-    };
-
-    enabled: boolean;
-    files: IExplorersFilesConfig;
-    includeWorkingTree: boolean;
-    location: 'explorer' | 'gitlens' | 'scm';
-    showTrackingBranch: boolean;
-}
-
-export interface IFileHistoryExplorerConfig {
+export interface FileHistoryExplorerConfig {
     avatars: boolean;
     enabled: boolean;
     location: 'explorer' | 'gitlens' | 'scm';
 }
 
-export interface ILineHistoryExplorerConfig extends IFileHistoryExplorerConfig {}
+export interface LineHistoryExplorerConfig extends FileHistoryExplorerConfig {}
 
-export interface IMenuConfig {
+export interface MenuConfig {
     editor:
         | false
         | {
@@ -229,7 +203,7 @@ export interface IMenuConfig {
           };
 }
 
-export interface IModeConfig {
+export interface ModeConfig {
     name: string;
     statusBarItemName?: string;
     description?: string;
@@ -240,20 +214,32 @@ export interface IModeConfig {
     statusBar?: boolean;
 }
 
-export interface IResultsExplorerConfig {
-    files: IExplorersFilesConfig;
+export interface RepositoriesExplorerConfig {
+    autoRefresh: boolean;
+    branches: {
+        layout: ExplorerBranchesLayout;
+    };
+    enabled: boolean;
+    files: ExplorersFilesConfig;
+    includeWorkingTree: boolean;
+    location: 'explorer' | 'gitlens' | 'scm';
+    showTrackingBranch: boolean;
+}
+
+export interface ResultsExplorerConfig {
+    files: ExplorersFilesConfig;
     location: 'explorer' | 'gitlens' | 'scm';
 }
 
-export interface IRemotesConfig {
+export interface RemotesConfig {
     domain: string;
     name?: string;
     protocol?: string;
     type: CustomRemoteType;
-    urls?: IRemotesUrlsConfig;
+    urls?: RemotesUrlsConfig;
 }
 
-export interface IRemotesUrlsConfig {
+export interface RemotesUrlsConfig {
     repository: string;
     branches: string;
     branch: string;
@@ -265,7 +251,7 @@ export interface IRemotesUrlsConfig {
     fileRange: string;
 }
 
-export interface IConfig {
+export interface Config {
     blame: {
         avatars: boolean;
         compact: boolean;
@@ -283,34 +269,25 @@ export interface IConfig {
         separateLines: boolean;
         toggleMode: AnnotationsToggleMode;
     };
-
     currentLine: {
         scrollable: boolean;
         dateFormat: string | null;
         enabled: boolean;
         format: string;
     };
-
-    codeLens: ICodeLensConfig;
-
+    codeLens: CodeLensConfig;
     debug: boolean;
     defaultDateFormat: string | null;
     defaultDateStyle: DateStyle;
     defaultGravatarsStyle: GravatarDefaultStyle;
-
-    explorers: IExplorersConfig;
-
-    gitExplorer: IGitExplorerConfig;
-
+    explorers: ExplorersConfig;
     heatmap: {
         ageThreshold: number;
         coldColor: string;
         hotColor: string;
         toggleMode: AnnotationsToggleMode;
     };
-
-    fileHistoryExplorer: IFileHistoryExplorerConfig;
-
+    fileHistoryExplorer: FileHistoryExplorerConfig;
     hovers: {
         annotations: {
             changes: boolean;
@@ -318,22 +295,19 @@ export interface IConfig {
             enabled: boolean;
             over: 'line' | 'annotation';
         };
-
         currentLine: {
             changes: boolean;
             details: boolean;
             enabled: boolean;
             over: 'line' | 'annotation';
         };
-
         avatars: boolean;
         enabled: boolean;
     };
-
     insiders: boolean;
     keymap: KeyMap;
-    lineHistoryExplorer: ILineHistoryExplorerConfig;
-    menus: boolean | IMenuConfig;
+    lineHistoryExplorer: LineHistoryExplorerConfig;
+    menus: boolean | MenuConfig;
     mode: {
         active: string;
         statusBar: {
@@ -341,22 +315,18 @@ export interface IConfig {
             alignment: 'left' | 'right';
         };
     };
-    modes: { [key: string]: IModeConfig };
+    modes: { [key: string]: ModeConfig };
     outputLevel: OutputLevel;
-
     recentChanges: {
         highlight: {
             locations: HighlightLocations[];
         };
         toggleMode: AnnotationsToggleMode;
     };
-
-    remotes: IRemotesConfig[];
-
-    resultsExplorer: IResultsExplorerConfig;
-
+    remotes: RemotesConfig[];
+    repositoriesExplorer: RepositoriesExplorerConfig;
+    resultsExplorer: ResultsExplorerConfig;
     showWhatsNewAfterUpgrades: boolean;
-
     statusBar: {
         alignment: 'left' | 'right';
         command: StatusBarCommand;
@@ -365,7 +335,6 @@ export interface IConfig {
         format: string;
         reduceFlicker: boolean;
     };
-
     strings: {
         codeLens: {
             unsavedChanges: {
@@ -375,6 +344,5 @@ export interface IConfig {
             };
         };
     };
-
-    advanced: IAdvancedConfig;
+    advanced: AdvancedConfig;
 }

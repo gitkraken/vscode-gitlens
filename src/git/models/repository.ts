@@ -10,7 +10,7 @@ import {
     workspace,
     WorkspaceFolder
 } from 'vscode';
-import { configuration, IRemotesConfig } from '../../configuration';
+import { configuration, RemotesConfig } from '../../configuration';
 import { Container } from '../../container';
 import { Functions } from '../../system';
 import { GitBranch, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
@@ -155,7 +155,7 @@ export class Repository implements Disposable {
         const section = configuration.name('remotes').value;
         if (initializing || configuration.changed(e, section, this.folder.uri)) {
             this._providerMap = RemoteProviderFactory.createMap(
-                configuration.get<IRemotesConfig[] | null | undefined>(section, this.folder.uri)
+                configuration.get<RemotesConfig[] | null | undefined>(section, this.folder.uri)
             );
 
             if (!initializing) {
@@ -244,7 +244,7 @@ export class Repository implements Disposable {
     getRemotes(): Promise<GitRemote[]> {
         if (this._remotes === undefined) {
             if (this._providerMap === undefined) {
-                const remotesCfg = configuration.get<IRemotesConfig[] | null | undefined>(
+                const remotesCfg = configuration.get<RemotesConfig[] | null | undefined>(
                     configuration.name('remotes').value,
                     this.folder.uri
                 );

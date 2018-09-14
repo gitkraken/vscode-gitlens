@@ -15,7 +15,7 @@ import {
 } from '../../git/gitService';
 import { Logger } from '../../logger';
 import { Dates, Functions, Strings } from '../../system';
-import { GitExplorer } from '../gitExplorer';
+import { RepositoriesExplorer } from '../repositoriesExplorer';
 import { BranchesNode } from './branchesNode';
 import { BranchNode } from './branchNode';
 import { MessageNode } from './common';
@@ -26,7 +26,7 @@ import { StatusFilesNode } from './statusFilesNode';
 import { StatusUpstreamNode } from './statusUpstreamNode';
 import { TagsNode } from './tagsNode';
 
-export class RepositoryNode extends SubscribeableExplorerNode<GitExplorer> {
+export class RepositoryNode extends SubscribeableExplorerNode<RepositoriesExplorer> {
     private _children: ExplorerNode[] | undefined;
     private _lastFetched: number = 0;
     private _status: Promise<GitStatus | undefined>;
@@ -35,7 +35,7 @@ export class RepositoryNode extends SubscribeableExplorerNode<GitExplorer> {
         uri: GitUri,
         public readonly repo: Repository,
         parent: ExplorerNode,
-        explorer: GitExplorer
+        explorer: RepositoriesExplorer
     ) {
         super(uri, parent, explorer);
 
