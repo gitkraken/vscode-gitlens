@@ -197,48 +197,6 @@ export class Git {
         );
     }
 
-    // static async getVersionedFile(repoPath: string | undefined, fileName: string, ref: string) {
-    //     const buffer = await Git.show<Buffer>(repoPath, fileName, ref, { encoding: 'buffer' });
-    //     if (buffer === undefined) return undefined;
-
-    //     if (Git.isStagedUncommitted(ref)) {
-    //         ref = '';
-    //     }
-
-    //     const suffix = Strings.truncate(
-    //         Strings.sanitizeForFileSystem(Git.isSha(ref) ? Git.shortenSha(ref)! : ref),
-    //         50,
-    //         ''
-    //     );
-    //     const ext = path.extname(fileName);
-
-    //     const tmp = await import('tmp');
-    //     return new Promise<string>((resolve, reject) => {
-    //         tmp.file(
-    //             { prefix: `${path.basename(fileName, ext)}-${suffix}__`, postfix: ext },
-    //             (err, destination, fd, cleanupCallback) => {
-    //                 if (err) {
-    //                     reject(err);
-    //                     return;
-    //                 }
-
-    //                 Logger.log(`getVersionedFile[${destination}]('${repoPath}', '${fileName}', ${ref})`);
-    //                 fs.appendFile(destination, buffer, { encoding: 'binary' }, err => {
-    //                     if (err) {
-    //                         reject(err);
-    //                         return;
-    //                     }
-
-    //                     const ReadOnly = 0o100444; // 33060 0b1000000100100100
-    //                     fs.chmod(destination, ReadOnly, err => {
-    //                         resolve(destination);
-    //                     });
-    //                 });
-    //             }
-    //         );
-    //     });
-    // }
-
     static isResolveRequired(sha: string) {
         return Git.isSha(sha) && !Git.shaStrictRegex.test(sha);
     }
@@ -728,7 +686,7 @@ export class Git {
         const args = ref.endsWith(':') ? `${ref}./${file}` : `${ref}:./${file}`;
 
         try {
-            const data = await git<TOut>(opts, 'show', args, '--'); // , '--binary', '--no-textconv'
+            const data = await git<TOut>(opts, 'show', args, '--');
             return data;
         }
         catch (ex) {
