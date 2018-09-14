@@ -7,14 +7,15 @@ import { GitStatusFile, GitUri } from '../../git/gitService';
 import { Arrays, Iterables, Strings } from '../../system';
 import { Explorer } from '../explorer';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { FolderNode, IFileExplorerNode } from './folderNode';
+import { FileExplorerNode, FolderNode } from './folderNode';
 import { StatusFileNode } from './statusFileNode';
 
-export class StatusFilesResultsNode extends ExplorerNode {
-    readonly supportsPaging: boolean = true;
+export interface FilesQueryResults {
+    label: string;
+    diff: GitStatusFile[] | undefined;
+}
 
-    private _cache: { label: string; diff: GitStatusFile[] | undefined } | undefined;
-
+export class ResultsFilesNode extends ExplorerNode {
     constructor(
         public readonly repoPath: string,
         private readonly _ref1: string,
@@ -26,10 +27,10 @@ export class StatusFilesResultsNode extends ExplorerNode {
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        const diff = await this.getDiff();
+        const { diff } = await this.getFilesQueryResults();
         if (diff === undefined) return [];
 
-        let children: IFileExplorerNode[] = [
+        let children: FileExplorerNode[] = [
             ...Iterables.map(
                 diff,
                 s => new StatusFileNode(this.repoPath, s, this._ref1, this._ref2, this, this.explorer)
@@ -45,7 +46,7 @@ export class StatusFilesResultsNode extends ExplorerNode {
             );
 
             const root = new FolderNode(this.repoPath, '', undefined, hierarchy, this, this.explorer);
-            children = (await root.getChildren()) as IFileExplorerNode[];
+            children = (await root.getChildren()) as FileExplorerNode[];
         }
         else {
             children.sort((a, b) => (a.priority ? -1 : 1) - (b.priority ? -1 : 1) || a.label!.localeCompare(b.label!));
@@ -55,43 +56,35 @@ export class StatusFilesResultsNode extends ExplorerNode {
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        const diff = await this.getDiff();
+        const { diff, label } = await this.getFilesQueryResults();
 
         const item = new TreeItem(
-            await this.getLabel(),
+            label,
             diff && diff.length > 0 ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.None
         );
         item.contextValue = ResourceType.ResultsFiles;
         return item;
     }
 
-    refresh() {
-        this._cache = undefined;
+    async refresh() {
+        this._filesQueryResults = this.getFilesQueryResultsCore();
     }
 
-    private async ensureCache() {
-        if (this._cache === undefined) {
-            const diff = await Container.git.getDiffStatus(this.uri.repoPath!, this._ref1, this._ref2);
+    private _filesQueryResults: Promise<FilesQueryResults> | undefined;
 
-            const count = diff !== undefined ? diff.length : 0;
-            const label = `${Strings.pluralize('file', count, { zero: 'No' })} changed`;
-
-            this._cache = {
-                label: label,
-                diff: diff
-            };
+    private getFilesQueryResults() {
+        if (this._filesQueryResults === undefined) {
+            this._filesQueryResults = this.getFilesQueryResultsCore();
         }
 
-        return this._cache;
+        return this._filesQueryResults;
     }
 
-    private async getDiff() {
-        const cache = await this.ensureCache();
-        return cache.diff;
-    }
-
-    private async getLabel() {
-        const cache = await this.ensureCache();
-        return cache.label;
+    private async getFilesQueryResultsCore(): Promise<FilesQueryResults> {
+        const diff = await Container.git.getDiffStatus(this.uri.repoPath!, this._ref1, this._ref2);
+        return {
+            label: `${Strings.pluralize('file', diff !== undefined ? diff.length : 0, { zero: 'No' })} changed`,
+            diff: diff
+        };
     }
 }

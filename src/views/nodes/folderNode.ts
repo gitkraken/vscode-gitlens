@@ -6,12 +6,12 @@ import { Arrays, Objects } from '../../system';
 import { Explorer } from '../explorer';
 import { ExplorerNode, ResourceType } from './explorerNode';
 
-export interface IFileExplorerNode extends ExplorerNode {
+export interface FileExplorerNode extends ExplorerNode {
     folderName: string;
     label?: string;
     priority: boolean;
     relativePath?: string;
-    root?: Arrays.IHierarchicalItem<IFileExplorerNode>;
+    root?: Arrays.IHierarchicalItem<FileExplorerNode>;
 }
 
 export class FolderNode extends ExplorerNode {
@@ -21,17 +21,17 @@ export class FolderNode extends ExplorerNode {
         public readonly repoPath: string,
         public readonly folderName: string,
         public readonly relativePath: string | undefined,
-        public readonly root: Arrays.IHierarchicalItem<IFileExplorerNode>,
+        public readonly root: Arrays.IHierarchicalItem<FileExplorerNode>,
         parent: ExplorerNode,
         public readonly explorer: Explorer
     ) {
         super(GitUri.fromRepoPath(repoPath), parent);
     }
 
-    async getChildren(): Promise<(FolderNode | IFileExplorerNode)[]> {
+    async getChildren(): Promise<(FolderNode | FileExplorerNode)[]> {
         if (this.root.descendants === undefined || this.root.children === undefined) return [];
 
-        let children: (FolderNode | IFileExplorerNode)[];
+        let children: (FolderNode | FileExplorerNode)[];
 
         const nesting = FolderNode.getFileNesting(
             this.explorer.config.files,
@@ -81,7 +81,7 @@ export class FolderNode extends ExplorerNode {
         return this.folderName;
     }
 
-    static getFileNesting<T extends IFileExplorerNode>(
+    static getFileNesting<T extends FileExplorerNode>(
         config: ExplorersFilesConfig,
         children: T[],
         isRoot: boolean

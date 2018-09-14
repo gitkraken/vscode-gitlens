@@ -1124,11 +1124,19 @@ export class GitService implements Disposable {
     async getLogCommitForFile(
         repoPath: string | undefined,
         fileName: string,
-        options: { ref?: string; firstIfNotFound?: boolean } = {}
+        options: { ref?: string; firstIfNotFound?: boolean; reverse?: boolean } = {}
     ): Promise<GitLogCommit | undefined> {
-        Logger.log(`getFileLogCommit('${repoPath}', '${fileName}', '${options.ref}', ${options.firstIfNotFound})`);
+        Logger.log(
+            `getFileLogCommit('${repoPath}', '${fileName}', '${options.ref}', ${options.firstIfNotFound}, ${
+                options.reverse
+            })`
+        );
 
-        const log = await this.getLogForFile(repoPath, fileName, { maxCount: 2, ref: options.ref });
+        const log = await this.getLogForFile(repoPath, fileName, {
+            maxCount: 2,
+            ref: options.ref,
+            reverse: options.reverse
+        });
         if (log === undefined) return undefined;
 
         const commit = options.ref && log.commits.get(options.ref);
@@ -1888,7 +1896,9 @@ export class GitService implements Disposable {
         try {
             const gitExtension = extensions.getExtension('vscode.git');
             if (gitExtension !== undefined) {
-                const gitApi = ((gitExtension.isActive ? gitExtension.exports : await gitExtension.activate()) as GitExtension).getAPI(1);
+                const gitApi = ((gitExtension.isActive
+                    ? gitExtension.exports
+                    : await gitExtension.activate()) as GitExtension).getAPI(1);
                 gitPath = gitApi.git.path;
             }
         }

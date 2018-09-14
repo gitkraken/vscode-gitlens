@@ -220,7 +220,7 @@ export class ExplorerCommands implements Disposable {
         void commands.executeCommand(BuiltInCommands.FocusFilesExplorer);
     }
 
-    private openChanges(node: CommitNode | StashNode) {
+    private openChanges(node: CommitFileNode | StashFileNode | StatusFileNode) {
         const command = node.getCommand();
         if (command === undefined || command.arguments === undefined) return;
 
@@ -229,35 +229,55 @@ export class ExplorerCommands implements Disposable {
         return commands.executeCommand(command.command, uri, args);
     }
 
-    private openChangesWithWorking(node: CommitNode | StashNode) {
+    private async openChangesWithWorking(node: CommitFileNode | StashFileNode | StatusFileNode) {
         const args: DiffWithWorkingCommandArgs = {
-            commit: node.commit,
             showOptions: {
                 preserveFocus: true,
                 preview: false
             }
         };
-        return commands.executeCommand(Commands.DiffWithWorking, node.commit.toGitUri(), args);
+
+        if (node instanceof StatusFileNode) {
+            args.commit = await Container.git.getLogCommitForFile(node.repoPath, node.uri.fsPath, {
+                ref: node.uri.sha,
+                firstIfNotFound: true,
+                reverse: true
+            });
+        }
+
+        return commands.executeCommand(Commands.DiffWithWorking, node.uri, args);
     }
 
-    private openFile(node: CommitFileNode | StashFileNode | StatusFileCommitsNode | StatusFileNode) {
+    private openFile(node: CommitFileNode | StashFileNode | StatusFileNode) {
         return openEditor(node.uri, { preserveFocus: true, preview: false });
     }
 
     private openFileRevision(
-        node: CommitFileNode | StashFileNode | StatusFileCommitsNode,
+        node: CommitFileNode | StashFileNode | StatusFileNode,
         options: OpenFileRevisionCommandArgs = { showOptions: { preserveFocus: true, preview: false } }
     ) {
-        const uri =
-            options.uri ||
-            (node.commit.status === 'D'
-                ? GitUri.toRevisionUri(node.commit.previousSha!, node.commit.previousUri.fsPath, node.commit.repoPath)
-                : GitUri.toRevisionUri(node.uri));
+        let uri = options.uri;
+        if (uri == null) {
+            if (node instanceof StatusFileNode) {
+                uri = GitUri.toRevisionUri(node.uri);
+            }
+            else {
+                uri =
+                    node.commit.status === 'D'
+                        ? GitUri.toRevisionUri(
+                              node.commit.previousSha!,
+                              node.commit.previousUri.fsPath,
+                              node.commit.repoPath
+                          )
+                        : GitUri.toRevisionUri(node.uri);
+            }
+        }
+
         return openEditor(uri, options.showOptions || { preserveFocus: true, preview: false });
     }
 
     private async openChangedFileChanges(
-        node: CommitFileNode | StashFileNode | StatusFileCommitsNode,
+        node: CommitNode | StashNode,
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ) {
         const repoPath = node.commit.repoPath;
@@ -268,7 +288,8 @@ export class ExplorerCommands implements Disposable {
                 repoPath,
                 {
                     uri: uri,
-                    sha: node.commit.previousSha !== undefined ? node.commit.previousSha : GitService.deletedOrMissingSha
+                    sha:
+                        node.commit.previousSha !== undefined ? node.commit.previousSha : GitService.deletedOrMissingSha
                 },
                 { uri: uri, sha: node.commit.sha },
                 options
@@ -277,7 +298,7 @@ export class ExplorerCommands implements Disposable {
     }
 
     private async openChangedFileChangesWithWorking(
-        node: CommitFileNode | StashFileNode | StatusFileCommitsNode,
+        node: CommitNode | StashNode,
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ) {
         const repoPath = node.commit.repoPath;

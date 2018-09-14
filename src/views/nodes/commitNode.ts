@@ -10,7 +10,7 @@ import { Arrays, Iterables, Strings } from '../../system';
 import { Explorer } from '../explorer';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { ExplorerNode, ExplorerRefNode, ResourceType } from './explorerNode';
-import { FolderNode, IFileExplorerNode } from './folderNode';
+import { FileExplorerNode, FolderNode } from './folderNode';
 
 export class CommitNode extends ExplorerRefNode {
     constructor(
@@ -29,7 +29,7 @@ export class CommitNode extends ExplorerRefNode {
 
     async getChildren(): Promise<ExplorerNode[]> {
         const commit = this.commit;
-        let children: IFileExplorerNode[] = [
+        let children: FileExplorerNode[] = [
             ...Iterables.map(
                 commit.fileStatuses,
                 s => new CommitFileNode(s, commit.toFileCommit(s), this, this.explorer, CommitFileNodeDisplayAs.File)
@@ -45,7 +45,7 @@ export class CommitNode extends ExplorerRefNode {
             );
 
             const root = new FolderNode(this.repoPath, '', undefined, hierarchy, this, this.explorer);
-            children = (await root.getChildren()) as IFileExplorerNode[];
+            children = (await root.getChildren()) as FileExplorerNode[];
         }
         else {
             children.sort((a, b) => a.label!.localeCompare(b.label!));

@@ -7,7 +7,7 @@ import { Strings } from '../../system';
 import { ResultsExplorer } from '../resultsExplorer';
 import { ExplorerNode, NamedRef, ResourceType } from './explorerNode';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
-import { StatusFilesResultsNode } from './statusFilesResultsNode';
+import { ResultsFilesNode } from './resultsFilesNode';
 
 export class ResultsComparisonNode extends ExplorerNode {
     constructor(
@@ -35,7 +35,7 @@ export class ResultsComparisonNode extends ExplorerNode {
     async getChildren(): Promise<ExplorerNode[]> {
         return [
             new ResultsCommitsNode(this.uri.repoPath!, this.getCommitsQuery.bind(this), this, this.explorer),
-            new StatusFilesResultsNode(this.uri.repoPath!, this._ref1.ref, this._ref2.ref, this, this.explorer)
+            new ResultsFilesNode(this.uri.repoPath!, this._ref1.ref, this._ref2.ref, this, this.explorer)
         ];
     }
 

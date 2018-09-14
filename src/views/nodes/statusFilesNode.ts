@@ -16,7 +16,7 @@ import {
 import { Arrays, Iterables, Objects, Strings } from '../../system';
 import { RepositoriesExplorer } from '../repositoriesExplorer';
 import { ExplorerNode, ResourceType } from './explorerNode';
-import { FolderNode, IFileExplorerNode } from './folderNode';
+import { FileExplorerNode, FolderNode } from './folderNode';
 import { StatusFileCommitsNode } from './statusFileCommitsNode';
 
 export class StatusFilesNode extends ExplorerNode {
@@ -82,7 +82,7 @@ export class StatusFilesNode extends ExplorerNode {
 
         const groups = Arrays.groupBy(statuses, s => s.fileName);
 
-        let children: IFileExplorerNode[] = [
+        let children: FileExplorerNode[] = [
             ...Iterables.map(
                 Objects.values(groups),
                 statuses =>
@@ -105,7 +105,7 @@ export class StatusFilesNode extends ExplorerNode {
             );
 
             const root = new FolderNode(repoPath, '', undefined, hierarchy, this, this.explorer);
-            children = (await root.getChildren()) as IFileExplorerNode[];
+            children = (await root.getChildren()) as FileExplorerNode[];
         }
         else {
             children.sort((a, b) => (a.priority ? -1 : 1) - (b.priority ? -1 : 1) || a.label!.localeCompare(b.label!));

@@ -23,7 +23,7 @@ export * from './nodes/stashNode';
 export * from './nodes/statusFileCommitsNode';
 export * from './nodes/statusFileNode';
 export * from './nodes/statusFilesNode';
-export * from './nodes/statusFilesResultsNode';
+export * from './nodes/resultsFilesNode';
 export * from './nodes/statusUpstreamNode';
 export * from './nodes/tagsNode';
 export * from './nodes/tagNode';
