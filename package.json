@@ -3261,7 +3261,7 @@
                 },
                 {
                     "command": "gitlens.explorers.applyChanges",
-                    "when": "viewItem =~ /gitlens:file:(commit|status)\\b/",
+                    "when": "viewItem =~ /gitlens:file:(commit|results)\\b/",
                     "group": "5_gitlens_1@1"
                 },
                 {
@@ -3286,7 +3286,7 @@
                 },
                 {
                     "command": "gitlens.explorers.exploreRepoRevision",
-                    "when": "viewItem =~ /gitlens:(branch|commit|file:(commit|status)|stash|tag)\\b/",
+                    "when": "viewItem =~ /gitlens:(branch|commit|file:(commit|results|status)|stash|tag)\\b/",
                     "group": "7_gitlens_more@1"
                 },
                 {

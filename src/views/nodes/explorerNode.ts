@@ -28,6 +28,7 @@ export enum ResourceType {
     Repository = 'gitlens:repository',
     Results = 'gitlens:results',
     ResultsCommits = 'gitlens:results:commits',
+    ResultsFile = 'gitlens:file:results',
     ResultsFiles = 'gitlens:results:files',
     SearchResults = 'gitlens:results:search',
     Stash = 'gitlens:stash',

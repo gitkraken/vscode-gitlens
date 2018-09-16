@@ -15,7 +15,7 @@ import { Explorer } from '../explorer';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 
-export class StatusFileCommitsNode extends ExplorerNode {
+export class StatusFileNode extends ExplorerNode {
     constructor(
         public readonly repoPath: string,
         public readonly file: GitFile,

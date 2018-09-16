@@ -17,7 +17,7 @@ import { Arrays, Iterables, Objects, Strings } from '../../system';
 import { RepositoriesExplorer } from '../repositoriesExplorer';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { FileExplorerNode, FolderNode } from './folderNode';
-import { StatusFileCommitsNode } from './statusFileCommitsNode';
+import { StatusFileNode } from './statusFileNode';
 
 export class StatusFilesNode extends ExplorerNode {
     readonly repoPath: string;
@@ -86,13 +86,7 @@ export class StatusFilesNode extends ExplorerNode {
             ...Iterables.map(
                 Objects.values(groups),
                 files =>
-                    new StatusFileCommitsNode(
-                        repoPath,
-                        files[files.length - 1],
-                        files.map(s => s.commit),
-                        this,
-                        this.explorer
-                    )
+                    new StatusFileNode(repoPath, files[files.length - 1], files.map(s => s.commit), this, this.explorer)
             )
         ];
 

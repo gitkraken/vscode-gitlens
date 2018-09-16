@@ -28,7 +28,7 @@ import {
     ResultsFileNode,
     StashFileNode,
     StashNode,
-    StatusFileCommitsNode,
+    StatusFileNode,
     StatusUpstreamNode,
     TagNode
 } from './nodes';
@@ -355,7 +355,7 @@ export class ExplorerCommands implements Disposable {
         return commands.executeCommand(Commands.DiffWith, diffArgs);
     }
 
-    private async openFileRevisionInRemote(node: CommitFileNode | StashFileNode | StatusFileCommitsNode) {
+    private async openFileRevisionInRemote(node: CommitFileNode | StashFileNode | StatusFileNode) {
         return commands.executeCommand(Commands.OpenFileInRemote, node.commit.toGitUri(node.commit.status === 'D'), {
             range: false
         } as OpenFileInRemoteCommandArgs);

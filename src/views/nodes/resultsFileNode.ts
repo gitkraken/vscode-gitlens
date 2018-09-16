@@ -25,7 +25,7 @@ export class ResultsFileNode extends ExplorerNode {
 
     getTreeItem(): TreeItem {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
-        item.contextValue = ResourceType.StatusFile;
+        item.contextValue = ResourceType.ResultsFile;
         item.tooltip = StatusFileFormatter.fromTemplate('${file}\n${directory}/\n\n${status}', this._file);
 
         const statusIcon = GitFile.getStatusIcon(this._file.status);
