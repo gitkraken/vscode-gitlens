@@ -8,7 +8,7 @@ import { Arrays, Iterables, Strings } from '../../system';
 import { Explorer } from '../explorer';
 import { ExplorerNode, ResourceType } from './explorerNode';
 import { FileExplorerNode, FolderNode } from './folderNode';
-import { StatusFileNode } from './statusFileNode';
+import { ResultsFileNode } from './resultsFileNode';
 
 export interface FilesQueryResults {
     label: string;
@@ -33,7 +33,7 @@ export class ResultsFilesNode extends ExplorerNode {
         let children: FileExplorerNode[] = [
             ...Iterables.map(
                 diff,
-                s => new StatusFileNode(this.repoPath, s, this._ref1, this._ref2, this, this.explorer)
+                s => new ResultsFileNode(this.repoPath, s, this._ref1, this._ref2, this, this.explorer)
             )
         ];
 

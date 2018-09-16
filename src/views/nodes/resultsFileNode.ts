@@ -3,14 +3,14 @@ import * as path from 'path';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs } from '../../commands';
 import { Container } from '../../container';
-import { GitFile, GitStatusFile, GitUri, IStatusFormatOptions, StatusFileFormatter } from '../../git/gitService';
+import { GitFile, GitUri, IStatusFormatOptions, StatusFileFormatter } from '../../git/gitService';
 import { Explorer } from '../explorer';
 import { ExplorerNode, ResourceType } from './explorerNode';
 
-export class StatusFileNode extends ExplorerNode {
+export class ResultsFileNode extends ExplorerNode {
     constructor(
         public readonly repoPath: string,
-        private readonly _file: GitStatusFile,
+        private readonly _file: GitFile,
         private readonly _ref1: string,
         private readonly _ref2: string,
         parent: ExplorerNode,
@@ -49,7 +49,7 @@ export class StatusFileNode extends ExplorerNode {
     private _label: string | undefined;
     get label() {
         if (this._label === undefined) {
-            this._label = StatusFileFormatter.fromTemplate(this.explorer.config.statusFileFormat, this._file, {
+            this._label = StatusFileFormatter.fromTemplate('${filePath}', this._file, {
                 relativePath: this.relativePath
             } as IStatusFormatOptions);
         }

@@ -476,7 +476,7 @@
                 "gitlens.explorers.statusFileFormat": {
                     "type": "string",
                     "default": "${working  }${filePath}",
-                    "description": "Specifies the format of the status of a working or committed file in the `Repositories` and `Results` explorers\nAvailable tokens\n ${directory} - directory name\n ${file} - file name\n ${filePath} - formatted file name and path\n ${path} - full file path\n ${working} - optional indicator if the file is uncommitted",
+                    "description": "Specifies the format of the status of a working or committed file in the `Repositories` explorer\nAvailable tokens\n ${directory} - directory name\n ${file} - file name\n ${filePath} - formatted file name and path\n ${path} - full file path\n ${working} - optional indicator if the file is uncommitted",
                     "scope": "window"
                 },
                 "gitlens.repositoriesExplorer.autoRefresh": {

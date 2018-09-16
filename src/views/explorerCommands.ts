@@ -25,10 +25,10 @@ import {
     ExplorerRefNode,
     RemoteNode,
     RepositoryNode,
+    ResultsFileNode,
     StashFileNode,
     StashNode,
     StatusFileCommitsNode,
-    StatusFileNode,
     StatusUpstreamNode,
     TagNode
 } from './nodes';
@@ -124,7 +124,7 @@ export class ExplorerCommands implements Disposable {
         return node.push();
     }
 
-    private async applyChanges(node: CommitFileNode | StashFileNode | StatusFileNode) {
+    private async applyChanges(node: CommitFileNode | StashFileNode | ResultsFileNode) {
         await this.openFile(node);
 
         if (node.uri.sha !== undefined && node.uri.sha !== 'HEAD') {
@@ -220,7 +220,7 @@ export class ExplorerCommands implements Disposable {
         void commands.executeCommand(BuiltInCommands.FocusFilesExplorer);
     }
 
-    private openChanges(node: CommitFileNode | StashFileNode | StatusFileNode) {
+    private openChanges(node: CommitFileNode | StashFileNode | ResultsFileNode) {
         const command = node.getCommand();
         if (command === undefined || command.arguments === undefined) return;
 
@@ -229,7 +229,7 @@ export class ExplorerCommands implements Disposable {
         return commands.executeCommand(command.command, uri, args);
     }
 
-    private async openChangesWithWorking(node: CommitFileNode | StashFileNode | StatusFileNode) {
+    private async openChangesWithWorking(node: CommitFileNode | StashFileNode | ResultsFileNode) {
         const args: DiffWithWorkingCommandArgs = {
             showOptions: {
                 preserveFocus: true,
@@ -237,7 +237,7 @@ export class ExplorerCommands implements Disposable {
             }
         };
 
-        if (node instanceof StatusFileNode) {
+        if (node instanceof ResultsFileNode) {
             args.commit = await Container.git.getLogCommitForFile(node.repoPath, node.uri.fsPath, {
                 ref: node.uri.sha,
                 firstIfNotFound: true,
@@ -248,17 +248,17 @@ export class ExplorerCommands implements Disposable {
         return commands.executeCommand(Commands.DiffWithWorking, node.uri, args);
     }
 
-    private openFile(node: CommitFileNode | StashFileNode | StatusFileNode) {
+    private openFile(node: CommitFileNode | StashFileNode | ResultsFileNode) {
         return openEditor(node.uri, { preserveFocus: true, preview: false });
     }
 
     private openFileRevision(
-        node: CommitFileNode | StashFileNode | StatusFileNode,
+        node: CommitFileNode | StashFileNode | ResultsFileNode,
         options: OpenFileRevisionCommandArgs = { showOptions: { preserveFocus: true, preview: false } }
     ) {
         let uri = options.uri;
         if (uri == null) {
-            if (node instanceof StatusFileNode) {
+            if (node instanceof ResultsFileNode) {
                 uri = GitUri.toRevisionUri(node.uri);
             }
             else {
