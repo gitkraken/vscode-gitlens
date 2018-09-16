@@ -1,6 +1,6 @@
 'use strict';
 import * as iconv from 'iconv-lite';
-import * as path from 'path';
+import * as paths from 'path';
 import { GlyphChars } from '../constants';
 import { Logger } from '../logger';
 import { Objects, Strings } from '../system';
@@ -165,12 +165,12 @@ function throwExceptionHandler(ex: Error) {
 let gitInfo: GitLocation;
 
 export class Git {
-    static deletedOrMissingSha = 'ffffffffffffffffffffffffffffffffffffffff';
-    static shaRegex = /^[0-9a-f]{40}(\^[0-9]*?)??( -)?$/;
-    static shaStrictRegex = /^[0-9a-f]{40}$/;
-    static stagedUncommittedRegex = /^[0]{40}(\^[0-9]*?)??:$/;
+    static deletedOrMissingSha = '0000000000000000000000000000000000000000-';
+    static shaLikeRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
+    static shaRegex = /(^[0-9a-f]{40}$)|(^[0]{40}(:|-)$)/;
+    static stagedUncommittedRegex = /^[0]{40}([\^@~]\S*)?:$/;
     static stagedUncommittedSha = '0000000000000000000000000000000000000000:';
-    static uncommittedRegex = /^[0]{40}(\^[0-9]*?)??:??$/;
+    static uncommittedRegex = /^[0]{40}(?:[\^@~:]\S*)?:?$/;
     static uncommittedSha = '0000000000000000000000000000000000000000';
 
     static getEncoding(encoding: string | undefined) {
@@ -197,39 +197,42 @@ export class Git {
         );
     }
 
-    static isResolveRequired(sha: string) {
-        return Git.isSha(sha) && !Git.shaStrictRegex.test(sha);
+    static isSha(ref: string) {
+        return Git.shaRegex.test(ref);
     }
 
-    static isSha(sha: string) {
-        return Git.shaRegex.test(sha);
+    static isShaLike(ref: string) {
+        return Git.shaLikeRegex.test(ref);
     }
 
-    static isStagedUncommitted(sha: string | undefined): boolean {
-        return sha === undefined ? false : Git.stagedUncommittedRegex.test(sha);
+    static isStagedUncommitted(ref: string | undefined): boolean {
+        return ref ? Git.stagedUncommittedRegex.test(ref) : false;
     }
 
-    static isUncommitted(sha: string | undefined) {
-        return sha === undefined ? false : Git.uncommittedRegex.test(sha);
+    static isUncommitted(ref: string | undefined) {
+        return ref ? Git.uncommittedRegex.test(ref) : false;
     }
 
     static shortenSha(
-        sha: string,
+        ref: string,
         strings: { stagedUncommitted?: string; uncommitted?: string; working?: string } = {}
     ) {
         strings = { stagedUncommitted: 'index', uncommitted: 'working', working: '', ...strings };
 
-        if (sha === '') return strings.working;
-        if (Git.isStagedUncommitted(sha)) return strings.stagedUncommitted;
-        if (Git.isUncommitted(sha)) return strings.uncommitted;
+        if (ref === '') return strings.working;
+        if (Git.isUncommitted(ref)) {
+            if (Git.isStagedUncommitted(ref)) return strings.stagedUncommitted;
 
-        const index = sha.indexOf('^');
+            return strings.uncommitted;
+        }
+
+        const index = ref.indexOf('^');
         if (index > 6) {
             // Only grab a max of 5 chars for the suffix
-            const suffix = sha.substring(index).substring(0, 5);
-            return `${sha.substring(0, 8 - suffix.length)}${suffix}`;
+            const suffix = ref.substring(index).substring(0, 5);
+            return `${ref.substring(0, 8 - suffix.length)}${suffix}`;
         }
-        return sha.substring(0, 8);
+        return ref.substring(0, 8);
     }
 
     static splitPath(fileName: string, repoPath: string | undefined, extract: boolean = true): [string, string] {
@@ -243,8 +246,8 @@ export class Git {
             }
         }
         else {
-            repoPath = Strings.normalizePath(extract ? path.dirname(fileName) : repoPath!);
-            fileName = Strings.normalizePath(extract ? path.basename(fileName) : fileName);
+            repoPath = Strings.normalizePath(extract ? paths.dirname(fileName) : repoPath!);
+            fileName = Strings.normalizePath(extract ? paths.basename(fileName) : fileName);
         }
 
         return [fileName, repoPath];
@@ -260,7 +263,7 @@ export class Git {
     static async blame(
         repoPath: string | undefined,
         fileName: string,
-        sha?: string,
+        ref?: string,
         options: { args?: string[] | null; ignoreWhitespace?: boolean; startLine?: number; endLine?: number } = {}
     ) {
         const [file, root] = Git.splitPath(fileName, repoPath);
@@ -278,8 +281,8 @@ export class Git {
         }
 
         let stdin;
-        if (sha) {
-            if (Git.isStagedUncommitted(sha)) {
+        if (ref) {
+            if (Git.isStagedUncommitted(ref)) {
                 // Pipe the blame contents to stdin
                 params.push('--contents', '-');
 
@@ -287,7 +290,7 @@ export class Git {
                 stdin = await Git.show<string>(repoPath, fileName, ':');
             }
             else {
-                params.push(sha);
+                params.push(ref);
             }
         }
 
@@ -353,10 +356,10 @@ export class Git {
         return git<string>({ cwd: repoPath }, 'check-mailmap', author);
     }
 
-    static checkout(repoPath: string, fileName: string, sha: string) {
+    static checkout(repoPath: string, fileName: string, ref: string) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
-        return git<string>({ cwd: root }, 'checkout', sha, '--', file);
+        return git<string>({ cwd: root }, 'checkout', ref, '--', file);
     }
 
     static async config_get(key: string, repoPath?: string) {
@@ -379,38 +382,38 @@ export class Git {
         return data === '' ? undefined : data.trim();
     }
 
-    static diff(repoPath: string, fileName: string, sha1?: string, sha2?: string, options: { encoding?: string } = {}) {
+    static diff(repoPath: string, fileName: string, ref1?: string, ref2?: string, options: { encoding?: string } = {}) {
         const params = ['-c', 'color.diff=false', 'diff', '--diff-filter=M', '-M', '--no-ext-diff', '--minimal'];
-        if (sha1) {
-            params.push(Git.isStagedUncommitted(sha1) ? '--staged' : sha1);
+        if (ref1) {
+            params.push(Git.isStagedUncommitted(ref1) ? '--staged' : ref1);
         }
-        if (sha2) {
-            params.push(Git.isStagedUncommitted(sha2) ? '--staged' : sha2);
+        if (ref2) {
+            params.push(Git.isStagedUncommitted(ref2) ? '--staged' : ref2);
         }
 
         const encoding: BufferEncoding = options.encoding === 'utf8' ? 'utf8' : 'binary';
         return git<string>({ cwd: repoPath, encoding: encoding }, ...params, '--', fileName);
     }
 
-    static diff_nameStatus(repoPath: string, sha1?: string, sha2?: string, options: { filter?: string } = {}) {
+    static diff_nameStatus(repoPath: string, ref1?: string, ref2?: string, options: { filter?: string } = {}) {
         const params = ['-c', 'color.diff=false', 'diff', '--name-status', '-M', '--no-ext-diff'];
         if (options && options.filter) {
             params.push(`--diff-filter=${options.filter}`);
         }
-        if (sha1) {
-            params.push(sha1);
+        if (ref1) {
+            params.push(ref1);
         }
-        if (sha2) {
-            params.push(sha2);
+        if (ref2) {
+            params.push(ref2);
         }
 
         return git<string>({ cwd: repoPath }, ...params);
     }
 
-    static diff_shortstat(repoPath: string, sha?: string) {
+    static diff_shortstat(repoPath: string, ref?: string) {
         const params = ['-c', 'color.diff=false', 'diff', '--shortstat', '--no-ext-diff'];
-        if (sha) {
-            params.push(sha);
+        if (ref) {
+            params.push(ref);
         }
         return git<string>({ cwd: repoPath }, ...params);
     }
@@ -676,7 +679,7 @@ export class Git {
         if (Git.isStagedUncommitted(ref)) {
             ref = ':';
         }
-        if (Git.isUncommitted(ref)) throw new Error(`sha=${ref} is uncommitted`);
+        if (Git.isUncommitted(ref)) throw new Error(`ref=${ref} is uncommitted`);
 
         const opts = {
             cwd: root,

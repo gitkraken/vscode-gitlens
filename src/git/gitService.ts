@@ -1,6 +1,6 @@
 'use strict';
 import * as fs from 'fs';
-import * as path from 'path';
+import * as paths from 'path';
 import {
     ConfigurationChangeEvent,
     Disposable,
@@ -284,9 +284,9 @@ export class GitService implements Disposable {
             Object.create(null) as any
         );
 
-        let paths;
+        let repoPaths;
         try {
-            paths = await this.repositorySearchCore(folderUri.fsPath, depth, excludes);
+            repoPaths = await this.repositorySearchCore(folderUri.fsPath, depth, excludes);
         }
         catch (ex) {
             if (RepoSearchWarnings.doesNotExist.test(ex.message || '')) {
@@ -303,8 +303,8 @@ export class GitService implements Disposable {
             return repositories;
         }
 
-        for (let p of paths) {
-            p = path.dirname(p);
+        for (let p of repoPaths) {
+            p = paths.dirname(p);
             // If we are the same as the root, skip it
             if (Strings.normalizePath(p) === rootPath) continue;
 
@@ -345,15 +345,15 @@ export class GitService implements Disposable {
                 const folders: string[] = [];
 
                 const promises = files.map(file => {
-                    const fullPath = path.resolve(root, file);
+                    const path = paths.resolve(root, file);
 
                     return new Promise<void>((res, rej) => {
-                        fs.stat(fullPath, (err, stat) => {
+                        fs.stat(path, (err, stat) => {
                             if (file === '.git') {
-                                repositories.push(fullPath);
+                                repositories.push(path);
                             }
                             else if (err == null && excludes[file] !== true && stat != null && stat.isDirectory()) {
-                                folders.push(fullPath);
+                                folders.push(path);
                             }
 
                             res();
@@ -432,17 +432,17 @@ export class GitService implements Disposable {
         fileName: string,
         options: { ensureCase: boolean } = { ensureCase: false }
     ): Promise<boolean> {
-        const filePath = path.resolve(repoPath, fileName);
-        const exists = await new Promise<boolean>((resolve, reject) => fs.exists(filePath, resolve));
+        const path = paths.resolve(repoPath, fileName);
+        const exists = await new Promise<boolean>((resolve, reject) => fs.exists(path, resolve));
         if (!options.ensureCase || !exists) return exists;
 
         // Deal with renames in case only on case-insensative file systems
-        const normalizedRepoPath = path.normalize(repoPath);
-        return this.fileExistsWithCase(filePath, normalizedRepoPath, normalizedRepoPath.length);
+        const normalizedRepoPath = paths.normalize(repoPath);
+        return this.fileExistsWithCase(path, normalizedRepoPath, normalizedRepoPath.length);
     }
 
-    private async fileExistsWithCase(filePath: string, repoPath: string, repoPathLength: number): Promise<boolean> {
-        const dir = path.dirname(filePath);
+    private async fileExistsWithCase(path: string, repoPath: string, repoPathLength: number): Promise<boolean> {
+        const dir = paths.dirname(path);
         if (dir.length < repoPathLength) return false;
         if (dir === repoPath) return true;
 
@@ -456,7 +456,7 @@ export class GitService implements Disposable {
                 }
             })
         );
-        if (filenames.indexOf(path.basename(filePath)) === -1) {
+        if (filenames.indexOf(paths.basename(path)) === -1) {
             return false;
         }
         return this.fileExistsWithCase(dir, repoPath, repoPathLength);
@@ -526,7 +526,7 @@ export class GitService implements Disposable {
                 [fileName, repoPath] = Git.splitPath(fileName, repoPath);
             }
             else {
-                fileName = Strings.normalizePath(path.relative(repoPath, fileName));
+                fileName = Strings.normalizePath(paths.relative(repoPath, fileName));
             }
         }
         else {
@@ -921,10 +921,10 @@ export class GitService implements Disposable {
         return GitBranchParser.parse(data, repoPath) || [];
     }
 
-    async getChangedFilesCount(repoPath: string, sha?: string): Promise<GitDiffShortStat | undefined> {
-        Logger.log(`getChangedFilesCount('${repoPath}', '${sha}')`);
+    async getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined> {
+        Logger.log(`getChangedFilesCount('${repoPath}', '${ref}')`);
 
-        const data = await Git.diff_shortstat(repoPath, sha);
+        const data = await Git.diff_shortstat(repoPath, ref);
         return GitDiffParser.parseShortStat(data);
     }
 
@@ -974,17 +974,17 @@ export class GitService implements Disposable {
         return user;
     }
 
-    async getDiffForFile(uri: GitUri, sha1?: string, sha2?: string): Promise<GitDiff | undefined> {
-        if (sha1 !== undefined && sha2 === undefined && uri.sha !== undefined) {
-            sha2 = uri.sha;
+    async getDiffForFile(uri: GitUri, ref1?: string, ref2?: string): Promise<GitDiff | undefined> {
+        if (ref1 !== undefined && ref2 === undefined && uri.sha !== undefined) {
+            ref2 = uri.sha;
         }
 
         let key = 'diff';
-        if (sha1 !== undefined) {
-            key += `:${sha1}`;
+        if (ref1 !== undefined) {
+            key += `:${ref1}`;
         }
-        if (sha2 !== undefined) {
-            key += `:${sha2}`;
+        if (ref2 !== undefined) {
+            key += `:${ref2}`;
         }
 
         const doc = await Container.tracker.getOrAdd(uri);
@@ -993,27 +993,27 @@ export class GitService implements Disposable {
                 const cachedDiff = doc.state.get<CachedDiff>(key);
                 if (cachedDiff !== undefined) {
                     Logger.log(
-                        `getDiffForFile[Cached(${key})]('${uri.repoPath}', '${uri.fsPath}', '${sha1}', '${sha2}')`
+                        `getDiffForFile[Cached(${key})]('${uri.repoPath}', '${uri.fsPath}', '${ref1}', '${ref2}')`
                     );
                     return cachedDiff.item;
                 }
             }
 
-            Logger.log(`getDiffForFile[Not Cached(${key})]('${uri.repoPath}', '${uri.fsPath}', '${sha1}', '${sha2}')`);
+            Logger.log(`getDiffForFile[Not Cached(${key})]('${uri.repoPath}', '${uri.fsPath}', '${ref1}', '${ref2}')`);
 
             if (doc.state === undefined) {
                 doc.state = new GitDocumentState(doc.key);
             }
         }
         else {
-            Logger.log(`getDiffForFile('${uri.repoPath}', '${uri.fsPath}', '${sha1}', '${sha2}')`);
+            Logger.log(`getDiffForFile('${uri.repoPath}', '${uri.fsPath}', '${ref1}', '${ref2}')`);
         }
 
         const promise = this.getDiffForFileCore(
             uri.repoPath,
             uri.fsPath,
-            sha1,
-            sha2,
+            ref1,
+            ref2,
             { encoding: GitService.getEncoding(uri) },
             doc,
             key
@@ -1033,8 +1033,8 @@ export class GitService implements Disposable {
     private async getDiffForFileCore(
         repoPath: string | undefined,
         fileName: string,
-        sha1: string | undefined,
-        sha2: string | undefined,
+        ref1: string | undefined,
+        ref2: string | undefined,
         options: { encoding?: string },
         document: TrackedDocument<GitDocumentState>,
         key: string
@@ -1042,7 +1042,7 @@ export class GitService implements Disposable {
         const [file, root] = Git.splitPath(fileName, repoPath, false);
 
         try {
-            const data = await Git.diff(root, file, sha1, sha2, options);
+            const data = await Git.diff(root, file, ref1, ref2, options);
             const diff = GitDiffParser.parse(data);
             return diff;
         }
@@ -1067,13 +1067,13 @@ export class GitService implements Disposable {
     async getDiffForLine(
         uri: GitUri,
         line: number,
-        sha1?: string,
-        sha2?: string
+        ref1?: string,
+        ref2?: string
     ): Promise<GitDiffChunkLine | undefined> {
-        Logger.log(`getDiffForLine('${uri.repoPath}', '${uri.fsPath}', ${line}, '${sha1}', '${sha2}')`);
+        Logger.log(`getDiffForLine('${uri.repoPath}', '${uri.fsPath}', ${line}, '${ref1}', '${ref2}')`);
 
         try {
-            const diff = await this.getDiffForFile(uri, sha1, sha2);
+            const diff = await this.getDiffForFile(uri, ref1, ref2);
             if (diff === undefined) return undefined;
 
             const chunk = diff.chunks.find(c => c.currentPosition.start <= line && c.currentPosition.end >= line);
@@ -1088,14 +1088,14 @@ export class GitService implements Disposable {
 
     async getDiffStatus(
         repoPath: string,
-        sha1?: string,
-        sha2?: string,
+        ref1?: string,
+        ref2?: string,
         options: { filter?: string } = {}
     ): Promise<GitStatusFile[] | undefined> {
-        Logger.log(`getDiffStatus('${repoPath}', '${sha1}', '${sha2}', ${options.filter})`);
+        Logger.log(`getDiffStatus('${repoPath}', '${ref1}', '${ref2}', ${options.filter})`);
 
         try {
-            const data = await Git.diff_nameStatus(repoPath, sha1, sha2, options);
+            const data = await Git.diff_nameStatus(repoPath, ref1, ref2, options);
             const diff = GitDiffParser.parseNameStatus(data, repoPath);
             return diff;
         }
@@ -1141,8 +1141,8 @@ export class GitService implements Disposable {
 
         const commit = options.ref && log.commits.get(options.ref);
         if (commit === undefined && !options.firstIfNotFound && options.ref) {
-            // If the sha isn't resolved we will never find it, so let it fall through so we return the first
-            if (!Git.isResolveRequired(options.ref)) return undefined;
+            // If the ref isn't a valid sha we will never find it, so let it fall through so we return the first
+            if (!Git.isSha(options.ref) || Git.isUncommitted(options.ref)) return undefined;
         }
 
         return commit || Iterables.first(log.commits.values());
@@ -1539,7 +1539,7 @@ export class GitService implements Disposable {
 
     private async getRepoPathCore(filePath: string, isDirectory: boolean): Promise<string | undefined> {
         try {
-            return await Git.revparse_toplevel(isDirectory ? filePath : path.dirname(filePath));
+            return await Git.revparse_toplevel(isDirectory ? filePath : paths.dirname(filePath));
         }
         catch (ex) {
             Logger.error(ex, 'GitService.getRepoPathCore');
@@ -1687,31 +1687,31 @@ export class GitService implements Disposable {
     async getVersionedFile(
         repoPath: string | undefined,
         fileName: string,
-        sha: string | undefined
+        ref: string | undefined
     ): Promise<Uri | undefined> {
-        if (sha === GitService.deletedOrMissingSha) return undefined;
+        if (ref === GitService.deletedOrMissingSha) return undefined;
 
-        Logger.log(`getVersionedFile('${repoPath}', '${fileName}', '${sha}')`);
+        Logger.log(`getVersionedFile('${repoPath}', '${fileName}', '${ref}')`);
 
-        if (!sha || (Git.isUncommitted(sha) && !Git.isStagedUncommitted(sha))) {
+        if (!ref || (Git.isUncommitted(ref) && !Git.isStagedUncommitted(ref))) {
             if (await this.fileExists(repoPath!, fileName)) return Uri.file(fileName);
 
             return undefined;
         }
 
-        return GitUri.toRevisionUri(sha, fileName, repoPath!);
+        return GitUri.toRevisionUri(ref, fileName, repoPath!);
     }
 
-    getVersionedFileBuffer(repoPath: string, fileName: string, sha: string) {
-        Logger.log(`getVersionedFileBuffer('${repoPath}', '${fileName}', ${sha})`);
+    getVersionedFileBuffer(repoPath: string, fileName: string, ref: string) {
+        Logger.log(`getVersionedFileBuffer('${repoPath}', '${fileName}', ${ref})`);
 
-        return Git.show<Buffer>(repoPath, fileName, sha, { encoding: 'buffer' });
+        return Git.show<Buffer>(repoPath, fileName, ref, { encoding: 'buffer' });
     }
 
-    // getVersionedFileText(repoPath: string, fileName: string, sha: string) {
-    //     Logger.log(`getVersionedFileText('${repoPath}', '${fileName}', ${sha})`);
+    // getVersionedFileText(repoPath: string, fileName: string, ref: string) {
+    //     Logger.log(`getVersionedFileText('${repoPath}', '${fileName}', ${ref})`);
 
-    //     return Git.show<string>(repoPath, fileName, sha, { encoding: GitService.getEncoding(repoPath, fileName) });
+    //     return Git.show<string>(repoPath, fileName, ref, { encoding: GitService.getEncoding(repoPath, fileName) });
     // }
 
     getVersionedUri(uri: Uri) {
@@ -1795,11 +1795,11 @@ export class GitService implements Disposable {
         if (ref === GitService.deletedOrMissingSha) return false;
 
         try {
-            // Even if we have a sha, check first to see if the file exists (that way the cache will be better reused)
+            // Even if we have a ref, check first to see if the file exists (that way the cache will be better reused)
             let tracked = !!(await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName));
             if (!tracked && ref !== undefined) {
                 tracked = !!(await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName, { ref: ref }));
-                // If we still haven't found this file, make sure it wasn't deleted in that sha (i.e. check the previous)
+                // If we still haven't found this file, make sure it wasn't deleted in that ref (i.e. check the previous)
                 if (!tracked) {
                     tracked = !!(await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName, {
                         ref: `${ref}^`
@@ -1841,13 +1841,13 @@ export class GitService implements Disposable {
     }
 
     async resolveReference(repoPath: string, ref: string, uri?: Uri) {
-        if (ref.endsWith('^3')) return ref;
+        if (Git.isSha(ref) || !Git.isShaLike(ref) || ref.endsWith('^3')) return ref;
 
         Logger.log(`resolveReference('${repoPath}', '${ref}', '${uri && uri.toString(true)}')`);
 
         if (uri == null) return (await Git.revparse(repoPath, ref)) || ref;
 
-        const fileName = Strings.normalizePath(path.relative(repoPath, uri.fsPath));
+        const fileName = Strings.normalizePath(paths.relative(repoPath, uri.fsPath));
         const resolvedRef = await Git.log_resolve(repoPath, fileName, ref);
 
         const ensuredRef = await Git.cat_file_validate(repoPath, fileName, resolvedRef || ref);
@@ -1886,7 +1886,7 @@ export class GitService implements Disposable {
     static getEncoding(repoPath: string, fileName: string): string;
     static getEncoding(uri: Uri): string;
     static getEncoding(repoPathOrUri: string | Uri, fileName?: string): string {
-        const uri = typeof repoPathOrUri === 'string' ? Uri.file(path.join(repoPathOrUri, fileName!)) : repoPathOrUri;
+        const uri = typeof repoPathOrUri === 'string' ? Uri.file(paths.join(repoPathOrUri, fileName!)) : repoPathOrUri;
         return Git.getEncoding(workspace.getConfiguration('files', uri).get<string>('encoding'));
     }
 
@@ -1915,34 +1915,30 @@ export class GitService implements Disposable {
         return Git.getGitVersion();
     }
 
-    static isResolveRequired(sha: string): boolean {
-        return Git.isResolveRequired(sha);
+    static isShaLike(ref: string): boolean {
+        return Git.isShaLike(ref);
     }
 
-    static isSha(sha: string): boolean {
-        return Git.isSha(sha);
+    static isStagedUncommitted(ref: string | undefined): boolean {
+        return Git.isStagedUncommitted(ref);
     }
 
-    static isStagedUncommitted(sha: string | undefined): boolean {
-        return Git.isStagedUncommitted(sha);
-    }
-
-    static isUncommitted(sha: string | undefined): boolean {
-        return Git.isUncommitted(sha);
+    static isUncommitted(ref: string | undefined): boolean {
+        return Git.isUncommitted(ref);
     }
 
     static shortenSha(
-        sha: string | undefined,
+        ref: string | undefined,
         strings: { deletedOrMissing?: string; stagedUncommitted?: string; uncommitted?: string; working?: string } = {}
     ) {
-        if (sha === undefined) return undefined;
+        if (ref === undefined) return undefined;
 
         strings = { deletedOrMissing: '(deleted)', working: '', ...strings };
 
-        if (sha === '') return strings.working;
-        if (sha === GitService.deletedOrMissingSha) return strings.deletedOrMissing;
+        if (ref === '') return strings.working;
+        if (ref === GitService.deletedOrMissingSha) return strings.deletedOrMissing;
 
-        return Git.isSha(sha) || Git.isStagedUncommitted(sha) ? Git.shortenSha(sha, strings) : sha;
+        return Git.isShaLike(ref) || Git.isStagedUncommitted(ref) ? Git.shortenSha(ref, strings) : ref;
     }
 
     static compareGitVersion(version: string, throwIfLessThan?: Error) {

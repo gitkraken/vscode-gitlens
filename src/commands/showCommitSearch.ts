@@ -80,7 +80,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                 args.searchBy = searchByMap.get(match[1]);
                 args.search = args.search.substring(args.search[1] === ' ' ? 2 : 1);
             }
-            else if (GitService.isSha(args.search)) {
+            else if (GitService.isShaLike(args.search)) {
                 args.searchBy = GitRepoSearchBy.Sha;
             }
             else {
