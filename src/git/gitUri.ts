@@ -30,7 +30,7 @@ interface UriEx {
     new (components: UriComponents): Uri;
 }
 
-const stripRepoRevisionFromPathRegex = /\/[^\/]+\/?(.*)/;
+const stripRepoRevisionFromPathRegex = /^\/<.+>\/?(.*)$/;
 
 export class GitUri extends ((Uri as any) as UriEx) {
     repoPath?: string;
@@ -319,7 +319,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
         }
 
         const uri = Uri.parse(
-            `${DocumentSchemes.GitLens}://git/${repoName}@${shortSha}${filePath}?${JSON.stringify(data)}`
+            `${DocumentSchemes.GitLens}://git/<${repoName}@${shortSha}>${filePath}?${JSON.stringify(data)}`
         );
         return uri;
     }
