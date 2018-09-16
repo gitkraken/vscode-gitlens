@@ -565,7 +565,7 @@ export class Git {
         options: { ref?: string } = {}
     ): Promise<string | undefined> {
         const params = ['ls-files'];
-        if (options.ref && !Git.isStagedUncommitted(options.ref)) {
+        if (options.ref && !Git.isUncommitted(options.ref)) {
             params.push(`--with-tree=${options.ref}`);
         }
 
