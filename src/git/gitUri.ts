@@ -218,9 +218,6 @@ export class GitUri extends ((Uri as any) as UriEx) {
             } as GitCommitish);
         }
 
-        const versionedUri = await Container.git.getVersionedUri(uri);
-        if (versionedUri !== undefined) return versionedUri;
-
         return new GitUri(uri, await Container.git.getRepoPath(uri));
     }
 

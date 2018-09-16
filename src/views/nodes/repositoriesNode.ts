@@ -172,9 +172,7 @@ export class RepositoriesNode extends SubscribeableExplorerNode<RepositoriesExpl
 
         try {
             const uri = editor.document.uri;
-            const gitUri = await Container.git.getVersionedUri(uri);
-
-            const node = this._children.find(n => n instanceof RepositoryNode && n.repo.containsUri(gitUri || uri)) as
+            const node = this._children.find(n => n instanceof RepositoryNode && n.repo.containsUri(uri)) as
                 | RepositoryNode
                 | undefined;
             if (node === undefined) return;

@@ -98,12 +98,10 @@ export class GitService implements Disposable {
     private _repositoriesLoadingPromise: Promise<void> | undefined;
     private _suspended: boolean = false;
     private readonly _trackedCache: Map<string, boolean | Promise<boolean>>;
-    private _versionedUriCache: Map<string, GitUri>;
 
     constructor() {
         this._repositoryTree = TernarySearchTree.forPaths();
         this._trackedCache = new Map();
-        this._versionedUriCache = new Map();
 
         this._disposable = Disposable.from(
             window.onDidChangeWindowState(this.onWindowStateChanged, this),
@@ -118,7 +116,6 @@ export class GitService implements Disposable {
     dispose() {
         this._repositoryTree.forEach(r => r.dispose());
         this._trackedCache.clear();
-        this._versionedUriCache.clear();
 
         this._disposable && this._disposable.dispose();
     }
@@ -1500,11 +1497,6 @@ export class GitService implements Disposable {
         let repo = await this.getRepository(filePathOrUri, { ...options, skipCacheUpdate: true });
         if (repo !== undefined) return repo.path;
 
-        if (typeof filePathOrUri !== 'string') {
-            const versionedUri = await Container.git.getVersionedUri(filePathOrUri);
-            if (versionedUri !== undefined) return versionedUri.repoPath;
-        }
-
         const rp = await this.getRepoPathCore(
             typeof filePathOrUri === 'string' ? filePathOrUri : filePathOrUri.fsPath,
             false
@@ -1706,16 +1698,6 @@ export class GitService implements Disposable {
         Logger.log(`getVersionedFileBuffer('${repoPath}', '${fileName}', ${ref})`);
 
         return Git.show<Buffer>(repoPath, fileName, ref, { encoding: 'buffer' });
-    }
-
-    // getVersionedFileText(repoPath: string, fileName: string, ref: string) {
-    //     Logger.log(`getVersionedFileText('${repoPath}', '${fileName}', ${ref})`);
-
-    //     return Git.show<string>(repoPath, fileName, ref, { encoding: GitService.getEncoding(repoPath, fileName) });
-    // }
-
-    getVersionedUri(uri: Uri) {
-        return this._versionedUriCache.get(GitUri.toKey(uri));
     }
 
     isTrackable(scheme: string): boolean;
