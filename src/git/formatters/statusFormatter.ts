@@ -50,15 +50,16 @@ export class StatusFileFormatter extends Formatter<GitFile, IStatusFormatOptions
 
         let icon = '';
         if (statusFile.workingTreeStatus !== undefined && statusFile.indexStatus !== undefined) {
-            icon = `${GlyphChars.Pencil}${GlyphChars.Space}${GlyphChars.Check}`;
+            icon = `${GlyphChars.Pencil}${GlyphChars.Space}${GlyphChars.SpaceThinnest}${GlyphChars.Check}`;
+        }
+        else if (statusFile.workingTreeStatus !== undefined) {
+            icon = `${GlyphChars.Pencil}${GlyphChars.Space.repeat(4)}`;
+        }
+        else if (statusFile.indexStatus !== undefined) {
+            icon = `${GlyphChars.Space.repeat(5)}${GlyphChars.Check}`;
         }
         else {
-            if (statusFile.workingTreeStatus !== undefined) {
-                icon = `${GlyphChars.Pencil}${GlyphChars.Space.repeat(4)}`;
-            }
-            else if (statusFile.indexStatus !== undefined) {
-                icon = `${GlyphChars.Space.repeat(5)}${GlyphChars.Check}`;
-            }
+            icon = GlyphChars.Space.repeat(8);
         }
         return this._padOrTruncate(icon, this._options.tokenOptions!.working);
     }

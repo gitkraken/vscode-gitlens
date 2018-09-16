@@ -103,6 +103,7 @@ export enum GlyphChars {
     Pencil = '\u270E',
     Space = '\u00a0',
     SpaceThin = '\u2009',
+    SpaceThinnest = '\u200A',
     SquareWithBottomShadow = '\u274F',
     SquareWithTopShadow = '\u2750',
     ZeroWidthSpace = '\u200b'
