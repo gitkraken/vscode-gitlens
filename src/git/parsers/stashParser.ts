@@ -111,7 +111,7 @@ export class GitStashParser {
                         if (entry.files !== undefined) {
                             entry.fileNames = Arrays.filterMap(
                                 entry.files,
-                                f => (!!f.fileName ? f.fileName : undefined)
+                                f => (f.fileName ? f.fileName : undefined)
                             ).join(', ');
                         }
                     }

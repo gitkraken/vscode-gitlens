@@ -100,7 +100,7 @@ export class TrackedDocument<T> implements Disposable {
     }
 
     get isRevision() {
-        return this._uri !== undefined ? !!this._uri.sha : false;
+        return this._uri !== undefined ? Boolean(this._uri.sha) : false;
     }
 
     private _isTracked: boolean = false;

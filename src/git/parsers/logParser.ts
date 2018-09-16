@@ -181,10 +181,9 @@ export class GitLogParser {
                     }
 
                     if (entry.files !== undefined) {
-                        entry.fileName = Arrays.filterMap(
-                            entry.files,
-                            f => (!!f.fileName ? f.fileName : undefined)
-                        ).join(', ');
+                        entry.fileName = Arrays.filterMap(entry.files, f => (f.fileName ? f.fileName : undefined)).join(
+                            ', '
+                        );
                     }
 
                     if (first && repoPath === undefined && type === GitCommitType.File && fileName !== undefined) {
@@ -227,7 +226,7 @@ export class GitLogParser {
             count: i,
             maxCount: maxCount,
             range: range,
-            truncated: !!(maxCount && i >= maxCount && maxCount !== 1)
+            truncated: Boolean(maxCount && i >= maxCount && maxCount !== 1)
         } as GitLog;
     }
 

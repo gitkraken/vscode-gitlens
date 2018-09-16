@@ -90,7 +90,7 @@ export interface PageableExplorerNode {
 export function isPageable(
     node: ExplorerNode
 ): node is ExplorerNode & { supportsPaging: boolean; maxCount: number | undefined } {
-    return !!(node as any).supportsPaging;
+    return Boolean((node as any).supportsPaging);
 }
 
 export function supportsAutoRefresh(

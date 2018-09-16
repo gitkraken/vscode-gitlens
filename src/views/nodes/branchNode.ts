@@ -124,12 +124,12 @@ export class BranchNode extends ExplorerRefNode implements PageableExplorerNode 
             item.contextValue = ResourceType.RemoteBranch;
         }
         else if (this.current) {
-            item.contextValue = !!this.branch.tracking
+            item.contextValue = this.branch.tracking
                 ? ResourceType.CurrentBranchWithTracking
                 : ResourceType.CurrentBranch;
         }
         else {
-            item.contextValue = !!this.branch.tracking ? ResourceType.BranchWithTracking : ResourceType.Branch;
+            item.contextValue = this.branch.tracking ? ResourceType.BranchWithTracking : ResourceType.Branch;
         }
 
         item.iconPath = {

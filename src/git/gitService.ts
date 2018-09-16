@@ -1789,14 +1789,16 @@ export class GitService implements Disposable {
 
         try {
             // Even if we have a ref, check first to see if the file exists (that way the cache will be better reused)
-            let tracked = !!(await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName));
+            let tracked = Boolean(await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName));
             if (!tracked && ref !== undefined) {
-                tracked = !!(await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName, { ref: ref }));
+                tracked = Boolean(await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName, { ref: ref }));
                 // If we still haven't found this file, make sure it wasn't deleted in that ref (i.e. check the previous)
                 if (!tracked) {
-                    tracked = !!(await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName, {
-                        ref: `${ref}^`
-                    }));
+                    tracked = Boolean(
+                        await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName, {
+                            ref: `${ref}^`
+                        })
+                    );
                 }
             }
             return tracked;

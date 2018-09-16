@@ -14,9 +14,9 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = function(env, argv) {
     env = env || {};
-    env.production = !!env.production;
-    env.optimizeImages = env.production || !!env.optimizeImages;
-    env.copyClipboardyFallbacks = env.production || !!env.copyClipboardyFallbacks;
+    env.production = Boolean(env.production);
+    env.optimizeImages = env.production || Boolean(env.optimizeImages);
+    env.copyClipboardyFallbacks = env.production || Boolean(env.copyClipboardyFallbacks);
 
     if (!env.copyClipboardyFallbacks && !fs.existsSync(path.resolve(__dirname, 'fallbacks'))) {
         env.copyClipboardyFallbacks = true;
