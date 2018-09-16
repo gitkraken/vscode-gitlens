@@ -5,6 +5,7 @@ export * from './blameCommit';
 export * from './branch';
 export * from './commit';
 export * from './diff';
+export * from './file';
 export * from './log';
 export * from './logCommit';
 export * from './remote';

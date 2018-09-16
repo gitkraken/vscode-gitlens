@@ -1,7 +1,7 @@
 'use strict';
 import { Disposable, Selection, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
-import { GitCommitType, GitLogCommit, IGitStatusFile } from '../../git/git';
+import { GitCommitType, GitFile, GitLogCommit } from '../../git/git';
 import {
     GitService,
     GitUri,
@@ -41,7 +41,7 @@ export class LineHistoryNode extends SubscribeableExplorerNode<LineHistoryExplor
             children.push(
                 ...Iterables.filterMap(
                     log.commits.values(),
-                    c => new CommitFileNode(c.fileStatuses[0], c, this, this.explorer, displayAs, this.selection)
+                    c => new CommitFileNode(c.files[0], c, this, this.explorer, displayAs, this.selection)
                 )
             );
         }
@@ -51,13 +51,13 @@ export class LineHistoryNode extends SubscribeableExplorerNode<LineHistoryExplor
             const first = children[0] as CommitFileNode | undefined;
 
             if (first === undefined || first.commit.sha !== blame.commit.sha) {
-                const status: IGitStatusFile = {
+                const file: GitFile = {
                     fileName: blame.commit.fileName,
                     indexStatus: '?',
                     originalFileName: blame.commit.originalFileName,
                     repoPath: this.uri.repoPath!,
                     status: 'M',
-                    workTreeStatus: '?'
+                    workingTreeStatus: '?'
                 };
 
                 const commit = new GitLogCommit(
@@ -69,18 +69,14 @@ export class LineHistoryNode extends SubscribeableExplorerNode<LineHistoryExplor
                     blame.commit.date,
                     blame.commit.message,
                     blame.commit.fileName,
-                    [status],
+                    [file],
                     'M',
                     blame.commit.originalFileName,
                     blame.commit.previousSha,
                     blame.commit.originalFileName || blame.commit.fileName
                 );
 
-                children.splice(
-                    0,
-                    0,
-                    new CommitFileNode(status, commit, this, this.explorer, displayAs, this.selection)
-                );
+                children.splice(0, 0, new CommitFileNode(file, commit, this, this.explorer, displayAs, this.selection));
             }
         }
 

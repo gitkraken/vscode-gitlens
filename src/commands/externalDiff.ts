@@ -122,7 +122,7 @@ export class ExternalDiffCommand extends Command {
                         args.files.push(new ExternalDiffFile(file.uri, true));
                     }
 
-                    if (file.workTreeStatus === 'M') {
+                    if (file.workingTreeStatus === 'M') {
                         args.files.push(new ExternalDiffFile(file.uri, false));
                     }
                 }

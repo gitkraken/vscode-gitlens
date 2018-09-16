@@ -1,6 +1,6 @@
 'use strict';
 import { Strings } from '../../system';
-import { GitStatus, GitStatusFile, GitStatusFileStatus } from './../git';
+import { GitFileStatus, GitStatus, GitStatusFile } from './../git';
 
 const aheadStatusV1Regex = /(?:ahead ([0-9]+))/;
 const behindStatusV1Regex = /(?:behind ([0-9]+))/;
@@ -138,8 +138,8 @@ export class GitStatusParser {
 
         return new GitStatusFile(
             repoPath,
-            indexStatus as GitStatusFileStatus,
-            workTreeStatus as GitStatusFileStatus,
+            indexStatus as GitFileStatus | undefined,
+            workTreeStatus as GitFileStatus | undefined,
             fileName,
             originalFileName
         );

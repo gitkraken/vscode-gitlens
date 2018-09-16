@@ -25,7 +25,7 @@ export class StashNode extends ExplorerRefNode {
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
-        const statuses = (this.commit as GitStashCommit).fileStatuses;
+        const files = (this.commit as GitStashCommit).files;
 
         // Check for any untracked files -- since git doesn't return them via `git stash list` :(
         const log = await Container.git.getLog(this.commit.repoPath, {
@@ -34,14 +34,14 @@ export class StashNode extends ExplorerRefNode {
         });
         if (log !== undefined) {
             const commit = Iterables.first(log.commits.values());
-            if (commit !== undefined && commit.fileStatuses.length !== 0) {
+            if (commit !== undefined && commit.files.length !== 0) {
                 // Since these files are untracked -- make them look that way
-                commit.fileStatuses.forEach(s => (s.status = '?'));
-                statuses.splice(statuses.length, 0, ...commit.fileStatuses);
+                commit.files.forEach(s => (s.status = '?'));
+                files.splice(files.length, 0, ...commit.files);
             }
         }
 
-        const children = statuses.map(s => new StashFileNode(s, this.commit.toFileCommit(s), this, this.explorer));
+        const children = files.map(s => new StashFileNode(s, this.commit.toFileCommit(s), this, this.explorer));
         children.sort((a, b) => a.label!.localeCompare(b.label!));
         return children;
     }

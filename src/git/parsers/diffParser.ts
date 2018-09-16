@@ -6,8 +6,8 @@ import {
     GitDiffChunkLine,
     GitDiffLine,
     GitDiffShortStat,
-    GitStatusFile,
-    GitStatusParser
+    GitFile,
+    GitFileStatus
 } from './../git';
 
 const nameStatusDiffRegex = /^(.*?)\t(.*?)(?:\t(.*?))?$/gm;
@@ -137,32 +137,33 @@ export class GitDiffParser {
         return chunkLines;
     }
 
-    static parseNameStatus(data: string, repoPath: string): GitStatusFile[] | undefined {
+    static parseNameStatus(data: string, repoPath: string): GitFile[] | undefined {
         if (!data) return undefined;
 
-        const statuses: GitStatusFile[] = [];
+        const files: GitFile[] = [];
 
         let match: RegExpExecArray | null = null;
         do {
             match = nameStatusDiffRegex.exec(data);
             if (match == null) break;
 
-            statuses.push(
-                GitStatusParser.parseStatusFile(
-                    repoPath,
-                    // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    (' ' + match[1]).substr(1),
-                    // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    (' ' + match[2]).substr(1),
-                    // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    match[3] === undefined ? undefined : (' ' + match[3]).substr(1)
-                )
-            );
+            // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+            const status = (' ' + match[1]).substr(1);
+            files.push({
+                repoPath,
+                status: (status[0] !== '.' ? status[0].trim() : '?') as GitFileStatus,
+                indexStatus: undefined,
+                workingTreeStatus: undefined,
+                // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+                fileName: (' ' + match[2]).substr(1),
+                // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+                originalFileName: match[3] === undefined ? undefined : (' ' + match[3]).substr(1)
+            } as GitFile);
         } while (match != null);
 
-        if (!statuses.length) return undefined;
+        if (!files.length) return undefined;
 
-        return statuses;
+        return files;
     }
 
     static parseShortStat(data: string): GitDiffShortStat | undefined {

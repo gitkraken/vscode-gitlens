@@ -31,7 +31,7 @@ export class CommitNode extends ExplorerRefNode {
         const commit = this.commit;
         let children: FileExplorerNode[] = [
             ...Iterables.map(
-                commit.fileStatuses,
+                commit.files,
                 s => new CommitFileNode(s, commit.toFileCommit(s), this, this.explorer, CommitFileNodeDisplayAs.File)
             )
         ];

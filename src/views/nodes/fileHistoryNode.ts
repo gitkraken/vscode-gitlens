@@ -30,15 +30,15 @@ export class FileHistoryNode extends SubscribeableExplorerNode<FileHistoryExplor
             (this.explorer.config.avatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
 
         const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
-        if (status !== undefined && (status.indexStatus !== undefined || status.workTreeStatus !== undefined)) {
+        if (status !== undefined && (status.indexStatus !== undefined || status.workingTreeStatus !== undefined)) {
             let sha;
             let previousSha;
-            if (status.workTreeStatus !== undefined) {
+            if (status.workingTreeStatus !== undefined) {
                 sha = GitService.uncommittedSha;
                 if (status.indexStatus !== undefined) {
                     previousSha = GitService.stagedUncommittedSha;
                 }
-                else if (status.workTreeStatus !== '?') {
+                else if (status.workingTreeStatus !== '?') {
                     previousSha = 'HEAD';
                 }
             }
@@ -71,7 +71,7 @@ export class FileHistoryNode extends SubscribeableExplorerNode<FileHistoryExplor
             children.push(
                 ...Iterables.map(
                     log.commits.values(),
-                    c => new CommitFileNode(c.fileStatuses[0], c, this, this.explorer, displayAs)
+                    c => new CommitFileNode(c.files[0], c, this, this.explorer, displayAs)
                 )
             );
         }

@@ -1,7 +1,7 @@
 'use strict';
 import { GitCommitType } from './commit';
+import { GitFile, GitFileStatus } from './file';
 import { GitLogCommit } from './logCommit';
-import { GitStatusFileStatus, IGitStatusFile } from './status';
 
 export class GitStashCommit extends GitLogCommit {
     constructor(
@@ -12,8 +12,8 @@ export class GitStashCommit extends GitLogCommit {
         date: Date,
         message: string,
         fileName: string,
-        fileStatuses: IGitStatusFile[],
-        status?: GitStatusFileStatus | undefined,
+        files: GitFile[],
+        status?: GitFileStatus | undefined,
         originalFileName?: string | undefined,
         previousSha?: string | undefined,
         previousFileName?: string | undefined
@@ -27,7 +27,7 @@ export class GitStashCommit extends GitLogCommit {
             date,
             message,
             fileName,
-            fileStatuses,
+            files,
             status,
             originalFileName,
             previousSha === undefined ? `${sha}^` : previousSha,
@@ -48,8 +48,8 @@ export class GitStashCommit extends GitLogCommit {
         originalFileName?: string | null;
         previousFileName?: string | null;
         previousSha?: string | null;
-        status?: GitStatusFileStatus;
-        fileStatuses?: IGitStatusFile[] | null;
+        status?: GitFileStatus;
+        files?: GitFile[] | null;
     }): GitLogCommit {
         return new GitStashCommit(
             changes.type || this.type,
@@ -59,7 +59,7 @@ export class GitStashCommit extends GitLogCommit {
             changes.date || this.date,
             changes.message || this.message,
             changes.fileName || this.fileName,
-            this.getChangedValue(changes.fileStatuses, this.fileStatuses) || [],
+            this.getChangedValue(changes.files, this.files) || [],
             changes.status || this.status,
             this.getChangedValue(changes.originalFileName, this.originalFileName),
             this.getChangedValue(changes.previousSha, this.previousSha),

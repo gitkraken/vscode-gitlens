@@ -1,13 +1,13 @@
 'use strict';
 import { Arrays, Strings } from '../../system';
-import { GitCommitType, GitLogParser, GitStash, GitStashCommit, GitStatusFileStatus, IGitStatusFile } from './../git';
+import { GitCommitType, GitFile, GitFileStatus, GitLogParser, GitStash, GitStashCommit } from './../git';
 // import { Logger } from './logger';
 
 interface StashEntry {
     ref?: string;
     date?: string;
     fileNames?: string;
-    fileStatuses?: IGitStatusFile[];
+    files?: GitFile[];
     summary?: string;
     stashName?: string;
 }
@@ -94,23 +94,23 @@ export class GitStashParser {
                             if (line.startsWith('warning:')) continue;
 
                             const status = {
-                                status: line[0] as GitStatusFileStatus,
+                                status: line[0] as GitFileStatus,
                                 fileName: line.substring(1),
                                 originalFileName: undefined
-                            } as IGitStatusFile;
+                            } as GitFile;
                             GitLogParser.parseFileName(status);
 
                             if (status.fileName) {
-                                if (entry.fileStatuses === undefined) {
-                                    entry.fileStatuses = [];
+                                if (entry.files === undefined) {
+                                    entry.files = [];
                                 }
-                                entry.fileStatuses.push(status);
+                                entry.files.push(status);
                             }
                         }
 
-                        if (entry.fileStatuses !== undefined) {
+                        if (entry.files !== undefined) {
                             entry.fileNames = Arrays.filterMap(
-                                entry.fileStatuses,
+                                entry.files,
                                 f => (!!f.fileName ? f.fileName : undefined)
                             ).join(', ');
                         }
@@ -142,7 +142,7 @@ export class GitStashParser {
                 new Date((entry.date! as any) * 1000),
                 entry.summary === undefined ? '' : entry.summary,
                 entry.fileNames!,
-                entry.fileStatuses || []
+                entry.files || []
             );
         }
 

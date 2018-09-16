@@ -2,13 +2,11 @@
 import * as path from 'path';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
-import { Container } from '../../container';
 import {
-    getGitStatusIcon,
+    GitFile,
+    GitFileWithCommit,
     GitLogCommit,
     GitUri,
-    IGitStatusFile,
-    IGitStatusFileWithCommit,
     IStatusFormatOptions,
     StatusFileFormatter
 } from '../../git/gitService';
@@ -20,19 +18,19 @@ import { ExplorerNode, ResourceType } from './explorerNode';
 export class StatusFileCommitsNode extends ExplorerNode {
     constructor(
         public readonly repoPath: string,
-        public readonly status: IGitStatusFile,
+        public readonly file: GitFile,
         public readonly commits: GitLogCommit[],
         parent: ExplorerNode,
         public readonly explorer: Explorer
     ) {
-        super(GitUri.fromFileStatus(status, repoPath, 'HEAD'), parent);
+        super(GitUri.fromFile(file, repoPath, 'HEAD'), parent);
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
         return this.commits.map(
             c =>
                 new CommitFileNode(
-                    this.status,
+                    this.file,
                     c,
                     this,
                     this.explorer,
@@ -53,14 +51,12 @@ export class StatusFileCommitsNode extends ExplorerNode {
 
             if (this.commit.isStagedUncommitted) {
                 item.tooltip = StatusFileFormatter.fromTemplate(
-                    '${status} in index\n\n${file}\n${directory}/',
-                    this.status
+                    this.file
                 );
             }
             else {
                 item.tooltip = StatusFileFormatter.fromTemplate(
-                    '${status} in working tree\n\n${file}\n${directory}/',
-                    this.status
+                    this.file
                 );
             }
             item.command = this.getCommand();
@@ -68,8 +64,7 @@ export class StatusFileCommitsNode extends ExplorerNode {
         else {
             item.contextValue = ResourceType.StatusFileCommits;
             item.tooltip = StatusFileFormatter.fromTemplate(
-                `\${status} in ${this.getChangedIn()}\n\n\${file}\n\${directory}/`,
-                this.status
+                this.file
             );
         }
 
@@ -102,9 +97,9 @@ export class StatusFileCommitsNode extends ExplorerNode {
             this._label = StatusFileFormatter.fromTemplate(
                 this.explorer.config.statusFileFormat,
                 {
-                    ...this.status,
+                    ...this.file,
                     commit: this.commit
-                } as IGitStatusFileWithCommit,
+                } as GitFileWithCommit,
                 {
                     relativePath: this.relativePath
                 } as IStatusFormatOptions
@@ -163,7 +158,7 @@ export class StatusFileCommitsNode extends ExplorerNode {
             title: 'Compare File with Previous Revision',
             command: Commands.DiffWithPrevious,
             arguments: [
-                GitUri.fromFileStatus(this.status, this.repoPath),
+                GitUri.fromFile(this.file, this.repoPath),
                 {
                     commit: this.commit,
                     line: 0,

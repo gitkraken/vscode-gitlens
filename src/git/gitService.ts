@@ -40,6 +40,7 @@ import {
     GitDiffChunkLine,
     GitDiffParser,
     GitDiffShortStat,
+    GitFile,
     GitLog,
     GitLogCommit,
     GitLogParser,
@@ -493,15 +494,15 @@ export class GitService implements Disposable {
             if (ref === undefined) return undefined;
         }
 
-        // Get the full commit (so we can see if there are any matching renames in the file statuses)
+        // Get the full commit (so we can see if there are any matching renames in the files)
         const log = await this.getLog(repoPath, { maxCount: 1, ref: ref });
         if (log === undefined) return undefined;
 
         const c = Iterables.first(log.commits.values());
-        const status = c.fileStatuses.find(f => f.originalFileName === fileName);
-        if (status === undefined) return undefined;
+        const file = c.files.find(f => f.originalFileName === fileName);
+        if (file === undefined) return undefined;
 
-        return status.fileName;
+        return file.fileName;
     }
 
     async findWorkingFileName(commit: GitCommit): Promise<[string | undefined, string | undefined]>;
@@ -1088,7 +1089,7 @@ export class GitService implements Disposable {
         ref1?: string,
         ref2?: string,
         options: { filter?: string } = {}
-    ): Promise<GitStatusFile[] | undefined> {
+    ): Promise<GitFile[] | undefined> {
         Logger.log(`getDiffStatus('${repoPath}', '${ref1}', '${ref2}', ${options.filter})`);
 
         try {

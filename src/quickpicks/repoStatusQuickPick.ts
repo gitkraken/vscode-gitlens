@@ -13,11 +13,11 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import {
     GitCommitType,
+    GitFileStatus,
     GitLogCommit,
     GitService,
     GitStatus,
     GitStatusFile,
-    GitStatusFileStatus,
     GitUri
 } from '../git/gitService';
 import { Keys } from '../keyboard';
@@ -33,7 +33,7 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
     public readonly status: GitStatusFile;
     private readonly commit: GitLogCommit;
 
-    constructor(status: GitStatusFile, realIndexStatus?: GitStatusFileStatus, item?: QuickPickItem) {
+    constructor(status: GitStatusFile, realIndexStatus?: GitFileStatus, item?: QuickPickItem) {
         const octicon = status.getOcticon();
         const description = status.getFormattedDirectory(true);
 
@@ -87,24 +87,20 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
     }
 
     onDidPressKey(key: Keys): Promise<{} | undefined> {
-        return commands.executeCommand(
-            Commands.DiffWithPrevious,
-            GitUri.fromFileStatus(this.status, this.status.repoPath),
-            {
-                commit: this.commit,
-                line: 0,
-                showOptions: {
-                    preserveFocus: true,
-                    preview: false
-                } as TextDocumentShowOptions
-            } as DiffWithPreviousCommandArgs
-        ) as Promise<{} | undefined>;
+        return commands.executeCommand(Commands.DiffWithPrevious, GitUri.fromFile(this.status, this.status.repoPath), {
+            commit: this.commit,
+            line: 0,
+            showOptions: {
+                preserveFocus: true,
+                preview: false
+            } as TextDocumentShowOptions
+        } as DiffWithPreviousCommandArgs) as Promise<{} | undefined>;
     }
 }
 
 export class OpenStatusFilesCommandQuickPickItem extends CommandQuickPickItem {
-    constructor(statuses: GitStatusFile[], item?: QuickPickItem) {
-        const uris = statuses.map(f => f.uri);
+    constructor(files: GitStatusFile[], item?: QuickPickItem) {
+        const uris = files.map(f => f.uri);
 
         super(
             item || {
@@ -166,7 +162,7 @@ export class RepoStatusQuickPick {
                     break;
             }
 
-            switch (f.workTreeStatus) {
+            switch (f.workingTreeStatus) {
                 case 'A':
                 case '?':
                     unstagedAdds++;
@@ -208,7 +204,7 @@ export class RepoStatusQuickPick {
     > {
         const items = [
             ...Iterables.flatMap(status.files, s => {
-                if (s.workTreeStatus !== undefined && s.indexStatus !== undefined) {
+                if (s.workingTreeStatus !== undefined && s.indexStatus !== undefined) {
                     return [
                         new OpenStatusFileCommandQuickPickItem(s.with({ indexStatus: null }), s.indexStatus),
                         new OpenStatusFileCommandQuickPickItem(s.with({ workTreeStatus: null }))

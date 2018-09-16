@@ -14,14 +14,12 @@ import {
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import {
-    getGitStatusOcticon,
+    GitFile,
+    GitFileStatus,
     GitLog,
     GitLogCommit,
     GitStashCommit,
-    GitStatusFile,
-    GitStatusFileStatus,
     GitUri,
-    IGitStatusFile,
     RemoteResource
 } from '../git/gitService';
 import { KeyCommand, KeyNoopCommand, Keys } from '../keyboard';
@@ -38,21 +36,21 @@ import {
 import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
 
 export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickItem {
-    readonly status: GitStatusFileStatus;
+    readonly status: GitFileStatus;
 
     readonly commit: GitLogCommit;
 
-    constructor(commit: GitLogCommit, status: IGitStatusFile) {
-        const octicon = getGitStatusOcticon(status.status);
-        const description = GitStatusFile.getFormattedDirectory(status, true);
+    constructor(commit: GitLogCommit, file: GitFile) {
+        const octicon = GitFile.getStatusOcticon(file.status);
+        const description = GitFile.getFormattedDirectory(file, true);
 
-        super(GitUri.toRevisionUri(commit.sha, status, commit.repoPath), {
-            label: `${Strings.pad(octicon, 4, 2)} ${path.basename(status.fileName)}`,
+        super(GitUri.toRevisionUri(commit.sha, file, commit.repoPath), {
+            label: `${Strings.pad(octicon, 4, 2)} ${path.basename(file.fileName)}`,
             description: description
         });
 
-        this.commit = commit.toFileCommit(status);
-        this.status = status.status;
+        this.commit = commit.toFileCommit(file);
+        this.status = file.status;
     }
 
     get sha(): string {
@@ -75,7 +73,7 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
 export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPickItem {
     constructor(commit: GitLogCommit, versioned: boolean = false, item?: QuickPickItem) {
         const repoPath = commit.repoPath;
-        const uris = Arrays.filterMap(commit.fileStatuses, f => GitUri.fromFileStatus(f, repoPath));
+        const uris = Arrays.filterMap(commit.files, f => GitUri.fromFile(f, repoPath));
 
         super(
             uris,
@@ -90,7 +88,7 @@ export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPi
 
 export class OpenCommitFileRevisionsCommandQuickPickItem extends OpenFilesCommandQuickPickItem {
     constructor(commit: GitLogCommit, item?: QuickPickItem) {
-        const uris = Arrays.filterMap(commit.fileStatuses, f =>
+        const uris = Arrays.filterMap(commit.files, f =>
             GitUri.toRevisionUri(f.status === 'D' ? commit.previousFileSha : commit.sha, f, commit.repoPath)
         );
 
@@ -117,7 +115,7 @@ export class CommitQuickPick {
     ): Promise<CommitWithFileStatusQuickPickItem | CommandQuickPickItem | undefined> {
         await commit.resolvePreviousFileSha();
 
-        const items: (CommitWithFileStatusQuickPickItem | CommandQuickPickItem)[] = commit.fileStatuses.map(
+        const items: (CommitWithFileStatusQuickPickItem | CommandQuickPickItem)[] = commit.files.map(
             fs => new CommitWithFileStatusQuickPickItem(commit, fs)
         );
 

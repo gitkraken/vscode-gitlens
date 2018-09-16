@@ -3,9 +3,8 @@ import * as path from 'path';
 import { Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Strings } from '../../system';
-import { GitUri } from '../gitUri';
 import { GitBranch } from './branch';
-import { GitLogCommit } from './logCommit';
+import { GitFile, GitFileStatus } from './file';
 
 export interface GitStatusUpstreamState {
     ahead: number;
@@ -136,32 +135,17 @@ export class GitStatus {
     }
 }
 
-export declare type GitStatusFileStatus = '!' | '?' | 'A' | 'C' | 'D' | 'M' | 'R' | 'T' | 'U' | 'X' | 'B';
-
-export interface IGitStatusFile {
-    status: GitStatusFileStatus;
-    readonly repoPath: string;
-    readonly indexStatus: GitStatusFileStatus;
-    readonly workTreeStatus: GitStatusFileStatus;
-    readonly fileName: string;
-    readonly originalFileName?: string;
-}
-
-export interface IGitStatusFileWithCommit extends IGitStatusFile {
-    readonly commit: GitLogCommit;
-}
-
-export class GitStatusFile implements IGitStatusFile {
+export class GitStatusFile implements GitFile {
     constructor(
         public readonly repoPath: string,
-        public readonly indexStatus: GitStatusFileStatus,
-        public readonly workTreeStatus: GitStatusFileStatus,
+        public readonly indexStatus: GitFileStatus | undefined,
+        public readonly workingTreeStatus: GitFileStatus | undefined,
         public readonly fileName: string,
         public readonly originalFileName?: string
     ) {}
 
-    get status(): GitStatusFileStatus {
-        return (this.indexStatus || this.workTreeStatus || '?') as GitStatusFileStatus;
+    get status(): GitFileStatus {
+        return (this.indexStatus || this.workingTreeStatus || '?') as GitFileStatus;
     }
 
     get staged() {
@@ -173,31 +157,31 @@ export class GitStatusFile implements IGitStatusFile {
     }
 
     getFormattedDirectory(includeOriginal: boolean = false): string {
-        return GitStatusFile.getFormattedDirectory(this, includeOriginal);
+        return GitFile.getFormattedDirectory(this, includeOriginal);
     }
 
     getFormattedPath(options: { relativeTo?: string; separator?: string; suffix?: string } = {}): string {
-        return GitStatusFile.getFormattedPath(this, options);
+        return GitFile.getFormattedPath(this, options);
     }
 
     getOcticon() {
-        return getGitStatusOcticon(this.status);
+        return GitFile.getStatusOcticon(this.status);
     }
 
-    getStatusText(status: IGitStatusFile): string {
-        return GitStatusFile.getStatusText(this.status);
+    getStatusText(file: GitFile): string {
+        return GitFile.getStatusText(this.status);
     }
 
     with(changes: {
-        indexStatus?: GitStatusFileStatus | null;
-        workTreeStatus?: GitStatusFileStatus | null;
+        indexStatus?: GitFileStatus | null;
+        workTreeStatus?: GitFileStatus | null;
         fileName?: string;
         originalFileName?: string | null;
     }): GitStatusFile {
         return new GitStatusFile(
             this.repoPath,
-            this.getChangedValue(changes.indexStatus, this.indexStatus) as GitStatusFileStatus,
-            this.getChangedValue(changes.workTreeStatus, this.workTreeStatus) as GitStatusFileStatus,
+            this.getChangedValue(changes.indexStatus, this.indexStatus) as GitFileStatus,
+            this.getChangedValue(changes.workTreeStatus, this.workingTreeStatus) as GitFileStatus,
             changes.fileName || this.fileName,
             this.getChangedValue(changes.originalFileName, this.originalFileName)
         );
@@ -207,84 +191,4 @@ export class GitStatusFile implements IGitStatusFile {
         if (change === undefined) return original;
         return change !== null ? change : undefined;
     }
-
-    static getFormattedDirectory(
-        status: IGitStatusFile,
-        includeOriginal: boolean = false,
-        relativeTo?: string
-    ): string {
-        const directory = GitUri.getDirectory(status.fileName, relativeTo);
-        return includeOriginal && status.status === 'R' && status.originalFileName
-            ? `${directory} ${Strings.pad(GlyphChars.ArrowLeft, 1, 1)} ${status.originalFileName}`
-            : directory;
-    }
-
-    static getFormattedPath(
-        status: IGitStatusFile,
-        options: { relativeTo?: string; separator?: string; suffix?: string } = {}
-    ): string {
-        return GitUri.getFormattedPath(status.fileName, options);
-    }
-
-    static getRelativePath(status: IGitStatusFile, relativeTo?: string): string {
-        return GitUri.getRelativePath(status.fileName, relativeTo);
-    }
-
-    static getStatusText(status: GitStatusFileStatus): string {
-        return getGitStatusText(status);
-    }
-}
-
-const statusOcticonsMap = {
-    '!': '$(diff-ignored)',
-    '?': '$(diff-added)',
-    A: '$(diff-added)',
-    C: '$(diff-added)',
-    D: '$(diff-removed)',
-    M: '$(diff-modified)',
-    R: '$(diff-renamed)',
-    T: '$(diff-modified)',
-    U: '$(alert)',
-    X: '$(question)',
-    B: '$(question)'
-};
-
-export function getGitStatusOcticon(status: GitStatusFileStatus, missing: string = GlyphChars.Space.repeat(4)): string {
-    return statusOcticonsMap[status] || missing;
-}
-
-const statusIconsMap = {
-    '!': 'icon-status-ignored.svg',
-    '?': 'icon-status-untracked.svg',
-    A: 'icon-status-added.svg',
-    C: 'icon-status-copied.svg',
-    D: 'icon-status-deleted.svg',
-    M: 'icon-status-modified.svg',
-    R: 'icon-status-renamed.svg',
-    T: 'icon-status-modified.svg',
-    U: 'icon-status-conflict.svg',
-    X: 'icon-status-unknown.svg',
-    B: 'icon-status-unknown.svg'
-};
-
-export function getGitStatusIcon(status: GitStatusFileStatus): string {
-    return statusIconsMap[status] || statusIconsMap['X'];
-}
-
-const statusTextMap = {
-    '!': 'ignored',
-    '?': 'untracked',
-    A: 'added',
-    C: 'copied',
-    D: 'deleted',
-    M: 'modified',
-    R: 'renamed',
-    T: 'modified',
-    U: 'conflict',
-    X: 'unknown',
-    B: 'unknown'
-};
-
-export function getGitStatusText(status: GitStatusFileStatus): string {
-    return statusTextMap[status] || statusTextMap['X'];
 }

@@ -2,7 +2,7 @@
 import * as path from 'path';
 import { Range } from 'vscode';
 import { Arrays, Strings } from '../../system';
-import { Git, GitAuthor, GitCommitType, GitLog, GitLogCommit, GitStatusFileStatus, IGitStatusFile } from './../git';
+import { Git, GitAuthor, GitCommitType, GitFile, GitFileStatus, GitLog, GitLogCommit } from './../git';
 
 interface LogEntry {
     ref?: string;
@@ -15,9 +15,9 @@ interface LogEntry {
 
     fileName?: string;
     originalFileName?: string;
-    fileStatuses?: IGitStatusFile[];
+    files?: GitFile[];
 
-    status?: GitStatusFileStatus;
+    status?: GitFileStatus;
 
     summary?: string;
 }
@@ -140,17 +140,17 @@ export class GitLogParser {
 
                         if (type === GitCommitType.Branch) {
                             const status = {
-                                status: line[0] as GitStatusFileStatus,
+                                status: line[0] as GitFileStatus,
                                 fileName: line.substring(1),
                                 originalFileName: undefined
-                            } as IGitStatusFile;
+                            } as GitFile;
                             this.parseFileName(status);
 
                             if (status.fileName) {
-                                if (entry.fileStatuses === undefined) {
-                                    entry.fileStatuses = [];
+                                if (entry.files === undefined) {
+                                    entry.files = [];
                                 }
-                                entry.fileStatuses.push(status);
+                                entry.files.push(status);
                             }
                         }
                         else if (line.startsWith('diff')) {
@@ -174,15 +174,15 @@ export class GitLogParser {
                             break;
                         }
                         else {
-                            entry.status = line[0] as GitStatusFileStatus;
+                            entry.status = line[0] as GitFileStatus;
                             entry.fileName = line.substring(1);
                             this.parseFileName(entry);
                         }
                     }
 
-                    if (entry.fileStatuses !== undefined) {
+                    if (entry.files !== undefined) {
                         entry.fileName = Arrays.filterMap(
-                            entry.fileStatuses,
+                            entry.files,
                             f => (!!f.fileName ? f.fileName : undefined)
                         ).join(', ');
                     }
@@ -268,12 +268,12 @@ export class GitLogParser {
 
             const originalFileName = relativeFileName !== entry.fileName ? entry.fileName : undefined;
             if (type === GitCommitType.File) {
-                entry.fileStatuses = [
+                entry.files = [
                     {
                         status: entry.status,
                         fileName: relativeFileName,
                         originalFileName: originalFileName
-                    } as IGitStatusFile
+                    } as GitFile
                 ];
             }
 
@@ -286,7 +286,7 @@ export class GitLogParser {
                 new Date((entry.date! as any) * 1000),
                 entry.summary === undefined ? '' : entry.summary,
                 relativeFileName,
-                entry.fileStatuses || [],
+                entry.files || [],
                 entry.status,
                 originalFileName,
                 undefined,

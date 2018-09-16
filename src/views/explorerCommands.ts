@@ -281,7 +281,7 @@ export class ExplorerCommands implements Disposable {
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ) {
         const repoPath = node.commit.repoPath;
-        const uris = node.commit.fileStatuses.map(s => GitUri.fromFileStatus(s, repoPath));
+        const uris = node.commit.files.map(s => GitUri.fromFile(s, repoPath));
 
         for (const uri of uris) {
             await this.openDiffWith(
@@ -303,8 +303,8 @@ export class ExplorerCommands implements Disposable {
     ) {
         const repoPath = node.commit.repoPath;
         const uris = Arrays.filterMap(
-            node.commit.fileStatuses,
-            f => (f.status !== 'D' ? GitUri.fromFileStatus(f, repoPath) : undefined)
+            node.commit.files,
+            f => (f.status !== 'D' ? GitUri.fromFile(f, repoPath) : undefined)
         );
 
         for (const uri of uris) {
@@ -317,7 +317,7 @@ export class ExplorerCommands implements Disposable {
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ) {
         const repoPath = node.commit.repoPath;
-        const uris = Arrays.filterMap(node.commit.fileStatuses, f => GitUri.fromFileStatus(f, repoPath));
+        const uris = Arrays.filterMap(node.commit.files, f => GitUri.fromFile(f, repoPath));
 
         for (const uri of uris) {
             await openEditor(uri, options);
@@ -328,7 +328,7 @@ export class ExplorerCommands implements Disposable {
         node: CommitNode | StashNode,
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ) {
-        const uris = Arrays.filterMap(node.commit.fileStatuses, f =>
+        const uris = Arrays.filterMap(node.commit.files, f =>
             GitUri.toRevisionUri(
                 f.status === 'D' ? node.commit.previousFileSha : node.commit.sha,
                 f,

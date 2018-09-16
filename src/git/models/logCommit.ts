@@ -4,7 +4,7 @@ import { Uri } from 'vscode';
 import { Strings } from '../../system';
 import { Git } from '../git';
 import { GitCommit, GitCommitType } from './commit';
-import { GitStatusFileStatus, IGitStatusFile } from './status';
+import { GitFile, GitFileStatus } from './file';
 
 export class GitLogCommit extends GitCommit {
     nextSha?: string;
@@ -19,8 +19,8 @@ export class GitLogCommit extends GitCommit {
         date: Date,
         message: string,
         fileName: string,
-        public readonly fileStatuses: IGitStatusFile[],
-        public readonly status: GitStatusFileStatus | undefined,
+        public readonly files: GitFile[],
+        public readonly status: GitFileStatus | undefined,
         originalFileName: string | undefined,
         previousSha: string | undefined,
         previousFileName: string | undefined,
@@ -73,8 +73,8 @@ export class GitLogCommit extends GitCommit {
                 changed: 0
             };
 
-            if (this.fileStatuses.length !== 0) {
-                for (const f of this.fileStatuses) {
+            if (this.files.length !== 0) {
+                for (const f of this.files) {
                     switch (f.status) {
                         case 'A':
                         case '?':
@@ -128,21 +128,21 @@ export class GitLogCommit extends GitCommit {
     }
 
     toFileCommit(fileName: string): GitLogCommit | undefined;
-    toFileCommit(status: IGitStatusFile): GitLogCommit;
-    toFileCommit(fileNameOrStatus: string | IGitStatusFile): GitLogCommit | undefined {
-        let status: IGitStatusFile | undefined;
-        if (typeof fileNameOrStatus === 'string') {
-            const fileName = Strings.normalizePath(path.relative(this.repoPath, fileNameOrStatus));
-            status = this.fileStatuses.find(f => f.fileName === fileName);
-            if (status === undefined) return undefined;
+    toFileCommit(file: GitFile): GitLogCommit;
+    toFileCommit(fileNameOrFile: string | GitFile): GitLogCommit | undefined {
+        let file: GitFile | undefined;
+        if (typeof fileNameOrFile === 'string') {
+            const fileName = Strings.normalizePath(path.relative(this.repoPath, fileNameOrFile));
+            file = this.files.find(f => f.fileName === fileName);
+            if (file === undefined) return undefined;
         }
         else {
-            status = fileNameOrStatus;
+            file = fileNameOrFile;
         }
 
         let sha;
         // If this is a stash commit with an untracked file
-        if (this.type === GitCommitType.Stash && status.status === '?') {
+        if (this.type === GitCommitType.Stash && file.status === '?') {
             sha = `${this.sha}^3`;
         }
 
@@ -152,12 +152,12 @@ export class GitLogCommit extends GitCommit {
         return this.with({
             type: this.isStash ? GitCommitType.StashFile : GitCommitType.File,
             sha: sha,
-            fileName: status.fileName,
-            originalFileName: status.originalFileName,
+            fileName: file.fileName,
+            originalFileName: file.originalFileName,
             previousSha: previousSha,
-            previousFileName: status.originalFileName || status.fileName,
-            status: status.status,
-            fileStatuses: [status]
+            previousFileName: file.originalFileName || file.fileName,
+            status: file.status,
+            files: [file]
         });
     }
 
@@ -172,8 +172,8 @@ export class GitLogCommit extends GitCommit {
         originalFileName?: string | null;
         previousFileName?: string | null;
         previousSha?: string | null;
-        status?: GitStatusFileStatus;
-        fileStatuses?: IGitStatusFile[] | null;
+        status?: GitFileStatus;
+        files?: GitFile[] | null;
     }): GitLogCommit {
         return new GitLogCommit(
             changes.type || this.type,
@@ -184,7 +184,7 @@ export class GitLogCommit extends GitCommit {
             changes.date || this.date,
             changes.message || this.message,
             changes.fileName || this.fileName,
-            this.getChangedValue(changes.fileStatuses, this.fileStatuses) || [],
+            this.getChangedValue(changes.files, this.files) || [],
             changes.status || this.status,
             this.getChangedValue(changes.originalFileName, this.originalFileName),
             this.getChangedValue(changes.previousSha, this.previousSha),

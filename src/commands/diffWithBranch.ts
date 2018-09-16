@@ -60,10 +60,10 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
             let renamedTitle: string | undefined;
 
             // Check to see if this file has been renamed
-            const statuses = await Container.git.getDiffStatus(gitUri.repoPath, 'HEAD', ref, { filter: 'R' });
-            if (statuses !== undefined) {
+            const files = await Container.git.getDiffStatus(gitUri.repoPath, 'HEAD', ref, { filter: 'R' });
+            if (files !== undefined) {
                 const fileName = Strings.normalizePath(path.relative(gitUri.repoPath, gitUri.fsPath));
-                const rename = statuses.find(s => s.fileName === fileName);
+                const rename = files.find(s => s.fileName === fileName);
                 if (rename !== undefined && rename.originalFileName !== undefined) {
                     renamedUri = Uri.file(path.join(gitUri.repoPath, rename.originalFileName));
                     renamedTitle = `${path.basename(rename.originalFileName)} (${ref})`;

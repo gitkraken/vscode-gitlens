@@ -4,7 +4,7 @@ import { Uri } from 'vscode';
 import { UriComparer } from '../comparers';
 import { DocumentSchemes, GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitCommit, GitService, IGitStatusFile } from '../git/gitService';
+import { GitCommit, GitFile, GitService } from '../git/gitService';
 import { Strings } from '../system';
 
 export interface GitCommitish {
@@ -167,9 +167,9 @@ export class GitUri extends ((Uri as any) as UriEx) {
         });
     }
 
-    static fromFileStatus(status: IGitStatusFile, repoPath: string, sha?: string, original: boolean = false): GitUri {
-        const uri = Uri.file(path.resolve(repoPath, (original && status.originalFileName) || status.fileName));
-        return sha === undefined ? new GitUri(uri, repoPath) : new GitUri(uri, { repoPath: repoPath, sha: sha });
+    static fromFile(file: GitFile, repoPath: string, ref?: string, original: boolean = false): GitUri {
+        const uri = Uri.file(path.resolve(repoPath, (original && file.originalFileName) || file.fileName));
+        return ref === undefined ? new GitUri(uri, repoPath) : new GitUri(uri, { repoPath: repoPath, sha: ref });
     }
 
     static fromRepoPath(repoPath: string, ref?: string) {
@@ -280,40 +280,36 @@ export class GitUri extends ((Uri as any) as UriEx) {
     }
 
     static toRevisionUri(uri: GitUri): Uri;
-    static toRevisionUri(sha: string, fileName: string, repoPath: string): Uri;
-    static toRevisionUri(sha: string, status: IGitStatusFile, repoPath: string): Uri;
-    static toRevisionUri(
-        uriOrSha: string | GitUri,
-        fileNameOrStatus?: string | IGitStatusFile,
-        repoPath?: string
-    ): Uri {
+    static toRevisionUri(ref: string, fileName: string, repoPath: string): Uri;
+    static toRevisionUri(ref: string, file: GitFile, repoPath: string): Uri;
+    static toRevisionUri(uriOrRef: string | GitUri, fileNameOrFile?: string | GitFile, repoPath?: string): Uri {
         let fileName: string;
-        let sha: string | undefined;
+        let ref: string | undefined;
         let shortSha: string | undefined;
 
-        if (typeof uriOrSha === 'string') {
-            if (typeof fileNameOrStatus === 'string') {
-                fileName = fileNameOrStatus;
+        if (typeof uriOrRef === 'string') {
+            if (typeof fileNameOrFile === 'string') {
+                fileName = fileNameOrFile;
             }
             else {
-                fileName = path.resolve(repoPath!, fileNameOrStatus!.fileName);
+                fileName = path.resolve(repoPath!, fileNameOrFile!.fileName);
             }
 
-            sha = uriOrSha;
-            shortSha = GitService.shortenSha(sha);
+            ref = uriOrRef;
+            shortSha = GitService.shortenSha(ref);
         }
         else {
-            fileName = uriOrSha.fsPath!;
-            repoPath = uriOrSha.repoPath!;
-            sha = uriOrSha.sha;
-            shortSha = uriOrSha.shortSha;
+            fileName = uriOrRef.fsPath!;
+            repoPath = uriOrRef.repoPath!;
+            ref = uriOrRef.sha;
+            shortSha = uriOrRef.shortSha;
         }
 
         repoPath = Strings.normalizePath(repoPath!);
         const repoName = path.basename(repoPath);
         const data: IUriRevisionData = {
             path: Strings.normalizePath(fileName, { addLeadingSlash: true }),
-            ref: sha,
+            ref: ref,
             repoPath: repoPath
         };
 

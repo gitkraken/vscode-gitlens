@@ -1,12 +1,12 @@
 'use strict';
-import { GitLogCommit, IGitStatusFile } from '../../git/gitService';
+import { GitFile, GitLogCommit } from '../../git/gitService';
 import { Explorer } from '../explorer';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 
 export class StashFileNode extends CommitFileNode {
-    constructor(status: IGitStatusFile, commit: GitLogCommit, parent: ExplorerNode, explorer: Explorer) {
-        super(status, commit, parent, explorer, CommitFileNodeDisplayAs.File);
+    constructor(file: GitFile, commit: GitLogCommit, parent: ExplorerNode, explorer: Explorer) {
+        super(file, commit, parent, explorer, CommitFileNodeDisplayAs.File);
     }
 
     protected get resourceType(): ResourceType {
