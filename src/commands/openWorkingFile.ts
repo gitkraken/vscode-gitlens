@@ -1,6 +1,6 @@
 'use strict';
 import * as path from 'path';
-import { Range, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { GitUri } from '../git/gitService';
@@ -37,9 +37,13 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
                         args.uri.fsPath,
                         args.uri.repoPath
                     );
-                    if (fileName !== undefined && repoPath !== undefined) {
-                        args.uri = new GitUri(Uri.file(path.resolve(repoPath, fileName)), repoPath);
+                    if (fileName === undefined) {
+                        return window.showWarningMessage(
+                            'Unable to open working file. File could not be found in the working tree'
+                        );
                     }
+
+                    args.uri = new GitUri(Uri.file(path.resolve(repoPath || '', fileName)), repoPath);
                 }
             }
 
