@@ -1,6 +1,6 @@
 'use strict';
 import * as path from 'path';
-import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import {
     GitFile,
@@ -43,42 +43,40 @@ export class StatusFileCommitsNode extends ExplorerNode {
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
+        const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
 
         if (this.commits.length === 1 && this.commit.isUncommitted) {
-            item.collapsibleState = TreeItemCollapsibleState.None;
             item.contextValue = ResourceType.StatusFile;
 
             if (this.commit.isStagedUncommitted) {
                 item.tooltip = StatusFileFormatter.fromTemplate(
+                    '${file}\n${directory}/\n\n${status} in Index (staged)',
                     this.file
                 );
             }
             else {
                 item.tooltip = StatusFileFormatter.fromTemplate(
+                    '${file}\n${directory}/\n\n${status} in Working Tree',
                     this.file
                 );
             }
             item.command = this.getCommand();
         }
         else {
+            item.collapsibleState = TreeItemCollapsibleState.Collapsed;
             item.contextValue = ResourceType.StatusFileCommits;
             item.tooltip = StatusFileFormatter.fromTemplate(
+                `\${file}\n\${directory}/\n\n\${status} in ${this.getChangedIn()}`,
                 this.file
             );
         }
 
-        const icon = getGitStatusIcon(this.status.status);
-        item.iconPath = {
-            dark: Container.context.asAbsolutePath(path.join('images', 'dark', icon)),
-            light: Container.context.asAbsolutePath(path.join('images', 'light', icon))
-        };
+        // Use the file icon and decorations
+        item.resourceUri = Uri.file(path.resolve(this.repoPath, this.file.fileName));
+        item.iconPath = ThemeIcon.File;
 
         // Only cache the label for a single refresh
         this._label = undefined;
-
-        // Capitalize the first letter of the tooltip
-        item.tooltip = item.tooltip.charAt(0).toUpperCase() + item.tooltip.slice(1);
 
         return item;
     }
@@ -131,10 +129,10 @@ export class StatusFileCommitsNode extends ExplorerNode {
         for (const c of this.commits) {
             if (c.isUncommitted) {
                 if (c.isStagedUncommitted) {
-                    changedIn.push('working tree');
+                    changedIn.push('Index (staged)');
                 }
                 else {
-                    changedIn.push('index');
+                    changedIn.push('Working Tree');
                 }
 
                 continue;

@@ -217,7 +217,7 @@ export class Git {
         ref: string,
         strings: { stagedUncommitted?: string; uncommitted?: string; working?: string } = {}
     ) {
-        strings = { stagedUncommitted: 'index', uncommitted: 'working', working: '', ...strings };
+        strings = { stagedUncommitted: 'Index', uncommitted: 'Working Tree', working: '', ...strings };
 
         if (ref === '') return strings.working;
         if (Git.isUncommitted(ref)) {

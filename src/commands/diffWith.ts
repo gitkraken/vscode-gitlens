@@ -117,13 +117,13 @@ export class DiffWithCommand extends ActiveEditorCommand {
                 Container.git.getVersionedUri(args.repoPath, args.rhs.uri.fsPath, args.rhs.sha)
             ]);
 
-            let rhsSuffix = GitService.shortenSha(rhsSha, { uncommitted: 'working tree' }) || '';
+            let rhsSuffix = GitService.shortenSha(rhsSha, { uncommitted: 'Working Tree' }) || '';
             if (rhs === undefined) {
                 if (GitService.isUncommitted(args.rhs.sha)) {
                     rhsSuffix = 'deleted';
                 }
                 else if (rhsSuffix === '' && args.rhs.sha === GitService.deletedOrMissingSha) {
-                    rhsSuffix = 'not in working tree';
+                    rhsSuffix = 'not in Working Tree';
                 }
                 else {
                     rhsSuffix = `deleted in ${rhsSuffix}`;

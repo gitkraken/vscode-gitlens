@@ -161,7 +161,7 @@ export class Annotations {
             message = `\n\n> ${message}`;
         }
         else {
-            showCommitDetailsCommand = `\`${commit.shortSha === 'working' ? '00000000' : commit.shortSha}\``;
+            showCommitDetailsCommand = `\`${commit.shortSha === 'Working Tree' ? '00000000' : commit.shortSha}\``;
         }
 
         if (Container.config.hovers.avatars) {
