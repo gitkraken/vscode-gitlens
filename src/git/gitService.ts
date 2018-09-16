@@ -1677,7 +1677,7 @@ export class GitService implements Disposable {
         return GitTreeParser.parse(data) || [];
     }
 
-    async getVersionedFile(
+    async getVersionedUri(
         repoPath: string | undefined,
         fileName: string,
         ref: string | undefined
@@ -1690,6 +1690,16 @@ export class GitService implements Disposable {
             if (await this.fileExists(repoPath!, fileName)) return Uri.file(fileName);
 
             return undefined;
+        }
+
+        if (Git.isStagedUncommitted(ref)) {
+            const path = paths.resolve(repoPath || '', fileName);
+            return Uri.parse(
+                `git:${path}?${JSON.stringify({
+                    path: path,
+                    ref: '~'
+                })}`
+            );
         }
 
         return GitUri.toRevisionUri(ref, fileName, repoPath!);

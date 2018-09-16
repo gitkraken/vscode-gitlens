@@ -113,8 +113,8 @@ export class DiffWithCommand extends ActiveEditorCommand {
             }
 
             const [lhs, rhs] = await Promise.all([
-                Container.git.getVersionedFile(args.repoPath, args.lhs.uri.fsPath, args.lhs.sha),
-                Container.git.getVersionedFile(args.repoPath, args.rhs.uri.fsPath, args.rhs.sha)
+                Container.git.getVersionedUri(args.repoPath, args.lhs.uri.fsPath, args.lhs.sha),
+                Container.git.getVersionedUri(args.repoPath, args.rhs.uri.fsPath, args.rhs.sha)
             ]);
 
             let rhsSuffix = GitService.shortenSha(rhsSha, { uncommitted: 'working tree' }) || '';
