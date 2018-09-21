@@ -9,6 +9,7 @@ import { RepositoriesExplorer } from '../repositoriesExplorer';
 import { CommitNode } from './commitNode';
 import { MessageNode, ShowMoreNode } from './common';
 import { ExplorerNode, ExplorerRefNode, PageableExplorerNode, ResourceType } from './explorerNode';
+import { insertDateMarkers } from './helpers';
 
 export class BranchNode extends ExplorerRefNode implements PageableExplorerNode {
     readonly supportsPaging: boolean = true;
@@ -70,10 +71,13 @@ export class BranchNode extends ExplorerRefNode implements PageableExplorerNode 
                 return branches.join(', ');
             };
 
-            const children: (CommitNode | ShowMoreNode)[] = [
-                ...Iterables.map(
-                    log.commits.values(),
-                    c => new CommitNode(c, this, this.explorer, this.branch, getBranchTips)
+            const children = [
+                ...insertDateMarkers(
+                    Iterables.map(
+                        log.commits.values(),
+                        c => new CommitNode(c, this, this.explorer, this.branch, getBranchTips)
+                    ),
+                    this
                 )
             ];
 

@@ -16,6 +16,7 @@ import { FileHistoryExplorer } from '../fileHistoryExplorer';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { MessageNode } from './common';
 import { ExplorerNode, ResourceType, SubscribeableExplorerNode } from './explorerNode';
+import { insertDateMarkers } from './helpers';
 
 export class FileHistoryNode extends SubscribeableExplorerNode<FileHistoryExplorer> {
     constructor(uri: GitUri, parent: ExplorerNode, explorer: FileHistoryExplorer) {
@@ -55,6 +56,7 @@ export class FileHistoryNode extends SubscribeableExplorerNode<FileHistoryExplor
                 'You',
                 user !== undefined ? user.email : undefined,
                 new Date(),
+                new Date(),
                 '',
                 status.fileName,
                 [status],
@@ -69,9 +71,12 @@ export class FileHistoryNode extends SubscribeableExplorerNode<FileHistoryExplor
         const log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, { ref: this.uri.sha });
         if (log !== undefined) {
             children.push(
-                ...Iterables.map(
-                    log.commits.values(),
-                    c => new CommitFileNode(c.files[0], c, this, this.explorer, displayAs)
+                ...insertDateMarkers(
+                    Iterables.map(
+                        log.commits.values(),
+                        c => new CommitFileNode(c.files[0], c, this, this.explorer, displayAs)
+                    ),
+                    this
                 )
             );
         }

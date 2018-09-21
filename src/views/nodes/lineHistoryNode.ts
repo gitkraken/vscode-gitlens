@@ -15,6 +15,7 @@ import { LineHistoryExplorer } from '../lineHistoryExplorer';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { MessageNode } from './common';
 import { ExplorerNode, ResourceType, SubscribeableExplorerNode } from './explorerNode';
+import { insertDateMarkers } from './helpers';
 
 export class LineHistoryNode extends SubscribeableExplorerNode<LineHistoryExplorer> {
     constructor(
@@ -39,16 +40,22 @@ export class LineHistoryNode extends SubscribeableExplorerNode<LineHistoryExplor
         });
         if (log !== undefined) {
             children.push(
-                ...Iterables.filterMap(
-                    log.commits.values(),
-                    c => new CommitFileNode(c.files[0], c, this, this.explorer, displayAs, this.selection)
+                ...insertDateMarkers(
+                    Iterables.filterMap(
+                        log.commits.values(),
+                        c => new CommitFileNode(c.files[0], c, this, this.explorer, displayAs, this.selection)
+                    ),
+                    this
                 )
             );
         }
 
         const blame = await Container.git.getBlameForLine(this.uri, this.selection.active.line);
         if (blame !== undefined) {
-            const first = children[0] as CommitFileNode | undefined;
+            let first = children[0] as CommitFileNode | undefined;
+            if (first !== undefined && !(first instanceof CommitFileNode)) {
+                first = children[1] as CommitFileNode | undefined;
+            }
 
             if (first === undefined || first.commit.sha !== blame.commit.sha) {
                 const file: GitFile = {
@@ -66,6 +73,8 @@ export class LineHistoryNode extends SubscribeableExplorerNode<LineHistoryExplor
                     blame.commit.sha,
                     'You',
                     blame.commit.email,
+                    blame.commit.date,
+                    // TODO: Add committed date to blame?
                     blame.commit.date,
                     blame.commit.message,
                     blame.commit.fileName,

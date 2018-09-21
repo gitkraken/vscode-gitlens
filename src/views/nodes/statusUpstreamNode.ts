@@ -7,6 +7,7 @@ import { RepositoriesExplorer } from '../repositoriesExplorer';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
 import { ExplorerNode, PageableExplorerNode, ResourceType } from './explorerNode';
+import { insertDateMarkers } from './helpers';
 
 export class StatusUpstreamNode extends ExplorerNode implements PageableExplorerNode {
     readonly supportsPaging: boolean = true;
@@ -37,7 +38,7 @@ export class StatusUpstreamNode extends ExplorerNode implements PageableExplorer
         });
         if (log === undefined) return [];
 
-        let children: (CommitNode | ShowMoreNode)[];
+        let children;
         if (ahead) {
             // Since the last commit when we are looking 'ahead' can have no previous (because of the range given) -- look it up
             const commits = [...log.commits.values()];
@@ -49,10 +50,16 @@ export class StatusUpstreamNode extends ExplorerNode implements PageableExplorer
                 }
             }
 
-            children = commits.map(c => new CommitNode(c, this, this.explorer));
+            children = [...insertDateMarkers(commits.map(c => new CommitNode(c, this, this.explorer)), this, 1)];
         }
         else {
-            children = [...Iterables.map(log.commits.values(), c => new CommitNode(c, this, this.explorer))];
+            children = [
+                ...insertDateMarkers(
+                    Iterables.map(log.commits.values(), c => new CommitNode(c, this, this.explorer)),
+                    this,
+                    1
+                )
+            ];
         }
 
         if (log.truncated) {

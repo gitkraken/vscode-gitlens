@@ -10,6 +10,7 @@ export class GitStashCommit extends GitLogCommit {
         repoPath: string,
         sha: string,
         date: Date,
+        committedDate: Date,
         message: string,
         fileName: string,
         files: GitFile[],
@@ -25,6 +26,7 @@ export class GitStashCommit extends GitLogCommit {
             'You',
             undefined,
             date,
+            committedDate,
             message,
             fileName,
             files,
@@ -44,6 +46,7 @@ export class GitStashCommit extends GitLogCommit {
         sha?: string | null;
         fileName?: string;
         date?: Date;
+        committedDate?: Date;
         message?: string;
         originalFileName?: string | null;
         previousFileName?: string | null;
@@ -57,6 +60,7 @@ export class GitStashCommit extends GitLogCommit {
             this.repoPath,
             this.getChangedValue(changes.sha, this.sha)!,
             changes.date || this.date,
+            changes.committedDate || this.committedDate,
             changes.message || this.message,
             changes.fileName || this.fileName,
             this.getChangedValue(changes.files, this.files) || [],

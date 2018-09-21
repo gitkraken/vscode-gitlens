@@ -17,6 +17,7 @@ export class GitLogCommit extends GitCommit {
         author: string,
         email: string | undefined,
         date: Date,
+        public readonly committedDate: Date,
         message: string,
         fileName: string,
         public readonly files: GitFile[],
@@ -168,6 +169,7 @@ export class GitLogCommit extends GitCommit {
         author?: string;
         email?: string;
         date?: Date;
+        committedDate?: Date;
         message?: string;
         originalFileName?: string | null;
         previousFileName?: string | null;
@@ -182,6 +184,7 @@ export class GitLogCommit extends GitCommit {
             changes.author || this.author,
             changes.email || this.email,
             changes.date || this.date,
+            changes.committedDate || this.committedDate,
             changes.message || this.message,
             changes.fileName || this.fileName,
             this.getChangedValue(changes.files, this.files) || [],

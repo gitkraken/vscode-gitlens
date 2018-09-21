@@ -9,6 +9,7 @@ interface LogEntry {
 
     author?: string;
     date?: string;
+    committedDate?: string;
     email?: string;
 
     parentShas?: string[];
@@ -96,6 +97,10 @@ export class GitLogParser {
 
                 case 100: // 'd': // author-date
                     entry.date = line.substring(4);
+                    break;
+
+                case 99: // 'c': // committer-date
+                    entry.committedDate = line.substring(4);
                     break;
 
                 case 112: // 'p': // parents
@@ -283,6 +288,7 @@ export class GitLogParser {
                 entry.author!,
                 entry.email,
                 new Date((entry.date! as any) * 1000),
+                new Date((entry.committedDate! as any) * 1000),
                 entry.summary === undefined ? '' : entry.summary,
                 relativeFileName,
                 entry.files || [],

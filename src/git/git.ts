@@ -25,6 +25,7 @@ const logFormat = [
     `${lb}a${rb} %aN`, // author
     `${lb}e${rb} %aE`, // email
     `${lb}d${rb} %at`, // date
+    `${lb}c${rb} %ct`, // committed date
     `${lb}p${rb} %P`, // parents
     `${lb}s${rb}`,
     `%B`, // summary
@@ -38,6 +39,7 @@ const stashFormat = [
     `${lb}${sl}f${rb}`,
     `${lb}r${rb} %H`, // ref
     `${lb}d${rb} %at`, // date
+    `${lb}c${rb} %ct`, // committed date
     `${lb}l${rb} %gd`, // reflog-selector
     `${lb}s${rb}`,
     `%B`, // summary

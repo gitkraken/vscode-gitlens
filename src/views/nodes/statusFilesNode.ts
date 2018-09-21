@@ -165,6 +165,7 @@ export class StatusFilesNode extends ExplorerNode {
                 'You',
                 undefined,
                 date || new Date(),
+                date || new Date(),
                 '',
                 file.fileName,
                 [file],

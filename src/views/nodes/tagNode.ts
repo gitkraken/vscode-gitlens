@@ -8,6 +8,7 @@ import { RepositoriesExplorer } from '../repositoriesExplorer';
 import { CommitNode } from './commitNode';
 import { MessageNode, ShowMoreNode } from './common';
 import { ExplorerNode, ExplorerRefNode, PageableExplorerNode, ResourceType } from './explorerNode';
+import { insertDateMarkers } from './helpers';
 
 export class TagNode extends ExplorerRefNode implements PageableExplorerNode {
     readonly supportsPaging: boolean = true;
@@ -43,8 +44,8 @@ export class TagNode extends ExplorerRefNode implements PageableExplorerNode {
         });
         if (log === undefined) return [new MessageNode(this, 'No commits yet')];
 
-        const children: (CommitNode | ShowMoreNode)[] = [
-            ...Iterables.map(log.commits.values(), c => new CommitNode(c, this, this.explorer))
+        const children = [
+            ...insertDateMarkers(Iterables.map(log.commits.values(), c => new CommitNode(c, this, this.explorer)), this)
         ];
 
         if (log.truncated) {

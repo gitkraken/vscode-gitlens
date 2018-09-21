@@ -6,6 +6,7 @@ import { GitCommitType, GitFile, GitFileStatus, GitLogParser, GitStash, GitStash
 interface StashEntry {
     ref?: string;
     date?: string;
+    committedDate?: string;
     fileNames?: string;
     files?: GitFile[];
     summary?: string;
@@ -52,6 +53,10 @@ export class GitStashParser {
 
                 case 100: // 'd': // author-date
                     entry.date = line.substring(4);
+                    break;
+
+                case 99: // 'c': // committer-date
+                    entry.committedDate = line.substring(4);
                     break;
 
                 case 108: // 'l': // reflog-selector
@@ -140,6 +145,7 @@ export class GitStashParser {
                 repoPath,
                 entry.ref!,
                 new Date((entry.date! as any) * 1000),
+                new Date((entry.committedDate! as any) * 1000),
                 entry.summary === undefined ? '' : entry.summary,
                 entry.fileNames!,
                 entry.files || []
