@@ -24,7 +24,6 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
     constructor() {
         super([
             Commands.DiffDirectory,
-            Commands.ExternalDiffAll,
             Commands.ExplorersOpenDirectoryDiff,
             Commands.ExplorersOpenDirectoryDiffWithWorking
         ]);
@@ -32,11 +31,6 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 
     protected async preExecute(context: CommandContext, args: DiffDirectoryCommandArgs = {}): Promise<any> {
         switch (context.command) {
-            case Commands.ExternalDiffAll:
-                args.ref1 = 'HEAD';
-                args.ref2 = undefined;
-                break;
-
             case Commands.ExplorersOpenDirectoryDiff:
                 if (context.type === 'view' && context.node instanceof ResultsComparisonNode) {
                     args.ref1 = context.node.ref1.ref;

@@ -118,6 +118,31 @@ export async function getRepoPathOrActiveOrPrompt(
     return repoPath;
 }
 
+export async function getRepoPathOrPrompt(
+    uri: Uri | undefined,
+    placeholder: string,
+    goBackCommand?: CommandQuickPickItem
+) {
+    let repoPath = await Container.git.getRepoPath(uri);
+    if (!repoPath) {
+        const pick = await RepositoriesQuickPick.show(placeholder, goBackCommand);
+        if (pick instanceof CommandQuickPickItem) {
+            await pick.execute();
+            return undefined;
+        }
+
+        if (pick === undefined) {
+            if (goBackCommand !== undefined) {
+                await goBackCommand.execute();
+            }
+            return undefined;
+        }
+
+        repoPath = pick.repoPath;
+    }
+    return repoPath;
+}
+
 export interface CommandContextParsingOptions {
     editor: boolean;
     uri: boolean;

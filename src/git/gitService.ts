@@ -1491,7 +1491,7 @@ export class GitService implements Disposable {
         filePathOrUri: string | Uri | undefined,
         options: { ref?: string } = {}
     ): Promise<string | undefined> {
-        if (filePathOrUri == null) return await this.getActiveRepoPath();
+        if (filePathOrUri == null) return this.getHighlanderRepoPath();
         if (filePathOrUri instanceof GitUri) return filePathOrUri.repoPath;
 
         // Don't save the tracking info to the cache, because we could be looking in the wrong place (e.g. looking in the root when the file is in a submodule)
@@ -1541,10 +1541,10 @@ export class GitService implements Disposable {
     }
 
     async getRepoPathOrActive(uri: Uri | undefined, editor: TextEditor | undefined) {
-        const repoPath = await Container.git.getRepoPath(uri);
+        const repoPath = await this.getRepoPath(uri);
         if (repoPath) return repoPath;
 
-        return Container.git.getActiveRepoPath(editor);
+        return this.getActiveRepoPath(editor);
     }
 
     async getRepositories(predicate?: (repo: Repository) => boolean): Promise<Iterable<Repository>> {

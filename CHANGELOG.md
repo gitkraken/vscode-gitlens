@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#503](https://github.com/eamodio/vscode-gitlens/issues/503) - Open Changes (with difftool) opens one difftool window per changed file
 - Fixes [#405](https://github.com/eamodio/vscode-gitlens/issues/405) - Secondary, blank repository appears repeatedly in gitExplorer view
 - Fixes [#430](https://github.com/eamodio/vscode-gitlens/issues/430) - File revisions can end up being parsed by language servers (causing errors and warnings, etc)
 - Fixes [#388](https://github.com/eamodio/vscode-gitlens/issues/388) - Support the mailmap feature of git

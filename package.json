@@ -2285,7 +2285,7 @@
                 },
                 {
                     "command": "gitlens.externalDiff",
-                    "when": "gitlens:enabled"
+                    "when": "gitlens:activeFileStatus =~ /tracked/"
                 },
                 {
                     "command": "gitlens.externalDiffAll",
@@ -2877,11 +2877,6 @@
                     "command": "gitlens.externalDiff",
                     "when": "gitlens:enabled",
                     "group": "2_gitlens@3"
-                },
-                {
-                    "command": "gitlens.externalDiffAll",
-                    "when": "gitlens:enabled",
-                    "group": "2_gitlens@4"
                 },
                 {
                     "command": "gitlens.stashSave",

@@ -5,7 +5,7 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Arrays } from '../system';
-import { Command, CommandContext, Commands, getRepoPathOrActiveOrPrompt } from './common';
+import { Command, CommandContext, Commands, getRepoPathOrPrompt } from './common';
 
 enum Status {
     INDEX_MODIFIED,
@@ -52,68 +52,48 @@ export interface ExternalDiffCommandArgs {
 
 export class ExternalDiffCommand extends Command {
     constructor() {
-        super(Commands.ExternalDiff);
+        super([Commands.ExternalDiff, Commands.ExternalDiffAll]);
     }
 
     protected async preExecute(context: CommandContext, args: ExternalDiffCommandArgs = {}): Promise<any> {
-        if (context.type === 'scm-states') {
-            args = { ...args };
-            args.files = context.scmResourceStates.map(
-                r => new ExternalDiffFile(r.resourceUri, (r as Resource).resourceGroupType === ResourceGroupType.Index)
-            );
-
-            return this.execute(args);
-        }
-        else if (context.type === 'scm-groups') {
-            args = { ...args };
-            args.files = Arrays.filterMap(
-                context.scmResourceGroups[0].resourceStates,
-                r =>
-                    this.isModified(r)
-                        ? new ExternalDiffFile(
-                              r.resourceUri,
-                              (r as Resource).resourceGroupType === ResourceGroupType.Index
-                          )
-                        : undefined
-            );
-
-            return this.execute(args);
-        }
-
-        return this.execute(args);
-    }
-
-    private isModified(resource: SourceControlResourceState) {
-        const status = (resource as Resource).type;
-        return status === Status.BOTH_MODIFIED || status === Status.INDEX_MODIFIED || status === Status.MODIFIED;
-    }
-
-    async execute(args: ExternalDiffCommandArgs = {}) {
-        try {
-            const repoPath = await getRepoPathOrActiveOrPrompt(
-                undefined,
-                undefined,
-                `Open changes from which repository${GlyphChars.Ellipsis}`
-            );
-            if (!repoPath) return undefined;
-
-            const tool = await Container.git.getDiffTool(repoPath);
-            if (tool === undefined) {
-                const result = await window.showWarningMessage(
-                    `Unable to open changes in diff tool because there is no Git diff tool configured`,
-                    'View Git Docs'
-                );
-                if (!result) return undefined;
-
-                return commands.executeCommand(
-                    BuiltInCommands.Open,
-                    Uri.parse('https://git-scm.com/docs/git-config#git-config-difftool')
+        if (args.files === undefined) {
+            if (context.type === 'scm-states') {
+                args = { ...args };
+                args.files = context.scmResourceStates.map(
+                    r =>
+                        new ExternalDiffFile(
+                            r.resourceUri,
+                            (r as Resource).resourceGroupType === ResourceGroupType.Index
+                        )
                 );
             }
+            else if (context.type === 'scm-groups') {
+                args = { ...args };
+                args.files = Arrays.filterMap(
+                    context.scmResourceGroups[0].resourceStates,
+                    r =>
+                        this.isModified(r)
+                            ? new ExternalDiffFile(
+                                  r.resourceUri,
+                                  (r as Resource).resourceGroupType === ResourceGroupType.Index
+                              )
+                            : undefined
+                );
+            }
+        }
 
+        if (context.command === Commands.ExternalDiffAll) {
             if (args.files === undefined) {
+                const repoPath = await getRepoPathOrPrompt(
+                    undefined,
+                    `Open changes from which repository${GlyphChars.Ellipsis}`
+                );
+                if (!repoPath) return undefined;
+
                 const status = await Container.git.getStatusForRepo(repoPath);
-                if (status === undefined) return window.showWarningMessage(`Unable to open changes in diff tool`);
+                if (status === undefined) {
+                    return window.showInformationMessage("The repository doesn't have any changes");
+                }
 
                 args.files = [];
 
@@ -126,6 +106,59 @@ export class ExternalDiffCommand extends Command {
                         args.files.push(new ExternalDiffFile(file.uri, false));
                     }
                 }
+            }
+        }
+
+        return this.execute(args);
+    }
+
+    private isModified(resource: SourceControlResourceState) {
+        const status = (resource as Resource).type;
+        return status === Status.BOTH_MODIFIED || status === Status.INDEX_MODIFIED || status === Status.MODIFIED;
+    }
+
+    async execute(args: ExternalDiffCommandArgs = {}) {
+        try {
+            let repoPath;
+            if (args.files === undefined) {
+                const editor = window.activeTextEditor;
+                if (editor === undefined) return undefined;
+
+                repoPath = await Container.git.getRepoPathOrActive(undefined, editor);
+                if (!repoPath) return undefined;
+
+                const uri = editor.document.uri;
+                const status = await Container.git.getStatusForFile(repoPath, uri.fsPath);
+                if (status === undefined) {
+                    return window.showInformationMessage("The current file doesn't have any changes");
+                }
+
+                args.files = [];
+                if (status.indexStatus === 'M') {
+                    args.files.push(new ExternalDiffFile(status.uri, true));
+                }
+
+                if (status.workingTreeStatus === 'M') {
+                    args.files.push(new ExternalDiffFile(status.uri, false));
+                }
+            }
+            else {
+                repoPath = await Container.git.getRepoPath(args.files[0].uri.fsPath);
+                if (!repoPath) return undefined;
+            }
+
+            const tool = await Container.git.getDiffTool(repoPath);
+            if (tool === undefined) {
+                const result = await window.showWarningMessage(
+                    `Unable to open changes in diff tool. No Git diff tool is configured`,
+                    'View Git Docs'
+                );
+                if (!result) return undefined;
+
+                return commands.executeCommand(
+                    BuiltInCommands.Open,
+                    Uri.parse('https://git-scm.com/docs/git-config#git-config-difftool')
+                );
             }
 
             for (const file of args.files) {
