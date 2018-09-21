@@ -907,7 +907,7 @@
                 "gitlens.mode.statusBar.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to provide the active GitLens mode on the status bar",
+                    "description": "Specifies whether to provide the active GitLens mode in the status bar",
                     "scope": "window"
                 },
                 "gitlens.mode.statusBar.alignment": {
@@ -1298,13 +1298,13 @@
                 "gitlens.statusBar.dateFormat": {
                     "type": "string",
                     "default": null,
-                    "description": "Specifies the date format of absolute dates shown in the blame information on the status bar. See https://momentjs.com/docs/#/displaying/format/ for valid formats",
+                    "description": "Specifies the date format of absolute dates shown in the blame information in the status bar. See https://momentjs.com/docs/#/displaying/format/ for valid formats",
                     "scope": "window"
                 },
                 "gitlens.statusBar.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to provide blame information on the status bar",
+                    "description": "Specifies whether to provide blame information in the status bar",
                     "scope": "window"
                 },
                 "gitlens.statusBar.format": {

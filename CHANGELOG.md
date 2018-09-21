@@ -243,7 +243,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a built-in _Review_ mode which for reviewing code, enables many visual features
     - Adds _Toggle Review Mode_ command (`gitlens.toggleReviewMode`) to toggle Review mode
   - Adds the active mode to the status bar, optional (on by default)
-    - Adds `gitlens.mode.statusBar.enabled` setting to specify whether to provide the active GitLens mode on the status bar
+    - Adds `gitlens.mode.statusBar.enabled` setting to specify whether to provide the active GitLens mode in the status bar
     - Adds `gitlens.mode.statusBar.alignment` setting to specify the active GitLens mode alignment in the status bar
   - Adds modes settings (`gitlens.mode.*`) to the interactive settings editor
 
