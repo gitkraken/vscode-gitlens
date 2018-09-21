@@ -97,6 +97,7 @@ export enum GlyphChars {
     Dash = '\u2014',
     Dot = '\u2022',
     Ellipsis = '\u2026',
+    EnDash = '\u2013',
     MiddleEllipsis = '\u22EF',
     MuchGreaterThan = '\u226A',
     MuchLessThan = '\u22D8',

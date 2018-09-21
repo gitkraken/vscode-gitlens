@@ -53,13 +53,17 @@ export class StatusFileFormatter extends Formatter<GitFile, IStatusFormatOptions
             icon = `${GlyphChars.Pencil}${GlyphChars.Space}${GlyphChars.SpaceThinnest}${GlyphChars.Check}`;
         }
         else if (statusFile.workingTreeStatus !== undefined) {
-            icon = `${GlyphChars.Pencil}${GlyphChars.Space.repeat(4)}`;
+            icon = `${GlyphChars.Pencil}${GlyphChars.SpaceThin}${GlyphChars.SpaceThinnest}${GlyphChars.EnDash}${
+                GlyphChars.Space
+            }`;
         }
         else if (statusFile.indexStatus !== undefined) {
-            icon = `${GlyphChars.Space.repeat(5)}${GlyphChars.Check}`;
+            icon = `${GlyphChars.Space}${GlyphChars.EnDash}${GlyphChars.Space.repeat(2)}${GlyphChars.Check}`;
         }
         else {
-            icon = GlyphChars.Space.repeat(8);
+            icon = `${GlyphChars.Space}${GlyphChars.EnDash}${GlyphChars.Space.repeat(2)}${GlyphChars.EnDash}${
+                GlyphChars.Space
+            }`;
         }
         return this._padOrTruncate(icon, this._options.tokenOptions!.working);
     }
