@@ -5,14 +5,16 @@ import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorTracker } from '../trackers/activeEditorTracker';
-import { ActiveEditorCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
+import { Functions } from '../system';
+import { ActiveEditorCommand, Commands, getCommandUri, getRepoPathOrPrompt } from './common';
 
 export interface CloseUnchangedFilesCommandArgs {
     uris?: Uri[];
 }
 
 export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
+    private _onEditorChangedFn: ((editor: TextEditor | undefined) => void) | undefined;
+
     constructor() {
         super(Commands.CloseUnchangedFiles);
     }
@@ -24,10 +26,9 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
             if (args.uris === undefined) {
                 args = { ...args };
 
-                const repoPath = await getRepoPathOrActiveOrPrompt(
-                    uri,
-                    editor,
-                    `Close unchanged files in which repository${GlyphChars.Ellipsis}`
+                const repoPath = await getRepoPathOrPrompt(
+                    undefined,
+                    `Close all files except those changed in which repository${GlyphChars.Ellipsis}`
                 );
                 if (!repoPath) return undefined;
 
@@ -39,55 +40,120 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
 
             if (args.uris.length === 0) return commands.executeCommand(BuiltInCommands.CloseAllEditors);
 
-            const editorTracker = new ActiveEditorTracker();
+            const disposable = window.onDidChangeActiveTextEditor(
+                Functions.debounce(
+                    (e: TextEditor | undefined) => this._onEditorChangedFn && this._onEditorChangedFn(e),
+                    50
+                )
+            );
+
+            editor = window.activeTextEditor;
 
             let count = 0;
-            let previous = undefined;
-            editor = window.activeTextEditor;
+            let loopCount = 0;
+            const editors: TextEditor[] = [];
+
+            // Find out how many editors there are
             while (true) {
                 if (editor != null) {
-                    if (TextEditorComparer.equals(previous, editor, { useId: true, usePosition: true })) {
-                        break;
-                    }
-
-                    if (
-                        editor.document !== undefined &&
-                        (editor.document.isDirty ||
-                            args.uris.some(uri => UriComparer.equals(uri, editor!.document && editor!.document.uri)))
-                    ) {
-                        const lastPrevious = previous;
-                        previous = editor;
-                        editor = await editorTracker.awaitNext(500);
-
-                        if (TextEditorComparer.equals(lastPrevious, editor, { useId: true, usePosition: true })) {
+                    let found = false;
+                    for (const e of editors) {
+                        if (TextEditorComparer.equals(e, editor, { useId: true, usePosition: true })) {
+                            found = true;
                             break;
                         }
-                        continue;
                     }
-                }
+                    if (found) break;
 
-                previous = editor;
-                editor = await editorTracker.awaitClose(500);
-
-                if (previous === undefined && editor == null) {
+                    // Start counting at the first real editor
                     count++;
-                    // This is such a shitty hack, but I can't figure out any other reliable way to know that we've cycled through all the editors :(
-                    if (count >= 4) {
-                        break;
-                    }
+                    editors.push(editor);
                 }
                 else {
-                    count = 0;
+                    if (count !== 0) {
+                        count++;
+                    }
+                }
+
+                editor = await this.nextEditor();
+
+                loopCount++;
+                // Break out if we've looped 4 times and haven't found any editors
+                if (loopCount >= 4 && editors.length === 0) break;
+            }
+
+            if (editors.length) {
+                editor = window.activeTextEditor;
+
+                for (let i = 0; i <= count; i++) {
+                    if (
+                        editor == null ||
+                        (editor.document !== undefined &&
+                            (editor.document.isDirty ||
+                                args.uris.some(uri =>
+                                    UriComparer.equals(uri, editor!.document && editor!.document.uri)
+                                )))
+                    ) {
+                        editor = await this.nextEditor();
+                    }
+                    else {
+                        editor = await this.closeEditor();
+                    }
                 }
             }
 
-            editorTracker.dispose();
+            disposable.dispose();
 
             return undefined;
         }
         catch (ex) {
             Logger.error(ex, 'CloseUnchangedFilesCommand');
-            return Messages.showGenericErrorMessage('Unable to close unchanged files');
+            return Messages.showGenericErrorMessage('Unable to close all unchanged files');
         }
+    }
+
+    private async closeEditor(timeout: number = 500): Promise<TextEditor | undefined> {
+        const editor = window.activeTextEditor;
+
+        void (await commands.executeCommand(BuiltInCommands.CloseActiveEditor));
+
+        if (editor !== window.activeTextEditor) {
+            return window.activeTextEditor;
+        }
+
+        return this.waitForEditorChange(timeout);
+    }
+
+    private async nextEditor(timeout: number = 500): Promise<TextEditor | undefined> {
+        const editor = window.activeTextEditor;
+
+        void (await commands.executeCommand(BuiltInCommands.NextEditor));
+
+        if (editor !== window.activeTextEditor) {
+            return window.activeTextEditor;
+        }
+
+        return this.waitForEditorChange(timeout);
+    }
+
+    private waitForEditorChange(timeout: number = 500): Promise<TextEditor | undefined> {
+        return new Promise<TextEditor>((resolve, reject) => {
+            let timer: NodeJS.Timer | undefined;
+
+            this._onEditorChangedFn = (editor: TextEditor | undefined) => {
+                if (timer) {
+                    clearTimeout(timer);
+                    timer = undefined;
+
+                    resolve(editor);
+                }
+            };
+
+            timer = setTimeout(() => {
+                timer = undefined;
+
+                resolve(window.activeTextEditor);
+            }, timeout);
+        });
     }
 }
