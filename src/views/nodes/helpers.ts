@@ -19,6 +19,8 @@ export function* insertDateMarkers(
     let time = undefined;
     const now = Date.now();
 
+    let first = true;
+
     for (const node of iterable) {
         if (index < markers.length) {
             let [daysAgo, marker] = markers[index];
@@ -41,13 +43,17 @@ export function* insertDateMarkers(
                     [, marker] = markers[index];
                 }
 
-                yield new MessageNode(parent, marker);
+                // Don't show the last marker as the first entry -- since it could be wildly far off
+                if (!first || index < markers.length - 1) {
+                    yield new MessageNode(parent, marker);
+                }
 
                 index++;
                 time = undefined;
             }
         }
 
+        first = false;
         yield node;
     }
 }
