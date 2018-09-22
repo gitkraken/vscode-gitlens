@@ -3250,8 +3250,8 @@
                     "group": "8_gitlens@1"
                 },
                 {
-                    "command": "gitlens.showQuickCommitFileDetails",
-                    "when": "viewItem =~ /gitlens:file\\b(?!:stash)/",
+                    "command": "gitlens.showQuickCommitDetails",
+                    "when": "viewItem =~ /gitlens:file\\b(?!(:stash|:status))/",
                     "group": "8_gitlens@2"
                 },
                 {
@@ -3281,7 +3281,7 @@
                 },
                 {
                     "command": "gitlens.explorers.exploreRepoRevision",
-                    "when": "viewItem =~ /gitlens:(branch|commit|file:(commit|results|status)|stash|tag)\\b/",
+                    "when": "viewItem =~ /gitlens:(branch|commit|file:(commit|results)|stash|tag)\\b/",
                     "group": "7_gitlens_more@1"
                 },
                 {
