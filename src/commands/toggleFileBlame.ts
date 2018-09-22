@@ -2,6 +2,7 @@
 import { TextEditor, Uri, window } from 'vscode';
 import { UriComparer } from '../comparers';
 import { FileAnnotationType } from '../configuration';
+import { isTextEditor } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { ActiveEditorCommand, Commands } from './common';
@@ -17,10 +18,8 @@ export class ToggleFileBlameCommand extends ActiveEditorCommand {
     }
 
     async execute(editor: TextEditor, uri?: Uri, args: ToggleFileBlameCommandArgs = {}): Promise<any> {
-        // if (editor == null) return undefined;
-
-        if (editor != null) {
-            // Handle the case where we are focused on a non-editor editor (output, debug console)
+        // Handle the case where we are focused on a non-editor editor (output, debug console)
+        if (editor != null && !isTextEditor(editor)) {
             if (uri != null && !UriComparer.equals(uri, editor.document.uri)) {
                 const e = window.visibleTextEditors.find(e => UriComparer.equals(uri, e.document.uri));
                 if (e !== undefined) {
