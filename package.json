@@ -1621,8 +1621,8 @@
                 "title": "Toggle File Blame Annotations",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/git-icon.svg",
-                    "light": "images/light/git-icon.svg"
+                    "dark": "images/dark/icon-git.svg",
+                    "light": "images/light/icon-git.svg"
                 }
             },
             {
@@ -1630,8 +1630,8 @@
                 "title": "Clear File Annotations",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/git-icon-orange.svg",
-                    "light": "images/light/git-icon-orange.svg"
+                    "dark": "images/dark/icon-git-orange.svg",
+                    "light": "images/light/icon-git-orange.svg"
                 }
             },
             {
@@ -1639,8 +1639,8 @@
                 "title": "Computing File Annotations...",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/git-icon-progress.svg",
-                    "light": "images/light/git-icon-progress.svg"
+                    "dark": "images/dark/icon-git-progress.svg",
+                    "light": "images/light/icon-git-progress.svg"
                 }
             },
             {
@@ -1653,8 +1653,8 @@
                 "title": "Toggle Recent File Changes Annotations",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/git-icon.svg",
-                    "light": "images/light/git-icon.svg"
+                    "dark": "images/dark/icon-git.svg",
+                    "light": "images/light/icon-git.svg"
                 }
             },
             {
