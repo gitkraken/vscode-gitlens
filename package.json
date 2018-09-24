@@ -3654,6 +3654,7 @@
         "watch": "webpack --watch --env.development",
         "ui:optimize": "webpack --config-name ui --env.optimizeImages",
         "ui:watch": "webpack --watch --config-name ui --env.development",
+        "update:emoji": "pushd emoji && node ./shortcodeToEmoji.js && popd",
         "postinstall": "node ./node_modules/vscode/bin/install",
         "vscode:prepublish": "npm run reset && npm run bundle"
     },
