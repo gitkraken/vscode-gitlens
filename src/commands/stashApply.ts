@@ -5,9 +5,9 @@ import { Container } from '../container';
 import { GitStashCommit } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { CommandQuickPickItem, RepositoriesQuickPick, StashListQuickPick } from '../quickpicks';
+import { CommandQuickPickItem, StashListQuickPick } from '../quickpicks';
 import { Strings } from '../system';
-import { Command, CommandContext, Commands, isCommandViewContextWithCommit } from './common';
+import { Command, CommandContext, Commands, getRepoPathOrPrompt, isCommandViewContextWithCommit } from './common';
 
 export interface StashApplyCommandArgs {
     confirm?: boolean;
@@ -39,30 +39,12 @@ export class StashApplyCommand extends Command {
         args = { ...args };
 
         if (args.stashItem === undefined || args.stashItem.stashName === undefined) {
-            let goBackToRepositoriesCommand: CommandQuickPickItem | undefined;
-
-            let repoPath = await Container.git.getActiveRepoPath();
-            if (!repoPath) {
-                const pick = await RepositoriesQuickPick.show(
-                    `Apply stashed changes from which repository${GlyphChars.Ellipsis}`,
-                    args.goBackCommand
-                );
-                if (pick instanceof CommandQuickPickItem) return pick.execute();
-                if (pick === undefined) {
-                    return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
-                }
-
-                goBackToRepositoriesCommand = new CommandQuickPickItem(
-                    {
-                        label: `go back ${GlyphChars.ArrowBack}`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to pick another repository`
-                    },
-                    Commands.StashApply,
-                    [args]
-                );
-
-                repoPath = pick.repoPath;
-            }
+            const repoPath = await getRepoPathOrPrompt(
+                undefined,
+                `Apply stashed changes from which repository${GlyphChars.Ellipsis}`,
+                args.goBackCommand
+            );
+            if (!repoPath) return undefined;
 
             const progressCancellation = StashListQuickPick.showProgress('apply');
 
@@ -85,7 +67,7 @@ export class StashApplyCommand extends Command {
                     stash,
                     'apply',
                     progressCancellation,
-                    goBackToRepositoriesCommand || args.goBackCommand,
+                    args.goBackCommand,
                     currentCommand
                 );
                 if (pick instanceof CommandQuickPickItem) return pick.execute();

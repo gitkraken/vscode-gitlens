@@ -745,8 +745,7 @@ export class Git {
         if (message) {
             params.push('-m', message);
         }
-        params.splice(params.length, 0, '--', ...pathspecs);
-        return git<string>({ cwd: repoPath }, ...params);
+        return git<string>({ cwd: repoPath }, ...params, '--', ...pathspecs);
     }
 
     static stash_save(repoPath: string, message?: string) {

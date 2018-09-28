@@ -3245,6 +3245,12 @@
                     "when": "viewItem =~ /gitlens:file\\b.*:staged\\b/",
                     "group": "1_gitlens@1"
                 },
+                {
+                    "command": "gitlens.stashSave",
+                    "when": "viewItem =~ /gitlens:file\\b.*:(un)?staged\\b/",
+                    "group": "1_gitlens@2"
+                },
+                {
                     "command": "gitlens.explorers.openChanges",
                     "when": "viewItem =~ /gitlens:file\\b/",
                     "group": "2_gitlens@1"
