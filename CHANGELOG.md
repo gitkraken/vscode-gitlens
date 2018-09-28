@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds _Open Changes with Working File_ (`gitlens.diffWithWorking`) command to the editor toolbar when comparing revisions
+- Adds some missing gitmojis &mdash; thanks to [PR #510](https://github.com/eamodio/vscode-gitlens/pull/510) by Loris Bettazza ([@Pustur](https://github.com/Pustur))
 
 ### Changed
 
