@@ -1850,14 +1850,17 @@ export class GitService implements Disposable {
     }
 
     async resolveReference(repoPath: string, ref: string, uri?: Uri) {
-        if (Git.isSha(ref) || !Git.isShaLike(ref) || ref.endsWith('^3')) return ref;
-
         Logger.log(`resolveReference('${repoPath}', '${ref}', '${uri && uri.toString(true)}')`);
 
-        if (uri == null) return (await Git.revparse(repoPath, ref)) || ref;
+        const resolved = Git.isSha(ref) || !Git.isShaLike(ref) || ref.endsWith('^3');
+        if (uri == null) return resolved ? ref : (await Git.revparse(repoPath, ref)) || ref;
 
         const fileName = Strings.normalizePath(paths.relative(repoPath, uri.fsPath));
-        const resolvedRef = await Git.log_resolve(repoPath, fileName, ref);
+
+        let resolvedRef;
+        if (!resolved) {
+            resolvedRef = await Git.log_resolve(repoPath, fileName, ref);
+        }
 
         const ensuredRef = await Git.cat_file_validate(repoPath, fileName, resolvedRef || ref);
         if (ensuredRef === undefined) return ref;

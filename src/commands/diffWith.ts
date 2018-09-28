@@ -108,7 +108,8 @@ export class DiffWithCommand extends ActiveEditorCommand {
             if (args.lhs.sha !== GitService.deletedOrMissingSha) {
                 lhsSha = args.lhs.sha;
             }
-            if (args.rhs.sha !== GitService.deletedOrMissingSha) {
+
+            if (args.rhs.sha && args.rhs.sha !== GitService.deletedOrMissingSha) {
                 // Ensure that the file still exists in this commit
                 const status = await Container.git.getFileStatusForCommit(
                     args.repoPath,

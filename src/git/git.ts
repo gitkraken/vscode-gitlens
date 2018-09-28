@@ -511,6 +511,8 @@ export class Git {
     }
 
     static async cat_file_validate(repoPath: string, fileName: string, ref: string) {
+        if (Git.isUncommitted(ref)) return ref;
+
         try {
             await git<string>(
                 { cwd: repoPath, exceptionHandler: throwExceptionHandler },
