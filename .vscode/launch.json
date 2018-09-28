@@ -8,6 +8,9 @@
             "request": "launch",
             "runtimeExecutable": "${execPath}",
             "args": ["--extensionDevelopmentPath=${workspaceRoot}"],
+            "env": {
+                "VSCODE_DEBUGGING_EXTENSION": "gitlens"
+            },
             "outFiles": ["${workspaceRoot}/dist/**/*.js"],
             "skipFiles": ["<node_internals>/**/*.js", "**/node_modules/**/*.js", "**/extensions/**/*.js"],
             "smartStep": true,
@@ -19,6 +22,9 @@
             "request": "launch",
             "runtimeExecutable": "${execPath}",
             "args": ["--extensionDevelopmentPath=${workspaceRoot}"],
+            "env": {
+                "VSCODE_DEBUGGING_EXTENSION": "gitlens"
+            },
             "outFiles": ["${workspaceRoot}/dist/**/*.js"],
             "skipFiles": ["<node_internals>/**/*.js", "**/node_modules/**/*.js", "**/extensions/**/*.js"],
             "smartStep": true,

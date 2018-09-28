@@ -6,7 +6,7 @@ import { extensionOutputChannelName } from './constants';
 
 const ConsolePrefix = `[${extensionOutputChannelName}]`;
 
-const isDebuggingRegex = /^--(debug|inspect)\b(-brk\b|(?!-))=?/;
+const isDebuggingRegex = /\bgitlens\b/i;
 
 export class Logger {
     static level: OutputLevel = OutputLevel.Silent;
@@ -113,9 +113,11 @@ export class Logger {
     static get isDebugging() {
         if (this._isDebugging === undefined) {
             try {
-                const args = process.execArgv;
-
-                this._isDebugging = args ? args.some(arg => isDebuggingRegex.test(arg)) : false;
+                const env = process.env;
+                this._isDebugging =
+                    env && env.VSCODE_DEBUGGING_EXTENSION
+                        ? isDebuggingRegex.test(env.VSCODE_DEBUGGING_EXTENSION)
+                        : false;
             }
             catch {}
         }
