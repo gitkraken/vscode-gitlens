@@ -3196,7 +3196,7 @@
                 },
                 {
                     "command": "gitlens.explorers.openFile",
-                    "when": "viewItem =~ /gitlens:file\\b/",
+                    "when": "viewItem =~ /gitlens:(file|history-file|status:file)\\b/",
                     "group": "inline"
                 },
                 {

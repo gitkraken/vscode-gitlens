@@ -65,8 +65,8 @@ export class ResultsFileNode extends ExplorerNode {
         this._label = undefined;
     }
 
-    get priority(): boolean {
-        return false;
+    get priority(): number {
+        return 0;
     }
 
     getCommand(): Command | undefined {

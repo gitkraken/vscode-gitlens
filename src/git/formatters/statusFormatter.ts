@@ -61,9 +61,7 @@ export class StatusFileFormatter extends Formatter<GitFile, IStatusFormatOptions
             icon = `${GlyphChars.Space}${GlyphChars.EnDash}${GlyphChars.Space.repeat(2)}${GlyphChars.Check}`;
         }
         else {
-            icon = `${GlyphChars.Space}${GlyphChars.EnDash}${GlyphChars.Space.repeat(2)}${GlyphChars.EnDash}${
-                GlyphChars.Space
-            }`;
+            icon = '';
         }
         return this._padOrTruncate(icon, this._options.tokenOptions!.working);
     }

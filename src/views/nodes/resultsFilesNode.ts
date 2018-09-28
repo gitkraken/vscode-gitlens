@@ -49,7 +49,7 @@ export class ResultsFilesNode extends ExplorerNode {
             children = (await root.getChildren()) as FileExplorerNode[];
         }
         else {
-            children.sort((a, b) => (a.priority ? -1 : 1) - (b.priority ? -1 : 1) || a.label!.localeCompare(b.label!));
+            children.sort((a, b) => a.priority - b.priority || a.label!.localeCompare(b.label!));
         }
 
         return children;

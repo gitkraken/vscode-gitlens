@@ -2,6 +2,7 @@
 import * as path from 'path';
 import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
+import { Container } from '../../container';
 import {
     GitFile,
     GitFileWithCommit,
@@ -16,6 +17,9 @@ import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { ExplorerNode, ResourceType } from './explorerNode';
 
 export class StatusFileNode extends ExplorerNode {
+    private readonly _hasStagedChanges: boolean = false;
+    private readonly _hasUnstagedChanges: boolean = false;
+
     constructor(
         public readonly repoPath: string,
         public readonly file: GitFile,
@@ -24,6 +28,17 @@ export class StatusFileNode extends ExplorerNode {
         public readonly explorer: Explorer
     ) {
         super(GitUri.fromFile(file, repoPath, 'HEAD'), parent);
+
+        for (const c of this.commits) {
+            if (c.isStagedUncommitted) {
+                this._hasStagedChanges = true;
+            }
+            else if (c.isUncommitted) {
+                this._hasUnstagedChanges = true;
+            }
+
+            if (this._hasStagedChanges && this._hasUnstagedChanges) break;
+        }
     }
 
     async getChildren(): Promise<ExplorerNode[]> {
@@ -45,35 +60,59 @@ export class StatusFileNode extends ExplorerNode {
     async getTreeItem(): Promise<TreeItem> {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
 
-        if (this.commits.length === 1 && this.commit.isUncommitted) {
-            item.contextValue = ResourceType.StatusFile;
-
-            if (this.commit.isStagedUncommitted) {
+        if ((this._hasStagedChanges || this._hasUnstagedChanges) && this.commits.length === 1) {
+            if (this._hasStagedChanges) {
+                item.contextValue = ResourceType.FileStaged;
                 item.tooltip = StatusFileFormatter.fromTemplate(
                     '${file}\n${directory}/\n\n${status} in Index (staged)',
                     this.file
                 );
             }
             else {
+                item.contextValue = ResourceType.FileUnstaged;
                 item.tooltip = StatusFileFormatter.fromTemplate(
                     '${file}\n${directory}/\n\n${status} in Working Tree',
                     this.file
                 );
             }
+
+            // Use the file icon and decorations
+            item.resourceUri = Uri.file(path.resolve(this.repoPath, this.file.fileName));
+            item.iconPath = ThemeIcon.File;
+
             item.command = this.getCommand();
         }
         else {
             item.collapsibleState = TreeItemCollapsibleState.Collapsed;
-            item.contextValue = ResourceType.StatusFileCommits;
+            if (this._hasStagedChanges || this._hasUnstagedChanges) {
+                if (this._hasStagedChanges && this._hasUnstagedChanges) {
+                    item.contextValue = ResourceType.FileStagedAndUnstaged;
+                }
+                else if (this._hasStagedChanges) {
+                    item.contextValue = ResourceType.FileStaged;
+                }
+                else {
+                    item.contextValue = ResourceType.FileUnstaged;
+                }
+
+                // Use the file icon and decorations
+                item.resourceUri = Uri.file(path.resolve(this.repoPath, this.file.fileName));
+                item.iconPath = ThemeIcon.File;
+            }
+            else {
+                item.contextValue = ResourceType.StatusFileCommits;
+
+                const icon = GitFile.getStatusIcon(this.file.status);
+                item.iconPath = {
+                    dark: Container.context.asAbsolutePath(path.join('images', 'dark', icon)),
+                    light: Container.context.asAbsolutePath(path.join('images', 'light', icon))
+                };
+            }
             item.tooltip = StatusFileFormatter.fromTemplate(
                 `\${file}\n\${directory}/\n\n\${status} in ${this.getChangedIn()}`,
                 this.file
             );
         }
-
-        // Use the file icon and decorations
-        item.resourceUri = Uri.file(path.resolve(this.repoPath, this.file.fileName));
-        item.iconPath = ThemeIcon.File;
 
         // Only cache the label for a single refresh
         this._label = undefined;
@@ -110,8 +149,11 @@ export class StatusFileNode extends ExplorerNode {
         return this.commits[0];
     }
 
-    get priority(): boolean {
-        return this.commit.isUncommitted;
+    get priority(): number {
+        if (this._hasStagedChanges && !this._hasUnstagedChanges) return -3;
+        if (this._hasStagedChanges) return -2;
+        if (this._hasUnstagedChanges) return -1;
+        return 0;
     }
 
     private _relativePath: string | undefined;
@@ -125,20 +167,21 @@ export class StatusFileNode extends ExplorerNode {
 
     private getChangedIn(): string {
         const changedIn = [];
+
         let commits = 0;
-        for (const c of this.commits) {
-            if (c.isUncommitted) {
-                if (c.isStagedUncommitted) {
-                    changedIn.push('Index (staged)');
-                }
-                else {
-                    changedIn.push('Working Tree');
-                }
 
-                continue;
-            }
-
+        if (this._hasUnstagedChanges) {
             commits++;
+            changedIn.push('Working Tree');
+        }
+
+        if (this._hasStagedChanges) {
+            commits++;
+            changedIn.push('Index (staged)');
+        }
+
+        if (this.commits.length > commits) {
+            commits = this.commits.length - commits;
         }
 
         if (commits > 0) {

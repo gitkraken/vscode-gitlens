@@ -28,8 +28,6 @@ export enum CommitFileNodeDisplayAs {
 }
 
 export class CommitFileNode extends ExplorerRefNode {
-    readonly priority: boolean = false;
-
     constructor(
         public readonly file: GitFile,
         public commit: GitLogCommit,
@@ -39,6 +37,10 @@ export class CommitFileNode extends ExplorerRefNode {
         private readonly _selection?: Selection
     ) {
         super(GitUri.fromFile(file, commit.repoPath, commit.sha), parent);
+    }
+
+    get priority(): number {
+        return 0;
     }
 
     get ref(): string {
@@ -132,7 +134,9 @@ export class CommitFileNode extends ExplorerRefNode {
     }
 
     protected get resourceType(): ResourceType {
-        return ResourceType.CommitFile;
+        if (!this.commit.isUncommitted) return ResourceType.CommitFile;
+
+        return this.commit.isStagedUncommitted ? ResourceType.FileStaged : ResourceType.FileUnstaged;
     }
 
     private _tooltip: string | undefined;

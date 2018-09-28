@@ -9,13 +9,13 @@ import { ExplorerNode, ResourceType } from './explorerNode';
 export interface FileExplorerNode extends ExplorerNode {
     folderName: string;
     label?: string;
-    priority: boolean;
+    priority: number;
     relativePath?: string;
     root?: Arrays.IHierarchicalItem<FileExplorerNode>;
 }
 
 export class FolderNode extends ExplorerNode {
-    readonly priority: boolean = true;
+    readonly priority: number = 1;
 
     constructor(
         public readonly repoPath: string,
@@ -60,7 +60,7 @@ export class FolderNode extends ExplorerNode {
         children.sort((a, b) => {
             return (
                 (a instanceof FolderNode ? -1 : 1) - (b instanceof FolderNode ? -1 : 1) ||
-                (a.priority ? -1 : 1) - (b.priority ? -1 : 1) ||
+                a.priority - b.priority ||
                 a.label!.localeCompare(b.label!)
             );
         });
