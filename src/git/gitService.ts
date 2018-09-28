@@ -1102,6 +1102,20 @@ export class GitService implements Disposable {
         }
     }
 
+    async getFileStatusForCommit(repoPath: string, fileName: string, ref: string): Promise<GitFile | undefined> {
+        if (ref === GitService.deletedOrMissingSha || GitService.isUncommitted(ref)) return undefined;
+
+        Logger.log(`getFileStatusForCommit('${repoPath}', '${fileName}', '${ref}')`);
+
+        const data = await Git.show_status(repoPath, fileName, ref);
+        if (!data) return undefined;
+
+        const files = GitDiffParser.parseNameStatus(data, repoPath);
+        if (files === undefined || files.length === 0) return undefined;
+
+        return files[0];
+    }
+
     async getRecentLogCommitForFile(repoPath: string | undefined, fileName: string): Promise<GitLogCommit | undefined> {
         return this.getLogCommitForFile(repoPath, fileName, undefined);
     }
@@ -1125,7 +1139,7 @@ export class GitService implements Disposable {
         options: { ref?: string; firstIfNotFound?: boolean; reverse?: boolean } = {}
     ): Promise<GitLogCommit | undefined> {
         Logger.log(
-            `getFileLogCommit('${repoPath}', '${fileName}', '${options.ref}', ${options.firstIfNotFound}, ${
+            `getLogCommitForFile('${repoPath}', '${fileName}', '${options.ref}', ${options.firstIfNotFound}, ${
                 options.reverse
             })`
         );

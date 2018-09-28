@@ -712,6 +712,10 @@ export class Git {
         }
     }
 
+    static show_status(repoPath: string, fileName: string, ref: string) {
+        return git<string>({ cwd: repoPath }, 'show', '--name-status', '--format=', ref, '--', fileName);
+    }
+
     static stash_apply(repoPath: string, stashName: string, deleteAfter: boolean) {
         if (!stashName) return undefined;
         return git<string>({ cwd: repoPath }, 'stash', deleteAfter ? 'pop' : 'apply', stashName);

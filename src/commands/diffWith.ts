@@ -109,7 +109,18 @@ export class DiffWithCommand extends ActiveEditorCommand {
                 lhsSha = args.lhs.sha;
             }
             if (args.rhs.sha !== GitService.deletedOrMissingSha) {
-                rhsSha = args.rhs.sha;
+                // Ensure that the file still exists in this commit
+                const status = await Container.git.getFileStatusForCommit(
+                    args.repoPath,
+                    args.rhs.uri.fsPath,
+                    args.rhs.sha
+                );
+                if (status !== undefined && status.status === 'D') {
+                    args.rhs.sha = GitService.deletedOrMissingSha;
+                }
+                else {
+                    rhsSha = args.rhs.sha;
+                }
             }
 
             const [lhs, rhs] = await Promise.all([
@@ -133,7 +144,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
                 rhsSuffix = `added in ${rhsSuffix}`;
             }
 
-            let lhsSuffix = GitService.shortenSha(lhsSha) || '';
+            let lhsSuffix = args.lhs.sha !== GitService.deletedOrMissingSha ? GitService.shortenSha(lhsSha) || '' : '';
             if (lhs === undefined && args.rhs.sha === '') {
                 if (rhs !== undefined) {
                     lhsSuffix = `not in ${lhsSuffix}`;
