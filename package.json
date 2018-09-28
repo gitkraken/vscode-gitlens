@@ -1880,6 +1880,24 @@
                 }
             },
             {
+                "command": "gitlens.explorers.stageFile",
+                "title": "Stage Changes",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-add.svg",
+                    "light": "images/light/icon-add.svg"
+                }
+            },
+            {
+                "command": "gitlens.explorers.unstageFile",
+                "title": "Unstage Changes",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-minus.svg",
+                    "light": "images/light/icon-minus.svg"
+                }
+            },
+            {
                 "command": "gitlens.explorers.openDirectoryDiff",
                 "title": "Open Directory Compare",
                 "category": "GitLens"
@@ -2453,6 +2471,14 @@
                 },
                 {
                     "command": "gitlens.explorers.push",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.explorers.stageFile",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.explorers.unstageFile",
                     "when": "false"
                 },
                 {
@@ -3200,6 +3226,25 @@
                     "group": "inline"
                 },
                 {
+                    "command": "gitlens.explorers.stageFile",
+                    "when": "viewItem =~ /gitlens:file\\b.*:unstaged\\b/",
+                    "group": "inline"
+                },
+                {
+                    "command": "gitlens.explorers.unstageFile",
+                    "when": "viewItem =~ /gitlens:file\\b.*:staged\\b/",
+                    "group": "inline"
+                },
+                {
+                    "command": "gitlens.explorers.stageFile",
+                    "when": "viewItem =~ /gitlens:file\\b.*:unstaged\\b/",
+                    "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.explorers.unstageFile",
+                    "when": "viewItem =~ /gitlens:file\\b.*:staged\\b/",
+                    "group": "1_gitlens@1"
+                },
                     "command": "gitlens.explorers.openChanges",
                     "when": "viewItem =~ /gitlens:file\\b/",
                     "group": "2_gitlens@1"

@@ -52,6 +52,7 @@ export class ExplorerCommands implements Disposable {
         commands.registerCommand('gitlens.explorers.fetch', this.fetch, this);
         commands.registerCommand('gitlens.explorers.pull', this.pull, this);
         commands.registerCommand('gitlens.explorers.push', this.push, this);
+        commands.registerCommand('gitlens.explorers.closeRepository', this.closeRepository, this);
 
         commands.registerCommand('gitlens.explorers.exploreRepoRevision', this.exploreRepoRevision, this);
 
@@ -69,13 +70,17 @@ export class ExplorerCommands implements Disposable {
         );
         commands.registerCommand('gitlens.explorers.openChangedFileRevisions', this.openChangedFileRevisions, this);
         commands.registerCommand('gitlens.explorers.applyChanges', this.applyChanges, this);
-        commands.registerCommand('gitlens.explorers.closeRepository', this.closeRepository, this);
+
+        commands.registerCommand('gitlens.explorers.stageFile', this.stageFile, this);
+        commands.registerCommand('gitlens.explorers.unstageFile', this.unstageFile, this);
+
         commands.registerCommand('gitlens.explorers.compareAncestryWithWorking', this.compareAncestryWithWorking, this);
         commands.registerCommand('gitlens.explorers.compareWithHead', this.compareWithHead, this);
         commands.registerCommand('gitlens.explorers.compareWithRemote', this.compareWithRemote, this);
         commands.registerCommand('gitlens.explorers.compareWithSelected', this.compareWithSelected, this);
         commands.registerCommand('gitlens.explorers.compareWithWorking', this.compareWithWorking, this);
         commands.registerCommand('gitlens.explorers.selectForCompare', this.selectForCompare, this);
+
         commands.registerCommand('gitlens.explorers.terminalCheckoutBranch', this.terminalCheckoutBranch, this);
         commands.registerCommand('gitlens.explorers.terminalCreateBranch', this.terminalCreateBranch, this);
         commands.registerCommand('gitlens.explorers.terminalDeleteBranch', this.terminalDeleteBranch, this);
@@ -359,6 +364,18 @@ export class ExplorerCommands implements Disposable {
         return commands.executeCommand(Commands.OpenFileInRemote, node.commit.toGitUri(node.commit.status === 'D'), {
             range: false
         } as OpenFileInRemoteCommandArgs);
+    }
+
+    stageFile(node: CommitFileNode | StatusFileNode) {
+        if (!(node instanceof CommitFileNode) && !(node instanceof StatusFileNode)) return;
+
+        Container.git.stageFile(node.repoPath, node.file.fileName);
+    }
+
+    unstageFile(node: CommitFileNode | StatusFileNode) {
+        if (!(node instanceof CommitFileNode) && !(node instanceof StatusFileNode)) return;
+
+        Container.git.unStageFile(node.repoPath, node.file.fileName);
     }
 
     async terminalCheckoutBranch(node: ExplorerNode) {

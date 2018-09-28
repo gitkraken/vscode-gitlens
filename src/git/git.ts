@@ -262,6 +262,10 @@ export class Git {
 
     // Git commands
 
+    static add(repoPath: string | undefined, fileName: string) {
+        return git<string>({ cwd: repoPath }, 'add', '-A', '--', fileName);
+    }
+
     static async blame(
         repoPath: string | undefined,
         fileName: string,
@@ -608,6 +612,10 @@ export class Git {
 
     static remote_url(repoPath: string, remote: string): Promise<string> {
         return git<string>({ cwd: repoPath }, 'remote', 'get-url', remote);
+    }
+
+    static reset(repoPath: string | undefined, fileName: string) {
+        return git<string>({ cwd: repoPath }, 'reset', '-q', '--', fileName);
     }
 
     static async revparse(repoPath: string, ref: string): Promise<string | undefined> {

@@ -1691,6 +1691,12 @@ export class GitService implements Disposable {
         return GitTreeParser.parse(data) || [];
     }
 
+    getVersionedFileBuffer(repoPath: string, fileName: string, ref: string) {
+        Logger.log(`getVersionedFileBuffer('${repoPath}', '${fileName}', ${ref})`);
+
+        return Git.show<Buffer>(repoPath, fileName, ref, { encoding: 'buffer' });
+    }
+
     async getVersionedUri(
         repoPath: string | undefined,
         fileName: string,
@@ -1717,12 +1723,6 @@ export class GitService implements Disposable {
         }
 
         return GitUri.toRevisionUri(ref, fileName, repoPath!);
-    }
-
-    getVersionedFileBuffer(repoPath: string, fileName: string, ref: string) {
-        Logger.log(`getVersionedFileBuffer('${repoPath}', '${fileName}', ${ref})`);
-
-        return Git.show<Buffer>(repoPath, fileName, ref, { encoding: 'buffer' });
     }
 
     isTrackable(scheme: string): boolean;
@@ -1868,8 +1868,26 @@ export class GitService implements Disposable {
         return ensuredRef;
     }
 
-    stopWatchingFileSystem() {
-        this._repositoryTree.forEach(r => r.stopWatchingFileSystem());
+    stageFile(repoPath: string, fileName: string): Promise<string>;
+    stageFile(repoPath: string, uri: Uri): Promise<string>;
+    stageFile(repoPath: string, fileNameOrUri: string | Uri): Promise<string> {
+        Logger.log(`stageFile('${repoPath}', '${fileNameOrUri}')`);
+
+        return Git.add(
+            repoPath,
+            typeof fileNameOrUri === 'string' ? fileNameOrUri : Git.splitPath(fileNameOrUri.fsPath, repoPath)[0]
+        );
+    }
+
+    unStageFile(repoPath: string, fileName: string): Promise<string>;
+    unStageFile(repoPath: string, uri: Uri): Promise<string>;
+    unStageFile(repoPath: string, fileNameOrUri: string | Uri): Promise<string> {
+        Logger.log(`unStageFile('${repoPath}', '${fileNameOrUri}')`);
+
+        return Git.reset(
+            repoPath,
+            typeof fileNameOrUri === 'string' ? fileNameOrUri : Git.splitPath(fileNameOrUri.fsPath, repoPath)[0]
+        );
     }
 
     stashApply(repoPath: string, stashName: string, deleteAfter: boolean = false) {
