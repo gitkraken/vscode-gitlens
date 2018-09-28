@@ -16,11 +16,11 @@ None yet &mdash; could be you!
 
 <h2 align="center">Bronze Sponsors ($50+)</h2>
 
-- Michael Duffy
+- Michael Duffy (expired)
 
 <h2 align="center">Generous Backers ($10+)</h2>
 
-- Ken Howard (TypeScript Types)
+- Ken Howard (expired)
 - Borek Bernard
 - Michael Scott-Nelson
 - MrG0lden
@@ -30,7 +30,7 @@ None yet &mdash; could be you!
 - Guido Kessels
 - Pavel Khlopin
 - Eugen Grue
-- Andreas Fertsch-Röver
+- Andreas Fertsch-Röver (expired)
 - Nathaniel Blackburn
 - Raphael Schweikert
 - JehongAhn
@@ -40,3 +40,14 @@ None yet &mdash; could be you!
 - Pelle Wessman
 - Jordan Oroshiba
 - Vance Dubberly
+- Bill
+- Stephen Kelley
+- Jon G
+- J Burnett
+- Raymond Brigleb
+- Adam Parkin
+- gnidk
+- Diego La Manno
+- Brandon Burroughs
+- Gav Massignham
+- Sunny Gupta
