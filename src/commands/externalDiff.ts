@@ -2,10 +2,18 @@
 import { commands, SourceControlResourceState, Uri, window } from 'vscode';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
+import { GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Arrays } from '../system';
-import { Command, CommandContext, Commands, getRepoPathOrPrompt } from './common';
+import {
+    Command,
+    CommandContext,
+    Commands,
+    getRepoPathOrPrompt,
+    isCommandViewContextWithFileCommit,
+    isCommandViewContextWithFileRefs
+} from './common';
 
 enum Status {
     INDEX_MODIFIED,
@@ -42,7 +50,9 @@ interface Resource extends SourceControlResourceState {
 class ExternalDiffFile {
     constructor(
         public readonly uri: Uri,
-        public readonly staged: boolean
+        public readonly staged: boolean,
+        public readonly ref1?: string,
+        public readonly ref2?: string
     ) {}
 }
 
@@ -56,6 +66,41 @@ export class ExternalDiffCommand extends Command {
     }
 
     protected async preExecute(context: CommandContext, args: ExternalDiffCommandArgs = {}): Promise<any> {
+        if (isCommandViewContextWithFileCommit(context)) {
+            args = { ...args };
+
+            const ref1 = GitService.isUncommitted(context.node.commit.previousFileSha)
+                ? ''
+                : context.node.commit.previousFileSha;
+            const ref2 = context.node.commit.isUncommitted ? '' : context.node.commit.sha;
+
+            args.files = [
+                new ExternalDiffFile(
+                    GitUri.fromFile(context.node.file, context.node.file.repoPath || context.node.repoPath),
+                    context.node.commit.isStagedUncommitted || context.node.file.indexStatus !== undefined,
+                    ref1,
+                    ref2
+                )
+            ];
+
+            return this.execute(args);
+        }
+
+        if (isCommandViewContextWithFileRefs(context)) {
+            args = { ...args };
+
+            args.files = [
+                new ExternalDiffFile(
+                    GitUri.fromFile(context.node.file, context.node.file.repoPath || context.node.repoPath),
+                    context.node.file.indexStatus !== undefined,
+                    context.node.ref1,
+                    context.node.ref2
+                )
+            ];
+
+            return this.execute(args);
+        }
+
         if (args.files === undefined) {
             if (context.type === 'scm-states') {
                 args = { ...args };
@@ -162,7 +207,12 @@ export class ExternalDiffCommand extends Command {
             }
 
             for (const file of args.files) {
-                void Container.git.openDiffTool(repoPath, file.uri, file.staged, tool);
+                void Container.git.openDiffTool(repoPath, file.uri, {
+                    ref1: file.ref1,
+                    ref2: file.ref2,
+                    staged: file.staged,
+                    tool: tool
+                });
             }
 
             return undefined;

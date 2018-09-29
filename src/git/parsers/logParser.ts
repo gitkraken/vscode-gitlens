@@ -148,7 +148,7 @@ export class GitLogParser {
                                 status: line[0] as GitFileStatus,
                                 fileName: line.substring(1),
                                 originalFileName: undefined
-                            } as GitFile;
+                            };
                             this.parseFileName(status);
 
                             if (status.fileName) {
@@ -274,10 +274,10 @@ export class GitLogParser {
             if (type === GitCommitType.File) {
                 entry.files = [
                     {
-                        status: entry.status,
+                        status: entry.status!,
                         fileName: relativeFileName,
                         originalFileName: originalFileName
-                    } as GitFile
+                    }
                 ];
             }
 

@@ -102,7 +102,7 @@ export class GitStashParser {
                                 status: line[0] as GitFileStatus,
                                 fileName: line.substring(1),
                                 originalFileName: undefined
-                            } as GitFile;
+                            };
                             GitLogParser.parseFileName(status);
 
                             if (status.fileName) {

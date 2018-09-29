@@ -433,10 +433,21 @@ export class Git {
         return git<string>({ cwd: repoPath }, ...params);
     }
 
-    static difftool_fileDiff(repoPath: string, fileName: string, tool: string, staged: boolean) {
+    static difftool_fileDiff(
+        repoPath: string,
+        fileName: string,
+        tool: string,
+        options: { ref1?: string; ref2?: string; staged?: boolean } = {}
+    ) {
         const params = ['difftool', '--no-prompt', `--tool=${tool}`];
-        if (staged) {
+        if (options.staged) {
             params.push('--staged');
+        }
+        if (options.ref1) {
+            params.push(options.ref1);
+        }
+        if (options.ref2) {
+            params.push(options.ref2);
         }
         params.push('--', fileName);
 

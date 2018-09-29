@@ -1827,15 +1827,20 @@ export class GitService implements Disposable {
         return (await Git.config_get('diff.guitool', repoPath)) || (await Git.config_get('diff.tool', repoPath));
     }
 
-    async openDiffTool(repoPath: string, uri: Uri, staged: boolean, tool?: string) {
-        if (!tool) {
-            tool = await this.getDiffTool(repoPath);
-            if (tool === undefined) throw new Error('No diff tool found');
+    async openDiffTool(
+        repoPath: string,
+        uri: Uri,
+        options: { ref1?: string; ref2?: string; staged?: boolean; tool?: string } = {}
+    ) {
+        if (!options.tool) {
+            options.tool = await this.getDiffTool(repoPath);
+            if (options.tool === undefined) throw new Error('No diff tool found');
         }
 
-        Logger.log(`openDiffTool('${repoPath}', '${uri.fsPath}', ${staged}, '${tool}')`);
+        const { tool, ...opts } = options;
+        Logger.log(`openDiffTool('${repoPath}', '${uri.fsPath}', '${tool}', ${opts})`);
 
-        return Git.difftool_fileDiff(repoPath, uri.fsPath, tool, staged);
+        return Git.difftool_fileDiff(repoPath, uri.fsPath, tool, opts);
     }
 
     async openDirectoryDiff(repoPath: string, ref1: string, ref2?: string, tool?: string) {

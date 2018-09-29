@@ -158,7 +158,7 @@ export class GitDiffParser {
                 fileName: (' ' + match[2]).substr(1),
                 // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
                 originalFileName: match[3] === undefined ? undefined : (' ' + match[3]).substr(1)
-            } as GitFile);
+            });
         } while (match != null);
 
         if (!files.length) return undefined;

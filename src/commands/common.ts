@@ -180,23 +180,55 @@ export interface CommandViewContext extends CommandBaseContext {
 export function isCommandViewContextWithBranch(
     context: CommandContext
 ): context is CommandViewContext & { node: ExplorerNode & { branch: GitBranch } } {
-    return (
-        context.type === 'view' && (context.node as ExplorerNode & { branch?: GitBranch }).branch instanceof GitBranch
-    );
+    if (context.type !== 'view') return false;
+
+    return (context.node as ExplorerNode & { branch: GitBranch }).branch instanceof GitBranch;
 }
 
 export function isCommandViewContextWithCommit<T extends GitCommit>(
     context: CommandContext
 ): context is CommandViewContext & { node: ExplorerNode & { commit: T } } {
-    return (
-        context.type === 'view' && (context.node as ExplorerNode & { commit?: GitCommit }).commit instanceof GitCommit
-    );
+    if (context.type !== 'view') return false;
+
+    return (context.node as ExplorerNode & { commit: GitCommit }).commit instanceof GitCommit;
 }
 
 export function isCommandViewContextWithFile(
     context: CommandContext
-): context is CommandViewContext & { node: ExplorerNode & { file: GitFile } } {
-    return context.type === 'view' && (context.node as ExplorerNode & { file?: GitFile }).file !== undefined;
+): context is CommandViewContext & { node: ExplorerNode & { file: GitFile; repoPath: string } } {
+    if (context.type !== 'view') return false;
+
+    const node = context.node as ExplorerNode & { file: GitFile; repoPath: string };
+    return node.file !== undefined && (node.file.repoPath !== undefined || node.repoPath !== undefined);
+}
+
+export function isCommandViewContextWithFileCommit(
+    context: CommandContext
+): context is CommandViewContext & { node: ExplorerNode & { commit: GitCommit; file: GitFile; repoPath: string } } {
+    if (context.type !== 'view') return false;
+
+    const node = context.node as ExplorerNode & { commit: GitCommit; file: GitFile; repoPath: string };
+    return (
+        node.file !== undefined &&
+        node.commit instanceof GitCommit &&
+        (node.file.repoPath !== undefined || node.repoPath !== undefined)
+    );
+}
+
+export function isCommandViewContextWithFileRefs(
+    context: CommandContext
+): context is CommandViewContext & {
+    node: ExplorerNode & { file: GitFile; ref1: string; ref2: string; repoPath: string };
+} {
+    if (context.type !== 'view') return false;
+
+    const node = context.node as ExplorerNode & { file: GitFile; ref1: string; ref2: string; repoPath: string };
+    return (
+        node.file !== undefined &&
+        node.ref1 !== undefined &&
+        node.ref2 !== undefined &&
+        (node.file.repoPath !== undefined || node.repoPath !== undefined)
+    );
 }
 
 export function isCommandViewContextWithRef(
@@ -208,15 +240,17 @@ export function isCommandViewContextWithRef(
 export function isCommandViewContextWithRemote(
     context: CommandContext
 ): context is CommandViewContext & { node: ExplorerNode & { remote: GitRemote } } {
-    return (
-        context.type === 'view' && (context.node as ExplorerNode & { remote?: GitRemote }).remote instanceof GitRemote
-    );
+    if (context.type !== 'view') return false;
+
+    return (context.node as ExplorerNode & { remote: GitRemote }).remote instanceof GitRemote;
 }
 
 export function isCommandViewContextWithRepo(
     context: CommandContext
 ): context is CommandViewContext & { node: ExplorerNode & { repo: Repository } } {
-    return context.type === 'view' && (context.node as ExplorerNode & { repo?: Repository }).repo instanceof Repository;
+    if (context.type !== 'view') return false;
+
+    return (context.node as ExplorerNode & { repo?: Repository }).repo instanceof Repository;
 }
 
 export type CommandContext =

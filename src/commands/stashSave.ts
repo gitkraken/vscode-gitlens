@@ -31,7 +31,7 @@ export class StashSaveCommand extends Command {
     protected async preExecute(context: CommandContext, args: StashSaveCommandArgs = {}): Promise<any> {
         if (isCommandViewContextWithFile(context)) {
             args = { ...args };
-            args.uris = [GitUri.fromFile(context.node.file, context.node.file.repoPath)];
+            args.uris = [GitUri.fromFile(context.node.file, context.node.file.repoPath || context.node.repoPath)];
         }
         else if (isCommandViewContextWithRepo(context)) {
             args = { ...args };

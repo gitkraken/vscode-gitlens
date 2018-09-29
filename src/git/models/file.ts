@@ -8,9 +8,9 @@ export declare type GitFileStatus = '!' | '?' | 'A' | 'C' | 'D' | 'M' | 'R' | 'T
 
 export interface GitFile {
     status: GitFileStatus;
-    readonly repoPath: string;
-    readonly indexStatus: GitFileStatus | undefined;
-    readonly workingTreeStatus: GitFileStatus | undefined;
+    readonly repoPath?: string;
+    readonly indexStatus?: GitFileStatus;
+    readonly workingTreeStatus?: GitFileStatus;
     readonly fileName: string;
     readonly originalFileName?: string;
 }

@@ -3260,9 +3260,14 @@
                     "group": "2_gitlens@1"
                 },
                 {
-                    "command": "gitlens.explorers.openChangesWithWorking",
+                    "command": "gitlens.externalDiff",
                     "when": "viewItem =~ /gitlens:file\\b/",
                     "group": "2_gitlens@2"
+                },
+                {
+                    "command": "gitlens.explorers.openChangesWithWorking",
+                    "when": "viewItem =~ /gitlens:file\\b/",
+                    "group": "2_gitlens@3"
                 },
                 {
                     "command": "gitlens.explorers.openFile",
