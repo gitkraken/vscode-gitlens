@@ -130,6 +130,21 @@ export abstract class SubscribeableExplorerNode<TExplorer extends Explorer> exte
         }
     }
 
+    private _canSubscribe: boolean = true;
+    protected get canSubscribe(): boolean {
+        return this._canSubscribe;
+    }
+    protected set canSubscribe(value: boolean) {
+        if (this._canSubscribe === value) return;
+
+        this._canSubscribe = value;
+
+        void this.ensureSubscription();
+        if (value) {
+            void this.explorer.refreshNode(this);
+        }
+    }
+
     protected abstract async subscribe(): Promise<Disposable | undefined>;
     protected unsubscribe(): void {
         if (this._subscription !== undefined) {
@@ -152,7 +167,11 @@ export abstract class SubscribeableExplorerNode<TExplorer extends Explorer> exte
 
     async ensureSubscription() {
         // We only need to subscribe if we are visible and if auto-refresh enabled (when supported)
-        if (!this.explorer.visible || (supportsAutoRefresh(this.explorer) && !this.explorer.autoRefresh)) {
+        if (
+            !this.canSubscribe ||
+            !this.explorer.visible ||
+            (supportsAutoRefresh(this.explorer) && !this.explorer.autoRefresh)
+        ) {
             this.unsubscribe();
 
             return;

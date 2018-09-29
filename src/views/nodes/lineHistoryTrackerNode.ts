@@ -94,6 +94,10 @@ export class LineHistoryTrackerNode extends SubscribeableExplorerNode<LineHistor
         return false;
     }
 
+    setEditorFollowing(enabled: boolean) {
+        this.canSubscribe = enabled;
+    }
+
     protected async subscribe() {
         if (Container.lineTracker.isSubscribed(this)) return undefined;
 

@@ -25,6 +25,16 @@ export class LineHistoryExplorer extends ExplorerBase<LineHistoryTrackerNode> {
             this
         );
         commands.registerCommand(
+            this.getQualifiedCommand('setEditorFollowingOn'),
+            () => this.setEditorFollowing(true),
+            this
+        );
+        commands.registerCommand(
+            this.getQualifiedCommand('setEditorFollowingOff'),
+            () => this.setEditorFollowing(false),
+            this
+        );
+        commands.registerCommand(
             this.getQualifiedCommand('setRenameFollowingOn'),
             () => this.setRenameFollowing(true),
             this
@@ -55,6 +65,7 @@ export class LineHistoryExplorer extends ExplorerBase<LineHistoryTrackerNode> {
             configuration.changed(e, configuration.name('lineHistoryExplorer')('location').value)
         ) {
             setCommandContext(CommandContext.LineHistoryExplorer, this.config.enabled ? this.config.location : false);
+            setCommandContext(CommandContext.LineHistoryExplorerEditorFollowing, true);
         }
 
         if (initializing || configuration.changed(e, configuration.name('lineHistoryExplorer')('location').value)) {
@@ -68,6 +79,13 @@ export class LineHistoryExplorer extends ExplorerBase<LineHistoryTrackerNode> {
 
     get config(): ExplorersConfig & LineHistoryExplorerConfig {
         return { ...Container.config.explorers, ...Container.config.lineHistoryExplorer };
+    }
+
+    private setEditorFollowing(enabled: boolean) {
+        setCommandContext(CommandContext.LineHistoryExplorerEditorFollowing, enabled);
+        if (this._root !== undefined) {
+            this._root.setEditorFollowing(enabled);
+        }
     }
 
     private setRenameFollowing(enabled: boolean) {

@@ -26,6 +26,16 @@ export class FileHistoryExplorer extends ExplorerBase<FileHistoryTrackerNode> {
         );
 
         commands.registerCommand(
+            this.getQualifiedCommand('setEditorFollowingOn'),
+            () => this.setEditorFollowing(true),
+            this
+        );
+        commands.registerCommand(
+            this.getQualifiedCommand('setEditorFollowingOff'),
+            () => this.setEditorFollowing(false),
+            this
+        );
+        commands.registerCommand(
             this.getQualifiedCommand('setRenameFollowingOn'),
             () => this.setRenameFollowing(true),
             this
@@ -56,6 +66,7 @@ export class FileHistoryExplorer extends ExplorerBase<FileHistoryTrackerNode> {
             configuration.changed(e, configuration.name('fileHistoryExplorer')('location').value)
         ) {
             setCommandContext(CommandContext.FileHistoryExplorer, this.config.enabled ? this.config.location : false);
+            setCommandContext(CommandContext.FileHistoryExplorerEditorFollowing, true);
         }
 
         if (initializing || configuration.changed(e, configuration.name('fileHistoryExplorer')('location').value)) {
@@ -69,6 +80,13 @@ export class FileHistoryExplorer extends ExplorerBase<FileHistoryTrackerNode> {
 
     get config(): ExplorersConfig & FileHistoryExplorerConfig {
         return { ...Container.config.explorers, ...Container.config.fileHistoryExplorer };
+    }
+
+    private setEditorFollowing(enabled: boolean) {
+        setCommandContext(CommandContext.FileHistoryExplorerEditorFollowing, enabled);
+        if (this._root !== undefined) {
+            this._root.setEditorFollowing(enabled);
+        }
     }
 
     private setRenameFollowing(enabled: boolean) {

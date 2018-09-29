@@ -2134,6 +2134,24 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.fileHistoryExplorer.setEditorFollowingOn",
+                "title": "Resume File Tracking",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-location.svg",
+                    "light": "images/light/icon-location.svg"
+                }
+            },
+            {
+                "command": "gitlens.fileHistoryExplorer.setEditorFollowingOff",
+                "title": "Pause File Tracking",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-location-filled.svg",
+                    "light": "images/light/icon-location-filled.svg"
+                }
+            },
+            {
                 "command": "gitlens.fileHistoryExplorer.setRenameFollowingOn",
                 "title": "Follow Renames",
                 "category": "GitLens"
@@ -2156,6 +2174,24 @@
                 "command": "gitlens.lineHistoryExplorer.refreshNode",
                 "title": "Refresh",
                 "category": "GitLens"
+            },
+            {
+                "command": "gitlens.lineHistoryExplorer.setEditorFollowingOn",
+                "title": "Resume Line Tracking",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-location.svg",
+                    "light": "images/light/icon-location.svg"
+                }
+            },
+            {
+                "command": "gitlens.lineHistoryExplorer.setEditorFollowingOff",
+                "title": "Pause Line Tracking",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-location-filled.svg",
+                    "light": "images/light/icon-location-filled.svg"
+                }
             },
             {
                 "command": "gitlens.lineHistoryExplorer.setRenameFollowingOn",
@@ -2662,6 +2698,14 @@
                     "when": "false"
                 },
                 {
+                    "command": "gitlens.fileHistoryExplorer.setEditorFollowingOn",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.fileHistoryExplorer.setEditorFollowingOff",
+                    "when": "false"
+                },
+                {
                     "command": "gitlens.fileHistoryExplorer.setRenameFollowingOn",
                     "when": "false"
                 },
@@ -2675,6 +2719,14 @@
                 },
                 {
                     "command": "gitlens.lineHistoryExplorer.refreshNode",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.lineHistoryExplorer.setEditorFollowingOn",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.lineHistoryExplorer.setEditorFollowingOff",
                     "when": "false"
                 },
                 {
@@ -2998,9 +3050,19 @@
                     "group": "2_gitlens"
                 },
                 {
+                    "command": "gitlens.fileHistoryExplorer.setEditorFollowingOn",
+                    "when": "view =~ /^gitlens.fileHistoryExplorer:/ && !gitlens:fileHistoryExplorer:editorFollowing",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "gitlens.fileHistoryExplorer.setEditorFollowingOff",
+                    "when": "view =~ /^gitlens.fileHistoryExplorer:/ && gitlens:fileHistoryExplorer:editorFollowing",
+                    "group": "navigation@1"
+                },
+                {
                     "command": "gitlens.fileHistoryExplorer.refresh",
                     "when": "view =~ /^gitlens.fileHistoryExplorer:/",
-                    "group": "navigation@1"
+                    "group": "navigation@2"
                 },
                 {
                     "command": "gitlens.fileHistoryExplorer.setRenameFollowingOn",
@@ -3013,9 +3075,19 @@
                     "group": "1_gitlens"
                 },
                 {
+                    "command": "gitlens.lineHistoryExplorer.setEditorFollowingOn",
+                    "when": "view =~ /^gitlens.lineHistoryExplorer:/ && !gitlens:lineHistoryExplorer:editorFollowing",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "gitlens.lineHistoryExplorer.setEditorFollowingOff",
+                    "when": "view =~ /^gitlens.lineHistoryExplorer:/ && gitlens:lineHistoryExplorer:editorFollowing",
+                    "group": "navigation@1"
+                },
+                {
                     "command": "gitlens.lineHistoryExplorer.refresh",
                     "when": "view =~ /^gitlens.lineHistoryExplorer:/",
-                    "group": "navigation@1"
+                    "group": "navigation@2"
                 },
                 {
                     "command": "gitlens.lineHistoryExplorer.setRenameFollowingOn",

@@ -102,6 +102,10 @@ export class FileHistoryTrackerNode extends SubscribeableExplorerNode<FileHistor
         return false;
     }
 
+    setEditorFollowing(enabled: boolean) {
+        this.canSubscribe = enabled;
+    }
+
     protected async subscribe() {
         return Disposable.from(
             window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this)
