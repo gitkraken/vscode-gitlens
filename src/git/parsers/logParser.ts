@@ -61,6 +61,7 @@ export class GitLogParser {
 
         const authors: Map<string, GitAuthor> = new Map();
         const commits: Map<string, GitLogCommit> = new Map();
+        let truncationCount = maxCount;
 
         while (true) {
             next = lines.next();
@@ -207,6 +208,11 @@ export class GitLogParser {
                     if (commit === undefined) {
                         i++;
                     }
+                    else if (truncationCount) {
+                        // Since this matches an existing commit it will be skipped, so reduce our truncationCount to ensure accurate truncation detection
+                        truncationCount--;
+                    }
+
                     recentCommit = GitLogParser.parseEntry(
                         entry,
                         commit,
@@ -231,7 +237,7 @@ export class GitLogParser {
             count: i,
             maxCount: maxCount,
             range: range,
-            truncated: Boolean(maxCount && i >= maxCount && maxCount !== 1)
+            truncated: Boolean(truncationCount && i >= truncationCount && truncationCount !== 1)
         } as GitLog;
     }
 
