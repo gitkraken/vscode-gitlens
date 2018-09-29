@@ -3442,6 +3442,11 @@
                 {
                     "command": "gitlens.stashApply",
                     "when": "viewItem == gitlens:stash",
+                    "group": "inline@1"
+                },
+                {
+                    "command": "gitlens.stashApply",
+                    "when": "viewItem == gitlens:stash",
                     "group": "1_gitlens@1"
                 },
                 {
