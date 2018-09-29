@@ -88,7 +88,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
         catch (ex) {
             if (ex.message.includes("Couldn't find the required `xsel` binary")) {
                 window.showErrorMessage(
-                    `Unable to copy message, xsel is not installed. You can install it via \`sudo apt install xsel\``
+                    `Unable to copy message, xsel is not installed. Please install it via your package manager, e.g. \`sudo apt install xsel\``
                 );
                 return;
             }
