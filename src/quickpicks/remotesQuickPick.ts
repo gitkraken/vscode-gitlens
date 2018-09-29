@@ -29,7 +29,7 @@ export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
                     ? `$(link-external) Copy ${getNameFromRemoteResource(resource)} Url to Clipboard from ${
                           remote.provider!.name
                       }`
-                    : `$(link-external) Open ${getNameFromRemoteResource(resource)} in ${remote.provider!.name}`,
+                    : `$(link-external) Open ${getNameFromRemoteResource(resource)} on ${remote.provider!.name}`,
                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(repo) ${remote.provider!.path}`
             },
             undefined,
@@ -104,7 +104,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
         if (remotes.length === 1) {
             super(
                 {
-                    label: `$(link-external) Open ${name} in ${remote.provider!.name}`,
+                    label: `$(link-external) Open ${name} on ${remote.provider!.name}`,
                     description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(repo) ${remote.provider!.path} ${Strings.pad(
                         GlyphChars.Dot,
                         1,
@@ -131,7 +131,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
 
         super(
             {
-                label: `$(link-external) Open ${name} in ${provider}${GlyphChars.Ellipsis}`,
+                label: `$(link-external) Open ${name} on ${provider}${GlyphChars.Ellipsis}`,
                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${description}`
             },
             Commands.OpenInRemote,

@@ -1758,22 +1758,22 @@
             },
             {
                 "command": "gitlens.openBranchesInRemote",
-                "title": "Open Branches in Remote",
+                "title": "Open Branches on Remote",
                 "category": "GitLens"
             },
             {
                 "command": "gitlens.openBranchInRemote",
-                "title": "Open Branch in Remote",
+                "title": "Open Branch on Remote",
                 "category": "GitLens"
             },
             {
                 "command": "gitlens.openCommitInRemote",
-                "title": "Open Commit in Remote",
+                "title": "Open Commit on Remote",
                 "category": "GitLens"
             },
             {
                 "command": "gitlens.openFileInRemote",
-                "title": "Open File in Remote",
+                "title": "Open File on Remote",
                 "category": "GitLens"
             },
             {
@@ -1783,7 +1783,7 @@
             },
             {
                 "command": "gitlens.openRepoInRemote",
-                "title": "Open Repository in Remote",
+                "title": "Open Repository on Remote",
                 "category": "GitLens"
             },
             {
@@ -1933,7 +1933,7 @@
             },
             {
                 "command": "gitlens.explorers.openFileRevisionInRemote",
-                "title": "Open Revision in Remote",
+                "title": "Open Revision on Remote",
                 "category": "GitLens"
             },
             {

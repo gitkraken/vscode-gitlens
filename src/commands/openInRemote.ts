@@ -42,7 +42,7 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
             }
 
             const verb = args.clipboard ? 'Copy url for' : 'Open';
-            const suffix = args.clipboard ? `to clipboard from${GlyphChars.Ellipsis}` : `in${GlyphChars.Ellipsis}`;
+            const suffix = args.clipboard ? `to clipboard from${GlyphChars.Ellipsis}` : `on${GlyphChars.Ellipsis}`;
             let placeHolder = '';
             switch (args.resource.type) {
                 case RemoteResourceType.Branch:

@@ -62,7 +62,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
                             ? `Copy url for ${gitUri.getRelativePath()} to clipboard for which branch${
                                   GlyphChars.Ellipsis
                               }`
-                            : `Open ${gitUri.getRelativePath()} in remote for which branch${GlyphChars.Ellipsis}`
+                            : `Open ${gitUri.getRelativePath()} on remote for which branch${GlyphChars.Ellipsis}`
                     );
                     if (pick === undefined) return undefined;
 
@@ -104,7 +104,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
         catch (ex) {
             Logger.error(ex, 'OpenFileInRemoteCommand');
             return window.showErrorMessage(
-                `Unable to open file in remote provider. See output channel for more details`
+                `Unable to open file on remote provider. See output channel for more details`
             );
         }
     }

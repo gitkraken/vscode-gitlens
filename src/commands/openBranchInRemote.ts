@@ -43,7 +43,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
         const repoPath = await getRepoPathOrActiveOrPrompt(
             gitUri,
             editor,
-            `Open branch in remote for which repository${GlyphChars.Ellipsis}`
+            `Open branch on remote for which repository${GlyphChars.Ellipsis}`
         );
         if (!repoPath) return undefined;
 
@@ -55,7 +55,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
                 if (branches.length > 1) {
                     const pick = await BranchesQuickPick.show(
                         branches,
-                        `Open which branch in remote${GlyphChars.Ellipsis}`
+                        `Open which branch on remote${GlyphChars.Ellipsis}`
                     );
                     if (pick === undefined) return undefined;
 
@@ -82,7 +82,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
         catch (ex) {
             Logger.error(ex, 'OpenBranchInRemoteCommandArgs');
             return window.showErrorMessage(
-                `Unable to open branch in remote provider. See output channel for more details`
+                `Unable to open branch on remote provider. See output channel for more details`
             );
         }
     }

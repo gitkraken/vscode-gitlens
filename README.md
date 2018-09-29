@@ -119,7 +119,7 @@ The repositories explorer provides the following features,
   - Provides additional upstream status nodes, if the current branch is tracking a remote branch and,
     - is behind the upstream &mdash; quickly see and explore the specific commits behind the upstream (i.e. commits that haven't been pulled)
     - is ahead of the upstream &mdash; quickly see and explore the specific commits ahead of the upstream (i.e. commits that haven't been pushed)
-  - A context menu provides _Open Repository in Remote_, and _Refresh_ commands
+  - A context menu provides _Open Repository on Remote_, and _Refresh_ commands
   - **Changed Files** &mdash; lists all the "working" changes
     - Expands to a file-based view of all changed files in the working tree ([optionally](#repositories-explorer-settings 'Jump to the Repositories explorer settings')) and/or all files in all commits ahead of the upstream
   - **History (current-branch)** &mdash; lists the revision (commit) history of the current branch
@@ -128,7 +128,7 @@ The repositories explorer provides the following features,
 - **Branches** &mdash; lists the local branches
 
   - Indicates which branch is the current branch and [optionally](#repositories-explorer-settings 'Jump to the Repositories explorer settings') shows the remote tracking branch
-  - A context menu provides _Open Branches in Remote_, and _Refresh_ commands
+  - A context menu provides _Open Branches on Remote_, and _Refresh_ commands
   - Branches expand to show its revision (commit) history
     - Provides indicator dots on each branch icon which denote the following:
       - _None_ &mdash; no upstream or up-to-date with the upstream
@@ -136,12 +136,12 @@ The repositories explorer provides the following features,
       - _Red_ &mdash; behind the upstream
       - _Yellow_ &mdash; both ahead of and behind the upstream
     - Context menus for each branch provide
-      - _Open Branch in Remote_ (if available), _Compare with Remote_ (if available), _Compare with HEAD_, _Compare with Working Tree_, _Compare with Selected_ (when available), _Compare Ancestry with Working Tree_ (when available), _Select for Compare_, _Open Directory Compare with Working Tree_, _Checkout Branch (via Terminal)_, _Merge Branch (via Terminal)_, _Rebase (Interactive) Branch (via Terminal)_, _Rebase (Interactive) Branch to Remote (via Terminal)_, _Squash Branch into Commit (via Terminal)_, _Create Branch (via Terminal)..._, _Delete Branch (via Terminal)_, _Create Tag (via Terminal)..._, and _Refresh_ commands
+      - _Open Branch on Remote_ (if available), _Compare with Remote_ (if available), _Compare with HEAD_, _Compare with Working Tree_, _Compare with Selected_ (when available), _Compare Ancestry with Working Tree_ (when available), _Select for Compare_, _Open Directory Compare with Working Tree_, _Checkout Branch (via Terminal)_, _Merge Branch (via Terminal)_, _Rebase (Interactive) Branch (via Terminal)_, _Rebase (Interactive) Branch to Remote (via Terminal)_, _Squash Branch into Commit (via Terminal)_, _Create Branch (via Terminal)..._, _Delete Branch (via Terminal)_, _Create Tag (via Terminal)..._, and _Refresh_ commands
     - Revisions (commits) expand to show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
       - Context menus for each revision (commit) provide
-        - _Open Commit in Remote_ (if available), _Open All Changes_, _Open All Changes with Working Tree_, _Open Files_, _Open Revisions_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Show Commit Details_, _Compare with HEAD_, _Compare with Working Tree_, _Compare with Selected_ (when available), _Select for Compare_, _Cherry Pick Commit (via Terminal)_ (when available), _Push to Commit (via Terminal)_ (when available), _Revert Commit (via Terminal)_ (when available), _Checkout Commit (via Terminal)_, _Rebase to Commit (via Terminal)_, _Reset to Commit (via Terminal)_, _Create Branch (via Terminal)..._, _Create Tag (via Terminal)..._, and _Refresh_ commands
+        - _Open Commit on Remote_ (if available), _Open All Changes_, _Open All Changes with Working Tree_, _Open Files_, _Open Revisions_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Show Commit Details_, _Compare with HEAD_, _Compare with Working Tree_, _Compare with Selected_ (when available), _Select for Compare_, _Cherry Pick Commit (via Terminal)_ (when available), _Push to Commit (via Terminal)_ (when available), _Revert Commit (via Terminal)_ (when available), _Checkout Commit (via Terminal)_, _Rebase to Commit (via Terminal)_, _Reset to Commit (via Terminal)_, _Create Branch (via Terminal)..._, _Create Tag (via Terminal)..._, and _Refresh_ commands
       - Context menus for each changed file provide
-        - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File in Remote_, _Open Revision in Remote_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Copy Remote File Url to Clipboard_, _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
+        - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on Remote_, _Open Revision on Remote_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Copy Remote File Url to Clipboard_, _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
       - Inline toolbars for each changed file provide an _Open File_ command
 
 - **Remotes** &mdash; lists the remotes
@@ -150,7 +150,7 @@ The repositories explorer provides the following features,
   - A context menu provides a _Refresh_ command
   - Remotes expands show its list of branches
     - Context menus for each remote provide
-      - _Open Branches in Remote_, _Open Repository in Remote_, _Remove Remote (via Terminal)_, and _Refresh_ commands
+      - _Open Branches on Remote_, _Open Repository on Remote_, _Remove Remote (via Terminal)_, and _Refresh_ commands
     - Branches expand to show its revision (commit) history
       - See the _Branches expand_ section under **Branches** above for more details
 
@@ -161,7 +161,7 @@ The repositories explorer provides the following features,
     - Context menus for each stash provide
       - _Apply Stashed Changes_ (confirmation required), _Delete Stashed Changes_ (confirmation required), _Open All Changes_, _Open All Changes with Working Tree_, _Open Files_, _Open Revisions_, _Copy Commit Message to Clipboard_, _Compare with HEAD_, _Compare with Working Tree_, _Compare with Selected_ (when available), _Select for Compare_, and _Refresh_ commands
     - Context menus for each stashed file provide
-      - _Apply Changes_, _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File in Remote_ (if available), _Compare with Selected_ (when available), _Select for Compare_, and _Show File History_ commands
+      - _Apply Changes_, _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on Remote_ (if available), _Compare with Selected_ (when available), _Select for Compare_, and _Show File History_ commands
 
 - **Tags** &mdash; lists the tags
   - A context menu provides a _Refresh_ command
@@ -187,10 +187,10 @@ A [customizable](#file-history-explorer-settings 'Jump to the File History explo
 The file history explorer provides the following features,
 
 - Automatically updates to track the current editor
-- A context menu provides _Open File_, _Open File in Remote_ (if available), _Copy Remote File Url to Clipboard_ (if available), and _Refresh_ commands
+- A context menu provides _Open File_, _Open File on Remote_ (if available), _Copy Remote File Url to Clipboard_ (if available), and _Refresh_ commands
 - An inline toolbar provides an _Open File_ command
 - Context menus for each revision (commit) provides
-  - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File in Remote_ (if available), _Open Revision in Remote_ (if available), _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
+  - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on Remote_ (if available), _Open Revision on Remote_ (if available), _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
 
 ---
 
@@ -208,10 +208,10 @@ A [customizable](#line-history-explorer-settings 'Jump to the Line History explo
 The line history explorer provides the following features,
 
 - Automatically updates to track the selection of the current editor
-- A context menu provides _Open File_, _Open File in Remote_ (if available), _Copy Remote File Url to Clipboard_ (if available), and _Refresh_ commands
+- A context menu provides _Open File_, _Open File on Remote_ (if available), _Copy Remote File Url to Clipboard_ (if available), and _Refresh_ commands
 - An inline toolbar provides an _Open File_ command
 - Context menus for each revision (commit) provides
-  - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File in Remote_ (if available), _Open Revision in Remote_ (if available), _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
+  - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on Remote_ (if available), _Open Revision on Remote_ (if available), _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
 
 ---
 
@@ -239,9 +239,9 @@ The results explorer provides the following features,
   - A context menu provides _Clear Results_, and _Refresh_ commands
   - Revisions (commits) expand show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
     - Context menus for each revision (commit) provide
-      - _Open Commit in Remote_ (if available), _Open All Changes_, _Open All Changes with Working Tree_, _Open Files_, _Open Revisions_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Show Commit Details_, _Compare with HEAD_, _Compare with Working Tree_, _Compare with Selected_ (when available), _Select for Compare_, _Cherry Pick Commit (via Terminal)_ (when available), _Push to Commit (via Terminal)_ (when available), _Revert Commit (via Terminal)_ (when available), _Checkout Commit (via Terminal)_, _Rebase to Commit (via Terminal)_, _Reset to Commit (via Terminal)_, _Create Branch (via Terminal)..._, _Create Tag (via Terminal)..._, and _Refresh_ commands
+      - _Open Commit on Remote_ (if available), _Open All Changes_, _Open All Changes with Working Tree_, _Open Files_, _Open Revisions_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Show Commit Details_, _Compare with HEAD_, _Compare with Working Tree_, _Compare with Selected_ (when available), _Select for Compare_, _Cherry Pick Commit (via Terminal)_ (when available), _Push to Commit (via Terminal)_ (when available), _Revert Commit (via Terminal)_ (when available), _Checkout Commit (via Terminal)_, _Rebase to Commit (via Terminal)_, _Reset to Commit (via Terminal)_, _Create Branch (via Terminal)..._, _Create Tag (via Terminal)..._, and _Refresh_ commands
     - Context menus for each changed file provide
-      - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File in Remote_, _Open Revision in Remote_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Copy Remote File Url to Clipboard_, _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
+      - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on Remote_, _Open Revision on Remote_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Copy Remote File Url to Clipboard_, _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
 
 #### Compare
 
@@ -264,7 +264,7 @@ The results explorer provides the following features,
   - **Changed Files** &mdash; lists the files changed between the compared revisions (branches or commits)
     - Expands to a file-based view of all changed files
       - Context menus for each changed file provide
-        - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File in Remote_, _Open Revision in Remote_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Copy Remote File Url to Clipboard_, _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
+        - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on Remote_, _Open Revision on Remote_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Copy Remote File Url to Clipboard_, _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
 
 ---
 
@@ -354,7 +354,7 @@ The results explorer provides the following features,
 
 - Adds a **details hover** annotation to the current line to show more commit details ([optional](#hover-settings 'Jump to the Hover settings'), on by default)
   - Provides automatic issue linking to Bitbucket, GitHub, GitLab, and Visual Studio Team Services in commit messages
-  - Provides a **quick-access command bar** with _Open Changes_, _Blame Previous Revision_, _Open in Remote_, and _Show More Actions_ command buttons
+  - Provides a **quick-access command bar** with _Open Changes_, _Blame Previous Revision_, _Open on Remote_, and _Show More Actions_ command buttons
   - Click the commit id to execute the _Show Commit Details_ command
 
 ##### Changes (diff) Hover
@@ -383,7 +383,7 @@ The results explorer provides the following features,
 
 - Adds a **details hover** annotation to each line while annotating to show more commit details ([optional](#hover-settings 'Jump to the Hover settings'), on by default)
   - Provides automatic issue linking to Bitbucket, GitHub, GitLab, and Visual Studio Team Services in commit messages
-  - Provides a **quick-access command bar** with _Open Changes_, _Blame Previous Revision_, _Open in Remote_, and _Show More Actions_ command buttons
+  - Provides a **quick-access command bar** with _Open Changes_, _Blame Previous Revision_, _Open on Remote_, and _Show More Actions_ command buttons
   - Click the commit id to execute the _Show Commit Details_ command
 
 ##### Changes (diff) Hover
@@ -462,13 +462,13 @@ The results explorer provides the following features,
 
 - Adds a _Show Last Opened Quick Pick_ command (`gitlens.showLastQuickPick`) with a shortcut of `alt+-` to quickly get back to where you were when the last GitLens quick pick menu closed
 
-- Adds commands to open files, commits, branches, and the repository in the supported remote services, **Bitbucket, GitHub, GitLab, and Visual Studio Team Services** or a [**user-defined** remote services](#custom-remotes-settings 'Jump to Custom Remotes settings') &mdash; only available if a Git upstream service is configured in the repository
+- Adds commands to Open files, commits, branches, and the repository on the supported remote services, **Bitbucket, GitHub, GitLab, and Visual Studio Team Services** or a [**user-defined** remote services](#custom-remotes-settings 'Jump to Custom Remotes settings') &mdash; only available if a Git upstream service is configured in the repository
   - Also supports [remote services with custom domains](#custom-remotes-settings 'Jump to Custom Remotes settings'), such as **Bitbucket, Bitbucket Server (previously called Stash), GitHub, GitHub Enterprise, GitLab**
-  - _Open Branches in Remote_ command (`gitlens.openBranchesInRemote`) &mdash; opens the branches in the supported remote service
-  - _Open Branch in Remote_ command (`gitlens.openBranchInRemote`) &mdash; opens the current branch commits in the supported remote service
-  - _Open Commit in Remote_ command (`gitlens.openCommitInRemote`) &mdash; opens the commit revision of the current line in the supported remote service
-  - _Open File in Remote_ command (`gitlens.openFileInRemote`) &mdash; opens the current file/revision in the supported remote service
-  - _Open Repository in Remote_ command (`gitlens.openRepoInRemote`) &mdash; opens the repository in the supported remote service
+  - _Open Branches on Remote_ command (`gitlens.openBranchesInRemote`) &mdash; opens the branches on the supported remote service
+  - _Open Branch on Remote_ command (`gitlens.openBranchInRemote`) &mdash; opens the current branch commits on the supported remote service
+  - _Open Commit on Remote_ command (`gitlens.openCommitInRemote`) &mdash; opens the commit revision of the current line on the supported remote service
+  - _Open File on Remote_ command (`gitlens.openFileInRemote`) &mdash; opens the current file/revision on the supported remote service
+  - _Open Repository on Remote_ command (`gitlens.openRepoInRemote`) &mdash; opens the repository on the supported remote service
 
 #### Branch History
 
@@ -478,7 +478,7 @@ The results explorer provides the following features,
 
 - Adds a _Show Current Branch History_ command (`gitlens.showQuickRepoHistory`) with a shortcut of `shift+alt+h` to show a paged **branch history quick pick menu** of the current branch for exploring its commit history
 
-  - Provides entries to _Show Commit Search_ and _Open Branch in \<remote-service\>_ when available
+  - Provides entries to _Show Commit Search_ and _Open Branch on \<remote-service\>_ when available
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Navigate pages via `alt+,` and `alt+.` to go backward and forward respectively
 
@@ -492,7 +492,7 @@ The results explorer provides the following features,
 </p>
 
 - Adds a _Show File History_ command (`gitlens.showQuickFileHistory`) to show a paged **file history quick pick menu** of the current file for exploring its commit history
-  - Provides additional entries to _Show in Results_, _Show Branch History_, and _Open File in \<remote-service\>_ when available
+  - Provides additional entries to _Show in Results_, _Show Branch History_, and _Open File on \<remote-service\>_ when available
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Navigate pages via `alt+,` and `alt+.` to go backward and forward respectively
 
@@ -504,7 +504,7 @@ The results explorer provides the following features,
 
 - Adds a _Show Commit Details_ command (`gitlens.showQuickCommitDetails`) to show a **commit details quick pick menu** of the most recent commit of the current file
   - Quickly see the set of files changed in the commit, complete with status indicators for adds, changes, renames, and deletes
-  - Provides additional entries to _Show in Results_, _Open Commit in \<remote-service\>_ when available, _Open Files_, _Open Revisions_, _Open Directory Compare with Previous Revision_, _Open Directory Compare with Working Tree_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_
+  - Provides additional entries to _Show in Results_, _Open Commit on \<remote-service\>_ when available, _Open Files_, _Open Revisions_, _Open Directory Compare with Previous Revision_, _Open Directory Compare with Working Tree_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible &mdash; commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings 'Jump to Advanced settings') is set
   - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the comparison of the current revision with the previous one
@@ -514,7 +514,7 @@ The results explorer provides the following features,
 </p>
 
 - Adds a _Show Commit File Details_ command (`gitlens.showQuickCommitFileDetails`) with a shortcut of `alt+c` to show a **file commit details quick pick menu** of the most recent commit of the current file
-  - Provides entries to _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File in \<remote-service\>_ when available, _Open Revision in \<remote-service\>_ when available, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Show Commit Details_, _Show File History_, and _Show Previous File History_
+  - Provides entries to _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on \<remote-service\>_ when available, _Open Revision on \<remote-service\>_ when available, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Show Commit Details_, _Show File History_, and _Show Previous File History_
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible &mdash; commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings 'Jump to Advanced settings') is set
 

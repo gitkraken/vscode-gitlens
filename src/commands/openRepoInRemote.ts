@@ -40,7 +40,7 @@ export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
         const repoPath = await getRepoPathOrActiveOrPrompt(
             gitUri,
             editor,
-            `Open which repository in remote${GlyphChars.Ellipsis}`
+            `Open which repository on remote${GlyphChars.Ellipsis}`
         );
         if (!repoPath) return undefined;
 
@@ -58,7 +58,7 @@ export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
         catch (ex) {
             Logger.error(ex, 'OpenRepoInRemoteCommand');
             return window.showErrorMessage(
-                `Unable to open repository in remote provider. See output channel for more details`
+                `Unable to open repository on remote provider. See output channel for more details`
             );
         }
     }
