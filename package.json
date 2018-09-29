@@ -2833,17 +2833,17 @@
             "editor/title": [
                 {
                     "command": "gitlens.diffWithWorking",
-                    "when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git",
+                    "when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != file && resourceScheme != git",
                     "group": "navigation@0"
                 },
                 {
                     "command": "gitlens.openWorkingFile",
-                    "when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git",
+                    "when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != file && resourceScheme != git",
                     "group": "navigation@0"
                 },
                 {
                     "command": "gitlens.openWorkingFile",
-                    "when": "!gitlens:activeFileStatus =~ /revision/ && resourceScheme != git && isInDiffEditor",
+                    "when": "!gitlens:activeFileStatus =~ /revision/ && resourceScheme != file && resourceScheme != git && isInDiffEditor",
                     "group": "navigation@0"
                 },
                 {
