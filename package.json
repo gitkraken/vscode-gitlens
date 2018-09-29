@@ -3828,9 +3828,9 @@
         "pub": "vsce publish",
         "rebuild": "npm run reset && npm run build",
         "reset": "npm run clean && npm install --no-save",
-        "watch": "webpack --watch --env.development",
+        "watch": "webpack --watch --env.development --info-verbosity verbose",
         "ui:optimize": "webpack --config-name ui --env.optimizeImages",
-        "ui:watch": "webpack --watch --config-name ui --env.development",
+        "ui:watch": "webpack --watch --config-name ui --env.development --info-verbosity verbose",
         "update:emoji": "pushd emoji && node ./shortcodeToEmoji.js && popd",
         "postinstall": "node ./node_modules/vscode/bin/install",
         "vscode:prepublish": "npm run reset && npm run bundle"
@@ -3865,7 +3865,7 @@
         "typescript": "3.1.1",
         "vscode": "1.1.21",
         "webpack": "4.20.2",
-        "webpack-cli": "3.1.1",
+        "webpack-cli": "3.1.2",
         "webpack-deep-scope-plugin": "1.6.0"
     }
 }
