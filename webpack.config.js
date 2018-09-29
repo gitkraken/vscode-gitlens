@@ -18,6 +18,10 @@ module.exports = function(env, argv) {
     env.optimizeImages = env.production || Boolean(env.optimizeImages);
     env.copyClipboardyFallbacks = env.production || Boolean(env.copyClipboardyFallbacks);
 
+    if (!env.optimizeImages && !fs.existsSync(path.resolve(__dirname, 'images/settings'))) {
+        env.optimizeImages = true;
+    }
+
     if (!env.copyClipboardyFallbacks && !fs.existsSync(path.resolve(__dirname, 'fallbacks'))) {
         env.copyClipboardyFallbacks = true;
     }
