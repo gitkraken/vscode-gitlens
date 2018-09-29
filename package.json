@@ -2954,12 +2954,12 @@
                     "group": "navigation@1"
                 },
                 {
-                    "command": "gitlens.repositoriesExplorer.fetchAll",
+                    "command": "gitlens.repositoriesExplorer.pullAll",
                     "when": "view =~ /^gitlens.repositoriesExplorer:/",
                     "group": "navigation@7"
                 },
                 {
-                    "command": "gitlens.repositoriesExplorer.pullAll",
+                    "command": "gitlens.repositoriesExplorer.fetchAll",
                     "when": "view =~ /^gitlens.repositoriesExplorer:/",
                     "group": "navigation@8"
                 },
@@ -3336,14 +3336,9 @@
                     "group": "7_gitlens_more@1"
                 },
                 {
-                    "command": "gitlens.explorers.fetch",
-                    "when": "viewItem == gitlens:repository && gitlens:hasRemotes",
-                    "group": "inline@97"
-                },
-                {
                     "command": "gitlens.explorers.push",
                     "when": "viewItem == gitlens:repository && gitlens:hasRemotes",
-                    "group": "inline@99"
+                    "group": "inline@97"
                 },
                 {
                     "command": "gitlens.explorers.pull",
@@ -3351,9 +3346,29 @@
                     "group": "inline@98"
                 },
                 {
-                    "command": "gitlens.openRepoInRemote",
+                    "command": "gitlens.explorers.fetch",
+                    "when": "viewItem == gitlens:repository && gitlens:hasRemotes",
+                    "group": "inline@99"
+                },
+                {
+                    "command": "gitlens.explorers.fetch",
                     "when": "viewItem == gitlens:repository && gitlens:hasRemotes",
                     "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.explorers.pull",
+                    "when": "viewItem == gitlens:repository && gitlens:hasRemotes",
+                    "group": "1_gitlens@2"
+                },
+                {
+                    "command": "gitlens.explorers.push",
+                    "when": "viewItem == gitlens:repository && gitlens:hasRemotes",
+                    "group": "1_gitlens@3"
+                },
+                {
+                    "command": "gitlens.openRepoInRemote",
+                    "when": "viewItem == gitlens:repository && gitlens:hasRemotes",
+                    "group": "3_gitlens@1"
                 },
                 {
                     "command": "gitlens.explorers.closeRepository",
