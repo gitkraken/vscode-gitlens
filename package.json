@@ -1798,7 +1798,11 @@
             {
                 "command": "gitlens.stashApply",
                 "title": "Apply Stashed Changes",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-stash-pop.svg",
+                    "light": "images/light/icon-stash-pop.svg"
+                }
             },
             {
                 "command": "gitlens.stashDelete",
@@ -1810,8 +1814,8 @@
                 "title": "Stash Changes",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/icon-add.svg",
-                    "light": "images/light/icon-add.svg"
+                    "dark": "images/dark/icon-stash-save.svg",
+                    "light": "images/light/icon-stash-save.svg"
                 }
             },
             {
@@ -3366,6 +3370,16 @@
                     "group": "1_gitlens@3"
                 },
                 {
+                    "command": "gitlens.stashSave",
+                    "when": "viewItem == gitlens:repository",
+                    "group": "2_gitlens@1"
+                },
+                {
+                    "command": "gitlens.stashApply",
+                    "when": "viewItem == gitlens:repository",
+                    "group": "2_gitlens@2"
+                },
+                {
                     "command": "gitlens.openRepoInRemote",
                     "when": "viewItem == gitlens:repository && gitlens:hasRemotes",
                     "group": "3_gitlens@1"
@@ -3403,7 +3417,17 @@
                 {
                     "command": "gitlens.stashSave",
                     "when": "viewItem == gitlens:stashes",
+                    "group": "inline@1"
+                },
+                {
+                    "command": "gitlens.stashSave",
+                    "when": "viewItem == gitlens:stashes",
                     "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.stashApply",
+                    "when": "viewItem == gitlens:stashes",
+                    "group": "1_gitlens@2"
                 },
                 {
                     "command": "gitlens.stashApply",

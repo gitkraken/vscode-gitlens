@@ -15,7 +15,7 @@ import {
 } from 'vscode';
 import { BuiltInCommands, DocumentSchemes, ImageMimetypes } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitCommit, GitRemote, GitUri } from '../git/gitService';
+import { GitBranch, GitCommit, GitFile, GitRemote, GitUri, Repository } from '../git/gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepositoriesQuickPick } from '../quickpicks';
 // import { Telemetry } from '../telemetry';
@@ -193,6 +193,12 @@ export function isCommandViewContextWithCommit<T extends GitCommit>(
     );
 }
 
+export function isCommandViewContextWithFile(
+    context: CommandContext
+): context is CommandViewContext & { node: ExplorerNode & { file: GitFile } } {
+    return context.type === 'view' && (context.node as ExplorerNode & { file?: GitFile }).file !== undefined;
+}
+
 export function isCommandViewContextWithRef(
     context: CommandContext
 ): context is CommandViewContext & { node: ExplorerNode & { ref: string } } {
@@ -205,6 +211,12 @@ export function isCommandViewContextWithRemote(
     return (
         context.type === 'view' && (context.node as ExplorerNode & { remote?: GitRemote }).remote instanceof GitRemote
     );
+}
+
+export function isCommandViewContextWithRepo(
+    context: CommandContext
+): context is CommandViewContext & { node: ExplorerNode & { repo: Repository } } {
+    return context.type === 'view' && (context.node as ExplorerNode & { repo?: Repository }).repo instanceof Repository;
 }
 
 export type CommandContext =

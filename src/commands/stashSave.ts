@@ -6,11 +6,18 @@ import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem } from '../quickpicks';
-import { StatusFileNode } from '../views/nodes';
-import { Command, CommandContext, Commands, getRepoPathOrPrompt } from './common';
+import {
+    Command,
+    CommandContext,
+    Commands,
+    getRepoPathOrPrompt,
+    isCommandViewContextWithFile,
+    isCommandViewContextWithRepo
+} from './common';
 
 export interface StashSaveCommandArgs {
     message?: string;
+    repoPath?: string;
     uris?: Uri[];
 
     goBackCommand?: CommandQuickPickItem;
@@ -22,11 +29,13 @@ export class StashSaveCommand extends Command {
     }
 
     protected async preExecute(context: CommandContext, args: StashSaveCommandArgs = {}): Promise<any> {
-        if (context.type === 'view') {
+        if (isCommandViewContextWithFile(context)) {
             args = { ...args };
-            if (context.node instanceof StatusFileNode) {
-                args.uris = [GitUri.fromFile(context.node.file, context.node.repoPath)];
-            }
+            args.uris = [GitUri.fromFile(context.node.file, context.node.file.repoPath)];
+        }
+        else if (isCommandViewContextWithRepo(context)) {
+            args = { ...args };
+            args.repoPath = context.node.repo.path;
         }
         else if (context.type === 'scm-states') {
             args = { ...args };
@@ -44,17 +53,20 @@ export class StashSaveCommand extends Command {
     }
 
     async execute(args: StashSaveCommandArgs = {}) {
+        args = { ...args };
+
         const uri = args.uris !== undefined && args.uris.length !== 0 ? args.uris[0] : undefined;
-        const repoPath = await getRepoPathOrPrompt(
-            uri,
-            `Stash changes for which repository${GlyphChars.Ellipsis}`,
-            args.goBackCommand
-        );
-        if (!repoPath) return undefined;
+        if (args.repoPath === undefined) {
+            args.repoPath = await getRepoPathOrPrompt(
+                uri,
+                `Stash changes for which repository${GlyphChars.Ellipsis}`,
+                args.goBackCommand
+            );
+        }
+        if (!args.repoPath) return undefined;
 
         try {
             if (args.message == null) {
-                args = { ...args };
                 args.message = await window.showInputBox({
                     prompt: `Please provide a stash message`,
                     placeHolder: `Stash message`
@@ -64,7 +76,7 @@ export class StashSaveCommand extends Command {
                 }
             }
 
-            return await Container.git.stashSave(repoPath, args.message, args.uris);
+            return await Container.git.stashSave(args.repoPath, args.message, args.uris);
         }
         catch (ex) {
             Logger.error(ex, 'StashSaveCommand');

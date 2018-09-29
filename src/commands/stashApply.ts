@@ -7,11 +7,19 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, StashListQuickPick } from '../quickpicks';
 import { Strings } from '../system';
-import { Command, CommandContext, Commands, getRepoPathOrPrompt, isCommandViewContextWithCommit } from './common';
+import {
+    Command,
+    CommandContext,
+    Commands,
+    getRepoPathOrPrompt,
+    isCommandViewContextWithCommit,
+    isCommandViewContextWithRepo
+} from './common';
 
 export interface StashApplyCommandArgs {
     confirm?: boolean;
     deleteAfter?: boolean;
+    repoPath?: string;
     stashItem?: { stashName: string; message: string; repoPath: string };
 
     goBackCommand?: CommandQuickPickItem;
@@ -31,6 +39,10 @@ export class StashApplyCommand extends Command {
             args.stashItem = context.node.commit;
             return this.execute(args);
         }
+        else if (isCommandViewContextWithRepo(context)) {
+            args = { ...args };
+            args.repoPath = context.node.repo.path;
+        }
 
         return this.execute(args);
     }
@@ -39,17 +51,19 @@ export class StashApplyCommand extends Command {
         args = { ...args };
 
         if (args.stashItem === undefined || args.stashItem.stashName === undefined) {
-            const repoPath = await getRepoPathOrPrompt(
-                undefined,
-                `Apply stashed changes from which repository${GlyphChars.Ellipsis}`,
-                args.goBackCommand
-            );
-            if (!repoPath) return undefined;
+            if (args.repoPath === undefined) {
+                args.repoPath = await getRepoPathOrPrompt(
+                    undefined,
+                    `Apply stashed changes from which repository${GlyphChars.Ellipsis}`,
+                    args.goBackCommand
+                );
+            }
+            if (!args.repoPath) return undefined;
 
             const progressCancellation = StashListQuickPick.showProgress('apply');
 
             try {
-                const stash = await Container.git.getStashList(repoPath);
+                const stash = await Container.git.getStashList(args.repoPath);
                 if (stash === undefined) return window.showInformationMessage(`There are no stashed changes`);
 
                 if (progressCancellation.token.isCancellationRequested) return undefined;
