@@ -174,29 +174,33 @@ export interface CommandUriContext extends CommandBaseContext {
 
 export interface CommandViewContext extends CommandBaseContext {
     type: 'view';
+}
+
+export interface CommandViewItemContext extends CommandBaseContext {
+    type: 'viewItem';
     node: ExplorerNode;
 }
 
 export function isCommandViewContextWithBranch(
     context: CommandContext
-): context is CommandViewContext & { node: ExplorerNode & { branch: GitBranch } } {
-    if (context.type !== 'view') return false;
+): context is CommandViewItemContext & { node: ExplorerNode & { branch: GitBranch } } {
+    if (context.type !== 'viewItem') return false;
 
     return (context.node as ExplorerNode & { branch: GitBranch }).branch instanceof GitBranch;
 }
 
 export function isCommandViewContextWithCommit<T extends GitCommit>(
     context: CommandContext
-): context is CommandViewContext & { node: ExplorerNode & { commit: T } } {
-    if (context.type !== 'view') return false;
+): context is CommandViewItemContext & { node: ExplorerNode & { commit: T } } {
+    if (context.type !== 'viewItem') return false;
 
     return (context.node as ExplorerNode & { commit: GitCommit }).commit instanceof GitCommit;
 }
 
 export function isCommandViewContextWithFile(
     context: CommandContext
-): context is CommandViewContext & { node: ExplorerNode & { file: GitFile; repoPath: string } } {
-    if (context.type !== 'view') return false;
+): context is CommandViewItemContext & { node: ExplorerNode & { file: GitFile; repoPath: string } } {
+    if (context.type !== 'viewItem') return false;
 
     const node = context.node as ExplorerNode & { file: GitFile; repoPath: string };
     return node.file !== undefined && (node.file.repoPath !== undefined || node.repoPath !== undefined);
@@ -204,8 +208,8 @@ export function isCommandViewContextWithFile(
 
 export function isCommandViewContextWithFileCommit(
     context: CommandContext
-): context is CommandViewContext & { node: ExplorerNode & { commit: GitCommit; file: GitFile; repoPath: string } } {
-    if (context.type !== 'view') return false;
+): context is CommandViewItemContext & { node: ExplorerNode & { commit: GitCommit; file: GitFile; repoPath: string } } {
+    if (context.type !== 'viewItem') return false;
 
     const node = context.node as ExplorerNode & { commit: GitCommit; file: GitFile; repoPath: string };
     return (
@@ -217,10 +221,10 @@ export function isCommandViewContextWithFileCommit(
 
 export function isCommandViewContextWithFileRefs(
     context: CommandContext
-): context is CommandViewContext & {
+): context is CommandViewItemContext & {
     node: ExplorerNode & { file: GitFile; ref1: string; ref2: string; repoPath: string };
 } {
-    if (context.type !== 'view') return false;
+    if (context.type !== 'viewItem') return false;
 
     const node = context.node as ExplorerNode & { file: GitFile; ref1: string; ref2: string; repoPath: string };
     return (
@@ -233,22 +237,22 @@ export function isCommandViewContextWithFileRefs(
 
 export function isCommandViewContextWithRef(
     context: CommandContext
-): context is CommandViewContext & { node: ExplorerNode & { ref: string } } {
-    return context.type === 'view' && context.node instanceof ExplorerRefNode;
+): context is CommandViewItemContext & { node: ExplorerNode & { ref: string } } {
+    return context.type === 'viewItem' && context.node instanceof ExplorerRefNode;
 }
 
 export function isCommandViewContextWithRemote(
     context: CommandContext
-): context is CommandViewContext & { node: ExplorerNode & { remote: GitRemote } } {
-    if (context.type !== 'view') return false;
+): context is CommandViewItemContext & { node: ExplorerNode & { remote: GitRemote } } {
+    if (context.type !== 'viewItem') return false;
 
     return (context.node as ExplorerNode & { remote: GitRemote }).remote instanceof GitRemote;
 }
 
 export function isCommandViewContextWithRepo(
     context: CommandContext
-): context is CommandViewContext & { node: ExplorerNode & { repo: Repository } } {
-    if (context.type !== 'view') return false;
+): context is CommandViewItemContext & { node: ExplorerNode & { repo: Repository } } {
+    if (context.type !== 'viewItem') return false;
 
     return (context.node as ExplorerNode & { repo?: Repository }).repo instanceof Repository;
 }
@@ -258,7 +262,8 @@ export type CommandContext =
     | CommandScmStatesContext
     | CommandUnknownContext
     | CommandUriContext
-    | CommandViewContext;
+    | CommandViewContext
+    | CommandViewItemContext;
 
 function isScmResourceGroup(group: any): group is SourceControlResourceGroup {
     if (group == null) return false;
@@ -325,7 +330,7 @@ export abstract class Command implements Disposable {
     protected _execute(command: string, ...args: any[]): any {
         // Telemetry.trackEvent(command);
 
-        const [context, rest] = Command.parseContext(command, this.contextParsingOptions, ...args);
+        const [context, rest] = Command.parseContext(command, { ...this.contextParsingOptions }, ...args);
         return this.preExecute(context, ...rest);
     }
 
@@ -343,14 +348,20 @@ export abstract class Command implements Disposable {
             firstArg = args[0];
         }
 
+        let maybeView = false;
         if (options.uri && (firstArg == null || firstArg instanceof Uri)) {
             const [uri, ...rest] = args as [Uri, any];
-            return [{ command: command, type: 'uri', editor: editor, uri: uri }, rest];
+            if (uri !== undefined) {
+                return [{ command: command, type: 'uri', editor: editor, uri: uri }, rest];
+            }
+            else {
+                maybeView = args.length === 0;
+            }
         }
 
         if (firstArg instanceof ExplorerNode) {
             const [node, ...rest] = args as [ExplorerNode, any];
-            return [{ command: command, type: 'view', node: node, uri: node.uri }, rest];
+            return [{ command: command, type: 'viewItem', node: node, uri: node.uri }, rest];
         }
 
         if (isScmResourceState(firstArg)) {
@@ -380,6 +391,10 @@ export abstract class Command implements Disposable {
             }
 
             return [{ command: command, type: 'scm-groups', scmResourceGroups: groups }, args.slice(count)];
+        }
+
+        if (maybeView) {
+            return [{ command: command, type: 'view', editor: editor }, args];
         }
 
         return [{ command: command, type: 'unknown', editor: editor }, args];

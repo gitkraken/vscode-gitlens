@@ -32,7 +32,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
     protected async preExecute(context: CommandContext, args: DiffDirectoryCommandArgs = {}): Promise<any> {
         switch (context.command) {
             case Commands.ExplorersOpenDirectoryDiff:
-                if (context.type === 'view' && context.node instanceof ResultsComparisonNode) {
+                if (context.type === 'viewItem' && context.node instanceof ResultsComparisonNode) {
                     args.ref1 = context.node.ref1.ref;
                     args.ref2 = context.node.ref2.ref;
                 }

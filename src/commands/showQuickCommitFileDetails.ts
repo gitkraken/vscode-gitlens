@@ -44,7 +44,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
         context: CommandContext,
         args: ShowQuickCommitFileDetailsCommandArgs = {}
     ): Promise<any> {
-        if (context.type === 'view') {
+        if (context.type === 'viewItem') {
             args = { ...args };
             args.sha = context.node.uri.sha;
 
