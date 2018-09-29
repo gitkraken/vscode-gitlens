@@ -8,7 +8,14 @@ import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitsQuickPick, ShowCommitsSearchInResultsQuickPickItem } from '../quickpicks';
 import { Strings } from '../system';
 import { Iterables } from '../system/iterable';
-import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
+import {
+    ActiveEditorCachedCommand,
+    CommandContext,
+    Commands,
+    getCommandUri,
+    getRepoPathOrActiveOrPrompt,
+    isCommandViewContextWithRepo
+} from './common';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
 const searchByRegex = /^([@~=:#])/;
@@ -31,6 +38,14 @@ export interface ShowCommitSearchCommandArgs {
 export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
     constructor() {
         super(Commands.ShowCommitSearch);
+    }
+
+    protected async preExecute(context: CommandContext, args: ShowCommitSearchCommandArgs = {}) {
+        if (isCommandViewContextWithRepo(context)) {
+            return this.execute(context.editor, context.node.uri, args);
+        }
+
+        return this.execute(context.editor, context.uri, args);
     }
 
     async execute(editor?: TextEditor, uri?: Uri, args: ShowCommitSearchCommandArgs = {}) {
