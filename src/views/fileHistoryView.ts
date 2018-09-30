@@ -1,15 +1,15 @@
 'use strict';
 import { commands, ConfigurationChangeEvent } from 'vscode';
-import { configuration, ExplorersConfig, FileHistoryExplorerConfig } from '../configuration';
+import { configuration, FileHistoryViewConfig, ViewsConfig } from '../configuration';
 import { CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
-import { ExplorerBase, RefreshReason } from './explorer';
-import { RefreshNodeCommandArgs } from './explorerCommands';
-import { ExplorerNode, FileHistoryTrackerNode } from './nodes';
+import { FileHistoryTrackerNode, ViewNode } from './nodes';
+import { RefreshReason, ViewBase } from './viewBase';
+import { RefreshNodeCommandArgs } from './viewCommands';
 
-export class FileHistoryExplorer extends ExplorerBase<FileHistoryTrackerNode> {
+export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
     constructor() {
-        super('gitlens.fileHistoryExplorer');
+        super('gitlens.views.fileHistory');
     }
 
     getRoot() {
@@ -17,11 +17,11 @@ export class FileHistoryExplorer extends ExplorerBase<FileHistoryTrackerNode> {
     }
 
     protected registerCommands() {
-        Container.explorerCommands;
+        Container.viewCommands;
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
         commands.registerCommand(
             this.getQualifiedCommand('refreshNode'),
-            (node: ExplorerNode, args?: RefreshNodeCommandArgs) => this.refreshNode(node, args),
+            (node: ViewNode, args?: RefreshNodeCommandArgs) => this.refreshNode(node, args),
             this
         );
 
@@ -52,8 +52,8 @@ export class FileHistoryExplorer extends ExplorerBase<FileHistoryTrackerNode> {
 
         if (
             !initializing &&
-            !configuration.changed(e, configuration.name('fileHistoryExplorer').value) &&
-            !configuration.changed(e, configuration.name('explorers').value) &&
+            !configuration.changed(e, configuration.name('views')('fileHistory').value) &&
+            !configuration.changed(e, configuration.name('views').value) &&
             !configuration.changed(e, configuration.name('defaultGravatarsStyle').value) &&
             !configuration.changed(e, configuration.name('advanced')('fileHistoryFollowsRenames').value)
         ) {
@@ -62,14 +62,14 @@ export class FileHistoryExplorer extends ExplorerBase<FileHistoryTrackerNode> {
 
         if (
             initializing ||
-            configuration.changed(e, configuration.name('fileHistoryExplorer')('enabled').value) ||
-            configuration.changed(e, configuration.name('fileHistoryExplorer')('location').value)
+            configuration.changed(e, configuration.name('views')('fileHistory')('enabled').value) ||
+            configuration.changed(e, configuration.name('views')('fileHistory')('location').value)
         ) {
-            setCommandContext(CommandContext.FileHistoryExplorer, this.config.enabled ? this.config.location : false);
-            setCommandContext(CommandContext.FileHistoryExplorerEditorFollowing, true);
+            setCommandContext(CommandContext.ViewsFileHistory, this.config.enabled ? this.config.location : false);
+            setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, true);
         }
 
-        if (initializing || configuration.changed(e, configuration.name('fileHistoryExplorer')('location').value)) {
+        if (initializing || configuration.changed(e, configuration.name('views')('fileHistory')('location').value)) {
             this.initialize(this.config.location);
         }
 
@@ -78,12 +78,12 @@ export class FileHistoryExplorer extends ExplorerBase<FileHistoryTrackerNode> {
         }
     }
 
-    get config(): ExplorersConfig & FileHistoryExplorerConfig {
-        return { ...Container.config.explorers, ...Container.config.fileHistoryExplorer };
+    get config(): ViewsConfig & FileHistoryViewConfig {
+        return { ...Container.config.views, ...Container.config.views.fileHistory };
     }
 
     private setEditorFollowing(enabled: boolean) {
-        setCommandContext(CommandContext.FileHistoryExplorerEditorFollowing, enabled);
+        setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, enabled);
         if (this._root !== undefined) {
             this._root.setEditorFollowing(enabled);
         }

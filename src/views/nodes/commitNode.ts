@@ -2,21 +2,21 @@
 import * as path from 'path';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
-import { ExplorerFilesLayout } from '../../configuration';
+import { ViewFilesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { CommitFormatter, GitBranch, GitLogCommit, ICommitFormatOptions } from '../../git/gitService';
 import { Arrays, Iterables, Strings } from '../../system';
-import { Explorer } from '../explorer';
+import { View } from '../viewBase';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
-import { ExplorerNode, ExplorerRefNode, ResourceType } from './explorerNode';
-import { FileExplorerNode, FolderNode } from './folderNode';
+import { FileNode, FolderNode } from './folderNode';
+import { ResourceType, ViewNode, ViewRefNode } from './viewNode';
 
-export class CommitNode extends ExplorerRefNode {
+export class CommitNode extends ViewRefNode {
     constructor(
         public readonly commit: GitLogCommit,
-        parent: ExplorerNode,
-        public readonly explorer: Explorer,
+        parent: ViewNode,
+        public readonly view: View,
         public readonly branch?: GitBranch,
         private readonly getBranchTips?: (sha: string) => string | undefined
     ) {
@@ -27,25 +27,25 @@ export class CommitNode extends ExplorerRefNode {
         return this.commit.sha;
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         const commit = this.commit;
-        let children: FileExplorerNode[] = [
+        let children: FileNode[] = [
             ...Iterables.map(
                 commit.files,
-                s => new CommitFileNode(s, commit.toFileCommit(s), this, this.explorer, CommitFileNodeDisplayAs.File)
+                s => new CommitFileNode(s, commit.toFileCommit(s), this, this.view, CommitFileNodeDisplayAs.File)
             )
         ];
 
-        if (this.explorer.config.files.layout !== ExplorerFilesLayout.List) {
+        if (this.view.config.files.layout !== ViewFilesLayout.List) {
             const hierarchy = Arrays.makeHierarchical(
                 children,
                 n => n.uri.getRelativePath().split('/'),
                 (...paths: string[]) => Strings.normalizePath(path.join(...paths)),
-                this.explorer.config.files.compact
+                this.view.config.files.compact
             );
 
-            const root = new FolderNode(this.repoPath, '', undefined, hierarchy, this, this.explorer);
-            children = (await root.getChildren()) as FileExplorerNode[];
+            const root = new FolderNode(this.repoPath, '', undefined, hierarchy, this, this.view);
+            children = (await root.getChildren()) as FileNode[];
         }
         else {
             children.sort((a, b) => a.label!.localeCompare(b.label!));
@@ -54,7 +54,7 @@ export class CommitNode extends ExplorerRefNode {
     }
 
     getTreeItem(): TreeItem {
-        let label = CommitFormatter.fromTemplate(this.explorer.config.commitFormat, this.commit, {
+        let label = CommitFormatter.fromTemplate(this.view.config.commitFormat, this.commit, {
             truncateMessageAtNewLine: true,
             dateFormat: Container.config.defaultDateFormat
         } as ICommitFormatOptions);
@@ -71,7 +71,7 @@ export class CommitNode extends ExplorerRefNode {
         item.contextValue =
             this.branch === undefined || this.branch.current ? ResourceType.CommitOnCurrentBranch : ResourceType.Commit;
 
-        if (this.explorer.config.avatars) {
+        if (this.view.config.avatars) {
             item.iconPath = this.commit.getGravatarUri(Container.config.defaultGravatarsStyle);
         }
         else {

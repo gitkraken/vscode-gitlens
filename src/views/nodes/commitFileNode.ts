@@ -13,8 +13,8 @@ import {
     IStatusFormatOptions,
     StatusFileFormatter
 } from '../../git/gitService';
-import { Explorer } from '../explorer';
-import { ExplorerNode, ExplorerRefNode, ResourceType } from './explorerNode';
+import { View } from '../viewBase';
+import { ResourceType, ViewNode, ViewRefNode } from './viewNode';
 
 export enum CommitFileNodeDisplayAs {
     CommitLabel = 1 << 0,
@@ -27,12 +27,12 @@ export enum CommitFileNodeDisplayAs {
     File = FileLabel | StatusIcon
 }
 
-export class CommitFileNode extends ExplorerRefNode {
+export class CommitFileNode extends ViewRefNode {
     constructor(
         public readonly file: GitFile,
         public commit: GitLogCommit,
-        parent: ExplorerNode,
-        public readonly explorer: Explorer,
+        parent: ViewNode,
+        public readonly view: View,
         private readonly _displayAs: CommitFileNodeDisplayAs,
         private readonly _selection?: Selection
     ) {
@@ -47,7 +47,7 @@ export class CommitFileNode extends ExplorerRefNode {
         return this.commit.sha;
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         return [];
     }
 
@@ -161,11 +161,11 @@ export class CommitFileNode extends ExplorerRefNode {
     }
 
     protected getCommitTemplate() {
-        return this.explorer.config.commitFormat;
+        return this.view.config.commitFormat;
     }
 
     protected getCommitFileTemplate() {
-        return this.explorer.config.commitFileFormat;
+        return this.view.config.commitFileFormat;
     }
 
     getCommand(): Command | undefined {

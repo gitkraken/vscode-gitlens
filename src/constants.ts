@@ -31,18 +31,18 @@ export enum CommandContext {
     AnnotationStatus = 'gitlens:annotationStatus',
     CanToggleCodeLens = 'gitlens:canToggleCodeLens',
     Enabled = 'gitlens:enabled',
-    ExplorersCanCompare = 'gitlens:explorers:canCompare',
     HasRemotes = 'gitlens:hasRemotes',
-    FileHistoryExplorer = 'gitlens:fileHistoryExplorer',
-    FileHistoryExplorerEditorFollowing = 'gitlens:fileHistoryExplorer:editorFollowing',
-    LineHistoryExplorer = 'gitlens:lineHistoryExplorer',
-    LineHistoryExplorerEditorFollowing = 'gitlens:lineHistoryExplorer:editorFollowing',
     Key = 'gitlens:key',
     KeyMap = 'gitlens:keymap',
-    RepositoriesExplorer = 'gitlens:repositoriesExplorer',
-    RepositoriesExplorerAutoRefresh = 'gitlens:repositoriesExplorer:autoRefresh',
-    ResultsExplorer = 'gitlens:resultsExplorer',
-    ResultsExplorerKeepResults = 'gitlens:resultsExplorer:keepResults'
+    ViewsCanCompare = 'gitlens:views:canCompare',
+    ViewsFileHistory = 'gitlens:views:fileHistory',
+    ViewsFileHistoryEditorFollowing = 'gitlens:views:fileHistory:editorFollowing',
+    ViewsLineHistory = 'gitlens:views:lineHistory',
+    ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',
+    ViewsRepositories = 'gitlens:views:repositories',
+    ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
+    ViewsResults = 'gitlens:views:results',
+    ViewsResultsKeepResults = 'gitlens:views:results:keepResults'
 }
 
 export function setCommandContext(key: CommandContext | string, value: any) {
@@ -129,6 +129,6 @@ export const ImageMimetypes: { [key: string]: string } = {
 };
 
 export enum WorkspaceState {
-    RepositoriesExplorerAutoRefresh = 'gitlens:repositoriesExplorer:autoRefresh',
-    ResultsExplorerKeepResults = 'gitlens:resultsExplorer:keepResults'
+    ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
+    ViewsResultsKeepResults = 'gitlens:views:results:keepResults'
 }

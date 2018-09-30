@@ -1,20 +1,20 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitLogCommit } from '../../git/gitService';
-import { ResultsExplorer } from '../resultsExplorer';
+import { ResultsView } from '../resultsView';
 import { CommitNode } from './commitNode';
-import { ExplorerNode, ResourceType } from './explorerNode';
+import { ResourceType, ViewNode } from './viewNode';
 
-export class ResultsCommitNode extends ExplorerNode {
+export class ResultsCommitNode extends ViewNode {
     constructor(
         public readonly commit: GitLogCommit,
-        public readonly explorer: ResultsExplorer
+        public readonly view: ResultsView
     ) {
         super(commit.toGitUri(), undefined);
     }
 
-    getChildren(): ExplorerNode[] {
-        return [new CommitNode(this.commit, this, this.explorer)];
+    getChildren(): ViewNode[] {
+        return [new CommitNode(this.commit, this, this.view)];
     }
 
     getTreeItem(): TreeItem {

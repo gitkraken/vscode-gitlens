@@ -1,27 +1,27 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ExplorerBranchesLayout } from '../../configuration';
+import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitBranch, GitUri } from '../../git/gitService';
 import { Arrays, Iterables } from '../../system';
-import { RepositoriesExplorer } from '../repositoriesExplorer';
+import { RepositoriesView } from '../repositoriesView';
 import { CommitNode } from './commitNode';
 import { MessageNode, ShowMoreNode } from './common';
-import { ExplorerNode, ExplorerRefNode, PageableExplorerNode, ResourceType } from './explorerNode';
 import { insertDateMarkers } from './helpers';
+import { PageableViewNode, ResourceType, ViewNode, ViewRefNode } from './viewNode';
 
-export class BranchNode extends ExplorerRefNode implements PageableExplorerNode {
+export class BranchNode extends ViewRefNode implements PageableViewNode {
     readonly supportsPaging: boolean = true;
     maxCount: number | undefined;
 
-    private _children: ExplorerNode[] | undefined;
+    private _children: ViewNode[] | undefined;
 
     constructor(
         public readonly branch: GitBranch,
         uri: GitUri,
-        parent: ExplorerNode,
-        public readonly explorer: RepositoriesExplorer,
+        parent: ViewNode,
+        public readonly view: RepositoriesView,
         private readonly _markCurrent: boolean = true
     ) {
         super(uri, parent);
@@ -39,7 +39,7 @@ export class BranchNode extends ExplorerRefNode implements PageableExplorerNode 
 
     get label(): string {
         const branchName = this.branch.getName();
-        if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) return branchName;
+        if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchName;
 
         return this.current || GitBranch.isDetached(branchName) ? branchName : this.branch.getBasename();
     }
@@ -48,10 +48,10 @@ export class BranchNode extends ExplorerRefNode implements PageableExplorerNode 
         return this.branch.ref;
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         if (this._children === undefined) {
             const log = await Container.git.getLog(this.uri.repoPath!, {
-                maxCount: this.maxCount || this.explorer.config.defaultItemLimit,
+                maxCount: this.maxCount || this.view.config.defaultItemLimit,
                 ref: this.ref
             });
             if (log === undefined) return [new MessageNode(this, 'No commits yet')];
@@ -75,14 +75,14 @@ export class BranchNode extends ExplorerRefNode implements PageableExplorerNode 
                 ...insertDateMarkers(
                     Iterables.map(
                         log.commits.values(),
-                        c => new CommitNode(c, this, this.explorer, this.branch, getBranchTips)
+                        c => new CommitNode(c, this, this.view, this.branch, getBranchTips)
                     ),
                     this
                 )
             ];
 
             if (log.truncated) {
-                children.push(new ShowMoreNode('Commits', this, this.explorer));
+                children.push(new ShowMoreNode('Commits', this, this.view));
             }
 
             this._children = children;
@@ -96,7 +96,7 @@ export class BranchNode extends ExplorerRefNode implements PageableExplorerNode 
         let iconSuffix = '';
 
         if (!this.branch.remote && this.branch.tracking !== undefined) {
-            if (this.explorer.config.showTrackingBranch) {
+            if (this.view.config.showTrackingBranch) {
                 name += `${this.branch.getTrackingStatus({ prefix: `${GlyphChars.Space} ` })}${GlyphChars.Space} ${
                     GlyphChars.ArrowLeftRightLong
                 }${GlyphChars.Space} ${this.branch.tracking}`;

@@ -3,15 +3,15 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { CommitFormatter, GitStashCommit, ICommitFormatOptions } from '../../git/gitService';
 import { Iterables } from '../../system';
-import { Explorer } from '../explorer';
-import { ExplorerNode, ExplorerRefNode, ResourceType } from './explorerNode';
+import { View } from '../viewBase';
 import { StashFileNode } from './stashFileNode';
+import { ResourceType, ViewNode, ViewRefNode } from './viewNode';
 
-export class StashNode extends ExplorerRefNode {
+export class StashNode extends ViewRefNode {
     constructor(
         public readonly commit: GitStashCommit,
-        parent: ExplorerNode,
-        public readonly explorer: Explorer
+        parent: ViewNode,
+        public readonly view: View
     ) {
         super(commit.toGitUri(), parent);
     }
@@ -24,7 +24,7 @@ export class StashNode extends ExplorerRefNode {
         return this.commit.sha;
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         const files = (this.commit as GitStashCommit).files;
 
         // Check for any untracked files -- since git doesn't return them via `git stash list` :(
@@ -41,14 +41,14 @@ export class StashNode extends ExplorerRefNode {
             }
         }
 
-        const children = files.map(s => new StashFileNode(s, this.commit.toFileCommit(s), this, this.explorer));
+        const children = files.map(s => new StashFileNode(s, this.commit.toFileCommit(s), this, this.view));
         children.sort((a, b) => a.label!.localeCompare(b.label!));
         return children;
     }
 
     getTreeItem(): TreeItem {
         const item = new TreeItem(
-            CommitFormatter.fromTemplate(this.explorer.config.stashFormat, this.commit, {
+            CommitFormatter.fromTemplate(this.view.config.stashFormat, this.commit, {
                 truncateMessageAtNewLine: true,
                 dateFormat: Container.config.defaultDateFormat
             } as ICommitFormatOptions),

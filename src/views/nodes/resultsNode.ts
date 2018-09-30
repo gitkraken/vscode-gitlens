@@ -4,20 +4,20 @@ import { ShowCommitSearchCommandArgs } from '../../commands';
 import { GlyphChars } from '../../constants';
 import { GitRepoSearchBy } from '../../git/gitService';
 import { Strings } from '../../system';
-import { ResultsExplorer } from '../resultsExplorer';
+import { ResultsView } from '../resultsView';
 import { CommandMessageNode, MessageNode } from './common';
-import { ExplorerNode, ResourceType, unknownGitUri } from './explorerNode';
+import { ResourceType, unknownGitUri, ViewNode } from './viewNode';
 
-export class ResultsNode extends ExplorerNode {
-    private _children: (ExplorerNode | MessageNode)[] = [];
+export class ResultsNode extends ViewNode {
+    private _children: (ViewNode | MessageNode)[] = [];
 
     constructor(
-        public readonly explorer: ResultsExplorer
+        public readonly view: ResultsView
     ) {
         super(unknownGitUri, undefined);
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         if (this._children.length === 0) {
             const command = {
                 title: 'Search Commits',
@@ -100,7 +100,7 @@ export class ResultsNode extends ExplorerNode {
         return item;
     }
 
-    addOrReplace(results: ExplorerNode, replace: boolean) {
+    addOrReplace(results: ViewNode, replace: boolean) {
         if (this._children.includes(results)) return;
 
         if (this._children.length !== 0 && replace) {
@@ -111,24 +111,24 @@ export class ResultsNode extends ExplorerNode {
             this._children.splice(0, 0, results);
         }
 
-        this.explorer.triggerNodeUpdate();
+        this.view.triggerNodeUpdate();
     }
 
     clear() {
         if (this._children.length === 0) return;
 
         this._children.length = 0;
-        this.explorer.triggerNodeUpdate();
+        this.view.triggerNodeUpdate();
     }
 
-    dismiss(node: ExplorerNode) {
+    dismiss(node: ViewNode) {
         if (this._children.length === 0) return;
 
         const index = this._children.findIndex(n => n === node);
         if (index === -1) return;
 
         this._children.splice(index, 1);
-        this.explorer.triggerNodeUpdate();
+        this.view.triggerNodeUpdate();
     }
 
     async refresh() {

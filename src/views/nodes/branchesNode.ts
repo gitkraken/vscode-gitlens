@@ -1,22 +1,22 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ExplorerBranchesLayout } from '../../configuration';
+import { ViewBranchesLayout } from '../../configuration';
 import { Container } from '../../container';
 import { GitUri, Repository } from '../../git/gitService';
 import { Arrays, Iterables } from '../../system';
-import { RepositoriesExplorer } from '../repositoriesExplorer';
+import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
-import { ExplorerNode, ResourceType } from './explorerNode';
+import { ResourceType, ViewNode } from './viewNode';
 
-export class BranchesNode extends ExplorerNode {
-    private _children: ExplorerNode[] | undefined;
+export class BranchesNode extends ViewNode {
+    private _children: ViewNode[] | undefined;
 
     constructor(
         uri: GitUri,
         public readonly repo: Repository,
-        parent: ExplorerNode,
-        public readonly explorer: RepositoriesExplorer
+        parent: ViewNode,
+        public readonly view: RepositoriesView
     ) {
         super(uri, parent);
     }
@@ -25,7 +25,7 @@ export class BranchesNode extends ExplorerNode {
         return `gitlens:repository(${this.repo.path}):branches`;
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         if (this._children === undefined) {
             const branches = await this.repo.getBranches();
             if (branches === undefined) return [];
@@ -36,27 +36,19 @@ export class BranchesNode extends ExplorerNode {
             const branchNodes = [
                 ...Iterables.filterMap(
                     branches,
-                    b => (b.remote ? undefined : new BranchNode(b, this.uri, this, this.explorer))
+                    b => (b.remote ? undefined : new BranchNode(b, this.uri, this, this.view))
                 )
             ];
-            if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) return branchNodes;
+            if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;
 
             const hierarchy = Arrays.makeHierarchical(
                 branchNodes,
                 n => (n.branch.detached ? [n.branch.name] : n.branch.getName().split('/')),
                 (...paths: string[]) => paths.join('/'),
-                this.explorer.config.files.compact
+                this.view.config.files.compact
             );
 
-            const root = new BranchOrTagFolderNode(
-                'branch',
-                this.repo.path,
-                '',
-                undefined,
-                hierarchy,
-                this,
-                this.explorer
-            );
+            const root = new BranchOrTagFolderNode('branch', this.repo.path, '', undefined, hierarchy, this, this.view);
             this._children = await root.getChildren();
         }
         return this._children;

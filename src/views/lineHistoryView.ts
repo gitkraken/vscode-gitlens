@@ -1,15 +1,15 @@
 'use strict';
 import { commands, ConfigurationChangeEvent } from 'vscode';
-import { configuration, ExplorersConfig, LineHistoryExplorerConfig } from '../configuration';
+import { configuration, LineHistoryViewConfig, ViewsConfig } from '../configuration';
 import { CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
-import { ExplorerBase, RefreshReason } from './explorer';
-import { RefreshNodeCommandArgs } from './explorerCommands';
-import { ExplorerNode, LineHistoryTrackerNode } from './nodes';
+import { LineHistoryTrackerNode, ViewNode } from './nodes';
+import { RefreshReason, ViewBase } from './viewBase';
+import { RefreshNodeCommandArgs } from './viewCommands';
 
-export class LineHistoryExplorer extends ExplorerBase<LineHistoryTrackerNode> {
+export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
     constructor() {
-        super('gitlens.lineHistoryExplorer');
+        super('gitlens.views.lineHistory');
     }
 
     getRoot() {
@@ -17,11 +17,11 @@ export class LineHistoryExplorer extends ExplorerBase<LineHistoryTrackerNode> {
     }
 
     protected registerCommands() {
-        Container.explorerCommands;
+        Container.viewCommands;
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
         commands.registerCommand(
             this.getQualifiedCommand('refreshNode'),
-            (node: ExplorerNode, args?: RefreshNodeCommandArgs) => this.refreshNode(node, args),
+            (node: ViewNode, args?: RefreshNodeCommandArgs) => this.refreshNode(node, args),
             this
         );
         commands.registerCommand(
@@ -51,8 +51,8 @@ export class LineHistoryExplorer extends ExplorerBase<LineHistoryTrackerNode> {
 
         if (
             !initializing &&
-            !configuration.changed(e, configuration.name('lineHistoryExplorer').value) &&
-            !configuration.changed(e, configuration.name('explorers').value) &&
+            !configuration.changed(e, configuration.name('views')('lineHistory').value) &&
+            !configuration.changed(e, configuration.name('views').value) &&
             !configuration.changed(e, configuration.name('defaultGravatarsStyle').value) &&
             !configuration.changed(e, configuration.name('advanced')('fileHistoryFollowsRenames').value)
         ) {
@@ -61,14 +61,14 @@ export class LineHistoryExplorer extends ExplorerBase<LineHistoryTrackerNode> {
 
         if (
             initializing ||
-            configuration.changed(e, configuration.name('lineHistoryExplorer')('enabled').value) ||
-            configuration.changed(e, configuration.name('lineHistoryExplorer')('location').value)
+            configuration.changed(e, configuration.name('views')('lineHistory')('enabled').value) ||
+            configuration.changed(e, configuration.name('views')('lineHistory')('location').value)
         ) {
-            setCommandContext(CommandContext.LineHistoryExplorer, this.config.enabled ? this.config.location : false);
-            setCommandContext(CommandContext.LineHistoryExplorerEditorFollowing, true);
+            setCommandContext(CommandContext.ViewsLineHistory, this.config.enabled ? this.config.location : false);
+            setCommandContext(CommandContext.ViewsLineHistoryEditorFollowing, true);
         }
 
-        if (initializing || configuration.changed(e, configuration.name('lineHistoryExplorer')('location').value)) {
+        if (initializing || configuration.changed(e, configuration.name('views')('lineHistory')('location').value)) {
             this.initialize(this.config.location);
         }
 
@@ -77,12 +77,12 @@ export class LineHistoryExplorer extends ExplorerBase<LineHistoryTrackerNode> {
         }
     }
 
-    get config(): ExplorersConfig & LineHistoryExplorerConfig {
-        return { ...Container.config.explorers, ...Container.config.lineHistoryExplorer };
+    get config(): ViewsConfig & LineHistoryViewConfig {
+        return { ...Container.config.views, ...Container.config.views.lineHistory };
     }
 
     private setEditorFollowing(enabled: boolean) {
-        setCommandContext(CommandContext.LineHistoryExplorerEditorFollowing, enabled);
+        setCommandContext(CommandContext.ViewsLineHistoryEditorFollowing, enabled);
         if (this._root !== undefined) {
             this._root.setEditorFollowing(enabled);
         }

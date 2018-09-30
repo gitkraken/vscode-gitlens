@@ -1,13 +1,13 @@
 import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { Explorer } from '../explorer';
-import { RefreshNodeCommandArgs } from '../explorerCommands';
-import { ExplorerNode, ResourceType, unknownGitUri } from '../nodes/explorerNode';
+import { View } from '../viewBase';
+import { RefreshNodeCommandArgs } from '../viewCommands';
+import { ResourceType, unknownGitUri, ViewNode } from './viewNode';
 
-export class MessageNode extends ExplorerNode {
+export class MessageNode extends ViewNode {
     constructor(
-        parent: ExplorerNode,
+        parent: ViewNode,
         private readonly _message: string,
         private readonly _tooltip?: string,
         private readonly _iconPath?:
@@ -22,7 +22,7 @@ export class MessageNode extends ExplorerNode {
         super(unknownGitUri, parent);
     }
 
-    getChildren(): ExplorerNode[] | Promise<ExplorerNode[]> {
+    getChildren(): ViewNode[] | Promise<ViewNode[]> {
         return [];
     }
 
@@ -37,7 +37,7 @@ export class MessageNode extends ExplorerNode {
 
 export class CommandMessageNode extends MessageNode {
     constructor(
-        parent: ExplorerNode,
+        parent: ViewNode,
         private readonly _command: Command,
         message: string,
         tooltip?: string,
@@ -67,9 +67,9 @@ export class CommandMessageNode extends MessageNode {
     }
 }
 
-export class UpdateableMessageNode extends ExplorerNode {
+export class UpdateableMessageNode extends ViewNode {
     constructor(
-        parent: ExplorerNode,
+        parent: ViewNode,
         public readonly id: string,
         private _message: string,
         private _tooltip?: string,
@@ -85,7 +85,7 @@ export class UpdateableMessageNode extends ExplorerNode {
         super(unknownGitUri, parent);
     }
 
-    getChildren(): ExplorerNode[] | Promise<ExplorerNode[]> {
+    getChildren(): ViewNode[] | Promise<ViewNode[]> {
         return [];
     }
 
@@ -112,7 +112,7 @@ export class UpdateableMessageNode extends ExplorerNode {
                   }
                 | ThemeIcon;
         },
-        explorer: Explorer
+        view: View
     ) {
         if (changes.message !== undefined) {
             this._message = changes.message;
@@ -126,22 +126,22 @@ export class UpdateableMessageNode extends ExplorerNode {
             this._iconPath = changes.iconPath === null ? undefined : changes.iconPath;
         }
 
-        explorer.triggerNodeUpdate(this);
+        view.triggerNodeUpdate(this);
     }
 }
 
-export abstract class PagerNode extends ExplorerNode {
+export abstract class PagerNode extends ViewNode {
     protected _args: RefreshNodeCommandArgs = {};
 
     constructor(
         protected readonly message: string,
-        protected readonly parent: ExplorerNode,
-        protected readonly explorer: Explorer
+        protected readonly parent: ViewNode,
+        protected readonly view: View
     ) {
         super(unknownGitUri, parent);
     }
 
-    getChildren(): ExplorerNode[] | Promise<ExplorerNode[]> {
+    getChildren(): ViewNode[] | Promise<ViewNode[]> {
         return [];
     }
 
@@ -159,25 +159,20 @@ export abstract class PagerNode extends ExplorerNode {
     getCommand(): Command | undefined {
         return {
             title: 'Refresh',
-            command: this.explorer.getQualifiedCommand('refreshNode'),
+            command: this.view.getQualifiedCommand('refreshNode'),
             arguments: [this.parent, this._args]
         } as Command;
     }
 }
 
 export class ShowMoreNode extends PagerNode {
-    constructor(
-        type: string,
-        parent: ExplorerNode,
-        explorer: Explorer,
-        maxCount: number = Container.config.advanced.maxListItems
-    ) {
+    constructor(type: string, parent: ViewNode, view: View, maxCount: number = Container.config.advanced.maxListItems) {
         super(
             maxCount === 0
                 ? `Show All ${type} ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`
                 : `Show More ${type}`,
             parent,
-            explorer
+            view
         );
         this._args.maxCount = maxCount;
     }

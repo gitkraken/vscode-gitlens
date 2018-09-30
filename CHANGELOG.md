@@ -222,7 +222,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds the ability to control where the _GitLens_, _GitLens File History_, and _GitLens Results_ explorers are shown 🎉 &mdash; closes [#213](https://github.com/eamodio/vscode-gitlens/issues/213), [#377](https://github.com/eamodio/vscode-gitlens/issues/377)
   - Adds `gitlens.gitExplorer.location` setting to the interactive settings editor to specify where the _GitLens_ explorer is shown &mdash; either in the _Explorer_ or _Source Control_ view
   - Adds `gitlens.historyExplorer.location` setting to the interactive settings editor to specify where the _GitLens File History_ explorer is shown &mdash; either in the _Explorer_ or _Source Control_ view
-  - Adds `gitlens.resultsExplorer.location` setting to the interactive settings editor to specify where the _GitLens Results_ explorer is shown &mdash; either in the _Explorer_ or _Source Control_ view
+  - Adds `gitlens.resultsView.location` setting to the interactive settings editor to specify where the _GitLens Results_ explorer is shown &mdash; either in the _Explorer_ or _Source Control_ view
 
 ### Changed
 
@@ -270,7 +270,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a tree layout option to tags in the _GitLens_ explorer &mdash; closes [#358](https://github.com/eamodio/vscode-gitlens/issues/358)
 - Adds _Show GitLens Explorer_ (`gitlens.showGitExplorer`) command &mdash; shows/expands the _GitLens_ explorer
 - Adds _Show File History Explorer_ (`gitlens.showHistoryExplorer`) command &mdash; shows/expands the _GitLens File History_ explorer
-- Adds _Show Results Explorer_ (`gitlens.showResultsExplorer`) command &mdash; shows/expands the _GitLens Results_ explorer
+- Adds _Show Results Explorer_ (`gitlens.showResultsView`) command &mdash; shows/expands the _GitLens Results_ explorer
 
 ### Changed
 
@@ -501,9 +501,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Renames _Show Files in Automatic View_ (`gitlens.gitExplorer.setFilesLayoutToAuto`) command to _Automatic Layout_
 - Renames _Show Files in List View_ (`gitlens.gitExplorer.setFilesLayoutToList`) command to _List Layout_
 - Renames _Show Files in Tree View_ (`gitlens.gitExplorer.setFilesLayoutToTree`) command to _Tree Layout_
-- Renames _Show Files in Automatic View_ (`gitlens.resultsExplorer.setFilesLayoutToAuto`) command to _Automatic Layout_
-- Renames _Show Files in List View_ (`gitlens.resultsExplorer.setFilesLayoutToAuto`) command to _List Layout_
-- Renames _Show Files in Tree View_ (`gitlens.resultsExplorer.setFilesLayoutToAuto`) command to _Tree Layout_
+- Renames _Show Files in Automatic View_ (`gitlens.resultsView.setFilesLayoutToAuto`) command to _Automatic Layout_
+- Renames _Show Files in List View_ (`gitlens.resultsView.setFilesLayoutToAuto`) command to _List Layout_
+- Renames _Show Files in Tree View_ (`gitlens.resultsView.setFilesLayoutToAuto`) command to _Tree Layout_
 - Overhauls GitLens' settings for better clarity and ease-of-use
 - Renames `gitlens.annotations.file.gutter.gravatars` setting to `gitlens.blame.avatars`
 - Renames `gitlens.annotations.file.gutter.compact` setting to `gitlens.blame.compact`
@@ -539,13 +539,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes `gitlens.codeLens.debug` setting, use `gitlens.debug` instead
 - Removes `gitlens.blame.file.annotationType` setting, use `gitlens.hovers.annotations.enabled`
 - Removes `gitlens.blame.line.annotationType` setting, use `gitlens.currentLine.enabled` or `gitlens.hovers.currentLine.enabled` instead
-- Removes `gitlens.resultsExplorer.gravatars` setting, use `gitlens.explorers.avatars` instead
-- Removes `gitlens.resultsExplorer.commitFileFormat` setting, use `gitlens.explorers.commitFileFormat` instead
-- Removes `gitlens.resultsExplorer.commitFormat` setting, use `gitlens.explorers.commitFormat` instead
-- Removes `gitlens.resultsExplorer.showTrackingBranch` setting
-- Removes `gitlens.resultsExplorer.stashFileFormat` setting, use `gitlens.explorers.stashFileFormat` instead
-- Removes `gitlens.resultsExplorer.stashFormat` setting, use `gitlens.explorers.stashFormat` instead
-- Removes `gitlens.resultsExplorer.statusFileFormat` setting, use `gitlens.explorers.statusFileFormat` instead
+- Removes `gitlens.resultsView.gravatars` setting, use `gitlens.explorers.avatars` instead
+- Removes `gitlens.resultsView.commitFileFormat` setting, use `gitlens.explorers.commitFileFormat` instead
+- Removes `gitlens.resultsView.commitFormat` setting, use `gitlens.explorers.commitFormat` instead
+- Removes `gitlens.resultsView.showTrackingBranch` setting
+- Removes `gitlens.resultsView.stashFileFormat` setting, use `gitlens.explorers.stashFileFormat` instead
+- Removes `gitlens.resultsView.stashFormat` setting, use `gitlens.explorers.stashFormat` instead
+- Removes `gitlens.resultsView.statusFileFormat` setting, use `gitlens.explorers.statusFileFormat` instead
 - Removes `gitlens.annotations.file.hover.changes` setting, use `gitlens.hovers.annotations.changes` instead
 - Removes `gitlens.annotations.file.hover.details` setting, use `gitlens.hovers.annotations.details` instead
 - Removes `gitlens.annotations.file.hover.heatmap.enabled` setting
@@ -669,7 +669,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Renames _Compare Line Revision with Working_ command (`gitlens.diffLineWithWorking`) to _Compare Line Revision with Working File_
 - Renames _Open Changes with Working Tree_ command (`gitlens.openChangesWithWorking`) to _Open Changes with Working File_
 - Deprecates `gitlens.gitExplorer.gravatarsDefault` setting, replaced by `gitlens.defaultGravatarsStyle`
-- Deprecates `gitlens.resultsExplorer.gravatarsDefault` setting, replaced by `gitlens.defaultGravatarsStyle`
+- Deprecates `gitlens.resultsView.gravatarsDefault` setting, replaced by `gitlens.defaultGravatarsStyle`
 
 ### Fixed
 
@@ -750,8 +750,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
   - Adds `gitlens.gitExplorer.gravatars` setting to specify whether to show gravatar images instead of commit (or status) icons in the _GitLens_ explorer
   - Adds `gitlens.gitExplorer.gravatarsDefault` setting to specify the style of the gravatar default (fallback) images in the _GitLens_ explorer<br />`identicon` - a geometric pattern<br />`mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)<br />`monsterid` - a monster with different colors, faces, etc<br />`retro` - 8-bit arcade-style pixelated faces<br />`robohash` - a robot with different colors, faces, etc<br />`wavatar` - faces with differing features and backgrounds
-  - Adds `gitlens.resultsExplorer.gravatars` setting to specify whether to show gravatar images instead of commit (or status) icons in the _GitLens Results_ explorer
-  - Adds `gitlens.resultsExplorer.gravatarsDefault` setting to specify the style of the gravatar default (fallback) images in the _GitLens Results_ explorer<br />`identicon` - a geometric pattern<br />`mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)<br />`monsterid` - a monster with different colors, faces, etc<br />`retro` - 8-bit arcade-style pixelated faces<br />`robohash` - a robot with different colors, faces, etc<br />`wavatar` - faces with differing features and backgrounds
+  - Adds `gitlens.resultsView.gravatars` setting to specify whether to show gravatar images instead of commit (or status) icons in the _GitLens Results_ explorer
+  - Adds `gitlens.resultsView.gravatarsDefault` setting to specify the style of the gravatar default (fallback) images in the _GitLens Results_ explorer<br />`identicon` - a geometric pattern<br />`mm` - (mystery-man) a simple, cartoon-style silhouetted outline of a person (does not vary by email hash)<br />`monsterid` - a monster with different colors, faces, etc<br />`retro` - 8-bit arcade-style pixelated faces<br />`robohash` - a robot with different colors, faces, etc<br />`wavatar` - faces with differing features and backgrounds
 
 - Adds _Select for Compare_ command (`gitlens.explorers.selectForCompare`) to branch, remote branch, tag, and revision (commit) nodes in the _GitLens_ explorer to mark the base reference of a comparison
 - Adds _Compare with Selected_ command (`gitlens.explorers.compareWithSelected`) to branch, remote branch, tag, and revision (commit) nodes in the _GitLens_ explorer once another reference within the same repository has been selected to compare the current selection with the previously selected reference in the _GitLens Results_ explorer

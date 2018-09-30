@@ -3,21 +3,21 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { GitStatus, GitUri } from '../../git/gitService';
 import { Iterables, Strings } from '../../system';
-import { RepositoriesExplorer } from '../repositoriesExplorer';
+import { RepositoriesView } from '../repositoriesView';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
-import { ExplorerNode, PageableExplorerNode, ResourceType } from './explorerNode';
 import { insertDateMarkers } from './helpers';
+import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
 
-export class StatusUpstreamNode extends ExplorerNode implements PageableExplorerNode {
+export class StatusUpstreamNode extends ViewNode implements PageableViewNode {
     readonly supportsPaging: boolean = true;
     maxCount: number | undefined;
 
     constructor(
         public readonly status: GitStatus,
         public readonly direction: 'ahead' | 'behind',
-        parent: ExplorerNode,
-        public readonly explorer: RepositoriesExplorer
+        parent: ViewNode,
+        public readonly view: RepositoriesView
     ) {
         super(GitUri.fromRepoPath(status.repoPath), parent);
     }
@@ -26,14 +26,14 @@ export class StatusUpstreamNode extends ExplorerNode implements PageableExplorer
         return `gitlens:repository(${this.status.repoPath}):status:upstream:${this.direction}`;
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         const ahead = this.direction === 'ahead';
         const range = ahead
             ? `${this.status.upstream}..${this.status.ref}`
             : `${this.status.ref}..${this.status.upstream}`;
 
         const log = await Container.git.getLog(this.uri.repoPath!, {
-            maxCount: this.maxCount || this.explorer.config.defaultItemLimit,
+            maxCount: this.maxCount || this.view.config.defaultItemLimit,
             ref: range
         });
         if (log === undefined) return [];
@@ -50,12 +50,12 @@ export class StatusUpstreamNode extends ExplorerNode implements PageableExplorer
                 }
             }
 
-            children = [...insertDateMarkers(commits.map(c => new CommitNode(c, this, this.explorer)), this, 1)];
+            children = [...insertDateMarkers(commits.map(c => new CommitNode(c, this, this.view)), this, 1)];
         }
         else {
             children = [
                 ...insertDateMarkers(
-                    Iterables.map(log.commits.values(), c => new CommitNode(c, this, this.explorer)),
+                    Iterables.map(log.commits.values(), c => new CommitNode(c, this, this.view)),
                     this,
                     1
                 )
@@ -63,7 +63,7 @@ export class StatusUpstreamNode extends ExplorerNode implements PageableExplorer
         }
 
         if (log.truncated) {
-            children.push(new ShowMoreNode('Commits', this, this.explorer));
+            children.push(new ShowMoreNode('Commits', this, this.view));
         }
         return children;
     }

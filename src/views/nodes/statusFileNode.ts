@@ -12,11 +12,11 @@ import {
     StatusFileFormatter
 } from '../../git/gitService';
 import { Strings } from '../../system';
-import { Explorer } from '../explorer';
+import { View } from '../viewBase';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
-import { ExplorerNode, ResourceType } from './explorerNode';
+import { ResourceType, ViewNode } from './viewNode';
 
-export class StatusFileNode extends ExplorerNode {
+export class StatusFileNode extends ViewNode {
     private readonly _hasStagedChanges: boolean = false;
     private readonly _hasUnstagedChanges: boolean = false;
 
@@ -24,8 +24,8 @@ export class StatusFileNode extends ExplorerNode {
         public readonly repoPath: string,
         public readonly file: GitFile,
         public readonly commits: GitLogCommit[],
-        parent: ExplorerNode,
-        public readonly explorer: Explorer
+        parent: ViewNode,
+        public readonly view: View
     ) {
         super(GitUri.fromFile(file, repoPath, 'HEAD'), parent);
 
@@ -41,16 +41,16 @@ export class StatusFileNode extends ExplorerNode {
         }
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         return this.commits.map(
             c =>
                 new CommitFileNode(
                     this.file,
                     c,
                     this,
-                    this.explorer,
+                    this.view,
                     CommitFileNodeDisplayAs.CommitLabel |
-                        (this.explorer.config.avatars
+                        (this.view.config.avatars
                             ? CommitFileNodeDisplayAs.Gravatar
                             : CommitFileNodeDisplayAs.CommitIcon)
                 )
@@ -132,7 +132,7 @@ export class StatusFileNode extends ExplorerNode {
     get label() {
         if (this._label === undefined) {
             this._label = StatusFileFormatter.fromTemplate(
-                this.explorer.config.statusFileFormat,
+                this.view.config.statusFileFormat,
                 {
                     ...this.file,
                     commit: this.commit

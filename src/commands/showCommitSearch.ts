@@ -142,7 +142,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
         }
 
         if (args.showInResults) {
-            Container.resultsExplorer.addSearchResults(
+            Container.resultsView.addSearchResults(
                 repoPath,
                 Container.git.getLogForSearch(repoPath, args.search!, args.searchBy!, {
                     maxCount: args.maxCount
@@ -187,7 +187,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                                   [uri, { ...args, maxCount: 0, goBackCommand: goBackCommand }]
                               )
                             : undefined,
-                    showInResultsExplorerCommand:
+                    showInResultsCommand:
                         log !== undefined ? new ShowCommitsSearchInResultsQuickPickItem(log, searchLabel!) : undefined
                 });
                 if (pick === undefined) return undefined;

@@ -39,12 +39,12 @@ export enum DateStyle {
     Relative = 'relative'
 }
 
-export enum ExplorerBranchesLayout {
+export enum ViewBranchesLayout {
     List = 'list',
     Tree = 'tree'
 }
 
-export enum ExplorerFilesLayout {
+export enum ViewFilesLayout {
     Auto = 'auto',
     List = 'list',
     Tree = 'tree'
@@ -140,10 +140,11 @@ export interface CodeLensConfig {
     symbolScopes: string[];
 }
 
-export interface ExplorersConfig {
+export interface ViewsConfig {
     avatars: boolean;
+    fileHistory: FileHistoryViewConfig;
     files: {
-        layout: ExplorerFilesLayout;
+        layout: ViewFilesLayout;
         compact: boolean;
         threshold: number;
     };
@@ -151,24 +152,27 @@ export interface ExplorersConfig {
     commitFormat: string;
     // dateFormat: string | null;
     defaultItemLimit: number;
+    lineHistory: LineHistoryViewConfig;
+    repositories: RepositoriesViewConfig;
+    results: ResultsViewConfig;
     stashFileFormat: string;
     stashFormat: string;
     statusFileFormat: string;
 }
 
-export interface ExplorersFilesConfig {
+export interface ViewsFilesConfig {
     compact: boolean;
-    layout: ExplorerFilesLayout;
+    layout: ViewFilesLayout;
     threshold: number;
 }
 
-export interface FileHistoryExplorerConfig {
+export interface FileHistoryViewConfig {
     avatars: boolean;
     enabled: boolean;
     location: 'explorer' | 'gitlens' | 'scm';
 }
 
-export interface LineHistoryExplorerConfig extends FileHistoryExplorerConfig {}
+export interface LineHistoryViewConfig extends FileHistoryViewConfig {}
 
 export interface MenuConfig {
     editor:
@@ -209,26 +213,26 @@ export interface ModeConfig {
     description?: string;
     codeLens?: boolean;
     currentLine?: boolean;
-    explorers?: boolean;
     hovers?: boolean;
     statusBar?: boolean;
+    views?: boolean;
 }
 
-export interface RepositoriesExplorerConfig {
+export interface RepositoriesViewConfig {
     autoRefresh: boolean;
     autoReveal: boolean;
     branches: {
-        layout: ExplorerBranchesLayout;
+        layout: ViewBranchesLayout;
     };
     enabled: boolean;
-    files: ExplorersFilesConfig;
+    files: ViewsFilesConfig;
     includeWorkingTree: boolean;
     location: 'explorer' | 'gitlens' | 'scm';
     showTrackingBranch: boolean;
 }
 
-export interface ResultsExplorerConfig {
-    files: ExplorersFilesConfig;
+export interface ResultsViewConfig {
+    files: ViewsFilesConfig;
     location: 'explorer' | 'gitlens' | 'scm';
 }
 
@@ -281,14 +285,12 @@ export interface Config {
     defaultDateFormat: string | null;
     defaultDateStyle: DateStyle;
     defaultGravatarsStyle: GravatarDefaultStyle;
-    explorers: ExplorersConfig;
     heatmap: {
         ageThreshold: number;
         coldColor: string;
         hotColor: string;
         toggleMode: AnnotationsToggleMode;
     };
-    fileHistoryExplorer: FileHistoryExplorerConfig;
     hovers: {
         annotations: {
             changes: boolean;
@@ -307,7 +309,6 @@ export interface Config {
     };
     insiders: boolean;
     keymap: KeyMap;
-    lineHistoryExplorer: LineHistoryExplorerConfig;
     menus: boolean | MenuConfig;
     mode: {
         active: string;
@@ -325,8 +326,6 @@ export interface Config {
         toggleMode: AnnotationsToggleMode;
     };
     remotes: RemotesConfig[];
-    repositoriesExplorer: RepositoriesExplorerConfig;
-    resultsExplorer: ResultsExplorerConfig;
     showWhatsNewAfterUpgrades: boolean;
     statusBar: {
         alignment: 'left' | 'right';
@@ -345,5 +344,6 @@ export interface Config {
             };
         };
     };
+    views: ViewsConfig;
     advanced: AdvancedConfig;
 }

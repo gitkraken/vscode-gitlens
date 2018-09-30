@@ -2,20 +2,20 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitService';
 import { Arrays, Objects } from '../../system';
-import { Explorer } from '../explorer';
+import { View } from '../viewBase';
 import { BranchNode } from './branchNode';
-import { ExplorerNode, ResourceType } from './explorerNode';
 import { TagNode } from './tagNode';
+import { ResourceType, ViewNode } from './viewNode';
 
-export class BranchOrTagFolderNode extends ExplorerNode {
+export class BranchOrTagFolderNode extends ViewNode {
     constructor(
         public readonly type: 'branch' | 'remote-branch' | 'tag',
         public readonly repoPath: string,
         public readonly folderName: string,
         public readonly relativePath: string | undefined,
         public readonly root: Arrays.IHierarchicalItem<BranchNode | TagNode>,
-        parent: ExplorerNode,
-        public readonly explorer: Explorer,
+        parent: ViewNode,
+        public readonly view: View,
         private readonly _expanded: boolean = false
     ) {
         super(GitUri.fromRepoPath(repoPath), parent);
@@ -25,7 +25,7 @@ export class BranchOrTagFolderNode extends ExplorerNode {
         return `gitlens:repository(${this.repoPath}):${this.type}-folder(${this.folderName})`;
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         if (this.root.descendants === undefined || this.root.children === undefined) return [];
 
         const children: (BranchOrTagFolderNode | BranchNode | TagNode)[] = [];
@@ -44,7 +44,7 @@ export class BranchOrTagFolderNode extends ExplorerNode {
                         folder.relativePath,
                         folder,
                         this,
-                        this.explorer,
+                        this.view,
                         expanded
                     )
                 );

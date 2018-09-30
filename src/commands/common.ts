@@ -19,7 +19,7 @@ import { GitBranch, GitCommit, GitFile, GitRemote, GitUri, Repository } from '..
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepositoriesQuickPick } from '../quickpicks';
 // import { Telemetry } from '../telemetry';
-import { ExplorerNode, ExplorerRefNode } from '../views/nodes';
+import { ViewNode, ViewRefNode } from '../views/nodes';
 
 export enum Commands {
     ClearFileAnnotations = 'gitlens.clearFileAnnotations',
@@ -42,8 +42,6 @@ export enum Commands {
     DiffWithWorking = 'gitlens.diffWithWorking',
     DiffLineWithWorking = 'gitlens.diffLineWithWorking',
     ExternalDiff = 'gitlens.externalDiff',
-    ExplorersOpenDirectoryDiff = 'gitlens.explorers.openDirectoryDiff',
-    ExplorersOpenDirectoryDiffWithWorking = 'gitlens.explorers.openDirectoryDiffWithWorking',
     OpenChangedFiles = 'gitlens.openChangedFiles',
     OpenBranchesInRemote = 'gitlens.openBranchesInRemote',
     OpenBranchInRemote = 'gitlens.openBranchInRemote',
@@ -56,9 +54,9 @@ export enum Commands {
     ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',
     ShowCommitInResults = 'gitlens.showCommitInResults',
     ShowCommitSearch = 'gitlens.showCommitSearch',
-    ShowFileHistoryExplorer = 'gitlens.showFileHistoryExplorer',
+    ShowFileHistoryView = 'gitlens.showFileHistoryView',
     ShowFileHistoryInResults = 'gitlens.showFileHistoryInResults',
-    ShowLineHistoryExplorer = 'gitlens.showLineHistoryExplorer',
+    ShowLineHistoryView = 'gitlens.showLineHistoryView',
     ShowLastQuickPick = 'gitlens.showLastQuickPick',
     ShowQuickBranchHistory = 'gitlens.showQuickBranchHistory',
     ShowQuickCommitDetails = 'gitlens.showQuickCommitDetails',
@@ -68,8 +66,8 @@ export enum Commands {
     ShowQuickRepoStatus = 'gitlens.showQuickRepoStatus',
     ShowQuickRevisionDetails = 'gitlens.showQuickRevisionDetails',
     ShowQuickStashList = 'gitlens.showQuickStashList',
-    ShowRepositoriesExplorer = 'gitlens.showRepositoriesExplorer',
-    ShowResultsExplorer = 'gitlens.showResultsExplorer',
+    ShowRepositoriesView = 'gitlens.showRepositoriesView',
+    ShowResultsView = 'gitlens.showResultsView',
     ShowSettingsPage = 'gitlens.showSettingsPage',
     ShowWelcomePage = 'gitlens.showWelcomePage',
     StashApply = 'gitlens.stashApply',
@@ -82,7 +80,9 @@ export enum Commands {
     ToggleFileRecentChanges = 'gitlens.toggleFileRecentChanges',
     ToggleLineBlame = 'gitlens.toggleLineBlame',
     ToggleReviewMode = 'gitlens.toggleReviewMode',
-    ToggleZenMode = 'gitlens.toggleZenMode'
+    ToggleZenMode = 'gitlens.toggleZenMode',
+    ViewsOpenDirectoryDiff = 'gitlens.views.openDirectoryDiff',
+    ViewsOpenDirectoryDiffWithWorking = 'gitlens.views.openDirectoryDiffWithWorking'
 }
 
 export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
@@ -181,40 +181,40 @@ export interface CommandViewContext extends CommandBaseContext {
 
 export interface CommandViewItemContext extends CommandBaseContext {
     type: 'viewItem';
-    node: ExplorerNode;
+    node: ViewNode;
 }
 
 export function isCommandViewContextWithBranch(
     context: CommandContext
-): context is CommandViewItemContext & { node: ExplorerNode & { branch: GitBranch } } {
+): context is CommandViewItemContext & { node: ViewNode & { branch: GitBranch } } {
     if (context.type !== 'viewItem') return false;
 
-    return (context.node as ExplorerNode & { branch: GitBranch }).branch instanceof GitBranch;
+    return (context.node as ViewNode & { branch: GitBranch }).branch instanceof GitBranch;
 }
 
 export function isCommandViewContextWithCommit<T extends GitCommit>(
     context: CommandContext
-): context is CommandViewItemContext & { node: ExplorerNode & { commit: T } } {
+): context is CommandViewItemContext & { node: ViewNode & { commit: T } } {
     if (context.type !== 'viewItem') return false;
 
-    return (context.node as ExplorerNode & { commit: GitCommit }).commit instanceof GitCommit;
+    return (context.node as ViewNode & { commit: GitCommit }).commit instanceof GitCommit;
 }
 
 export function isCommandViewContextWithFile(
     context: CommandContext
-): context is CommandViewItemContext & { node: ExplorerNode & { file: GitFile; repoPath: string } } {
+): context is CommandViewItemContext & { node: ViewNode & { file: GitFile; repoPath: string } } {
     if (context.type !== 'viewItem') return false;
 
-    const node = context.node as ExplorerNode & { file: GitFile; repoPath: string };
+    const node = context.node as ViewNode & { file: GitFile; repoPath: string };
     return node.file !== undefined && (node.file.repoPath !== undefined || node.repoPath !== undefined);
 }
 
 export function isCommandViewContextWithFileCommit(
     context: CommandContext
-): context is CommandViewItemContext & { node: ExplorerNode & { commit: GitCommit; file: GitFile; repoPath: string } } {
+): context is CommandViewItemContext & { node: ViewNode & { commit: GitCommit; file: GitFile; repoPath: string } } {
     if (context.type !== 'viewItem') return false;
 
-    const node = context.node as ExplorerNode & { commit: GitCommit; file: GitFile; repoPath: string };
+    const node = context.node as ViewNode & { commit: GitCommit; file: GitFile; repoPath: string };
     return (
         node.file !== undefined &&
         node.commit instanceof GitCommit &&
@@ -225,11 +225,11 @@ export function isCommandViewContextWithFileCommit(
 export function isCommandViewContextWithFileRefs(
     context: CommandContext
 ): context is CommandViewItemContext & {
-    node: ExplorerNode & { file: GitFile; ref1: string; ref2: string; repoPath: string };
+    node: ViewNode & { file: GitFile; ref1: string; ref2: string; repoPath: string };
 } {
     if (context.type !== 'viewItem') return false;
 
-    const node = context.node as ExplorerNode & { file: GitFile; ref1: string; ref2: string; repoPath: string };
+    const node = context.node as ViewNode & { file: GitFile; ref1: string; ref2: string; repoPath: string };
     return (
         node.file !== undefined &&
         node.ref1 !== undefined &&
@@ -240,24 +240,24 @@ export function isCommandViewContextWithFileRefs(
 
 export function isCommandViewContextWithRef(
     context: CommandContext
-): context is CommandViewItemContext & { node: ExplorerNode & { ref: string } } {
-    return context.type === 'viewItem' && context.node instanceof ExplorerRefNode;
+): context is CommandViewItemContext & { node: ViewNode & { ref: string } } {
+    return context.type === 'viewItem' && context.node instanceof ViewRefNode;
 }
 
 export function isCommandViewContextWithRemote(
     context: CommandContext
-): context is CommandViewItemContext & { node: ExplorerNode & { remote: GitRemote } } {
+): context is CommandViewItemContext & { node: ViewNode & { remote: GitRemote } } {
     if (context.type !== 'viewItem') return false;
 
-    return (context.node as ExplorerNode & { remote: GitRemote }).remote instanceof GitRemote;
+    return (context.node as ViewNode & { remote: GitRemote }).remote instanceof GitRemote;
 }
 
 export function isCommandViewContextWithRepo(
     context: CommandContext
-): context is CommandViewItemContext & { node: ExplorerNode & { repo: Repository } } {
+): context is CommandViewItemContext & { node: ViewNode & { repo: Repository } } {
     if (context.type !== 'viewItem') return false;
 
-    return (context.node as ExplorerNode & { repo?: Repository }).repo instanceof Repository;
+    return (context.node as ViewNode & { repo?: Repository }).repo instanceof Repository;
 }
 
 export type CommandContext =
@@ -362,8 +362,8 @@ export abstract class Command implements Disposable {
             }
         }
 
-        if (firstArg instanceof ExplorerNode) {
-            const [node, ...rest] = args as [ExplorerNode, any];
+        if (firstArg instanceof ViewNode) {
+            const [node, ...rest] = args as [ViewNode, any];
             return [{ command: command, type: 'viewItem', node: node, uri: node.uri }, rest];
         }
 

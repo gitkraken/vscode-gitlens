@@ -21,8 +21,6 @@ import {
     BranchNode,
     CommitFileNode,
     CommitNode,
-    ExplorerNode,
-    ExplorerRefNode,
     RemoteNode,
     RepositoryNode,
     ResultsFileNode,
@@ -30,7 +28,9 @@ import {
     StashNode,
     StatusFileNode,
     StatusUpstreamNode,
-    TagNode
+    TagNode,
+    ViewNode,
+    ViewRefNode
 } from './nodes';
 
 export interface RefreshNodeCommandArgs {
@@ -43,68 +43,64 @@ interface ICompareSelected {
     uri?: Uri;
 }
 
-export class ExplorerCommands implements Disposable {
+export class ViewCommands implements Disposable {
     private _disposable: Disposable | undefined;
     private _terminal: Terminal | undefined;
     private _terminalCwd: string | undefined;
 
     constructor() {
-        commands.registerCommand('gitlens.explorers.fetch', this.fetch, this);
-        commands.registerCommand('gitlens.explorers.pull', this.pull, this);
-        commands.registerCommand('gitlens.explorers.push', this.push, this);
-        commands.registerCommand('gitlens.explorers.closeRepository', this.closeRepository, this);
+        commands.registerCommand('gitlens.views.fetch', this.fetch, this);
+        commands.registerCommand('gitlens.views.pull', this.pull, this);
+        commands.registerCommand('gitlens.views.push', this.push, this);
+        commands.registerCommand('gitlens.views.closeRepository', this.closeRepository, this);
 
-        commands.registerCommand('gitlens.explorers.exploreRepoRevision', this.exploreRepoRevision, this);
+        commands.registerCommand('gitlens.views.exploreRepoRevision', this.exploreRepoRevision, this);
 
-        commands.registerCommand('gitlens.explorers.openChanges', this.openChanges, this);
-        commands.registerCommand('gitlens.explorers.openChangesWithWorking', this.openChangesWithWorking, this);
-        commands.registerCommand('gitlens.explorers.openFile', this.openFile, this);
-        commands.registerCommand('gitlens.explorers.openFileRevision', this.openFileRevision, this);
-        commands.registerCommand('gitlens.explorers.openFileRevisionInRemote', this.openFileRevisionInRemote, this);
-        commands.registerCommand('gitlens.explorers.openChangedFiles', this.openChangedFiles, this);
-        commands.registerCommand('gitlens.explorers.openChangedFileChanges', this.openChangedFileChanges, this);
+        commands.registerCommand('gitlens.views.openChanges', this.openChanges, this);
+        commands.registerCommand('gitlens.views.openChangesWithWorking', this.openChangesWithWorking, this);
+        commands.registerCommand('gitlens.views.openFile', this.openFile, this);
+        commands.registerCommand('gitlens.views.openFileRevision', this.openFileRevision, this);
+        commands.registerCommand('gitlens.views.openFileRevisionInRemote', this.openFileRevisionInRemote, this);
+        commands.registerCommand('gitlens.views.openChangedFiles', this.openChangedFiles, this);
+        commands.registerCommand('gitlens.views.openChangedFileChanges', this.openChangedFileChanges, this);
         commands.registerCommand(
-            'gitlens.explorers.openChangedFileChangesWithWorking',
+            'gitlens.views.openChangedFileChangesWithWorking',
             this.openChangedFileChangesWithWorking,
             this
         );
-        commands.registerCommand('gitlens.explorers.openChangedFileRevisions', this.openChangedFileRevisions, this);
-        commands.registerCommand('gitlens.explorers.applyChanges', this.applyChanges, this);
+        commands.registerCommand('gitlens.views.openChangedFileRevisions', this.openChangedFileRevisions, this);
+        commands.registerCommand('gitlens.views.applyChanges', this.applyChanges, this);
 
-        commands.registerCommand('gitlens.explorers.stageFile', this.stageFile, this);
-        commands.registerCommand('gitlens.explorers.unstageFile', this.unstageFile, this);
+        commands.registerCommand('gitlens.views.stageFile', this.stageFile, this);
+        commands.registerCommand('gitlens.views.unstageFile', this.unstageFile, this);
 
-        commands.registerCommand('gitlens.explorers.compareAncestryWithWorking', this.compareAncestryWithWorking, this);
-        commands.registerCommand('gitlens.explorers.compareWithHead', this.compareWithHead, this);
-        commands.registerCommand('gitlens.explorers.compareWithRemote', this.compareWithRemote, this);
-        commands.registerCommand('gitlens.explorers.compareWithSelected', this.compareWithSelected, this);
-        commands.registerCommand('gitlens.explorers.compareWithWorking', this.compareWithWorking, this);
-        commands.registerCommand('gitlens.explorers.selectForCompare', this.selectForCompare, this);
+        commands.registerCommand('gitlens.views.compareAncestryWithWorking', this.compareAncestryWithWorking, this);
+        commands.registerCommand('gitlens.views.compareWithHead', this.compareWithHead, this);
+        commands.registerCommand('gitlens.views.compareWithRemote', this.compareWithRemote, this);
+        commands.registerCommand('gitlens.views.compareWithSelected', this.compareWithSelected, this);
+        commands.registerCommand('gitlens.views.compareWithWorking', this.compareWithWorking, this);
+        commands.registerCommand('gitlens.views.selectForCompare', this.selectForCompare, this);
 
-        commands.registerCommand('gitlens.explorers.terminalCheckoutBranch', this.terminalCheckoutBranch, this);
-        commands.registerCommand('gitlens.explorers.terminalCreateBranch', this.terminalCreateBranch, this);
-        commands.registerCommand('gitlens.explorers.terminalDeleteBranch', this.terminalDeleteBranch, this);
-        commands.registerCommand('gitlens.explorers.terminalMergeBranch', this.terminalMergeBranch, this);
-        commands.registerCommand('gitlens.explorers.terminalRebaseBranch', this.terminalRebaseBranch, this);
+        commands.registerCommand('gitlens.views.terminalCheckoutBranch', this.terminalCheckoutBranch, this);
+        commands.registerCommand('gitlens.views.terminalCreateBranch', this.terminalCreateBranch, this);
+        commands.registerCommand('gitlens.views.terminalDeleteBranch', this.terminalDeleteBranch, this);
+        commands.registerCommand('gitlens.views.terminalMergeBranch', this.terminalMergeBranch, this);
+        commands.registerCommand('gitlens.views.terminalRebaseBranch', this.terminalRebaseBranch, this);
+        commands.registerCommand('gitlens.views.terminalRebaseBranchToRemote', this.terminalRebaseBranchToRemote, this);
         commands.registerCommand(
-            'gitlens.explorers.terminalRebaseBranchToRemote',
-            this.terminalRebaseBranchToRemote,
-            this
-        );
-        commands.registerCommand(
-            'gitlens.explorers.terminalSquashBranchIntoCommit',
+            'gitlens.views.terminalSquashBranchIntoCommit',
             this.terminalSquashBranchIntoCommit,
             this
         );
-        commands.registerCommand('gitlens.explorers.terminalCheckoutCommit', this.terminalCheckoutCommit, this);
-        commands.registerCommand('gitlens.explorers.terminalCherryPickCommit', this.terminalCherryPickCommit, this);
-        commands.registerCommand('gitlens.explorers.terminalPushCommit', this.terminalPushCommit, this);
-        commands.registerCommand('gitlens.explorers.terminalRebaseCommit', this.terminalRebaseCommit, this);
-        commands.registerCommand('gitlens.explorers.terminalResetCommit', this.terminalResetCommit, this);
-        commands.registerCommand('gitlens.explorers.terminalRevertCommit', this.terminalRevertCommit, this);
-        commands.registerCommand('gitlens.explorers.terminalRemoveRemote', this.terminalRemoveRemote, this);
-        commands.registerCommand('gitlens.explorers.terminalCreateTag', this.terminalCreateTag, this);
-        commands.registerCommand('gitlens.explorers.terminalDeleteTag', this.terminalDeleteTag, this);
+        commands.registerCommand('gitlens.views.terminalCheckoutCommit', this.terminalCheckoutCommit, this);
+        commands.registerCommand('gitlens.views.terminalCherryPickCommit', this.terminalCherryPickCommit, this);
+        commands.registerCommand('gitlens.views.terminalPushCommit', this.terminalPushCommit, this);
+        commands.registerCommand('gitlens.views.terminalRebaseCommit', this.terminalRebaseCommit, this);
+        commands.registerCommand('gitlens.views.terminalResetCommit', this.terminalResetCommit, this);
+        commands.registerCommand('gitlens.views.terminalRevertCommit', this.terminalRevertCommit, this);
+        commands.registerCommand('gitlens.views.terminalRemoveRemote', this.terminalRemoveRemote, this);
+        commands.registerCommand('gitlens.views.terminalCreateTag', this.terminalCreateTag, this);
+        commands.registerCommand('gitlens.views.terminalDeleteTag', this.terminalDeleteTag, this);
     }
 
     dispose() {
@@ -143,22 +139,22 @@ export class ExplorerCommands implements Disposable {
         node.repo.closed = true;
     }
 
-    private compareWithHead(node: ExplorerNode) {
-        if (!(node instanceof ExplorerRefNode)) return;
+    private compareWithHead(node: ViewNode) {
+        if (!(node instanceof ViewRefNode)) return;
 
-        return Container.resultsExplorer.addComparison(node.repoPath, node.ref, 'HEAD');
+        return Container.resultsView.addComparison(node.repoPath, node.ref, 'HEAD');
     }
 
     private compareWithRemote(node: BranchNode) {
         if (!node.branch.tracking) return;
 
-        return Container.resultsExplorer.addComparison(node.repoPath, node.branch.tracking, node.ref);
+        return Container.resultsView.addComparison(node.repoPath, node.branch.tracking, node.ref);
     }
 
-    private compareWithWorking(node: ExplorerNode) {
-        if (!(node instanceof ExplorerRefNode)) return;
+    private compareWithWorking(node: ViewNode) {
+        if (!(node instanceof ViewRefNode)) return;
 
-        return Container.resultsExplorer.addComparison(node.repoPath, node.ref, '');
+        return Container.resultsView.addComparison(node.repoPath, node.ref, '');
     }
 
     private async compareAncestryWithWorking(node: BranchNode) {
@@ -168,15 +164,15 @@ export class ExplorerCommands implements Disposable {
         const commonAncestor = await Container.git.getMergeBase(node.repoPath, branch.ref, node.ref);
         if (commonAncestor === undefined) return;
 
-        return Container.resultsExplorer.addComparison(
+        return Container.resultsView.addComparison(
             node.repoPath,
             { ref: commonAncestor, label: `ancestry with ${node.ref} (${GitService.shortenSha(commonAncestor)})` },
             ''
         );
     }
 
-    private compareWithSelected(node: ExplorerNode) {
-        if (this._selection === undefined || !(node instanceof ExplorerRefNode)) return;
+    private compareWithSelected(node: ViewNode) {
+        if (this._selection === undefined || !(node instanceof ViewRefNode)) return;
         if (this._selection.repoPath !== node.repoPath) return;
 
         if (this._selection.uri !== undefined) {
@@ -198,24 +194,24 @@ export class ExplorerCommands implements Disposable {
             return;
         }
 
-        return Container.resultsExplorer.addComparison(this._selection.repoPath, this._selection.ref, node.ref);
+        return Container.resultsView.addComparison(this._selection.repoPath, this._selection.ref, node.ref);
     }
 
     private _selection: ICompareSelected | undefined;
 
-    private selectForCompare(node: ExplorerNode) {
-        if (!(node instanceof ExplorerRefNode)) return;
+    private selectForCompare(node: ViewNode) {
+        if (!(node instanceof ViewRefNode)) return;
 
         this._selection = {
             ref: node.ref,
             repoPath: node.repoPath,
             uri: node instanceof CommitFileNode ? node.uri : undefined
         };
-        setCommandContext(CommandContext.ExplorersCanCompare, true);
+        setCommandContext(CommandContext.ViewsCanCompare, true);
     }
 
-    private exploreRepoRevision(node: ExplorerRefNode, options: { openInNewWindow?: boolean } = {}) {
-        if (!(node instanceof ExplorerRefNode)) return;
+    private exploreRepoRevision(node: ViewRefNode, options: { openInNewWindow?: boolean } = {}) {
+        if (!(node instanceof ViewRefNode)) return;
 
         const uri = toGitLensFSUri(node.ref, node.repoPath);
         const gitUri = GitUri.fromRevisionUri(uri);
@@ -378,14 +374,14 @@ export class ExplorerCommands implements Disposable {
         Container.git.unStageFile(node.repoPath, node.file.fileName);
     }
 
-    async terminalCheckoutBranch(node: ExplorerNode) {
+    async terminalCheckoutBranch(node: ViewNode) {
         if (!(node instanceof BranchNode)) return;
 
         this.sendTerminalCommand('checkout', `${node.ref}`, node.repoPath);
     }
 
-    async terminalCreateBranch(node: ExplorerNode) {
-        if (!(node instanceof ExplorerRefNode)) return;
+    async terminalCreateBranch(node: ViewNode) {
+        if (!(node instanceof ViewRefNode)) return;
 
         let remoteBranch = false;
         let value = undefined;
@@ -404,7 +400,7 @@ export class ExplorerCommands implements Disposable {
         this.sendTerminalCommand('branch', `${remoteBranch ? '-t ' : ''}${name} ${node.ref}`, node.repoPath);
     }
 
-    terminalDeleteBranch(node: ExplorerNode) {
+    terminalDeleteBranch(node: ViewNode) {
         if (!(node instanceof BranchNode)) return;
 
         if (node.branch.remote) {
@@ -415,19 +411,19 @@ export class ExplorerCommands implements Disposable {
         }
     }
 
-    terminalMergeBranch(node: ExplorerNode) {
+    terminalMergeBranch(node: ViewNode) {
         if (!(node instanceof BranchNode)) return;
 
         this.sendTerminalCommand('merge', `${node.ref}`, node.repoPath);
     }
 
-    terminalRebaseBranch(node: ExplorerNode) {
+    terminalRebaseBranch(node: ViewNode) {
         if (!(node instanceof BranchNode)) return;
 
         this.sendTerminalCommand('rebase', `-i ${node.ref}`, node.repoPath);
     }
 
-    terminalRebaseBranchToRemote(node: ExplorerNode) {
+    terminalRebaseBranchToRemote(node: ViewNode) {
         if (node instanceof BranchNode) {
             if (!node.branch.current || !node.branch.tracking) return;
 
@@ -438,25 +434,25 @@ export class ExplorerCommands implements Disposable {
         }
     }
 
-    terminalSquashBranchIntoCommit(node: ExplorerNode) {
+    terminalSquashBranchIntoCommit(node: ViewNode) {
         if (!(node instanceof BranchNode)) return;
 
         this.sendTerminalCommand('merge', `--squash ${node.ref}`, node.repoPath);
     }
 
-    terminalCheckoutCommit(node: ExplorerNode) {
+    terminalCheckoutCommit(node: ViewNode) {
         if (!(node instanceof CommitNode)) return;
 
         this.sendTerminalCommand('checkout', `${node.ref}`, node.repoPath);
     }
 
-    terminalCherryPickCommit(node: ExplorerNode) {
+    terminalCherryPickCommit(node: ViewNode) {
         if (!(node instanceof CommitNode)) return;
 
         this.sendTerminalCommand('cherry-pick', `-e ${node.ref}`, node.repoPath);
     }
 
-    async terminalPushCommit(node: ExplorerNode) {
+    async terminalPushCommit(node: ViewNode) {
         if (!(node instanceof CommitNode)) return;
 
         const branch = node.branch || (await Container.git.getBranch(node.repoPath));
@@ -465,32 +461,32 @@ export class ExplorerCommands implements Disposable {
         this.sendTerminalCommand('push', `${branch.getRemote()} ${node.ref}:${branch.getName()}`, node.repoPath);
     }
 
-    terminalRebaseCommit(node: ExplorerNode) {
+    terminalRebaseCommit(node: ViewNode) {
         if (!(node instanceof CommitNode)) return;
 
         this.sendTerminalCommand('rebase', `-i ${node.ref}^`, node.repoPath);
     }
 
-    terminalResetCommit(node: ExplorerNode) {
+    terminalResetCommit(node: ViewNode) {
         if (!(node instanceof CommitNode)) return;
 
         this.sendTerminalCommand('reset', `--soft ${node.ref}`, node.repoPath);
     }
 
-    terminalRevertCommit(node: ExplorerNode) {
+    terminalRevertCommit(node: ViewNode) {
         if (!(node instanceof CommitNode)) return;
 
         this.sendTerminalCommand('revert', `-e ${node.ref}`, node.repoPath);
     }
 
-    terminalRemoveRemote(node: ExplorerNode) {
+    terminalRemoveRemote(node: ViewNode) {
         if (!(node instanceof RemoteNode)) return;
 
         this.sendTerminalCommand('remote', `remove ${node.remote.name}`, node.remote.repoPath);
     }
 
-    async terminalCreateTag(node: ExplorerNode) {
-        if (!(node instanceof ExplorerRefNode)) return;
+    async terminalCreateTag(node: ViewNode) {
+        if (!(node instanceof ViewRefNode)) return;
 
         const name = await window.showInputBox({
             prompt: `Please provide a tag name (Press 'Enter' to confirm or 'Escape' to cancel)`,
@@ -508,7 +504,7 @@ export class ExplorerCommands implements Disposable {
         this.sendTerminalCommand('tag', args, node.repoPath);
     }
 
-    terminalDeleteTag(node: ExplorerNode) {
+    terminalDeleteTag(node: ViewNode) {
         if (!(node instanceof TagNode)) return;
 
         this.sendTerminalCommand('tag', `-d ${node.ref}`, node.repoPath);

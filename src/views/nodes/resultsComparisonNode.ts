@@ -4,17 +4,17 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitService, GitUri } from '../../git/gitService';
 import { Strings } from '../../system';
-import { ResultsExplorer } from '../resultsExplorer';
-import { ExplorerNode, NamedRef, ResourceType } from './explorerNode';
+import { ResultsView } from '../resultsView';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { ResultsFilesNode } from './resultsFilesNode';
+import { NamedRef, ResourceType, ViewNode } from './viewNode';
 
-export class ResultsComparisonNode extends ExplorerNode {
+export class ResultsComparisonNode extends ViewNode {
     constructor(
         public readonly repoPath: string,
         ref1: NamedRef,
         ref2: NamedRef,
-        public readonly explorer: ResultsExplorer
+        public readonly view: ResultsView
     ) {
         super(GitUri.fromRepoPath(repoPath), undefined);
 
@@ -32,10 +32,10 @@ export class ResultsComparisonNode extends ExplorerNode {
         return this._ref2;
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         return [
-            new ResultsCommitsNode(this.uri.repoPath!, this.getCommitsQuery.bind(this), this, this.explorer),
-            new ResultsFilesNode(this.uri.repoPath!, this._ref1.ref, this._ref2.ref, this, this.explorer)
+            new ResultsCommitsNode(this.uri.repoPath!, this.getCommitsQuery.bind(this), this, this.view),
+            new ResultsFilesNode(this.uri.repoPath!, this._ref1.ref, this._ref2.ref, this, this.view)
         ];
     }
 
@@ -62,7 +62,7 @@ export class ResultsComparisonNode extends ExplorerNode {
         this._ref1 = this._ref2;
         this._ref2 = ref1;
 
-        this.explorer.triggerNodeUpdate(this);
+        this.view.triggerNodeUpdate(this);
     }
 
     private async getCommitsQuery(maxCount: number | undefined): Promise<CommitsQueryResults> {

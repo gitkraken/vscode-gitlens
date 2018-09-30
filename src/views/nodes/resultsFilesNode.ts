@@ -1,52 +1,49 @@
 'use strict';
 import * as path from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ExplorerFilesLayout } from '../../configuration';
+import { ViewFilesLayout } from '../../configuration';
 import { Container } from '../../container';
 import { GitFile, GitUri } from '../../git/gitService';
 import { Arrays, Iterables, Strings } from '../../system';
-import { Explorer } from '../explorer';
-import { ExplorerNode, ResourceType } from './explorerNode';
-import { FileExplorerNode, FolderNode } from './folderNode';
+import { View } from '../viewBase';
+import { FileNode, FolderNode } from './folderNode';
 import { ResultsFileNode } from './resultsFileNode';
+import { ResourceType, ViewNode } from './viewNode';
 
 export interface FilesQueryResults {
     label: string;
     diff: GitFile[] | undefined;
 }
 
-export class ResultsFilesNode extends ExplorerNode {
+export class ResultsFilesNode extends ViewNode {
     constructor(
         public readonly repoPath: string,
         private readonly _ref1: string,
         private readonly _ref2: string,
-        parent: ExplorerNode,
-        public readonly explorer: Explorer
+        parent: ViewNode,
+        public readonly view: View
     ) {
         super(GitUri.fromRepoPath(repoPath), parent);
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         const { diff } = await this.getFilesQueryResults();
         if (diff === undefined) return [];
 
-        let children: FileExplorerNode[] = [
-            ...Iterables.map(
-                diff,
-                s => new ResultsFileNode(this.repoPath, s, this._ref1, this._ref2, this, this.explorer)
-            )
+        let children: FileNode[] = [
+            ...Iterables.map(diff, s => new ResultsFileNode(this.repoPath, s, this._ref1, this._ref2, this, this.view))
         ];
 
-        if (this.explorer.config.files.layout !== ExplorerFilesLayout.List) {
+        if (this.view.config.files.layout !== ViewFilesLayout.List) {
             const hierarchy = Arrays.makeHierarchical(
                 children,
                 n => n.uri.getRelativePath().split('/'),
                 (...paths: string[]) => Strings.normalizePath(path.join(...paths)),
-                this.explorer.config.files.compact
+                this.view.config.files.compact
             );
 
-            const root = new FolderNode(this.repoPath, '', undefined, hierarchy, this, this.explorer);
-            children = (await root.getChildren()) as FileExplorerNode[];
+            const root = new FolderNode(this.repoPath, '', undefined, hierarchy, this, this.view);
+            children = (await root.getChildren()) as FileNode[];
         }
         else {
             children.sort((a, b) => a.priority - b.priority || a.label!.localeCompare(b.label!));

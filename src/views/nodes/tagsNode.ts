@@ -1,21 +1,21 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ExplorerBranchesLayout } from '../../configuration';
+import { ViewBranchesLayout } from '../../configuration';
 import { Container } from '../../container';
 import { GitUri, Repository } from '../../git/gitService';
 import { Arrays } from '../../system';
-import { RepositoriesExplorer } from '../repositoriesExplorer';
+import { RepositoriesView } from '../repositoriesView';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
-import { ExplorerNode, ResourceType } from './explorerNode';
 import { TagNode } from './tagNode';
+import { ResourceType, ViewNode } from './viewNode';
 
-export class TagsNode extends ExplorerNode {
+export class TagsNode extends ViewNode {
     constructor(
         uri: GitUri,
         public readonly repo: Repository,
-        parent: ExplorerNode,
-        public readonly explorer: RepositoriesExplorer
+        parent: ViewNode,
+        public readonly view: RepositoriesView
     ) {
         super(uri, parent);
     }
@@ -24,22 +24,22 @@ export class TagsNode extends ExplorerNode {
         return `gitlens:repository(${this.repo.path}):tags`;
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         const tags = await this.repo.getTags();
         if (tags.length === 0) return [new MessageNode(this, 'No tags yet')];
 
         tags.sort((a, b) => a.name.localeCompare(b.name));
-        const tagNodes = [...tags.map(t => new TagNode(t, this.uri, this, this.explorer))];
-        if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) return tagNodes;
+        const tagNodes = [...tags.map(t => new TagNode(t, this.uri, this, this.view))];
+        if (this.view.config.branches.layout === ViewBranchesLayout.List) return tagNodes;
 
         const hierarchy = Arrays.makeHierarchical(
             tagNodes,
             n => n.tag.name.split('/'),
             (...paths: string[]) => paths.join('/'),
-            this.explorer.config.files.compact
+            this.view.config.files.compact
         );
 
-        const root = new BranchOrTagFolderNode('tag', this.repo.path, '', undefined, hierarchy, this, this.explorer);
+        const root = new BranchOrTagFolderNode('tag', this.repo.path, '', undefined, hierarchy, this, this.view);
         const children = (await root.getChildren()) as (BranchOrTagFolderNode | TagNode)[];
         return children;
     }

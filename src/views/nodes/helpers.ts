@@ -1,7 +1,7 @@
 'use strict';
 import { GitLogCommit } from '../../git/gitService';
 import { MessageNode } from './common';
-import { ExplorerNode } from './explorerNode';
+import { ViewNode } from './viewNode';
 
 const markers: [number, string][] = [
     [0, 'Less than a week ago'],
@@ -11,10 +11,10 @@ const markers: [number, string][] = [
 ];
 
 export function* insertDateMarkers(
-    iterable: Iterable<ExplorerNode & { commit: GitLogCommit }>,
-    parent: ExplorerNode,
+    iterable: Iterable<ViewNode & { commit: GitLogCommit }>,
+    parent: ViewNode,
     skip?: number
-): Iterable<ExplorerNode> {
+): Iterable<ViewNode> {
     let index = skip || 0;
     let time = undefined;
     const now = Date.now();

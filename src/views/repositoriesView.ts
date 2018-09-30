@@ -1,16 +1,16 @@
 'use strict';
 import { commands, ConfigurationChangeEvent, Event, EventEmitter } from 'vscode';
-import { configuration, ExplorerFilesLayout, ExplorersConfig, RepositoriesExplorerConfig } from '../configuration';
+import { configuration, RepositoriesViewConfig, ViewFilesLayout, ViewsConfig } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
-import { ExplorerBase, RefreshReason } from './explorer';
-import { RefreshNodeCommandArgs } from './explorerCommands';
 import { RepositoriesNode } from './nodes';
-import { ExplorerNode } from './nodes/explorerNode';
+import { ViewNode } from './nodes/viewNode';
+import { RefreshReason, ViewBase } from './viewBase';
+import { RefreshNodeCommandArgs } from './viewCommands';
 
-export class RepositoriesExplorer extends ExplorerBase<RepositoriesNode> {
+export class RepositoriesView extends ViewBase<RepositoriesNode> {
     constructor() {
-        super('gitlens.repositoriesExplorer');
+        super('gitlens.views.repositories');
     }
 
     private _onDidChangeAutoRefresh = new EventEmitter<void>();
@@ -23,7 +23,7 @@ export class RepositoriesExplorer extends ExplorerBase<RepositoriesNode> {
     }
 
     protected registerCommands() {
-        Container.explorerCommands;
+        Container.viewCommands;
 
         commands.registerCommand(this.getQualifiedCommand('fetchAll'), () => this.fetchAll(), this);
         commands.registerCommand(this.getQualifiedCommand('pullAll'), () => this.pullAll(), this);
@@ -31,33 +31,33 @@ export class RepositoriesExplorer extends ExplorerBase<RepositoriesNode> {
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
         commands.registerCommand(
             this.getQualifiedCommand('refreshNode'),
-            (node: ExplorerNode, args?: RefreshNodeCommandArgs) => this.refreshNode(node, args),
+            (node: ViewNode, args?: RefreshNodeCommandArgs) => this.refreshNode(node, args),
             this
         );
         commands.registerCommand(
             this.getQualifiedCommand('setFilesLayoutToAuto'),
-            () => this.setFilesLayout(ExplorerFilesLayout.Auto),
+            () => this.setFilesLayout(ViewFilesLayout.Auto),
             this
         );
         commands.registerCommand(
             this.getQualifiedCommand('setFilesLayoutToList'),
-            () => this.setFilesLayout(ExplorerFilesLayout.List),
+            () => this.setFilesLayout(ViewFilesLayout.List),
             this
         );
         commands.registerCommand(
             this.getQualifiedCommand('setFilesLayoutToTree'),
-            () => this.setFilesLayout(ExplorerFilesLayout.Tree),
+            () => this.setFilesLayout(ViewFilesLayout.Tree),
             this
         );
 
         commands.registerCommand(
             this.getQualifiedCommand('setAutoRefreshToOn'),
-            () => this.setAutoRefresh(Container.config.repositoriesExplorer.autoRefresh, true),
+            () => this.setAutoRefresh(Container.config.views.repositories.autoRefresh, true),
             this
         );
         commands.registerCommand(
             this.getQualifiedCommand('setAutoRefreshToOff'),
-            () => this.setAutoRefresh(Container.config.repositoriesExplorer.autoRefresh, false),
+            () => this.setAutoRefresh(Container.config.views.repositories.autoRefresh, false),
             this
         );
     }
@@ -67,8 +67,8 @@ export class RepositoriesExplorer extends ExplorerBase<RepositoriesNode> {
 
         if (
             !initializing &&
-            !configuration.changed(e, configuration.name('repositoriesExplorer').value) &&
-            !configuration.changed(e, configuration.name('explorers').value) &&
+            !configuration.changed(e, configuration.name('views')('repositories').value) &&
+            !configuration.changed(e, configuration.name('views').value) &&
             !configuration.changed(e, configuration.name('defaultGravatarsStyle').value)
         ) {
             return;
@@ -76,17 +76,17 @@ export class RepositoriesExplorer extends ExplorerBase<RepositoriesNode> {
 
         if (
             initializing ||
-            configuration.changed(e, configuration.name('repositoriesExplorer')('enabled').value) ||
-            configuration.changed(e, configuration.name('repositoriesExplorer')('location').value)
+            configuration.changed(e, configuration.name('views')('repositories')('enabled').value) ||
+            configuration.changed(e, configuration.name('views')('repositories')('location').value)
         ) {
-            setCommandContext(CommandContext.RepositoriesExplorer, this.config.enabled ? this.config.location : false);
+            setCommandContext(CommandContext.ViewsRepositories, this.config.enabled ? this.config.location : false);
         }
 
-        if (configuration.changed(e, configuration.name('repositoriesExplorer')('autoRefresh').value)) {
-            void this.setAutoRefresh(Container.config.repositoriesExplorer.autoRefresh);
+        if (configuration.changed(e, configuration.name('views')('repositories')('autoRefresh').value)) {
+            void this.setAutoRefresh(Container.config.views.repositories.autoRefresh);
         }
 
-        if (initializing || configuration.changed(e, configuration.name('repositoriesExplorer')('location').value)) {
+        if (initializing || configuration.changed(e, configuration.name('views')('repositories')('location').value)) {
             this.initialize(this.config.location);
         }
 
@@ -98,12 +98,12 @@ export class RepositoriesExplorer extends ExplorerBase<RepositoriesNode> {
     get autoRefresh() {
         return (
             this.config.autoRefresh &&
-            Container.context.workspaceState.get<boolean>(WorkspaceState.RepositoriesExplorerAutoRefresh, true)
+            Container.context.workspaceState.get<boolean>(WorkspaceState.ViewsRepositoriesAutoRefresh, true)
         );
     }
 
-    get config(): ExplorersConfig & RepositoriesExplorerConfig {
-        return { ...Container.config.explorers, ...Container.config.repositoriesExplorer };
+    get config(): ViewsConfig & RepositoriesViewConfig {
+        return { ...Container.config.views, ...Container.config.views.repositories };
     }
 
     private fetchAll() {
@@ -122,26 +122,26 @@ export class RepositoriesExplorer extends ExplorerBase<RepositoriesNode> {
         if (enabled) {
             if (workspaceEnabled === undefined) {
                 workspaceEnabled = Container.context.workspaceState.get<boolean>(
-                    WorkspaceState.RepositoriesExplorerAutoRefresh,
+                    WorkspaceState.ViewsRepositoriesAutoRefresh,
                     true
                 );
             }
             else {
                 await Container.context.workspaceState.update(
-                    WorkspaceState.RepositoriesExplorerAutoRefresh,
+                    WorkspaceState.ViewsRepositoriesAutoRefresh,
                     workspaceEnabled
                 );
             }
         }
 
-        setCommandContext(CommandContext.RepositoriesExplorerAutoRefresh, enabled && workspaceEnabled);
+        setCommandContext(CommandContext.ViewsRepositoriesAutoRefresh, enabled && workspaceEnabled);
 
         this._onDidChangeAutoRefresh.fire();
     }
 
-    private setFilesLayout(layout: ExplorerFilesLayout) {
+    private setFilesLayout(layout: ViewFilesLayout) {
         return configuration.updateEffective(
-            configuration.name('repositoriesExplorer')('files')('layout').value,
+            configuration.name('views')('repositories')('files')('layout').value,
             layout
         );
     }

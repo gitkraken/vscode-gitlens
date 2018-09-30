@@ -15,29 +15,29 @@ import {
 } from '../../git/gitService';
 import { Logger } from '../../logger';
 import { Dates, Functions, Strings } from '../../system';
-import { RepositoriesExplorer } from '../repositoriesExplorer';
+import { RepositoriesView } from '../repositoriesView';
 import { BranchesNode } from './branchesNode';
 import { BranchNode } from './branchNode';
 import { MessageNode } from './common';
-import { ExplorerNode, ResourceType, SubscribeableExplorerNode } from './explorerNode';
 import { RemotesNode } from './remotesNode';
 import { StashesNode } from './stashesNode';
 import { StatusFilesNode } from './statusFilesNode';
 import { StatusUpstreamNode } from './statusUpstreamNode';
 import { TagsNode } from './tagsNode';
+import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
 
-export class RepositoryNode extends SubscribeableExplorerNode<RepositoriesExplorer> {
-    private _children: ExplorerNode[] | undefined;
+export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
+    private _children: ViewNode[] | undefined;
     private _lastFetched: number = 0;
     private _status: Promise<GitStatus | undefined>;
 
     constructor(
         uri: GitUri,
         public readonly repo: Repository,
-        parent: ExplorerNode,
-        explorer: RepositoriesExplorer
+        parent: ViewNode,
+        view: RepositoriesView
     ) {
-        super(uri, parent, explorer);
+        super(uri, parent, view);
 
         this._status = this.repo.getStatus();
     }
@@ -46,7 +46,7 @@ export class RepositoryNode extends SubscribeableExplorerNode<RepositoriesExplor
         return `gitlens:repository(${this.repo.path})`;
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         if (this._children === undefined) {
             const children = [];
 
@@ -62,29 +62,29 @@ export class RepositoryNode extends SubscribeableExplorerNode<RepositoriesExplor
                     status.state.behind,
                     status.detached
                 );
-                children.push(new BranchNode(branch, this.uri, this, this.explorer, false));
+                children.push(new BranchNode(branch, this.uri, this, this.view, false));
 
                 if (status.state.behind) {
-                    children.push(new StatusUpstreamNode(status, 'behind', this, this.explorer));
+                    children.push(new StatusUpstreamNode(status, 'behind', this, this.view));
                 }
 
                 if (status.state.ahead) {
-                    children.push(new StatusUpstreamNode(status, 'ahead', this, this.explorer));
+                    children.push(new StatusUpstreamNode(status, 'ahead', this, this.view));
                 }
 
                 if (status.state.ahead || (status.files.length !== 0 && this.includeWorkingTree)) {
                     const range = status.upstream ? `${status.upstream}..${branch.ref}` : undefined;
-                    children.push(new StatusFilesNode(status, range, this, this.explorer));
+                    children.push(new StatusFilesNode(status, range, this, this.view));
                 }
 
                 children.push(new MessageNode(this, GlyphChars.Dash.repeat(2), ''));
             }
 
             children.push(
-                new BranchesNode(this.uri, this.repo, this, this.explorer),
-                new RemotesNode(this.uri, this.repo, this, this.explorer),
-                new StashesNode(this.uri, this.repo, this, this.explorer),
-                new TagsNode(this.uri, this.repo, this, this.explorer)
+                new BranchesNode(this.uri, this.repo, this, this.view),
+                new RemotesNode(this.uri, this.repo, this, this.view),
+                new StashesNode(this.uri, this.repo, this, this.view),
+                new TagsNode(this.uri, this.repo, this, this.view)
             );
             this._children = children;
         }
@@ -186,7 +186,7 @@ export class RepositoryNode extends SubscribeableExplorerNode<RepositoriesExplor
         await commands.executeCommand('git.fetch', this.repo.path);
 
         await this.updateLastFetched();
-        this.explorer.triggerNodeUpdate(this);
+        this.view.triggerNodeUpdate(this);
     }
 
     async pull(progress: boolean = true) {
@@ -206,7 +206,7 @@ export class RepositoryNode extends SubscribeableExplorerNode<RepositoriesExplor
         await commands.executeCommand('git.pull', this.repo.path);
 
         await this.updateLastFetched();
-        this.explorer.triggerNodeUpdate(this);
+        this.view.triggerNodeUpdate(this);
     }
 
     async push(progress: boolean = true) {
@@ -225,7 +225,7 @@ export class RepositoryNode extends SubscribeableExplorerNode<RepositoriesExplor
     private async pushCore() {
         await commands.executeCommand('git.push', this.repo.path);
 
-        this.explorer.triggerNodeUpdate(this);
+        this.view.triggerNodeUpdate(this);
     }
 
     refresh() {
@@ -254,11 +254,11 @@ export class RepositoryNode extends SubscribeableExplorerNode<RepositoriesExplor
     }
 
     private get includeWorkingTree(): boolean {
-        return this.explorer.config.includeWorkingTree;
+        return this.view.config.includeWorkingTree;
     }
 
     private onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
-        void this.explorer.refreshNode(this);
+        void this.view.refreshNode(this);
     }
 
     private onRepoChanged(e: RepositoryChangeEvent) {
@@ -275,7 +275,7 @@ export class RepositoryNode extends SubscribeableExplorerNode<RepositoriesExplor
             e.changed(RepositoryChange.Repository) ||
             e.changed(RepositoryChange.Config)
         ) {
-            void this.explorer.refreshNode(this);
+            void this.view.refreshNode(this);
 
             return;
         }
@@ -283,21 +283,21 @@ export class RepositoryNode extends SubscribeableExplorerNode<RepositoriesExplor
         if (e.changed(RepositoryChange.Stashes)) {
             const node = this._children.find(c => c instanceof StashesNode);
             if (node !== undefined) {
-                void this.explorer.refreshNode(node);
+                void this.view.refreshNode(node);
             }
         }
 
         if (e.changed(RepositoryChange.Remotes)) {
             const node = this._children.find(c => c instanceof RemotesNode);
             if (node !== undefined) {
-                void this.explorer.refreshNode(node);
+                void this.view.refreshNode(node);
             }
         }
 
         if (e.changed(RepositoryChange.Tags)) {
             const node = this._children.find(c => c instanceof TagsNode);
             if (node !== undefined) {
-                void this.explorer.refreshNode(node);
+                void this.view.refreshNode(node);
             }
         }
     }
@@ -332,6 +332,6 @@ export class RepositoryNode extends SubscribeableExplorerNode<RepositoriesExplor
         // If the fetched date hasn't changed and it was over a day ago, kick out
         if (this._lastFetched === prevLastFetched && Date.now() - this._lastFetched >= Dates.MillisecondsPerDay) return;
 
-        this.explorer.triggerNodeUpdate(this);
+        this.view.triggerNodeUpdate(this);
     }
 }

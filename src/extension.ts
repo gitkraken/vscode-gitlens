@@ -9,6 +9,7 @@ import { GitService } from './git/gitService';
 import { Logger } from './logger';
 import { Messages } from './messages';
 import { Strings, Versions } from './system';
+import { ModeConfig } from './ui/config';
 // import { Telemetry } from './telemetry';
 
 export async function activate(context: ExtensionContext) {
@@ -33,20 +34,20 @@ export async function activate(context: ExtensionContext) {
 
     const cfg = configuration.get<Config>();
 
-    // Pretend we are enabled (until we know otherwise) and set the explorer contexts to reduce flashing on load
+    // Pretend we are enabled (until we know otherwise) and set the view contexts to reduce flashing on load
     await Promise.all([
         setCommandContext(CommandContext.Enabled, true),
         setCommandContext(
-            CommandContext.RepositoriesExplorer,
-            cfg.repositoriesExplorer.enabled ? cfg.repositoriesExplorer.location : false
+            CommandContext.ViewsRepositories,
+            cfg.views.repositories.enabled ? cfg.views.repositories.location : false
         ),
         setCommandContext(
-            CommandContext.FileHistoryExplorer,
-            cfg.fileHistoryExplorer.enabled ? cfg.fileHistoryExplorer.location : false
+            CommandContext.ViewsFileHistory,
+            cfg.views.fileHistory.enabled ? cfg.views.fileHistory.location : false
         ),
         setCommandContext(
-            CommandContext.LineHistoryExplorer,
-            cfg.lineHistoryExplorer.enabled ? cfg.lineHistoryExplorer.location : false
+            CommandContext.ViewsLineHistory,
+            cfg.views.lineHistory.enabled ? cfg.views.lineHistory.location : false
         )
     ]);
 
@@ -105,66 +106,126 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
         if (Versions.compare(previous, Versions.from(9, 0, 0)) !== 1) {
             await configuration.migrate(
                 'gitExplorer.autoRefresh',
-                configuration.name('repositoriesExplorer')('autoRefresh').value
+                configuration.name('views')('repositories')('autoRefresh').value
             );
             await configuration.migrate(
                 'gitExplorer.branches.layout',
-                configuration.name('repositoriesExplorer')('branches')('layout').value
+                configuration.name('views')('repositories')('branches')('layout').value
             );
             await configuration.migrate(
                 'gitExplorer.enabled',
-                configuration.name('repositoriesExplorer')('enabled').value
+                configuration.name('views')('repositories')('enabled').value
             );
             await configuration.migrate(
                 'gitExplorer.files.compact',
-                configuration.name('repositoriesExplorer')('files')('compact').value
+                configuration.name('views')('repositories')('files')('compact').value
             );
             await configuration.migrate(
                 'gitExplorer.files.layout',
-                configuration.name('repositoriesExplorer')('files')('layout').value
+                configuration.name('views')('repositories')('files')('layout').value
             );
             await configuration.migrate(
                 'gitExplorer.files.threshold',
-                configuration.name('repositoriesExplorer')('files')('threshold').value
+                configuration.name('views')('repositories')('files')('threshold').value
             );
             await configuration.migrate(
                 'gitExplorer.includeWorkingTree',
-                configuration.name('repositoriesExplorer')('includeWorkingTree').value
+                configuration.name('views')('repositories')('includeWorkingTree').value
             );
             await configuration.migrate(
                 'gitExplorer.location',
-                configuration.name('repositoriesExplorer')('location').value
+                configuration.name('views')('repositories')('location').value
             );
             await configuration.migrate(
                 'gitExplorer.showTrackingBranch',
-                configuration.name('repositoriesExplorer')('showTrackingBranch').value
+                configuration.name('views')('repositories')('showTrackingBranch').value
             );
 
             await configuration.migrate(
                 'historyExplorer.avatars',
-                configuration.name('fileHistoryExplorer')('avatars').value
+                configuration.name('views')('fileHistory')('avatars').value
             );
             await configuration.migrate(
                 'historyExplorer.enabled',
-                configuration.name('fileHistoryExplorer')('enabled').value
+                configuration.name('views')('fileHistory')('enabled').value
             );
             await configuration.migrate(
                 'historyExplorer.location',
-                configuration.name('fileHistoryExplorer')('location').value
+                configuration.name('views')('fileHistory')('location').value
             );
 
             await configuration.migrate(
                 'historyExplorer.avatars',
-                configuration.name('lineHistoryExplorer')('avatars').value
+                configuration.name('views')('lineHistory')('avatars').value
             );
             await configuration.migrate(
                 'historyExplorer.enabled',
-                configuration.name('lineHistoryExplorer')('enabled').value
+                configuration.name('views')('lineHistory')('enabled').value
             );
             await configuration.migrate(
                 'historyExplorer.location',
-                configuration.name('lineHistoryExplorer')('location').value
+                configuration.name('views')('lineHistory')('location').value
             );
+
+            await configuration.migrate('explorers.avatars', configuration.name('views')('avatars').value);
+            await configuration.migrate(
+                'explorers.commitFileFormat',
+                configuration.name('views')('commitFileFormat').value
+            );
+            await configuration.migrate('explorers.commitFormat', configuration.name('views')('commitFormat').value);
+            await configuration.migrate(
+                'explorers.defaultItemLimit',
+                configuration.name('views')('defaultItemLimit').value
+            );
+            await configuration.migrate(
+                'explorers.files.compact',
+                configuration.name('views')('files')('compact').value
+            );
+            await configuration.migrate('explorers.files.layout', configuration.name('views')('files')('layout').value);
+            await configuration.migrate(
+                'explorers.files.threshold',
+                configuration.name('views')('files')('threshold').value
+            );
+            await configuration.migrate(
+                'explorers.stashFileFormat',
+                configuration.name('views')('stashFileFormat').value
+            );
+            await configuration.migrate('explorers.stashFormat', configuration.name('views')('stashFormat').value);
+            await configuration.migrate(
+                'explorers.statusFileFormat',
+                configuration.name('views')('statusFileFormat').value
+            );
+
+            await configuration.migrate<
+                {
+                    [key: string]: {
+                        name: string;
+                        statusBarItemName?: string;
+                        description?: string;
+                        codeLens?: boolean;
+                        currentLine?: boolean;
+                        explorers?: boolean;
+                        hovers?: boolean;
+                        statusBar?: boolean;
+                    };
+                },
+                {
+                    [key: string]: ModeConfig;
+                }
+            >('modes', configuration.name('modes').value, {
+                migrationFn: v => {
+                    const modes = Object.create(null);
+
+                    for (const k in v) {
+                        const { explorers, ...mode } = v[k];
+                        modes[k] = { ...mode, views: explorers };
+                    }
+
+                    return modes;
+                }
+            });
+
+            // await configuration.migrate('modes', configuration.name('modes')('').value);
         }
     }
     catch (ex) {

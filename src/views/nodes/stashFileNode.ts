@@ -1,12 +1,12 @@
 'use strict';
 import { GitFile, GitLogCommit } from '../../git/gitService';
-import { Explorer } from '../explorer';
+import { View } from '../viewBase';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
-import { ExplorerNode, ResourceType } from './explorerNode';
+import { ResourceType, ViewNode } from './viewNode';
 
 export class StashFileNode extends CommitFileNode {
-    constructor(file: GitFile, commit: GitLogCommit, parent: ExplorerNode, explorer: Explorer) {
-        super(file, commit, parent, explorer, CommitFileNodeDisplayAs.File);
+    constructor(file: GitFile, commit: GitLogCommit, parent: ViewNode, view: View) {
+        super(file, commit, parent, view, CommitFileNodeDisplayAs.File);
     }
 
     protected get resourceType(): ResourceType {
@@ -14,10 +14,10 @@ export class StashFileNode extends CommitFileNode {
     }
 
     protected getCommitTemplate() {
-        return this.explorer.config.stashFormat;
+        return this.view.config.stashFormat;
     }
 
     protected getCommitFileTemplate() {
-        return this.explorer.config.stashFileFormat;
+        return this.view.config.stashFileFormat;
     }
 }

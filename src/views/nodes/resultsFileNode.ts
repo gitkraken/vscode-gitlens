@@ -4,22 +4,22 @@ import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs } from '../../commands';
 import { Container } from '../../container';
 import { GitFile, GitUri, IStatusFormatOptions, StatusFileFormatter } from '../../git/gitService';
-import { Explorer } from '../explorer';
-import { ExplorerNode, ResourceType } from './explorerNode';
+import { View } from '../viewBase';
+import { ResourceType, ViewNode } from './viewNode';
 
-export class ResultsFileNode extends ExplorerNode {
+export class ResultsFileNode extends ViewNode {
     constructor(
         public readonly repoPath: string,
         public readonly file: GitFile,
         public readonly ref1: string,
         public readonly ref2: string,
-        parent: ExplorerNode,
-        public readonly explorer: Explorer
+        parent: ViewNode,
+        public readonly view: View
     ) {
         super(GitUri.fromFile(file, repoPath, ref1 ? ref1 : ref2 ? ref2 : undefined), parent);
     }
 
-    getChildren(): ExplorerNode[] {
+    getChildren(): ViewNode[] {
         return [];
     }
 

@@ -1,49 +1,49 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ExplorerFilesLayout, ExplorersFilesConfig } from '../../configuration';
+import { ViewFilesLayout, ViewsFilesConfig } from '../../configuration';
 import { GitUri } from '../../git/gitService';
 import { Arrays, Objects } from '../../system';
-import { Explorer } from '../explorer';
-import { ExplorerNode, ResourceType } from './explorerNode';
+import { View } from '../viewBase';
+import { ResourceType, ViewNode } from './viewNode';
 
-export interface FileExplorerNode extends ExplorerNode {
+export interface FileNode extends ViewNode {
     folderName: string;
     label?: string;
     priority: number;
     relativePath?: string;
-    root?: Arrays.IHierarchicalItem<FileExplorerNode>;
+    root?: Arrays.IHierarchicalItem<FileNode>;
 }
 
-export class FolderNode extends ExplorerNode {
+export class FolderNode extends ViewNode {
     readonly priority: number = 1;
 
     constructor(
         public readonly repoPath: string,
         public readonly folderName: string,
         public readonly relativePath: string | undefined,
-        public readonly root: Arrays.IHierarchicalItem<FileExplorerNode>,
-        parent: ExplorerNode,
-        public readonly explorer: Explorer
+        public readonly root: Arrays.IHierarchicalItem<FileNode>,
+        parent: ViewNode,
+        public readonly view: View
     ) {
         super(GitUri.fromRepoPath(repoPath), parent);
     }
 
-    async getChildren(): Promise<(FolderNode | FileExplorerNode)[]> {
+    async getChildren(): Promise<(FolderNode | FileNode)[]> {
         if (this.root.descendants === undefined || this.root.children === undefined) return [];
 
-        let children: (FolderNode | FileExplorerNode)[];
+        let children: (FolderNode | FileNode)[];
 
         const nesting = FolderNode.getFileNesting(
-            this.explorer.config.files,
+            this.view.config.files,
             this.root.descendants,
             this.relativePath === undefined
         );
-        if (nesting !== ExplorerFilesLayout.List) {
+        if (nesting !== ViewFilesLayout.List) {
             children = [];
             for (const folder of Objects.values(this.root.children)) {
                 if (folder.value === undefined) {
                     children.push(
-                        new FolderNode(this.repoPath, folder.name, folder.relativePath, folder, this, this.explorer)
+                        new FolderNode(this.repoPath, folder.name, folder.relativePath, folder, this, this.view)
                     );
                     continue;
                 }
@@ -81,18 +81,18 @@ export class FolderNode extends ExplorerNode {
         return this.folderName;
     }
 
-    static getFileNesting<T extends FileExplorerNode>(
-        config: ExplorersFilesConfig,
+    static getFileNesting<T extends FileNode>(
+        config: ViewsFilesConfig,
         children: T[],
         isRoot: boolean
-    ): ExplorerFilesLayout {
-        const nesting = config.layout || ExplorerFilesLayout.Auto;
-        if (nesting === ExplorerFilesLayout.Auto) {
+    ): ViewFilesLayout {
+        const nesting = config.layout || ViewFilesLayout.Auto;
+        if (nesting === ViewFilesLayout.Auto) {
             if (isRoot || config.compact) {
                 const nestingThreshold = config.threshold || 5;
-                if (children.length <= nestingThreshold) return ExplorerFilesLayout.List;
+                if (children.length <= nestingThreshold) return ViewFilesLayout.List;
             }
-            return ExplorerFilesLayout.Tree;
+            return ViewFilesLayout.Tree;
         }
         return nesting;
     }

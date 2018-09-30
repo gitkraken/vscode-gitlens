@@ -238,7 +238,7 @@ export class ShowCommitInResultsQuickPickItem extends CommandQuickPickItem {
         public readonly commit: GitLogCommit,
         item: QuickPickItem = {
             label: 'Show in Results',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays commit in the GitLens Results explorer`
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays commit in the GitLens Results view`
         }
     ) {
         super(item, undefined, undefined);
@@ -247,7 +247,7 @@ export class ShowCommitInResultsQuickPickItem extends CommandQuickPickItem {
     async execute(
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ): Promise<{} | undefined> {
-        await Container.resultsExplorer.addCommit(this.commit);
+        await Container.resultsView.addCommit(this.commit);
         return undefined;
     }
 }
@@ -258,7 +258,7 @@ export class ShowCommitsInResultsQuickPickItem extends CommandQuickPickItem {
         public readonly resultsLabel: string | { label: string; resultsType?: { singular: string; plural: string } },
         item: QuickPickItem = {
             label: 'Show in Results',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays commits in the GitLens Results explorer`
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays commits in the GitLens Results view`
         }
     ) {
         super(item, undefined, undefined);
@@ -267,7 +267,7 @@ export class ShowCommitsInResultsQuickPickItem extends CommandQuickPickItem {
     async execute(
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ): Promise<{} | undefined> {
-        await Container.resultsExplorer.addSearchResults(this.results.repoPath, this.results, this.resultsLabel);
+        await Container.resultsView.addSearchResults(this.results.repoPath, this.results, this.resultsLabel);
         return undefined;
     }
 }
@@ -278,7 +278,7 @@ export class ShowCommitsSearchInResultsQuickPickItem extends ShowCommitsInResult
         public readonly search: string,
         item: QuickPickItem = {
             label: 'Show in Results',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays results in the GitLens Results explorer`
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays results in the GitLens Results view`
         }
     ) {
         super(results, { label: search }, item);

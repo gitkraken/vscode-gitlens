@@ -13,13 +13,13 @@ import {
 import { configuration } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { RefreshNodeCommandArgs } from './explorerCommands';
-import { FileHistoryExplorer } from './fileHistoryExplorer';
-import { LineHistoryExplorer } from './lineHistoryExplorer';
-import { ExplorerNode } from './nodes';
-import { isPageable } from './nodes/explorerNode';
-import { RepositoriesExplorer } from './repositoriesExplorer';
-import { ResultsExplorer } from './resultsExplorer';
+import { FileHistoryView } from './fileHistoryView';
+import { LineHistoryView } from './lineHistoryView';
+import { ViewNode } from './nodes';
+import { isPageable } from './nodes/viewNode';
+import { RepositoriesView } from './repositoriesView';
+import { ResultsView } from './resultsView';
+import { RefreshNodeCommandArgs } from './viewCommands';
 
 export enum RefreshReason {
     Command = 'Command',
@@ -27,11 +27,11 @@ export enum RefreshReason {
     VisibilityChanged = 'VisibilityChanged'
 }
 
-export type Explorer = RepositoriesExplorer | FileHistoryExplorer | LineHistoryExplorer | ResultsExplorer;
+export type View = RepositoriesView | FileHistoryView | LineHistoryView | ResultsView;
 
-export abstract class ExplorerBase<TRoot extends ExplorerNode> implements TreeDataProvider<ExplorerNode>, Disposable {
-    protected _onDidChangeTreeData = new EventEmitter<ExplorerNode>();
-    public get onDidChangeTreeData(): Event<ExplorerNode> {
+export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvider<ViewNode>, Disposable {
+    protected _onDidChangeTreeData = new EventEmitter<ViewNode>();
+    public get onDidChangeTreeData(): Event<ViewNode> {
         return this._onDidChangeTreeData.event;
     }
 
@@ -42,7 +42,7 @@ export abstract class ExplorerBase<TRoot extends ExplorerNode> implements TreeDa
 
     protected _disposable: Disposable | undefined;
     protected _root: TRoot | undefined;
-    protected _tree: TreeView<ExplorerNode> | undefined;
+    protected _tree: TreeView<ViewNode> | undefined;
 
     constructor(
         public readonly id: string
@@ -68,7 +68,7 @@ export abstract class ExplorerBase<TRoot extends ExplorerNode> implements TreeDa
     protected initialize(container?: string) {
         if (this._disposable) {
             this._disposable.dispose();
-            this._onDidChangeTreeData = new EventEmitter<ExplorerNode>();
+            this._onDidChangeTreeData = new EventEmitter<ViewNode>();
         }
 
         this._tree = window.createTreeView(`${this.id}${container ? `:${container}` : ''}`, {
@@ -80,7 +80,7 @@ export abstract class ExplorerBase<TRoot extends ExplorerNode> implements TreeDa
         );
     }
 
-    getChildren(node?: ExplorerNode): ExplorerNode[] | Promise<ExplorerNode[]> {
+    getChildren(node?: ViewNode): ViewNode[] | Promise<ViewNode[]> {
         if (node !== undefined) return node.getChildren();
 
         if (this._root === undefined) {
@@ -90,11 +90,11 @@ export abstract class ExplorerBase<TRoot extends ExplorerNode> implements TreeDa
         return this._root.getChildren();
     }
 
-    getParent(node: ExplorerNode): ExplorerNode | undefined {
+    getParent(node: ViewNode): ViewNode | undefined {
         return node.getParent();
     }
 
-    getTreeItem(node: ExplorerNode): TreeItem | Promise<TreeItem> {
+    getTreeItem(node: ViewNode): TreeItem | Promise<TreeItem> {
         return node.getTreeItem();
     }
 
@@ -102,7 +102,7 @@ export abstract class ExplorerBase<TRoot extends ExplorerNode> implements TreeDa
         this._onDidChangeVisibility.fire(e);
     }
 
-    get selection(): ExplorerNode[] {
+    get selection(): ViewNode[] {
         if (this._tree === undefined || this._root === undefined) return [];
 
         return this._tree.selection;
@@ -117,7 +117,7 @@ export abstract class ExplorerBase<TRoot extends ExplorerNode> implements TreeDa
             reason = RefreshReason.Command;
         }
 
-        Logger.log(`Explorer(${this.id}).refresh`, `reason='${reason}'`);
+        Logger.log(`View(${this.id}).refresh`, `reason='${reason}'`);
 
         if (this._root !== undefined) {
             await this._root.refresh(reason);
@@ -126,8 +126,8 @@ export abstract class ExplorerBase<TRoot extends ExplorerNode> implements TreeDa
         this.triggerNodeUpdate();
     }
 
-    async refreshNode(node: ExplorerNode, args?: RefreshNodeCommandArgs) {
-        Logger.log(`Explorer(${this.id}).refreshNode(${(node as { id?: string }).id || ''})`);
+    async refreshNode(node: ViewNode, args?: RefreshNodeCommandArgs) {
+        Logger.log(`View(${this.id}).refreshNode(${(node as { id?: string }).id || ''})`);
 
         if (args !== undefined) {
             if (isPageable(node)) {
@@ -147,7 +147,7 @@ export abstract class ExplorerBase<TRoot extends ExplorerNode> implements TreeDa
     }
 
     async reveal(
-        node: ExplorerNode,
+        node: ViewNode,
         options?: {
             select?: boolean | undefined;
             focus?: boolean | undefined;
@@ -171,7 +171,7 @@ export abstract class ExplorerBase<TRoot extends ExplorerNode> implements TreeDa
         return this.reveal(child, { select: false, focus: true });
     }
 
-    triggerNodeUpdate(node?: ExplorerNode) {
+    triggerNodeUpdate(node?: ViewNode) {
         // Since the root node won't actually refresh, force everything
         this._onDidChangeTreeData.fire(node !== undefined && node !== this._root ? node : undefined);
     }

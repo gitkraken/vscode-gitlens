@@ -4,17 +4,17 @@ import { Container } from '../../container';
 import { GitUri } from '../../git/gitService';
 import { Logger } from '../../logger';
 import { Functions } from '../../system';
-import { RefreshReason } from '../explorer';
-import { RepositoriesExplorer } from '../repositoriesExplorer';
+import { RepositoriesView } from '../repositoriesView';
+import { RefreshReason } from '../viewBase';
 import { MessageNode } from './common';
-import { ExplorerNode, ResourceType, SubscribeableExplorerNode, unknownGitUri } from './explorerNode';
 import { RepositoryNode } from './repositoryNode';
+import { ResourceType, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
 
-export class RepositoriesNode extends SubscribeableExplorerNode<RepositoriesExplorer> {
+export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
     private _children: (RepositoryNode | MessageNode)[] | undefined;
 
-    constructor(explorer: RepositoriesExplorer) {
-        super(unknownGitUri, undefined, explorer);
+    constructor(view: RepositoriesView) {
+        super(unknownGitUri, undefined, view);
     }
 
     dispose() {
@@ -30,7 +30,7 @@ export class RepositoriesNode extends SubscribeableExplorerNode<RepositoriesExpl
         }
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         if (this._children === undefined) {
             const repositories = [...(await Container.git.getRepositories())];
             if (repositories.length === 0) return [new MessageNode(this, 'No repositories found')];
@@ -39,7 +39,7 @@ export class RepositoriesNode extends SubscribeableExplorerNode<RepositoriesExpl
             for (const repo of repositories.sort((a, b) => a.index - b.index)) {
                 if (repo.closed) continue;
 
-                children.push(new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this, this.explorer));
+                children.push(new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this, this.view));
             }
 
             this._children = children;
@@ -133,7 +133,7 @@ export class RepositoriesNode extends SubscribeableExplorerNode<RepositoriesExpl
                 child.refresh();
             }
             else {
-                children.push(new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this, this.explorer));
+                children.push(new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this, this.view));
             }
         }
 
@@ -156,7 +156,7 @@ export class RepositoriesNode extends SubscribeableExplorerNode<RepositoriesExpl
     protected async subscribe() {
         const subscriptions = [Container.git.onDidChangeRepositories(this.onRepositoriesChanged, this)];
 
-        if (this.explorer.config.autoReveal) {
+        if (this.view.config.autoReveal) {
             subscriptions.push(
                 window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this)
             );
@@ -178,7 +178,7 @@ export class RepositoriesNode extends SubscribeableExplorerNode<RepositoriesExpl
             if (node === undefined) return;
 
             // Check to see if this repo has a descendent that is already selected
-            let parent = this.explorer.selection.length === 0 ? undefined : this.explorer.selection[0];
+            let parent = this.view.selection.length === 0 ? undefined : this.view.selection[0];
             while (parent !== undefined) {
                 if (parent === node) return;
 
@@ -188,7 +188,7 @@ export class RepositoriesNode extends SubscribeableExplorerNode<RepositoriesExpl
             // HACK: Since we have no expand/collapse api, reveal the first child to force an expand
             // See https://github.com/Microsoft/vscode/issues/55879
             const children = await node.getChildren();
-            await this.explorer.reveal(children !== undefined && children.length !== 0 ? children[0] : node);
+            await this.view.reveal(children !== undefined && children.length !== 0 ? children[0] : node);
         }
         catch (ex) {
             Logger.error(ex);
@@ -196,6 +196,6 @@ export class RepositoriesNode extends SubscribeableExplorerNode<RepositoriesExpl
     }
 
     private onRepositoriesChanged() {
-        void this.explorer.refreshNode(this);
+        void this.view.refreshNode(this);
     }
 }

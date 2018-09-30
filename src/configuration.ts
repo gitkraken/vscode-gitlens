@@ -42,11 +42,12 @@ export class Configuration {
             `gitlens.${this.name('modes').value}`,
             `gitlens.${this.name('codeLens').value}`,
             `gitlens.${this.name('currentLine').value}`,
-            `gitlens.${this.name('fileHistoryExplorer').value}`,
             `gitlens.${this.name('hovers').value}`,
-            `gitlens.${this.name('lineHistoryExplorer').value}`,
-            `gitlens.${this.name('repositoriesExplorer').value}`,
-            `gitlens.${this.name('statusBar').value}`
+            `gitlens.${this.name('statusBar').value}`,
+            `gitlens.${this.name('views')('fileHistory').value}`,
+            `gitlens.${this.name('views')('lineHistory').value}`,
+            `gitlens.${this.name('views')('repositories').value}`,
+            `gitlens.${this.name('views')('results').value}`
         ];
     }
 

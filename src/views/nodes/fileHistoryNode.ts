@@ -12,23 +12,23 @@ import {
 } from '../../git/gitService';
 import { Logger } from '../../logger';
 import { Iterables } from '../../system';
-import { FileHistoryExplorer } from '../fileHistoryExplorer';
+import { FileHistoryView } from '../fileHistoryView';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { MessageNode } from './common';
-import { ExplorerNode, ResourceType, SubscribeableExplorerNode } from './explorerNode';
 import { insertDateMarkers } from './helpers';
+import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
 
-export class FileHistoryNode extends SubscribeableExplorerNode<FileHistoryExplorer> {
-    constructor(uri: GitUri, parent: ExplorerNode, explorer: FileHistoryExplorer) {
-        super(uri, parent, explorer);
+export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> {
+    constructor(uri: GitUri, parent: ViewNode, view: FileHistoryView) {
+        super(uri, parent, view);
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
-        const children: ExplorerNode[] = [];
+    async getChildren(): Promise<ViewNode[]> {
+        const children: ViewNode[] = [];
 
         const displayAs =
             CommitFileNodeDisplayAs.CommitLabel |
-            (this.explorer.config.avatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
+            (this.view.config.avatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
 
         const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
         if (status !== undefined && (status.indexStatus !== undefined || status.workingTreeStatus !== undefined)) {
@@ -65,7 +65,7 @@ export class FileHistoryNode extends SubscribeableExplorerNode<FileHistoryExplor
                 previousSha,
                 status.originalFileName || status.fileName
             );
-            children.push(new CommitFileNode(status, commit, this, this.explorer, displayAs));
+            children.push(new CommitFileNode(status, commit, this, this.view, displayAs));
         }
 
         const log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, { ref: this.uri.sha });
@@ -74,7 +74,7 @@ export class FileHistoryNode extends SubscribeableExplorerNode<FileHistoryExplor
                 ...insertDateMarkers(
                     Iterables.map(
                         log.commits.values(),
-                        c => new CommitFileNode(c.files[0], c, this, this.explorer, displayAs)
+                        c => new CommitFileNode(c.files[0], c, this, this.view, displayAs)
                     ),
                     this
                 )
@@ -120,7 +120,7 @@ export class FileHistoryNode extends SubscribeableExplorerNode<FileHistoryExplor
 
         Logger.log(`FileHistoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
 
-        void this.explorer.refreshNode(this);
+        void this.view.refreshNode(this);
     }
 
     private onRepoFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
@@ -128,6 +128,6 @@ export class FileHistoryNode extends SubscribeableExplorerNode<FileHistoryExplor
 
         Logger.log(`FileHistoryNode.onRepoFileSystemChanged; triggering node refresh`);
 
-        void this.explorer.refreshNode(this);
+        void this.view.refreshNode(this);
     }
 }

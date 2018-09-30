@@ -78,7 +78,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
             }
 
             if (args.showInResults) {
-                void (await Container.resultsExplorer.addSearchResults(gitUri.repoPath!, args.log, {
+                void (await Container.resultsView.addSearchResults(gitUri.repoPath!, args.log, {
                     label: placeHolder,
                     resultsType: { singular: 'commit', plural: 'commits' }
                 }));
@@ -153,7 +153,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                               [uri, { ...args, log: undefined, maxCount: 0 }]
                           )
                         : undefined,
-                showInResultsExplorerCommand:
+                showInResultsCommand:
                     args.log !== undefined
                         ? new ShowCommitsInResultsQuickPickItem(args.log, {
                               label: placeHolder,

@@ -11,28 +11,28 @@ import {
 } from '../../git/gitService';
 import { Logger } from '../../logger';
 import { Iterables } from '../../system';
-import { LineHistoryExplorer } from '../lineHistoryExplorer';
+import { LineHistoryView } from '../lineHistoryView';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { MessageNode } from './common';
-import { ExplorerNode, ResourceType, SubscribeableExplorerNode } from './explorerNode';
 import { insertDateMarkers } from './helpers';
+import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
 
-export class LineHistoryNode extends SubscribeableExplorerNode<LineHistoryExplorer> {
+export class LineHistoryNode extends SubscribeableViewNode<LineHistoryView> {
     constructor(
         uri: GitUri,
         public readonly selection: Selection,
-        parent: ExplorerNode,
-        explorer: LineHistoryExplorer
+        parent: ViewNode,
+        view: LineHistoryView
     ) {
-        super(uri, parent, explorer);
+        super(uri, parent, view);
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
-        const children: ExplorerNode[] = [];
+    async getChildren(): Promise<ViewNode[]> {
+        const children: ViewNode[] = [];
 
         const displayAs =
             CommitFileNodeDisplayAs.CommitLabel |
-            (this.explorer.config.avatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
+            (this.view.config.avatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
 
         const log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
             ref: this.uri.sha,
@@ -43,7 +43,7 @@ export class LineHistoryNode extends SubscribeableExplorerNode<LineHistoryExplor
                 ...insertDateMarkers(
                     Iterables.filterMap(
                         log.commits.values(),
-                        c => new CommitFileNode(c.files[0], c, this, this.explorer, displayAs, this.selection)
+                        c => new CommitFileNode(c.files[0], c, this, this.view, displayAs, this.selection)
                     ),
                     this
                 )
@@ -85,7 +85,7 @@ export class LineHistoryNode extends SubscribeableExplorerNode<LineHistoryExplor
                     blame.commit.originalFileName || blame.commit.fileName
                 );
 
-                children.splice(0, 0, new CommitFileNode(file, commit, this, this.explorer, displayAs, this.selection));
+                children.splice(0, 0, new CommitFileNode(file, commit, this, this.view, displayAs, this.selection));
             }
         }
 
@@ -144,7 +144,7 @@ export class LineHistoryNode extends SubscribeableExplorerNode<LineHistoryExplor
 
         Logger.log(`LineHistoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
 
-        void this.explorer.refreshNode(this);
+        void this.view.refreshNode(this);
     }
 
     private onRepoFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
@@ -152,6 +152,6 @@ export class LineHistoryNode extends SubscribeableExplorerNode<LineHistoryExplor
 
         Logger.log(`LineHistoryNode.onRepoFileSystemChanged; triggering node refresh`);
 
-        void this.explorer.refreshNode(this);
+        void this.view.refreshNode(this);
     }
 }

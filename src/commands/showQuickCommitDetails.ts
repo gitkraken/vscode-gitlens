@@ -134,7 +134,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
             }
 
             if (args.showInResults) {
-                void (await Container.resultsExplorer.addCommit(args.commit as GitLogCommit));
+                void (await Container.resultsView.addCommit(args.commit as GitLogCommit));
 
                 return undefined;
             }

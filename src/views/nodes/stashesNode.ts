@@ -3,17 +3,17 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { GitUri, Repository } from '../../git/gitService';
 import { Iterables } from '../../system';
-import { Explorer } from '../explorer';
+import { View } from '../viewBase';
 import { MessageNode } from './common';
-import { ExplorerNode, ResourceType } from './explorerNode';
 import { StashNode } from './stashNode';
+import { ResourceType, ViewNode } from './viewNode';
 
-export class StashesNode extends ExplorerNode {
+export class StashesNode extends ViewNode {
     constructor(
         uri: GitUri,
         public readonly repo: Repository,
-        parent: ExplorerNode,
-        public readonly explorer: Explorer
+        parent: ViewNode,
+        public readonly view: View
     ) {
         super(uri, parent);
     }
@@ -22,11 +22,11 @@ export class StashesNode extends ExplorerNode {
         return `gitlens:repository(${this.repo.path}):stashes`;
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         const stash = await this.repo.getStashList();
         if (stash === undefined) return [new MessageNode(this, 'No stashed changes')];
 
-        return [...Iterables.map(stash.commits.values(), c => new StashNode(c, this, this.explorer))];
+        return [...Iterables.map(stash.commits.values(), c => new StashNode(c, this, this.view))];
     }
 
     getTreeItem(): TreeItem {

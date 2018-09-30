@@ -5,16 +5,16 @@ import { UriComparer } from '../../comparers';
 import { Container } from '../../container';
 import { GitUri } from '../../git/gitService';
 import { Functions } from '../../system';
-import { FileHistoryExplorer } from '../fileHistoryExplorer';
+import { FileHistoryView } from '../fileHistoryView';
 import { MessageNode } from './common';
-import { ExplorerNode, ResourceType, SubscribeableExplorerNode, unknownGitUri } from './explorerNode';
 import { FileHistoryNode } from './fileHistoryNode';
+import { ResourceType, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
 
-export class FileHistoryTrackerNode extends SubscribeableExplorerNode<FileHistoryExplorer> {
+export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView> {
     private _child: FileHistoryNode | undefined;
 
-    constructor(explorer: FileHistoryExplorer) {
-        super(unknownGitUri, undefined, explorer);
+    constructor(view: FileHistoryView) {
+        super(unknownGitUri, undefined, view);
     }
 
     dispose() {
@@ -30,13 +30,13 @@ export class FileHistoryTrackerNode extends SubscribeableExplorerNode<FileHistor
         }
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         if (this._child === undefined) {
             if (this.uri === unknownGitUri) {
                 return [new MessageNode(this, 'There are no editors open that can provide file history')];
             }
 
-            this._child = new FileHistoryNode(this.uri, this, this.explorer);
+            this._child = new FileHistoryNode(this.uri, this, this.view);
         }
 
         return [this._child];
@@ -113,6 +113,6 @@ export class FileHistoryTrackerNode extends SubscribeableExplorerNode<FileHistor
     }
 
     private onActiveEditorChanged(editor: TextEditor | undefined) {
-        void this.explorer.refreshNode(this);
+        void this.view.refreshNode(this);
     }
 }

@@ -1,7 +1,7 @@
 'use strict';
 import { Command, Disposable, Event, TreeItem, TreeViewVisibilityChangeEvent } from 'vscode';
 import { GitUri } from '../../git/gitService';
-import { Explorer, RefreshReason } from '../explorer';
+import { RefreshReason, View } from '../viewBase';
 
 export enum ResourceType {
     ActiveFileHistory = 'gitlens:active:history-file',
@@ -51,10 +51,10 @@ export interface NamedRef {
 
 export const unknownGitUri = new GitUri();
 
-export abstract class ExplorerNode {
+export abstract class ViewNode {
     constructor(
         uri: GitUri,
-        private readonly _parent: ExplorerNode | undefined
+        private readonly _parent: ViewNode | undefined
     ) {
         this._uri = uri;
     }
@@ -64,8 +64,8 @@ export abstract class ExplorerNode {
         return this._uri;
     }
 
-    abstract getChildren(): ExplorerNode[] | Promise<ExplorerNode[]>;
-    getParent(): ExplorerNode | undefined {
+    abstract getChildren(): ViewNode[] | Promise<ViewNode[]>;
+    getParent(): ViewNode | undefined {
         return this._parent;
     }
     abstract getTreeItem(): TreeItem | Promise<TreeItem>;
@@ -77,7 +77,7 @@ export abstract class ExplorerNode {
     refresh(reason?: RefreshReason): void | boolean | Promise<void> | Promise<boolean> {}
 }
 
-export abstract class ExplorerRefNode extends ExplorerNode {
+export abstract class ViewRefNode extends ViewNode {
     abstract get ref(): string;
 
     get repoPath(): string {
@@ -85,38 +85,38 @@ export abstract class ExplorerRefNode extends ExplorerNode {
     }
 }
 
-export interface PageableExplorerNode {
+export interface PageableViewNode {
     readonly supportsPaging: boolean;
     maxCount: number | undefined;
 }
 
 export function isPageable(
-    node: ExplorerNode
-): node is ExplorerNode & { supportsPaging: boolean; maxCount: number | undefined } {
+    node: ViewNode
+): node is ViewNode & { supportsPaging: boolean; maxCount: number | undefined } {
     return Boolean((node as any).supportsPaging);
 }
 
 export function supportsAutoRefresh(
-    explorer: Explorer
-): explorer is Explorer & { autoRefresh: boolean; onDidChangeAutoRefresh: Event<void> } {
-    return (explorer as any).onDidChangeAutoRefresh !== undefined;
+    view: View
+): view is View & { autoRefresh: boolean; onDidChangeAutoRefresh: Event<void> } {
+    return (view as any).onDidChangeAutoRefresh !== undefined;
 }
 
-export abstract class SubscribeableExplorerNode<TExplorer extends Explorer> extends ExplorerNode {
+export abstract class SubscribeableViewNode<TView extends View> extends ViewNode {
     protected _disposable: Disposable;
     protected _subscription: Disposable | undefined;
 
     constructor(
         uri: GitUri,
-        parent: ExplorerNode | undefined,
-        public readonly explorer: TExplorer
+        parent: ViewNode | undefined,
+        public readonly view: TView
     ) {
         super(uri, parent);
 
-        const disposables = [this.explorer.onDidChangeVisibility(this.onVisibilityChanged, this)];
+        const disposables = [this.view.onDidChangeVisibility(this.onVisibilityChanged, this)];
 
-        if (supportsAutoRefresh(this.explorer)) {
-            disposables.push(this.explorer.onDidChangeAutoRefresh(this.onAutoRefreshChanged, this));
+        if (supportsAutoRefresh(this.view)) {
+            disposables.push(this.view.onDidChangeAutoRefresh(this.onAutoRefreshChanged, this));
         }
 
         this._disposable = Disposable.from(...disposables);
@@ -141,7 +141,7 @@ export abstract class SubscribeableExplorerNode<TExplorer extends Explorer> exte
 
         void this.ensureSubscription();
         if (value) {
-            void this.explorer.refreshNode(this);
+            void this.view.refreshNode(this);
         }
     }
 
@@ -154,24 +154,20 @@ export abstract class SubscribeableExplorerNode<TExplorer extends Explorer> exte
     }
 
     protected onAutoRefreshChanged() {
-        this.onVisibilityChanged({ visible: this.explorer.visible });
+        this.onVisibilityChanged({ visible: this.view.visible });
     }
 
     protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
         void this.ensureSubscription();
 
         if (e.visible) {
-            void this.explorer.refreshNode(this);
+            void this.view.refreshNode(this);
         }
     }
 
     async ensureSubscription() {
         // We only need to subscribe if we are visible and if auto-refresh enabled (when supported)
-        if (
-            !this.canSubscribe ||
-            !this.explorer.visible ||
-            (supportsAutoRefresh(this.explorer) && !this.explorer.autoRefresh)
-        ) {
+        if (!this.canSubscribe || !this.view.visible || (supportsAutoRefresh(this.view) && !this.view.autoRefresh)) {
             this.unsubscribe();
 
             return;

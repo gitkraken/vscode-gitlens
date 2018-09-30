@@ -1,6 +1,6 @@
 'use strict';
 
-export * from './nodes/explorerNode';
+export * from './nodes/viewNode';
 export * from './nodes/branchesNode';
 export * from './nodes/branchNode';
 export * from './nodes/commitFileNode';

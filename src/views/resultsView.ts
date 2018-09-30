@@ -1,27 +1,27 @@
 'use strict';
 import { commands, ConfigurationChangeEvent } from 'vscode';
-import { configuration, ExplorerFilesLayout, ExplorersConfig, ResultsExplorerConfig } from '../configuration';
+import { configuration, ResultsViewConfig, ViewFilesLayout, ViewsConfig } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitLogCommit } from '../git/gitService';
 import { Functions, Strings } from '../system';
-import { ExplorerBase, RefreshReason } from './explorer';
-import { RefreshNodeCommandArgs } from './explorerCommands';
 import {
-    ExplorerNode,
     NamedRef,
     ResourceType,
     ResultsCommitNode,
     ResultsCommitsNode,
     ResultsComparisonNode,
-    ResultsNode
+    ResultsNode,
+    ViewNode
 } from './nodes';
+import { RefreshReason, ViewBase } from './viewBase';
+import { RefreshNodeCommandArgs } from './viewCommands';
 
-export class ResultsExplorer extends ExplorerBase<ResultsNode> {
+export class ResultsView extends ViewBase<ResultsNode> {
     constructor() {
-        super('gitlens.resultsExplorer');
+        super('gitlens.views.results');
 
-        setCommandContext(CommandContext.ResultsExplorerKeepResults, this.keepResults);
+        setCommandContext(CommandContext.ViewsResultsKeepResults, this.keepResults);
     }
 
     getRoot() {
@@ -29,32 +29,32 @@ export class ResultsExplorer extends ExplorerBase<ResultsNode> {
     }
 
     protected registerCommands() {
-        Container.explorerCommands;
+        Container.viewCommands;
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
         commands.registerCommand(
             this.getQualifiedCommand('refreshNode'),
-            (node: ExplorerNode, args?: RefreshNodeCommandArgs) => this.refreshNode(node, args),
+            (node: ViewNode, args?: RefreshNodeCommandArgs) => this.refreshNode(node, args),
             this
         );
         commands.registerCommand(
             this.getQualifiedCommand('setFilesLayoutToAuto'),
-            () => this.setFilesLayout(ExplorerFilesLayout.Auto),
+            () => this.setFilesLayout(ViewFilesLayout.Auto),
             this
         );
         commands.registerCommand(
             this.getQualifiedCommand('setFilesLayoutToList'),
-            () => this.setFilesLayout(ExplorerFilesLayout.List),
+            () => this.setFilesLayout(ViewFilesLayout.List),
             this
         );
         commands.registerCommand(
             this.getQualifiedCommand('setFilesLayoutToTree'),
-            () => this.setFilesLayout(ExplorerFilesLayout.Tree),
+            () => this.setFilesLayout(ViewFilesLayout.Tree),
             this
         );
 
         commands.registerCommand(
             this.getQualifiedCommand('dismissNode'),
-            (node: ExplorerNode) => this.dismissNode(node),
+            (node: ViewNode) => this.dismissNode(node),
             this
         );
         commands.registerCommand(this.getQualifiedCommand('close'), () => this.close(), this);
@@ -72,18 +72,18 @@ export class ResultsExplorer extends ExplorerBase<ResultsNode> {
 
         if (
             !initializing &&
-            !configuration.changed(e, configuration.name('resultsExplorer').value) &&
-            !configuration.changed(e, configuration.name('explorers').value) &&
+            !configuration.changed(e, configuration.name('views')('results').value) &&
+            !configuration.changed(e, configuration.name('views').value) &&
             !configuration.changed(e, configuration.name('defaultGravatarsStyle').value)
         ) {
             return;
         }
 
-        if (initializing || configuration.changed(e, configuration.name('resultsExplorer')('location').value)) {
-            setCommandContext(CommandContext.ResultsExplorer, this.enabled ? this.config.location : false);
+        if (initializing || configuration.changed(e, configuration.name('views')('results')('location').value)) {
+            setCommandContext(CommandContext.ViewsResults, this.enabled ? this.config.location : false);
         }
 
-        if (initializing || configuration.changed(e, configuration.name('resultsExplorer')('location').value)) {
+        if (initializing || configuration.changed(e, configuration.name('views')('results')('location').value)) {
             this.initialize(this.config.location);
         }
 
@@ -92,8 +92,8 @@ export class ResultsExplorer extends ExplorerBase<ResultsNode> {
         }
     }
 
-    get config(): ExplorersConfig & ResultsExplorerConfig {
-        return { ...Container.config.explorers, ...Container.config.resultsExplorer };
+    get config(): ViewsConfig & ResultsViewConfig {
+        return { ...Container.config.views, ...Container.config.views.results };
     }
 
     private _enabled: boolean = false;
@@ -102,7 +102,7 @@ export class ResultsExplorer extends ExplorerBase<ResultsNode> {
     }
 
     get keepResults(): boolean {
-        return Container.context.workspaceState.get<boolean>(WorkspaceState.ResultsExplorerKeepResults, false);
+        return Container.context.workspaceState.get<boolean>(WorkspaceState.ViewsResultsKeepResults, false);
     }
 
     close() {
@@ -111,7 +111,7 @@ export class ResultsExplorer extends ExplorerBase<ResultsNode> {
         this._root.clear();
 
         this._enabled = false;
-        setCommandContext(CommandContext.ResultsExplorer, false);
+        setCommandContext(CommandContext.ViewsResults, false);
     }
 
     addCommit(commit: GitLogCommit) {
@@ -189,7 +189,7 @@ export class ResultsExplorer extends ExplorerBase<ResultsNode> {
         );
     }
 
-    private async addResults(results: ExplorerNode) {
+    private async addResults(results: ViewNode) {
         if (this._root === undefined) {
             this._root = this.getRoot();
         }
@@ -197,27 +197,27 @@ export class ResultsExplorer extends ExplorerBase<ResultsNode> {
         this._root.addOrReplace(results, !this.keepResults);
 
         this._enabled = true;
-        await setCommandContext(CommandContext.ResultsExplorer, this.config.location);
+        await setCommandContext(CommandContext.ViewsResults, this.config.location);
 
         setTimeout(() => this._tree!.reveal(results, { select: true }), 250);
     }
 
-    private dismissNode(node: ExplorerNode) {
+    private dismissNode(node: ViewNode) {
         if (this._root === undefined) return;
 
         this._root.dismiss(node);
     }
 
-    private setFilesLayout(layout: ExplorerFilesLayout) {
-        return configuration.updateEffective(configuration.name('resultsExplorer')('files')('layout').value, layout);
+    private setFilesLayout(layout: ViewFilesLayout) {
+        return configuration.updateEffective(configuration.name('views')('results')('files')('layout').value, layout);
     }
 
     private setKeepResults(enabled: boolean) {
-        Container.context.workspaceState.update(WorkspaceState.ResultsExplorerKeepResults, enabled);
-        setCommandContext(CommandContext.ResultsExplorerKeepResults, enabled);
+        Container.context.workspaceState.update(WorkspaceState.ViewsResultsKeepResults, enabled);
+        setCommandContext(CommandContext.ViewsResultsKeepResults, enabled);
     }
 
-    private swapComparision(node: ExplorerNode) {
+    private swapComparision(node: ViewNode) {
         if (!(node instanceof ResultsComparisonNode)) return;
 
         node.swap();

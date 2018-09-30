@@ -291,28 +291,28 @@
                         </div>
                     </section>
 
-                    <section id="repositories-explorer">
+                    <section id="repositories-view">
                         <div class="section__header">
-                            <h2 class="section__title">Repositories Explorer
-                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#repositories-explorer">
+                            <h2 class="section__title">Repositories view
+                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#repositories-view">
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
                             <p class="section__title-hint">
-                                Adds a Repositories explorer to visualize, navigate, and explore Git repositories
+                                Adds a Repositories view to visualize, navigate, and explore Git repositories
                             </p>
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
-                                    <input class="setting" id="repositoriesExplorer.enabled" name="repositoriesExplorer.enabled"
+                                    <input class="setting" id="repositoriesView.enabled" name="repositoriesView.enabled"
                                         type="checkbox" />
-                                    <label for="repositoriesExplorer.enabled">Show the Repositories explorer</label>
+                                    <label for="repositoriesView.enabled">Show the Repositories view</label>
                                 </div>
 
-                                <div class="settings-group__setting ml-2" data-enablement="repositoriesExplorer.enabled">
-                                    <label for="repositoriesExplorer.location">Show in the</label>
-                                    <select class="setting" id="repositoriesExplorer.location" name="repositoriesExplorer.location"
+                                <div class="settings-group__setting ml-2" data-enablement="repositoriesView.enabled">
+                                    <label for="repositoriesView.location">Show in the</label>
+                                    <select class="setting" id="repositoriesView.location" name="repositoriesView.location"
                                         disabled>
                                         <option value="gitlens">GitLens view</option>
                                         <option value="explorer">Explorer view</option>
@@ -320,74 +320,74 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting ml-2 hidden" data-enablement="repositoriesExplorer.enabled"
+                                <div class="settings-group__setting ml-2 hidden" data-enablement="repositoriesView.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <label for="repositoriesExplorer.branches.layout">Layout branches</label>
-                                    <select class="setting" id="repositoriesExplorer.branches.layout" name="repositoriesExplorer.branches.layout"
+                                    <label for="repositoriesView.branches.layout">Layout branches</label>
+                                    <select class="setting" id="repositoriesView.branches.layout" name="repositoriesView.branches.layout"
                                         disabled>
                                         <option value="list">as a list</option>
                                         <option value="tree">as a tree</option>
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting ml-2 hidden" data-enablement="repositoriesExplorer.enabled"
+                                <div class="settings-group__setting ml-2 hidden" data-enablement="repositoriesView.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <label for="repositoriesExplorer.files.layout">Layout files</label>
-                                    <select class="setting" id="repositoriesExplorer.files.layout" name="repositoriesExplorer.files.layout"
+                                    <label for="repositoriesView.files.layout">Layout files</label>
+                                    <select class="setting" id="repositoriesView.files.layout" name="repositoriesView.files.layout"
                                         disabled>
                                         <option value="auto">automatically</option>
                                         <option value="list">as a list</option>
                                         <option value="tree">as a tree</option>
                                     </select>
                                 </div>
-                                <p class="setting__hint ml-3 hidden" data-visibility="repositoriesExplorer.files.layout =auto &amp; settings.mode =advanced">
+                                <p class="setting__hint ml-3 hidden" data-visibility="repositoriesView.files.layout =auto &amp; settings.mode =advanced">
                                     Chooses the best layout based on the number of files at each nesting level
                                 </p>
 
-                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="repositoriesExplorer.enabled"
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="repositoriesView.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="repositoriesExplorer.files.compact" name="repositoriesExplorer.files.compact"
+                                    <input class="setting" id="repositoriesView.files.compact" name="repositoriesView.files.compact"
                                         type="checkbox" disabled />
-                                    <label for="repositoriesExplorer.files.compact">Use compact layout</label>
+                                    <label for="repositoriesView.files.compact">Use compact layout</label>
                                 </div>
                                 <p class="setting__hint ml-3 hidden" data-visibility="settings.mode =advanced">
                                     Compacts (flattens) unnecessary nesting when using a tree layouts
                                 </p>
 
-                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="repositoriesExplorer.enabled"
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="repositoriesView.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="repositoriesExplorer.avatars" name="explorers.avatars"
-                                        type="checkbox" disabled />
-                                    <label for="repositoriesExplorer.avatars">Use author avatars icons</label>
+                                    <input class="setting" id="repositoriesView.avatars" name="views.avatars" type="checkbox"
+                                        disabled />
+                                    <label for="repositoriesView.avatars">Use author avatars icons</label>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="repositoriesExplorer.enabled"
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="repositoriesView.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="repositoriesExplorer.autoRefresh" name="repositoriesExplorer.autoRefresh"
+                                    <input class="setting" id="repositoriesView.autoRefresh" name="repositoriesView.autoRefresh"
                                         type="checkbox" disabled />
-                                    <label for="repositoriesExplorer.autoRefresh">
+                                    <label for="repositoriesView.autoRefresh">
                                         Automatically refreshes when the file system or any repository changes
                                     </label>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="repositoriesExplorer.enabled"
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="repositoriesView.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="repositoriesExplorer.autoReveal" name="repositoriesExplorer.autoReveal"
+                                    <input class="setting" id="repositoriesView.autoReveal" name="repositoriesView.autoReveal"
                                         type="checkbox" disabled />
-                                    <label for="repositoriesExplorer.autoReveal">
+                                    <label for="repositoriesView.autoReveal">
                                         Automatically reveal repositories when opening files
                                     </label>
                                 </div>
                             </div>
                             <div class="section__preview">
                                 <img class="image__preview hidden" src="{{root}}/images/settings/repositories-explorer.png"
-                                    data-visibility="repositoriesExplorer.enabled &amp; repositoriesExplorer.files.layout !tree" />
+                                    data-visibility="repositoriesView.enabled &amp; repositoriesView.files.layout !tree" />
                                 <img class="image__preview hidden" src="{{root}}/images/settings/repositories-explorer-tree-compact.png"
-                                    data-visibility="repositoriesExplorer.enabled &amp; repositoriesExplorer.files.layout =tree &amp; repositoriesExplorer.files.compact" />
+                                    data-visibility="repositoriesView.enabled &amp; repositoriesView.files.layout =tree &amp; repositoriesView.files.compact" />
                                 <img class="image__preview hidden" src="{{root}}/images/settings/repositories-explorer-tree.png"
-                                    data-visibility="repositoriesExplorer.enabled &amp; repositoriesExplorer.files.layout =tree &amp; repositoriesExplorer.files.compact =false" />
+                                    data-visibility="repositoriesView.enabled &amp; repositoriesView.files.layout =tree &amp; repositoriesView.files.compact =false" />
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/repositories-explorer-avatars.png"
-                                    data-visibility="repositoriesExplorer.enabled &amp; explorers.avatars" />
+                                    data-visibility="repositoriesView.enabled &amp; views.avatars" />
                             </div>
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
@@ -395,34 +395,34 @@
                                 <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">
                                     User Settings
                                 </a>
-                                and search for <b><i>gitlens.repositoriesExplorer</i></b> or <b><i>gitlens.explorers</i></b>
+                                and search for <b><i>gitlens.views.repositories</i></b> or <b><i>gitlens.views</i></b>
                             </p>
                         </div>
                     </section>
 
-                    <section id="file-history-explorer">
+                    <section id="file-history-view">
                         <div class="section__header">
-                            <h2 class="section__title">File History Explorer
-                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#file-history-explorer">
+                            <h2 class="section__title">File History view
+                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#file-history-view">
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
                             <p class="section__title-hint">
-                                Adds a File History explorer to visualize, navigate, and explore the revision history
+                                Adds a File History view to visualize, navigate, and explore the revision history
                                 of the current file
                             </p>
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
-                                    <input class="setting" id="fileHistoryExplorer.enabled" name="fileHistoryExplorer.enabled"
+                                    <input class="setting" id="fileHistoryView.enabled" name="fileHistoryView.enabled"
                                         type="checkbox" />
-                                    <label for="fileHistoryExplorer.enabled">Show the File History explorer</label>
+                                    <label for="fileHistoryView.enabled">Show the File History view</label>
                                 </div>
 
-                                <div class="settings-group__setting ml-2" data-enablement="fileHistoryExplorer.enabled">
-                                    <label for="fileHistoryExplorer.location">Show in the</label>
-                                    <select class="setting" id="fileHistoryExplorer.location" name="fileHistoryExplorer.location"
+                                <div class="settings-group__setting ml-2" data-enablement="fileHistoryView.enabled">
+                                    <label for="fileHistoryView.location">Show in the</label>
+                                    <select class="setting" id="fileHistoryView.location" name="fileHistoryView.location"
                                         disabled>
                                         <option value="gitlens">GitLens view</option>
                                         <option value="explorer">Explorer view</option>
@@ -430,45 +430,45 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="fileHistoryExplorer.enabled"
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="fileHistoryView.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="fileHistoryExplorer.avatars" name="fileHistoryExplorer.avatars"
+                                    <input class="setting" id="fileHistoryView.avatars" name="fileHistoryView.avatars"
                                         type="checkbox" disabled />
-                                    <label for="fileHistoryExplorer.avatars">Use author avatars icons</label>
+                                    <label for="fileHistoryView.avatars">Use author avatars icons</label>
                                 </div>
                             </div>
                             <div class="section__preview">
                                 <img class="image__preview hidden" src="{{root}}/images/settings/file-history-explorer.png"
-                                    data-visibility="fileHistoryExplorer.enabled" />
+                                    data-visibility="fileHistoryView.enabled" />
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/file-history-explorer-avatars.png"
-                                    data-visibility="fileHistoryExplorer.enabled &amp; fileHistoryExplorer.avatars" />
+                                    data-visibility="fileHistoryView.enabled &amp; fileHistoryView.avatars" />
                             </div>
                         </div>
                     </section>
 
-                    <section id="line-history-explorer">
+                    <section id="line-history-view">
                         <div class="section__header">
-                            <h2 class="section__title">Line History Explorer
-                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#line-history-explorer">
+                            <h2 class="section__title">Line History view
+                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#line-history-view">
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
                             <p class="section__title-hint">
-                                Adds a Line History explorer to visualize, navigate, and explore the revision history
+                                Adds a Line History view to visualize, navigate, and explore the revision history
                                 of the selected lines of current file
                             </p>
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
-                                    <input class="setting" id="lineHistoryExplorer.enabled" name="lineHistoryExplorer.enabled"
+                                    <input class="setting" id="lineHistoryView.enabled" name="lineHistoryView.enabled"
                                         type="checkbox" />
-                                    <label for="lineHistoryExplorer.enabled">Show the Line History explorer</label>
+                                    <label for="lineHistoryView.enabled">Show the Line History view</label>
                                 </div>
 
-                                <div class="settings-group__setting ml-2" data-enablement="lineHistoryExplorer.enabled">
-                                    <label for="lineHistoryExplorer.location">Show in the</label>
-                                    <select class="setting" id="lineHistoryExplorer.location" name="lineHistoryExplorer.location"
+                                <div class="settings-group__setting ml-2" data-enablement="lineHistoryView.enabled">
+                                    <label for="lineHistoryView.location">Show in the</label>
+                                    <select class="setting" id="lineHistoryView.location" name="lineHistoryView.location"
                                         disabled>
                                         <option value="gitlens">GitLens view</option>
                                         <option value="explorer">Explorer view</option>
@@ -476,39 +476,39 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="lineHistoryExplorer.enabled"
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="lineHistoryView.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="lineHistoryExplorer.avatars" name="lineHistoryExplorer.avatars"
+                                    <input class="setting" id="lineHistoryView.avatars" name="lineHistoryView.avatars"
                                         type="checkbox" disabled />
-                                    <label for="lineHistoryExplorer.avatars">Use author avatars icons</label>
+                                    <label for="lineHistoryView.avatars">Use author avatars icons</label>
                                 </div>
                             </div>
                             <div class="section__preview">
                                 <img class="image__preview hidden" src="{{root}}/images/settings/line-history-explorer.png"
-                                    data-visibility="lineHistoryExplorer.enabled" />
+                                    data-visibility="lineHistoryView.enabled" />
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/line-history-explorer-avatars.png"
-                                    data-visibility="lineHistoryExplorer.enabled &amp; lineHistoryExplorer.avatars" />
+                                    data-visibility="lineHistoryView.enabled &amp; lineHistoryView.avatars" />
                             </div>
                         </div>
                     </section>
 
-                    <section id="results-explorer">
+                    <section id="results-view">
                         <div class="section__header">
-                            <h2 class="section__title">Results Explorer
-                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#results-explorer">
+                            <h2 class="section__title">Results view
+                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#results-view">
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
                             <p class="section__title-hint">
-                                Adds an on-demand Results explorer to navigate and explore commits, histories, and
+                                Adds an on-demand Results view to navigate and explore commits, histories, and
                                 searches, or visualize comparisons between branches, tags, commits, and more
                             </p>
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting">
-                                    <label for="resultsExplorer.location">Show in the</label>
-                                    <select class="setting" id="resultsExplorer.location" name="resultsExplorer.location">
+                                    <label for="resultsView.location">Show in the</label>
+                                    <select class="setting" id="resultsView.location" name="resultsView.location">
                                         <option value="gitlens">GitLens view</option>
                                         <option value="explorer">Explorer view</option>
                                         <option value="scm">Source Control view</option>
@@ -516,8 +516,8 @@
                                 </div>
 
                                 <div class="settings-group__setting hidden" data-visibility="settings.mode =advanced">
-                                    <label for="resultsExplorer.files.layout">Layout files</label>
-                                    <select class="setting" id="resultsExplorer.files.layout" name="resultsExplorer.files.layout">
+                                    <label for="resultsView.files.layout">Layout files</label>
+                                    <select class="setting" id="resultsView.files.layout" name="resultsView.files.layout">
                                         <option value="auto">automatically</option>
                                         <option value="list">as a list</option>
                                         <option value="tree">as a tree</option>
@@ -525,29 +525,29 @@
                                 </div>
 
                                 <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="resultsExplorer.files.compact" name="resultsExplorer.files.compact"
+                                    <input class="setting" id="resultsView.files.compact" name="resultsView.files.compact"
                                         type="checkbox" />
-                                    <label for="resultsExplorer.files.compact">Use compact layout</label>
+                                    <label for="resultsView.files.compact">Use compact layout</label>
                                 </div>
                                 <p class="setting__hint hidden" data-visibility="settings.mode =advanced">
                                     Compacts (flattens) unnecessary nesting when using a tree layouts
                                 </p>
 
                                 <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="resultsExplorer.avatars" name="explorers.avatars" type="checkbox" />
-                                    <label for="resultsExplorer.avatars">Use author avatars icons</label>
+                                    <input class="setting" id="resultsView.avatars" name="views.avatars" type="checkbox" />
+                                    <label for="resultsView.avatars">Use author avatars icons</label>
                                 </div>
                             </div>
 
                             <div class="section__preview">
                                 <img class="image__preview hidden" src="{{root}}/images/settings/results-explorer.png"
-                                    data-visibility="resultsExplorer.files.layout !tree" />
+                                    data-visibility="resultsView.files.layout !tree" />
                                 <img class="image__preview hidden" src="{{root}}/images/settings/results-explorer-tree-compact.png"
-                                    data-visibility="resultsExplorer.files.layout =tree &amp; resultsExplorer.files.compact" />
+                                    data-visibility="resultsView.files.layout =tree &amp; resultsView.files.compact" />
                                 <img class="image__preview hidden" src="{{root}}/images/settings/results-explorer-tree.png"
-                                    data-visibility="resultsExplorer.files.layout =tree &amp; resultsExplorer.files.compact =false" />
+                                    data-visibility="resultsView.files.layout =tree &amp; resultsView.files.compact =false" />
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/results-explorer-avatars.png"
-                                    data-visibility="explorers.avatars" />
+                                    data-visibility="views.avatars" />
                             </div>
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
@@ -555,7 +555,7 @@
                                 <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">
                                     User Settings
                                 </a>
-                                and search for <b><i>gitlens.resultsExplorer</i></b> or <b><i>gitlens.explorers</i></b>
+                                and search for <b><i>gitlens.views.results</i></b> or <b><i>gitlens.views</i></b>
                             </p>
                         </div>
                     </section>
@@ -1603,23 +1603,23 @@
                                 <a class="jump-to" href="#general" title="Jump to General settings">General</a>
                             </li>
                             <li>
-                                <a class="jump-to" href="#repositories-explorer" title="Jump to Repositories Explorer settings">
-                                    Repositories Explorer
+                                <a class="jump-to" href="#repositories-view" title="Jump to Repositories view settings">
+                                    Repositories view
                                 </a>
                             </li>
                             <li>
-                                <a class="jump-to" href="#file-history-explorer" title="Jump to File History Explorer settings">
-                                    File History Explorer
+                                <a class="jump-to" href="#file-history-view" title="Jump to File History view settings">
+                                    File History view
                                 </a>
                             </li>
                             <li>
-                                <a class="jump-to" href="#file-history-explorer" title="Jump to Line History Explorer settings">
-                                    Line History Explorer
+                                <a class="jump-to" href="#file-history-view" title="Jump to Line History view settings">
+                                    Line History view
                                 </a>
                             </li>
                             <li>
-                                <a class="jump-to" href="#results-explorer" title="Jump to Results Explorer settings">
-                                    Results Explorer
+                                <a class="jump-to" href="#results-view" title="Jump to Results view settings">
+                                    Results view
                                 </a>
                             </li>
                             <li>

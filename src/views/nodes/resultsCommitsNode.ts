@@ -2,40 +2,40 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitLog, GitUri } from '../../git/gitService';
 import { Iterables } from '../../system';
-import { ResultsExplorer } from '../resultsExplorer';
+import { ResultsView } from '../resultsView';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
-import { ExplorerNode, PageableExplorerNode, ResourceType } from './explorerNode';
+import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
 
 export interface CommitsQueryResults {
     label: string;
     log: GitLog | undefined;
 }
 
-export class ResultsCommitsNode extends ExplorerNode implements PageableExplorerNode {
+export class ResultsCommitsNode extends ViewNode implements PageableViewNode {
     readonly supportsPaging: boolean = true;
     maxCount: number | undefined;
 
     constructor(
         public readonly repoPath: string,
         private readonly _commitsQuery: (maxCount: number | undefined) => Promise<CommitsQueryResults>,
-        parent: ExplorerNode | undefined,
-        public readonly explorer: ResultsExplorer,
+        parent: ViewNode | undefined,
+        public readonly view: ResultsView,
         private readonly _contextValue: ResourceType = ResourceType.ResultsCommits
     ) {
         super(GitUri.fromRepoPath(repoPath), parent);
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         const { log } = await this.getCommitsQueryResults();
         if (log === undefined) return [];
 
         const children: (CommitNode | ShowMoreNode)[] = [
-            ...Iterables.map(log.commits.values(), c => new CommitNode(c, this, this.explorer))
+            ...Iterables.map(log.commits.values(), c => new CommitNode(c, this, this.view))
         ];
 
         if (log.truncated) {
-            children.push(new ShowMoreNode('Results', this, this.explorer));
+            children.push(new ShowMoreNode('Results', this, this.view));
         }
 
         return children;

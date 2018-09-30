@@ -1,7 +1,7 @@
 'use strict';
 import * as path from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ExplorerFilesLayout } from '../../configuration';
+import { ViewFilesLayout } from '../../configuration';
 import { Container } from '../../container';
 import { GitStatusFile } from '../../git/git';
 import {
@@ -14,19 +14,19 @@ import {
     GitUri
 } from '../../git/gitService';
 import { Arrays, Iterables, Objects, Strings } from '../../system';
-import { RepositoriesExplorer } from '../repositoriesExplorer';
-import { ExplorerNode, ResourceType } from './explorerNode';
-import { FileExplorerNode, FolderNode } from './folderNode';
+import { RepositoriesView } from '../repositoriesView';
+import { FileNode, FolderNode } from './folderNode';
 import { StatusFileNode } from './statusFileNode';
+import { ResourceType, ViewNode } from './viewNode';
 
-export class StatusFilesNode extends ExplorerNode {
+export class StatusFilesNode extends ViewNode {
     readonly repoPath: string;
 
     constructor(
         public readonly status: GitStatus,
         public readonly range: string | undefined,
-        parent: ExplorerNode,
-        public readonly explorer: RepositoriesExplorer
+        parent: ViewNode,
+        public readonly view: RepositoriesView
     ) {
         super(GitUri.fromRepoPath(status.repoPath), parent);
         this.repoPath = status.repoPath;
@@ -36,7 +36,7 @@ export class StatusFilesNode extends ExplorerNode {
         return `gitlens:repository(${this.status.repoPath}):status:files`;
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         let files: GitFileWithCommit[] = [];
 
         const repoPath = this.repoPath;
@@ -82,24 +82,24 @@ export class StatusFilesNode extends ExplorerNode {
 
         const groups = Arrays.groupBy(files, s => s.fileName);
 
-        let children: FileExplorerNode[] = [
+        let children: FileNode[] = [
             ...Iterables.map(
                 Objects.values(groups),
                 files =>
-                    new StatusFileNode(repoPath, files[files.length - 1], files.map(s => s.commit), this, this.explorer)
+                    new StatusFileNode(repoPath, files[files.length - 1], files.map(s => s.commit), this, this.view)
             )
         ];
 
-        if (this.explorer.config.files.layout !== ExplorerFilesLayout.List) {
+        if (this.view.config.files.layout !== ViewFilesLayout.List) {
             const hierarchy = Arrays.makeHierarchical(
                 children,
                 n => n.uri.getRelativePath().split('/'),
                 (...paths: string[]) => Strings.normalizePath(path.join(...paths)),
-                this.explorer.config.files.compact
+                this.view.config.files.compact
             );
 
-            const root = new FolderNode(repoPath, '', undefined, hierarchy, this, this.explorer);
-            children = (await root.getChildren()) as FileExplorerNode[];
+            const root = new FolderNode(repoPath, '', undefined, hierarchy, this, this.view);
+            children = (await root.getChildren()) as FileNode[];
         }
         else {
             children.sort((a, b) => a.priority - b.priority || a.label!.localeCompare(b.label!));
@@ -147,7 +147,7 @@ export class StatusFilesNode extends ExplorerNode {
     }
 
     private get includeWorkingTree(): boolean {
-        return this.explorer.config.includeWorkingTree;
+        return this.view.config.includeWorkingTree;
     }
 
     private toStatusFile(file: GitStatusFile, ref: string, previousRef: string, date?: Date): GitFileWithCommit {

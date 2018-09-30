@@ -5,17 +5,17 @@ import { Container } from '../../container';
 import { GitUri } from '../../git/gitService';
 import { Functions } from '../../system';
 import { LinesChangeEvent } from '../../trackers/gitLineTracker';
-import { LineHistoryExplorer } from '../lineHistoryExplorer';
+import { LineHistoryView } from '../lineHistoryView';
 import { MessageNode } from './common';
-import { ExplorerNode, ResourceType, SubscribeableExplorerNode, unknownGitUri } from './explorerNode';
 import { LineHistoryNode } from './lineHistoryNode';
+import { ResourceType, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
 
-export class LineHistoryTrackerNode extends SubscribeableExplorerNode<LineHistoryExplorer> {
+export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryView> {
     private _child: LineHistoryNode | undefined;
     private _selection: Selection | undefined;
 
-    constructor(explorer: LineHistoryExplorer) {
-        super(unknownGitUri, undefined, explorer);
+    constructor(view: LineHistoryView) {
+        super(unknownGitUri, undefined, view);
     }
 
     dispose() {
@@ -31,13 +31,13 @@ export class LineHistoryTrackerNode extends SubscribeableExplorerNode<LineHistor
         }
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         if (this._child === undefined) {
             if (this.uri === unknownGitUri) {
                 return [new MessageNode(this, 'There are no editors open that can provide line history')];
             }
 
-            this._child = new LineHistoryNode(this.uri, this._selection!, this, this.explorer);
+            this._child = new LineHistoryNode(this.uri, this._selection!, this, this.view);
         }
 
         return [this._child];
@@ -116,6 +116,6 @@ export class LineHistoryTrackerNode extends SubscribeableExplorerNode<LineHistor
     }
 
     private onActiveLinesChanged(e: LinesChangeEvent) {
-        void this.explorer.refreshNode(this);
+        void this.view.refreshNode(this);
     }
 }

@@ -3,17 +3,17 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { GitUri, Repository } from '../../git/gitService';
 import { Iterables } from '../../system';
-import { RepositoriesExplorer } from '../repositoriesExplorer';
+import { RepositoriesView } from '../repositoriesView';
 import { MessageNode } from './common';
-import { ExplorerNode, ResourceType } from './explorerNode';
 import { RemoteNode } from './remoteNode';
+import { ResourceType, ViewNode } from './viewNode';
 
-export class RemotesNode extends ExplorerNode {
+export class RemotesNode extends ViewNode {
     constructor(
         uri: GitUri,
         public readonly repo: Repository,
-        parent: ExplorerNode,
-        public readonly explorer: RepositoriesExplorer
+        parent: ViewNode,
+        public readonly view: RepositoriesView
     ) {
         super(uri, parent);
     }
@@ -22,12 +22,12 @@ export class RemotesNode extends ExplorerNode {
         return `gitlens:repository(${this.repo.path}):remotes`;
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         const remotes = await this.repo.getRemotes();
         if (remotes === undefined || remotes.length === 0) return [new MessageNode(this, 'No remotes configured')];
 
         remotes.sort((a, b) => a.name.localeCompare(b.name));
-        return [...Iterables.map(remotes, r => new RemoteNode(r, this.uri, this.repo, this, this.explorer))];
+        return [...Iterables.map(remotes, r => new RemoteNode(r, this.uri, this.repo, this, this.view))];
     }
 
     getTreeItem(): TreeItem {

@@ -11,11 +11,11 @@ import { Keyboard } from './keyboard';
 import { StatusBarController } from './statusbar/statusBarController';
 import { GitDocumentTracker } from './trackers/gitDocumentTracker';
 import { GitLineTracker } from './trackers/gitLineTracker';
-import { ExplorerCommands } from './views/explorerCommands';
-import { FileHistoryExplorer } from './views/fileHistoryExplorer';
-import { LineHistoryExplorer } from './views/lineHistoryExplorer';
-import { RepositoriesExplorer } from './views/repositoriesExplorer';
-import { ResultsExplorer } from './views/resultsExplorer';
+import { FileHistoryView } from './views/fileHistoryView';
+import { LineHistoryView } from './views/lineHistoryView';
+import { RepositoriesView } from './views/repositoriesView';
+import { ResultsView } from './views/resultsView';
+import { ViewCommands } from './views/viewCommands';
 import { SettingsEditor } from './webviews/settingsEditor';
 import { WelcomeEditor } from './webviews/welcomeEditor';
 
@@ -40,41 +40,41 @@ export class Container {
         context.subscriptions.push((this._settingsEditor = new SettingsEditor()));
         context.subscriptions.push((this._welcomeEditor = new WelcomeEditor()));
 
-        if (config.repositoriesExplorer.enabled) {
-            context.subscriptions.push((this._repositoriesExplorer = new RepositoriesExplorer()));
+        if (config.views.repositories.enabled) {
+            context.subscriptions.push((this._repositoriesView = new RepositoriesView()));
         }
         else {
             let disposable: Disposable;
             disposable = configuration.onDidChange(e => {
-                if (configuration.changed(e, configuration.name('repositoriesExplorer')('enabled').value)) {
+                if (configuration.changed(e, configuration.name('views')('repositories')('enabled').value)) {
                     disposable.dispose();
-                    context.subscriptions.push((this._repositoriesExplorer = new RepositoriesExplorer()));
+                    context.subscriptions.push((this._repositoriesView = new RepositoriesView()));
                 }
             });
         }
 
-        if (config.fileHistoryExplorer.enabled) {
-            context.subscriptions.push((this._fileHistoryExplorer = new FileHistoryExplorer()));
+        if (config.views.fileHistory.enabled) {
+            context.subscriptions.push((this._fileHistoryView = new FileHistoryView()));
         }
         else {
             let disposable: Disposable;
             disposable = configuration.onDidChange(e => {
-                if (configuration.changed(e, configuration.name('fileHistoryExplorer')('enabled').value)) {
+                if (configuration.changed(e, configuration.name('views')('fileHistory')('enabled').value)) {
                     disposable.dispose();
-                    context.subscriptions.push((this._fileHistoryExplorer = new FileHistoryExplorer()));
+                    context.subscriptions.push((this._fileHistoryView = new FileHistoryView()));
                 }
             });
         }
 
-        if (config.lineHistoryExplorer.enabled) {
-            context.subscriptions.push((this._lineHistoryExplorer = new LineHistoryExplorer()));
+        if (config.views.lineHistory.enabled) {
+            context.subscriptions.push((this._lineHistoryView = new LineHistoryView()));
         }
         else {
             let disposable: Disposable;
             disposable = configuration.onDidChange(e => {
-                if (configuration.changed(e, configuration.name('lineHistoryExplorer')('enabled').value)) {
+                if (configuration.changed(e, configuration.name('views')('lineHistory')('enabled').value)) {
                     disposable.dispose();
-                    context.subscriptions.push((this._lineHistoryExplorer = new LineHistoryExplorer()));
+                    context.subscriptions.push((this._lineHistoryView = new LineHistoryView()));
                 }
             });
         }
@@ -100,26 +100,18 @@ export class Container {
         return this._context;
     }
 
-    private static _explorerCommands: ExplorerCommands | undefined;
-    static get explorerCommands() {
-        if (this._explorerCommands === undefined) {
-            this._context.subscriptions.push((this._explorerCommands = new ExplorerCommands()));
-        }
-        return this._explorerCommands;
-    }
-
     private static _fileAnnotationController: FileAnnotationController;
     static get fileAnnotations() {
         return this._fileAnnotationController;
     }
 
-    private static _fileHistoryExplorer: FileHistoryExplorer | undefined;
-    static get fileHistoryExplorer() {
-        if (this._fileHistoryExplorer === undefined) {
-            this._context.subscriptions.push((this._fileHistoryExplorer = new FileHistoryExplorer()));
+    private static _fileHistoryView: FileHistoryView | undefined;
+    static get fileHistoryView() {
+        if (this._fileHistoryView === undefined) {
+            this._context.subscriptions.push((this._fileHistoryView = new FileHistoryView()));
         }
 
-        return this._fileHistoryExplorer;
+        return this._fileHistoryView;
     }
 
     private static _git: GitService;
@@ -127,9 +119,9 @@ export class Container {
         return this._git;
     }
 
-    private static _repositoriesExplorer: RepositoriesExplorer | undefined;
-    static get repositoriesExplorer(): RepositoriesExplorer {
-        return this._repositoriesExplorer!;
+    private static _repositoriesView: RepositoriesView | undefined;
+    static get repositoriesView(): RepositoriesView {
+        return this._repositoriesView!;
     }
 
     private static _keyboard: Keyboard;
@@ -142,13 +134,13 @@ export class Container {
         return this._lineAnnotationController;
     }
 
-    private static _lineHistoryExplorer: LineHistoryExplorer | undefined;
-    static get lineHistoryExplorer() {
-        if (this._lineHistoryExplorer === undefined) {
-            this._context.subscriptions.push((this._lineHistoryExplorer = new LineHistoryExplorer()));
+    private static _lineHistoryView: LineHistoryView | undefined;
+    static get lineHistoryView() {
+        if (this._lineHistoryView === undefined) {
+            this._context.subscriptions.push((this._lineHistoryView = new LineHistoryView()));
         }
 
-        return this._lineHistoryExplorer;
+        return this._lineHistoryView;
     }
 
     private static _lineHoverController: LineHoverController;
@@ -161,13 +153,13 @@ export class Container {
         return this._lineTracker;
     }
 
-    private static _resultsExplorer: ResultsExplorer | undefined;
-    static get resultsExplorer() {
-        if (this._resultsExplorer === undefined) {
-            this._context.subscriptions.push((this._resultsExplorer = new ResultsExplorer()));
+    private static _resultsView: ResultsView | undefined;
+    static get resultsView() {
+        if (this._resultsView === undefined) {
+            this._context.subscriptions.push((this._resultsView = new ResultsView()));
         }
 
-        return this._resultsExplorer;
+        return this._resultsView;
     }
 
     private static _settingsEditor: SettingsEditor;
@@ -183,6 +175,14 @@ export class Container {
     private static _tracker: GitDocumentTracker;
     static get tracker() {
         return this._tracker;
+    }
+
+    private static _viewCommands: ViewCommands | undefined;
+    static get viewCommands() {
+        if (this._viewCommands === undefined) {
+            this._context.subscriptions.push((this._viewCommands = new ViewCommands()));
+        }
+        return this._viewCommands;
     }
 
     private static _welcomeEditor: WelcomeEditor;
@@ -206,18 +206,24 @@ export class Container {
         if (mode.currentLine != null) {
             config.currentLine.enabled = mode.currentLine;
         }
-        if (mode.explorers != null) {
-            config.repositoriesExplorer.enabled = mode.explorers;
-        }
-        if (mode.explorers != null) {
-            config.fileHistoryExplorer.enabled = mode.explorers;
-        }
         if (mode.hovers != null) {
             config.hovers.enabled = mode.hovers;
         }
         if (mode.statusBar != null) {
             config.statusBar.enabled = mode.statusBar;
         }
+        if (mode.views != null) {
+            config.views.fileHistory.enabled = mode.views;
+        }
+        if (mode.views != null) {
+            config.views.lineHistory.enabled = mode.views;
+        }
+        if (mode.views != null) {
+            config.views.repositories.enabled = mode.views;
+        }
+        // if (mode.views != null) {
+        //     config.views.results.enabled = mode.views;
+        // }
 
         return config;
     }
