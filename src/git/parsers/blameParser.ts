@@ -137,14 +137,14 @@ export class GitBlameParser {
             }
         }
 
-        commits.forEach(c => {
+        for (const [, c] of commits) {
             if (c.author === undefined) return;
 
             const author = authors.get(c.author);
             if (author === undefined) return;
 
             author.lineCount += c.lines.length;
-        });
+        }
 
         const sortedAuthors = new Map([...authors.entries()].sort((a, b) => b[1].lineCount - a[1].lineCount));
 
