@@ -5,7 +5,7 @@ import { RemoteProvider } from './provider';
 const issueEnricherRegEx = /(^|\s)(#([0-9]+))\b/gi;
 const stripGitRegex = /\/_git\/?/i;
 
-export class VisualStudioService extends RemoteProvider {
+export class AzureDevOpsRemote extends RemoteProvider {
     constructor(domain: string, path: string, protocol?: string, name?: string) {
         super(domain, path, protocol, name);
     }
@@ -15,7 +15,7 @@ export class VisualStudioService extends RemoteProvider {
     }
 
     get name() {
-        return 'Visual Studio Team Services';
+        return 'Azure DevOps';
     }
 
     enrichMessage(message: string): string {

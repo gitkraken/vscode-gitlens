@@ -5,7 +5,7 @@ import { RemoteProvider } from './provider';
 const issueEnricherRegEx = /(^|\s)(issue #([0-9]+))\b/gi;
 const prEnricherRegEx = /(^|\s)(pull request #([0-9]+))\b/gi;
 
-export class BitbucketServerService extends RemoteProvider {
+export class BitbucketServerRemote extends RemoteProvider {
     constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
         super(domain, path, protocol, name, custom);
     }

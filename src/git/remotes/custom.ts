@@ -4,7 +4,7 @@ import { RemotesUrlsConfig } from '../../configuration';
 import { Strings } from '../../system';
 import { RemoteProvider } from './provider';
 
-export class CustomService extends RemoteProvider {
+export class CustomRemote extends RemoteProvider {
     private readonly urls: RemotesUrlsConfig;
 
     constructor(domain: string, path: string, urls: RemotesUrlsConfig, protocol?: string, name?: string) {

@@ -5,7 +5,7 @@ import { RemoteProvider } from './provider';
 const issueEnricherRegEx = /(^|\s)((?:#|gh-)([0-9]+))\b/gi;
 const issueEnricher3rdParyRegEx = /\b((\w+-?\w+(?!-)\/\w+-?\w+(?!-))#([0-9]+))\b/g;
 
-export class GitHubService extends RemoteProvider {
+export class GitHubRemote extends RemoteProvider {
     constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
         super(domain, path, protocol, name, custom);
     }
