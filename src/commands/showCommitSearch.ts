@@ -19,7 +19,7 @@ import {
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
 const searchByRegex = /^([@~=:#])/;
-const searchByMap = new Map<string, GitRepoSearchBy>([
+const symbolToSearchByMap = new Map<string, GitRepoSearchBy>([
     ['@', GitRepoSearchBy.Author],
     ['~', GitRepoSearchBy.ChangedLines],
     ['=', GitRepoSearchBy.Changes],
@@ -27,10 +27,19 @@ const searchByMap = new Map<string, GitRepoSearchBy>([
     ['#', GitRepoSearchBy.Sha]
 ]);
 
+const searchByToSymbolMap = new Map<GitRepoSearchBy, string>([
+    [GitRepoSearchBy.Author, '@'],
+    [GitRepoSearchBy.ChangedLines, '~'],
+    [GitRepoSearchBy.Changes, '='],
+    [GitRepoSearchBy.Files, ':'],
+    [GitRepoSearchBy.Sha, '#']
+]);
+
 export interface ShowCommitSearchCommandArgs {
     search?: string;
     searchBy?: GitRepoSearchBy;
     maxCount?: number;
+    showInResults?: boolean;
 
     goBackCommand?: CommandQuickPickItem;
 }
@@ -41,8 +50,13 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
     }
 
     protected async preExecute(context: CommandContext, args: ShowCommitSearchCommandArgs = {}) {
-        if (isCommandViewContextWithRepo(context)) {
-            return this.execute(context.editor, context.node.uri, args);
+        if (context.type === 'view' || context.type === 'viewItem') {
+            args = { ...args };
+            args.showInResults = true;
+
+            if (isCommandViewContextWithRepo(context)) {
+                return this.execute(context.editor, context.node.uri, args);
+            }
         }
 
         return this.execute(context.editor, context.uri, args);
@@ -65,24 +79,17 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
         const originalArgs = { ...args };
 
         if (!args.search || args.searchBy == null) {
-            try {
-                if (!args.search) {
-                    if (editor != null && gitUri != null) {
-                        const blameLine = await Container.git.getBlameForLine(gitUri, editor.selection.active.line);
-                        if (blameLine !== undefined && !blameLine.commit.isUncommitted) {
-                            args.search = `#${blameLine.commit.shortSha}`;
-                        }
-                    }
-                }
-            }
-            catch (ex) {
-                Logger.error(ex, 'ShowCommitSearchCommand', 'search prefetch failed');
+            let selection;
+            if (!args.search && args.searchBy != null) {
+                args.search = searchByToSymbolMap.get(args.searchBy);
+                selection = [1, 1];
             }
 
             args.search = await window.showInputBox({
                 value: args.search,
                 prompt: `Please enter a search string`,
-                placeHolder: `search by message, author (@<pattern>), files (:<pattern>), commit id (#<sha>), changes (=<pattern>), changed lines (~<pattern>)`
+                placeHolder: `search by message, author (@<pattern>), files (:<pattern>), commit id (#<sha>), changes (=<pattern>), changed lines (~<pattern>)`,
+                valueSelection: selection
             } as InputBoxOptions);
             if (args.search === undefined) {
                 return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
@@ -92,7 +99,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
 
             const match = searchByRegex.exec(args.search);
             if (match && match[1]) {
-                args.searchBy = searchByMap.get(match[1]);
+                args.searchBy = symbolToSearchByMap.get(match[1]);
                 args.search = args.search.substring(args.search[1] === ' ' ? 2 : 1);
             }
             else if (GitService.isShaLike(args.search)) {
@@ -132,6 +139,18 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
             case GitRepoSearchBy.Sha:
                 searchLabel = `commits with an id matching '${args.search}'`;
                 break;
+        }
+
+        if (args.showInResults) {
+            Container.resultsExplorer.addSearchResults(
+                repoPath,
+                Container.git.getLogForSearch(repoPath, args.search!, args.searchBy!, {
+                    maxCount: args.maxCount
+                }),
+                { label: searchLabel! }
+            );
+
+            return;
         }
 
         const progressCancellation = CommitsQuickPick.showProgress(searchLabel!);

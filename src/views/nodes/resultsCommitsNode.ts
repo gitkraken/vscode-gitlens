@@ -4,7 +4,7 @@ import { GitLog, GitUri } from '../../git/gitService';
 import { Iterables } from '../../system';
 import { ResultsExplorer } from '../resultsExplorer';
 import { CommitNode } from './commitNode';
-import { ShowAllNode } from './common';
+import { ShowMoreNode } from './common';
 import { ExplorerNode, PageableExplorerNode, ResourceType } from './explorerNode';
 
 export interface CommitsQueryResults {
@@ -30,12 +30,12 @@ export class ResultsCommitsNode extends ExplorerNode implements PageableExplorer
         const { log } = await this.getCommitsQueryResults();
         if (log === undefined) return [];
 
-        const children: (CommitNode | ShowAllNode)[] = [
+        const children: (CommitNode | ShowMoreNode)[] = [
             ...Iterables.map(log.commits.values(), c => new CommitNode(c, this, this.explorer))
         ];
 
         if (log.truncated) {
-            children.push(new ShowAllNode('Results', this, this.explorer));
+            children.push(new ShowMoreNode('Results', this, this.explorer));
         }
 
         return children;

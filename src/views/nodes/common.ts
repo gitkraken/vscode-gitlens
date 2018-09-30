@@ -35,6 +35,38 @@ export class MessageNode extends ExplorerNode {
     }
 }
 
+export class CommandMessageNode extends MessageNode {
+    constructor(
+        parent: ExplorerNode,
+        private readonly _command: Command,
+        message: string,
+        tooltip?: string,
+        iconPath?:
+            | string
+            | Uri
+            | {
+                  light: string | Uri;
+                  dark: string | Uri;
+              }
+            | ThemeIcon
+    ) {
+        super(parent, message, tooltip, iconPath);
+    }
+
+    getTreeItem(): TreeItem | Promise<TreeItem> {
+        const item = super.getTreeItem();
+        if (item instanceof TreeItem) {
+            item.command = this._command;
+            return item;
+        }
+
+        return item.then(i => {
+            i.command = this._command;
+            return i;
+        });
+    }
+}
+
 export class UpdateableMessageNode extends ExplorerNode {
     constructor(
         parent: ExplorerNode,
@@ -148,11 +180,5 @@ export class ShowMoreNode extends PagerNode {
             explorer
         );
         this._args.maxCount = maxCount;
-    }
-}
-
-export class ShowAllNode extends ShowMoreNode {
-    constructor(type: string, node: ExplorerNode, explorer: Explorer) {
-        super(type, node, explorer, 0);
     }
 }

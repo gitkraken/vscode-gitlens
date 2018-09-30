@@ -130,7 +130,8 @@ export class ResultsExplorer extends ExplorerBase<ResultsNode> {
     }
 
     addSearchResults(
-        results: GitLog,
+        repoPath: string,
+        resultsOrPromise: GitLog | Promise<GitLog | undefined>,
         resultsLabel:
             | string
             | {
@@ -139,12 +140,17 @@ export class ResultsExplorer extends ExplorerBase<ResultsNode> {
               }
     ) {
         const getCommitsQuery = async (maxCount: number | undefined) => {
-            const log = await Functions.seeded(
-                results.query === undefined
-                    ? (maxCount: number | undefined) => Promise.resolve(results)
-                    : results.query,
-                results
-            )(maxCount);
+            const results = await resultsOrPromise;
+
+            let log;
+            if (results !== undefined) {
+                log = await Functions.seeded(
+                    results.query === undefined
+                        ? (maxCount: number | undefined) => Promise.resolve(results)
+                        : results.query,
+                    results.maxCount === maxCount ? results : undefined
+                )(maxCount);
+            }
 
             let label;
             if (typeof resultsLabel === 'string') {
@@ -161,9 +167,8 @@ export class ResultsExplorer extends ExplorerBase<ResultsNode> {
 
                 let repository = '';
                 if ((await Container.git.getRepositoryCount()) > 1) {
-                    const repo = await Container.git.getRepository(results.repoPath);
-                    repository = ` ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) ||
-                        results.repoPath}`;
+                    const repo = await Container.git.getRepository(repoPath);
+                    repository = ` ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) || repoPath}`;
                 }
 
                 label = `${Strings.pluralize(resultsType.singular, count, {
@@ -180,7 +185,7 @@ export class ResultsExplorer extends ExplorerBase<ResultsNode> {
         };
 
         return this.addResults(
-            new ResultsCommitsNode(results.repoPath, getCommitsQuery, undefined, this, ResourceType.SearchResults)
+            new ResultsCommitsNode(repoPath, getCommitsQuery, undefined, this, ResourceType.SearchResults)
         );
     }
 
