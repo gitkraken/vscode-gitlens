@@ -131,6 +131,7 @@ export interface CodeLensConfig {
         command: CodeLensCommand;
     };
     enabled: boolean;
+    includeSingleLineSymbols: boolean;
     recentChange: {
         enabled: boolean;
         command: CodeLensCommand;

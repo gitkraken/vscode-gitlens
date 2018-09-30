@@ -180,13 +180,19 @@
                 "gitlens.codeLens.authors.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to show an `authors` code lens showing number of authors of the file or code block and the most prominent author (if there is more than one)",
+                    "description": "Specifies whether to provide an `authors` code lens, showing number of authors of the file or code block and the most prominent author (if there is more than one)",
                     "scope": "window"
                 },
                 "gitlens.codeLens.enabled": {
                     "type": "boolean",
                     "default": true,
                     "description": "Specifies whether to provide any Git code lens, by default\nUse the `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) to toggle the Git code lens on and off for the current window",
+                    "scope": "window"
+                },
+                "gitlens.codeLens.includeSingleLineSymbols": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Specifies whether to provide any Git code lens on symbols that span only a single line",
                     "scope": "window"
                 },
                 "gitlens.codeLens.recentChange.command": {
@@ -214,7 +220,7 @@
                 "gitlens.codeLens.recentChange.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to show a `recent change` code lens showing the author and date of the most recent commit for the file or code block",
+                    "description": "Specifies whether to provide a `recent change` code lens, showing the author and date of the most recent commit for the file or code block",
                     "scope": "window"
                 },
                 "gitlens.codeLens.scopes": {
@@ -362,7 +368,7 @@
                         "type": "string"
                     },
                     "uniqueItems": true,
-                    "description": "Specifies a set of document symbols where Git code lens will or will not be shown in the document\nPrefix with `!` to not show Git code lens for the symbol\nMust be a member of `SymbolKind`",
+                    "description": "Specifies a set of document symbols where Git code lens will or will not be shown in the document\nPrefix with `!` to avoid providing a Git code lens for the symbol\nMust be a member of `SymbolKind`",
                     "scope": "resource"
                 },
                 "gitlens.currentLine.dateFormat": {

@@ -6,6 +6,7 @@ import {
     Command,
     commands,
     DocumentSelector,
+    DocumentSymbol,
     Event,
     EventEmitter,
     ExtensionContext,
@@ -41,7 +42,7 @@ import { DocumentTracker, GitDocumentState } from '../trackers/gitDocumentTracke
 export class GitRecentChangeCodeLens extends CodeLens {
     constructor(
         public readonly languageId: string,
-        public readonly symbol: SymbolInformation,
+        public readonly symbol: DocumentSymbol | SymbolInformation,
         public readonly uri: GitUri | undefined,
         private readonly blame: (() => GitBlameLines | undefined) | undefined,
         public readonly blameRange: Range,
@@ -61,7 +62,7 @@ export class GitRecentChangeCodeLens extends CodeLens {
 export class GitAuthorsCodeLens extends CodeLens {
     constructor(
         public readonly languageId: string,
-        public readonly symbol: SymbolInformation,
+        public readonly symbol: DocumentSymbol | SymbolInformation,
         public readonly uri: GitUri | undefined,
         private readonly blame: () => GitBlameLines | undefined,
         public readonly blameRange: Range,
@@ -186,7 +187,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
         if (symbols !== undefined) {
             Logger.log('GitCodeLensProvider.provideCodeLenses:', `${symbols.length} symbol(s) found`);
-            symbols.forEach(sym =>
+            for (const sym of symbols) {
                 this.provideCodeLens(
                     lenses,
                     document,
@@ -198,8 +199,8 @@ export class GitCodeLensProvider implements CodeLensProvider {
                     cfg,
                     dirty,
                     dirtyCommand
-                )
-            );
+                );
+            }
         }
 
         if (
@@ -270,10 +271,11 @@ export class GitCodeLensProvider implements CodeLensProvider {
         return lenses;
     }
 
-    private validateSymbolAndGetBlameRange(
-        symbol: SymbolInformation,
+    private getValidateSymbolRange(
+        symbol: SymbolInformation | DocumentSymbol,
         languageScope: Required<CodeLensLanguageScope>,
-        documentRangeFn: () => Range
+        documentRangeFn: () => Range,
+        includeSingleLineSymbols: boolean
     ): Range | undefined {
         let valid = false;
         let range: Range | undefined;
@@ -304,7 +306,8 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
                 if (valid) {
                     // Adjust the range to be for the whole file
-                    if (getRangeFromSymbol(symbol).start.line === 0 && getRangeFromSymbol(symbol).end.line === 0) {
+                    range = getRangeFromSymbol(symbol);
+                    if (range.start.line === 0 && range.end.line === 0) {
                         range = documentRangeFn();
                     }
                 }
@@ -319,7 +322,10 @@ export class GitCodeLensProvider implements CodeLensProvider {
                     languageScope.scopes.includes(CodeLensScopes.Containers) ||
                     languageScope.symbolScopes!.includes(symbolName)
                 ) {
-                    valid = !languageScope.symbolScopes!.includes(`!${symbolName}`);
+                    range = getRangeFromSymbol(symbol);
+                    valid =
+                        !languageScope.symbolScopes!.includes(`!${symbolName}`) &&
+                        (includeSingleLineSymbols || !range.isSingleLine);
                 }
                 break;
 
@@ -327,17 +333,24 @@ export class GitCodeLensProvider implements CodeLensProvider {
             case SymbolKind.Enum:
             case SymbolKind.Function:
             case SymbolKind.Method:
+            case SymbolKind.Property:
                 if (
                     languageScope.scopes.includes(CodeLensScopes.Blocks) ||
                     languageScope.symbolScopes!.includes(symbolName)
                 ) {
-                    valid = !languageScope.symbolScopes!.includes(`!${symbolName}`);
+                    range = getRangeFromSymbol(symbol);
+                    valid =
+                        !languageScope.symbolScopes!.includes(`!${symbolName}`) &&
+                        (includeSingleLineSymbols || !range.isSingleLine);
                 }
                 break;
 
             default:
                 if (languageScope.symbolScopes!.includes(symbolName)) {
-                    valid = !languageScope.symbolScopes!.includes(`!${symbolName}`);
+                    range = getRangeFromSymbol(symbol);
+                    valid =
+                        !languageScope.symbolScopes!.includes(`!${symbolName}`) &&
+                        (includeSingleLineSymbols || !range.isSingleLine);
                 }
                 break;
         }
@@ -348,7 +361,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
     private provideCodeLens(
         lenses: CodeLens[],
         document: TextDocument,
-        symbol: SymbolInformation,
+        symbol: SymbolInformation | DocumentSymbol,
         languageScope: Required<CodeLensLanguageScope>,
         documentRangeFn: () => Range,
         blame: GitBlame | undefined,
@@ -357,64 +370,29 @@ export class GitCodeLensProvider implements CodeLensProvider {
         dirty: boolean,
         dirtyCommand: Command | undefined
     ): void {
-        const blameRange = this.validateSymbolAndGetBlameRange(symbol, languageScope, documentRangeFn);
-        if (blameRange === undefined) return;
-
-        const line = document.lineAt(getRangeFromSymbol(symbol).start);
-        // Make sure there is only 1 lens per line
-        if (lenses.length && lenses[lenses.length - 1].range.start.line === line.lineNumber) return;
-
-        // Anchor the code lens to the start of the line -- so that the range won't change with edits (otherwise the code lens will be removed and re-added)
-        let startChar = 0;
-
-        let blameForRangeFn: (() => GitBlameLines | undefined) | undefined;
-        if (dirty || cfg.recentChange.enabled) {
-            if (!dirty) {
-                blameForRangeFn = Functions.once(() => this._git.getBlameForRangeSync(blame!, gitUri!, blameRange));
-            }
-            lenses.push(
-                new GitRecentChangeCodeLens(
-                    document.languageId,
-                    symbol,
-                    gitUri,
-                    blameForRangeFn,
-                    blameRange,
-                    false,
-                    line.range.with(new Position(line.range.start.line, startChar)),
-                    cfg.recentChange.command,
-                    dirtyCommand
-                )
+        try {
+            const blameRange = this.getValidateSymbolRange(
+                symbol,
+                languageScope,
+                documentRangeFn,
+                cfg.includeSingleLineSymbols
             );
-            startChar++;
-        }
+            if (blameRange === undefined) return;
 
-        if (cfg.authors.enabled) {
-            let multiline = !blameRange.isSingleLine;
-            // HACK for Omnisharp, since it doesn't return full ranges
-            if (!multiline && document.languageId === 'csharp') {
-                switch (symbol.kind) {
-                    case SymbolKind.File:
-                        break;
-                    case SymbolKind.Package:
-                    case SymbolKind.Module:
-                    case SymbolKind.Namespace:
-                    case SymbolKind.Class:
-                    case SymbolKind.Interface:
-                    case SymbolKind.Constructor:
-                    case SymbolKind.Method:
-                    case SymbolKind.Function:
-                    case SymbolKind.Enum:
-                        multiline = true;
-                        break;
-                }
-            }
+            const line = document.lineAt(getRangeFromSymbol(symbol).start);
+            // Make sure there is only 1 lens per line
+            if (lenses.length && lenses[lenses.length - 1].range.start.line === line.lineNumber) return;
 
-            if (multiline && !dirty) {
-                if (blameForRangeFn === undefined) {
+            // Anchor the code lens to the start of the line -- so that the range won't change with edits (otherwise the code lens will be removed and re-added)
+            let startChar = 0;
+
+            let blameForRangeFn: (() => GitBlameLines | undefined) | undefined;
+            if (dirty || cfg.recentChange.enabled) {
+                if (!dirty) {
                     blameForRangeFn = Functions.once(() => this._git.getBlameForRangeSync(blame!, gitUri!, blameRange));
                 }
                 lenses.push(
-                    new GitAuthorsCodeLens(
+                    new GitRecentChangeCodeLens(
                         document.languageId,
                         symbol,
                         gitUri,
@@ -422,9 +400,71 @@ export class GitCodeLensProvider implements CodeLensProvider {
                         blameRange,
                         false,
                         line.range.with(new Position(line.range.start.line, startChar)),
-                        cfg.authors.command
+                        cfg.recentChange.command,
+                        dirtyCommand
                     )
                 );
+                startChar++;
+            }
+
+            if (cfg.authors.enabled) {
+                let multiline = !blameRange.isSingleLine;
+                // HACK for Omnisharp, since it doesn't return full ranges
+                if (!multiline && document.languageId === 'csharp') {
+                    switch (symbol.kind) {
+                        case SymbolKind.File:
+                            break;
+                        case SymbolKind.Package:
+                        case SymbolKind.Module:
+                        case SymbolKind.Namespace:
+                        case SymbolKind.Class:
+                        case SymbolKind.Interface:
+                        case SymbolKind.Constructor:
+                        case SymbolKind.Method:
+                        case SymbolKind.Function:
+                        case SymbolKind.Enum:
+                            multiline = true;
+                            break;
+                    }
+                }
+
+                if (multiline && !dirty) {
+                    if (blameForRangeFn === undefined) {
+                        blameForRangeFn = Functions.once(() =>
+                            this._git.getBlameForRangeSync(blame!, gitUri!, blameRange)
+                        );
+                    }
+                    lenses.push(
+                        new GitAuthorsCodeLens(
+                            document.languageId,
+                            symbol,
+                            gitUri,
+                            blameForRangeFn,
+                            blameRange,
+                            false,
+                            line.range.with(new Position(line.range.start.line, startChar)),
+                            cfg.authors.command
+                        )
+                    );
+                }
+            }
+        }
+        finally {
+            if (isDocumentSymbol(symbol)) {
+                for (const child of symbol.children) {
+                    this.provideCodeLens(
+                        lenses,
+                        document,
+                        child,
+                        languageScope,
+                        documentRangeFn,
+                        blame,
+                        gitUri,
+                        cfg,
+                        dirty,
+                        dirtyCommand
+                    );
+                }
             }
         }
     }
@@ -444,8 +484,13 @@ export class GitCodeLensProvider implements CodeLensProvider {
         if (Container.config.debug) {
             title += ` [${lens.languageId}: ${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${
                 lens.range.end.character
-            }${lens.symbol.containerName ? `|${lens.symbol.containerName}` : ''}), Lines (${lens.blameRange.start.line +
-                1}-${lens.blameRange.end.line + 1}), Commit (${recentCommit.shortSha})]`;
+            }${
+                (lens.symbol as SymbolInformation).containerName
+                    ? `|${(lens.symbol as SymbolInformation).containerName}`
+                    : ''
+            }), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Commit (${
+                recentCommit.shortSha
+            })]`;
         }
 
         switch (lens.desiredCommand) {
@@ -492,8 +537,11 @@ export class GitCodeLensProvider implements CodeLensProvider {
         if (Container.config.debug) {
             title += ` [${lens.languageId}: ${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${
                 lens.range.end.character
-            }${lens.symbol.containerName ? `|${lens.symbol.containerName}` : ''}), Lines (${lens.blameRange.start.line +
-                1}-${lens.blameRange.end.line + 1}), Authors (${Iterables.join(
+            }${
+                (lens.symbol as SymbolInformation).containerName
+                    ? `|${(lens.symbol as SymbolInformation).containerName}`
+                    : ''
+            }), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Authors (${Iterables.join(
                 Iterables.map(blame.authors.values(), a => a.name),
                 ', '
             )})]`;
@@ -636,7 +684,10 @@ export class GitCodeLensProvider implements CodeLensProvider {
     }
 }
 
-function getRangeFromSymbol(symbol: SymbolInformation) {
-    // Normalize the range to deal with the new api
-    return (symbol.location && symbol.location.range) || (symbol as any).range;
+function getRangeFromSymbol(symbol: DocumentSymbol | SymbolInformation) {
+    return isDocumentSymbol(symbol) ? symbol.range : symbol.location.range;
+}
+
+function isDocumentSymbol(symbol: DocumentSymbol | SymbolInformation): symbol is DocumentSymbol {
+    return (symbol as DocumentSymbol).children !== undefined;
 }
