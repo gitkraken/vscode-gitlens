@@ -266,6 +266,10 @@ export class Git {
         return git<string>({ cwd: repoPath }, 'add', '-A', '--', fileName);
     }
 
+    static apply(repoPath: string | undefined, patch: string) {
+        return git<string>({ cwd: repoPath, stdin: patch }, 'apply');
+    }
+
     static async blame(
         repoPath: string | undefined,
         fileName: string,

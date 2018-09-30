@@ -130,10 +130,10 @@ export class ExplorerCommands implements Disposable {
     }
 
     private async applyChanges(node: CommitFileNode | StashFileNode | ResultsFileNode) {
-        await this.openFile(node);
+        void (await this.openFile(node));
 
         if (node.uri.sha !== undefined && node.uri.sha !== 'HEAD') {
-            await Container.git.checkoutFile(node.uri);
+            void (await Container.git.applyChangesToWorkingFile(node.uri));
         }
     }
 

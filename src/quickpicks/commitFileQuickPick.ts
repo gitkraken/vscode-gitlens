@@ -44,8 +44,11 @@ export class ApplyCommitFileChangesCommandQuickPickItem extends CommandQuickPick
 
     async execute(): Promise<{} | undefined> {
         const uri = this.commit.toGitUri();
-        await Container.git.checkoutFile(uri);
-        return openEditor(uri, { preserveFocus: true, preview: false });
+        void (await openEditor(uri, { preserveFocus: true, preview: false }));
+
+        void (await Container.git.applyChangesToWorkingFile(uri));
+
+        return undefined;
     }
 }
 

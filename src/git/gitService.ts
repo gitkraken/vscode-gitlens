@@ -418,11 +418,23 @@ export class GitService implements Disposable {
         this._onDidChangeRepositories.fire();
     }
 
+    async applyChangesToWorkingFile(uri: GitUri, ref?: string) {
+        ref = ref || uri.sha;
+        if (ref === undefined || uri.repoPath === undefined) return;
+
+        Logger.log(`applyChangesToWorkingFile('${uri.repoPath}', '${uri.fsPath}', '${ref}')`);
+
+        const patch = await Git.diff(uri.repoPath, uri.fsPath, `${ref}^`, ref);
+        void (await Git.apply(uri.repoPath!, patch));
+    }
+
     checkoutFile(uri: GitUri, ref?: string) {
         ref = ref || uri.sha;
+        if (ref === undefined || uri.repoPath === undefined) return;
+
         Logger.log(`checkoutFile('${uri.repoPath}', '${uri.fsPath}', '${ref}')`);
 
-        return Git.checkout(uri.repoPath!, uri.fsPath, ref!);
+        return Git.checkout(uri.repoPath, uri.fsPath, ref);
     }
 
     private async fileExists(
