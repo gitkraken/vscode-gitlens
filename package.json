@@ -1707,6 +1707,15 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.showQuickRevisionDetails",
+                "title": "Show Revision Details",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-commit.svg",
+                    "light": "images/light/icon-commit.svg"
+                }
+            },
+            {
                 "command": "gitlens.showQuickFileHistory",
                 "title": "Show File History",
                 "category": "GitLens"
@@ -2403,7 +2412,11 @@
                 },
                 {
                     "command": "gitlens.showQuickCommitFileDetails",
-                    "when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/"
+                    "when": "gitlens:activeFileStatus =~ /blameable/"
+                },
+                {
+                    "command": "gitlens.showQuickRevisionDetails",
+                    "when": "gitlens:activeFileStatus =~ /revision/"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
@@ -2855,12 +2868,17 @@
                     "command": "gitlens.diffWithPrevious",
                     "alt": "gitlens.diffWithRevision",
                     "when": "!isInDiffEditor && gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare",
-                    "group": "navigation@98"
+                    "group": "navigation@97"
                 },
                 {
                     "command": "gitlens.diffWithPreviousInDiff",
                     "alt": "gitlens.diffWithRevision",
                     "when": "isInDiffEditor && gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare",
+                    "group": "navigation@97"
+                },
+                {
+                    "command": "gitlens.showQuickRevisionDetails",
+                    "when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git",
                     "group": "navigation@98"
                 },
                 {
