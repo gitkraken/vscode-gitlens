@@ -59,7 +59,7 @@ import {
     RepositoryChange
 } from './git';
 import { GitUri } from './gitUri';
-import { RemoteProviderFactory, RemoteProviderMap } from './remotes/factory';
+import { RemoteProviderFactory, RemoteProviders } from './remotes/factory';
 
 export * from './gitUri';
 export * from './models/models';
@@ -1490,20 +1490,20 @@ export class GitService implements Disposable {
         return (await remotes).filter(r => r.provider !== undefined);
     }
 
-    async getRemotesCore(repoPath: string | undefined, providerMap?: RemoteProviderMap): Promise<GitRemote[]> {
+    async getRemotesCore(repoPath: string | undefined, providers?: RemoteProviders): Promise<GitRemote[]> {
         if (repoPath === undefined) return [];
 
         Logger.log(`getRemotesCore('${repoPath}')`);
 
-        providerMap =
-            providerMap ||
-            RemoteProviderFactory.createMap(
+        providers =
+            providers ||
+            RemoteProviderFactory.loadProviders(
                 configuration.get<RemotesConfig[] | null | undefined>(configuration.name('remotes').value, null)
             );
 
         try {
             const data = await Git.remote(repoPath);
-            return GitRemoteParser.parse(data, repoPath, RemoteProviderFactory.factory(providerMap));
+            return GitRemoteParser.parse(data, repoPath, RemoteProviderFactory.factory(providers));
         }
         catch (ex) {
             Logger.error(ex, 'GitService.getRemotesCore');

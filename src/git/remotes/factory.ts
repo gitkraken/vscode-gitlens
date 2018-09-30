@@ -10,33 +10,36 @@ import { GitLabRemote } from './gitlab';
 import { RemoteProvider } from './provider';
 
 export { RemoteProvider };
+export type RemoteProviders = [string | RegExp, ((domain: string, path: string) => RemoteProvider)][];
 
-const defaultProviderMap = new Map<string, (domain: string, path: string) => RemoteProvider>([
+const defaultProviders: RemoteProviders = [
     ['bitbucket.org', (domain: string, path: string) => new BitbucketRemote(domain, path)],
     ['github.com', (domain: string, path: string) => new GitHubRemote(domain, path)],
     ['gitlab.com', (domain: string, path: string) => new GitLabRemote(domain, path)],
-    ['visualstudio.com', (domain: string, path: string) => new AzureDevOpsRemote(domain, path)],
-    ['dev.azure.com', (domain: string, path: string) => new AzureDevOpsRemote(domain, path)]
-]);
-
-export type RemoteProviderMap = Map<string, (domain: string, path: string) => RemoteProvider>;
+    ['dev.azure.com', (domain: string, path: string) => new AzureDevOpsRemote(domain, path)],
+    [/\bbitbucket\b/i, (domain: string, path: string) => new BitbucketServerRemote(domain, path)],
+    [/\bgitlab\b/i, (domain: string, path: string) => new GitLabRemote(domain, path)],
+    [/\bvisualstudio.com$/i, (domain: string, path: string) => new AzureDevOpsRemote(domain, path)]
+];
 
 export class RemoteProviderFactory {
-    static factory(providerMap: RemoteProviderMap): (domain: string, path: string) => RemoteProvider | undefined {
-        return (domain: string, path: string) => this.create(providerMap, domain, path);
+    static factory(providers: RemoteProviders): (domain: string, path: string) => RemoteProvider | undefined {
+        return (domain: string, path: string) => this.create(providers, domain, path);
     }
 
-    static create(providerMap: RemoteProviderMap, domain: string, path: string): RemoteProvider | undefined {
+    static create(providers: RemoteProviders, domain: string, path: string): RemoteProvider | undefined {
         try {
-            let key = domain.toLowerCase();
-            if (key.endsWith('visualstudio.com')) {
-                key = 'visualstudio.com';
+            const key = domain.toLowerCase();
+            for (const [matcher, creator] of providers) {
+                if (
+                    (typeof matcher === 'string' && matcher === key) ||
+                    (typeof matcher !== 'string' && matcher.test(key))
+                ) {
+                    return creator(domain, path);
+                }
             }
 
-            const creator = providerMap.get(key);
-            if (creator === undefined) return undefined;
-
-            return creator(domain, path);
+            return undefined;
         }
         catch (ex) {
             Logger.error(ex, 'RemoteProviderFactory');
@@ -44,17 +47,20 @@ export class RemoteProviderFactory {
         }
     }
 
-    static createMap(cfg: RemotesConfig[] | null | undefined): RemoteProviderMap {
-        const providerMap = new Map(defaultProviderMap);
+    static loadProviders(cfg: RemotesConfig[] | null | undefined): RemoteProviders {
+        const providers: RemoteProviders = [];
+
         if (cfg != null && cfg.length > 0) {
             for (const rc of cfg) {
                 const provider = this.getCustomProvider(rc);
                 if (provider === undefined) continue;
 
-                providerMap.set(rc.domain.toLowerCase(), provider);
+                providers.push([rc.domain.toLowerCase(), provider]);
             }
         }
-        return providerMap;
+
+        providers.push(...defaultProviders);
+        return providers;
     }
 
     private static getCustomProvider(cfg: RemotesConfig) {
