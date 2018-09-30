@@ -21,6 +21,7 @@ export interface ShowQuickCommitDetailsCommandArgs {
     sha?: string;
     commit?: GitCommit | GitLogCommit;
     repoLog?: GitLog;
+    showInResults?: boolean;
 
     goBackCommand?: CommandQuickPickItem;
 }
@@ -37,10 +38,15 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
     }
 
     constructor() {
-        super([Commands.ShowQuickCommitDetails, Commands.ShowQuickRevisionDetails]);
+        super([Commands.ShowCommitInResults, Commands.ShowQuickCommitDetails, Commands.ShowQuickRevisionDetails]);
     }
 
     protected async preExecute(context: CommandContext, args: ShowQuickCommitDetailsCommandArgs = {}): Promise<any> {
+        if (context.command === Commands.ShowCommitInResults) {
+            args = { ...args };
+            args.showInResults = true;
+        }
+
         if (context.command === Commands.ShowQuickRevisionDetails && context.editor !== undefined) {
             args = { ...args };
 
@@ -56,6 +62,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
                 args.commit = context.node.commit;
             }
         }
+
         return this.execute(context.editor, context.uri, args);
     }
 
@@ -124,6 +131,12 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 
             if (args.commit.workingFileName === undefined) {
                 args.commit.workingFileName = workingFileName;
+            }
+
+            if (args.showInResults) {
+                void (await Container.resultsExplorer.addCommit(args.commit as GitLogCommit));
+
+                return undefined;
             }
 
             if (args.goBackCommand === undefined) {

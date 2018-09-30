@@ -1697,6 +1697,16 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.showCommitInResults",
+                "title": "Show Commit in Results",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.showFileHistoryInResults",
+                "title": "Show File History in Results",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.showQuickCommitDetails",
                 "title": "Show Commit Details",
                 "category": "GitLens"
@@ -2405,6 +2415,14 @@
                 {
                     "command": "gitlens.showLastQuickPick",
                     "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.showCommitInResults",
+                    "when": "gitlens:activeFileStatus =~ /blameable/"
+                },
+                {
+                    "command": "gitlens.showFileHistoryInResults",
+                    "when": "gitlens:activeFileStatus =~ /tracked/"
                 },
                 {
                     "command": "gitlens.showQuickCommitDetails",
@@ -3285,6 +3303,11 @@
                     "group": "5_gitlens_1@1"
                 },
                 {
+                    "command": "gitlens.showCommitInResults",
+                    "when": "viewItem =~ /gitlens:commit\\b/",
+                    "group": "5_gitlens_1@2"
+                },
+                {
                     "command": "gitlens.explorers.terminalCherryPickCommit",
                     "when": "viewItem == gitlens:commit",
                     "group": "8_gitlens@1"
@@ -3395,16 +3418,6 @@
                     "group": "5_gitlens@3"
                 },
                 {
-                    "command": "gitlens.showQuickFileHistory",
-                    "when": "viewItem =~ /gitlens:file\\b/",
-                    "group": "8_gitlens@1"
-                },
-                {
-                    "command": "gitlens.showQuickCommitDetails",
-                    "when": "viewItem =~ /gitlens:file\\b(?!(:stash|:status))/",
-                    "group": "8_gitlens@2"
-                },
-                {
                     "command": "gitlens.explorers.applyChanges",
                     "when": "viewItem =~ /gitlens:file:(commit|results)\\b/",
                     "group": "5_gitlens_1@1"
@@ -3413,6 +3426,26 @@
                     "command": "gitlens.explorers.applyChanges",
                     "when": "viewItem == gitlens:file:stash",
                     "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.showQuickCommitDetails",
+                    "when": "viewItem =~ /gitlens:file\\b(?!(:stash|:status))/",
+                    "group": "5_gitlens_2@2"
+                },
+                {
+                    "command": "gitlens.showCommitInResults",
+                    "when": "viewItem =~ /gitlens:file\\b(?!(:stash|:status))/",
+                    "group": "5_gitlens_2@3"
+                },
+                {
+                    "command": "gitlens.showQuickFileHistory",
+                    "when": "viewItem =~ /gitlens:file\\b/",
+                    "group": "8_gitlens@1"
+                },
+                {
+                    "command": "gitlens.showFileHistoryInResults",
+                    "when": "viewItem =~ /gitlens:file\\b/",
+                    "group": "8_gitlens@2"
                 },
                 {
                     "command": "gitlens.openBranchesInRemote",

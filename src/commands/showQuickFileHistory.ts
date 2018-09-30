@@ -13,7 +13,7 @@ import {
     ShowCommitsInResultsQuickPickItem
 } from '../quickpicks';
 import { Iterables, Strings } from '../system';
-import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCachedCommand, CommandContext, Commands, getCommandUri } from './common';
 import { ShowQuickCommitFileDetailsCommandArgs } from './showQuickCommitFileDetails';
 
 export interface ShowQuickFileHistoryCommandArgs {
@@ -21,6 +21,7 @@ export interface ShowQuickFileHistoryCommandArgs {
     log?: GitLog;
     maxCount?: number;
     range?: Range;
+    showInResults?: boolean;
 
     goBackCommand?: CommandQuickPickItem;
     nextPageCommand?: CommandQuickPickItem;
@@ -28,7 +29,16 @@ export interface ShowQuickFileHistoryCommandArgs {
 
 export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
     constructor() {
-        super(Commands.ShowQuickFileHistory);
+        super([Commands.ShowFileHistoryInResults, Commands.ShowQuickFileHistory]);
+    }
+
+    protected async preExecute(context: CommandContext, args: ShowQuickFileHistoryCommandArgs = {}): Promise<any> {
+        if (context.command === Commands.ShowFileHistoryInResults) {
+            args = { ...args };
+            args.showInResults = true;
+        }
+
+        return this.execute(context.editor, context.uri, args);
     }
 
     async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickFileHistoryCommandArgs = {}) {
@@ -43,7 +53,11 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
             suffix: args.branchOrTag ? ` (${args.branchOrTag.name})` : undefined
         })}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}`;
 
-        const progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
+        let progressCancellation;
+        if (!args.showInResults) {
+            progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
+        }
+
         try {
             if (args.log === undefined) {
                 args.log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
@@ -59,7 +73,18 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                 }
             }
 
-            if (progressCancellation.token.isCancellationRequested) return undefined;
+            if (progressCancellation !== undefined && progressCancellation.token.isCancellationRequested) {
+                return undefined;
+            }
+
+            if (args.showInResults) {
+                void (await Container.resultsExplorer.addSearchResults(gitUri.repoPath!, args.log, {
+                    label: placeHolder,
+                    resultsType: { singular: 'commit', plural: 'commits' }
+                }));
+
+                return undefined;
+            }
 
             let previousPageCommand: CommandQuickPickItem | undefined = undefined;
 
@@ -166,7 +191,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
             return Messages.showGenericErrorMessage('Unable to show file history');
         }
         finally {
-            progressCancellation.cancel();
+            progressCancellation && progressCancellation.cancel();
         }
     }
 }
