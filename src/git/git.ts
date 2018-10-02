@@ -20,14 +20,15 @@ const defaultBlameParams = ['blame', '--root', '--incremental'];
 const lb = '%x3c'; // `%x${'<'.charCodeAt(0).toString(16)}`;
 const rb = '%x3e'; // `%x${'>'.charCodeAt(0).toString(16)}`;
 const sl = '%x2f'; // `%x${'/'.charCodeAt(0).toString(16)}`;
+const sp = '%x20'; // `%x${' '.charCodeAt(0).toString(16)}`;
 
 const logFormat = [
     `${lb}${sl}f${rb}`,
-    `${lb}r${rb} %H`, // ref
-    `${lb}a${rb} %an`, // author
-    `${lb}e${rb} %ae`, // email
-    `${lb}d${rb} %at`, // date
-    `${lb}p${rb} %P`, // parents
+    `${lb}r${rb}${sp}%H`, // ref
+    `${lb}a${rb}${sp}%an`, // author
+    `${lb}e${rb}${sp}%ae`, // email
+    `${lb}d${rb}${sp}%at`, // date
+    `${lb}p${rb}${sp}%P`, // parents
     `${lb}s${rb}`,
     `%B`, // summary
     `${lb}${sl}s${rb}`,
@@ -38,9 +39,9 @@ const defaultLogParams = ['log', '--name-status', `--format=${logFormat}`];
 
 const stashFormat = [
     `${lb}${sl}f${rb}`,
-    `${lb}r${rb} %H`, // ref
-    `${lb}d${rb} %at`, // date
-    `${lb}l${rb} %gd`, // reflog-selector
+    `${lb}r${rb}${sp}%H`, // ref
+    `${lb}d${rb}${sp}%at`, // date
+    `${lb}l${rb}${sp}%gd`, // reflog-selector
     `${lb}s${rb}`,
     `%B`, // summary
     `${lb}${sl}s${rb}`,
