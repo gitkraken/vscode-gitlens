@@ -7,6 +7,7 @@ import {
     Event,
     EventEmitter,
     extensions,
+    MessageItem,
     Range,
     TextEditor,
     Uri,
@@ -21,6 +22,7 @@ import { configuration, RemotesConfig } from '../configuration';
 import { CommandContext, DocumentSchemes, GlyphChars, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { Iterables, Objects, Strings, TernarySearchTree, Versions } from '../system';
 import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import {
@@ -422,10 +424,37 @@ export class GitService implements Disposable {
         ref = ref || uri.sha;
         if (ref === undefined || uri.repoPath === undefined) return;
 
-        Logger.log(`applyChangesToWorkingFile('${uri.repoPath}', '${uri.fsPath}', '${ref}')`);
+        let patch;
+        try {
+            Logger.log(`applyChangesToWorkingFile('${uri.repoPath}', '${uri.fsPath}', '${ref}')`);
 
-        const patch = await Git.diff(uri.repoPath, uri.fsPath, `${ref}^`, ref);
-        void (await Git.apply(uri.repoPath!, patch));
+            patch = await Git.diff(uri.repoPath, uri.fsPath, `${ref}^`, ref);
+            void (await Git.apply(uri.repoPath!, patch));
+        }
+        catch (ex) {
+            if (patch && /patch does not apply/i.test(ex.message)) {
+                const result = await window.showWarningMessage(
+                    `Unable to apply changes cleanly. Retry and allow conflicts?`,
+                    { title: 'Yes' } as MessageItem,
+                    { title: 'No', isCloseAffordance: true } as MessageItem
+                );
+
+                if (result === undefined || result.title !== 'Yes') return;
+
+                if (result.title === 'Yes') {
+                    try {
+                        void (await Git.apply(uri.repoPath!, patch, { allowConflicts: true }));
+                        return;
+                    }
+                    catch (e) {
+                        ex = e;
+                    }
+                }
+            }
+
+            Logger.error(ex);
+            Messages.showGenericErrorMessage(`Unable to apply changes`);
+        }
     }
 
     checkoutFile(uri: GitUri, ref?: string) {

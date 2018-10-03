@@ -64,7 +64,8 @@ const GitWarnings = {
     headNotABranch: /HEAD does not point to a branch/i,
     noUpstream: /no upstream configured for branch \'(.*?)\'/i,
     unknownRevision: /ambiguous argument \'.*?\': unknown revision or path not in the working tree|not stored as a remote-tracking branch/i,
-    mustRunInWorkTree: /this operation must be run in a work tree/i
+    mustRunInWorkTree: /this operation must be run in a work tree/i,
+    patchWithConflicts: /Applied patch to \'.*?\' with conflicts/i
 };
 
 interface GitCommandOptions extends RunOptions {
@@ -266,8 +267,12 @@ export class Git {
         return git<string>({ cwd: repoPath }, 'add', '-A', '--', fileName);
     }
 
-    static apply(repoPath: string | undefined, patch: string) {
-        return git<string>({ cwd: repoPath, stdin: patch }, 'apply');
+    static apply(repoPath: string | undefined, patch: string, options: { allowConflicts?: boolean } = {}) {
+        const params = ['apply'];
+        if (options.allowConflicts) {
+            params.push(`-3`);
+        }
+        return git<string>({ cwd: repoPath, stdin: patch }, ...params);
     }
 
     static async blame(
