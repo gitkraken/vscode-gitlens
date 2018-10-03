@@ -305,14 +305,14 @@
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
-                                    <input class="setting" id="repositoriesView.enabled" name="repositoriesView.enabled"
+                                    <input class="setting" id="views.repositories.enabled" name="views.repositories.enabled"
                                         type="checkbox" />
-                                    <label for="repositoriesView.enabled">Show the Repositories view</label>
+                                    <label for="views.repositories.enabled">Show the Repositories view</label>
                                 </div>
 
-                                <div class="settings-group__setting ml-2" data-enablement="repositoriesView.enabled">
-                                    <label for="repositoriesView.location">Show in the</label>
-                                    <select class="setting" id="repositoriesView.location" name="repositoriesView.location"
+                                <div class="settings-group__setting ml-2" data-enablement="views.repositories.enabled">
+                                    <label for="views.repositories.location">Show in the</label>
+                                    <select class="setting" id="views.repositories.location" name="views.repositories.location"
                                         disabled>
                                         <option value="gitlens">GitLens view</option>
                                         <option value="explorer">Explorer view</option>
@@ -320,74 +320,74 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting ml-2 hidden" data-enablement="repositoriesView.enabled"
+                                <div class="settings-group__setting ml-2 hidden" data-enablement="views.repositories.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <label for="repositoriesView.branches.layout">Layout branches</label>
-                                    <select class="setting" id="repositoriesView.branches.layout" name="repositoriesView.branches.layout"
+                                    <label for="views.repositories.branches.layout">Layout branches</label>
+                                    <select class="setting" id="views.repositories.branches.layout" name="views.repositories.branches.layout"
                                         disabled>
                                         <option value="list">as a list</option>
                                         <option value="tree">as a tree</option>
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting ml-2 hidden" data-enablement="repositoriesView.enabled"
+                                <div class="settings-group__setting ml-2 hidden" data-enablement="views.repositories.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <label for="repositoriesView.files.layout">Layout files</label>
-                                    <select class="setting" id="repositoriesView.files.layout" name="repositoriesView.files.layout"
+                                    <label for="views.repositories.files.layout">Layout files</label>
+                                    <select class="setting" id="views.repositories.files.layout" name="views.repositories.files.layout"
                                         disabled>
                                         <option value="auto">automatically</option>
                                         <option value="list">as a list</option>
                                         <option value="tree">as a tree</option>
                                     </select>
                                 </div>
-                                <p class="setting__hint ml-3 hidden" data-visibility="repositoriesView.files.layout =auto &amp; settings.mode =advanced">
+                                <p class="setting__hint ml-3 hidden" data-visibility="views.repositories.files.layout =auto &amp; settings.mode =advanced">
                                     Chooses the best layout based on the number of files at each nesting level
                                 </p>
 
-                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="repositoriesView.enabled"
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="views.repositories.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="repositoriesView.files.compact" name="repositoriesView.files.compact"
+                                    <input class="setting" id="views.repositories.files.compact" name="views.repositories.files.compact"
                                         type="checkbox" disabled />
-                                    <label for="repositoriesView.files.compact">Use compact layout</label>
+                                    <label for="views.repositories.files.compact">Use compact layout</label>
                                 </div>
                                 <p class="setting__hint ml-3 hidden" data-visibility="settings.mode =advanced">
                                     Compacts (flattens) unnecessary nesting when using a tree layouts
                                 </p>
 
-                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="repositoriesView.enabled"
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="views.repositories.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="repositoriesView.avatars" name="views.avatars" type="checkbox"
+                                    <input class="setting" id="views.repositories.avatars" name="views.avatars" type="checkbox"
                                         disabled />
-                                    <label for="repositoriesView.avatars">Use author avatars icons</label>
+                                    <label for="views.repositories.avatars">Use author avatars icons</label>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="repositoriesView.enabled"
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="views.repositories.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="repositoriesView.autoRefresh" name="repositoriesView.autoRefresh"
+                                    <input class="setting" id="views.repositories.autoRefresh" name="views.repositories.autoRefresh"
                                         type="checkbox" disabled />
-                                    <label for="repositoriesView.autoRefresh">
+                                    <label for="views.repositories.autoRefresh">
                                         Automatically refreshes when the file system or any repository changes
                                     </label>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="repositoriesView.enabled"
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="views.repositories.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="repositoriesView.autoReveal" name="repositoriesView.autoReveal"
+                                    <input class="setting" id="views.repositories.autoReveal" name="views.repositories.autoReveal"
                                         type="checkbox" disabled />
-                                    <label for="repositoriesView.autoReveal">
+                                    <label for="views.repositories.autoReveal">
                                         Automatically reveal repositories when opening files
                                     </label>
                                 </div>
                             </div>
                             <div class="section__preview">
                                 <img class="image__preview hidden" src="{{root}}/images/settings/repositories-explorer.png"
-                                    data-visibility="repositoriesView.enabled &amp; repositoriesView.files.layout !tree" />
+                                    data-visibility="views.repositories.enabled &amp; views.repositories.files.layout !tree" />
                                 <img class="image__preview hidden" src="{{root}}/images/settings/repositories-explorer-tree-compact.png"
-                                    data-visibility="repositoriesView.enabled &amp; repositoriesView.files.layout =tree &amp; repositoriesView.files.compact" />
+                                    data-visibility="views.repositories.enabled &amp; views.repositories.files.layout =tree &amp; views.repositories.files.compact" />
                                 <img class="image__preview hidden" src="{{root}}/images/settings/repositories-explorer-tree.png"
-                                    data-visibility="repositoriesView.enabled &amp; repositoriesView.files.layout =tree &amp; repositoriesView.files.compact =false" />
+                                    data-visibility="views.repositories.enabled &amp; views.repositories.files.layout =tree &amp; views.repositories.files.compact =false" />
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/repositories-explorer-avatars.png"
-                                    data-visibility="repositoriesView.enabled &amp; views.avatars" />
+                                    data-visibility="views.repositories.enabled &amp; views.avatars" />
                             </div>
                             <p class="settings-group__hint">
                                 <i class="icon icon--lg icon__info"></i>
@@ -415,14 +415,14 @@
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
-                                    <input class="setting" id="fileHistoryView.enabled" name="fileHistoryView.enabled"
+                                    <input class="setting" id="views.fileHistory.enabled" name="views.fileHistory.enabled"
                                         type="checkbox" />
-                                    <label for="fileHistoryView.enabled">Show the File History view</label>
+                                    <label for="views.fileHistory.enabled">Show the File History view</label>
                                 </div>
 
-                                <div class="settings-group__setting ml-2" data-enablement="fileHistoryView.enabled">
-                                    <label for="fileHistoryView.location">Show in the</label>
-                                    <select class="setting" id="fileHistoryView.location" name="fileHistoryView.location"
+                                <div class="settings-group__setting ml-2" data-enablement="views.fileHistory.enabled">
+                                    <label for="views.fileHistory.location">Show in the</label>
+                                    <select class="setting" id="views.fileHistory.location" name="views.fileHistory.location"
                                         disabled>
                                         <option value="gitlens">GitLens view</option>
                                         <option value="explorer">Explorer view</option>
@@ -430,18 +430,18 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="fileHistoryView.enabled"
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="views.fileHistory.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="fileHistoryView.avatars" name="fileHistoryView.avatars"
+                                    <input class="setting" id="views.fileHistory.avatars" name="views.fileHistory.avatars"
                                         type="checkbox" disabled />
-                                    <label for="fileHistoryView.avatars">Use author avatars icons</label>
+                                    <label for="views.fileHistory.avatars">Use author avatars icons</label>
                                 </div>
                             </div>
                             <div class="section__preview">
                                 <img class="image__preview hidden" src="{{root}}/images/settings/file-history-explorer.png"
-                                    data-visibility="fileHistoryView.enabled" />
+                                    data-visibility="views.fileHistory.enabled" />
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/file-history-explorer-avatars.png"
-                                    data-visibility="fileHistoryView.enabled &amp; fileHistoryView.avatars" />
+                                    data-visibility="views.fileHistory.enabled &amp; views.fileHistory.avatars" />
                             </div>
                         </div>
                     </section>
@@ -461,14 +461,14 @@
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting nowrap">
-                                    <input class="setting" id="lineHistoryView.enabled" name="lineHistoryView.enabled"
+                                    <input class="setting" id="views.lineHistory.enabled" name="views.lineHistory.enabled"
                                         type="checkbox" />
-                                    <label for="lineHistoryView.enabled">Show the Line History view</label>
+                                    <label for="views.lineHistory.enabled">Show the Line History view</label>
                                 </div>
 
-                                <div class="settings-group__setting ml-2" data-enablement="lineHistoryView.enabled">
-                                    <label for="lineHistoryView.location">Show in the</label>
-                                    <select class="setting" id="lineHistoryView.location" name="lineHistoryView.location"
+                                <div class="settings-group__setting ml-2" data-enablement="views.lineHistory.enabled">
+                                    <label for="views.lineHistory.location">Show in the</label>
+                                    <select class="setting" id="views.lineHistory.location" name="views.lineHistory.location"
                                         disabled>
                                         <option value="gitlens">GitLens view</option>
                                         <option value="explorer">Explorer view</option>
@@ -476,18 +476,18 @@
                                     </select>
                                 </div>
 
-                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="lineHistoryView.enabled"
+                                <div class="settings-group__setting nowrap ml-2 hidden" data-enablement="views.lineHistory.enabled"
                                     data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="lineHistoryView.avatars" name="lineHistoryView.avatars"
+                                    <input class="setting" id="views.lineHistory.avatars" name="views.lineHistory.avatars"
                                         type="checkbox" disabled />
-                                    <label for="lineHistoryView.avatars">Use author avatars icons</label>
+                                    <label for="views.lineHistory.avatars">Use author avatars icons</label>
                                 </div>
                             </div>
                             <div class="section__preview">
                                 <img class="image__preview hidden" src="{{root}}/images/settings/line-history-explorer.png"
-                                    data-visibility="lineHistoryView.enabled" />
+                                    data-visibility="views.lineHistory.enabled" />
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/line-history-explorer-avatars.png"
-                                    data-visibility="lineHistoryView.enabled &amp; lineHistoryView.avatars" />
+                                    data-visibility="views.lineHistory.enabled &amp; views.lineHistory.avatars" />
                             </div>
                         </div>
                     </section>
@@ -507,8 +507,8 @@
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting">
-                                    <label for="resultsView.location">Show in the</label>
-                                    <select class="setting" id="resultsView.location" name="resultsView.location">
+                                    <label for="views.results.location">Show in the</label>
+                                    <select class="setting" id="views.results.location" name="views.results.location">
                                         <option value="gitlens">GitLens view</option>
                                         <option value="explorer">Explorer view</option>
                                         <option value="scm">Source Control view</option>
@@ -516,8 +516,8 @@
                                 </div>
 
                                 <div class="settings-group__setting hidden" data-visibility="settings.mode =advanced">
-                                    <label for="resultsView.files.layout">Layout files</label>
-                                    <select class="setting" id="resultsView.files.layout" name="resultsView.files.layout">
+                                    <label for="views.results.files.layout">Layout files</label>
+                                    <select class="setting" id="views.results.files.layout" name="views.results.files.layout">
                                         <option value="auto">automatically</option>
                                         <option value="list">as a list</option>
                                         <option value="tree">as a tree</option>
@@ -525,27 +525,27 @@
                                 </div>
 
                                 <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="resultsView.files.compact" name="resultsView.files.compact"
+                                    <input class="setting" id="views.results.files.compact" name="views.results.files.compact"
                                         type="checkbox" />
-                                    <label for="resultsView.files.compact">Use compact layout</label>
+                                    <label for="views.results.files.compact">Use compact layout</label>
                                 </div>
                                 <p class="setting__hint hidden" data-visibility="settings.mode =advanced">
                                     Compacts (flattens) unnecessary nesting when using a tree layouts
                                 </p>
 
                                 <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="resultsView.avatars" name="views.avatars" type="checkbox" />
-                                    <label for="resultsView.avatars">Use author avatars icons</label>
+                                    <input class="setting" id="views.results.avatars" name="views.avatars" type="checkbox" />
+                                    <label for="views.results.avatars">Use author avatars icons</label>
                                 </div>
                             </div>
 
                             <div class="section__preview">
                                 <img class="image__preview hidden" src="{{root}}/images/settings/results-explorer.png"
-                                    data-visibility="resultsView.files.layout !tree" />
+                                    data-visibility="views.results.files.layout !tree" />
                                 <img class="image__preview hidden" src="{{root}}/images/settings/results-explorer-tree-compact.png"
-                                    data-visibility="resultsView.files.layout =tree &amp; resultsView.files.compact" />
+                                    data-visibility="views.results.files.layout =tree &amp; views.results.files.compact" />
                                 <img class="image__preview hidden" src="{{root}}/images/settings/results-explorer-tree.png"
-                                    data-visibility="resultsView.files.layout =tree &amp; resultsView.files.compact =false" />
+                                    data-visibility="views.results.files.layout =tree &amp; views.results.files.compact =false" />
                                 <img class="image__preview--overlay hidden" src="{{root}}/images/settings/results-explorer-avatars.png"
                                     data-visibility="views.avatars" />
                             </div>
