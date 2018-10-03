@@ -3831,44 +3831,44 @@
             "explorer": [
                 {
                     "id": "gitlens.views.repositories:explorer",
-                    "name": "GitLens Repositories",
+                    "name": "GitLens: Repositories",
                     "when": "gitlens:enabled && gitlens:views:repositories == explorer"
                 },
                 {
                     "id": "gitlens.views.fileHistory:explorer",
-                    "name": "GitLens File History",
+                    "name": "GitLens: File History",
                     "when": "gitlens:enabled && gitlens:views:fileHistory == explorer"
                 },
                 {
                     "id": "gitlens.views.lineHistory:explorer",
-                    "name": "GitLens Line History",
+                    "name": "GitLens: Line History",
                     "when": "gitlens:enabled && gitlens:views:lineHistory == explorer"
                 },
                 {
                     "id": "gitlens.views.results:explorer",
-                    "name": "GitLens Results",
+                    "name": "GitLens: Results",
                     "when": "gitlens:enabled && gitlens:views:results == explorer"
                 }
             ],
             "scm": [
                 {
                     "id": "gitlens.views.repositories:scm",
-                    "name": "GitLens Repositories",
+                    "name": "GitLens: Repositories",
                     "when": "gitlens:enabled && gitlens:views:repositories == scm"
                 },
                 {
                     "id": "gitlens.views.fileHistory:scm",
-                    "name": "GitLens File History",
+                    "name": "GitLens: File History",
                     "when": "gitlens:enabled && gitlens:views:fileHistory == scm"
                 },
                 {
                     "id": "gitlens.views.lineHistory:scm",
-                    "name": "GitLens Line History",
+                    "name": "GitLens: Line History",
                     "when": "gitlens:enabled && gitlens:views:lineHistory == scm"
                 },
                 {
                     "id": "gitlens.views.results:scm",
-                    "name": "GitLens Results",
+                    "name": "GitLens: Results",
                     "when": "gitlens:enabled && gitlens:views:results == scm"
                 }
             ]
