@@ -71,15 +71,15 @@ If you'd like to join them in supporting GitLens, please consider the following 
 - [Star or Fork me on GitHub](https://github.com/eamodio/vscode-gitlens 'Star or fork me on GitHub')
 - [Follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
 
-#### Gold Sponsors ($300+)
+#### Gold Sponsors ($100+)
 
 None yet &mdash; could be you!
 
-#### Silver Sponsors ($150+)
+#### Silver Sponsors ($50+)
 
 None yet &mdash; could be you!
 
-#### Bronze Sponsors ($50+)
+#### Bronze Sponsors ($25+)
 
 None yet &mdash; could be you!
 

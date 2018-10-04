@@ -8,15 +8,17 @@ If you'd like to join them in supporting GitLens, please consider:
 - [PayPal donations](https://www.paypal.me/eamodio)
 - [Cash App donations](https://www.paypal.me/eamodio)
 
-<h2 align="center">Gold Sponsors ($300+)</h2>
+<h2 align="center">Gold Sponsors ($100+)</h2>
+
 None yet &mdash; could be you!
 
-<h2 align="center">Silver Sponsors ($150+)</h2>
-None yet &mdash; could be you!
-
-<h2 align="center">Bronze Sponsors ($50+)</h2>
+<h2 align="center">Silver Sponsors ($50+)</h2>
 
 - Michael Duffy (expired)
+
+<h2 align="center">Bronze Sponsors ($25+)</h2>
+
+None yet &mdash; could be you!
 
 <h2 align="center">Generous Backers ($10+)</h2>
 
