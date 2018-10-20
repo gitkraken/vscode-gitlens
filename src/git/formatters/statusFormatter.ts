@@ -2,7 +2,7 @@
 import * as path from 'path';
 import { GlyphChars } from '../../constants';
 import { Strings } from '../../system';
-import { GitStatusFile, IGitStatusFile, IGitStatusFileWithCommit } from '../models/status';
+import { GitFile, GitFileWithCommit } from '../models/file';
 import { Formatter, IFormatOptions } from './formatter';
 
 export interface IStatusFormatOptions extends IFormatOptions {
@@ -14,13 +14,14 @@ export interface IStatusFormatOptions extends IFormatOptions {
         filePath?: Strings.ITokenOptions;
         path?: Strings.ITokenOptions;
         status?: Strings.ITokenOptions;
+        working?: Strings.ITokenOptions;
     };
 }
 
-export class StatusFileFormatter extends Formatter<IGitStatusFile, IStatusFormatOptions> {
+export class StatusFileFormatter extends Formatter<GitFile, IStatusFormatOptions> {
     get directory() {
-        const directory = GitStatusFile.getFormattedDirectory(this._item, false, this._options.relativePath);
-        return this._padOrTruncate(directory, this._options.tokenOptions!.file);
+        const directory = GitFile.getFormattedDirectory(this._item, false, this._options.relativePath);
+        return this._padOrTruncate(directory, this._options.tokenOptions!.directory);
     }
 
     get file() {
@@ -29,37 +30,54 @@ export class StatusFileFormatter extends Formatter<IGitStatusFile, IStatusFormat
     }
 
     get filePath() {
-        const filePath = GitStatusFile.getFormattedPath(this._item, undefined, this._options.relativePath);
+        const filePath = GitFile.getFormattedPath(this._item, { relativeTo: this._options.relativePath });
         return this._padOrTruncate(filePath, this._options.tokenOptions!.filePath);
     }
 
     get path() {
-        const directory = GitStatusFile.getRelativePath(this._item, this._options.relativePath);
+        const directory = GitFile.getRelativePath(this._item, this._options.relativePath);
         return this._padOrTruncate(directory, this._options.tokenOptions!.path);
     }
 
     get status() {
-        const status = GitStatusFile.getStatusText(this._item.status);
+        const status = GitFile.getStatusText(this._item.status);
         return this._padOrTruncate(status, this._options.tokenOptions!.status);
     }
 
     get working() {
-        const commit = (this._item as IGitStatusFileWithCommit).commit;
-        return commit !== undefined && commit.isUncommitted ? `${GlyphChars.Pencil} ${GlyphChars.Space}` : '';
+        const commit = (this._item as GitFileWithCommit).commit;
+        const statusFile = commit === undefined ? this._item : commit.files[0];
+
+        let icon = '';
+        if (statusFile.workingTreeStatus !== undefined && statusFile.indexStatus !== undefined) {
+            icon = `${GlyphChars.Pencil}${GlyphChars.Space}${GlyphChars.SpaceThinnest}${GlyphChars.Check}`;
+        }
+        else if (statusFile.workingTreeStatus !== undefined) {
+            icon = `${GlyphChars.Pencil}${GlyphChars.SpaceThin}${GlyphChars.SpaceThinnest}${GlyphChars.EnDash}${
+                GlyphChars.Space
+            }`;
+        }
+        else if (statusFile.indexStatus !== undefined) {
+            icon = `${GlyphChars.Space}${GlyphChars.EnDash}${GlyphChars.Space.repeat(2)}${GlyphChars.Check}`;
+        }
+        else {
+            icon = '';
+        }
+        return this._padOrTruncate(icon, this._options.tokenOptions!.working);
     }
 
-    static fromTemplate(template: string, status: IGitStatusFile, dateFormat: string | null): string;
-    static fromTemplate(template: string, status: IGitStatusFile, options?: IStatusFormatOptions): string;
+    static fromTemplate(template: string, file: GitFile, dateFormat: string | null): string;
+    static fromTemplate(template: string, file: GitFile, options?: IStatusFormatOptions): string;
     static fromTemplate(
         template: string,
-        status: IGitStatusFile,
+        file: GitFile,
         dateFormatOrOptions?: string | null | IStatusFormatOptions
     ): string;
     static fromTemplate(
         template: string,
-        status: IGitStatusFile,
+        file: GitFile,
         dateFormatOrOptions?: string | null | IStatusFormatOptions
     ): string {
-        return super.fromTemplateCore(this, template, status, dateFormatOrOptions);
+        return super.fromTemplateCore(this, template, file, dateFormatOrOptions);
     }
 }

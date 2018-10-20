@@ -2,7 +2,7 @@
 import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitTag, GitUri } from '../gitService';
+import { GitBranch, GitTag, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ChooseFromBranchesAndTagsQuickPickItem, CommandQuickPickItem, FileHistoryQuickPick } from '../quickpicks';
@@ -35,9 +35,9 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 
         const gitUri = await GitUri.fromUri(uri);
 
-        const placeHolder = `Compare ${gitUri.getFormattedPath(
-            args.branchOrTag ? ` (${args.branchOrTag.name})${Strings.pad(GlyphChars.Dot, 2, 2)}` : undefined
-        )}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''} with revision${
+        const placeHolder = `Compare ${gitUri.getFormattedPath({
+            suffix: args.branchOrTag ? ` (${args.branchOrTag.name})` : undefined
+        })}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''} with revision${
             GlyphChars.Ellipsis
         }`;
 
@@ -156,7 +156,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'DiffWithRevisionCommand');
-            return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to open compare');
         }
         finally {
             progressCancellation.cancel();

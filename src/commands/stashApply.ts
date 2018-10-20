@@ -2,15 +2,24 @@
 import { MessageItem, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitStashCommit } from '../gitService';
+import { GitStashCommit } from '../git/gitService';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, RepositoriesQuickPick, StashListQuickPick } from '../quickpicks';
+import { Messages } from '../messages';
+import { CommandQuickPickItem, StashListQuickPick } from '../quickpicks';
 import { Strings } from '../system';
-import { Command, CommandContext, Commands, isCommandViewContextWithCommit } from './common';
+import {
+    Command,
+    CommandContext,
+    Commands,
+    getRepoPathOrPrompt,
+    isCommandViewContextWithCommit,
+    isCommandViewContextWithRepo
+} from './common';
 
 export interface StashApplyCommandArgs {
     confirm?: boolean;
     deleteAfter?: boolean;
+    repoPath?: string;
     stashItem?: { stashName: string; message: string; repoPath: string };
 
     goBackCommand?: CommandQuickPickItem;
@@ -30,6 +39,10 @@ export class StashApplyCommand extends Command {
             args.stashItem = context.node.commit;
             return this.execute(args);
         }
+        else if (isCommandViewContextWithRepo(context)) {
+            args = { ...args };
+            args.repoPath = context.node.repo.path;
+        }
 
         return this.execute(args);
     }
@@ -38,35 +51,19 @@ export class StashApplyCommand extends Command {
         args = { ...args };
 
         if (args.stashItem === undefined || args.stashItem.stashName === undefined) {
-            let goBackToRepositoriesCommand: CommandQuickPickItem | undefined;
-
-            let repoPath = await Container.git.getActiveRepoPath();
-            if (!repoPath) {
-                const pick = await RepositoriesQuickPick.show(
+            if (args.repoPath === undefined) {
+                args.repoPath = await getRepoPathOrPrompt(
+                    undefined,
                     `Apply stashed changes from which repository${GlyphChars.Ellipsis}`,
                     args.goBackCommand
                 );
-                if (pick instanceof CommandQuickPickItem) return pick.execute();
-                if (pick === undefined) {
-                    return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
-                }
-
-                goBackToRepositoriesCommand = new CommandQuickPickItem(
-                    {
-                        label: `go back ${GlyphChars.ArrowBack}`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to pick another repository`
-                    },
-                    Commands.StashApply,
-                    [args]
-                );
-
-                repoPath = pick.repoPath;
             }
+            if (!args.repoPath) return undefined;
 
             const progressCancellation = StashListQuickPick.showProgress('apply');
 
             try {
-                const stash = await Container.git.getStashList(repoPath);
+                const stash = await Container.git.getStashList(args.repoPath);
                 if (stash === undefined) return window.showInformationMessage(`There are no stashed changes`);
 
                 if (progressCancellation.token.isCancellationRequested) return undefined;
@@ -84,7 +81,7 @@ export class StashApplyCommand extends Command {
                     stash,
                     'apply',
                     progressCancellation,
-                    goBackToRepositoriesCommand || args.goBackCommand,
+                    args.goBackCommand,
                     currentCommand
                 );
                 if (pick instanceof CommandQuickPickItem) return pick.execute();
@@ -132,7 +129,7 @@ export class StashApplyCommand extends Command {
                 return window.showInformationMessage(`Stash applied with conflicts`);
             }
             else {
-                return window.showErrorMessage(`Unable to apply stash. See output channel for more details`);
+                return Messages.showGenericErrorMessage('Unable to apply stash');
             }
         }
     }

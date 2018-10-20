@@ -9,7 +9,7 @@
         "noFallthroughCasesInSwitch": true,
         "noImplicitReturns": true,
         "noUnusedLocals": true,
-        "outDir": "out/ui",
+        "outDir": "dist/ui",
         "removeComments": true,
         "rootDir": "./src/ui",
         "skipLibCheck": true,

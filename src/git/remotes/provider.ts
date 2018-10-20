@@ -1,8 +1,10 @@
 'use strict';
+import * as clipboard from 'clipboardy';
 import { commands, Range, Uri, window } from 'vscode';
 import { BuiltInCommands } from '../../constants';
-import { GitLogCommit } from '../../gitService';
 import { Logger } from '../../logger';
+import { Messages } from '../../messages';
+import { GitLogCommit } from '../models/logCommit';
 
 export enum RemoteResourceType {
     Branch = 'branch',
@@ -118,7 +120,6 @@ export abstract class RemoteProvider {
         if (url === undefined) return undefined;
 
         try {
-            const clipboard = await import('clipboardy');
             void (await clipboard.write(url));
 
             return undefined;
@@ -126,13 +127,13 @@ export abstract class RemoteProvider {
         catch (ex) {
             if (ex.message.includes("Couldn't find the required `xsel` binary")) {
                 window.showErrorMessage(
-                    `Unable to copy remote url, xsel is not installed. You can install it via \`sudo apt install xsel\``
+                    `Unable to copy remote url, xsel is not installed. Please install it via your package manager, e.g. \`sudo apt install xsel\``
                 );
                 return;
             }
 
             Logger.error(ex, 'CopyRemoteUrlToClipboardCommand');
-            return window.showErrorMessage(`Unable to copy remote url. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to copy remote url');
         }
     }
 

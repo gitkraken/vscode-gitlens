@@ -1,7 +1,7 @@
 'use strict';
 import { QuickPickItem, QuickPickOptions, window } from 'vscode';
 import { GlyphChars } from '../constants';
-import { GitBranch } from '../gitService';
+import { GitBranch } from '../git/gitService';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './commonQuickPicks';
 
 export class BranchQuickPickItem implements QuickPickItem {

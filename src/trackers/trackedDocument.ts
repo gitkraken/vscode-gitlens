@@ -2,7 +2,7 @@
 import { Disposable, Event, EventEmitter, TextDocument, TextEditor, Uri } from 'vscode';
 import { CommandContext, getEditorIfActive, isActiveDocument, setCommandContext } from '../constants';
 import { Container } from '../container';
-import { GitUri, Repository, RepositoryChange, RepositoryChangeEvent } from '../gitService';
+import { GitUri, Repository, RepositoryChange, RepositoryChangeEvent } from '../git/gitService';
 import { Logger } from '../logger';
 import { Functions } from '../system';
 
@@ -45,7 +45,7 @@ export class TrackedDocument<T> implements Disposable {
         if (Container.git === undefined) {
             if (!(await Functions.waitUntil(() => Container.git !== undefined, 2000))) {
                 Logger.log(
-                    `TrackedDocument.initialize(${uri.toString()})`,
+                    `TrackedDocument.initialize(${uri.toString(true)})`,
                     'Timed out waiting for the GitService to start'
                 );
                 throw new Error('TrackedDocument timed out waiting for the GitService to start');
@@ -100,7 +100,7 @@ export class TrackedDocument<T> implements Disposable {
     }
 
     get isRevision() {
-        return this._uri !== undefined ? !!this._uri.sha : false;
+        return this._uri !== undefined ? Boolean(this._uri.sha) : false;
     }
 
     private _isTracked: boolean = false;

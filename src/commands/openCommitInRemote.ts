@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
-import { GitUri } from '../gitService';
+import { GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
@@ -50,7 +50,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
                         : await Container.git.getBlameForLine(gitUri, blameline);
                 if (blame === undefined) {
                     return Messages.showFileNotUnderSourceControlWarningMessage(
-                        'Unable to open commit in remote provider'
+                        'Unable to open commit on remote provider'
                     );
                 }
 
@@ -81,7 +81,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
         catch (ex) {
             Logger.error(ex, 'OpenCommitInRemoteCommand');
             return window.showErrorMessage(
-                `Unable to open commit in remote provider. See output channel for more details`
+                `Unable to open commit on remote provider. See output channel for more details`
             );
         }
     }

@@ -59,7 +59,7 @@ export class KeyboardScope implements Disposable {
         const mapping = mappings[mappings.length - 1];
         if (mapping !== this.mapping) return;
 
-        Logger.log('KeyboardScope.setKeyCommand', mappings.length, key, !!mapping[key]);
+        Logger.log('KeyboardScope.setKeyCommand', mappings.length, key, Boolean(mapping[key]));
 
         if (!mapping[key]) {
             mapping[key] = command;
@@ -73,7 +73,7 @@ export class KeyboardScope implements Disposable {
     private async updateKeyCommandsContext(mapping: KeyMapping) {
         const promises = [];
         for (const key of keys) {
-            promises.push(setCommandContext(`${CommandContext.Key}:${key}`, !!(mapping && mapping[key])));
+            promises.push(setCommandContext(`${CommandContext.Key}:${key}`, Boolean(mapping && mapping[key])));
         }
         await Promise.all(promises);
     }

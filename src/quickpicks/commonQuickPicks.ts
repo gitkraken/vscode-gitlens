@@ -13,7 +13,7 @@ import { Commands, openEditor } from '../commands';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitLogCommit, GitStashCommit } from '../gitService';
+import { GitLog, GitLogCommit, GitStashCommit } from '../git/gitService';
 import { KeyMapping, Keys } from '../keyboard';
 import { Strings } from '../system';
 import { BranchesAndTagsQuickPick, BranchOrTagQuickPickItem } from './branchesAndTagsQuickPick';
@@ -116,13 +116,17 @@ export class CommitQuickPickItem implements QuickPickItem {
                 GlyphChars.Dot,
                 1,
                 1
-            )} ${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`;
+            )} ${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getFormattedDiffStatus({
+                compact: true
+            })}`;
         }
         else {
             this.label = message;
             this.description = `${Strings.pad('$(git-commit)', 1, 1)} ${commit.shortSha}`;
             this.detail = `${GlyphChars.Space} ${commit.author}, ${commit.formattedDate}${
-                commit.isFile ? '' : ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getDiffStatus()}`
+                commit.isFile
+                    ? ''
+                    : ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getFormattedDiffStatus({ compact: true })}`
             }`;
         }
     }
@@ -234,7 +238,7 @@ export class ShowCommitInResultsQuickPickItem extends CommandQuickPickItem {
         public readonly commit: GitLogCommit,
         item: QuickPickItem = {
             label: 'Show in Results',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays commit in the GitLens Results explorer`
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays commit in the GitLens Results view`
         }
     ) {
         super(item, undefined, undefined);
@@ -243,7 +247,7 @@ export class ShowCommitInResultsQuickPickItem extends CommandQuickPickItem {
     async execute(
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ): Promise<{} | undefined> {
-        Container.resultsExplorer.showCommitInResults(this.commit);
+        await Container.resultsView.addCommit(this.commit);
         return undefined;
     }
 }
@@ -254,7 +258,7 @@ export class ShowCommitsInResultsQuickPickItem extends CommandQuickPickItem {
         public readonly resultsLabel: string | { label: string; resultsType?: { singular: string; plural: string } },
         item: QuickPickItem = {
             label: 'Show in Results',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays commits in the GitLens Results explorer`
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays commits in the GitLens Results view`
         }
     ) {
         super(item, undefined, undefined);
@@ -263,7 +267,7 @@ export class ShowCommitsInResultsQuickPickItem extends CommandQuickPickItem {
     async execute(
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ): Promise<{} | undefined> {
-        Container.resultsExplorer.showCommitsInResults(this.results, this.resultsLabel);
+        await Container.resultsView.addSearchResults(this.results.repoPath, this.results, this.resultsLabel);
         return undefined;
     }
 }
@@ -274,7 +278,7 @@ export class ShowCommitsSearchInResultsQuickPickItem extends ShowCommitsInResult
         public readonly search: string,
         item: QuickPickItem = {
             label: 'Show in Results',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays results in the GitLens Results explorer`
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays results in the GitLens Results view`
         }
     ) {
         super(results, { label: search }, item);

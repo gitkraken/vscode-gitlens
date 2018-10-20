@@ -13,13 +13,13 @@ import {
     window,
     workspace
 } from 'vscode';
-import { BuiltInCommands, DocumentSchemes, ImageExtensions } from '../constants';
+import { BuiltInCommands, DocumentSchemes, ImageMimetypes } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitCommit, GitRemote, GitUri } from '../gitService';
+import { GitBranch, GitCommit, GitFile, GitRemote, GitUri, Repository } from '../git/gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepositoriesQuickPick } from '../quickpicks';
 // import { Telemetry } from '../telemetry';
-import { ExplorerNode, ExplorerRefNode } from '../views/nodes';
+import { ViewNode, ViewRefNode } from '../views/nodes';
 
 export enum Commands {
     ClearFileAnnotations = 'gitlens.clearFileAnnotations',
@@ -42,8 +42,6 @@ export enum Commands {
     DiffWithWorking = 'gitlens.diffWithWorking',
     DiffLineWithWorking = 'gitlens.diffLineWithWorking',
     ExternalDiff = 'gitlens.externalDiff',
-    ExplorersOpenDirectoryDiff = 'gitlens.explorers.openDirectoryDiff',
-    ExplorersOpenDirectoryDiffWithWorking = 'gitlens.explorers.openDirectoryDiffWithWorking',
     OpenChangedFiles = 'gitlens.openChangedFiles',
     OpenBranchesInRemote = 'gitlens.openBranchesInRemote',
     OpenBranchInRemote = 'gitlens.openBranchInRemote',
@@ -54,18 +52,22 @@ export enum Commands {
     OpenRepoInRemote = 'gitlens.openRepoInRemote',
     OpenWorkingFile = 'gitlens.openWorkingFile',
     ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',
+    ShowCommitInResults = 'gitlens.showCommitInResults',
     ShowCommitSearch = 'gitlens.showCommitSearch',
-    ShowGitExplorer = 'gitlens.showGitExplorer',
-    ShowHistoryExplorer = 'gitlens.showHistoryExplorer',
+    ShowFileHistoryView = 'gitlens.showFileHistoryView',
+    ShowFileHistoryInResults = 'gitlens.showFileHistoryInResults',
+    ShowLineHistoryView = 'gitlens.showLineHistoryView',
     ShowLastQuickPick = 'gitlens.showLastQuickPick',
+    ShowQuickBranchHistory = 'gitlens.showQuickBranchHistory',
     ShowQuickCommitDetails = 'gitlens.showQuickCommitDetails',
     ShowQuickCommitFileDetails = 'gitlens.showQuickCommitFileDetails',
-    ShowQuickFileHistory = 'gitlens.showQuickFileHistory',
-    ShowQuickBranchHistory = 'gitlens.showQuickBranchHistory',
     ShowQuickCurrentBranchHistory = 'gitlens.showQuickRepoHistory',
+    ShowQuickFileHistory = 'gitlens.showQuickFileHistory',
     ShowQuickRepoStatus = 'gitlens.showQuickRepoStatus',
+    ShowQuickRevisionDetails = 'gitlens.showQuickRevisionDetails',
     ShowQuickStashList = 'gitlens.showQuickStashList',
-    ShowResultsExplorer = 'gitlens.showResultsExplorer',
+    ShowRepositoriesView = 'gitlens.showRepositoriesView',
+    ShowResultsView = 'gitlens.showResultsView',
     ShowSettingsPage = 'gitlens.showSettingsPage',
     ShowWelcomePage = 'gitlens.showWelcomePage',
     StashApply = 'gitlens.stashApply',
@@ -78,7 +80,9 @@ export enum Commands {
     ToggleFileRecentChanges = 'gitlens.toggleFileRecentChanges',
     ToggleLineBlame = 'gitlens.toggleLineBlame',
     ToggleReviewMode = 'gitlens.toggleReviewMode',
-    ToggleZenMode = 'gitlens.toggleZenMode'
+    ToggleZenMode = 'gitlens.toggleZenMode',
+    ViewsOpenDirectoryDiff = 'gitlens.views.openDirectoryDiff',
+    ViewsOpenDirectoryDiffWithWorking = 'gitlens.views.openDirectoryDiffWithWorking'
 }
 
 export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
@@ -98,6 +102,31 @@ export async function getRepoPathOrActiveOrPrompt(
     goBackCommand?: CommandQuickPickItem
 ) {
     let repoPath = await Container.git.getRepoPathOrActive(uri, editor);
+    if (!repoPath) {
+        const pick = await RepositoriesQuickPick.show(placeholder, goBackCommand);
+        if (pick instanceof CommandQuickPickItem) {
+            await pick.execute();
+            return undefined;
+        }
+
+        if (pick === undefined) {
+            if (goBackCommand !== undefined) {
+                await goBackCommand.execute();
+            }
+            return undefined;
+        }
+
+        repoPath = pick.repoPath;
+    }
+    return repoPath;
+}
+
+export async function getRepoPathOrPrompt(
+    uri: Uri | undefined,
+    placeholder: string,
+    goBackCommand?: CommandQuickPickItem
+) {
+    let repoPath = await Container.git.getRepoPath(uri);
     if (!repoPath) {
         const pick = await RepositoriesQuickPick.show(placeholder, goBackCommand);
         if (pick instanceof CommandQuickPickItem) {
@@ -148,37 +177,87 @@ export interface CommandUriContext extends CommandBaseContext {
 
 export interface CommandViewContext extends CommandBaseContext {
     type: 'view';
-    node: ExplorerNode;
+}
+
+export interface CommandViewItemContext extends CommandBaseContext {
+    type: 'viewItem';
+    node: ViewNode;
 }
 
 export function isCommandViewContextWithBranch(
     context: CommandContext
-): context is CommandViewContext & { node: ExplorerNode & { branch: GitBranch } } {
-    return (
-        context.type === 'view' && (context.node as ExplorerNode & { branch?: GitBranch }).branch instanceof GitBranch
-    );
+): context is CommandViewItemContext & { node: ViewNode & { branch: GitBranch } } {
+    if (context.type !== 'viewItem') return false;
+
+    return (context.node as ViewNode & { branch: GitBranch }).branch instanceof GitBranch;
 }
 
 export function isCommandViewContextWithCommit<T extends GitCommit>(
     context: CommandContext
-): context is CommandViewContext & { node: ExplorerNode & { commit: T } } {
+): context is CommandViewItemContext & { node: ViewNode & { commit: T } } {
+    if (context.type !== 'viewItem') return false;
+
+    return (context.node as ViewNode & { commit: GitCommit }).commit instanceof GitCommit;
+}
+
+export function isCommandViewContextWithFile(
+    context: CommandContext
+): context is CommandViewItemContext & { node: ViewNode & { file: GitFile; repoPath: string } } {
+    if (context.type !== 'viewItem') return false;
+
+    const node = context.node as ViewNode & { file: GitFile; repoPath: string };
+    return node.file !== undefined && (node.file.repoPath !== undefined || node.repoPath !== undefined);
+}
+
+export function isCommandViewContextWithFileCommit(
+    context: CommandContext
+): context is CommandViewItemContext & { node: ViewNode & { commit: GitCommit; file: GitFile; repoPath: string } } {
+    if (context.type !== 'viewItem') return false;
+
+    const node = context.node as ViewNode & { commit: GitCommit; file: GitFile; repoPath: string };
     return (
-        context.type === 'view' && (context.node as ExplorerNode & { commit?: GitCommit }).commit instanceof GitCommit
+        node.file !== undefined &&
+        node.commit instanceof GitCommit &&
+        (node.file.repoPath !== undefined || node.repoPath !== undefined)
+    );
+}
+
+export function isCommandViewContextWithFileRefs(
+    context: CommandContext
+): context is CommandViewItemContext & {
+    node: ViewNode & { file: GitFile; ref1: string; ref2: string; repoPath: string };
+} {
+    if (context.type !== 'viewItem') return false;
+
+    const node = context.node as ViewNode & { file: GitFile; ref1: string; ref2: string; repoPath: string };
+    return (
+        node.file !== undefined &&
+        node.ref1 !== undefined &&
+        node.ref2 !== undefined &&
+        (node.file.repoPath !== undefined || node.repoPath !== undefined)
     );
 }
 
 export function isCommandViewContextWithRef(
     context: CommandContext
-): context is CommandViewContext & { node: ExplorerNode & { ref: string } } {
-    return context.type === 'view' && context.node instanceof ExplorerRefNode;
+): context is CommandViewItemContext & { node: ViewNode & { ref: string } } {
+    return context.type === 'viewItem' && context.node instanceof ViewRefNode;
 }
 
 export function isCommandViewContextWithRemote(
     context: CommandContext
-): context is CommandViewContext & { node: ExplorerNode & { remote: GitRemote } } {
-    return (
-        context.type === 'view' && (context.node as ExplorerNode & { remote?: GitRemote }).remote instanceof GitRemote
-    );
+): context is CommandViewItemContext & { node: ViewNode & { remote: GitRemote } } {
+    if (context.type !== 'viewItem') return false;
+
+    return (context.node as ViewNode & { remote: GitRemote }).remote instanceof GitRemote;
+}
+
+export function isCommandViewContextWithRepo(
+    context: CommandContext
+): context is CommandViewItemContext & { node: ViewNode & { repo: Repository } } {
+    if (context.type !== 'viewItem') return false;
+
+    return (context.node as ViewNode & { repo?: Repository }).repo instanceof Repository;
 }
 
 export type CommandContext =
@@ -186,7 +265,8 @@ export type CommandContext =
     | CommandScmStatesContext
     | CommandUnknownContext
     | CommandUriContext
-    | CommandViewContext;
+    | CommandViewContext
+    | CommandViewItemContext;
 
 function isScmResourceGroup(group: any): group is SourceControlResourceGroup {
     if (group == null) return false;
@@ -253,7 +333,7 @@ export abstract class Command implements Disposable {
     protected _execute(command: string, ...args: any[]): any {
         // Telemetry.trackEvent(command);
 
-        const [context, rest] = Command.parseContext(command, this.contextParsingOptions, ...args);
+        const [context, rest] = Command.parseContext(command, { ...this.contextParsingOptions }, ...args);
         return this.preExecute(context, ...rest);
     }
 
@@ -271,14 +351,20 @@ export abstract class Command implements Disposable {
             firstArg = args[0];
         }
 
+        let maybeView = false;
         if (options.uri && (firstArg == null || firstArg instanceof Uri)) {
             const [uri, ...rest] = args as [Uri, any];
-            return [{ command: command, type: 'uri', editor: editor, uri: uri }, rest];
+            if (uri !== undefined) {
+                return [{ command: command, type: 'uri', editor: editor, uri: uri }, rest];
+            }
+            else {
+                maybeView = args.length === 0;
+            }
         }
 
-        if (firstArg instanceof ExplorerNode) {
-            const [node, ...rest] = args as [ExplorerNode, any];
-            return [{ command: command, type: 'view', node: node, uri: node.uri }, rest];
+        if (firstArg instanceof ViewNode) {
+            const [node, ...rest] = args as [ViewNode, any];
+            return [{ command: command, type: 'viewItem', node: node, uri: node.uri }, rest];
         }
 
         if (isScmResourceState(firstArg)) {
@@ -308,6 +394,10 @@ export abstract class Command implements Disposable {
             }
 
             return [{ command: command, type: 'scm-groups', scmResourceGroups: groups }, args.slice(count)];
+        }
+
+        if (maybeView) {
+            return [{ command: command, type: 'view', editor: editor }, args];
         }
 
         return [{ command: command, type: 'unknown', editor: editor }, args];
@@ -394,21 +484,13 @@ export async function openEditor(
     const { rethrow, ...opts } = options;
     try {
         if (uri instanceof GitUri) {
-            uri = uri.fileUri({ noSha: true });
+            uri = uri.documentUri({ noSha: true });
         }
 
-        // TODO: revist this
-        // This is a bit of an ugly hack, but I added it because there a bunch of call sites and toRevisionUri can't be easily made async because of its use in ctors
-        if (uri.scheme === DocumentSchemes.GitLensGit) {
-            const gitUri = GitUri.fromRevisionUri(uri);
-            if (ImageExtensions.includes(path.extname(gitUri.fsPath))) {
-                const uri = await Container.git.getVersionedFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha);
-                if (uri !== undefined) {
-                    await commands.executeCommand(BuiltInCommands.Open, uri);
+        if (uri.scheme === DocumentSchemes.GitLens && ImageMimetypes[path.extname(uri.fsPath)]) {
+            await commands.executeCommand(BuiltInCommands.Open, uri);
 
-                    return undefined;
-                }
-            }
+            return undefined;
         }
 
         const document = await workspace.openTextDocument(uri);
@@ -432,4 +514,18 @@ export async function openEditor(
         Logger.error(ex, 'openEditor');
         return undefined;
     }
+}
+
+export function openWorkspace(uri: Uri, name: string, options: { openInNewWindow?: boolean } = {}) {
+    if (options.openInNewWindow) {
+        commands.executeCommand(BuiltInCommands.OpenFolder, uri, true);
+
+        return true;
+    }
+
+    return workspace.updateWorkspaceFolders(
+        workspace.workspaceFolders !== undefined ? workspace.workspaceFolders.length : 0,
+        null,
+        { uri, name }
+    );
 }

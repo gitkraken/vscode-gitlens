@@ -1,27 +1,67 @@
 'use strict';
+const fs = require('fs');
 const glob = require('glob');
-const nodeExternals = require('webpack-node-externals');
 const path = require('path');
+const webpack = require('webpack');
 const CleanPlugin = require('clean-webpack-plugin');
+const FileManagerPlugin = require('filemanager-webpack-plugin');
 const HtmlInlineSourcePlugin = require('html-webpack-inline-source-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
 const ImageminPlugin = require('imagemin-webpack-plugin').default;
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const WebpackDeepScopeAnalysisPlugin = require('webpack-deep-scope-plugin').default;
+// const SizePlugin = require('size-plugin');
+// const WebpackDeepScopeAnalysisPlugin = require('webpack-deep-scope-plugin').default;
 
 module.exports = function(env, argv) {
     env = env || {};
-    env.production = !!env.production;
-    env.optimizeImages = env.production || !!env.optimizeImages;
+    env.production = Boolean(env.production);
+    env.optimizeImages = env.production || Boolean(env.optimizeImages);
+    env.copyClipboardyFallbacks = env.production || Boolean(env.copyClipboardyFallbacks);
+
+    if (!env.optimizeImages && !fs.existsSync(path.resolve(__dirname, 'images/settings'))) {
+        env.optimizeImages = true;
+    }
+
+    if (!env.copyClipboardyFallbacks && !fs.existsSync(path.resolve(__dirname, 'fallbacks'))) {
+        env.copyClipboardyFallbacks = true;
+    }
 
     return [getExtensionConfig(env), getUIConfig(env)];
 };
 
 function getExtensionConfig(env) {
-    const plugins = [new CleanPlugin(['out'], { verbose: false })];
-    // Comment out for now, as it errors
+    const clean = ['dist'];
+    if (env.copyClipboardyFallbacks) {
+        clean.push('fallbacks');
+    }
+
+    const plugins = [
+        // https://github.com/GoogleChromeLabs/size-plugin/issues/12
+        // new SizePlugin(),
+        new CleanPlugin(clean, { verbose: false }),
+        new webpack.IgnorePlugin(/^spawn-sync$/)
+    ];
+
+    if (env.copyClipboardyFallbacks) {
+        plugins.push(
+            // @ts-ignore
+            new FileManagerPlugin({
+                onEnd: [
+                    {
+                        copy: [
+                            {
+                                source: path.resolve(__dirname, 'node_modules/clipboardy/fallbacks'),
+                                destination: 'fallbacks/'
+                            }
+                        ]
+                    }
+                ]
+            })
+        );
+    }
+
     // if (env.production) {
-    //     plugins.push(new WebpackDeepScopeAnalysisPlugin());
+    // plugins.push(new WebpackDeepScopeAnalysisPlugin());
     // }
 
     return {
@@ -29,17 +69,19 @@ function getExtensionConfig(env) {
         entry: './src/extension.ts',
         mode: env.production ? 'production' : 'development',
         target: 'node',
+        node: {
+            __dirname: false
+        },
         devtool: !env.production ? 'eval-source-map' : undefined,
         output: {
             libraryTarget: 'commonjs2',
             filename: 'extension.js',
-            path: path.resolve(__dirname, 'out'),
+            path: path.resolve(__dirname, 'dist'),
             devtoolModuleFilenameTemplate: 'file:///[absolute-resource-path]'
         },
-        resolve: {
-            extensions: ['.tsx', '.ts', '.js']
+        externals: {
+            vscode: 'commonjs vscode'
         },
-        externals: [nodeExternals()],
         module: {
             rules: [
                 {
@@ -53,6 +95,9 @@ function getExtensionConfig(env) {
                     exclude: /node_modules/
                 }
             ]
+        },
+        resolve: {
+            extensions: ['.ts', '.tsx', '.js', '.jsx']
         },
         plugins: plugins,
         stats: {
@@ -75,6 +120,8 @@ function getUIConfig(env) {
     }
 
     const plugins = [
+        // https://github.com/GoogleChromeLabs/size-plugin/issues/12
+        // new SizePlugin(),
         new CleanPlugin(clean, { verbose: false }),
         new MiniCssExtractPlugin({
             filename: '[name].css'
@@ -127,6 +174,7 @@ function getUIConfig(env) {
                 sources: glob.sync('src/ui/images/settings/*.png'),
                 destination: path.resolve(__dirname, 'images')
             },
+            cacheFolder: path.resolve(__dirname, '.cache-images'),
             gifsicle: null,
             jpegtran: null,
             optipng: null,
@@ -138,9 +186,9 @@ function getUIConfig(env) {
         })
     ];
 
-    if (env.production) {
-        plugins.push(new WebpackDeepScopeAnalysisPlugin());
-    }
+    // if (env.production) {
+    // plugins.push(new WebpackDeepScopeAnalysisPlugin());
+    // }
 
     return {
         name: 'ui',
@@ -155,8 +203,8 @@ function getUIConfig(env) {
         devtool: !env.production ? 'eval-source-map' : undefined,
         output: {
             filename: '[name].js',
-            path: path.resolve(__dirname, 'out/ui'),
-            publicPath: '{{root}}/out/ui/'
+            path: path.resolve(__dirname, 'dist/ui'),
+            publicPath: '{{root}}/dist/ui/'
         },
         optimization: {
             splitChunks: {
@@ -169,10 +217,6 @@ function getUIConfig(env) {
                     }
                 }
             }
-        },
-        resolve: {
-            extensions: ['.tsx', '.ts', '.js'],
-            modules: [path.resolve(__dirname, 'src/ui'), 'node_modules']
         },
         module: {
             rules: [
@@ -222,6 +266,10 @@ function getUIConfig(env) {
                     exclude: /node_modules/
                 }
             ]
+        },
+        resolve: {
+            extensions: ['.ts', '.tsx', '.js', '.jsx'],
+            modules: [path.resolve(__dirname, 'src/ui'), 'node_modules']
         },
         plugins: plugins,
         stats: {

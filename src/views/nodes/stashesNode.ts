@@ -1,34 +1,37 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
-import { GitUri, Repository } from '../../gitService';
+import { GitUri, Repository } from '../../git/gitService';
 import { Iterables } from '../../system';
-import { Explorer, ExplorerNode, MessageNode, ResourceType } from './explorerNode';
+import { View } from '../viewBase';
+import { MessageNode } from './common';
 import { StashNode } from './stashNode';
+import { ResourceType, ViewNode } from './viewNode';
 
-export class StashesNode extends ExplorerNode {
+export class StashesNode extends ViewNode {
     constructor(
         uri: GitUri,
-        private readonly repo: Repository,
-        private readonly explorer: Explorer,
-        private readonly active: boolean = false
+        public readonly repo: Repository,
+        parent: ViewNode,
+        public readonly view: View
     ) {
-        super(uri);
+        super(uri, parent);
     }
 
     get id(): string {
-        return `gitlens:repository(${this.repo.path})${this.active ? ':active' : ''}:stashes`;
+        return `gitlens:repository(${this.repo.path}):stashes`;
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         const stash = await this.repo.getStashList();
-        if (stash === undefined) return [new MessageNode('No stashed changes')];
+        if (stash === undefined) return [new MessageNode(this, 'No stashed changes')];
 
-        return [...Iterables.map(stash.commits.values(), c => new StashNode(c, this.explorer))];
+        return [...Iterables.map(stash.commits.values(), c => new StashNode(c, this, this.view))];
     }
 
     getTreeItem(): TreeItem {
         const item = new TreeItem(`Stashes`, TreeItemCollapsibleState.Collapsed);
+        item.id = this.id;
         item.contextValue = ResourceType.Stashes;
 
         item.iconPath = {

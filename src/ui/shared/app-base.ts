@@ -274,7 +274,7 @@ export abstract class App<TBootstrap extends Bootstrap> {
                     if (value === undefined) {
                         value = this.getSettingValue<string | boolean>(lhs) || false;
                     }
-                    state = rhs !== undefined ? rhs === '' + value : !!value;
+                    state = rhs !== undefined ? rhs === '' + value : Boolean(value);
                     break;
                 }
                 case '!': {

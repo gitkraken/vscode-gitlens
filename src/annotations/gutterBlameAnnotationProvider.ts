@@ -3,7 +3,7 @@ import { DecorationOptions, DecorationRenderOptions, Range, TextEditorDecoration
 import { FileAnnotationType, GravatarDefaultStyle } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBlameCommit, ICommitFormatOptions } from '../gitService';
+import { GitBlameCommit, ICommitFormatOptions } from '../git/gitService';
 import { Logger } from '../logger';
 import { Objects, Strings } from '../system';
 import { Annotations } from './annotations';
@@ -142,8 +142,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             }
         }
 
-        const duration = process.hrtime(start);
-        Logger.log(`${duration[0] * 1000 + Math.floor(duration[1] / 1000000)} ms to compute gutter blame annotations`);
+        Logger.log(`${Strings.getDurationMilliseconds(start)} ms to compute gutter blame annotations`);
 
         this.registerHoverProviders(Container.config.hovers.annotations);
         void this.selection(shaOrLine, blame);

@@ -1,6 +1,7 @@
 'use strict';
 import { execFile } from 'child_process';
 import * as fs from 'fs';
+import * as iconv from 'iconv-lite';
 import * as path from 'path';
 import { Logger } from '../logger';
 
@@ -89,10 +90,21 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
     return { cmd: exe, args: args };
 }
 
-export interface CommandOptions {
+export class RunError extends Error {
+    constructor(
+        public readonly exitCode: number,
+        ...args: any[]
+    ) {
+        super(...args);
+
+        Error.captureStackTrace(this, RunError);
+    }
+}
+
+export interface RunOptions {
     readonly cwd?: string;
     readonly env?: Object;
-    readonly encoding?: BufferEncoding;
+    readonly encoding?: BufferEncoding | 'buffer';
     /**
      * The size the output buffer to allocate to the spawned process. Set this
      * if you are anticipating a large amount of output.
@@ -114,33 +126,46 @@ export interface CommandOptions {
     readonly stdinEncoding?: string;
 }
 
-export function runCommand(command: string, args: any[], options: CommandOptions = {}) {
-    const { stdin, stdinEncoding, ...opts } = { maxBuffer: 100 * 1024 * 1024, ...options } as CommandOptions;
+export function run<TOut extends string | Buffer>(
+    command: string,
+    args: any[],
+    encoding: BufferEncoding | 'buffer',
+    options: RunOptions = {}
+): Promise<TOut> {
+    const { stdin, stdinEncoding, ...opts } = { maxBuffer: 100 * 1024 * 1024, ...options } as RunOptions;
 
-    return new Promise<string>((resolve, reject) => {
-        const proc = execFile(command, args, opts, (err: Error & { code?: string | number } | null, stdout, stderr) => {
-            if (!err) {
+    return new Promise<TOut>((resolve, reject) => {
+        const proc = execFile(
+            command,
+            args,
+            opts,
+            (err: (Error & { code?: string | number }) | null, stdout, stderr) => {
+                if (err != null) {
+                    reject(
+                        new RunError(
+                            err.code ? Number(err.code) : 0,
+                            err.message === 'stdout maxBuffer exceeded'
+                                ? `Command output exceeded the allocated stdout buffer. Set 'options.maxBuffer' to a larger value than ${
+                                      opts.maxBuffer
+                                  } bytes`
+                                : stderr
+                        )
+                    );
+
+                    return;
+                }
+
                 if (stderr) {
                     Logger.warn(`Warning(${command} ${args.join(' ')}): ${stderr}`);
                 }
-                resolve(stdout);
 
-                return;
-            }
-
-            if (err.message === 'stdout maxBuffer exceeded') {
-                reject(
-                    new Error(
-                        `Command output exceeded the allocated stdout buffer. Set 'options.maxBuffer' to a larger value than ${
-                            opts.maxBuffer
-                        } bytes`
-                    )
+                resolve(
+                    encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer'
+                        ? (stdout as TOut)
+                        : (iconv.decode(Buffer.from(stdout, 'binary'), encoding) as TOut)
                 );
             }
-
-            // Logger.warn(`Error(${opts.cwd}): ${command} ${args.join(' ')})\n    (${err.code}) ${err.message}\n${stderr}`);
-            reject(err);
-        });
+        );
 
         if (stdin) {
             proc.stdin.end(stdin, stdinEncoding || 'utf8');

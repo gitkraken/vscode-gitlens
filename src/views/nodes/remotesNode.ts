@@ -1,36 +1,38 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
-import { GitUri, Repository } from '../../gitService';
+import { GitUri, Repository } from '../../git/gitService';
 import { Iterables } from '../../system';
-import { GitExplorer } from '../gitExplorer';
-import { ExplorerNode, MessageNode, ResourceType } from './explorerNode';
+import { RepositoriesView } from '../repositoriesView';
+import { MessageNode } from './common';
 import { RemoteNode } from './remoteNode';
+import { ResourceType, ViewNode } from './viewNode';
 
-export class RemotesNode extends ExplorerNode {
+export class RemotesNode extends ViewNode {
     constructor(
         uri: GitUri,
-        private readonly repo: Repository,
-        private readonly explorer: GitExplorer,
-        private readonly active: boolean = false
+        public readonly repo: Repository,
+        parent: ViewNode,
+        public readonly view: RepositoriesView
     ) {
-        super(uri);
+        super(uri, parent);
     }
 
     get id(): string {
-        return `gitlens:repository(${this.repo.path})${this.active ? ':active' : ''}:remotes`;
+        return `gitlens:repository(${this.repo.path}):remotes`;
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    async getChildren(): Promise<ViewNode[]> {
         const remotes = await this.repo.getRemotes();
-        if (remotes === undefined || remotes.length === 0) return [new MessageNode('No remotes configured')];
+        if (remotes === undefined || remotes.length === 0) return [new MessageNode(this, 'No remotes configured')];
 
         remotes.sort((a, b) => a.name.localeCompare(b.name));
-        return [...Iterables.map(remotes, r => new RemoteNode(r, this.uri, this.repo, this.explorer))];
+        return [...Iterables.map(remotes, r => new RemoteNode(r, this.uri, this.repo, this, this.view))];
     }
 
     getTreeItem(): TreeItem {
         const item = new TreeItem(`Remotes`, TreeItemCollapsibleState.Collapsed);
+        item.id = this.id;
         item.contextValue = ResourceType.Remotes;
 
         item.iconPath = {

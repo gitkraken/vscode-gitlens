@@ -9,9 +9,9 @@ import {
     DocumentDirtyIdleTriggerEvent,
     GitDocumentState
 } from '../trackers/gitDocumentTracker';
-import { GitCodeLensProvider } from './gitCodeLensProvider';
+import { GitCodeLensProvider } from './codeLensProvider';
 
-export class CodeLensController implements Disposable {
+export class GitCodeLensController implements Disposable {
     private _canToggle: boolean = false;
     private _disposable: Disposable | undefined;
     private _provider: GitCodeLensProvider | undefined;

@@ -4,7 +4,7 @@ import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, ShowQuickCurrentBranchHistoryCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitUri, RemoteResource } from '../gitService';
+import { GitLog, GitUri, RemoteResource } from '../git/gitService';
 import { KeyNoopCommand } from '../keyboard';
 import { Iterables, Strings } from '../system';
 import {
@@ -37,7 +37,7 @@ export class FileHistoryQuickPick {
             pickerOnly?: boolean;
             progressCancellation?: CancellationTokenSource;
             showAllCommand?: CommandQuickPickItem;
-            showInResultsExplorerCommand?: CommandQuickPickItem;
+            showInResultsCommand?: CommandQuickPickItem;
         } = {}
     ): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         options = { pickerOnly: false, ...options };
@@ -55,9 +55,9 @@ export class FileHistoryQuickPick {
             new ChooseFromBranchesAndTagsQuickPickItem(log.repoPath, placeHolder, options.currentCommand)
         );
 
-        if (options.showInResultsExplorerCommand !== undefined) {
+        if (options.showInResultsCommand !== undefined) {
             index++;
-            items.splice(0, 0, options.showInResultsExplorerCommand);
+            items.splice(0, 0, options.showInResultsCommand);
         }
 
         if (log.truncated || log.sha) {

@@ -6,7 +6,7 @@ import { extensionOutputChannelName } from './constants';
 
 const ConsolePrefix = `[${extensionOutputChannelName}]`;
 
-const isDebuggingRegex = /^--(debug|inspect)\b(-brk\b|(?!-))=?/;
+const isDebuggingRegex = /\bgitlens\b/i;
 
 export class Logger {
     static level: OutputLevel = OutputLevel.Silent;
@@ -83,6 +83,12 @@ export class Logger {
         }
     }
 
+    static showOutputChannel() {
+        if (this.output !== undefined) {
+            this.output.show();
+        }
+    }
+
     private static get timestamp(): string {
         const now = new Date();
         const time = now
@@ -94,24 +100,24 @@ export class Logger {
 
     static gitOutput: OutputChannel | undefined;
 
-    static logGitCommand(command: string, cwd: string, ex?: Error): void {
+    static logGitCommand(command: string, ex?: Error): void {
         if (this.level !== OutputLevel.Debug) return;
 
         if (this.gitOutput === undefined) {
             this.gitOutput = window.createOutputChannel(`${extensionOutputChannelName} (Git)`);
         }
-        this.gitOutput.appendLine(
-            `${this.timestamp} ${command} (${cwd})${ex === undefined ? '' : `\n\n${ex.toString()}`}`
-        );
+        this.gitOutput.appendLine(`${this.timestamp} ${command}${ex === undefined ? '' : `\n\n${ex.toString()}`}`);
     }
 
     private static _isDebugging: boolean | undefined;
     static get isDebugging() {
         if (this._isDebugging === undefined) {
             try {
-                const args = process.execArgv;
-
-                this._isDebugging = args ? args.some(arg => isDebuggingRegex.test(arg)) : false;
+                const env = process.env;
+                this._isDebugging =
+                    env && env.VSCODE_DEBUGGING_EXTENSION
+                        ? isDebuggingRegex.test(env.VSCODE_DEBUGGING_EXTENSION)
+                        : false;
             }
             catch {}
         }

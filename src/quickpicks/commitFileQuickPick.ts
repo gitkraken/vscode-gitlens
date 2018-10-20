@@ -14,7 +14,7 @@ import {
 } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitLogCommit, GitUri, RemoteResource } from '../gitService';
+import { GitLog, GitLogCommit, GitUri, RemoteResource } from '../git/gitService';
 import { KeyCommand, KeyNoopCommand } from '../keyboard';
 import { Iterables, Strings } from '../system';
 import {
@@ -44,8 +44,11 @@ export class ApplyCommitFileChangesCommandQuickPickItem extends CommandQuickPick
 
     async execute(): Promise<{} | undefined> {
         const uri = this.commit.toGitUri();
-        await Container.git.checkoutFile(uri);
-        return openEditor(uri, { preserveFocus: true, preview: false });
+        void (await openEditor(uri, { preserveFocus: true, preview: false }));
+
+        void (await Container.git.applyChangesToWorkingFile(uri));
+
+        return undefined;
     }
 }
 
@@ -142,7 +145,7 @@ export class CommitFileQuickPick {
             items.push(
                 new CommandQuickPickItem(
                     {
-                        label: `$(git-compare) Open Changes with Working Tree`,
+                        label: `$(git-compare) Open Changes with Working File`,
                         description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha} ${
                             GlyphChars.Space
                         } $(git-compare) ${GlyphChars.Space} $(file-text) ${workingName}`

@@ -3,7 +3,8 @@ import { DateStyle } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { Strings } from '../../system';
-import { GitCommit } from '../models/commit';
+import { GitCommit, GitCommitType } from '../models/commit';
+import { GitLogCommit } from '../models/models';
 import { Formatter, IFormatOptions } from './formatter';
 
 const emojiMap: { [key: string]: string } = require('../../../emoji/emojis.json');
@@ -19,7 +20,10 @@ export interface ICommitFormatOptions extends IFormatOptions {
         author?: Strings.ITokenOptions;
         authorAgo?: Strings.ITokenOptions;
         authorAgoOrDate?: Strings.ITokenOptions;
+        changes?: Strings.ITokenOptions;
+        changesShort?: Strings.ITokenOptions;
         date?: Strings.ITokenOptions;
+        id?: Strings.ITokenOptions;
         message?: Strings.ITokenOptions;
     };
 }
@@ -59,7 +63,26 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
 
     get authorAgoOrDate() {
         const authorAgo = `${this._item.author}, ${this._agoOrDate}`;
-        return this._padOrTruncate(authorAgo, this._options.tokenOptions!.authorAgo);
+        return this._padOrTruncate(authorAgo, this._options.tokenOptions!.authorAgoOrDate);
+    }
+
+    get changes() {
+        if (!(this._item instanceof GitLogCommit) || this._item.type === GitCommitType.File) {
+            return this._padOrTruncate('', this._options.tokenOptions!.changes);
+        }
+
+        return this._padOrTruncate(this._item.getFormattedDiffStatus(), this._options.tokenOptions!.changes);
+    }
+
+    get changesShort() {
+        if (!(this._item instanceof GitLogCommit) || this._item.type === GitCommitType.File) {
+            return this._padOrTruncate('', this._options.tokenOptions!.changesShort);
+        }
+
+        return this._padOrTruncate(
+            this._item.getFormattedDiffStatus({ compact: true, separator: '' }),
+            this._options.tokenOptions!.changesShort
+        );
     }
 
     get date() {
@@ -67,7 +90,7 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
     }
 
     get id() {
-        return this._item.shortSha;
+        return this._padOrTruncate(this._item.shortSha || '', this._options.tokenOptions!.id);
     }
 
     get message() {

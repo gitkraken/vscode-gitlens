@@ -3,8 +3,9 @@ import { CancellationTokenSource, commands, TextEditor, Uri, window } from 'vsco
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
-import { ComparisonResultsNode } from '../views/nodes';
+import { ResultsComparisonNode } from '../views/nodes';
 import {
     ActiveEditorCommand,
     CommandContext,
@@ -21,29 +22,19 @@ export interface DiffDirectoryCommandArgs {
 
 export class DiffDirectoryCommand extends ActiveEditorCommand {
     constructor() {
-        super([
-            Commands.DiffDirectory,
-            Commands.ExternalDiffAll,
-            Commands.ExplorersOpenDirectoryDiff,
-            Commands.ExplorersOpenDirectoryDiffWithWorking
-        ]);
+        super([Commands.DiffDirectory, Commands.ViewsOpenDirectoryDiff, Commands.ViewsOpenDirectoryDiffWithWorking]);
     }
 
     protected async preExecute(context: CommandContext, args: DiffDirectoryCommandArgs = {}): Promise<any> {
         switch (context.command) {
-            case Commands.ExternalDiffAll:
-                args.ref1 = 'HEAD';
-                args.ref2 = undefined;
-                break;
-
-            case Commands.ExplorersOpenDirectoryDiff:
-                if (context.type === 'view' && context.node instanceof ComparisonResultsNode) {
+            case Commands.ViewsOpenDirectoryDiff:
+                if (context.type === 'viewItem' && context.node instanceof ResultsComparisonNode) {
                     args.ref1 = context.node.ref1.ref;
                     args.ref2 = context.node.ref2.ref;
                 }
                 break;
 
-            case Commands.ExplorersOpenDirectoryDiffWithWorking:
+            case Commands.ViewsOpenDirectoryDiffWithWorking:
                 if (isCommandViewContextWithRef(context)) {
                     args.ref1 = context.node.ref;
                     args.ref2 = undefined;
@@ -111,7 +102,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
             }
 
             Logger.error(ex, 'DiffDirectoryCommand');
-            return window.showErrorMessage(`Unable to open directory compare. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to open directory compare');
         }
         finally {
             progressCancellation && progressCancellation.cancel();
