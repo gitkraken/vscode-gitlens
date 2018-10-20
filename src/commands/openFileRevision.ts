@@ -3,7 +3,7 @@ import { CancellationTokenSource, commands, Range, TextDocumentShowOptions, Text
 import { FileAnnotationType } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitTag, GitUri } from '../gitService';
+import { GitBranch, GitTag, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ChooseFromBranchesAndTagsQuickPickItem, CommandQuickPickItem, FileHistoryQuickPick } from '../quickpicks';
@@ -65,9 +65,9 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 
                 const gitUri = await GitUri.fromUri(uri);
 
-                const placeHolder = `Open revision of ${gitUri.getFormattedPath(
-                    args.branchOrTag ? ` (${args.branchOrTag.name})${Strings.pad(GlyphChars.Dot, 2, 2)}` : undefined
-                )}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}${
+                const placeHolder = `Open revision of ${gitUri.getFormattedPath({
+                    suffix: args.branchOrTag ? ` (${args.branchOrTag.name})` : undefined
+                })}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}${
                     GlyphChars.Ellipsis
                 }`;
 
@@ -182,7 +182,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'OpenFileRevisionCommand');
-            return window.showErrorMessage(`Unable to open file revision. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to open file revision');
         }
         finally {
             progressCancellation && progressCancellation.cancel();

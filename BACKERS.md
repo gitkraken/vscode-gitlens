@@ -8,19 +8,21 @@ If you'd like to join them in supporting GitLens, please consider:
 - [PayPal donations](https://www.paypal.me/eamodio)
 - [Cash App donations](https://www.paypal.me/eamodio)
 
-<h2 align="center">Gold Sponsors ($300+)</h2>
+<h2 align="center">Gold Sponsors ($100+)</h2>
+
 None yet &mdash; could be you!
 
-<h2 align="center">Silver Sponsors ($150+)</h2>
+<h2 align="center">Silver Sponsors ($50+)</h2>
+
+- Michael Duffy (expired)
+
+<h2 align="center">Bronze Sponsors ($25+)</h2>
+
 None yet &mdash; could be you!
-
-<h2 align="center">Bronze Sponsors ($50+)</h2>
-
-- Michael Duffy
 
 <h2 align="center">Generous Backers ($10+)</h2>
 
-- Ken Howard (TypeScript Types)
+- Ken Howard (expired)
 - Borek Bernard
 - Michael Scott-Nelson
 - MrG0lden
@@ -30,7 +32,7 @@ None yet &mdash; could be you!
 - Guido Kessels
 - Pavel Khlopin
 - Eugen Grue
-- Andreas Fertsch-Röver
+- Andreas Fertsch-Röver (expired)
 - Nathaniel Blackburn
 - Raphael Schweikert
 - JehongAhn
@@ -40,3 +42,14 @@ None yet &mdash; could be you!
 - Pelle Wessman
 - Jordan Oroshiba
 - Vance Dubberly
+- Bill
+- Stephen Kelley
+- Jon G
+- J Burnett
+- Raymond Brigleb
+- Adam Parkin
+- gnidk
+- Diego La Manno
+- Brandon Burroughs
+- Gav Massignham
+- Sunny Gupta

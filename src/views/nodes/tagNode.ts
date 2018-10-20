@@ -1,52 +1,63 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ExplorerBranchesLayout } from '../../configuration';
+import { ViewBranchesLayout } from '../../configuration';
 import { Container } from '../../container';
-import { GitTag, GitUri } from '../../gitService';
+import { GitTag, GitUri } from '../../git/gitService';
 import { Iterables } from '../../system';
-import { GitExplorer } from '../gitExplorer';
+import { RepositoriesView } from '../repositoriesView';
 import { CommitNode } from './commitNode';
-import { ExplorerNode, ExplorerRefNode, MessageNode, ResourceType, ShowAllNode } from './explorerNode';
+import { MessageNode, ShowMoreNode } from './common';
+import { insertDateMarkers } from './helpers';
+import { PageableViewNode, ResourceType, ViewNode, ViewRefNode } from './viewNode';
 
-export class TagNode extends ExplorerRefNode {
+export class TagNode extends ViewRefNode implements PageableViewNode {
     readonly supportsPaging: boolean = true;
+    maxCount: number | undefined;
 
     constructor(
         public readonly tag: GitTag,
         uri: GitUri,
-        private readonly explorer: GitExplorer
+        parent: ViewNode,
+        public readonly view: RepositoriesView
     ) {
-        super(uri);
+        super(uri, parent);
+    }
+
+    get id(): string {
+        return `gitlens:repository(${this.tag.repoPath}):tag(${this.tag.name})`;
     }
 
     get label(): string {
-        return this.explorer.config.branches.layout === ExplorerBranchesLayout.Tree
-            ? this.tag.getBasename()
-            : this.tag.name;
+        return this.view.config.branches.layout === ViewBranchesLayout.Tree ? this.tag.getBasename() : this.tag.name;
     }
 
     get ref(): string {
         return this.tag.name;
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
-        const log = await Container.git.getLog(this.uri.repoPath!, { maxCount: this.maxCount, ref: this.tag.name });
-        if (log === undefined) return [new MessageNode('No commits yet')];
+    async getChildren(): Promise<ViewNode[]> {
+        const log = await Container.git.getLog(this.uri.repoPath!, {
+            maxCount: this.maxCount || this.view.config.defaultItemLimit,
+            ref: this.tag.name
+        });
+        if (log === undefined) return [new MessageNode(this, 'No commits yet')];
 
-        const children: (CommitNode | ShowAllNode)[] = [
-            ...Iterables.map(log.commits.values(), c => new CommitNode(c, this.explorer))
+        const children = [
+            ...insertDateMarkers(Iterables.map(log.commits.values(), c => new CommitNode(c, this, this.view)), this)
         ];
 
         if (log.truncated) {
-            children.push(new ShowAllNode('Show All Commits', this, this.explorer));
+            children.push(new ShowMoreNode('Commits', this, this.view));
         }
         return children;
     }
 
     async getTreeItem(): Promise<TreeItem> {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
-        item.tooltip = `${this.tag.name}${this.tag.annotation === undefined ? '' : `\n${this.tag.annotation}`}`;
+        item.id = this.id;
         item.contextValue = ResourceType.Tag;
+        item.tooltip = `${this.tag.name}${this.tag.annotation === undefined ? '' : `\n${this.tag.annotation}`}`;
+
         return item;
     }
 }

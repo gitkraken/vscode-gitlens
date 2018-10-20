@@ -1,3 +1,5 @@
+import { Disposable } from 'vscode';
+
 'use strict';
 const _debounce = require('lodash.debounce');
 const _once = require('lodash.once');
@@ -81,6 +83,21 @@ export namespace Functions {
             }
             return fn(...args);
         };
+    }
+
+    export function interval(fn: (...args: any[]) => void, ms: number): Disposable {
+        let timer: NodeJS.Timer | undefined;
+        const disposable = {
+            dispose: () => {
+                if (timer !== undefined) {
+                    clearInterval(timer);
+                    timer = undefined;
+                }
+            }
+        };
+        timer = setInterval(fn, ms);
+
+        return disposable;
     }
 
     export async function wait(ms: number) {

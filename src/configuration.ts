@@ -12,11 +12,11 @@ import {
 } from 'vscode';
 import { CommandContext, extensionId, setCommandContext } from './constants';
 import { Container } from './container';
-import { clearGravatarCache } from './gitService';
+import { clearGravatarCache } from './git/gitService';
 import { Functions } from './system';
-import { IConfig, KeyMap } from './ui/config';
+import { Config, KeyMap } from './ui/config';
 
-const emptyConfig: any = new Proxy<any>({} as IConfig, {
+const emptyConfig: any = new Proxy<any>({} as Config, {
     get(target, propKey, receiver) {
         return emptyConfig;
     }
@@ -42,10 +42,12 @@ export class Configuration {
             `gitlens.${this.name('modes').value}`,
             `gitlens.${this.name('codeLens').value}`,
             `gitlens.${this.name('currentLine').value}`,
-            `gitlens.${this.name('gitExplorer').value}`,
-            `gitlens.${this.name('historyExplorer').value}`,
             `gitlens.${this.name('hovers').value}`,
-            `gitlens.${this.name('statusBar').value}`
+            `gitlens.${this.name('statusBar').value}`,
+            `gitlens.${this.name('views')('fileHistory').value}`,
+            `gitlens.${this.name('views')('lineHistory').value}`,
+            `gitlens.${this.name('views')('repositories').value}`,
+            `gitlens.${this.name('views')('results').value}`
         ];
     }
 
@@ -243,8 +245,8 @@ export class Configuration {
         }
     }
 
-    name<K extends keyof IConfig>(name: K) {
-        return Functions.propOf(emptyConfig as IConfig, name);
+    name<K extends keyof Config>(name: K) {
+        return Functions.propOf(emptyConfig as Config, name);
     }
 
     update(section: string, value: any, target: ConfigurationTarget, resource?: Uri | null) {

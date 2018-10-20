@@ -3,7 +3,7 @@ import * as path from 'path';
 import { TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitCommit, GitLog, GitLogCommit, GitService, GitUri } from '../gitService';
+import { GitCommit, GitLog, GitLogCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitFileQuickPick } from '../quickpicks';
@@ -44,7 +44,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
         context: CommandContext,
         args: ShowQuickCommitFileDetailsCommandArgs = {}
     ): Promise<any> {
-        if (context.type === 'view') {
+        if (context.type === 'viewItem') {
             args = { ...args };
             args.sha = context.node.uri.sha;
 
@@ -179,7 +179,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickCommitFileDetailsCommand');
-            return window.showErrorMessage(`Unable to show commit file details. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to show commit file details');
         }
     }
 }

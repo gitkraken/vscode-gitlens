@@ -10,12 +10,12 @@ import {
     workspace,
     WorkspaceFolder
 } from 'vscode';
-import { configuration, IRemotesConfig } from '../../configuration';
+import { configuration, RemotesConfig } from '../../configuration';
 import { Container } from '../../container';
-import { GitUri } from '../../gitService';
 import { Functions } from '../../system';
 import { GitBranch, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
-import { RemoteProviderFactory, RemoteProviderMap } from '../remotes/factory';
+import { GitUri } from '../gitUri';
+import { RemoteProviderFactory, RemoteProviders } from '../remotes/factory';
 
 export enum RepositoryChange {
     Config = 'config',
@@ -83,7 +83,7 @@ export class Repository implements Disposable {
     private _fsWatchCounter = 0;
     private _fsWatcherDisposable: Disposable | undefined;
     private _pendingChanges: { repo?: RepositoryChangeEvent; fs?: RepositoryFileSystemChangeEvent } = {};
-    private _providerMap: RemoteProviderMap | undefined;
+    private _providers: RemoteProviders | undefined;
     private _remotes: Promise<GitRemote[]> | undefined;
     private _suspended: boolean;
 
@@ -154,8 +154,8 @@ export class Repository implements Disposable {
 
         const section = configuration.name('remotes').value;
         if (initializing || configuration.changed(e, section, this.folder.uri)) {
-            this._providerMap = RemoteProviderFactory.createMap(
-                configuration.get<IRemotesConfig[] | null | undefined>(section, this.folder.uri)
+            this._providers = RemoteProviderFactory.loadProviders(
+                configuration.get<RemotesConfig[] | null | undefined>(section, this.folder.uri)
             );
 
             if (!initializing) {
@@ -220,7 +220,7 @@ export class Repository implements Disposable {
 
     containsUri(uri: Uri) {
         if (uri instanceof GitUri) {
-            uri = uri.repoPath !== undefined ? Uri.file(uri.repoPath) : uri.fileUri();
+            uri = uri.repoPath !== undefined ? Uri.file(uri.repoPath) : uri.documentUri();
         }
 
         return this.folder === workspace.getWorkspaceFolder(uri);
@@ -243,15 +243,15 @@ export class Repository implements Disposable {
 
     getRemotes(): Promise<GitRemote[]> {
         if (this._remotes === undefined) {
-            if (this._providerMap === undefined) {
-                const remotesCfg = configuration.get<IRemotesConfig[] | null | undefined>(
+            if (this._providers === undefined) {
+                const remotesCfg = configuration.get<RemotesConfig[] | null | undefined>(
                     configuration.name('remotes').value,
                     this.folder.uri
                 );
-                this._providerMap = RemoteProviderFactory.createMap(remotesCfg);
+                this._providers = RemoteProviderFactory.loadProviders(remotesCfg);
             }
 
-            this._remotes = Container.git.getRemotesCore(this.path, this._providerMap);
+            this._remotes = Container.git.getRemotesCore(this.path, this._providers);
         }
 
         return this._remotes;

@@ -3,8 +3,9 @@ import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { Arrays } from '../system';
-import { ActiveEditorCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt, openEditor } from './common';
+import { ActiveEditorCommand, Commands, getCommandUri, getRepoPathOrPrompt, openEditor } from './common';
 
 export interface OpenChangedFilesCommandArgs {
     uris?: Uri[];
@@ -22,10 +23,9 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
             if (args.uris === undefined) {
                 args = { ...args };
 
-                const repoPath = await getRepoPathOrActiveOrPrompt(
-                    uri,
-                    editor,
-                    `Open changed files in which repository${GlyphChars.Ellipsis}`
+                const repoPath = await getRepoPathOrPrompt(
+                    undefined,
+                    `Open all files changed in which repository${GlyphChars.Ellipsis}`
                 );
                 if (!repoPath) return undefined;
 
@@ -43,7 +43,7 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
         }
         catch (ex) {
             Logger.error(ex, 'OpenChangedFilesCommand');
-            return window.showErrorMessage(`Unable to open changed files. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to open all changed files');
         }
     }
 }

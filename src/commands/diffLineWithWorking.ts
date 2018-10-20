@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
-import { GitCommit, GitService, GitUri } from '../gitService';
+import { GitCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
@@ -63,7 +63,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
             }
             catch (ex) {
                 Logger.error(ex, 'DiffLineWithWorkingCommand', `getBlameForLine(${blameline})`);
-                return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
+                return Messages.showGenericErrorMessage('Unable to open compare');
             }
         }
 

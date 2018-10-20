@@ -1,8 +1,9 @@
 'use strict';
-import { CancellationTokenSource, TextEditor, Uri, window } from 'vscode';
+import { CancellationTokenSource, TextEditor, Uri } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
 import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 
@@ -79,13 +80,13 @@ export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
                 if (args.ref1 === undefined) return undefined;
             }
 
-            Container.resultsExplorer.showComparisonInResults(repoPath, args.ref1, args.ref2);
+            await Container.resultsView.addComparison(repoPath, args.ref1, args.ref2);
 
             return undefined;
         }
         catch (ex) {
             Logger.error(ex, 'DiffBranchWithBranchCommand');
-            return window.showErrorMessage(`Unable to open branch compare. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to open branch compare');
         }
         finally {
             progressCancellation && progressCancellation.cancel();

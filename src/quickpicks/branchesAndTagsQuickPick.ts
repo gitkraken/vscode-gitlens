@@ -2,7 +2,7 @@
 import { CancellationTokenSource, QuickPickItem, QuickPickOptions, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitTag } from '../gitService';
+import { GitBranch, GitTag } from '../git/gitService';
 import { KeyNoopCommand } from '../keyboard';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './commonQuickPicks';
 

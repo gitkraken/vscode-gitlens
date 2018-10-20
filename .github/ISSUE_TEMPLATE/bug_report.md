@@ -8,11 +8,10 @@ about: Create a report to help GitLens improve
 -->
 
 - GitLens Version:
-<!-- Use Help > Report Issue to prefill these. -->
+  <!-- Use Help > Report Issue to prefill these. -->
 - VSCode Version:
 - OS Version:
 
 Steps to Reproduce:
 
 1.
-2.

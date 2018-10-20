@@ -24,7 +24,7 @@ import {
     GitService,
     GitUri,
     ICommitFormatOptions
-} from '../gitService';
+} from '../git/gitService';
 import { Objects, Strings } from '../system';
 import { toRgba } from '../ui/shared/colors';
 
@@ -161,11 +161,11 @@ export class Annotations {
             message = `\n\n> ${message}`;
         }
         else {
-            showCommitDetailsCommand = `\`${commit.shortSha === 'working' ? '00000000' : commit.shortSha}\``;
+            showCommitDetailsCommand = `\`${commit.shortSha === 'Working Tree' ? '00000000' : commit.shortSha}\``;
         }
 
         if (Container.config.hovers.avatars) {
-            avatar = ` &nbsp; ![](${commit.getGravatarUri(Container.config.defaultGravatarsStyle).toString()})`;
+            avatar = ` &nbsp; ![](${commit.getGravatarUri(Container.config.defaultGravatarsStyle).toString(true)})`;
         }
 
         const markdown = new MarkdownString(

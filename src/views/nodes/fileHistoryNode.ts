@@ -6,44 +6,40 @@ import {
     GitLogCommit,
     GitService,
     GitUri,
-    Repository,
     RepositoryChange,
     RepositoryChangeEvent,
     RepositoryFileSystemChangeEvent
-} from '../../gitService';
+} from '../../git/gitService';
 import { Logger } from '../../logger';
 import { Iterables } from '../../system';
+import { FileHistoryView } from '../fileHistoryView';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
-import { Explorer, ExplorerNode, MessageNode, ResourceType } from './explorerNode';
+import { MessageNode } from './common';
+import { insertDateMarkers } from './helpers';
+import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
 
-export class FileHistoryNode extends ExplorerNode {
-    constructor(
-        uri: GitUri,
-        private readonly repo: Repository,
-        private readonly explorer: Explorer
-    ) {
-        super(uri);
+export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> {
+    constructor(uri: GitUri, parent: ViewNode, view: FileHistoryView) {
+        super(uri, parent, view);
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
-        this.updateSubscription();
-
-        const children: ExplorerNode[] = [];
+    async getChildren(): Promise<ViewNode[]> {
+        const children: ViewNode[] = [];
 
         const displayAs =
             CommitFileNodeDisplayAs.CommitLabel |
-            (this.explorer.config.avatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
+            (this.view.config.avatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
 
         const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
-        if (status !== undefined && (status.indexStatus !== undefined || status.workTreeStatus !== undefined)) {
+        if (status !== undefined && (status.indexStatus !== undefined || status.workingTreeStatus !== undefined)) {
             let sha;
             let previousSha;
-            if (status.workTreeStatus !== undefined) {
+            if (status.workingTreeStatus !== undefined) {
                 sha = GitService.uncommittedSha;
                 if (status.indexStatus !== undefined) {
                     previousSha = GitService.stagedUncommittedSha;
                 }
-                else if (status.workTreeStatus !== '?') {
+                else if (status.workingTreeStatus !== '?') {
                     previousSha = 'HEAD';
                 }
             }
@@ -52,12 +48,14 @@ export class FileHistoryNode extends ExplorerNode {
                 previousSha = 'HEAD';
             }
 
+            const user = await Container.git.getCurrentUser(this.uri.repoPath!);
             const commit = new GitLogCommit(
                 GitCommitType.File,
                 this.uri.repoPath!,
                 sha,
                 'You',
-                undefined,
+                user !== undefined ? user.email : undefined,
+                new Date(),
                 new Date(),
                 '',
                 status.fileName,
@@ -67,26 +65,27 @@ export class FileHistoryNode extends ExplorerNode {
                 previousSha,
                 status.originalFileName || status.fileName
             );
-            children.push(new CommitFileNode(status, commit, this.explorer, displayAs));
+            children.push(new CommitFileNode(status, commit, this, this.view, displayAs));
         }
 
         const log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, { ref: this.uri.sha });
         if (log !== undefined) {
             children.push(
-                ...Iterables.map(
-                    log.commits.values(),
-                    c => new CommitFileNode(c.fileStatuses[0], c, this.explorer, displayAs)
+                ...insertDateMarkers(
+                    Iterables.map(
+                        log.commits.values(),
+                        c => new CommitFileNode(c.files[0], c, this, this.view, displayAs)
+                    ),
+                    this
                 )
             );
         }
 
-        if (children.length === 0) return [new MessageNode('No file history')];
+        if (children.length === 0) return [new MessageNode(this, 'No file history')];
         return children;
     }
 
     getTreeItem(): TreeItem {
-        this.updateSubscription();
-
         const item = new TreeItem(`${this.uri.getFormattedPath()}`, TreeItemCollapsibleState.Expanded);
         item.contextValue = ResourceType.FileHistory;
         item.tooltip = `History of ${this.uri.getFilename()}\n${this.uri.getDirectory()}/`;
@@ -96,19 +95,24 @@ export class FileHistoryNode extends ExplorerNode {
             light: Container.context.asAbsolutePath('images/light/icon-history.svg')
         };
 
+        void this.ensureSubscription();
+
         return item;
     }
 
-    private updateSubscription() {
-        if (this.disposable) return;
+    protected async subscribe() {
+        const repo = await Container.git.getRepository(this.uri);
+        if (repo === undefined) return undefined;
 
-        this.disposable = Disposable.from(
-            this.repo.onDidChange(this.onRepoChanged, this),
-            this.repo.onDidChangeFileSystem(this.onRepoFileSystemChanged, this),
-            { dispose: () => this.repo.stopWatchingFileSystem() }
+        const subscription = Disposable.from(
+            repo.onDidChange(this.onRepoChanged, this),
+            repo.onDidChangeFileSystem(this.onRepoFileSystemChanged, this),
+            { dispose: () => repo.stopWatchingFileSystem() }
         );
 
-        this.repo.startWatchingFileSystem();
+        repo.startWatchingFileSystem();
+
+        return subscription;
     }
 
     private onRepoChanged(e: RepositoryChangeEvent) {
@@ -116,14 +120,14 @@ export class FileHistoryNode extends ExplorerNode {
 
         Logger.log(`FileHistoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
 
-        this.explorer.refreshNode(this);
+        void this.view.refreshNode(this);
     }
 
     private onRepoFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
-        if (!e.uris.some(uri => uri.toString() === this.uri.toString())) return;
+        if (!e.uris.some(uri => uri.toString(true) === this.uri.toString(true))) return;
 
         Logger.log(`FileHistoryNode.onRepoFileSystemChanged; triggering node refresh`);
 
-        this.explorer.refreshNode(this);
+        void this.view.refreshNode(this);
     }
 }

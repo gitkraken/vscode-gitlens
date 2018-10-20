@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
-import { GitCommit, GitService, GitUri } from '../gitService';
+import { GitCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
@@ -32,7 +32,10 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
         if (args.commit === undefined || GitService.isUncommitted(args.commit.sha)) {
             // If the sha is missing, just let the user know the file matches
-            if (gitUri.sha === undefined) return window.showInformationMessage(`File matches the working tree`);
+            if (gitUri.sha === undefined) return window.showInformationMessage('File matches the working tree');
+            if (gitUri.sha === GitService.deletedOrMissingSha) {
+                return window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
+            }
 
             // If we are a fake "staged" sha, check the status
             if (GitService.isStagedUncommitted(gitUri.sha!)) {
@@ -44,11 +47,11 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
                         repoPath: gitUri.repoPath,
                         lhs: {
                             sha: GitService.stagedUncommittedSha,
-                            uri: gitUri.fileUri()
+                            uri: gitUri.documentUri()
                         },
                         rhs: {
                             sha: '',
-                            uri: gitUri.fileUri()
+                            uri: gitUri.documentUri()
                         },
                         line: args.line,
                         showOptions: args.showOptions
@@ -73,12 +76,14 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
                     'DiffWithWorkingCommand',
                     `getLogCommit(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
                 );
-                return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
+                return Messages.showGenericErrorMessage('Unable to open compare');
             }
         }
 
         const [workingFileName] = await Container.git.findWorkingFileName(gitUri.fsPath, gitUri.repoPath);
-        if (workingFileName === undefined) return undefined;
+        if (workingFileName === undefined) {
+            return window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
+        }
 
         args.commit.workingFileName = workingFileName;
 

@@ -1,26 +1,31 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ExplorerBranchesLayout } from '../../configuration';
+import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitRemote, GitRemoteType, GitUri, Repository } from '../../gitService';
+import { GitRemote, GitRemoteType, GitUri, Repository } from '../../git/gitService';
 import { Arrays, Iterables } from '../../system';
-import { GitExplorer } from '../gitExplorer';
+import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
-import { ExplorerNode, ResourceType } from './explorerNode';
+import { ResourceType, ViewNode } from './viewNode';
 
-export class RemoteNode extends ExplorerNode {
+export class RemoteNode extends ViewNode {
     constructor(
         public readonly remote: GitRemote,
         uri: GitUri,
-        private readonly repo: Repository,
-        private readonly explorer: GitExplorer
+        public readonly repo: Repository,
+        parent: ViewNode,
+        public readonly view: RepositoriesView
     ) {
-        super(uri);
+        super(uri, parent);
     }
 
-    async getChildren(): Promise<ExplorerNode[]> {
+    get id(): string {
+        return `gitlens:repository(${this.remote.repoPath}):remote(${this.remote.name})`;
+    }
+
+    async getChildren(): Promise<ViewNode[]> {
         const branches = await this.repo.getBranches();
         if (branches === undefined) return [];
 
@@ -33,19 +38,27 @@ export class RemoteNode extends ExplorerNode {
                 b =>
                     !b.remote || !b.name.startsWith(this.remote.name)
                         ? undefined
-                        : new BranchNode(b, this.uri, this.explorer)
+                        : new BranchNode(b, this.uri, this, this.view)
             )
         ];
-        if (this.explorer.config.branches.layout === ExplorerBranchesLayout.List) return branchNodes;
+        if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;
 
         const hierarchy = Arrays.makeHierarchical(
             branchNodes,
             n => (n.branch.detached ? [n.branch.name] : n.branch.getName().split('/')),
             (...paths: string[]) => paths.join('/'),
-            this.explorer.config.files.compact
+            this.view.config.files.compact
         );
 
-        const root = new BranchOrTagFolderNode(this.repo.path, '', undefined, hierarchy, this.explorer);
+        const root = new BranchOrTagFolderNode(
+            'remote-branch',
+            this.repo.path,
+            '',
+            undefined,
+            hierarchy,
+            this,
+            this.view
+        );
         const children = (await root.getChildren()) as (BranchOrTagFolderNode | BranchNode)[];
 
         return children;
@@ -74,6 +87,7 @@ export class RemoteNode extends ExplorerNode {
         } ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${this.remote.path}`;
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
+        item.id = this.id;
         item.contextValue = ResourceType.Remote;
         item.tooltip = `${this.remote.name}
 ${this.remote.path} (${this.remote.provider !== undefined ? this.remote.provider.name : this.remote.domain})`;

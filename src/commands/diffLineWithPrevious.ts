@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
-import { GitCommit, GitService, GitUri } from '../gitService';
+import { GitCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
@@ -57,14 +57,14 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
             }
             catch (ex) {
                 Logger.error(ex, 'DiffLineWithPreviousCommand', `getBlameForLine(${blameline})`);
-                return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
+                return Messages.showGenericErrorMessage('Unable to open compare');
             }
         }
 
         const diffArgs: DiffWithCommandArgs = {
             repoPath: args.commit.repoPath,
             lhs: {
-                sha: args.commit.previousSha !== undefined ? args.commit.previousSha : GitService.deletedSha,
+                sha: args.commit.previousSha !== undefined ? args.commit.previousSha : GitService.deletedOrMissingSha,
                 uri: args.commit.previousUri
             },
             rhs: {

@@ -73,6 +73,11 @@ export class GitBlameParser {
                     break;
 
                 case 'author-mail':
+                    if (Git.isUncommitted(entry.sha)) {
+                        entry.authorEmail = currentUser !== undefined ? currentUser.email : undefined;
+                        continue;
+                    }
+
                     entry.authorEmail = lineParts
                         .slice(1)
                         .join(' ')
@@ -132,14 +137,14 @@ export class GitBlameParser {
             }
         }
 
-        commits.forEach(c => {
+        for (const [, c] of commits) {
             if (c.author === undefined) return;
 
             const author = authors.get(c.author);
             if (author === undefined) return;
 
             author.lineCount += c.lines.length;
-        });
+        }
 
         const sortedAuthors = new Map([...authors.entries()].sort((a, b) => b[1].lineCount - a[1].lineCount));
 

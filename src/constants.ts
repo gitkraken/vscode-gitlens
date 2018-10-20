@@ -15,11 +15,14 @@ export enum BuiltInCommands {
     EditorScroll = 'editorScroll',
     ExecuteDocumentSymbolProvider = 'vscode.executeDocumentSymbolProvider',
     ExecuteCodeLensProvider = 'vscode.executeCodeLensProvider',
+    FocusFilesExplorer = 'workbench.files.action.focusFilesExplorer',
     Open = 'vscode.open',
+    OpenFolder = 'vscode.openFolder',
     NextEditor = 'workbench.action.nextEditor',
     PreviewHtml = 'vscode.previewHtml',
     RevealLine = 'revealLine',
     SetContext = 'setContext',
+    ShowExplorerActivity = 'workbench.view.explorer',
     ShowReferences = 'editor.action.showReferences'
 }
 
@@ -28,16 +31,18 @@ export enum CommandContext {
     AnnotationStatus = 'gitlens:annotationStatus',
     CanToggleCodeLens = 'gitlens:canToggleCodeLens',
     Enabled = 'gitlens:enabled',
-    ExplorersCanCompare = 'gitlens:explorers:canCompare',
-    GitExplorer = 'gitlens:gitExplorer',
-    GitExplorerAutoRefresh = 'gitlens:gitExplorer:autoRefresh',
-    GitExplorerView = 'gitlens:gitExplorer:view',
     HasRemotes = 'gitlens:hasRemotes',
-    HistoryExplorer = 'gitlens:historyExplorer',
     Key = 'gitlens:key',
     KeyMap = 'gitlens:keymap',
-    ResultsExplorer = 'gitlens:resultsExplorer',
-    ResultsExplorerKeepResults = 'gitlens:resultsExplorer:keepResults'
+    ViewsCanCompare = 'gitlens:views:canCompare',
+    ViewsFileHistory = 'gitlens:views:fileHistory',
+    ViewsFileHistoryEditorFollowing = 'gitlens:views:fileHistory:editorFollowing',
+    ViewsLineHistory = 'gitlens:views:lineHistory',
+    ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',
+    ViewsRepositories = 'gitlens:views:repositories',
+    ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
+    ViewsResults = 'gitlens:views:results',
+    ViewsResultsKeepResults = 'gitlens:views:results:keepResults'
 }
 
 export function setCommandContext(key: CommandContext | string, value: any) {
@@ -48,7 +53,7 @@ export enum DocumentSchemes {
     DebugConsole = 'debug',
     File = 'file',
     Git = 'git',
-    GitLensGit = 'gitlens-git',
+    GitLens = 'gitlens',
     Output = 'output'
 }
 
@@ -94,12 +99,14 @@ export enum GlyphChars {
     Dash = '\u2014',
     Dot = '\u2022',
     Ellipsis = '\u2026',
+    EnDash = '\u2013',
     MiddleEllipsis = '\u22EF',
     MuchGreaterThan = '\u226A',
     MuchLessThan = '\u22D8',
     Pencil = '\u270E',
     Space = '\u00a0',
     SpaceThin = '\u2009',
+    SpaceThinnest = '\u200A',
     SquareWithBottomShadow = '\u274F',
     SquareWithTopShadow = '\u2750',
     ZeroWidthSpace = '\u200b'
@@ -109,10 +116,19 @@ export enum GlobalState {
     GitLensVersion = 'gitlensVersion'
 }
 
-export const ImageExtensions = ['.png', '.gif', '.jpg', '.jpeg', '.webp', '.tif', '.tiff', '.bmp'];
+export const ImageMimetypes: { [key: string]: string } = {
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.jpe': 'image/jpeg',
+    '.webp': 'image/webp',
+    '.tif': 'image/tiff',
+    '.tiff': 'image/tiff',
+    '.bmp': 'image/bmp'
+};
 
 export enum WorkspaceState {
-    GitExplorerAutoRefresh = 'gitlens:gitExplorer:autoRefresh',
-    GitExplorerView = 'gitlens:gitExplorer:view',
-    ResultsExplorerKeepResults = 'gitlens:resultsExplorer:keepResults'
+    ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
+    ViewsResultsKeepResults = 'gitlens:views:results:keepResults'
 }

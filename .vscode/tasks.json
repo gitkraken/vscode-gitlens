@@ -36,33 +36,7 @@
                 "isDefault": true
             },
             "isBackground": true,
-            "problemMatcher": [
-                {
-                    "base": "$ts-webpack",
-                    "fileLocation": "absolute",
-                    "background": {
-                        "activeOnStart": true,
-                        "beginsPattern": {
-                            "regexp": "Child extension:"
-                        },
-                        "endsPattern": {
-                            "regexp": "Built at: .*"
-                        }
-                    }
-                },
-                {
-                    "base": "$tslint-webpack",
-                    "background": {
-                        "activeOnStart": true,
-                        "beginsPattern": {
-                            "regexp": "Child extension:"
-                        },
-                        "endsPattern": {
-                            "regexp": "Built at: .*"
-                        }
-                    }
-                }
-            ]
+            "problemMatcher": ["$ts-webpack-watch", "$tslint-webpack-watch"]
         }
     ]
 }

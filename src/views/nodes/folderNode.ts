@@ -1,47 +1,49 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ExplorerFilesLayout, IExplorersFilesConfig } from '../../configuration';
-import { GitUri } from '../../gitService';
+import { ViewFilesLayout, ViewsFilesConfig } from '../../configuration';
+import { GitUri } from '../../git/gitService';
 import { Arrays, Objects } from '../../system';
-import { Explorer, ExplorerNode, ResourceType } from './explorerNode';
+import { View } from '../viewBase';
+import { ResourceType, ViewNode } from './viewNode';
 
-export interface IFileExplorerNode extends ExplorerNode {
+export interface FileNode extends ViewNode {
     folderName: string;
     label?: string;
-    priority: boolean;
+    priority: number;
     relativePath?: string;
-    root?: Arrays.IHierarchicalItem<IFileExplorerNode>;
+    root?: Arrays.IHierarchicalItem<FileNode>;
 }
 
-export class FolderNode extends ExplorerNode {
-    readonly priority: boolean = true;
+export class FolderNode extends ViewNode {
+    readonly priority: number = 1;
 
     constructor(
         public readonly repoPath: string,
         public readonly folderName: string,
         public readonly relativePath: string | undefined,
-        public readonly root: Arrays.IHierarchicalItem<IFileExplorerNode>,
-        private readonly explorer: Explorer
+        public readonly root: Arrays.IHierarchicalItem<FileNode>,
+        parent: ViewNode,
+        public readonly view: View
     ) {
-        super(GitUri.fromRepoPath(repoPath));
+        super(GitUri.fromRepoPath(repoPath), parent);
     }
 
-    async getChildren(): Promise<(FolderNode | IFileExplorerNode)[]> {
+    async getChildren(): Promise<(FolderNode | FileNode)[]> {
         if (this.root.descendants === undefined || this.root.children === undefined) return [];
 
-        let children: (FolderNode | IFileExplorerNode)[];
+        let children: (FolderNode | FileNode)[];
 
         const nesting = FolderNode.getFileNesting(
-            this.explorer.config.files,
+            this.view.config.files,
             this.root.descendants,
             this.relativePath === undefined
         );
-        if (nesting !== ExplorerFilesLayout.List) {
+        if (nesting !== ViewFilesLayout.List) {
             children = [];
             for (const folder of Objects.values(this.root.children)) {
                 if (folder.value === undefined) {
                     children.push(
-                        new FolderNode(this.repoPath, folder.name, folder.relativePath, folder, this.explorer)
+                        new FolderNode(this.repoPath, folder.name, folder.relativePath, folder, this, this.view)
                     );
                     continue;
                 }
@@ -58,7 +60,7 @@ export class FolderNode extends ExplorerNode {
         children.sort((a, b) => {
             return (
                 (a instanceof FolderNode ? -1 : 1) - (b instanceof FolderNode ? -1 : 1) ||
-                (a.priority ? -1 : 1) - (b.priority ? -1 : 1) ||
+                a.priority - b.priority ||
                 a.label!.localeCompare(b.label!)
             );
         });
@@ -79,18 +81,18 @@ export class FolderNode extends ExplorerNode {
         return this.folderName;
     }
 
-    static getFileNesting<T extends IFileExplorerNode>(
-        config: IExplorersFilesConfig,
+    static getFileNesting<T extends FileNode>(
+        config: ViewsFilesConfig,
         children: T[],
         isRoot: boolean
-    ): ExplorerFilesLayout {
-        const nesting = config.layout || ExplorerFilesLayout.Auto;
-        if (nesting === ExplorerFilesLayout.Auto) {
+    ): ViewFilesLayout {
+        const nesting = config.layout || ViewFilesLayout.Auto;
+        if (nesting === ViewFilesLayout.Auto) {
             if (isRoot || config.compact) {
                 const nestingThreshold = config.threshold || 5;
-                if (children.length <= nestingThreshold) return ExplorerFilesLayout.List;
+                if (children.length <= nestingThreshold) return ViewFilesLayout.List;
             }
-            return ExplorerFilesLayout.Tree;
+            return ViewFilesLayout.Tree;
         }
         return nesting;
     }

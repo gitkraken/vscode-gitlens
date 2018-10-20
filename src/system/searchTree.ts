@@ -1,5 +1,6 @@
 'use strict';
-import { Iterables } from '../system/iterable';
+import { Iterables } from './iterable';
+import { Strings } from './string';
 
 // Code stolen from https://github.com/Microsoft/vscode/blob/b3e6d5bb039a4a9362b52a2c8726267ca68cf64e/src/vs/base/common/map.ts#L352
 
@@ -42,17 +43,6 @@ export class StringIterator implements IKeyIterator {
     }
 }
 
-const enum CharCode {
-    /**
-     * The `/` character.
-     */
-    Slash = 47,
-    /**
-     * The `\` character.
-     */
-    Backslash = 92
-}
-
 export class PathIterator implements IKeyIterator {
     private _value!: string;
     private _from!: number;
@@ -75,7 +65,7 @@ export class PathIterator implements IKeyIterator {
         let justSeps = true;
         for (; this._to < this._value.length; this._to++) {
             const ch = this._value.charCodeAt(this._to);
-            if (ch === CharCode.Slash || ch === CharCode.Backslash) {
+            if (ch === Strings.CharCode.Slash || ch === Strings.CharCode.Backslash) {
                 if (justSeps) {
                     this._from++;
                 }
@@ -301,7 +291,7 @@ export class TernarySearchTree<E> {
         return (node && node.value) || candidate;
     }
 
-    findSuperstr(key: string): TernarySearchTree<E> | undefined {
+    findSuperstr(key: string, limit: boolean = false): Iterable<E> | undefined {
         const iter = this._iter.reset(key);
         let node = this._root;
         while (node) {
@@ -324,34 +314,70 @@ export class TernarySearchTree<E> {
                 if (!node.mid) {
                     return undefined;
                 }
-                const ret = new TernarySearchTree<E>(this._iter);
-                ret._root = node.mid;
-                return ret;
+                else {
+                    node = node.mid;
+                    return {
+                        [Symbol.iterator]: () => this._nodeIterator(node!, limit)
+                    };
+                }
             }
         }
         return undefined;
+    }
+
+    private _nodeIterator(node: TernarySearchTreeNode<E>, limit: boolean = false): Iterator<E> {
+        const res = {
+            done: false,
+            value: undefined! as E
+        };
+        let idx: number;
+        let data: E[];
+        const next = () => {
+            if (!data) {
+                // lazy till first invocation
+                data = [];
+                idx = 0;
+                this._forEach(node, value => data.push(value), limit);
+            }
+            if (idx >= data.length) {
+                res.done = true;
+                res.value = undefined!;
+            }
+            else {
+                res.done = false;
+                res.value = data[idx++];
+            }
+            return res;
+        };
+        return { next };
     }
 
     forEach(callback: (value: E, index: string) => any) {
         this._forEach(this._root!, callback);
     }
 
-    private _forEach(node: TernarySearchTreeNode<E>, callback: (value: E, index: string) => any) {
+    private _forEach(
+        node: TernarySearchTreeNode<E>,
+        callback: (value: E, index: string) => any,
+        limit: boolean = false
+    ) {
         if (node === undefined) return;
 
         // left
-        this._forEach(node.left!, callback);
+        this._forEach(node.left!, callback, limit);
 
         // node
         if (node.value) {
             callback(node.value, node.key);
         }
 
-        // mid
-        this._forEach(node.mid!, callback);
+        if (!limit) {
+            // mid
+            this._forEach(node.mid!, callback, limit);
+        }
 
         // right
-        this._forEach(node.right!, callback);
+        this._forEach(node.right!, callback, limit);
     }
 
     any(): boolean {

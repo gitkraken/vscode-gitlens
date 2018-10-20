@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
-import { GitCommit, GitService, GitUri } from '../gitService';
+import { GitCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Iterables } from '../system';
@@ -44,7 +44,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
             try {
                 let sha = args.commit === undefined ? gitUri.sha : args.commit.sha;
-                if (sha === GitService.deletedSha) return Messages.showCommitHasNoPreviousCommitWarningMessage();
+                if (sha === GitService.deletedOrMissingSha) return Messages.showCommitHasNoPreviousCommitWarningMessage();
 
                 // If we are a fake "staged" sha, remove it
                 let isStagedUncommitted = false;
@@ -101,7 +101,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                                 repoPath: args.commit.repoPath,
                                 lhs: {
                                     sha: args.inDiffEditor
-                                        ? args.commit.previousSha || GitService.deletedSha
+                                        ? args.commit.previousSha || GitService.deletedOrMissingSha
                                         : args.commit.sha,
                                     uri: args.inDiffEditor ? args.commit.previousUri : args.commit.uri
                                 },
@@ -145,14 +145,14 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
             }
             catch (ex) {
                 Logger.error(ex, 'DiffWithPreviousCommand', `getLogForFile(${gitUri.repoPath}, ${gitUri.fsPath})`);
-                return window.showErrorMessage(`Unable to open compare. See output channel for more details`);
+                return Messages.showGenericErrorMessage('Unable to open compare');
             }
         }
 
         const diffArgs: DiffWithCommandArgs = {
             repoPath: args.commit.repoPath,
             lhs: {
-                sha: args.commit.previousSha !== undefined ? args.commit.previousSha : GitService.deletedSha,
+                sha: args.commit.previousSha !== undefined ? args.commit.previousSha : GitService.deletedOrMissingSha,
                 uri: args.commit.previousUri
             },
             rhs: {

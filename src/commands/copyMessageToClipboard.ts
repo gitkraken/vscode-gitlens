@@ -1,8 +1,10 @@
 'use strict';
+import * as clipboard from 'clipboardy';
 import { TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
-import { GitUri } from '../gitService';
+import { GitUri } from '../git/gitService';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 import { Iterables } from '../system';
 import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
 
@@ -30,8 +32,6 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
         uri = getCommandUri(uri, editor);
 
         try {
-            const clipboard = await import('clipboardy');
-
             args = { ...args };
 
             // If we don't have an editor then get the message of the last commit to the branch
@@ -71,7 +71,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                     }
                     catch (ex) {
                         Logger.error(ex, 'CopyMessageToClipboardCommand', `getBlameForLine(${blameline})`);
-                        return window.showErrorMessage(`Unable to copy message. See output channel for more details`);
+                        return Messages.showGenericErrorMessage('Unable to copy message');
                     }
                 }
 
@@ -88,13 +88,13 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
         catch (ex) {
             if (ex.message.includes("Couldn't find the required `xsel` binary")) {
                 window.showErrorMessage(
-                    `Unable to copy message, xsel is not installed. You can install it via \`sudo apt install xsel\``
+                    `Unable to copy message, xsel is not installed. Please install it via your package manager, e.g. \`sudo apt install xsel\``
                 );
                 return;
             }
 
             Logger.error(ex, 'CopyMessageToClipboardCommand');
-            return window.showErrorMessage(`Unable to copy message. See output channel for more details`);
+            return Messages.showGenericErrorMessage('Unable to copy message');
         }
     }
 }
