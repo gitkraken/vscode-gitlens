@@ -1,8 +1,8 @@
 'use strict';
-import { Command, Disposable, Event, TreeItem, TreeViewVisibilityChangeEvent } from 'vscode';
+import { Command, Disposable, Event, TreeItem, TreeItemCollapsibleState, TreeViewVisibilityChangeEvent } from 'vscode';
 import { GitUri } from '../../git/gitService';
 import { debug, logName } from '../../system';
-import { RefreshReason, View } from '../viewBase';
+import { RefreshReason, TreeViewNodeStateChangeEvent, View } from '../viewBase';
 
 export enum ResourceType {
     ActiveFileHistory = 'gitlens:active:history-file',
@@ -122,7 +122,10 @@ export abstract class SubscribeableViewNode<TView extends View> extends ViewNode
     ) {
         super(uri, parent);
 
-        const disposables = [this.view.onDidChangeVisibility(this.onVisibilityChanged, this)];
+        const disposables = [
+            this.view.onDidChangeVisibility(this.onVisibilityChanged, this),
+            this.view.onDidChangeNodeState(this.onNodeStateChanged, this)
+        ];
 
         if (supportsAutoRefresh(this.view)) {
             disposables.push(this.view.onDidChangeAutoRefresh(this.onAutoRefreshChanged, this));
@@ -178,6 +181,20 @@ export abstract class SubscribeableViewNode<TView extends View> extends ViewNode
     @debug()
     protected onAutoRefreshChanged() {
         this.onVisibilityChanged({ visible: this.view.visible });
+    }
+
+    protected onParentStateChanged(state: TreeItemCollapsibleState) {}
+    protected onStateChanged(state: TreeItemCollapsibleState) {}
+
+    protected _state: TreeItemCollapsibleState | undefined;
+    protected onNodeStateChanged(e: TreeViewNodeStateChangeEvent<ViewNode>) {
+        if (e.element === this) {
+            this._state = e.state;
+            this.onStateChanged(e.state);
+        }
+        else if (e.element === this._parent) {
+            this.onParentStateChanged(e.state);
+        }
     }
 
     @debug()

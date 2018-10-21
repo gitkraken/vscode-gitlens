@@ -6,7 +6,9 @@ import {
     EventEmitter,
     TreeDataProvider,
     TreeItem,
+    TreeItemCollapsibleState,
     TreeView,
+    TreeViewExpansionEvent,
     TreeViewVisibilityChangeEvent,
     window
 } from 'vscode';
@@ -30,6 +32,10 @@ export enum RefreshReason {
 
 export type View = RepositoriesView | FileHistoryView | LineHistoryView | ResultsView;
 
+export interface TreeViewNodeStateChangeEvent<T> extends TreeViewExpansionEvent<T> {
+    state: TreeItemCollapsibleState;
+}
+
 export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvider<ViewNode>, Disposable {
     protected _onDidChangeTreeData = new EventEmitter<ViewNode>();
     public get onDidChangeTreeData(): Event<ViewNode> {
@@ -39,6 +45,11 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
     private _onDidChangeVisibility = new EventEmitter<TreeViewVisibilityChangeEvent>();
     public get onDidChangeVisibility(): Event<TreeViewVisibilityChangeEvent> {
         return this._onDidChangeVisibility.event;
+    }
+
+    private _onDidChangeNodeState = new EventEmitter<TreeViewNodeStateChangeEvent<ViewNode>>();
+    public get onDidChangeNodeState(): Event<TreeViewNodeStateChangeEvent<ViewNode>> {
+        return this._onDidChangeNodeState.event;
     }
 
     protected _disposable: Disposable | undefined;
@@ -77,7 +88,9 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
         });
         this._disposable = Disposable.from(
             this._tree,
-            this._tree.onDidChangeVisibility(this.onVisibilityChanged, this)
+            this._tree.onDidChangeVisibility(this.onVisibilityChanged, this),
+            this._tree.onDidCollapseElement(this.onElementCollapsed, this),
+            this._tree.onDidExpandElement(this.onElementExpanded, this)
         );
     }
 
@@ -97,6 +110,14 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
 
     getTreeItem(node: ViewNode): TreeItem | Promise<TreeItem> {
         return node.getTreeItem();
+    }
+
+    protected onElementCollapsed(e: TreeViewExpansionEvent<ViewNode>) {
+        this._onDidChangeNodeState.fire({ ...e, state: TreeItemCollapsibleState.Collapsed });
+    }
+
+    protected onElementExpanded(e: TreeViewExpansionEvent<ViewNode>) {
+        this._onDidChangeNodeState.fire({ ...e, state: TreeItemCollapsibleState.Expanded });
     }
 
     protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
