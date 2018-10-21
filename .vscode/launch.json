@@ -12,7 +12,7 @@
                 "VSCODE_DEBUGGING_EXTENSION": "gitlens"
             },
             "outFiles": ["${workspaceFolder}/dist/**/*.js"],
-            "skipFiles": ["<node_internals>/**/*.js", "**/node_modules/**/*.js", "**/extensions/**/*.js"],
+            "skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/app/out/vs/**", "**/extensions/**"],
             "smartStep": true,
             "sourceMaps": true
         },
@@ -26,7 +26,7 @@
             },
             "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
             "outFiles": ["${workspaceFolder}/dist/**/*.js"],
-            "skipFiles": ["<node_internals>/**/*.js", "**/node_modules/**/*.js", "**/extensions/**/*.js"],
+            "skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/app/out/vs/**", "**/extensions/**"],
             "smartStep": true,
             "sourceMaps": true,
             "preLaunchTask": "npm: watch"
