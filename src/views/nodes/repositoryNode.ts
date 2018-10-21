@@ -13,8 +13,7 @@ import {
     RepositoryChangeEvent,
     RepositoryFileSystemChangeEvent
 } from '../../git/gitService';
-import { Logger } from '../../logger';
-import { Dates, Functions, Strings } from '../../system';
+import { Dates, debug, Functions, log, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchesNode } from './branchesNode';
 import { BranchNode } from './branchNode';
@@ -169,6 +168,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         return item;
     }
 
+    @log()
     async fetch(progress: boolean = true) {
         if (!progress) return this.fetchCore();
 
@@ -189,6 +189,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         this.view.triggerNodeChange(this);
     }
 
+    @log()
     async pull(progress: boolean = true) {
         if (!progress) return this.pullCore();
 
@@ -209,6 +210,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         this.view.triggerNodeChange(this);
     }
 
+    @log()
     async push(progress: boolean = true) {
         if (!progress) return this.pushCore();
 
@@ -235,6 +237,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         void this.ensureSubscription();
     }
 
+    @debug()
     protected async subscribe() {
         const disposables = [this.repo.onDidChange(this.onRepoChanged, this)];
 
@@ -257,13 +260,25 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         return this.view.config.includeWorkingTree;
     }
 
+    @debug({
+        args: {
+            e: (e: RepositoryFileSystemChangeEvent) =>
+                `{ repository: ${e.repository ? e.repository.name : ''}, uris: [${e.uris
+                    .map(u => u.fsPath)
+                    .join(', ')}] }`
+        }
+    })
     private onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
         void this.triggerChange();
     }
 
+    @debug({
+        args: {
+            e: (e: RepositoryChangeEvent) =>
+                `{ repository: ${e.repository ? e.repository.name : ''}, changes: ${e.changes.join()} }`
+        }
+    })
     private onRepoChanged(e: RepositoryChangeEvent) {
-        Logger.log(`RepositoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
-
         if (e.changed(RepositoryChange.Closed)) {
             this.dispose();
 
@@ -325,6 +340,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         );
     }
 
+    @debug()
     private async updateLastFetched() {
         const prevLastFetched = this._lastFetched;
         this._lastFetched = await this.getLastFetched();

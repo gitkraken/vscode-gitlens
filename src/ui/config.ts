@@ -77,7 +77,7 @@ export enum KeyMap {
     None = 'none'
 }
 
-export enum OutputLevel {
+export enum LogLevel {
     Silent = 'silent',
     Errors = 'errors',
     Verbose = 'verbose',
@@ -319,7 +319,7 @@ export interface Config {
         };
     };
     modes: { [key: string]: ModeConfig };
-    outputLevel: OutputLevel;
+    outputLevel: LogLevel;
     recentChanges: {
         highlight: {
             locations: HighlightLocations[];

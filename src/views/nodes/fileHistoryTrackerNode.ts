@@ -4,7 +4,7 @@ import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, Uri, window
 import { UriComparer } from '../../comparers';
 import { Container } from '../../container';
 import { GitUri } from '../../git/gitService';
-import { Functions } from '../../system';
+import { debug, Functions, log } from '../../system';
 import { FileHistoryView } from '../fileHistoryView';
 import { MessageNode } from './common';
 import { FileHistoryNode } from './fileHistoryNode';
@@ -23,6 +23,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
         this.resetChild();
     }
 
+    @debug()
     resetChild() {
         if (this._child !== undefined) {
             this._child.dispose();
@@ -102,16 +103,19 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
         return false;
     }
 
+    @log()
     setEditorFollowing(enabled: boolean) {
         this.canSubscribe = enabled;
     }
 
+    @debug()
     protected async subscribe() {
         return Disposable.from(
             window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this)
         );
     }
 
+    @debug({ args: false })
     private onActiveEditorChanged(editor: TextEditor | undefined) {
         void this.triggerChange();
     }

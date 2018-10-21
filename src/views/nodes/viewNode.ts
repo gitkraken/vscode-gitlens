@@ -1,6 +1,7 @@
 'use strict';
 import { Command, Disposable, Event, TreeItem, TreeViewVisibilityChangeEvent } from 'vscode';
 import { GitUri } from '../../git/gitService';
+import { debug, logName } from '../../system';
 import { RefreshReason, View } from '../viewBase';
 
 export enum ResourceType {
@@ -51,6 +52,11 @@ export interface NamedRef {
 
 export const unknownGitUri = new GitUri();
 
+export interface ViewNode {
+    readonly id?: string;
+}
+
+@logName<ViewNode>((c, name) => `${name}${c.id ? `(${c.id})` : ''}`)
 export abstract class ViewNode {
     constructor(
         uri: GitUri,
@@ -76,6 +82,7 @@ export abstract class ViewNode {
         return undefined;
     }
 
+    @debug()
     refresh(reason?: RefreshReason): void | boolean | Promise<void> | Promise<boolean> {}
 }
 
@@ -124,6 +131,7 @@ export abstract class SubscribeableViewNode<TView extends View> extends ViewNode
         this._disposable = Disposable.from(...disposables);
     }
 
+    @debug()
     dispose() {
         this.unsubscribe();
 
@@ -147,12 +155,14 @@ export abstract class SubscribeableViewNode<TView extends View> extends ViewNode
         }
     }
 
+    @debug()
     async triggerChange() {
         return this.view.refreshNode(this);
     }
 
     protected abstract async subscribe(): Promise<Disposable | undefined>;
 
+    @debug()
     protected async unsubscribe(): Promise<void> {
         if (this._subscription !== undefined) {
             const subscriptionPromise = this._subscription;
@@ -165,10 +175,12 @@ export abstract class SubscribeableViewNode<TView extends View> extends ViewNode
         }
     }
 
+    @debug()
     protected onAutoRefreshChanged() {
         this.onVisibilityChanged({ visible: this.view.visible });
     }
 
+    @debug()
     protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
         void this.ensureSubscription();
 
@@ -177,6 +189,7 @@ export abstract class SubscribeableViewNode<TView extends View> extends ViewNode
         }
     }
 
+    @debug()
     async ensureSubscription() {
         // We only need to subscribe if we are visible and if auto-refresh enabled (when supported)
         if (!this.canSubscribe || !this.view.visible || (supportsAutoRefresh(this.view) && !this.view.autoRefresh)) {

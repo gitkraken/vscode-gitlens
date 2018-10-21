@@ -3,7 +3,7 @@ import { Disposable, ProgressLocation, TextEditor, TreeItem, TreeItemCollapsible
 import { Container } from '../../container';
 import { GitUri } from '../../git/gitService';
 import { Logger } from '../../logger';
-import { Functions } from '../../system';
+import { debug, Functions, log } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { RefreshReason } from '../viewBase';
 import { MessageNode } from './common';
@@ -57,6 +57,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
         return item;
     }
 
+    @log()
     async fetchAll() {
         if (this._children === undefined || this._children.length === 0) return;
 
@@ -85,6 +86,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
         );
     }
 
+    @log()
     async pullAll() {
         if (this._children === undefined || this._children.length === 0) return;
 
@@ -153,6 +155,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
         void this.ensureSubscription();
     }
 
+    @debug()
     protected async subscribe() {
         const subscriptions = [Container.git.onDidChangeRepositories(this.onRepositoriesChanged, this)];
 
@@ -165,6 +168,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
         return Disposable.from(...subscriptions);
     }
 
+    @debug({ args: false })
     private async onActiveEditorChanged(editor: TextEditor | undefined) {
         if (editor == null || this._children === undefined || this._children.length === 1) {
             return;
@@ -195,6 +199,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
         }
     }
 
+    @debug()
     private onRepositoriesChanged() {
         void this.triggerChange();
     }

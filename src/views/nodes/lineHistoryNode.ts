@@ -10,7 +10,7 @@ import {
     RepositoryFileSystemChangeEvent
 } from '../../git/gitService';
 import { Logger } from '../../logger';
-import { Iterables } from '../../system';
+import { debug, Iterables } from '../../system';
 import { LineHistoryView } from '../lineHistoryView';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { MessageNode } from './common';
@@ -124,6 +124,7 @@ export class LineHistoryNode extends SubscribeableViewNode<LineHistoryView> {
         return item;
     }
 
+    @debug()
     protected async subscribe() {
         const repo = await Container.git.getRepository(this.uri);
         if (repo === undefined) return undefined;
@@ -150,7 +151,7 @@ export class LineHistoryNode extends SubscribeableViewNode<LineHistoryView> {
     private onRepoFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
         if (!e.uris.some(uri => uri.toString(true) === this.uri.toString(true))) return;
 
-        Logger.log(`LineHistoryNode.onRepoFileSystemChanged; triggering node refresh`);
+        Logger.debug(`LineHistoryNode.onRepoFileSystemChanged(${this.uri.toString(true)}); triggering node refresh`);
 
         void this.triggerChange();
     }

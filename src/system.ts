@@ -3,6 +3,7 @@
 export * from './system/array';
 // export * from './system/asyncIterable';
 export * from './system/date';
+export * from './system/decorators';
 // export * from './system/disposable';
 // export * from './system/element';
 // export * from './system/event';

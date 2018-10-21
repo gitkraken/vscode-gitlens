@@ -3,7 +3,7 @@ import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } fro
 import { UriComparer } from '../../comparers';
 import { Container } from '../../container';
 import { GitUri } from '../../git/gitService';
-import { Functions } from '../../system';
+import { debug, Functions, log } from '../../system';
 import { LinesChangeEvent } from '../../trackers/gitLineTracker';
 import { LineHistoryView } from '../lineHistoryView';
 import { MessageNode } from './common';
@@ -24,6 +24,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
         this.resetChild();
     }
 
+    @debug()
     resetChild() {
         if (this._child !== undefined) {
             this._child.dispose();
@@ -94,10 +95,12 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
         return false;
     }
 
+    @log()
     setEditorFollowing(enabled: boolean) {
         this.canSubscribe = enabled;
     }
 
+    @debug()
     protected async subscribe() {
         if (Container.lineTracker.isSubscribed(this)) return undefined;
 
@@ -115,6 +118,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
         );
     }
 
+    @debug({ args: false })
     private onActiveLinesChanged(e: LinesChangeEvent) {
         void this.triggerChange();
     }

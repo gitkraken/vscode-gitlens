@@ -13,6 +13,7 @@ import {
 import { configuration } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { debug, log } from '../system';
 import { FileHistoryView } from './fileHistoryView';
 import { LineHistoryView } from './lineHistoryView';
 import { ViewNode } from './nodes';
@@ -112,12 +113,11 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
         return this._tree !== undefined ? this._tree.visible : false;
     }
 
+    @debug()
     async refresh(reason?: RefreshReason) {
         if (reason === undefined) {
             reason = RefreshReason.Command;
         }
-
-        Logger.log(`View(${this.id}).refresh`, `reason='${reason}'`);
 
         if (this._root !== undefined) {
             await this._root.refresh(reason);
@@ -126,9 +126,10 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
         this.triggerNodeChange();
     }
 
+    @debug({
+        args: { node: (n: ViewNode) => `${n.constructor.name}${n.id ? `(${n.id})` : ''}` }
+    })
     async refreshNode(node: ViewNode, args?: RefreshNodeCommandArgs) {
-        Logger.log(`View(${this.id}).refreshNode(${(node as { id?: string }).id || ''})`);
-
         if (args !== undefined) {
             if (isPageable(node)) {
                 if (args.maxCount === undefined || args.maxCount === 0) {
@@ -146,6 +147,9 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
         this.triggerNodeChange(node);
     }
 
+    @log({
+        args: { node: (n: ViewNode) => `${n.constructor.name}${n.id ? `(${n.id})` : ''}` }
+    })
     async reveal(
         node: ViewNode,
         options?: {
@@ -163,6 +167,7 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
         }
     }
 
+    @log()
     async show() {
         if (this._tree === undefined || this._root === undefined) return;
 
@@ -171,6 +176,9 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
         return this.reveal(child, { select: false, focus: true });
     }
 
+    @debug({
+        args: { node: (n?: ViewNode) => (n != null ? `${n.constructor.name}${n.id ? `(${n.id})` : ''}` : '') }
+    })
     triggerNodeChange(node?: ViewNode) {
         // Since the root node won't actually refresh, force everything
         this._onDidChangeTreeData.fire(node !== undefined && node !== this._root ? node : undefined);
