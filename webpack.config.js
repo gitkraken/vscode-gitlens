@@ -10,6 +10,7 @@ const HtmlPlugin = require('html-webpack-plugin');
 const ImageminPlugin = require('imagemin-webpack-plugin').default;
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 // const SizePlugin = require('size-plugin');
+const TerserPlugin = require('terser-webpack-plugin');
 // const WebpackDeepScopeAnalysisPlugin = require('webpack-deep-scope-plugin').default;
 
 module.exports = function(env, argv) {
@@ -72,11 +73,26 @@ function getExtensionConfig(env) {
         node: {
             __dirname: false
         },
-        devtool: !env.production ? 'eval-source-map' : undefined,
+        devtool: !env.production ? 'source-map' : undefined,
         output: {
             libraryTarget: 'commonjs2',
             filename: 'extension.js',
             devtoolModuleFilenameTemplate: 'file:///[absolute-resource-path]'
+        },
+        optimization: {
+            minimizer: [
+                new TerserPlugin({
+                    cache: true,
+                    parallel: true,
+                    sourceMap: env.production,
+                    terserOptions: {
+                        ecma: 8,
+                        // Keep the class names otherwise @log won't provide a useful name
+                        keep_classnames: true,
+                        module: true
+                    }
+                })
+            ]
         },
         externals: {
             vscode: 'commonjs vscode'
@@ -200,13 +216,20 @@ function getUIConfig(env) {
             // main: ['./scss/main.scss']
         },
         mode: env.production ? 'production' : 'development',
-        devtool: !env.production ? 'eval-source-map' : undefined,
+        devtool: !env.production ? 'source-map' : undefined,
         output: {
             filename: '[name].js',
             path: path.resolve(__dirname, 'dist/ui'),
             publicPath: '{{root}}/dist/ui/'
         },
         optimization: {
+            minimizer: [
+                new TerserPlugin({
+                    cache: true,
+                    parallel: true,
+                    sourceMap: env.production
+                })
+            ],
             splitChunks: {
                 cacheGroups: {
                     styles: {

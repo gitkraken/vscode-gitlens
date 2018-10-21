@@ -82,13 +82,17 @@ export function log<T>(
 
         descriptor.value = function(this: any, ...args: any[]) {
             if (Logger.level === LogLevel.Debug || (Logger.level === LogLevel.Verbose && !options.debug)) {
-                let instanceName;
+                let instanceName: string;
                 if (this != null) {
-                    if (this.constructor && this.constructor[LogInstanceNameFn]) {
-                        instanceName = target.constructor[LogInstanceNameFn](this, this.constructor.name);
+                    instanceName = this.constructor.name;
+                    // Strip webpack module name (since I never name classes with an _)
+                    const index = instanceName.indexOf('_');
+                    if (index !== -1) {
+                        instanceName = instanceName.substr(index + 1);
                     }
-                    else {
-                        instanceName = this.constructor.name;
+
+                    if (this.constructor && this.constructor[LogInstanceNameFn]) {
+                        instanceName = target.constructor[LogInstanceNameFn](this, instanceName);
                     }
                 }
                 else {
