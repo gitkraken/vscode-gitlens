@@ -54,7 +54,7 @@ export const unknownGitUri = new GitUri();
 export abstract class ViewNode {
     constructor(
         uri: GitUri,
-        private readonly _parent: ViewNode | undefined
+        protected readonly _parent: ViewNode | undefined
     ) {
         this._uri = uri;
     }
@@ -65,9 +65,11 @@ export abstract class ViewNode {
     }
 
     abstract getChildren(): ViewNode[] | Promise<ViewNode[]>;
+
     getParent(): ViewNode | undefined {
         return this._parent;
     }
+
     abstract getTreeItem(): TreeItem | Promise<TreeItem>;
 
     getCommand(): Command | undefined {
@@ -104,7 +106,7 @@ export function supportsAutoRefresh(
 
 export abstract class SubscribeableViewNode<TView extends View> extends ViewNode {
     protected _disposable: Disposable;
-    protected _subscription: Disposable | undefined;
+    protected _subscription: Promise<Disposable | undefined> | undefined;
 
     constructor(
         uri: GitUri,
@@ -141,15 +143,25 @@ export abstract class SubscribeableViewNode<TView extends View> extends ViewNode
 
         void this.ensureSubscription();
         if (value) {
-            void this.view.refreshNode(this);
+            void this.triggerChange();
         }
     }
 
+    async triggerChange() {
+        return this.view.refreshNode(this);
+    }
+
     protected abstract async subscribe(): Promise<Disposable | undefined>;
-    protected unsubscribe(): void {
+
+    protected async unsubscribe(): Promise<void> {
         if (this._subscription !== undefined) {
-            this._subscription.dispose();
+            const subscriptionPromise = this._subscription;
             this._subscription = undefined;
+
+            const subscription = await subscriptionPromise;
+            if (subscription !== undefined) {
+                subscription.dispose();
+            }
         }
     }
 
@@ -161,14 +173,14 @@ export abstract class SubscribeableViewNode<TView extends View> extends ViewNode
         void this.ensureSubscription();
 
         if (e.visible) {
-            void this.view.refreshNode(this);
+            void this.triggerChange();
         }
     }
 
     async ensureSubscription() {
         // We only need to subscribe if we are visible and if auto-refresh enabled (when supported)
         if (!this.canSubscribe || !this.view.visible || (supportsAutoRefresh(this.view) && !this.view.autoRefresh)) {
-            this.unsubscribe();
+            await this.unsubscribe();
 
             return;
         }
@@ -176,6 +188,7 @@ export abstract class SubscribeableViewNode<TView extends View> extends ViewNode
         // If we already have a subscription, just kick out
         if (this._subscription !== undefined) return;
 
-        this._subscription = await this.subscribe();
+        this._subscription = this.subscribe();
+        await this._subscription;
     }
 }

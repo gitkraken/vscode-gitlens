@@ -113,6 +113,6 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
     }
 
     private onActiveEditorChanged(editor: TextEditor | undefined) {
-        void this.view.refreshNode(this);
+        void this.triggerChange();
     }
 }

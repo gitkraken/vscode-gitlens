@@ -144,7 +144,7 @@ export class LineHistoryNode extends SubscribeableViewNode<LineHistoryView> {
 
         Logger.log(`LineHistoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
 
-        void this.view.refreshNode(this);
+        void this.triggerChange();
     }
 
     private onRepoFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
@@ -152,6 +152,6 @@ export class LineHistoryNode extends SubscribeableViewNode<LineHistoryView> {
 
         Logger.log(`LineHistoryNode.onRepoFileSystemChanged; triggering node refresh`);
 
-        void this.view.refreshNode(this);
+        void this.triggerChange();
     }
 }

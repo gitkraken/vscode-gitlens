@@ -116,6 +116,6 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
     }
 
     private onActiveLinesChanged(e: LinesChangeEvent) {
-        void this.view.refreshNode(this);
+        void this.triggerChange();
     }
 }

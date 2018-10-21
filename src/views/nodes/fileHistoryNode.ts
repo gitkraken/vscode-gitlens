@@ -120,7 +120,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> {
 
         Logger.log(`FileHistoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
 
-        void this.view.refreshNode(this);
+        void this.triggerChange();
     }
 
     private onRepoFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
@@ -128,6 +128,6 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> {
 
         Logger.log(`FileHistoryNode.onRepoFileSystemChanged; triggering node refresh`);
 
-        void this.view.refreshNode(this);
+        void this.triggerChange();
     }
 }

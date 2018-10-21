@@ -1,5 +1,4 @@
 'use strict';
-
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
 import { Commands, configureCommands } from './commands';
 import { Config, configuration, Configuration } from './configuration';

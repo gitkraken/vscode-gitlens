@@ -126,7 +126,7 @@ export class UpdateableMessageNode extends ViewNode {
             this._iconPath = changes.iconPath === null ? undefined : changes.iconPath;
         }
 
-        view.triggerNodeUpdate(this);
+        view.triggerNodeChange(this);
     }
 }
 

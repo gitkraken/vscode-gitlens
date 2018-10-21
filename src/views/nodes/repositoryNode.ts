@@ -186,7 +186,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         await commands.executeCommand('git.fetch', this.repo.path);
 
         await this.updateLastFetched();
-        this.view.triggerNodeUpdate(this);
+        this.view.triggerNodeChange(this);
     }
 
     async pull(progress: boolean = true) {
@@ -206,7 +206,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         await commands.executeCommand('git.pull', this.repo.path);
 
         await this.updateLastFetched();
-        this.view.triggerNodeUpdate(this);
+        this.view.triggerNodeChange(this);
     }
 
     async push(progress: boolean = true) {
@@ -225,7 +225,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
     private async pushCore() {
         await commands.executeCommand('git.push', this.repo.path);
 
-        this.view.triggerNodeUpdate(this);
+        this.view.triggerNodeChange(this);
     }
 
     refresh() {
@@ -258,7 +258,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
     }
 
     private onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
-        void this.view.refreshNode(this);
+        void this.triggerChange();
     }
 
     private onRepoChanged(e: RepositoryChangeEvent) {
@@ -275,7 +275,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
             e.changed(RepositoryChange.Repository) ||
             e.changed(RepositoryChange.Config)
         ) {
-            void this.view.refreshNode(this);
+            void this.triggerChange();
 
             return;
         }
@@ -283,21 +283,21 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         if (e.changed(RepositoryChange.Stashes)) {
             const node = this._children.find(c => c instanceof StashesNode);
             if (node !== undefined) {
-                void this.view.refreshNode(node);
+                void this.triggerChange();
             }
         }
 
         if (e.changed(RepositoryChange.Remotes)) {
             const node = this._children.find(c => c instanceof RemotesNode);
             if (node !== undefined) {
-                void this.view.refreshNode(node);
+                void this.triggerChange();
             }
         }
 
         if (e.changed(RepositoryChange.Tags)) {
             const node = this._children.find(c => c instanceof TagsNode);
             if (node !== undefined) {
-                void this.view.refreshNode(node);
+                void this.triggerChange();
             }
         }
     }
@@ -332,6 +332,6 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         // If the fetched date hasn't changed and it was over a day ago, kick out
         if (this._lastFetched === prevLastFetched && Date.now() - this._lastFetched >= Dates.MillisecondsPerDay) return;
 
-        this.view.triggerNodeUpdate(this);
+        this.view.triggerNodeChange(this);
     }
 }

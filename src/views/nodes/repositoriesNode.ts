@@ -147,7 +147,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 
         // Reset our subscription if the configuration changed
         if (reason === RefreshReason.ConfigurationChanged) {
-            this.unsubscribe();
+            await this.unsubscribe();
         }
 
         void this.ensureSubscription();
@@ -196,6 +196,6 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
     }
 
     private onRepositoriesChanged() {
-        void this.view.refreshNode(this);
+        void this.triggerChange();
     }
 }

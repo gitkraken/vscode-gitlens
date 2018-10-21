@@ -62,7 +62,7 @@ export class ResultsComparisonNode extends ViewNode {
         this._ref1 = this._ref2;
         this._ref2 = ref1;
 
-        this.view.triggerNodeUpdate(this);
+        this.view.triggerNodeChange(this);
     }
 
     private async getCommitsQuery(maxCount: number | undefined): Promise<CommitsQueryResults> {

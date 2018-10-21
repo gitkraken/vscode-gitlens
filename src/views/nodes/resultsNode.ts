@@ -111,14 +111,14 @@ export class ResultsNode extends ViewNode {
             this._children.splice(0, 0, results);
         }
 
-        this.view.triggerNodeUpdate();
+        this.view.triggerNodeChange();
     }
 
     clear() {
         if (this._children.length === 0) return;
 
         this._children.length = 0;
-        this.view.triggerNodeUpdate();
+        this.view.triggerNodeChange();
     }
 
     dismiss(node: ViewNode) {
@@ -128,7 +128,7 @@ export class ResultsNode extends ViewNode {
         if (index === -1) return;
 
         this._children.splice(index, 1);
-        this.view.triggerNodeUpdate();
+        this.view.triggerNodeChange();
     }
 
     async refresh() {

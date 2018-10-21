@@ -123,7 +123,7 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
             await this._root.refresh(reason);
         }
 
-        this.triggerNodeUpdate();
+        this.triggerNodeChange();
     }
 
     async refreshNode(node: ViewNode, args?: RefreshNodeCommandArgs) {
@@ -143,7 +143,7 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
         const cancel = await node.refresh();
         if (cancel === true) return;
 
-        this.triggerNodeUpdate(node);
+        this.triggerNodeChange(node);
     }
 
     async reveal(
@@ -171,7 +171,7 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
         return this.reveal(child, { select: false, focus: true });
     }
 
-    triggerNodeUpdate(node?: ViewNode) {
+    triggerNodeChange(node?: ViewNode) {
         // Since the root node won't actually refresh, force everything
         this._onDidChangeTreeData.fire(node !== undefined && node !== this._root ? node : undefined);
     }
