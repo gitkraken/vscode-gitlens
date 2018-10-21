@@ -136,8 +136,8 @@ export function log<T>(
                             const p = parameters[index];
 
                             let loggable;
-                            if (typeof options.args === 'object' && options.args[p]) {
-                                loggable = options.args[p](v);
+                            if (typeof options.args === 'object' && options.args[index]) {
+                                loggable = options.args[index](v);
                             }
                             else {
                                 if (typeof v === 'object') {
@@ -209,7 +209,7 @@ export function log<T>(
                         catch (ex) {
                             exit = `@log.exit error: ${ex}`;
                         }
-                        logFn(key, `completed${timing}${exit}`);
+                        logFn(prefix, `completed${timing}${exit}`);
                     }
                     return result;
                 }
