@@ -57,6 +57,10 @@ export namespace Functions {
         return tracked;
     }
 
+    export function isPromise(o: any) {
+        return (typeof o === 'object' || typeof o === 'function') && typeof o.then === 'function';
+    }
+
     export function once<T extends Function>(fn: T): T {
         return _once(fn);
     }

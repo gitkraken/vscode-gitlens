@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ShowCommitSearchCommandArgs } from '../../commands';
 import { GlyphChars } from '../../constants';
 import { GitRepoSearchBy } from '../../git/gitService';
-import { Strings } from '../../system';
+import { debug, Functions, gate, log, Strings } from '../../system';
 import { ResultsView } from '../resultsView';
 import { CommandMessageNode, MessageNode } from './common';
 import { ResourceType, unknownGitUri, ViewNode } from './viewNode';
@@ -114,6 +114,7 @@ export class ResultsNode extends ViewNode {
         this.view.triggerNodeChange();
     }
 
+    @log()
     clear() {
         if (this._children.length === 0) return;
 
@@ -121,6 +122,9 @@ export class ResultsNode extends ViewNode {
         this.view.triggerNodeChange();
     }
 
+    @log({
+        args: { 0: (n: ViewNode) => n.toString() }
+    })
     dismiss(node: ViewNode) {
         if (this._children.length === 0) return;
 
@@ -131,9 +135,11 @@ export class ResultsNode extends ViewNode {
         this.view.triggerNodeChange();
     }
 
+    @gate()
+    @debug()
     async refresh() {
         if (this._children.length === 0) return;
 
-        this._children.forEach(c => c.refresh());
+        await Promise.all(this._children.map(c => c.refresh()).filter(Functions.isPromise) as Promise<any>[]);
     }
 }

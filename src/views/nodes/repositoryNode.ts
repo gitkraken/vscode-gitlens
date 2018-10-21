@@ -13,7 +13,7 @@ import {
     RepositoryChangeEvent,
     RepositoryFileSystemChangeEvent
 } from '../../git/gitService';
-import { Dates, debug, Functions, log, Strings } from '../../system';
+import { Dates, debug, Functions, gate, log, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchesNode } from './branchesNode';
 import { BranchNode } from './branchNode';
@@ -168,6 +168,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         return item;
     }
 
+    @gate()
     @log()
     async fetch(progress: boolean = true) {
         if (!progress) return this.fetchCore();
@@ -189,6 +190,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         this.view.triggerNodeChange(this);
     }
 
+    @gate()
     @log()
     async pull(progress: boolean = true) {
         if (!progress) return this.pullCore();
@@ -210,6 +212,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         this.view.triggerNodeChange(this);
     }
 
+    @gate()
     @log()
     async push(progress: boolean = true) {
         if (!progress) return this.pushCore();
@@ -230,11 +233,13 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         this.view.triggerNodeChange(this);
     }
 
-    refresh() {
+    @gate()
+    @debug()
+    async refresh() {
         this._status = this.repo.getStatus();
 
         this._children = undefined;
-        void this.ensureSubscription();
+        await this.ensureSubscription();
     }
 
     @debug()

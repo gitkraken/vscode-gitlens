@@ -3,7 +3,7 @@ import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } fro
 import { UriComparer } from '../../comparers';
 import { Container } from '../../container';
 import { GitUri } from '../../git/gitService';
-import { debug, Functions, log } from '../../system';
+import { debug, Functions, gate, log } from '../../system';
 import { LinesChangeEvent } from '../../trackers/gitLineTracker';
 import { LineHistoryView } from '../lineHistoryView';
 import { MessageNode } from './common';
@@ -53,6 +53,8 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
         return item;
     }
 
+    @gate()
+    @debug()
     async refresh() {
         const editor = window.activeTextEditor;
         if (editor == null || !Container.git.isTrackable(editor.document.uri)) {

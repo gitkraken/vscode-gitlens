@@ -1,5 +1,6 @@
 'use strict';
 import { Logger, LogLevel } from '../logger';
+import { Functions } from './function';
 import { Strings } from './string';
 
 function decorate(decorator: (fn: Function, key: string) => Function): Function {
@@ -177,11 +178,7 @@ export function log<T>(
                     const start = options.timed ? process.hrtime() : undefined;
                     const result = fn.apply(this, args);
 
-                    if (
-                        result != null &&
-                        (typeof result === 'object' || typeof result === 'function') &&
-                        typeof result.then === 'function'
-                    ) {
+                    if (result != null && Functions.isPromise(result)) {
                         const promise = result.then((r: any) => {
                             const timing =
                                 start !== undefined ? ` \u2022 ${Strings.getDurationMilliseconds(start)} ms` : '';
@@ -220,6 +217,41 @@ export function log<T>(
             }
 
             return fn.apply(this, args);
+        };
+    };
+}
+
+export function gate() {
+    return (target: any, key: string, descriptor: PropertyDescriptor) => {
+        if (!(typeof descriptor.value === 'function')) throw new Error('not supported');
+
+        const gateKey = `$gate$${key}`;
+        const fn = descriptor.value;
+
+        descriptor.value = function(this: any, ...args: any[]) {
+            if (!this.hasOwnProperty(gateKey)) {
+                Object.defineProperty(this, gateKey, {
+                    configurable: false,
+                    enumerable: false,
+                    writable: true,
+                    value: undefined
+                });
+            }
+
+            let promise = this[gateKey];
+            if (promise === undefined) {
+                const result = fn.apply(this, args);
+                if (result == null || !Functions.isPromise(result)) {
+                    return result;
+                }
+
+                this[gateKey] = promise = result.then((r: any) => {
+                    this[gateKey] = undefined;
+                    return r;
+                });
+            }
+
+            return promise;
         };
     };
 }

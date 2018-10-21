@@ -4,7 +4,7 @@ import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, Uri, window
 import { UriComparer } from '../../comparers';
 import { Container } from '../../container';
 import { GitUri } from '../../git/gitService';
-import { debug, Functions, log } from '../../system';
+import { debug, Functions, gate, log } from '../../system';
 import { FileHistoryView } from '../fileHistoryView';
 import { MessageNode } from './common';
 import { FileHistoryNode } from './fileHistoryNode';
@@ -52,6 +52,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
         return item;
     }
 
+    @gate()
+    @debug()
     async refresh() {
         const editor = window.activeTextEditor;
         if (editor == null || !Container.git.isTrackable(editor.document.uri)) {

@@ -63,7 +63,7 @@ export class ResultsFilesNode extends ViewNode {
         return item;
     }
 
-    async refresh() {
+    refresh() {
         this._filesQueryResults = this.getFilesQueryResultsCore();
     }
 

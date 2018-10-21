@@ -53,7 +53,7 @@ export class ResultsCommitsNode extends ViewNode implements PageableViewNode {
         return item;
     }
 
-    async refresh() {
+    refresh() {
         this._commitsQueryResults = this._commitsQuery(this.maxCount);
     }
 

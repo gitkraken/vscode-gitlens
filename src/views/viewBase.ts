@@ -148,7 +148,7 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
     }
 
     @debug({
-        args: { 0: (n: ViewNode) => `${n.constructor.name}${n.id != null ? `(${n.id})` : ''}` }
+        args: { 0: (n: ViewNode) => n.toString() }
     })
     async refreshNode(node: ViewNode, args?: RefreshNodeCommandArgs) {
         if (args !== undefined) {
@@ -169,7 +169,7 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
     }
 
     @log({
-        args: { 0: (n: ViewNode) => `${n.constructor.name}${n.id != null ? `(${n.id})` : ''}` }
+        args: { 0: (n: ViewNode) => n.toString() }
     })
     async reveal(
         node: ViewNode,
@@ -198,7 +198,7 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
     }
 
     @debug({
-        args: { 0: (n?: ViewNode) => (n != null ? `${n.constructor.name}${n.id != null ? `(${n.id})` : ''}` : '') }
+        args: { 0: (n: ViewNode) => (n != null ? n.toString() : '') }
     })
     triggerNodeChange(node?: ViewNode) {
         // Since the root node won't actually refresh, force everything

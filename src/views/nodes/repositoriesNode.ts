@@ -3,7 +3,7 @@ import { Disposable, ProgressLocation, TextEditor, TreeItem, TreeItemCollapsible
 import { Container } from '../../container';
 import { GitUri } from '../../git/gitService';
 import { Logger } from '../../logger';
-import { debug, Functions, log } from '../../system';
+import { debug, Functions, gate, log } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { RefreshReason } from '../viewBase';
 import { MessageNode } from './common';
@@ -57,6 +57,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
         return item;
     }
 
+    @gate()
     @log()
     async fetchAll() {
         if (this._children === undefined || this._children.length === 0) return;
@@ -86,6 +87,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
         );
     }
 
+    @gate()
     @log()
     async pullAll() {
         if (this._children === undefined || this._children.length === 0) return;
@@ -115,6 +117,8 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
         );
     }
 
+    @gate()
+    @debug()
     async refresh(reason?: RefreshReason) {
         if (this._children === undefined) return;
 

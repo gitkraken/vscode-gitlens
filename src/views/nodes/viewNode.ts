@@ -1,7 +1,7 @@
 'use strict';
 import { Command, Disposable, Event, TreeItem, TreeItemCollapsibleState, TreeViewVisibilityChangeEvent } from 'vscode';
 import { GitUri } from '../../git/gitService';
-import { debug, logName } from '../../system';
+import { debug, gate, logName } from '../../system';
 import { RefreshReason, TreeViewNodeStateChangeEvent, View } from '../viewBase';
 
 export enum ResourceType {
@@ -65,6 +65,10 @@ export abstract class ViewNode {
         this._uri = uri;
     }
 
+    toString() {
+        return `${this.constructor.name}${this.id != null ? `(${this.id})` : ''}`;
+    }
+
     protected _uri: GitUri;
     get uri() {
         return this._uri;
@@ -82,6 +86,7 @@ export abstract class ViewNode {
         return undefined;
     }
 
+    @gate()
     @debug()
     refresh(reason?: RefreshReason): void | boolean | Promise<void> | Promise<boolean> {}
 }
