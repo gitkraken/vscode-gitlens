@@ -76,7 +76,6 @@ function getExtensionConfig(env) {
         output: {
             libraryTarget: 'commonjs2',
             filename: 'extension.js',
-            path: path.resolve(__dirname, 'dist'),
             devtoolModuleFilenameTemplate: 'file:///[absolute-resource-path]'
         },
         externals: {
@@ -87,12 +86,13 @@ function getExtensionConfig(env) {
                 {
                     test: /\.ts$/,
                     enforce: 'pre',
-                    use: 'tslint-loader'
+                    use: 'tslint-loader',
+                    exclude: /node_modules/
                 },
                 {
                     test: /\.tsx?$/,
                     use: 'ts-loader',
-                    exclude: /node_modules/
+                    exclude: /node_modules|\.d\.ts$/
                 }
             ]
         },
@@ -230,7 +230,8 @@ function getUIConfig(env) {
                                 tsConfigFile: 'ui.tsconfig.json'
                             }
                         }
-                    ]
+                    ],
+                    exclude: /node_modules/
                 },
                 {
                     test: /\.tsx?$/,
@@ -240,7 +241,7 @@ function getUIConfig(env) {
                             configFile: 'ui.tsconfig.json'
                         }
                     },
-                    exclude: /node_modules/
+                    exclude: /node_modules|\.d\.ts$/
                 },
                 {
                     test: /\.scss$/,
