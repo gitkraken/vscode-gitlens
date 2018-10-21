@@ -61,6 +61,7 @@ export function log<T>(
         enter?(this: any, ...args: any[]): string;
         exit?(this: any, result: any): string;
         prefix?(this: any, context: LogContext<T>, ...args: any[]): string;
+        sanitize?(this: any, key: string, value: any): any;
         timed?: boolean;
     } = { args: true, timed: true }
 ) {
@@ -139,10 +140,17 @@ export function log<T>(
                                 loggable = options.args[p](v);
                             }
                             else {
-                                loggable =
-                                    typeof v === 'object'
-                                        ? JSON.stringify(v, this.sanitizeSerializableParam)
-                                        : String(v);
+                                if (typeof v === 'object') {
+                                    try {
+                                        loggable = JSON.stringify(v, options.sanitize);
+                                    }
+                                    catch {
+                                        loggable = `<error>`;
+                                    }
+                                }
+                                else {
+                                    loggable = String(v);
+                                }
                             }
 
                             return p ? `${p}=${loggable}` : loggable;

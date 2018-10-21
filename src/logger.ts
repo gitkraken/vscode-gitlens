@@ -130,7 +130,18 @@ export class Logger {
             return '';
         }
 
-        const loggableParams = params.map(p => (typeof p === 'object' ? JSON.stringify(p) : String(p))).join(', ');
+        const loggableParams = params
+            .map(p => {
+                if (typeof p !== 'object') return String(p);
+
+                try {
+                    return JSON.stringify(p);
+                }
+                catch {
+                    return `<error>`;
+                }
+            })
+            .join(', ');
         return loggableParams || '';
     }
 
