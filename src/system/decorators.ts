@@ -35,6 +35,12 @@ export interface LogContext<T> {
 
 export const LogInstanceNameFn = Symbol('logInstanceNameFn');
 
+export function logName<T>(fn: (c: T, name: string) => string) {
+    return (target: Function) => {
+        (target as any)[LogInstanceNameFn] = fn;
+    };
+}
+
 export function debug<T>(
     options: {
         args?: boolean | { [arg: string]: (arg: any) => string };
@@ -46,12 +52,6 @@ export function debug<T>(
     } = { args: true, timed: true }
 ) {
     return log<T>({ debug: true, ...options });
-}
-
-export function logName<T>(fn: (c: T, name: string) => string) {
-    return (target: Function) => {
-        (target as any)[LogInstanceNameFn] = fn;
-    };
 }
 
 export function log<T>(

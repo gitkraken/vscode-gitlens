@@ -150,15 +150,13 @@ export class Repository implements Disposable {
     }
 
     private onConfigurationChanged(e: ConfigurationChangeEvent) {
-        const initializing = configuration.initializing(e);
-
         const section = configuration.name('remotes').value;
-        if (initializing || configuration.changed(e, section, this.folder.uri)) {
+        if (configuration.changed(e, section, this.folder.uri)) {
             this._providers = RemoteProviderFactory.loadProviders(
                 configuration.get<RemotesConfig[] | null | undefined>(section, this.folder.uri)
             );
 
-            if (!initializing) {
+            if (!configuration.initializing(e)) {
                 this._remotes = undefined;
                 this.fireChange(RepositoryChange.Remotes);
             }

@@ -20,10 +20,8 @@ export class Logger {
     }
 
     private static onConfigurationChanged(e: ConfigurationChangeEvent) {
-        const initializing = configuration.initializing(e);
-
         const section = configuration.name('outputLevel').value;
-        if (initializing || configuration.changed(e, section)) {
+        if (configuration.changed(e, section)) {
             this.level = configuration.get<LogLevel>(section);
 
             if (this.level === LogLevel.Silent) {

@@ -63,10 +63,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
     }
 
     protected onConfigurationChanged(e: ConfigurationChangeEvent) {
-        const initializing = configuration.initializing(e);
-
         if (
-            !initializing &&
             !configuration.changed(e, configuration.name('views')('repositories').value) &&
             !configuration.changed(e, configuration.name('views').value) &&
             !configuration.changed(e, configuration.name('defaultGravatarsStyle').value)
@@ -75,7 +72,6 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
         }
 
         if (
-            initializing ||
             configuration.changed(e, configuration.name('views')('repositories')('enabled').value) ||
             configuration.changed(e, configuration.name('views')('repositories')('location').value)
         ) {
@@ -86,11 +82,11 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
             void this.setAutoRefresh(Container.config.views.repositories.autoRefresh);
         }
 
-        if (initializing || configuration.changed(e, configuration.name('views')('repositories')('location').value)) {
+        if (configuration.changed(e, configuration.name('views')('repositories')('location').value)) {
             this.initialize(this.config.location);
         }
 
-        if (!initializing && this._root !== undefined) {
+        if (!configuration.initializing(e) && this._root !== undefined) {
             void this.refresh(RefreshReason.ConfigurationChanged);
         }
     }

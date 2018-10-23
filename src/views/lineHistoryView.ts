@@ -47,10 +47,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
     }
 
     protected onConfigurationChanged(e: ConfigurationChangeEvent) {
-        const initializing = configuration.initializing(e);
-
         if (
-            !initializing &&
             !configuration.changed(e, configuration.name('views')('lineHistory').value) &&
             !configuration.changed(e, configuration.name('views').value) &&
             !configuration.changed(e, configuration.name('defaultGravatarsStyle').value) &&
@@ -60,7 +57,6 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
         }
 
         if (
-            initializing ||
             configuration.changed(e, configuration.name('views')('lineHistory')('enabled').value) ||
             configuration.changed(e, configuration.name('views')('lineHistory')('location').value)
         ) {
@@ -68,11 +64,11 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
             setCommandContext(CommandContext.ViewsLineHistoryEditorFollowing, true);
         }
 
-        if (initializing || configuration.changed(e, configuration.name('views')('lineHistory')('location').value)) {
+        if (configuration.changed(e, configuration.name('views')('lineHistory')('location').value)) {
             this.initialize(this.config.location);
         }
 
-        if (!initializing && this._root !== undefined) {
+        if (!configuration.initializing(e) && this._root !== undefined) {
             void this.refresh(RefreshReason.ConfigurationChanged);
         }
     }

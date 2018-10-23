@@ -145,10 +145,7 @@ export class GitService implements Disposable {
     }
 
     private onConfigurationChanged(e: ConfigurationChangeEvent) {
-        const initializing = configuration.initializing(e);
-
         if (
-            initializing ||
             configuration.changed(e, configuration.name('defaultDateStyle').value) ||
             configuration.changed(e, configuration.name('defaultDateFormat').value)
         ) {

@@ -28,9 +28,7 @@ export class StatusBarController implements Disposable {
     }
 
     private onConfigurationChanged(e: ConfigurationChangeEvent) {
-        const initializing = configuration.initializing(e);
-
-        if (initializing || configuration.changed(e, configuration.name('mode').value)) {
+        if (configuration.changed(e, configuration.name('mode').value)) {
             const mode =
                 Container.config.mode.active && Container.config.mode.statusBar.enabled
                     ? Container.config.modes[Container.config.mode.active]
@@ -64,7 +62,7 @@ export class StatusBarController implements Disposable {
             }
         }
 
-        if (!initializing && !configuration.changed(e, configuration.name('statusBar').value)) return;
+        if (!configuration.changed(e, configuration.name('statusBar').value)) return;
 
         if (Container.config.statusBar.enabled) {
             const alignment =
@@ -82,7 +80,7 @@ export class StatusBarController implements Disposable {
                 window.createStatusBarItem(alignment, alignment === StatusBarAlignment.Right ? 1000 : 0);
             this._blameStatusBarItem.command = Container.config.statusBar.command;
 
-            if (initializing || configuration.changed(e, configuration.name('statusBar')('enabled').value)) {
+            if (configuration.changed(e, configuration.name('statusBar')('enabled').value)) {
                 Container.lineTracker.start(
                     this,
                     Disposable.from(Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this))

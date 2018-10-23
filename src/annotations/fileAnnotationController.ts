@@ -87,11 +87,9 @@ export class FileAnnotationController implements Disposable {
     }
 
     private onConfigurationChanged(e: ConfigurationChangeEvent) {
-        const initializing = configuration.initializing(e);
-
         const cfg = Container.config;
 
-        if (initializing || configuration.changed(e, configuration.name('blame')('highlight').value)) {
+        if (configuration.changed(e, configuration.name('blame')('highlight').value)) {
             Decorations.blameHighlight && Decorations.blameHighlight.dispose();
 
             const cfgHighlight = cfg.blame.highlight;
@@ -124,7 +122,7 @@ export class FileAnnotationController implements Disposable {
             }
         }
 
-        if (initializing || configuration.changed(e, configuration.name('recentChanges')('highlight').value)) {
+        if (configuration.changed(e, configuration.name('recentChanges')('highlight').value)) {
             Decorations.recentChangesAnnotation && Decorations.recentChangesAnnotation.dispose();
 
             const cfgHighlight = cfg.recentChanges.highlight;
@@ -152,21 +150,23 @@ export class FileAnnotationController implements Disposable {
             });
         }
 
-        if (initializing || configuration.changed(e, configuration.name('blame')('toggleMode').value)) {
+        const initializing = configuration.initializing(e);
+
+        if (configuration.changed(e, configuration.name('blame')('toggleMode').value)) {
             this._toggleModes.set(FileAnnotationType.Blame, cfg.blame.toggleMode);
             if (!initializing && cfg.blame.toggleMode === AnnotationsToggleMode.File) {
                 void this.clearAll();
             }
         }
 
-        if (initializing || configuration.changed(e, configuration.name('heatmap')('toggleMode').value)) {
+        if (configuration.changed(e, configuration.name('heatmap')('toggleMode').value)) {
             this._toggleModes.set(FileAnnotationType.Heatmap, cfg.heatmap.toggleMode);
             if (!initializing && cfg.heatmap.toggleMode === AnnotationsToggleMode.File) {
                 void this.clearAll();
             }
         }
 
-        if (initializing || configuration.changed(e, configuration.name('recentChanges')('toggleMode').value)) {
+        if (configuration.changed(e, configuration.name('recentChanges')('toggleMode').value)) {
             this._toggleModes.set(FileAnnotationType.RecentChanges, cfg.recentChanges.toggleMode);
             if (!initializing && cfg.recentChanges.toggleMode === AnnotationsToggleMode.File) {
                 void this.clearAll();

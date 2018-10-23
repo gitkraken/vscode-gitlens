@@ -86,7 +86,7 @@ export class Configuration {
     }
 
     readonly initializingChangeEvent: ConfigurationChangeEvent = {
-        affectsConfiguration: (section: string, resource?: Uri) => false
+        affectsConfiguration: (section: string, resource?: Uri) => true
     };
 
     get<T>(section?: string, resource?: Uri | null, defaultValue?: T) {

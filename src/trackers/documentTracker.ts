@@ -78,11 +78,9 @@ export class DocumentTracker<T> implements Disposable {
     }
 
     private onConfigurationChanged(e: ConfigurationChangeEvent) {
-        const initializing = configuration.initializing(e);
-
         // Only rest the cached state if we aren't initializing
         if (
-            !initializing &&
+            !configuration.initializing(e) &&
             (configuration.changed(e, configuration.name('blame')('ignoreWhitespace').value, null) ||
                 configuration.changed(e, configuration.name('advanced')('caching')('enabled').value))
         ) {
@@ -92,7 +90,7 @@ export class DocumentTracker<T> implements Disposable {
         }
 
         const section = configuration.name('advanced')('blame')('delayAfterEdit').value;
-        if (initializing || configuration.changed(e, section)) {
+        if (configuration.changed(e, section)) {
             this._dirtyIdleTriggerDelay = configuration.get<number>(section);
             this._dirtyIdleTriggeredDebounced = undefined;
         }

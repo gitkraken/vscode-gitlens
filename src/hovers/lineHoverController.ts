@@ -41,10 +41,7 @@ export class LineHoverController implements Disposable {
     }
 
     private onConfigurationChanged(e: ConfigurationChangeEvent) {
-        const initializing = configuration.initializing(e);
-
         if (
-            !initializing &&
             !configuration.changed(e, configuration.name('hovers')('enabled').value) &&
             !configuration.changed(e, configuration.name('hovers')('currentLine')('enabled').value)
         ) {

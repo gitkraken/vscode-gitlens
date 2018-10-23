@@ -68,10 +68,7 @@ export class ResultsView extends ViewBase<ResultsNode> {
     }
 
     protected onConfigurationChanged(e: ConfigurationChangeEvent) {
-        const initializing = configuration.initializing(e);
-
         if (
-            !initializing &&
             !configuration.changed(e, configuration.name('views')('results').value) &&
             !configuration.changed(e, configuration.name('views').value) &&
             !configuration.changed(e, configuration.name('defaultGravatarsStyle').value)
@@ -79,15 +76,15 @@ export class ResultsView extends ViewBase<ResultsNode> {
             return;
         }
 
-        if (initializing || configuration.changed(e, configuration.name('views')('results')('location').value)) {
+        if (configuration.changed(e, configuration.name('views')('results')('location').value)) {
             setCommandContext(CommandContext.ViewsResults, this.enabled ? this.config.location : false);
         }
 
-        if (initializing || configuration.changed(e, configuration.name('views')('results')('location').value)) {
+        if (configuration.changed(e, configuration.name('views')('results')('location').value)) {
             this.initialize(this.config.location);
         }
 
-        if (!initializing && this._root !== undefined) {
+        if (!configuration.initializing(e) && this._root !== undefined) {
             void this.refresh(RefreshReason.ConfigurationChanged);
         }
     }

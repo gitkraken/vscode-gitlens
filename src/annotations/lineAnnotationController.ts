@@ -49,11 +49,9 @@ export class LineAnnotationController implements Disposable {
     }
 
     private onConfigurationChanged(e: ConfigurationChangeEvent) {
-        const initializing = configuration.initializing(e);
+        if (!configuration.changed(e, configuration.name('currentLine').value)) return;
 
-        if (!initializing && !configuration.changed(e, configuration.name('currentLine').value)) return;
-
-        if (initializing || configuration.changed(e, configuration.name('currentLine')('enabled').value)) {
+        if (configuration.changed(e, configuration.name('currentLine')('enabled').value)) {
             if (Container.config.currentLine.enabled) {
                 this._enabled = true;
                 this.resume();
